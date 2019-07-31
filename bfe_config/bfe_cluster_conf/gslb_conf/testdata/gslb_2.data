@@ -1,0 +1,67 @@
+{
+    "clusters": {
+        "c1": {
+            "GSLB_BLACKHOLE": 0, 
+            "c1.exmaple.a": 0, 
+            "c1.exmaple.b": 50, 
+            "c1.exmaple.c": 20, 
+            "c1.exmaple.d": 30
+        }, 
+        "c2": {
+            "GSLB_BLACKHOLE": 0, 
+            "c2.example.a": 0, 
+            "c2.example.b": 100
+        }, 
+        "c3": {
+            "GSLB_BLACKHOLE": 0, 
+            "c3.example.a": 0, 
+            "c3.example.b": 0, 
+            "c3.example.c": 100, 
+            "c3.example.d": 0
+        }, 
+        "c4": {
+            "GSLB_BLACKHOLE": 0, 
+            "c4.example.a": 0, 
+            "c4.example.b": 0, 
+            "c4.example.c": 100
+        }, 
+        "c5": {
+            "GSLB_BLACKHOLE": 0, 
+            "c5.example.a": 100, 
+            "c5.example.b": 0
+        }, 
+        "c6": {
+            "GSLB_BLACKHOLE": 0, 
+            "c6.example.a": 0, 
+            "c6.example.b": 0, 
+            "c6.example.c": 100
+        }, 
+        "c7": {
+            "GSLB_BLACKHOLE": 0, 
+            "c7.example.a": 0, 
+            "c7.example.b": 0, 
+            "c7.example.c": 100
+        }, 
+        "c8": {
+            "GSLB_BLACKHOLE": 0, 
+            "c8.example.a": 100
+        }, 
+        "c9": {
+            "GSLB_BLACKHOLE": 0, 
+            "c9.example.a": 0, 
+            "c9.example.b": 0, 
+            "c9.example.c": 100
+        }, 
+        "c10": {
+            "GSLB_BLACKHOLE": 0, 
+            "c10.example.a": 0, 
+            "c10.example.b": 100
+        }, 
+        "c11": {
+            "GSLB_BLACKHOLE": 0, 
+            "c11.example.a": 0, 
+            "c11.example.b": 100
+        }
+    } 
+    "hostname": "gslb-sch.b", 
+    "ts": "20190516151616"

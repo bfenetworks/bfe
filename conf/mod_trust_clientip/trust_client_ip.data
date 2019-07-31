@@ -1,0 +1,11 @@
+{
+    "Version": "init version",
+    "Config": {
+        "inner-idc": [
+            {
+                "Begin": "10.0.0.0",
+                "End": "10.255.255.255"
+            }
+        ]
+    }
+}

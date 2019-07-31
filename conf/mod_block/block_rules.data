@@ -1,0 +1,15 @@
+{
+    "Version": "init version",
+    "Config": {
+        "example_product": [
+            {
+                "action": {
+                    "cmd": "CLOSE",
+                    "params": []
+                },
+                "name": "example rule",
+                "cond": "req_path_in(\"/limit\", false)"            
+            }
+        ]
+    }
+}

@@ -1,0 +1,25 @@
+{
+    "Version": "20141112095308",
+    "Config": {
+        "pb": {
+            "CertName": "*.example.com",
+            "NextProtos": [
+                "http/1.1"
+            ],
+            "VipConf": [
+                "1.0.0.1",
+                "1.0.0.2"
+            ],
+            "Grade": "C"
+        },
+        "pn": {
+            "CertName": "*.example.com",
+            "NextProtos": [
+                "http/1.1"
+            ],
+            "VipConf": [
+                "1.0.0.3"
+            ]
+        }
+    }
+}

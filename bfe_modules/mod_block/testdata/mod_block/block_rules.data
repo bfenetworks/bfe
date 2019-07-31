@@ -1,0 +1,16 @@
+{
+    "Config": {
+        "pn": [
+            {
+                "action": {
+                    "cmd": "CLOSE",
+                    "params": []
+                },
+                "cond": "req_host_in(\"n.example.org\")",
+                "name": "pn_block_rule"
+            }
+        ],
+        "pt": []
+    },
+    "Version": "1234"
+}

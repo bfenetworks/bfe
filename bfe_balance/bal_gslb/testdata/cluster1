@@ -1,0 +1,30 @@
+{
+       "light.example.dx": [
+            {
+                "name": "a-example10.a01",
+                "addr": "10.38.133.59",
+                "port": 8060,
+                "weight": 10
+            },
+            {
+                "name": "a-exmaple9.a01",
+                "addr": "10.38.134.19",
+                "port": 8060,
+                "weight": 10
+            }
+        ],
+        "light.example.wt": [
+            {
+                "name": "b-example0.b",
+                "addr": "10.23.238.42",
+                "port": 8060,
+                "weight": 10
+            },
+            {
+                "name": "b-example1.b",
+                "addr": "10.23.239.71",
+                "port": 8060,
+                "weight": 10
+            }
+        ]
+    }

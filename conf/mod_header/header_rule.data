@@ -1,0 +1,20 @@
+{
+    "Version": "init version",
+    "Config": {
+        "example_product": [
+            {
+                "cond": "req_path_prefix_in(\"/header\", false)",
+                "actions": [
+                    {
+                        "cmd": "RSP_HEADER_SET",
+                        "params": [
+                            "X-Proxied-By",
+                            "bfe"
+                        ]
+                    }
+                ],
+                "last": true
+            }
+        ]
+    }
+}

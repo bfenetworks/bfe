@@ -1,0 +1,21 @@
+{
+    "ProductRule": {
+        "product-a": [
+            {
+                "ClusterName": "cluster_a-static", 
+                "Cond": "default_t()"
+            }
+        ], 
+        "product-b": [
+            {
+                "ClusterName": "cluster_b_static", 
+                "Cond": "req_header_key_in(\"X-Static\")"
+            }, 
+            {
+                "ClusterName": "cluster_b_main", 
+                "Cond": "default_t()"
+            }
+        ]
+    }, 
+    "Version": "685"
+}

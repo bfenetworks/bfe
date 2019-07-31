@@ -1,0 +1,17 @@
+{
+    "Version": "init version",
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "req_path_prefix_in(\"/redirect\", false)",
+                "Actions": [
+                    {
+                        "Cmd": "URL_SET",
+                        "Params": ["https://example.org"]
+                    }
+                ],
+                "Status": 301
+            }
+        ]
+    }
+}

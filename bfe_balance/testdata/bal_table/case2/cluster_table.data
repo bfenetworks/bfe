@@ -1,0 +1,61 @@
+{
+    "Version": "1234",
+    "Config": {
+        "cluster_c1": {
+            "c1-example.c": [
+                {
+                    "Name": "c1-example09.c01",
+                    "Addr": "10.209.52.59",
+                    "Port": 8080,
+                    "Weight": 10
+                }
+            ]
+        },
+        "cluster_c2": {
+            "c2-example.a": [
+                {
+                    "Name": "c2-example00.a01",
+                    "Addr": "10.36.84.40",
+                    "Port": 8090,
+                    "Weight": 10
+                }
+            ]
+        },
+        "cluster_c3": {
+            "c3-example.a": [
+                {
+                    "Name": "c3-example00.a01",
+                    "Addr": "10.36.84.40",
+                    "Port": 8090,
+                    "Weight": 10
+                }
+            ]
+        },
+        "cluster_c4": {
+            "c4-example.a": [
+                {
+                    "Name": "c4-example00.a01",
+                    "Addr": "10.36.84.40",
+                    "Port": 8090,
+                    "Weight": 10
+                },
+                {
+                    "Name": "c4-example01.a01",
+                    "Addr": "10.36.84.41",
+                    "Port": 8090,
+                    "Weight": 10
+                }
+            ]
+        },
+        "cluster_c5": {
+            "c5-example.a": [
+                {
+                    "Name": "c5-example00.a01",
+                    "Addr": "10.36.84.40",
+                    "Port": 8090,
+                    "Weight": 10
+                }
+            ]
+        }
+    }
+}

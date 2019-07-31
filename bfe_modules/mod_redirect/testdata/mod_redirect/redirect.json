@@ -1,0 +1,20 @@
+{
+    "Config": {
+        "pn": [
+            {
+                "actions": [
+                    {
+                        "cmd": "URL_SET",
+                        "params": [
+                            "www.example.org"
+                        ]
+                    }
+                ],
+                "cond": "req_host_in(\"www.example.org\") && req_path_prefix_in(\"/index/\", false) && req_query_key_in(\"space\")",
+                "status": 302
+            }
+        ],
+        "pt": []
+    },
+    "Version": "1234"
+}

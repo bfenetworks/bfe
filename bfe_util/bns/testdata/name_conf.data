@@ -1,0 +1,24 @@
+{
+	"Version": "1",
+	"Config": {
+		"service.c1" : [
+			{
+				"Host": "10.1.1.1",
+				"Port": 8080,
+				"Weight": 10
+			},
+			{
+				"Host": "10.1.1.2",
+				"Port": 8080,
+				"Weight": 20
+			}
+		],
+		"service.c2" : [
+			{
+				"Host": "10.2.1.1",
+				"Port": 8080,
+				"Weight": 10
+			}
+		]
+	}
+}

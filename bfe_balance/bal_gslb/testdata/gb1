@@ -1,0 +1,8 @@
+{ "CrossRetry": 1,
+    "RetryMax": 3,
+	"HashConf": {
+		"HashStrategy": 0,
+		"HashHeader" : "Cookie:BAIDUID",
+		"SessionSticky", false
+	}
+}

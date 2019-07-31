@@ -1,0 +1,29 @@
+{
+    "Clusters": {
+        "cluster_c1": {
+            "GSLB_BLACKHOLE": 0,
+            "c1-example.c": 100,
+            "c1-example.a": 0,
+            "c1-example.b": 0,
+            "c1-example.a": 0
+        },
+        "cluster_c2": {
+            "GSLB_BLACKHOLE": 0,
+            "c2-example.a": 100
+        },
+        "cluster_c3": {
+            "GSLB_BLACKHOLE": 0,
+            "c3-example.a": 100
+        },
+        "cluster_c4": {
+            "GSLB_BLACKHOLE": 0,
+            "c4-example.a": 100
+        },
+        "cluster_c5": {
+            "GSLB_BLACKHOLE": 0,
+            "c5-example.a": 100
+        }
+    },
+    "Hostname": "gslb-sch00.a01",
+    "Ts": "1234"
+}

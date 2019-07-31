@@ -1,0 +1,19 @@
+# 简介
+
+session_ticket_key.data配置记录了session ticket key信息。
+
+# 配置
+
+| 配置项           | 类型   | 描述                                                   |
+| ---------------- | ------ | ------------------------------------------------------ |
+| Version          | String | 配置文件版本                                           |
+| SessionTicketKey | String | Session Ticket密钥，仅包含字符a-z0-9且长度48的字符串   |
+
+# 示例
+
+```
+{
+    "Version": "20190101000000",
+    "SessionTicketKey": "08a0d852ef494143af613ef32d3c39314758885f7108e9ab021d55f422a454f7c9cd5a53978f48fa1063eadcdc06878f"
+}
+```

@@ -1,0 +1,49 @@
+{
+    "Config": {
+        "cluster_s": {
+            "BackendConf": {
+                "MaxIdleConnsPerHost": 2, 
+                "TimeoutConnSrv": 50000, 
+                "TimeoutResponseHeader": 60000
+            }, 
+            "CheckConf": {
+                "CheckInterval": 1000, 
+                "FailNum": 10, 
+                "Host": "s.example.org", 
+                "Uri": "/health"
+            }, 
+            "ClusterBasic": {
+                "TimeoutReadClient": 30000, 
+                "TimeoutReadClientAgain": 30000, 
+                "TimeoutWriteClient": 60000
+            }, 
+            "GslbBasic": {
+                "CrossRetry": 1, 
+                "RetryMax": 3
+            }
+        }, 
+        "cluster_b": {
+            "BackendConf": {
+                "MaxIdleConnsPerHost": 2, 
+                "TimeoutConnSrv": 50000, 
+                "TimeoutResponseHeader": 60000
+            }, 
+            "CheckConf": {
+                "CheckInterval": 1000, 
+                "FailNum": 10, 
+                "Host": "b.example.org", 
+                "Uri": "/status"
+            }, 
+            "ClusterBasic": {
+                "TimeoutReadClient": 30000, 
+                "TimeoutReadClientAgain": 30000, 
+                "TimeoutWriteClient": 60000
+            }, 
+            "GslbBasic": {
+                "CrossRetry": 1, 
+                "RetryMax": 3
+            }
+        }
+    }, 
+    "Version": "1234"
+}

@@ -1,0 +1,19 @@
+{
+    "Version": "init version",
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "req_path_prefix_in(\"/rewrite\", false)",
+                "Actions": [
+                    {
+                        "Cmd": "PATH_PREFIX_ADD",
+                        "Params": [
+                            "/bfe/"
+                        ]
+                    }
+                ],
+                "Last": true
+            }
+        ]
+    }
+}

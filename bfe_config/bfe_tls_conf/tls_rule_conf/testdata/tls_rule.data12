@@ -1,0 +1,46 @@
+{
+    "Version": "1",
+    "Config": {
+        "pb": {
+            "CertName": "*.example.com",
+            "NextProtos": [
+                "spdy/3.1",
+                "http/1.1"
+            ],
+            "VipConf": [
+                "FF02::1"
+            ],
+            "Grade": "A"
+        },
+        "pn": {
+            "CertName": "*.example.com",
+            "VipConf": [
+                "FC00:1:A000:B00::527:127:AB"
+            ],
+            "Grade": "B"
+        },
+        "pz": {
+            "CertName": "*.example.com",
+            "NextProtos": [
+                "spdy/3.1;rate=50",
+                "http/1.1"
+            ],
+            "VipConf": [
+                "2001:0:1111:A:B0::9000:200"
+            ],
+            "Grade": "B"
+        },
+        "pw": {
+            "CertName": "*.example.com",
+            "NextProtos": [
+                "h2;rate=30",
+                "spdy/3.1;rate=50",
+                "http/1.1"
+            ],
+            "VipConf": [
+                "::1"
+            ],
+            "Grade": "B"
+        }
+    }
+}
