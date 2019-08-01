@@ -26,15 +26,15 @@ import (
 
 // type of sub cluster
 const (
-	TypeGslbNormal      = 0 // normal sub cluster
+	TypeGslbNormal    = 0 // normal sub cluster
 	TypeGslbBlackhole = 1 // gslb blackhole
 )
 
 type SubCluster struct {
-	Name     string            // name of sub cluster
-	sType    int               // TypeGslbNormal, or TypeGslbBlackhole
+	Name     string             // name of sub cluster
+	sType    int                // TypeGslbNormal, or TypeGslbBlackhole
 	backends *bal_slb.BalanceRR // backend with round robin
-	weight   int               // weight between subclusters
+	weight   int                // weight between subclusters
 }
 
 func newSubCluster(name string) *SubCluster {

@@ -2830,7 +2830,7 @@ func TestServerHandleCustomConn(t *testing.T) {
 				defer close(handlerDone)
 				req = r
 			}),
-                        ReadTimeout: 5*time.Second,
+			ReadTimeout: 5 * time.Second,
 		}})
 	select {
 	case <-clientDone:

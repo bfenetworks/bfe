@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// load cluster table from json file 
+// load cluster table from json file
 
 package cluster_table_conf
 
@@ -103,7 +103,7 @@ func (allClusterBackend AllClusterBackend) HasDiff(compared AllClusterBackend) b
 	return false
 }
 
-// IsSub Compare two AllClusterBackend, return true if compared contains  all cluster 
+// IsSub Compare two AllClusterBackend, return true if compared contains  all cluster
 // in allClusterBackend, and there cluster has same ClusterBackend value.
 func (allClusterBackend AllClusterBackend) IsSub(compared AllClusterBackend) bool {
 	for cluster, clusterBackend := range allClusterBackend {

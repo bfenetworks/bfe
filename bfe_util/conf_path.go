@@ -15,8 +15,8 @@
 package bfe_util
 
 import (
-    "path"
-    "strings"
+	"path"
+	"strings"
 )
 
 // ConfPathProc return path of config file
@@ -24,7 +24,7 @@ import (
 // Params:
 //      - confPath: origin path for config file
 //      - confRoot: root path of ALL config
-// 
+//
 // Returns:
 //      the final path of config file
 //      (1) path starts with "/", it's absolute path, return path untouched
@@ -32,9 +32,9 @@ import (
 //
 func ConfPathProc(confPath string, confRoot string) string {
 	if !strings.HasPrefix(confPath, "/") {
-	    // relative path to confRoot
-	    confPath = path.Join(confRoot, confPath)
-	}    
-	
+		// relative path to confRoot
+		confPath = path.Join(confRoot, confPath)
+	}
+
 	return confPath
 }

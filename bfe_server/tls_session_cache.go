@@ -25,8 +25,8 @@ import (
 )
 
 import (
-	"github.com/gomodule/redigo/redis"
 	"github.com/baidu/go-lib/log"
+	"github.com/gomodule/redigo/redis"
 )
 
 import (

@@ -23,8 +23,8 @@ import (
 )
 
 import (
-	"golang.org/x/crypto/ocsp"
 	"github.com/baidu/go-lib/log"
+	"golang.org/x/crypto/ocsp"
 )
 
 import (
@@ -37,9 +37,9 @@ const (
 
 // ServerCertConf is conf of certificate
 type ServerCertConf struct {
-	ServerCertFile         string // path to server certificate
-	ServerKeyFile          string // path to server priavet key
-	OcspResponseFile       string // path to ocsp response file
+	ServerCertFile   string // path to server certificate
+	ServerKeyFile    string // path to server priavet key
+	OcspResponseFile string // path to ocsp response file
 }
 
 type ServerCertConfMap struct {

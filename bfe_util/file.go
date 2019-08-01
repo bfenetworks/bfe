@@ -57,13 +57,13 @@ func CopyFile(src, dst string) (int64, error) {
 
 // BackupFile backup given file.
 func BackupFile(path string, bakPath string) error {
-        // write to a temp file
+	// write to a temp file
 	copyPath := fmt.Sprintf("%s.%d.bak", path, os.Getpid())
 	if _, err := CopyFile(path, copyPath); err != nil {
 		return err
 	}
 
-        // rename temp file
+	// rename temp file
 	if err := os.Rename(copyPath, bakPath); err != nil {
 		return err
 	}

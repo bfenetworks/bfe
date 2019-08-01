@@ -31,9 +31,9 @@ import (
 type MultiCertMap struct {
 	vipCertMap  map[string]*bfe_tls.Certificate // vip -> certificate
 	nameCertMap *NameCertMap                    // name -> certificate
-	defaultCert *bfe_tls.Certificate // default cert
-	lock  sync.RWMutex
-	state *ProxyState // state for MultiCertMap
+	defaultCert *bfe_tls.Certificate            // default cert
+	lock        sync.RWMutex
+	state       *ProxyState // state for MultiCertMap
 }
 
 func NewMultiCertMap(state *ProxyState) *MultiCertMap {

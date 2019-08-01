@@ -19,7 +19,7 @@ import (
 )
 
 import (
-        gcfg "gopkg.in/gcfg.v1"
+	gcfg "gopkg.in/gcfg.v1"
 )
 
 func confSessionCacheLoad(filePath string, confRoot string) (BfeConfig, error) {

@@ -34,32 +34,32 @@ import (
 
 // Notes about `NextProtos`:
 //  * NextProtos represents an ordered list of application level protocol items
-// 
+//
 //  * protocol item format: "protocol[;level=0;mcs=200;isw=65535;rate=100]"
 //    - valid protocol should be h2, spdy/3.1, http/1.1, others are not supported
-// 
+//
 //    - level means protocol negotiation level and should be [0, 2]
 //      + level is optional and is PROTO_OPTIONAL by default
 //      + if level > PROTO_OPTIONAL, rate should be 100
 //      + if level is PROTO_MANDATORY, NextProtos should not contain other items
-// 
+//
 //    - rate means presence rate for that protocol and should be [0,100]
 //      + rate is optional and is 100 by default
 //      + rate for http/1.1 should always be 100
-// 
+//
 //    - mcs means max concurrent streams per conn and should be > 0
 //      + mcs is optional and is 200 by default
-// 
+//
 //    - isw means initial stream window size for server
 // 	 + isw is optional and is 65535 by default
 // 	 + valid isw should be [65535, 262144] for current implemention
-// 
+//
 // Notes about `SniConf`:
 //  * SniConf represents an optional list of server names (hostname)
 //  * When vip of incoming conn is missing or unknown:
 //   - If SniConf is configed, server will select tls rule conf by name (from tls sni extension)
 //   - Even through SniConf is not configed, server will try to select cert by name
-// 
+//
 // Notes about`ClientCAName`:
 //  * The CA certificate file is <ClientCAName>.crt under ClientCABaseDir configed in bfe.conf
 
@@ -81,15 +81,15 @@ const (
 )
 
 type TlsRuleConf struct {
-	VipConf         []string // list of vips for product
-	SniConf         []string // list of hostnames for product (optional)
-	CertName        string   // name of certificate
-	NextProtos      []string // next protos over TLS
-	Grade           string   // tls grade for product
-	ClientAuth      bool     // require tls client auth
-	ClientCAName    string   // client CA certificate name
-	Chacha20        bool     // enable chacha20-poly1305 cipher suites
-	DynamicRecord   bool     // enable dynamic record size
+	VipConf       []string // list of vips for product
+	SniConf       []string // list of hostnames for product (optional)
+	CertName      string   // name of certificate
+	NextProtos    []string // next protos over TLS
+	Grade         string   // tls grade for product
+	ClientAuth    bool     // require tls client auth
+	ClientCAName  string   // client CA certificate name
+	Chacha20      bool     // enable chacha20-poly1305 cipher suites
+	DynamicRecord bool     // enable dynamic record size
 }
 
 type TlsRuleMap map[string]*TlsRuleConf // product -> pointer to tls rule conf
@@ -111,11 +111,11 @@ func GetDefaultNextProtosParams() NextProtosParams {
 }
 
 type BfeTlsRuleConf struct {
-	Version                string // version of config
-	Config                 TlsRuleMap
-	DefaultNextProtos      []string
-	DefaultChacha20        bool
-	DefaultDynamicRecord   bool
+	Version              string // version of config
+	Config               TlsRuleMap
+	DefaultNextProtos    []string
+	DefaultChacha20      bool
+	DefaultDynamicRecord bool
 }
 
 func TlsRuleConfCheck(conf *TlsRuleConf) error {

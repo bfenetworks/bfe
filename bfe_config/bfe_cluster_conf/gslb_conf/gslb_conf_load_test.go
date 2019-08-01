@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// test for gslb_conf_load.go   
+// test for gslb_conf_load.go
 
 package gslb_conf
 

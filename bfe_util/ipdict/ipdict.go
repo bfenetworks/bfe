@@ -15,80 +15,80 @@
 package ipdict
 
 import (
-    "bytes"
-    "fmt"
-    "net"
-    "sort"
-    "hash/fnv"
+	"bytes"
+	"fmt"
+	"hash/fnv"
+	"net"
+	"sort"
 )
 
 import (
-    "github.com/baidu/bfe/bfe_util/hash_set"
+	"github.com/baidu/bfe/bfe_util/hash_set"
 )
 
 const (
-    IP_LENGTH = 16
+	IP_LENGTH = 16
 )
 
 /* implement Hash method for hashSet
  * convert net.IP to type uint64
  */
 func Hash(ip []byte) uint64 {
-  hash64 := fnv.New64()
-  hash64.Write(ip)
-  return hash64.Sum64()
+	hash64 := fnv.New64()
+	hash64.Write(ip)
+	return hash64.Sum64()
 }
 
 type ipPair struct {
-  startIP net.IP
-  endIP net.IP
+	startIP net.IP
+	endIP   net.IP
 }
 
 type ipPairs []ipPair
 
 /* IPItems manage single IP(hashSet) and ipPairs */
 type IPItems struct {
-    ipSet   *hash_set.HashSet
-    items   ipPairs
-    Version string
+	ipSet   *hash_set.HashSet
+	items   ipPairs
+	Version string
 }
 
 /* create new IPItems */
 func NewIPItems(maxSingleIPNum int, maxPairIPNum int) (*IPItems, error) {
-    // maxSingleIPNum && maxPairIPNum must >= 0 
-    if maxSingleIPNum < 0 || maxPairIPNum < 0 {
-        return nil, fmt.Errorf("SingleIPNum/PairIPNum must >= 0")
-    }
-    
-    var err error
-    ipItems := new(IPItems)
-    
-    // create a hashSet for single IPs
-    isFixedSize := true  // ip address is fixed size(IP_LENGTH)
-    maxSingleIPNum += 1  // +1, hash_set don't support maxSingleIPNum == 0 
-    ipItems.ipSet, err = hash_set.NewHashSet(maxSingleIPNum, IP_LENGTH, isFixedSize, Hash)
-    if err != nil {
-        return nil, err
-    }
+	// maxSingleIPNum && maxPairIPNum must >= 0
+	if maxSingleIPNum < 0 || maxPairIPNum < 0 {
+		return nil, fmt.Errorf("SingleIPNum/PairIPNum must >= 0")
+	}
 
-    // create item array for pair IPs
-    ipItems.items = make(ipPairs, 0, maxPairIPNum)
-    return ipItems, nil
+	var err error
+	ipItems := new(IPItems)
+
+	// create a hashSet for single IPs
+	isFixedSize := true // ip address is fixed size(IP_LENGTH)
+	maxSingleIPNum += 1 // +1, hash_set don't support maxSingleIPNum == 0
+	ipItems.ipSet, err = hash_set.NewHashSet(maxSingleIPNum, IP_LENGTH, isFixedSize, Hash)
+	if err != nil {
+		return nil, err
+	}
+
+	// create item array for pair IPs
+	ipItems.items = make(ipPairs, 0, maxPairIPNum)
+	return ipItems, nil
 }
 
 /* IPItems should implement Len() for calling sort.Sort(items) */
 func (items ipPairs) Len() int {
-    return len(items)
+	return len(items)
 }
 
 /* IPItems should implement Less(int, int) for calling sort.Sort(items) */
 func (items ipPairs) Less(i, j int) bool {
-    return bytes.Compare(items[i].startIP, items[j].startIP) >= 0
+	return bytes.Compare(items[i].startIP, items[j].startIP) >= 0
 }
 
 /* IPItems should implement Swap(int, int) for calling sort.Sort(items) */
 func (items ipPairs) Swap(i, j int) {
-    items[i], items[j] = items[j], items[i]
+	items[i], items[j] = items[j], items[i]
 }
 
 /* checkMerge merge items between index i and j in sorted items.
@@ -97,34 +97,34 @@ func (items ipPairs) Swap(i, j int) {
    Constraint: j > i, items[j].endIP >= items[i].startIP
 */
 func (ipItems *IPItems) checkMerge(i, j int) int {
-    var mergedNum int
+	var mergedNum int
 
-    items := ipItems.items
+	items := ipItems.items
 
-    if bytes.Compare(items[j].endIP, items[i].startIP) >= 0 {
-        items[i].startIP = items[j].startIP
-        if bytes.Compare(items[j].endIP, items[i].endIP) >= 0 {
-            items[i].endIP = items[j].endIP
-        }
+	if bytes.Compare(items[j].endIP, items[i].startIP) >= 0 {
+		items[i].startIP = items[j].startIP
+		if bytes.Compare(items[j].endIP, items[i].endIP) >= 0 {
+			items[i].endIP = items[j].endIP
+		}
 
-        items[j].startIP = net.IPv6zero
-        items[j].endIP = net.IPv6zero
+		items[j].startIP = net.IPv6zero
+		items[j].endIP = net.IPv6zero
 
-        mergedNum++
+		mergedNum++
 
-        // Merge items [i+1, j)
-        for k := i + 1; k < j; k++ {
-            if bytes.Equal(items[k].endIP, net.IPv6zero) || bytes.Equal(items[k].endIP, net.IPv4zero) {
-                continue
-            }
+		// Merge items [i+1, j)
+		for k := i + 1; k < j; k++ {
+			if bytes.Equal(items[k].endIP, net.IPv6zero) || bytes.Equal(items[k].endIP, net.IPv4zero) {
+				continue
+			}
 
-            items[k].startIP = net.IPv6zero
-            items[k].endIP = net.IPv6zero
-            mergedNum++
-        }
-    }
+			items[k].startIP = net.IPv6zero
+			items[k].endIP = net.IPv6zero
+			mergedNum++
+		}
+	}
 
-    return mergedNum
+	return mergedNum
 }
 
 /* mergeItems provides for merging sorted items
@@ -146,49 +146,49 @@ func (ipItems *IPItems) checkMerge(i, j int) int {
    ------------------------
 */
 func (ipItems *IPItems) mergeItems() int {
-    var mergedNum int
+	var mergedNum int
 
-    items := ipItems.items
-    length := len(items)
+	items := ipItems.items
+	length := len(items)
 
-    for i := 0; i < length-1; i++ {
+	for i := 0; i < length-1; i++ {
 
-        if bytes.Equal(items[i].endIP, net.IPv6zero) || bytes.Equal(items[i].endIP, net.IPv4zero) {
-            continue
-        }
+		if bytes.Equal(items[i].endIP, net.IPv6zero) || bytes.Equal(items[i].endIP, net.IPv4zero) {
+			continue
+		}
 
-        for j := i + 1; j < length; j++ {
-            if bytes.Equal(items[j].endIP, net.IPv6zero) || bytes.Equal(items[i].endIP, net.IPv4zero) {
-                continue
-            }
+		for j := i + 1; j < length; j++ {
+			if bytes.Equal(items[j].endIP, net.IPv6zero) || bytes.Equal(items[i].endIP, net.IPv4zero) {
+				continue
+			}
 
-            mergedNum += ipItems.checkMerge(i, j)
-        }
-    }
+			mergedNum += ipItems.checkMerge(i, j)
+		}
+	}
 
-    return mergedNum
+	return mergedNum
 }
 
 /* InsertPair provides insert startIP,endIP into IpItems */
 func (ipItems *IPItems) InsertPair(startIP, endIP net.IP) error {
-    if err := checkIPPair(startIP, endIP); err != nil {
-      return fmt.Errorf("InsertPair failed: %s", err.Error())
-    }
+	if err := checkIPPair(startIP, endIP); err != nil {
+		return fmt.Errorf("InsertPair failed: %s", err.Error())
+	}
 
-    startIP16 := startIP.To16()
-    endIP16 := endIP.To16()
+	startIP16 := startIP.To16()
+	endIP16 := endIP.To16()
 
-    ipItems.items = append(ipItems.items, ipPair{startIP16, endIP16})
-    return nil
+	ipItems.items = append(ipItems.items, ipPair{startIP16, endIP16})
+	return nil
 }
 
 /* InsertSingle single ip into ipitems */
 func (ipItems *IPItems) InsertSingle(ip net.IP) error {
-    ip16 := ip.To16()
-    if ip16 == nil {
-        return fmt.Errorf("InsertSingle(): err, invalid ip: %s", ip.String())
-    }
-    return ipItems.ipSet.Add(ip16)
+	ip16 := ip.To16()
+	if ip16 == nil {
+		return fmt.Errorf("InsertSingle(): err, invalid ip: %s", ip.String())
+	}
+	return ipItems.ipSet.Add(ip16)
 }
 
 /*
@@ -227,24 +227,24 @@ func (ipItems *IPItems) InsertSingle(ip net.IP) error {
 */
 func (ipItems *IPItems) Sort() {
 
-    // Sort items according startIP by descending order
-    sort.Sort(ipItems.items)
+	// Sort items according startIP by descending order
+	sort.Sort(ipItems.items)
 
-    // Merge item lines
-    mergedNum := ipItems.mergeItems()
-    length := len(ipItems.items) - mergedNum
+	// Merge item lines
+	mergedNum := ipItems.mergeItems()
+	length := len(ipItems.items) - mergedNum
 
-    // Sort items according startIP by descending order
-    sort.Sort(ipItems.items)
+	// Sort items according startIP by descending order
+	sort.Sort(ipItems.items)
 
-    // Reslice
-    ipItems.items = ipItems.items[0:length]
+	// Reslice
+	ipItems.items = ipItems.items[0:length]
 }
 
 /* get ip num of IPItems */
 func (ipItems *IPItems) Length() int {
-    num := len(ipItems.items)
-    num += ipItems.ipSet.Len()
+	num := len(ipItems.items)
+	num += ipItems.ipSet.Len()
 
-    return num
+	return num
 }

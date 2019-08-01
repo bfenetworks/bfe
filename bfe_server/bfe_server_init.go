@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// create bfe service and init 
+// create bfe service and init
 
 package bfe_server
 
@@ -96,7 +96,7 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	}
 	log.Logger.Info("StartUp(): bfeServer.InitDataLoad() OK")
 
-	// start embedded web server 
+	// start embedded web server
 	bfeServer.Monitor.Start()
 
 	serveChan := make(chan error)

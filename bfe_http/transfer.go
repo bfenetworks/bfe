@@ -141,7 +141,7 @@ func (t *transferWriter) shouldSendContentLength() bool {
 	if t.ContentLength > 0 {
 		return true
 	}
-	
+
 	// contentLength is 0, but have Content-Length in origin header
 	// Some backends expect a Content-Length header
 	if t.ContentLength == 0 && t.Header.Get("Content-Length") != "" {

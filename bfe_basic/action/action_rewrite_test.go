@@ -225,7 +225,7 @@ func TestReWriteActionDo_PATH_PREFIX_TRIM_CASE3(t *testing.T) {
 	req := &bfe_basic.Request{}
 	req.HttpRequest = httpReq
 
-    ReqPathPrefixTrim(req, "/service")
+	ReqPathPrefixTrim(req, "/service")
 
 	// check
 	if req.HttpRequest.URL.Path != "/index.html/" {

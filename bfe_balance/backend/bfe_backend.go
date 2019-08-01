@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// backend framework for bfe 
+// backend framework for bfe
 
 package backend
 
@@ -100,19 +100,19 @@ func (back *BfeBackend) ConnNum() int {
 
 func (back *BfeBackend) AddConnNum() {
 	back.Lock()
-	back.connNum ++
+	back.connNum++
 	back.Unlock()
 }
 
 func (back *BfeBackend) DecConnNum() {
 	back.Lock()
-	back.connNum --
+	back.connNum--
 	back.Unlock()
 }
 
 func (back *BfeBackend) AddFailNum() {
 	back.Lock()
-	back.failNum ++
+	back.failNum++
 	back.Unlock()
 }
 
@@ -132,7 +132,7 @@ func (back *BfeBackend) FailNum() int {
 
 func (back *BfeBackend) AddSuccNum() {
 	back.Lock()
-	back.succNum ++
+	back.succNum++
 	back.Unlock()
 }
 

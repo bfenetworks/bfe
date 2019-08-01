@@ -135,13 +135,13 @@ func (s *ServerDataConf) check() error {
 }
 
 // HostTableLookup find cluster name with given hostname.
-// implement interface ServerDataConfInterface. 
+// implement interface ServerDataConfInterface.
 func (s *ServerDataConf) HostTableLookup(hostname string) (string, error) {
 	return s.HostTable.LookupProduct(hostname)
 }
 
 // ClusterTableLookup find backend with given cluster-name and request.
-// implement interface ServerDataConfInterface. 
+// implement interface ServerDataConfInterface.
 func (s *ServerDataConf) ClusterTableLookup(clusterName string) (*bfe_cluster.BfeCluster, error) {
 	return s.ClusterTable.Lookup(clusterName)
 }

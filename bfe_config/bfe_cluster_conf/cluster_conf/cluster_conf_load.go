@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// load cluster conf from json file 
+// load cluster conf from json file
 
 package cluster_conf
 
@@ -50,7 +50,7 @@ const (
 )
 
 const (
-	// AnyStatusCode is a special status code used in health-check. 
+	// AnyStatusCode is a special status code used in health-check.
 	// If AnyStatusCode is used, any status code is acceptd for health-check response.
 	AnyStatusCode = 0
 )
@@ -346,20 +346,20 @@ func ClusterBasicConfCheck(conf *ClusterBasicConf) error {
 	}
 
 	if conf.ReqWriteBufferSize == nil {
-			reqWriteBufferSize := 512
-			conf.ReqWriteBufferSize = &reqWriteBufferSize
+		reqWriteBufferSize := 512
+		conf.ReqWriteBufferSize = &reqWriteBufferSize
 	}
 	if conf.ReqFlushInterval == nil {
-			reqFlushInterval := 0
-			conf.ReqFlushInterval = &reqFlushInterval
+		reqFlushInterval := 0
+		conf.ReqFlushInterval = &reqFlushInterval
 	}
 	if conf.ResFlushInterval == nil {
-			resFlushInterval := 20
-			conf.ResFlushInterval = &resFlushInterval
+		resFlushInterval := 20
+		conf.ResFlushInterval = &resFlushInterval
 	}
 	if conf.CancelOnClientClose == nil {
-			cancelOnClientClose := false
-			conf.CancelOnClientClose = &cancelOnClientClose
+		cancelOnClientClose := false
+		conf.CancelOnClientClose = &cancelOnClientClose
 	}
 
 	return nil

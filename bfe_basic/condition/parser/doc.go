@@ -13,9 +13,9 @@
 // limitations under the License.
 
 // package provider parser to parse condition
-// 
+//
 //     node, idents, err := parser.Parse("a && b && c")
-// 
+//
 //     err
 //     // condStr: input condition expression: err is not nil if parse error(including scan, lexer, prototype check)
 //     idents: if err is nil, all conditionVariable is list in idents ([]*Ident)

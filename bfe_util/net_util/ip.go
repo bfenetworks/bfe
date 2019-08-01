@@ -15,9 +15,9 @@
 package net_util
 
 import (
-    "bytes"
-    "fmt"
-    "net"
+	"bytes"
+	"fmt"
+	"net"
 )
 
 //IpRange - a structure that holds the start and end of a range of ip addresses
@@ -28,15 +28,15 @@ type IpRange struct {
 
 // private ip range
 var privateRanges = []IpRange{
-	IpRange{
+	{
 		start: net.ParseIP("10.0.0.0").To4(),
 		end:   net.ParseIP("10.255.255.255").To4(),
 	},
-	IpRange{
+	{
 		start: net.ParseIP("172.16.0.0").To4(),
 		end:   net.ParseIP("172.31.255.255").To4(),
 	},
-	IpRange{
+	{
 		start: net.ParseIP("192.168.0.0").To4(),
 		end:   net.ParseIP("192.168.255.255").To4(),
 	},
@@ -60,13 +60,13 @@ Returns:
     IP addr in net.IP
 */
 func ParseIPv4(s string) net.IP {
-    ip := net.ParseIP(s)
+	ip := net.ParseIP(s)
 
-    if ip != nil {
-        ip = ip.To4()
-    }
+	if ip != nil {
+		ip = ip.To4()
+	}
 
-    return ip
+	return ip
 }
 
 /*
@@ -81,19 +81,19 @@ Returns:
     IPv4 addr in uint32
 */
 func IPv4ToUint32(ipBytes net.IP) (uint32, error) {
-    if len(ipBytes) != 4 {
-        return 0, fmt.Errorf("ip bytes len: %d", len(ipBytes))
-    }
+	if len(ipBytes) != 4 {
+		return 0, fmt.Errorf("ip bytes len: %d", len(ipBytes))
+	}
 
-    var ipNum uint32
-    var tmp uint32
+	var ipNum uint32
+	var tmp uint32
 
-    for i, b := range ipBytes {
-        tmp = uint32(b)
-        ipNum = ipNum | (tmp << uint((3-i)*8))
-    }
+	for i, b := range ipBytes {
+		tmp = uint32(b)
+		ipNum = ipNum | (tmp << uint((3-i)*8))
+	}
 
-    return ipNum, nil
+	return ipNum, nil
 }
 
 /*
@@ -108,12 +108,12 @@ Returns:
     IPv4 addr in uint32
 */
 func IPv4StrToUint32(ipStr string) (uint32, error) {
-    ip := ParseIPv4(ipStr)
-    if ip == nil {
-        return 0, fmt.Errorf("invalid IPv4 addr string: %s", ipStr)
-    }
+	ip := ParseIPv4(ipStr)
+	if ip == nil {
+		return 0, fmt.Errorf("invalid IPv4 addr string: %s", ipStr)
+	}
 
-    return IPv4ToUint32(ip)
+	return IPv4ToUint32(ip)
 }
 
 /*
@@ -128,14 +128,14 @@ Returns:
     IPv4 addr in net.IP
 */
 func Uint32ToIPv4(ipNum uint32) net.IP {
-    var ipBytes [4]byte
+	var ipBytes [4]byte
 
-    for i := 0; i < 4; i++ {
-        ipBytes[3-i] = byte(ipNum & 0xFF)
-        ipNum = ipNum >> 8
-    }
+	for i := 0; i < 4; i++ {
+		ipBytes[3-i] = byte(ipNum & 0xFF)
+		ipNum = ipNum >> 8
+	}
 
-    return net.IPv4(ipBytes[0], ipBytes[1], ipBytes[2], ipBytes[3]).To4()
+	return net.IPv4(ipBytes[0], ipBytes[1], ipBytes[2], ipBytes[3]).To4()
 }
 
 /*
@@ -150,9 +150,9 @@ Returns:
     IPv4 addr in string
 */
 func Uint32ToIPv4Str(ipNum uint32) string {
-    str := fmt.Sprintf("%d.%d.%d.%d", byte(ipNum>>24), byte(ipNum>>16), byte(ipNum>>8), byte(ipNum))
+	str := fmt.Sprintf("%d.%d.%d.%d", byte(ipNum>>24), byte(ipNum>>16), byte(ipNum>>8), byte(ipNum))
 
-    return str
+	return str
 }
 
 /*

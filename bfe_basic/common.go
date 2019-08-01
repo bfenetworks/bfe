@@ -53,13 +53,13 @@ func CreateForbiddenResp(request *Request) *bfe_http.Response {
 }
 
 func CreateInternalResp(request *Request, code int) *bfe_http.Response {
-        res := new(bfe_http.Response)
-        res.StatusCode = code
-        res.Header = make(bfe_http.Header)
-        res.Header.Set("Server", "bfe")
-        res.Body = bfe_http.EofReader
-        request.HttpResponse = res
-        return res
+	res := new(bfe_http.Response)
+	res.StatusCode = code
+	res.Header = make(bfe_http.Header)
+	res.Header.Set("Server", "bfe")
+	res.Body = bfe_http.EofReader
+	request.HttpResponse = res
+	return res
 }
 
 // this interface is used for lookup config for each request

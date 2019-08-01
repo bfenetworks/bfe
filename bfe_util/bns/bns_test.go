@@ -40,15 +40,15 @@ func TestGetLocalName(t *testing.T) {
 			"service.c1",
 			nil,
 			[]Instance{
-				Instance{"10.1.1.1", 8080, 10},
-				Instance{"10.1.1.2", 8080, 20},
+				{"10.1.1.1", 8080, 10},
+				{"10.1.1.2", 8080, 20},
 			},
 		},
 		{
 			"service.c2",
 			nil,
 			[]Instance{
-				Instance{"10.2.1.1", 8080, 10},
+				{"10.2.1.1", 8080, 10},
 			},
 		},
 		{

@@ -42,10 +42,10 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_util/pipe"
 	http "github.com/baidu/bfe/bfe_http"
 	"github.com/baidu/bfe/bfe_http2/hpack"
 	tls "github.com/baidu/bfe/bfe_tls"
+	"github.com/baidu/bfe/bfe_util/pipe"
 )
 
 const (
@@ -1939,18 +1939,18 @@ func (sc *serverConn) newWriterAndRequest(st *stream, f *MetaHeadersFrame) (*res
 		requestURI = path
 	}
 	req := &http.Request{
-		Method:         method,
-		URL:            url_,
-		RemoteAddr:     sc.remoteAddrStr,
-		Header:         header,
-		RequestURI:     requestURI,
-		Proto:          "HTTP/2.0",
-		ProtoMajor:     2,
-		ProtoMinor:     0,
-		TLS:            tlsState,
-		Host:           authority,
-		Body:           body,
-		Trailer:        trailer,
+		Method:     method,
+		URL:        url_,
+		RemoteAddr: sc.remoteAddrStr,
+		Header:     header,
+		RequestURI: requestURI,
+		Proto:      "HTTP/2.0",
+		ProtoMajor: 2,
+		ProtoMinor: 0,
+		TLS:        tlsState,
+		Host:       authority,
+		Body:       body,
+		Trailer:    trailer,
 		State: &http.RequestState{
 			SerialNumber: st.id/2 + 1,
 			StartTime:    time.Now(),

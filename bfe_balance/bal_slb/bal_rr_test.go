@@ -44,17 +44,17 @@ func prepareBalanceRR() *BalanceRR {
 
 	rr := &BalanceRR{
 		backends: []*BackendRR{
-			&BackendRR{
+			{
 				weight:  3,
 				current: 3,
 				backend: b1,
 			},
-			&BackendRR{
+			{
 				weight:  2,
 				current: 2,
 				backend: b2,
 			},
-			&BackendRR{
+			{
 				weight:  1,
 				current: 1,
 				backend: b3,
@@ -130,17 +130,17 @@ func TestUpdate(t *testing.T) {
 	b3 := populateBackend("b3", "127.0.0.1", 82, true)
 	rr := &BalanceRR{
 		backends: []*BackendRR{
-			&BackendRR{
+			{
 				weight:  3,
 				current: 3,
 				backend: b1,
 			},
-			&BackendRR{
+			{
 				weight:  2,
 				current: 2,
 				backend: b2,
 			},
-			&BackendRR{
+			{
 				weight:  1,
 				current: 1,
 				backend: b3,

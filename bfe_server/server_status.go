@@ -47,7 +47,7 @@ const (
 	KP_PROXY_HANDSHAKE_DELAY        = "proxy_handshake_delay"
 	KP_PROXY_HANDSHAKE_FULL_DELAY   = "proxy_handshake_full_delay"
 	KP_PROXY_HANDSHAKE_RESUME_DELAY = "proxy_handshake_resume_delay"
-	KP_PROXY_STATE               = "proxy_state"
+	KP_PROXY_STATE                  = "proxy_state"
 )
 
 type ServerStatus struct {

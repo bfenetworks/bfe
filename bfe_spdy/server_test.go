@@ -142,7 +142,7 @@ func (st *serverTester) writeSynStream(streamId uint32, header http.Header, endS
 	f.Headers.Set(headerVersion, "HTTP/1.1")
 	f.Headers.Set(headerHost, "spdy.bfe.com")
 	f.Headers.Set(headerScheme, "https")
-	for k, _ := range header {
+	for k := range header {
 		v := header.Get(k)
 		f.Headers.Set(k, v)
 	}

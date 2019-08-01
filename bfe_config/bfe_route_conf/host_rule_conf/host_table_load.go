@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// load host table from json file 
+// load host table from json file
 
 package host_rule_conf
 

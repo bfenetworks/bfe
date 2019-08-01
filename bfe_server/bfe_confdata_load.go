@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// load config data for bfe  
+// load config data for bfe
 
 package bfe_server
 

@@ -22,16 +22,16 @@ func TestClusterTableLoad_1(t *testing.T) {
 	config, err := ClusterTableLoad("./testdata/cluster_table_1.conf")
 	if err != nil {
 		t.Errorf("get err from ClusterTableLoad():%s", err.Error())
-                return 
+		return
 	}
 
 	if len(*config.Config) != 2 {
 		t.Error("len(config) should be 2")
-                return 
+		return
 	}
 
 	if *(*config.Config)["p1"]["light.p1.dx"][0].Name != "p1.example10.a" {
 		t.Error("invalid config")
-                return 
+		return
 	}
 }

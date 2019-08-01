@@ -168,7 +168,7 @@ func ReqQueryDelAllExcept(req *bfe_basic.Request, keys []string) {
 	}
 
 	// delete some keys from queries, except keys in keysMap
-	for key, _ := range queries {
+	for key := range queries {
 		if _, ok := keysMap[key]; ok {
 			continue
 		}

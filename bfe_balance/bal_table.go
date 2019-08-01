@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// table for maintain backend cluster 
+// table for maintain backend cluster
 
 package bfe_balance
 
@@ -146,7 +146,7 @@ func (t *BalTable) backendInit(backendConfs cluster_table_conf.ClusterTableConf)
 			continue
 		}
 
-		// initialize 
+		// initialize
 		err := bal.BackendInit(backendConf)
 		if err != nil {
 			log.Logger.Error("ClusterTable.backendInit():err[%s] in cluster.BackendInit() for %s",

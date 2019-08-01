@@ -102,11 +102,11 @@ func (s *Server) handleConn(hs *http.Server, c net.Conn, h http.Handler) *server
 func (s *Server) FindProduct(c net.Conn) string {
 	productHandler := s.FindProductHandler
 	if productHandler == nil {
-		return "" 
+		return ""
 	}
 
 	return productHandler(c)
-} 
+}
 
 // NewProtoHandler creates a protocol handler for stream.
 func NewProtoHandler(conf *Server) func(*http.Server, *tls.Conn, http.Handler) {

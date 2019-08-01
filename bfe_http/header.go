@@ -219,7 +219,7 @@ func (h Header) writeSubsetWithoutSort(w io.Writer, exclude map[string]bool) err
 				if _, err := ws.WriteString(s); err != nil {
 					return err
 				}
-			}	
+			}
 		}
 	}
 

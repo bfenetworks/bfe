@@ -179,11 +179,10 @@ import (
 	"unsafe"
 )
 
-
 // calcLogId calculates a new log id.
-// 
+//
 // parameters:
-//     network    - client Network, for exapmle, "tcp", "udp" 
+//     network    - client Network, for exapmle, "tcp", "udp"
 //     clientAddr - client Addr
 //     localAddr  - local bfe server Addr
 //     pid        - bfe process pid
@@ -204,7 +203,7 @@ func calcLogId(network string, clientAddr string, localAddr string,
 	return uint64(id)
 }
 
-// GetLogID returns a new logid 
+// GetLogID returns a new logid
 func GetLogID(conn net.Conn) uint64 {
 	pid := os.Getpid()
 	t := time.Now()

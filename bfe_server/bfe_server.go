@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// the main structure of bfe-server 
+// the main structure of bfe-server
 
 package bfe_server
 
@@ -36,10 +36,10 @@ import (
 	"github.com/baidu/bfe/bfe_config/bfe_conf"
 	"github.com/baidu/bfe/bfe_config/bfe_tls_conf/session_ticket_key_conf"
 	"github.com/baidu/bfe/bfe_config/bfe_tls_conf/tls_rule_conf"
-	"github.com/baidu/bfe/bfe_route"
 	"github.com/baidu/bfe/bfe_http"
 	"github.com/baidu/bfe/bfe_http2"
 	"github.com/baidu/bfe/bfe_module"
+	"github.com/baidu/bfe/bfe_route"
 	"github.com/baidu/bfe/bfe_spdy"
 	"github.com/baidu/bfe/bfe_stream"
 	"github.com/baidu/bfe/bfe_tls"
@@ -90,9 +90,9 @@ type BfeServer struct {
 	// server status
 	serverStatus *ServerStatus
 
-	confLock   sync.RWMutex             // mutex when reload data conf
+	confLock   sync.RWMutex              // mutex when reload data conf
 	ServerConf *bfe_route.ServerDataConf // cluster_conf and host table conf
-	balTable   *bfe_balance.BalTable    // for balance
+	balTable   *bfe_balance.BalTable     // for balance
 
 	Version string // version of bfe server
 }

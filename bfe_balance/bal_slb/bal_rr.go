@@ -13,17 +13,17 @@
 // limitations under the License.
 
 // weighted round robin balance
-// 
+//
 // Algorithm:
 //   smooth Weighted Round Robin algorithm is as follows: on each backend selection,
 //   1. increase CurrentWeight of each eligible backend by its weight,
 //   2. select backend with greatest CurrentWeight and reduce its CurrentWeight
 //      by total number of weight points distributed among backends.
-// 
+//
 // Example:
 //   In case of {a:5, b:1, c:1} weights this gives the following sequence 'aabacaa'
 //   instead of 'abcaaaa'.
-// 
+//
 //      a  b  c
 //      0  0  0  initial state
 //      5  1  1  a selected; 5-7+5 1+1   1+1   -> 3  2  2
@@ -44,8 +44,8 @@ import (
 )
 
 import (
-	"github.com/spaolacci/murmur3"
 	"github.com/baidu/go-lib/log"
+	"github.com/spaolacci/murmur3"
 )
 
 import (

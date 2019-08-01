@@ -590,8 +590,8 @@ func validNPN(proto string) bool {
 }
 
 func checkHttpUpgrade(req *bfe_basic.Request) string {
-    if bfe_websocket.CheckUpgradeWebSocket(req.HttpRequest) {
-            return bfe_websocket.WebSocket
-    }
-    return ""
+	if bfe_websocket.CheckUpgradeWebSocket(req.HttpRequest) {
+		return bfe_websocket.WebSocket
+	}
+	return ""
 }

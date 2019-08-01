@@ -74,9 +74,9 @@ func (b *FixedBuffer) Write(p []byte) (n int, err error) {
 }
 
 func NewFixedBuffer(buf []byte) *FixedBuffer {
-    b := new(FixedBuffer)
-    b.buf = buf
-    return b
+	b := new(FixedBuffer)
+	b.buf = buf
+	return b
 }
 
 // Reset clear state of FixedBuffer.

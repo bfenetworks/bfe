@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// internal state of http 
+// internal state of http
 
 package bfe_http
 

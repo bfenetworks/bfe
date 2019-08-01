@@ -89,7 +89,7 @@ func TestGslbInit(t *testing.T) {
 	port := 1
 	weight := 0
 	subClusterBackend := []*cluster_table_conf.BackendConf{
-		&cluster_table_conf.BackendConf{
+		{
 			Name:   &name,
 			Addr:   &addr,
 			Port:   &port,

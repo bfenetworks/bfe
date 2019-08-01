@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// module for marking rewrite   
+// module for marking rewrite
 
 package mod_rewrite
 
@@ -37,7 +37,7 @@ var (
 )
 
 type ModuleReWrite struct {
-	name  string               // name of module
+	name string // name of module
 
 	configPath string        // path of config file
 	ruleTable  *ReWriteTable // table of rewrite rules

@@ -15,8 +15,8 @@
 package mod_header
 
 import (
-        gcfg "gopkg.in/gcfg.v1"
 	"github.com/baidu/go-lib/log"
+	gcfg "gopkg.in/gcfg.v1"
 )
 
 import (

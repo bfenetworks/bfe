@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Internal data structure for http request 
+// Internal data structure for http request
 
 package bfe_basic
 
@@ -62,8 +62,8 @@ type Request struct {
 	Session    *Session
 
 	RemoteAddr *net.TCPAddr // address of remote peer
-	ClientAddr *net.TCPAddr // address of real client. Maybe nil if request is from 
-				// upstream proxy but without a valid Clientip header
+	ClientAddr *net.TCPAddr // address of real client. Maybe nil if request is from
+	// upstream proxy but without a valid Clientip header
 
 	HttpRequest  *bfe_http.Request  // incoming request
 	OutRequest   *bfe_http.Request  // forwarded request
@@ -72,9 +72,9 @@ type Request struct {
 	CookieMap bfe_http.CookieMap // cookie map
 	Query     url.Values         // save url query
 
-	LogId          string // log id for each request
-	ReqBody        []byte // req body, size is limited
-	ReqBodyPeeked  bool   // whether req body has been peeked
+	LogId         string // log id for each request
+	ReqBody       []byte // req body, size is limited
+	ReqBodyPeeked bool   // whether req body has been peeked
 
 	Route RequestRoute // for get backend cluster based on host/path/query/header/...
 

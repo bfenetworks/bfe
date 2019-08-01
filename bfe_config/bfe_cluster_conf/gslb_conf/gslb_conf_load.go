@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// load cluster conf from json file 
+// load cluster conf from json file
 
 package gslb_conf
 
 import (
-	json "github.com/pquerna/ffjson/ffjson"
 	"errors"
 	"fmt"
+	json "github.com/pquerna/ffjson/ffjson"
 	"os"
 	"reflect"
 )

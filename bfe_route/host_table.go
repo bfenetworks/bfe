@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// table for mapping hostname to cluster name  
+// table for mapping hostname to cluster name
 
 package bfe_route
 
@@ -35,7 +35,7 @@ var (
 	ErrNoMatchRule   = errors.New("no rule match for this req")
 )
 
-// HostTable holds mappings from host to prduct and 
+// HostTable holds mappings from host to prduct and
 // mappings from product to cluster rules.
 type HostTable struct {
 	versions Versions // record conf versions
@@ -207,7 +207,7 @@ func (t *HostTable) LookupProduct(hostname string) (string, error) {
 	return hostRoute.product, nil
 }
 
-// GetVersions return versions of host table. 
+// GetVersions return versions of host table.
 func (t *HostTable) GetVersions() Versions {
 	return t.versions
 }

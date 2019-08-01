@@ -57,16 +57,16 @@ type ProxyState struct {
 	TlsHandshakeSucc *metrics.Counter
 
 	// tls session cache
-	SessionCacheConn               *metrics.Counter
-	SessionCacheConnFail           *metrics.Counter
-	SessionCacheSet                *metrics.Counter
-	SessionCacheSetFail            *metrics.Counter
-	SessionCacheGet                *metrics.Counter
-	SessionCacheGetFail            *metrics.Counter
-	SessionCacheTypeNotBytes       *metrics.Counter
-	SessionCacheMiss               *metrics.Counter
-	SessionCacheHit                *metrics.Counter
-	SessionCacheNoInstance         *metrics.Counter
+	SessionCacheConn         *metrics.Counter
+	SessionCacheConnFail     *metrics.Counter
+	SessionCacheSet          *metrics.Counter
+	SessionCacheSetFail      *metrics.Counter
+	SessionCacheGet          *metrics.Counter
+	SessionCacheGetFail      *metrics.Counter
+	SessionCacheTypeNotBytes *metrics.Counter
+	SessionCacheMiss         *metrics.Counter
+	SessionCacheHit          *metrics.Counter
+	SessionCacheNoInstance   *metrics.Counter
 
 	// tls multiply certificates
 	TlsMultiCertGet            *metrics.Counter

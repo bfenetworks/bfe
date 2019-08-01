@@ -15,18 +15,18 @@
 package hash_set
 
 import (
-    "fmt"
+	"fmt"
 )
 
 import (
-    "github.com/spaolacci/murmur3"
+	"github.com/spaolacci/murmur3"
 )
 
 /* in order to reduce the conflict of hash
  * hash array can be LOAD_FACTOR times larger than nodePool
  */
 const (
-    LOAD_FACTOR = 5
+	LOAD_FACTOR = 5
 )
 
 /* index table of hashSet */
@@ -34,22 +34,22 @@ type hashArray []int32
 
 /* make a new hashArray and init it */
 func newHashArray(indexSize int) hashArray {
-    ha := make(hashArray, indexSize)
-    for i := 0; i < indexSize; i += 1 {
-        ha[i] = -1
-    }
+	ha := make(hashArray, indexSize)
+	for i := 0; i < indexSize; i += 1 {
+		ha[i] = -1
+	}
 
-    return ha
+	return ha
 }
 
 type HashSet struct {
-    ha          hashArray // hashArray, the index table for nodePool
-    haSize      int       // hashArray size
-    isFixKeyLen bool      // fixed element size or not
+	ha          hashArray // hashArray, the index table for nodePool
+	haSize      int       // hashArray size
+	isFixKeyLen bool      // fixed element size or not
 
-    np *nodePool // nodePool manage the elements of hashSet
+	np *nodePool // nodePool manage the elements of hashSet
 
-    hashFunc func(key []byte) uint64 //function for hash
+	hashFunc func(key []byte) uint64 //function for hash
 }
 
 /*
@@ -66,29 +66,29 @@ type HashSet struct {
 *  - (nil, error), if fail
  */
 func NewHashSet(elemNum int, elemSize int, isFixKeyLen bool,
-                hashFunc func([]byte) uint64) (*HashSet, error) {
-    if elemNum <= 0 || elemSize <= 0 {
-        return nil, fmt.Errorf("elementNum/elementSize must > 0")
-    }
+	hashFunc func([]byte) uint64) (*HashSet, error) {
+	if elemNum <= 0 || elemSize <= 0 {
+		return nil, fmt.Errorf("elementNum/elementSize must > 0")
+	}
 
-    hashSet := new(HashSet)
+	hashSet := new(HashSet)
 
-    /* hashArray is larger in order to reduce hash conflict */
-    hashSet.haSize = elemNum * LOAD_FACTOR
-    hashSet.isFixKeyLen = isFixKeyLen
-    hashSet.ha = newHashArray(hashSet.haSize)
+	/* hashArray is larger in order to reduce hash conflict */
+	hashSet.haSize = elemNum * LOAD_FACTOR
+	hashSet.isFixKeyLen = isFixKeyLen
+	hashSet.ha = newHashArray(hashSet.haSize)
 
-    /* create nodePool */
-    hashSet.np = newNodePool(elemNum, elemSize, isFixKeyLen)
+	/* create nodePool */
+	hashSet.np = newNodePool(elemNum, elemSize, isFixKeyLen)
 
-    /* if hashFunc is not given, use default murmur Hash */
-    if hashFunc != nil {
-        hashSet.hashFunc = hashFunc
-    } else {
-        hashSet.hashFunc = murmur3.Sum64
-    }
+	/* if hashFunc is not given, use default murmur Hash */
+	if hashFunc != nil {
+		hashSet.hashFunc = hashFunc
+	} else {
+		hashSet.hashFunc = murmur3.Sum64
+	}
 
-    return hashSet, nil
+	return hashSet, nil
 }
 
 /*
@@ -102,36 +102,36 @@ func NewHashSet(elemNum int, elemSize int, isFixKeyLen bool,
 *   - error, if fail
  */
 func (set *HashSet) Add(key []byte) error {
-    // check the whether hashSet if full
-    if set.Full() {
-        return fmt.Errorf("hashSet: Set is full")
-    }
+	// check the whether hashSet if full
+	if set.Full() {
+		return fmt.Errorf("hashSet: Set is full")
+	}
 
-    // validate hashKey
-    err := set.np.validateKey(key)
-    if err != nil {
-        return err
-    }
+	// validate hashKey
+	err := set.np.validateKey(key)
+	if err != nil {
+		return err
+	}
 
-    // 1. calculate the hash num
-    hashNum := set.hashFunc(key) % uint64(set.haSize)
+	// 1. calculate the hash num
+	hashNum := set.hashFunc(key) % uint64(set.haSize)
 
-    // 2. check if the key slice exist
-    if set.exist(hashNum, key) {
-        return nil
-    }
+	// 2. check if the key slice exist
+	if set.exist(hashNum, key) {
+		return nil
+	}
 
-    // 3. add the key into nodePool
-    head := set.ha[hashNum]
-    newHead, err := set.np.add(head, key)
-    if err != nil {
-        return err
-    }
+	// 3. add the key into nodePool
+	head := set.ha[hashNum]
+	newHead, err := set.np.add(head, key)
+	if err != nil {
+		return err
+	}
 
-    // 4. point to the new list head node
-    set.ha[hashNum] = newHead
+	// 4. point to the new list head node
+	set.ha[hashNum] = newHead
 
-    return nil
+	return nil
 }
 
 /*
@@ -145,51 +145,51 @@ func (set *HashSet) Add(key []byte) error {
 *   - error, if fail
  */
 func (set *HashSet) Remove(key []byte) error {
-    // validate hashKey
-    err := set.np.validateKey(key)
-    if err != nil {
-        return err
-    }
-    //1. calculate the hash num
-    hashNum := set.hashFunc(key) % uint64(set.haSize)
+	// validate hashKey
+	err := set.np.validateKey(key)
+	if err != nil {
+		return err
+	}
+	//1. calculate the hash num
+	hashNum := set.hashFunc(key) % uint64(set.haSize)
 
-    //2. remove key from hashNode
-    head := set.ha[hashNum]
-    if head == -1 {
-        return nil
-    }
-    newHead := set.np.del(head, key)
+	//2. remove key from hashNode
+	head := set.ha[hashNum]
+	if head == -1 {
+		return nil
+	}
+	newHead := set.np.del(head, key)
 
-    //3. point to the new list head node
-    set.ha[hashNum] = newHead
+	//3. point to the new list head node
+	set.ha[hashNum] = newHead
 
-    return nil
+	return nil
 }
 
 /* check if the element exist in Set */
 func (set *HashSet) Exist(key []byte) bool {
-    //validate hashKey
-    err := set.np.validateKey(key)
-    if err != nil {
-        return false
-    }
+	//validate hashKey
+	err := set.np.validateKey(key)
+	if err != nil {
+		return false
+	}
 
-    hashNum := set.hashFunc(key) % uint64(set.haSize)
-    return set.exist(hashNum, key)
+	hashNum := set.hashFunc(key) % uint64(set.haSize)
+	return set.exist(hashNum, key)
 }
 
 /* check the []byte exist in the giving list head */
 func (set *HashSet) exist(hashNum uint64, key []byte) bool {
-    head := set.ha[hashNum]
-    return set.np.exist(head, key)
+	head := set.ha[hashNum]
+	return set.np.exist(head, key)
 }
 
 /* get elementNum of hashSet */
 func (set *HashSet) Len() int {
-    return set.np.elemNum()
+	return set.np.elemNum()
 }
 
 /* check if the hashSet full or not */
 func (set *HashSet) Full() bool {
-    return set.np.full()
+	return set.np.full()
 }

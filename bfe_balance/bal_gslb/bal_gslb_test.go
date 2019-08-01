@@ -38,7 +38,6 @@ func loadJson(path string, v interface{}) error {
 	return json.Unmarshal(x, &v)
 }
 
-
 func TestInit(t *testing.T) {
 	var c cluster_table_conf.ClusterBackend
 	var gb cluster_conf.GslbBasicConf

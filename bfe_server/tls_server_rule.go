@@ -24,8 +24,8 @@ import (
 )
 
 import (
-	"github.com/spaolacci/murmur3"
 	"github.com/baidu/go-lib/log"
+	"github.com/spaolacci/murmur3"
 )
 
 import (
@@ -48,11 +48,11 @@ type TLSServerRuleMap struct {
 	vipRuleMap map[string]*ServerRule // tls server rule for specified conn
 	sniRuleMap map[string]*ServerRule // tls server rule for specified host (optional)
 
-	nextProtosDef     *NextProtosConf    // default next protos conf
-	enableHttp2       bool               // enable http2 globally or not
-	enableSpdy        bool               // enable spdy globally or not
-	chacha20Def       bool               // default chacha20 conf
-	dynRecordDef      bool               // default dynamic record conf
+	nextProtosDef *NextProtosConf // default next protos conf
+	enableHttp2   bool            // enable http2 globally or not
+	enableSpdy    bool            // enable spdy globally or not
+	chacha20Def   bool            // default chacha20 conf
+	dynRecordDef  bool            // default dynamic record conf
 
 	versions Version // version of tls_rule_conf
 

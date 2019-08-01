@@ -43,7 +43,7 @@ func makeBasicRequest() *bfe_basic.Request {
 
 	req.HttpRequest.URL, _ = url.Parse("http://www.example.org")
 	req.HttpRequest.Header = make(bfe_http.Header)
-	
+
 	return req
 }
 
