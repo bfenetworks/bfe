@@ -24,7 +24,7 @@ import (
 	"github.com/baidu/go-lib/log"
 )
 
-// RegisterModule registeres bfe work module.
+// RegisterModule registers bfe work module.
 func (srv *BfeServer) RegisterModules(modules []string) error {
 	if modules == nil {
 		return nil

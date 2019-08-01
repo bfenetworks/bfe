@@ -256,7 +256,7 @@ Curves:
 		}
 	} else {
 		// Although sending an NPN extension without h2 is reasonable, some client
-		// has a bug aroud this. Best to send NPN without h2.
+		// has a bug around this. Best to send NPN without h2.
 		nextProtos = checkAndRemoveH2(nextProtos)
 
 		// Although sending an empty NPN extension is reasonable, Firefox has

@@ -146,7 +146,7 @@ func (t *BalTable) backendInit(backendConfs cluster_table_conf.ClusterTableConf)
 			continue
 		}
 
-		// initalize
+		// initialize 
 		err := bal.BackendInit(backendConf)
 		if err != nil {
 			log.Logger.Error("ClusterTable.backendInit():err[%s] in cluster.BackendInit() for %s",

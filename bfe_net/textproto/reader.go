@@ -531,7 +531,7 @@ func (r *Reader) ReadMIMEHeaderAndKeys() (MIMEHeader, MIMEKeys, error) {
 			m[key] = append(vv, value)
 		}
 
-		// append key in orginal order
+		// append key in original order
 		mkeys = append(mkeys, key)
 
 		if err != nil {

@@ -55,7 +55,7 @@ const (
 	// Close the connection after send response to client.
 	closeAfterReply
 	// Close the connection directly, do not send any data,
-	// it usally means some attacks may happened.
+	// it usually means some attacks may happened.
 	closeDirectly
 )
 

@@ -277,7 +277,7 @@ func runClientTestTLS12(t *testing.T, template *clientTest) {
 func prepareClientConfig() *Config {
 	config := testConfig.Clone()
 
-	// Note: for avoid modify exsiting data file under testdata dir,
+	// Note: for avoid modify existing data file under testdata dir,
 	// client should only use required ciphersuites.
 	config.CipherSuites = []uint16{
 		TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
@@ -348,7 +348,7 @@ func TestHandshakeClientECDHEECDSAAESGCM(t *testing.T) {
 }
 
 func prepareClientConfigForChacha20() *Config {
-	// Note: for avoid modify exsiting data file under testdata dir,
+	// Note: for avoid modify existing data file under testdata dir,
 	// client should only use required ciphersuites.
 	ciphers := []uint16{
 		TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,

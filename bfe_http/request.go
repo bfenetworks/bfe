@@ -124,7 +124,7 @@ type Request struct {
 	// following a hyphen uppercase and the rest lowercase.
 	Header Header
 
-	// a headerKeys represents keys of header in orginal order
+	// a headerKeys represents keys of header in original order
 	HeaderKeys textproto.MIMEKeys
 
 	// Body is the request's body.
@@ -213,7 +213,7 @@ type Request struct {
 	TLS *bfe_tls.ConnectionState
 
 	// State allows HTTP server and other software to record
-	// infomation about the request. This filed may be not filled.
+	// information about the request. This filed may be not filled.
 	State *RequestState
 }
 
@@ -394,7 +394,7 @@ func (req *Request) write(w io.Writer, usingProxy bool, extraHeaders Header) err
 		ruri = host
 	} else {
 		// use req.RequestUri instead of req.URL.RequestURI() (decoded/encoded)
-		// to be compatiable with non-standard web server ONLY WHEN URL not changed since
+		// to be compatible with non-standard web server ONLY WHEN URL not changed since
 		// ReadRequest()
 		rawurl, err := url.ParseRequestURI(req.RequestURI)
 		if err == nil && rawurl.RequestURI() == ruri {
@@ -454,7 +454,7 @@ func (req *Request) write(w io.Writer, usingProxy bool, extraHeaders Header) err
 
 	// flush req header immediately if w if a buffered writer.
 	// in case that the backend read timeout setting is too short,
-	// and body receiving from client is too slow, so until backend timeout the buffer is not fufilled
+	// and body receiving from client is too slow, so until backend timeout the buffer is not fulfilled
 	// and the backend may close the connection
 	if rbw, ok := w.(Flusher); ok {
 		err = rbw.Flush()
@@ -937,11 +937,7 @@ func (r *Request) WantsHttp10KeepAlive() bool {
 		return false
 	}
 
-	// change http 1.0 keepalive to ignore header Connection, keep consistent with c-bfe
-	// just for simplify comparasion in the process of replace bfe
-	// TODO: after replacement finish, change back
-	//return HasToken(r.Header.GetDirect("Connection"), "keep-alive")
-	return false
+	return HasToken(r.Header.GetDirect("Connection"), "keep-alive")
 }
 
 func (r *Request) WantsClose() bool {

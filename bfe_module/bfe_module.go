@@ -135,7 +135,7 @@ func ModConfDir(confRoot string, modName string) string {
 	return confDir
 }
 
-// ModuleStatusGetJson get modules Availabe and modules Enabled.
+// ModuleStatusGetJson get modules Available and modules Enabled.
 func ModuleStatusGetJson() ([]byte, error) {
 	status := make(map[string][]string)
 	status["available"] = modulesAll

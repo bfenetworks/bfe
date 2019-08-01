@@ -33,7 +33,7 @@ func ReqUrlFromQuery(req *bfe_basic.Request, key string) {
 	req.Redirect.Url = req.Query.Get(key)
 }
 
-// ReqUrlPrefixAdd specify redirect url by adding prefix to orginal uri(path+query)
+// ReqUrlPrefixAdd specify redirect url by adding prefix to original uri(path+query)
 // e.g., url  "/(.*)" => "link$1",
 func ReqUrlPrefixAdd(req *bfe_basic.Request, prefix string) {
 	rawUrl := req.HttpRequest.URL

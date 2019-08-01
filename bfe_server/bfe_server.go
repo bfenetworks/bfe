@@ -207,7 +207,7 @@ func (srv *BfeServer) initTLSConfig() (err error) {
 	// enable Sslv2 ClientHello for compatible with ancient TLS-capable clients
 	srv.TLSConfig.EnableSslv2ClientHello = httpsConf.EnableSslv2ClientHello
 
-	// initialize ciphersuites perference
+	// initialize ciphersuites preference
 	srv.TLSConfig.PreferServerCipherSuites = true
 	cipherSuites, cipherSuitesPriority, err := bfe_conf.GetCipherSuites(httpsConf.CipherSuites)
 	if err != nil {
@@ -219,7 +219,7 @@ func (srv *BfeServer) initTLSConfig() (err error) {
 	// set Ssl3PoodleProofed true make server free of poodle attach
 	srv.TLSConfig.Ssl3PoodleProofed = true
 
-	// initialize elliptic curves perference
+	// initialize elliptic curves preference
 	srv.TLSConfig.CurvePreferences, err = bfe_conf.GetCurvePreferences(httpsConf.CurvePreferences)
 	if err != nil {
 		return fmt.Errorf("in ServerCertConfLoad() :%s", err.Error())

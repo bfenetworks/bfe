@@ -141,7 +141,7 @@ func (m *ModuleHeader) reqHeaderHandler(request *bfe_basic.Request) (int, *bfe_h
 	// apply global rule first
 	m.applyProductRule(request, ReqHeader, GlobalProduct)
 
-	// product specific rule will overwirte global rule for HEADER_SET action
+	// product specific rule will overwrite global rule for HEADER_SET action
 	m.applyProductRule(request, ReqHeader, request.Route.Product)
 
 	return bfe_module.BFE_HANDLER_GOON, nil
@@ -151,7 +151,7 @@ func (m *ModuleHeader) rspHeaderHandler(request *bfe_basic.Request, res *bfe_htt
 	// apply global rule first
 	m.applyProductRule(request, RspHeader, GlobalProduct)
 
-	// product specific rule will overwirte global rule for HEADER_SET action
+	// product specific rule will overwrite global rule for HEADER_SET action
 	m.applyProductRule(request, RspHeader, request.Route.Product)
 
 	return bfe_module.BFE_HANDLER_GOON

@@ -45,7 +45,7 @@ type ServerSessionCache struct {
 	KeyPrefix      string        // prefix for cache key
 
 	SessionExpire int          // expire time for tls session state (s)
-	MaxIdle       int          // max idle conenctions in pool
+	MaxIdle       int          // max idle connections in pool
 	pool          *redis.Pool  // connection pool to redis server
 	poolLock      sync.RWMutex // lock for pool
 

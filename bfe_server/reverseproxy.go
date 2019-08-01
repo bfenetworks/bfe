@@ -504,7 +504,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	// get instance of BfeServer
 	srv := p.server
 
-	// set clientip of orginal user for request
+	// set clientip of original user for request
 	setClientAddr(basicReq)
 
 	// Callback for HANDLE_BEFORE_LOCATION

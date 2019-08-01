@@ -170,7 +170,7 @@ uint64_t calculate_log_id(char *network, char* client_addr, char* local_addr,
     return log_id;
 }
 */
-import "C" // this line must be seperated
+import "C" // this line must be separated
 
 import (
 	"net"

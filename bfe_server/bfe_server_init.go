@@ -96,7 +96,7 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	}
 	log.Logger.Info("StartUp(): bfeServer.InitDataLoad() OK")
 
-	// start embeded web server 
+	// start embedded web server 
 	bfeServer.Monitor.Start()
 
 	serveChan := make(chan error)

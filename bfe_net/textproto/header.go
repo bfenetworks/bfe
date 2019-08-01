@@ -22,7 +22,7 @@ package textproto
 // keys to sets of values.
 type MIMEHeader map[string][]string
 
-// A MIMEKyes represents keys of header in orginal order
+// A MIMEKyes represents keys of header in original order
 type MIMEKeys []string
 
 // Add adds the key, value pair to the header.

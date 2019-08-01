@@ -51,7 +51,7 @@ func NewProtocolHandler(conn *conn, proto string) *ProtocolHandler {
 // ServeHTTP processes http request and send http response.
 //
 // Params:
-//	 - w : a reponse writer
+//	 - w : a response writer
 //	 - r : a http request
 func (p *ProtocolHandler) ServeHTTP(rw bfe_http.ResponseWriter, request *bfe_http.Request) {
 	log.Logger.Debug("ProtocolHandler(%s): start process request", p.proto)

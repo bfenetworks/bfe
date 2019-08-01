@@ -23,8 +23,8 @@ type ConfigSessionCache struct {
 	// disable tls session cache or not
 	SessionCacheDisabled bool
 
-	// tcp address for redis servers
-	Servers string // one server or multiply servers(seperated by ',')
+	// address for redis servers
+	Servers string
 
 	// perfix for cache key
 	KeyPrefix string

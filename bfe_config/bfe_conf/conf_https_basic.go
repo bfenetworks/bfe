@@ -70,7 +70,7 @@ type ConfigHttpsBasic struct {
 	TlsRuleConf    string // config for server tls rule
 
 	CipherSuites     []string // supported cipher suites
-	CurvePreferences []string // curve perference
+	CurvePreferences []string // curve preference
 
 	MaxTlsVersion string // max tls version supported
 	MinTlsVersion string // min tls version supported

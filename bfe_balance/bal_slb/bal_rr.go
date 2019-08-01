@@ -14,7 +14,7 @@
 
 // weighted round robin balance
 // 
-// Alogrithm:
+// Algorithm:
 //   smooth Weighted Round Robin algorithm is as follows: on each backend selection,
 //   1. increase CurrentWeight of each eligible backend by its weight,
 //   2. select backend with greatest CurrentWeight and reduce its CurrentWeight
@@ -54,7 +54,7 @@ import (
 	"github.com/baidu/bfe/bfe_debug"
 )
 
-// implementation versions of weighted round robin alogrithm
+// implementation versions of weighted round robin algorithm
 const (
 	WrrSimple = 0
 	WrrSmooth = 1

@@ -34,7 +34,7 @@ import (
 )
 
 func UpdateStatus(backend *BfeBackend, cluster string) bool {
-	// get conf of health check, which is seperately stored for each cluster
+	// get conf of health check, which is separately stored for each cluster
 	checkConf := getCheckConf(cluster)
 	if checkConf == nil {
 		// just ingore if not found health check conf
