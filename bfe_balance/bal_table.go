@@ -125,12 +125,11 @@ func (t *BalTable) gslbInit(gslbConfs gslb_conf.GslbConf) error {
 	t.versions.GslbConfTimeStamp = *gslbConfs.Ts
 	t.versions.GslbConfSrc = *gslbConfs.Hostname
 
-	if len(fails) == 0 {
-		return nil
-	} else {
+	if len(fails) != 0 {
 		return fmt.Errorf("error in ClusterTable.gslbInit() for [%s]",
 			strings.Join(fails, ","))
 	}
+	return nil
 }
 
 func (t *BalTable) backendInit(backendConfs cluster_table_conf.ClusterTableConf) error {
@@ -159,12 +158,11 @@ func (t *BalTable) backendInit(backendConfs cluster_table_conf.ClusterTableConf)
 	// update versions
 	t.versions.ClusterTableConfVer = *backendConfs.Version
 
-	if len(fails) == 0 {
-		return nil
-	} else {
+	if len(fails) != 0 {
 		return fmt.Errorf("error in ClusterTable.backendInit() for [%s]",
 			strings.Join(fails, ","))
 	}
+	return nil
 }
 
 // SetGslbBasic sets gslb basic conf (from server data conf) for BalTable.
@@ -244,11 +242,10 @@ func (t *BalTable) BalTableReload(gslbConfs gslb_conf.GslbConf,
 
 	t.lock.Unlock()
 
-	if len(fails) == 0 {
-		return nil
-	} else {
+	if len(fails) != 0 {
 		return fmt.Errorf("error in BalTableReload() for [%s]", strings.Join(fails, ","))
 	}
+	return nil
 }
 
 func (t *BalTable) lookup(clusterName string) (*bal_gslb.BalanceGslb, error) {

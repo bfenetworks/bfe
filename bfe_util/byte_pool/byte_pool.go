@@ -23,16 +23,14 @@ type BytePool struct {
 	maxElemNum  int // max element num
 }
 
-/*
-* NewBytePool - create a new BytePool
-*
-* PARAMS:
-*   - elemNum: int, the max element num of BytePool
-*   - maxElemSize: int, the max length of each element
-*
-* RETURNS:
-*   - a pointer point to the BytePool
- */
+// NewBytePool creates a new BytePool
+//
+// PARAMS:
+//   - elemNum: int, the max element num of BytePool
+//   - maxElemSize: int, the max length of each element
+//
+// RETURNS:
+//   - a pointer point to the BytePool
 func NewBytePool(elemNum int, maxElemSize int) *BytePool {
 	pool := new(BytePool)
 	pool.buf = make([]byte, elemNum*maxElemSize)
@@ -43,13 +41,11 @@ func NewBytePool(elemNum int, maxElemSize int) *BytePool {
 	return pool
 }
 
-/*
-* Set - set the index node of BytePool with key
-*
-* PARAMS:
-*   - index: index of the byte Pool
-*   - key: []byte key
- */
+// Set sets the index node of BytePool with key
+//
+// PARAMS:
+//   - index: index of the byte Pool
+//   - key: []byte key
 func (pool *BytePool) Set(index int32, key []byte) error {
 	if int(index) >= pool.maxElemNum {
 		return fmt.Errorf("index out of range %d %d", index, pool.maxElemNum)
@@ -67,15 +63,13 @@ func (pool *BytePool) Set(index int32, key []byte) error {
 	return nil
 }
 
-/*
-* Get the byte slice
-*
-* PARAMS:
-*   - index: int, index of the BytePool
-*
-* RETURNS:
-*   - key: []byte type store in the BytePool
- */
+// Get the byte slice
+//
+// PARAMS:
+//   - index: int, index of the BytePool
+//
+// RETURNS:
+//   - key: []byte type store in the BytePool
 func (pool *BytePool) Get(index int32) []byte {
 	start := int(index) * pool.maxElemSize
 	end := start + int(pool.length[index])
@@ -83,7 +77,7 @@ func (pool *BytePool) Get(index int32) []byte {
 	return pool.buf[start:end]
 }
 
-/* get the space allocate for each element */
+// MaxElemSize returns the space allocate for each element
 func (pool *BytePool) MaxElemSize() int {
 	return pool.maxElemSize
 }

@@ -180,7 +180,7 @@ func checkHTTPConnect(backend *BfeBackend, checkConf *cluster_conf.BackendCheck)
 	return cluster_conf.MatchStatusCode(statusCode, *checkConf.StatusCode)
 }
 
-// CheckRedirect check whether backend server become available.
+// CheckConnect checks whether backend server become available.
 func CheckConnect(backend *BfeBackend, checkConf *cluster_conf.BackendCheck) (bool, error) {
 	switch *checkConf.Schem {
 	case "http":

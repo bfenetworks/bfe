@@ -39,7 +39,7 @@ var (
 	errRetryTooMany   = errors.New("bfe_websocket: proxy retry too many")
 )
 
-// CheckAcceptWebSocket checks whether client request for WebSocket protocol.
+// CheckUpgradeWebSocket checks whether client request for WebSocket protocol.
 func CheckUpgradeWebSocket(req *http.Request) bool {
 	if req.Method != "GET" {
 		return false
@@ -71,9 +71,8 @@ func CheckAcceptWebSocket(rsp *http.Response) bool {
 func Scheme(c net.Conn) string {
 	if _, ok := c.(*tls.Conn); ok {
 		return "wss" // websocket over https
-	} else {
-		return "ws" // websocket over http
 	}
+	return "ws" // websocket over http
 }
 
 // BalanceHandler selects backend for current conn.

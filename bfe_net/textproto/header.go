@@ -18,11 +18,11 @@
 
 package textproto
 
-// A MIMEHeader represents a MIME-style header mapping
+// MIMEHeader represents a MIME-style header mapping
 // keys to sets of values.
 type MIMEHeader map[string][]string
 
-// A MIMEKyes represents keys of header in original order
+// MIMEKyes represents keys of header in original order
 type MIMEKeys []string
 
 // Add adds the key, value pair to the header.

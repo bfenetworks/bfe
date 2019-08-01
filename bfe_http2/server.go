@@ -2501,9 +2501,8 @@ func (w *responseWriter) write(lenData int, dataB []byte, dataS string) (n int, 
 
 	if dataB != nil {
 		return rws.bw.Write(dataB)
-	} else {
-		return rws.bw.WriteString(dataS)
 	}
+	return rws.bw.WriteString(dataS)
 }
 
 func (w *responseWriter) handlerDone() {

@@ -115,7 +115,7 @@ func ReqQueryRename(req *bfe_basic.Request, oldName string, newName string) {
 	req.HttpRequest.URL.RawQuery = rawQuery[1:]
 }
 
-// ReqQueryRename deletes some keys from query
+// ReqQueryDel deletes some keys from query
 func ReqQueryDel(req *bfe_basic.Request, keys []string) {
 	// add "&" prefix and suffix to simplify process
 	rawQuery := "&" + req.HttpRequest.URL.RawQuery + "&"

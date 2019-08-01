@@ -30,9 +30,7 @@ const (
 	IP_LENGTH = 16
 )
 
-/* implement Hash method for hashSet
- * convert net.IP to type uint64
- */
+// Hash is a hash method which convert net.IP to type uint64.
 func Hash(ip []byte) uint64 {
 	hash64 := fnv.New64()
 	hash64.Write(ip)
@@ -46,14 +44,14 @@ type ipPair struct {
 
 type ipPairs []ipPair
 
-/* IPItems manage single IP(hashSet) and ipPairs */
+// IPItems manage single IP(hashSet) and ipPairs
 type IPItems struct {
 	ipSet   *hash_set.HashSet
 	items   ipPairs
 	Version string
 }
 
-/* create new IPItems */
+// NewIPItems creates new IPItems
 func NewIPItems(maxSingleIPNum int, maxPairIPNum int) (*IPItems, error) {
 	// maxSingleIPNum && maxPairIPNum must >= 0
 	if maxSingleIPNum < 0 || maxPairIPNum < 0 {
@@ -76,26 +74,25 @@ func NewIPItems(maxSingleIPNum int, maxPairIPNum int) (*IPItems, error) {
 	return ipItems, nil
 }
 
-/* IPItems should implement Len() for calling sort.Sort(items) */
+// Len returns num of items
 func (items ipPairs) Len() int {
 	return len(items)
 }
 
-/* IPItems should implement Less(int, int) for calling sort.Sort(items) */
+// Less compares specified items
 func (items ipPairs) Less(i, j int) bool {
 	return bytes.Compare(items[i].startIP, items[j].startIP) >= 0
 }
 
-/* IPItems should implement Swap(int, int) for calling sort.Sort(items) */
+// Swap swaps specified items
 func (items ipPairs) Swap(i, j int) {
 	items[i], items[j] = items[j], items[i]
 }
 
-/* checkMerge merge items between index i and j in sorted items.
-   If items[i] and items[j] can merge, then merge all items between index i and j
-   Others do not merge.
-   Constraint: j > i, items[j].endIP >= items[i].startIP
-*/
+// checkMerge merge items between index i and j in sorted items.
+// If items[i] and items[j] can merge, then merge all items between index i and j
+// Others do not merge.
+// Constraint: j > i, items[j].endIP >= items[i].startIP
 func (ipItems *IPItems) checkMerge(i, j int) int {
 	var mergedNum int
 
@@ -127,24 +124,23 @@ func (ipItems *IPItems) checkMerge(i, j int) int {
 	return mergedNum
 }
 
-/* mergeItems provides for merging sorted items
-   1. Sorted dict
-    startIPStr   endIPStr
-   ------------------------
-   10.26.74.55 10.26.74.255
-   10.23.77.88 10.23.77.240
-   10.21.34.5  10.23.77.100
-   10.12.14.2  10.12.14.50
-   ------------------------
-   2. Merged sorted dict
-    startIPStr   endIPStr
-   ------------------------
-   10.26.74.55 10.26.74.255
-   10.21.34.5  10.23.77.240
-   10.12.14.2  10.12.14.50
-   0.0.0.0     0.0.0.0
-   ------------------------
-*/
+// mergeItems provides for merging sorted items
+// 1. Sorted dict
+//  startIPStr   endIPStr
+// ------------------------
+// 10.26.74.55 10.26.74.255
+// 10.23.77.88 10.23.77.240
+// 10.21.34.5  10.23.77.100
+// 10.12.14.2  10.12.14.50
+// ------------------------
+// 2. Merged sorted dict
+//  startIPStr   endIPStr
+// ------------------------
+// 10.26.74.55 10.26.74.255
+// 10.21.34.5  10.23.77.240
+// 10.12.14.2  10.12.14.50
+// 0.0.0.0     0.0.0.0
+// ------------------------
 func (ipItems *IPItems) mergeItems() int {
 	var mergedNum int
 
@@ -169,7 +165,7 @@ func (ipItems *IPItems) mergeItems() int {
 	return mergedNum
 }
 
-/* InsertPair provides insert startIP,endIP into IpItems */
+// InsertPair provides insert startIP,endIP into IpItems
 func (ipItems *IPItems) InsertPair(startIP, endIP net.IP) error {
 	if err := checkIPPair(startIP, endIP); err != nil {
 		return fmt.Errorf("InsertPair failed: %s", err.Error())
@@ -182,7 +178,7 @@ func (ipItems *IPItems) InsertPair(startIP, endIP net.IP) error {
 	return nil
 }
 
-/* InsertSingle single ip into ipitems */
+// InsertSingle insert single ip into ipitems
 func (ipItems *IPItems) InsertSingle(ip net.IP) error {
 	ip16 := ip.To16()
 	if ip16 == nil {
@@ -191,40 +187,38 @@ func (ipItems *IPItems) InsertSingle(ip net.IP) error {
 	return ipItems.ipSet.Add(ip16)
 }
 
-/*
-   Sort provides for sorting dict according startIP by descending order
-   1. Origin dict
-    startIPStr   endIPStr
-   ------------------------
-   10.26.74.55 10.26.74.255
-   10.12.14.2  10.12.14.50
-   10.21.34.5  10.23.77.100
-   10.23.77.88 10.23.77.240
-   ------------------------
-   2. Sorted dict
-    startIPStr   endIPStr
-   ------------------------
-   10.26.74.55 10.26.74.255
-   10.23.77.88 10.23.77.240
-   10.21.34.5  10.23.77.100
-   10.12.14.2  10.12.14.50
-   ------------------------
-   3. Merged sorted dict
-    startIPStr   endIPStr
-   ------------------------
-   10.26.74.55 10.26.74.255
-   10.21.34.5  10.23.77.240
-   10.12.14.2  10.12.14.50
-   0.0.0.0     0.0.0.0
-   ------------------------
-   4. Dict after resliced
-    startIPStr   endIPStr
-   ------------------------
-   10.26.74.55 10.26.74.255
-   10.21.34.5  10.23.77.240
-   10.12.14.2  10.12.14.50
-   ------------------------
-*/
+// Sort provides for sorting dict according startIP by descending order
+// 1. Origin dict
+//  startIPStr   endIPStr
+// ------------------------
+// 10.26.74.55 10.26.74.255
+// 10.12.14.2  10.12.14.50
+// 10.21.34.5  10.23.77.100
+// 10.23.77.88 10.23.77.240
+// ------------------------
+// 2. Sorted dict
+//  startIPStr   endIPStr
+// ------------------------
+// 10.26.74.55 10.26.74.255
+// 10.23.77.88 10.23.77.240
+// 10.21.34.5  10.23.77.100
+// 10.12.14.2  10.12.14.50
+// ------------------------
+// 3. Merged sorted dict
+//  startIPStr   endIPStr
+// ------------------------
+// 10.26.74.55 10.26.74.255
+// 10.21.34.5  10.23.77.240
+// 10.12.14.2  10.12.14.50
+// 0.0.0.0     0.0.0.0
+// ------------------------
+// 4. Dict after resliced
+//  startIPStr   endIPStr
+// ------------------------
+// 10.26.74.55 10.26.74.255
+// 10.21.34.5  10.23.77.240
+// 10.12.14.2  10.12.14.50
+// ------------------------
 func (ipItems *IPItems) Sort() {
 
 	// Sort items according startIP by descending order
@@ -241,7 +235,7 @@ func (ipItems *IPItems) Sort() {
 	ipItems.items = ipItems.items[0:length]
 }
 
-/* get ip num of IPItems */
+// Length return num of IPItems
 func (ipItems *IPItems) Length() int {
 	num := len(ipItems.items)
 	num += ipItems.ipSet.Len()

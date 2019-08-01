@@ -28,21 +28,20 @@ func checkEqual(src, dst ipPairs) bool {
 	if len(src) != len(dst) {
 		fmt.Println("checkEqual(): len not equal!")
 		return false
-	} else {
-		for i := 0; i < len(src); i++ {
-			if !bytes.Equal(src[i].startIP, dst[i].startIP) {
-				fmt.Printf("checkEqual(): start element [%d] and [%d] are not equal!\n",
-					src[i].startIP, dst[i].startIP)
-				return false
-			}
-
-			if !bytes.Equal(src[i].endIP, dst[i].endIP) {
-				fmt.Printf("checkEqual(): end element [%d] and [%d] are not equal!\n",
-					src[i].endIP, dst[i].endIP)
-				return false
-			}
-
+	}
+	for i := 0; i < len(src); i++ {
+		if !bytes.Equal(src[i].startIP, dst[i].startIP) {
+			fmt.Printf("checkEqual(): start element [%d] and [%d] are not equal!\n",
+				src[i].startIP, dst[i].startIP)
+			return false
 		}
+
+		if !bytes.Equal(src[i].endIP, dst[i].endIP) {
+			fmt.Printf("checkEqual(): end element [%d] and [%d] are not equal!\n",
+				src[i].endIP, dst[i].endIP)
+			return false
+		}
+
 	}
 
 	return true

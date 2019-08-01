@@ -127,7 +127,7 @@ var StatusText = map[int]string{
 	statusNetworkAuthenticationRequired: "Network Authentication Required",
 }
 
-// StatusText returns a text for the HTTP status code. It returns the empty
+// StatusTextGet returns a text for the HTTP status code. It returns the empty
 // string if the code is unknown.
 func StatusTextGet(code int) string {
 	return StatusText[code]

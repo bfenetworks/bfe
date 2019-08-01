@@ -59,7 +59,8 @@ func (h Header) Get(key string) string {
 	return textproto.MIMEHeader(h).Get(key)
 }
 
-// get is like Get, but key must already be in CanonicalHeaderKey form.
+// GetDirect gets the value associated with the given key
+// in CanonicalHeaderKey form.
 func (h Header) GetDirect(key string) string {
 	if v := h[key]; len(v) > 0 {
 		return v[0]
@@ -233,7 +234,7 @@ func (h Header) writeSubsetWithoutSort(w io.Writer, exclude map[string]bool) err
 // canonical key for "accept-encoding" is "Accept-Encoding".
 func CanonicalHeaderKey(s string) string { return textproto.CanonicalMIMEHeaderKey(s) }
 
-// hasToken reports whether token appears with v, ASCII
+// HasToken reports whether token appears with v, ASCII
 // case-insensitive, with space or comma boundaries.
 // token must be all lowercase.
 // v may contain mixed cased.

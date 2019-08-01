@@ -22,14 +22,14 @@ import (
 	"github.com/baidu/go-lib/log"
 )
 
-/* TermHandler deal with the signal that should terminate the process */
+// TermHandler deal with the signal that should terminate the process
 func TermHandler(s os.Signal) {
 	log.Logger.Info("termHandler(): receive signal[%v], terminate.", s)
 	log.Logger.Close()
 	os.Exit(0)
 }
 
-/* IgnoreHandler deal with the signal that should be ignored */
+// IgnoreHandler deal with the signal that should be ignored
 func IgnoreHandler(s os.Signal) {
 	log.Logger.Info("ignoreHandler(): receive signal[%v], ignore.", s)
 }

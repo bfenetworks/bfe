@@ -42,7 +42,7 @@ type RouteRuleFile struct {
 type RouteRules []RouteRule
 type RouteRuleFiles []RouteRuleFile
 
-// ProductRule holds mapping from product to rules.
+// ProductRouteRule holds mapping from product to rules.
 type ProductRouteRule map[string]RouteRules
 type ProductRouteRuleFile map[string]RouteRuleFiles
 

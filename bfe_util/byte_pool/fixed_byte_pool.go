@@ -22,16 +22,14 @@ type FixedBytePool struct {
 	maxElemNum int // max element num
 }
 
-/*
-* NewFixedBytePool - create a new FixedBytePool
-*
-* PARAMS:
-*   - elemNum: int, the max element num of FixedBytePool
-*   - elemSize: int, the max length of each element
-*
-* RETURNS:
-*   - a pointer point to the FixedBytePool
- */
+// NewFixedBytePool creates a new FixedBytePool
+//
+// PARAMS:
+//   - elemNum: int, the max element num of FixedBytePool
+//   - elemSize: int, the max length of each element
+//
+// RETURNS:
+//   - a pointer point to the FixedBytePool
 func NewFixedBytePool(elemNum int, elemSize int) *FixedBytePool {
 	pool := new(FixedBytePool)
 	pool.buf = make([]byte, elemNum*elemSize)
@@ -41,13 +39,11 @@ func NewFixedBytePool(elemNum int, elemSize int) *FixedBytePool {
 	return pool
 }
 
-/*
-* Set - set the index node of FixedBytePool with key
-*
-* PARAMS:
-*   - index: index of the byte Pool
-*   - key: []byte key
- */
+// Set sets the index node of FixedBytePool with key
+//
+// PARAMS:
+//   - index: index of the byte Pool
+//   - key: []byte key
 func (pool *FixedBytePool) Set(index int32, key []byte) error {
 	if int(index) >= pool.maxElemNum {
 		return fmt.Errorf("index out of range %d %d", index, pool.maxElemNum)
@@ -62,15 +58,13 @@ func (pool *FixedBytePool) Set(index int32, key []byte) error {
 	return nil
 }
 
-/*
-* Get the byte slice of giving index and length
-*
-* PARAMS:
-*   - index: int, index of the FixedBytePool
-*
-* RETURNS:
-*   - key: []byte type store in the FixedBytePool
- */
+// Get the byte slice of giving index and length
+//
+// PARAMS:
+//   - index: int, index of the FixedBytePool
+//
+// RETURNS:
+//   - key: []byte type store in the FixedBytePool
 func (pool *FixedBytePool) Get(index int32) []byte {
 	start := int(index) * pool.elemSize
 	end := start + pool.elemSize
@@ -78,7 +72,7 @@ func (pool *FixedBytePool) Get(index int32) []byte {
 	return pool.buf[start:end]
 }
 
-/* get the space allocate for each element */
+// MaxElemSize return the space allocate for each element
 func (pool *FixedBytePool) MaxElemSize() int {
 	return pool.elemSize
 }

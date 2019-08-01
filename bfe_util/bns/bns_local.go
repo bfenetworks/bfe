@@ -31,7 +31,7 @@ type NameConf struct {
 var localNameConf LocalNameConf
 var localNameLock sync.RWMutex
 
-// LocalNameConf loads name conf file
+// LoadLocalNameConf loads name conf file
 func LoadLocalNameConf(filename string) error {
 	// load local name conf
 	nameConf, err := parseLocalNameConf(filename)

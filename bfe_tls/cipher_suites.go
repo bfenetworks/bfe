@@ -115,7 +115,7 @@ var cipherSuites = []*cipherSuite{
 	{TLS_RSA_WITH_3DES_EDE_CBC_SHA, 24, 20, 8, rsaKA, 0, cipher3DES, macSHA1, nil},
 }
 
-// check whether cipher suite using RSA key argreement
+// CheckSuiteRSA checks whether cipher suite using RSA key argreement
 func CheckSuiteRSA(id uint16) bool {
 	switch id {
 	case TLS_RSA_WITH_RC4_128_SHA:

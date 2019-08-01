@@ -57,7 +57,7 @@ func (b *RequestBody) Close() error {
 	return nil
 }
 
-// check wheather without entity body
+// Eof check wheather without entity body
 func (b *RequestBody) Eof() bool {
 	return b.pipe == nil
 }

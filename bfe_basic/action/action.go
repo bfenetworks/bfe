@@ -62,7 +62,7 @@ type Action struct {
 	Params []string // params of action
 }
 
-// UnmarshalJson decodes given data in json format
+// UnmarshalJSON decodes given data in json format
 func (ac *Action) UnmarshalJSON(data []byte) error {
 	var actionFile ActionFile
 

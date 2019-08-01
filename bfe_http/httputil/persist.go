@@ -163,10 +163,9 @@ func (sc *ServerConn) Read() (req *http.Request, err error) {
 			// data before the close.
 			sc.re = ErrPersistEOF
 			return nil, sc.re
-		} else {
-			sc.re = err
-			return req, err
 		}
+		sc.re = err
+		return req, err
 	}
 	sc.lastbody = req.Body
 	sc.nread++

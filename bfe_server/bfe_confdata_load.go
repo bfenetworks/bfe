@@ -258,7 +258,7 @@ func (srv *BfeServer) enableTLSNextProto(proto string) {
 	}
 }
 
-// NameConfLoad reloads name conf data.
+// NameConfReload reloads name conf data.
 func (srv *BfeServer) NameConfReload(query url.Values) error {
 	nameConfFile := query.Get("path")
 	if nameConfFile == "" {

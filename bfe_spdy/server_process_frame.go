@@ -229,9 +229,8 @@ func (sc *serverConn) processData(f *DataFrame) error {
 			st.body.CloseWithError(fmt.Errorf("request declared a Content-Length of %d but only wrote %d bytes",
 				st.declBodyBytes, st.bodyBytes))
 			return StreamError{id, ProtocolError}
-		} else {
-			st.body.CloseWithError(io.EOF)
 		}
+		st.body.CloseWithError(io.EOF)
 		st.state = stateHalfClosedRemote
 	}
 	return nil

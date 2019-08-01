@@ -42,14 +42,14 @@ func (t *IPTable) Version() string {
 	return ""
 }
 
-/* Update provides for thread-safe switching items */
+// Update provides for thread-safe switching items
 func (t *IPTable) Update(items *IPItems) {
 	t.lock.Lock()
 	t.ipItems = items
 	t.lock.Unlock()
 }
 
-/* Search provides for binary search IP in dict */
+// Search provides for binary search IP in dict
 func (t *IPTable) Search(srcIP net.IP) bool {
 	var hit bool
 	t.lock.Lock()

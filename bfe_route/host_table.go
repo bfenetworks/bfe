@@ -93,7 +93,7 @@ func (t *HostTable) updateRouteTable(conf *route_rule_conf.RouteTableConf) {
 	t.productRouteTable = conf.RuleMap
 }
 
-// update all
+// Update updates host table
 func (t *HostTable) Update(hostConf host_rule_conf.HostConf,
 	vipConf vip_rule_conf.VipConf, routeConf *route_rule_conf.RouteTableConf) {
 

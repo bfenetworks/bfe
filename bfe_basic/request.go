@@ -156,9 +156,8 @@ func (req *Request) SetRequestTransport(backend *backend.BfeBackend,
 func (req *Request) Protocol() string {
 	if req.Session.IsSecure {
 		return req.Session.Proto
-	} else {
-		return req.HttpRequest.Proto
 	}
+	return req.HttpRequest.Proto
 }
 
 func (r *Request) AddTags(name string, ntags []string) {

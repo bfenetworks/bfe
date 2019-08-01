@@ -158,7 +158,7 @@ const (
 	FlagSettingsPersisted                 = 0x2
 )
 
-// SettingsFlag represents the id of an id/value pair in a SETTINGS frame.
+// SettingsId represents the id of an id/value pair in a SETTINGS frame.
 type SettingsId uint32
 
 const (
@@ -243,16 +243,16 @@ func (f *DataFrame) String() string {
 		f.StreamId, f.Flags, len(f.Data))
 }
 
-// Special frame for flush connection buffer
+// FlushFrame is the special frame for flush connection buffer.
 type FlushFrame struct{}
 
-// Special frame for finish connection
+// FinFrame is the special frame for finish connection.
 type FinFrame struct{}
 
-// Special frame for reset stream with panic
+// PanicFrame is the special frame for reset stream with panic.
 type PanicFrame struct{}
 
-// A SPDY specific error.
+// ErrorCode represents SPDY specific error.
 type ErrorCode string
 
 const (

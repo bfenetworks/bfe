@@ -57,7 +57,7 @@ type Cookie struct {
 
 type CookieMap map[string]*Cookie
 
-// parse cookies(slice) to req.Route.CookieMap(map)
+// CookieMapGet parse cookies(slice) to req.Route.CookieMap(map)
 func CookieMapGet(cookies []*Cookie) CookieMap {
 	cookieMap := make(CookieMap, len(cookies))
 

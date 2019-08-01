@@ -26,7 +26,7 @@ import (
 	"github.com/baidu/go-lib/web-monitor/kv_encode"
 )
 
-// HostTable returns status of HostTable in json.
+// HostTableStatusGet returns status of HostTable in json.
 func (srv *BfeServer) HostTableStatusGet(query url.Values) ([]byte, error) {
 	srv.confLock.RLock()
 	serverConf := srv.ServerConf
@@ -114,7 +114,7 @@ func (srv *BfeServer) ClusterTableVersionGet(query url.Values) ([]byte, error) {
 	return buff, err
 }
 
-// BalTableVersionGet returns state of balTable.
+// BalTableStatusGet returns state of balTable.
 func (srv *BfeServer) BalTableStatusGet(query url.Values) ([]byte, error) {
 	var buff []byte
 	var err error
@@ -141,7 +141,7 @@ func (srv *BfeServer) BalTableStatusGet(query url.Values) ([]byte, error) {
 	return buff, err
 }
 
-// BalTableStatusGet returns versions of balTable.
+// BalTableVersionGet returns versions of balTable.
 func (srv *BfeServer) BalTableVersionGet(query url.Values) ([]byte, error) {
 	// get versions
 	output := srv.balTable.GetVersions()

@@ -28,14 +28,14 @@ const (
 	MAX_LOC_LEN = 1024
 )
 
-//uppercasing the first letter for binary lib
+// uppercasing the first letter for binary lib
 type ipLocation struct {
 	startIp  net.IP
 	endIp    net.IP
 	location []byte
 }
 
-//[]byte to string ,remove last 0 in []bytes
+// []byte to string ,remove last 0 in []bytes
 func byteString(p []byte) string {
 	for i := 0; i < len(p); i++ {
 		if p[i] == 0 {
@@ -54,12 +54,12 @@ type IpLocationTable struct {
 }
 
 func NewIpLocationTable(maxSize uint32, LocLen uint32) (*IpLocationTable, error) {
-	//maxSize max is MAX_LINE
+	// maxSize max is MAX_LINE
 	if maxSize == 0 || maxSize > MAX_LINE {
 		return nil, fmt.Errorf("NewIpLocationTable caused by maxSize :%d", maxSize)
 	}
 
-	//LocLen max size is MAX_LOC_LEN
+	// LocLen max size is MAX_LOC_LEN
 	if LocLen == 0 || LocLen > MAX_LOC_LEN {
 		return nil, fmt.Errorf("NewIpLocationTable caused by LocLen :%d", LocLen)
 	}
@@ -72,7 +72,7 @@ func NewIpLocationTable(maxSize uint32, LocLen uint32) (*IpLocationTable, error)
 	return ipLocTable, nil
 }
 
-//write ipLocation Struct to locations by [HeaderLen+t.LocLen]byte
+// write ipLocation Struct to locations by [HeaderLen+t.LocLen]byte
 func (t *IpLocationTable) writeStruct(idx uint32, ipLoc ipLocation) {
 	sOffset := idx * (t.LocLen + HEADER_LEN)
 	copy(t.locations[sOffset:sOffset+IP_SIZE], ipLoc.startIp)
@@ -80,7 +80,7 @@ func (t *IpLocationTable) writeStruct(idx uint32, ipLoc ipLocation) {
 	copy(t.locations[sOffset+HEADER_LEN:sOffset+HEADER_LEN+t.LocLen], ipLoc.location)
 }
 
-//read ipLocation from locations by idx
+// read ipLocation from locations by idx
 func (t *IpLocationTable) readStruct(idx uint32) ipLocation {
 	var ipLoc ipLocation
 	sOffset := idx * (t.LocLen + HEADER_LEN)
@@ -90,9 +90,9 @@ func (t *IpLocationTable) readStruct(idx uint32) ipLocation {
 	return ipLoc
 }
 
-//add ip location dict to locations buffer
-//assume add startIP:EndIP have been sorted
-//every add startIP:EndIP region does not overlap
+// Add ip location dict to locations buffer
+// assume add startIP:EndIP have been sorted
+// every add startIP:EndIP region does not overlap
 func (t *IpLocationTable) Add(startIP, endIP net.IP, location string) error {
 	if err := checkIPPair(startIP, endIP); err != nil {
 		return fmt.Errorf("Add failed: %s", err.Error())
@@ -105,7 +105,7 @@ func (t *IpLocationTable) Add(startIP, endIP net.IP, location string) error {
 	startIP16 := startIP.To16()
 	endIP16 := endIP.To16()
 
-	//write unit(startip,endip,location) to locations buffer
+	// write unit(startip,endip,location) to locations buffer
 	var loc ipLocation
 	loc.startIp = startIP16
 	loc.endIp = endIP16
@@ -117,8 +117,8 @@ func (t *IpLocationTable) Add(startIP, endIP net.IP, location string) error {
 	return nil
 }
 
-//binary search pool to find the ip's location
-//search sort of array(order from small to large)
+// Search find the ip's location.
+// search sort of array(order from small to large)
 func (t *IpLocationTable) Search(cip net.IP) (string, error) {
 	ipAddr16 := cip.To16()
 	if ipAddr16 == nil {
@@ -138,7 +138,7 @@ func (t *IpLocationTable) Search(cip net.IP) (string, error) {
 			return bytes.Compare(b, ipAddr16) >= 0
 		})
 
-	//get idx corresponding ip section's first ip
+	// get idx corresponding ip section's first ip
 	var fristIp net.IP
 	if uint32(idx) <= indexLen-1 {
 		s := uint32(idx) * (HEADER_LEN + t.LocLen)
@@ -149,18 +149,18 @@ func (t *IpLocationTable) Search(cip net.IP) (string, error) {
 	var preIdx uint32
 
 	if uint32(idx) == indexLen {
-		//consider ipAdd last element(uint32(idx) == indexLen)
+		// consider ipAdd last element(uint32(idx) == indexLen)
 		preIdx = uint32(indexLen - 1)
 	} else if bytes.Equal(fristIp, ipAddr16) || idx == 0 {
-		//consider ipAdd locate in frist section (idx == 0)
-		//consider ipAdd is first ip in ip's section(fristIp == ipAddr16)
+		// consider ipAdd locate in frist section (idx == 0)
+		// consider ipAdd is first ip in ip's section(fristIp == ipAddr16)
 		preIdx = uint32(idx)
 	} else {
-		//other think ipAdd location previous section
+		// other think ipAdd location previous section
 		preIdx = uint32(idx - 1)
 	}
 
-	//read unit(startip,endip,location) from locations buffer
+	// read unit(startip,endip,location) from locations buffer
 	loc := t.readStruct(preIdx)
 	if bytes.Compare(ipAddr16, loc.endIp) <= 0 && bytes.Compare(ipAddr16, loc.startIp) >= 0 {
 		return byteString(loc.location[0:]), nil

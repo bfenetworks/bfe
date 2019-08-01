@@ -1030,9 +1030,8 @@ func TestMetaFrameHeader(t *testing.T) {
 			str := func(v interface{}) string {
 				if _, ok := v.(error); ok {
 					return fmt.Sprintf("error %v", v)
-				} else {
-					return fmt.Sprintf("value %#v", v)
 				}
+				return fmt.Sprintf("value %#v", v)
 			}
 			t.Errorf("%s:\n got: %v\nwant: %s", name, str(got), str(tt.want))
 		}

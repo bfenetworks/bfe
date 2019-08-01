@@ -279,7 +279,7 @@ func httpCodeString(code int) string {
 	return strconv.Itoa(code)
 }
 
-// connection-specific header fields which should be removed
+// HopHeaders are connection-specific header fields which should be removed
 // when endpoint generates an http/2 message
 var HopHeaders = map[string]bool{
 	"Connection":          true,
@@ -522,7 +522,7 @@ func strSliceContains(ss []string, s string) bool {
 	return false
 }
 
-// close underlying connection for request
+// CloseConn closes underlying connection for request
 func CloseConn(body io.ReadCloser) {
 	if b, ok := body.(*RequestBody); ok {
 		if b.conn != nil {
@@ -533,7 +533,7 @@ func CloseConn(body io.ReadCloser) {
 
 var http2Limiter http.FlowLimiter
 
-// init flow limiter for http2
+// SetFlowLimiter init flow limiter for http2
 func SetFlowLimiter(limiter http.FlowLimiter) {
 	http2Limiter = limiter
 }

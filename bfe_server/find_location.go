@@ -75,7 +75,7 @@ func (srv *BfeServer) FindLocation(request *bfe_basic.Request) (string, error) {
 	return clusterName, nil
 }
 
-// FindProEnd finds product for proxied conn (under tls proxy mode).
+// FindProduct finds product for proxied conn (under tls proxy mode).
 func (srv *BfeServer) FindProduct(conn net.Conn) string {
 	sc := srv.GetServerConf()
 

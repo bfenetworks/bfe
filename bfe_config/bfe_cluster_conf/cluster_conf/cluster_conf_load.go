@@ -90,7 +90,7 @@ type HashConf struct {
 	SessionSticky *bool
 }
 
-// Cluster conf for Gslb
+// GslbBasicConf is basic conf for Gslb
 type GslbBasicConf struct {
 	CrossRetry *int // retry cross sub clusters
 	RetryMax   *int // inner cluster retry
@@ -111,7 +111,7 @@ type ClusterBasicConf struct {
 	CancelOnClientClose *bool // cancel blocking operation on server if client connection disconnected
 }
 
-// ClusterBasicConf is conf of cluster.
+// ClusterConf is conf of cluster.
 type ClusterConf struct {
 	BackendConf  *BackendBasic     // backend's basic conf
 	CheckConf    *BackendCheck     // how to check backend
@@ -222,7 +222,7 @@ func MatchStatusCode(statusCodeGet int, statusCodeExpect int) (bool, error) {
 		statusCodeGet, convertStatusCode(statusCodeExpect))
 }
 
-// BackendBasicCheck check BackendCheck config.
+// BackendCheckCheck check BackendCheck config.
 func BackendCheckCheck(conf *BackendCheck) error {
 	if conf.Schem == nil {
 		// set default schem to http
@@ -337,7 +337,7 @@ func HashConfCheck(conf *HashConf) error {
 	return nil
 }
 
-// ClusterToConf check ClusterBasicConf.
+// ClusterBasicConfCheck check ClusterBasicConf.
 func ClusterBasicConfCheck(conf *ClusterBasicConf) error {
 	if conf.TimeoutReadClientAgain == nil ||
 		conf.TimeoutReadClient == nil ||
@@ -365,7 +365,7 @@ func ClusterBasicConfCheck(conf *ClusterBasicConf) error {
 	return nil
 }
 
-// ClusterBasicConfCheck check ClusterConf.
+// ClusterConfCheck check ClusterConf.
 func ClusterConfCheck(conf *ClusterConf) error {
 	var err error
 

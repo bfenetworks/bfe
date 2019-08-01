@@ -85,18 +85,18 @@ func TrustIPConfCheck(conf *TrustIPConfFile) error {
 	return nil
 }
 
-// load config of trust-ip from file
+// TrustIPConfLoad loads config of trust-ip from file
 func TrustIPConfLoad(filename string) (TrustIPConf, error) {
 	var conf TrustIPConf
 
-	/* open the file    */
+	// open the file
 	file, err1 := os.Open(filename)
 
 	if err1 != nil {
 		return conf, err1
 	}
 
-	/* decode the file  */
+	// decode the file
 	decoder := json.NewDecoder(file)
 
 	config := TrustIPConfFile{}

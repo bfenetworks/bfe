@@ -323,9 +323,8 @@ func (w *response) write(lenData int, dataB []byte, dataS string) (n int, err er
 	}
 	if dataB != nil {
 		return w.w.Write(dataB)
-	} else {
-		return w.w.WriteString(dataS)
 	}
+	return w.w.WriteString(dataS)
 }
 
 func (w *response) finishRequest() {

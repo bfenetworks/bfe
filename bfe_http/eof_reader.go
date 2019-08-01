@@ -24,7 +24,7 @@ import (
 	"strings"
 )
 
-// eofReader is a non-nil io.ReadCloser that always returns EOF.
+// EofReader is a non-nil io.ReadCloser that always returns EOF.
 // It embeds a *strings.Reader so it still has a WriteTo method
 // and io.Copy won't need a buffer.
 var EofReader = &struct {

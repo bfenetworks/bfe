@@ -283,7 +283,7 @@ type NextProtoConf interface {
 	Get(c *Conn) []string
 }
 
-// customized tls config for specific conn in server side
+// Rule represents customized tls config for specific conn in server side
 type Rule struct {
 	// NextProtos is a list of supported, application level protocols.
 	NextProtos NextProtoConf
@@ -843,7 +843,7 @@ func generateHelloRandom(rand io.Reader) ([]byte, error) {
 	return random, nil
 }
 
-// check ocsp time update range
+// OcspTimeRangeCheck check ocsp time update range
 func OcspTimeRangeCheck(parse *ocsp.Response) bool {
 	serverTime := time.Now()
 	nextUpdate := parse.NextUpdate

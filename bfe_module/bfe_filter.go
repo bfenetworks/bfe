@@ -48,13 +48,13 @@ import (
 	"github.com/baidu/bfe/bfe_http"
 )
 
-// ResponseFilter filters incomming requests and return a response or nil.
+// RequestFilter filters incomming requests and return a response or nil.
 // Filters are chained together into a HandlerList.
 type RequestFilter interface {
 	FilterRequest(request *bfe_basic.Request) (int, *bfe_http.Response)
 }
 
-// NewResponseFilter create a Filter by passed func.
+// NewRequestFilter create a Filter by passed func.
 func NewRequestFilter(f func(request *bfe_basic.Request) (int, *bfe_http.Response)) RequestFilter {
 	rf := new(genericRequestFilter)
 	rf.f = f
@@ -75,7 +75,7 @@ type ResponseFilter interface {
 	FilterResponse(req *bfe_basic.Request, res *bfe_http.Response) int
 }
 
-// NewRequestFilter creates a Filter by passed func
+// NewResponseFilter creates a Filter by passed func
 func NewResponseFilter(f func(req *bfe_basic.Request, res *bfe_http.Response) int) ResponseFilter {
 	rf := new(genericResponseFilter)
 	rf.f = f
@@ -95,7 +95,7 @@ type AcceptFilter interface {
 	FilterAccept(*bfe_basic.Session) int
 }
 
-// NewResponseFilter creates a Filter by passed func
+// NewAcceptFilter creates a Filter by passed func
 func NewAcceptFilter(f func(session *bfe_basic.Session) int) AcceptFilter {
 	rf := new(genericAcceptFilter)
 	rf.f = f
@@ -115,7 +115,7 @@ type ForwardFilter interface {
 	FilterForward(*bfe_basic.Request) int
 }
 
-// NewFinishFilter create a Filter by passed func
+// NewForwardFilter create a Filter by passed func
 func NewForwardFilter(f func(req *bfe_basic.Request) int) ForwardFilter {
 	rf := new(genericForwardFilter)
 	rf.f = f

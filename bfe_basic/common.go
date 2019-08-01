@@ -47,7 +47,7 @@ func CreateInternalSrvErrResp(request *Request) *bfe_http.Response {
 	return CreateInternalResp(request, bfe_http.StatusInternalServerError)
 }
 
-// CreateInternalSrvErrResp returns a HTTP 403 response
+// CreateForbiddenResp returns a HTTP 403 response
 func CreateForbiddenResp(request *Request) *bfe_http.Response {
 	return CreateInternalResp(request, bfe_http.StatusForbidden)
 }

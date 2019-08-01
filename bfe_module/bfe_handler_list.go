@@ -53,7 +53,7 @@ type HandlerList struct {
 	handlers *list.List /* list of handlers */
 }
 
-// NewFinishFilter creates a HandlerList.
+// NewHandlerList creates a HandlerList.
 func NewHandlerList(h_type int) *HandlerList {
 	handlers := new(HandlerList)
 
@@ -63,7 +63,7 @@ func NewHandlerList(h_type int) *HandlerList {
 	return handlers
 }
 
-// FinishFilter filters accept with HandlerList.
+// FilterAccept filters accept with HandlerList.
 func (hl *HandlerList) FilterAccept(session *bfe_basic.Session) int {
 	retVal := BFE_HANDLER_GOON
 

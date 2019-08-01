@@ -197,7 +197,6 @@ func curveForCurveID(id CurveID) (elliptic.Curve, bool) {
 
 }
 
-// for call from outside
 func CurveForCurveID(id CurveID) (elliptic.Curve, bool) {
 	return curveForCurveID(id)
 }

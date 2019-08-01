@@ -100,7 +100,7 @@ func (s *Server) maxConcurrentStreams() uint32 {
 	return defaultMaxStreams
 }
 
-// TLS application level protocol handler for spdy
+// NewProtoHandler creates TLS application level protocol handler for spdy
 func NewProtoHandler(conf *Server) func(*http.Server, *tls.Conn, http.Handler) {
 	if conf == nil {
 		conf = new(Server)

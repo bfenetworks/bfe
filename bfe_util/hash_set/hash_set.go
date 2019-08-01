@@ -29,10 +29,10 @@ const (
 	LOAD_FACTOR = 5
 )
 
-/* index table of hashSet */
+// index table of hashSet
 type hashArray []int32
 
-/* make a new hashArray and init it */
+// make a new hashArray and init it
 func newHashArray(indexSize int) hashArray {
 	ha := make(hashArray, indexSize)
 	for i := 0; i < indexSize; i += 1 {
@@ -52,19 +52,17 @@ type HashSet struct {
 	hashFunc func(key []byte) uint64 //function for hash
 }
 
-/*
-* NewHashSet - create a newHashSet
-*
-* PARAMS:
-*   - elemNum: max element num of hashSet
-*   - elemSize: maxSize of hashKey after it converted to []byte
-*   - isFixKeyLen: fixed element size or not
-*   - hashFunc: hash function
-*
-* RETURNS:
-*  - (*HashSet, nil), if success
-*  - (nil, error), if fail
- */
+// NewHashSet creates a newHashSet
+//
+// PARAMS:
+//   - elemNum: max element num of hashSet
+//   - elemSize: maxSize of hashKey after it converted to []byte
+//   - isFixKeyLen: fixed element size or not
+//   - hashFunc: hash function
+//
+// RETURNS:
+//  - (*HashSet, nil), if success
+//  - (nil, error), if fail
 func NewHashSet(elemNum int, elemSize int, isFixKeyLen bool,
 	hashFunc func([]byte) uint64) (*HashSet, error) {
 	if elemNum <= 0 || elemSize <= 0 {
@@ -73,15 +71,15 @@ func NewHashSet(elemNum int, elemSize int, isFixKeyLen bool,
 
 	hashSet := new(HashSet)
 
-	/* hashArray is larger in order to reduce hash conflict */
+	// hashArray is larger in order to reduce hash conflict
 	hashSet.haSize = elemNum * LOAD_FACTOR
 	hashSet.isFixKeyLen = isFixKeyLen
 	hashSet.ha = newHashArray(hashSet.haSize)
 
-	/* create nodePool */
+	// create nodePool
 	hashSet.np = newNodePool(elemNum, elemSize, isFixKeyLen)
 
-	/* if hashFunc is not given, use default murmur Hash */
+	// if hashFunc is not given, use default murmur Hash
 	if hashFunc != nil {
 		hashSet.hashFunc = hashFunc
 	} else {
@@ -91,16 +89,14 @@ func NewHashSet(elemNum int, elemSize int, isFixKeyLen bool,
 	return hashSet, nil
 }
 
-/*
-* Add - add an element into the set
-*
-* PARAMS:
-*   - key: []byte, element of the set
-*
-* RETURNS:
-*   - nil, if succeed
-*   - error, if fail
- */
+// Add - add an element into the set
+//
+// PARAMS:
+//   - key: []byte, element of the set
+//
+// RETURNS:
+//   - nil, if succeed
+//   - error, if fail
 func (set *HashSet) Add(key []byte) error {
 	// check the whether hashSet if full
 	if set.Full() {
@@ -134,16 +130,14 @@ func (set *HashSet) Add(key []byte) error {
 	return nil
 }
 
-/*
-* Remove - remove an element from the hashSet
-*
-* PARAMS:
-*   - key: []byte, element of the set
-*
-* RETURNS:
-*   - nil, if succeed
-*   - error, if fail
- */
+// Remove removes an element from the hashSet
+//
+// PARAMS:
+//   - key: []byte, element of the set
+//
+// RETURNS:
+//   - nil, if succeed
+//   - error, if fail
 func (set *HashSet) Remove(key []byte) error {
 	// validate hashKey
 	err := set.np.validateKey(key)
@@ -166,7 +160,7 @@ func (set *HashSet) Remove(key []byte) error {
 	return nil
 }
 
-/* check if the element exist in Set */
+// Exist checks if the element exist in Set
 func (set *HashSet) Exist(key []byte) bool {
 	//validate hashKey
 	err := set.np.validateKey(key)
@@ -178,18 +172,18 @@ func (set *HashSet) Exist(key []byte) bool {
 	return set.exist(hashNum, key)
 }
 
-/* check the []byte exist in the giving list head */
+// exist checks the []byte exist in the giving list head
 func (set *HashSet) exist(hashNum uint64, key []byte) bool {
 	head := set.ha[hashNum]
 	return set.np.exist(head, key)
 }
 
-/* get elementNum of hashSet */
+// Len returns element Num of hashSet
 func (set *HashSet) Len() int {
 	return set.np.elemNum()
 }
 
-/* check if the hashSet full or not */
+// Full checks if the hashSet full or not
 func (set *HashSet) Full() bool {
 	return set.np.full()
 }

@@ -70,7 +70,6 @@ func (f *flow) add(n int32) bool {
 func (f *flow) String() string {
 	if f.conn != nil {
 		return fmt.Sprintf("flow(stream:%d, conn:%d)", f.n, f.conn.n)
-	} else {
-		return fmt.Sprintf("flow(conn:%d)", f.n)
 	}
+	return fmt.Sprintf("flow(conn:%d)", f.n)
 }

@@ -31,7 +31,7 @@ type SignalTable struct {
 	state module_state2.State         // signal handle state
 }
 
-/* new and init signal table */
+// NewSignalTable creates and init signal table
 func NewSignalTable() *SignalTable {
 	table := new(SignalTable)
 	table.shs = make(map[os.Signal]signalHandler)
@@ -39,14 +39,14 @@ func NewSignalTable() *SignalTable {
 	return table
 }
 
-/* register signal handle to the table */
+// Register registers signal handle to the table
 func (t *SignalTable) Register(s os.Signal, handler signalHandler) {
 	if _, ok := t.shs[s]; !ok {
 		t.shs[s] = handler
 	}
 }
 
-/* handle for the related signal */
+// handle handles the related signal
 func (t *SignalTable) handle(sig os.Signal) {
 	t.state.Inc(sig.String(), 1)
 
@@ -55,7 +55,7 @@ func (t *SignalTable) handle(sig os.Signal) {
 	}
 }
 
-// signal handle go-routine
+// signalHandle is the signal handle loop
 func (table *SignalTable) signalHandle() {
 
 	var sigs []os.Signal
@@ -72,12 +72,12 @@ func (table *SignalTable) signalHandle() {
 	}
 }
 
-/*  start go-routine for signal handle */
+// StartSignalHandle start go-routine for signal handle
 func (t *SignalTable) StartSignalHandle() {
 	go t.signalHandle()
 }
 
-/* get state counter of signal handle */
+// SignalStateGet get state counter of signal handle
 func (t *SignalTable) SignalStateGet() ([]byte, error) {
 
 	buff, err := json.Marshal(t.state.GetAll())
@@ -85,12 +85,12 @@ func (t *SignalTable) SignalStateGet() ([]byte, error) {
 	return buff, err
 }
 
-/* set key prefix */
+// SetKeyPrefix set key prefix
 func (t *SignalTable) SetKeyPrefix(key string) {
 	t.state.SetKeyPrefix(key)
 }
 
-/* get key prefix */
+// GetKeyPrefix get key prefix
 func (t *SignalTable) GetKeyPrefix() string {
 	return t.state.GetKeyPrefix()
 }

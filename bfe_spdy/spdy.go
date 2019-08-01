@@ -246,7 +246,7 @@ func mustUint31(v int32) uint32 {
 	return uint32(v)
 }
 
-// close underlying connection for request
+// CloseConn close underlying connection for request
 func CloseConn(body io.ReadCloser) {
 	if b, ok := body.(*RequestBody); ok {
 		if b.conn != nil {
@@ -257,7 +257,7 @@ func CloseConn(body io.ReadCloser) {
 
 var spdyLimiter http.FlowLimiter
 
-// init flow limiter for spdy
+// SetFlowLimiter init flow limiter for spdy
 func SetFlowLimiter(limiter http.FlowLimiter) {
 	spdyLimiter = limiter
 }

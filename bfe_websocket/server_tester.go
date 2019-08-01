@@ -115,37 +115,37 @@ func (st *ServerTester) handleWebsocketConn(conn net.Conn) {
 	return
 }
 
-// client start websocket handshake
+// WebSocketHandshake starts websocket handshake (client perspective)
 func (st *ServerTester) WebSocketHandshake(c *websocket.Config) error {
 	var err error
 	st.wc, err = websocket.NewClient(c, st.cc)
 	return err
 }
 
-// client send webscoket message
+// WebSocketWrite sends webscoket message (client perspective)
 func (st *ServerTester) WebSocketWrite(data []byte) (int, error) {
 	return st.wc.Write(data)
 }
 
-// client recv websocket message
+// WebSocketRead recv websocket message (client perspective)
 func (st *ServerTester) WebSocketRead(msg []byte) (int, error) {
 	return st.wc.Read(msg)
 }
 
-// client read until timeout
+// Read reads until timeout (client perspective)
 func (st *ServerTester) Read(buf []byte) error {
 	st.cc.SetReadDeadline(time.Now().Add(4 * time.Second))
 	_, err := io.ReadFull(st.cc, buf)
 	return err
 }
 
-// client write raw data
+// Write writes raw data (client perspective)
 func (st *ServerTester) Write(data []byte) error {
 	_, err := st.cc.Write(data)
 	return err
 }
 
-// client read and check error
+// WantError read and check error (client perspective)
 func (st *ServerTester) WantError(e string) {
 	err := st.Read(make([]byte, 256))
 	if err == nil {

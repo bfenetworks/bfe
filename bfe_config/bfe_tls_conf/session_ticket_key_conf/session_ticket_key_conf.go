@@ -31,7 +31,7 @@ const (
 	RAW_SESSION_TICKET_KEY_SIZE = 48 // bytes
 )
 
-// config for session ticket key
+// SessionTicketKeyConf is session ticket key config.
 type SessionTicketKeyConf struct {
 	Version          string // version of config
 	SessionTicketKey string // session ticket key (hex encode)
