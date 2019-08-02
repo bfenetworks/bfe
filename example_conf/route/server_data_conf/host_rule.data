@@ -1,0 +1,14 @@
+{
+    "Version": "init version",
+    "DefaultProduct": null,
+    "Hosts": {
+        "exampleTag":[
+            "example.org"
+        ]
+    },
+    "HostTags": {
+        "example_product":[
+            "exampleTag"
+        ]
+    }
+}

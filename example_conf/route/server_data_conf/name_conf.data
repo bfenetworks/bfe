@@ -1,0 +1,12 @@
+{
+    "Version": "init version",
+    "Config": {
+        "example.redis.cluster": [
+            {
+                "Host": "192.168.1.1",
+                "Port": 6439,
+                "Weight": 10
+            }
+        ]
+    }
+}

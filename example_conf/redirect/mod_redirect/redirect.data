@@ -1,0 +1,15 @@
+{
+    "Version": "init version",
+    "Config": {
+        "example_product": [{
+            "Cond": "!req_proto_secure() && req_host_in(\"example.org\")",
+            "Actions": [{
+                "Cmd": "SCHEME_SET",
+                "Params": [
+                    "https"
+                ]
+            }],
+            "Status": 301
+        }]
+    }
+}

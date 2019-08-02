@@ -1,0 +1,12 @@
+{
+    "Version": "init version",
+    "Config": {
+        "Default": "example.org",
+        "CertConf": {
+            "example.org": {
+                "ServerCertFile": "../conf/tls_conf/certs/server.crt",
+                "ServerKeyFile" : "../conf/tls_conf/certs/server.key"
+            }
+        }
+    }
+}

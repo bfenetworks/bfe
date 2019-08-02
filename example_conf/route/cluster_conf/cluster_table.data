@@ -1,0 +1,21 @@
+{
+    "Version": "init version",
+    "Config": {
+        "cluster_demo_static": {   
+            "demo_static.all": [{        
+                "Addr": "1.1.1.1",       
+                "Name": "static.A",      
+                "Port": 8001,            
+                "Weight": 1             
+            }]
+        },
+        "cluster_demo_dynamic": {
+            "demo_dynamic.all": [{
+                "Addr": "1.1.1.1",
+                "Name": "dynamic.A",
+                "Port": 8002,
+                "Weight": 1
+            }]
+        }
+    }
+}

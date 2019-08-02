@@ -6,3 +6,4 @@ output
 .*.swo
 /**/y.output
 /**/*.log
+.DS_Store

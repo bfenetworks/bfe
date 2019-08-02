@@ -1,0 +1,15 @@
+{
+    "Version": "init version",
+    "ProductRule": {
+        "example_product": [
+            {
+                "Cond": "req_path_prefix_in(\"/static\", false)",
+                "ClusterName": "cluster_demo_static"
+            },
+            {
+                "Cond": "default_t()",
+                "ClusterName": "cluster_demo_dynamic"
+            }
+        ]
+    }
+}

@@ -1,0 +1,14 @@
+{
+    "Hostname": "",
+    "Ts": "0",
+    "Clusters": {
+        "cluster_demo_static": {
+            "GSLB_BLACKHOLE": 0,
+            "demo_static.all": 100
+        },
+        "cluster_demo_dynamic": {
+            "GSLB_BLACKHOLE": 0,
+            "demo_dynamic.all": 100
+        }
+    }
+}

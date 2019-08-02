@@ -1,0 +1,73 @@
+{
+    "Version": "init version",
+    "Config": {
+        "cluster_demo_static": {
+            "BackendConf": {
+                "TimeoutConnSrv": 2000,
+                "TimeoutResponseHeader": 50000,
+                "MaxIdleConnsPerHost": 0,
+                "RetryLevel": 0
+            },
+            "CheckConf": {
+                "Schem": "http",
+                "Uri": "/health_check",
+                "Host": "example.org",
+                "StatusCode": 200,
+                "FailNum": 10,
+                "CheckInterval": 1000
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 2,
+                "HashConf": {
+                    "HashStrategy": 0,
+                    "HashHeader": "Cookie:USERID",
+                    "SessionSticky": false
+                }
+            },
+            "ClusterBasic": {
+                "TimeoutReadClient": 30000,
+                "TimeoutWriteClient": 60000,
+                "TimeoutReadClientAgain": 30000,
+                "ReqWriteBufferSize": 512,
+                "ReqFlushInterval": 0,
+                "ResFlushInterval": -1,
+                "CancelOnClientClose": false
+            }
+        },
+        "cluster_demo_dynamic": {
+            "BackendConf": {
+                "TimeoutConnSrv": 2000,
+                "TimeoutResponseHeader": 50000,
+                "MaxIdleConnsPerHost": 0,
+                "RetryLevel": 0
+            },
+            "CheckConf": {
+                "Schem": "http",
+                "Uri": "/health_check",
+                "Host": "example.org",
+                "StatusCode": 200,
+                "FailNum": 10,
+                "CheckInterval": 1000
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 2,
+                "HashConf": {
+                    "HashStrategy": 0,
+                    "HashHeader": "Cookie:USERID",
+                    "SessionSticky": false
+                }
+            },
+            "ClusterBasic": {
+                "TimeoutReadClient": 30000,
+                "TimeoutWriteClient": 60000,
+                "TimeoutReadClientAgain": 30000,
+                "ReqWriteBufferSize": 512,
+                "ReqFlushInterval": 0,
+                "ResFlushInterval": -1,
+                "CancelOnClientClose": false
+            }
+        }
+    }
+}

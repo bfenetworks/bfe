@@ -1,0 +1,13 @@
+{
+    "Version": "init version",
+    "Config": {
+        "example_product": [{
+            "action": {
+                "cmd": "CLOSE",
+                "params": []
+            },
+            "name": "block bonus",
+            "cond": "req_path_in(\"/bonus\", false)"
+        }]
+    }
+}
