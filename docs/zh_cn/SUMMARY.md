@@ -14,46 +14,46 @@
   * 开发参考
     * [代码结构说明](development/source_code_layout.md)
 * 附录A: 配置说明
-  * [核心配置](bfe_config/bfe.conf.md)
+  * [核心配置](configuration/bfe.conf.md)
   * 协议
-    * [SSL/TLS](bfe_config/tls_conf/tls_rule_conf.data.md)
-    * [证书](bfe_config/tls_conf/server_cert_conf.data.md)
-    * [Session ticket key](bfe_config/tls_conf/session_ticket_key.data.md)
+    * [SSL/TLS](configuration/tls_conf/tls_rule_conf.data.md)
+    * [证书](configuration/tls_conf/server_cert_conf.data.md)
+    * [Session ticket key](configuration/tls_conf/session_ticket_key.data.md)
   * 路由
-    * [域名规则](bfe_config/server_data_conf/host_rule.data.md)
-    * [VIP规则](bfe_config/server_data_conf/vip_rule.data.md)
-    * [路由规则](bfe_config/server_data_conf/route_rule.data.md)
+    * [域名规则](configuration/server_data_conf/host_rule.data.md)
+    * [VIP规则](configuration/server_data_conf/vip_rule.data.md)
+    * [路由规则](configuration/server_data_conf/route_rule.data.md)
   * 负载均衡
-    * [子集群负载均衡](bfe_config/cluster_conf/gslb.data.md)
-    * [实例负载均衡](bfe_config/cluster_conf/cluster_table.data.md)
+    * [子集群负载均衡](configuration/cluster_conf/gslb.data.md)
+    * [实例负载均衡](configuration/cluster_conf/cluster_table.data.md)
   * 名字服务
-    * [名字规则](bfe_config/server_data_conf/name_conf.data.md)
+    * [名字规则](configuration/server_data_conf/name_conf.data.md)
   * 扩展模块
-    * [mod_block](bfe_config/mod_block/mod_block.md)
-    * [mod_header](bfe_config/mod_header/mod_header.md)
-    * [mod_redirect](bfe_config/mod_redirect/mod_redirect.md)
-    * [mod_rewrite](bfe_config/mod_rewrite/mod_rewrite.md)
-    * [mod_trust_clientip](bfe_config/mod_trust_clientip/mod_trust_clientip.md)
+    * [mod_block](configuration/mod_block/mod_block.md)
+    * [mod_header](configuration/mod_header/mod_header.md)
+    * [mod_redirect](configuration/mod_redirect/mod_redirect.md)
+    * [mod_rewrite](configuration/mod_rewrite/mod_rewrite.md)
+    * [mod_trust_clientip](configuration/mod_trust_clientip/mod_trust_clientip.md)
 * [附录B: 监控](monitor.md)
   * 协议 
-    * [SSL/TLS](bfe_monitor/tls_state.md)
-    * [HTTP](bfe_monitor/http_state.md)
-    * [HTTP2](bfe_monitor/http2_state.md)
-    * [SPDY](bfe_monitor/spdy_state.md)
-    * [WebSocket](bfe_monitor/websocket_state.md)
-    * [Stream](bfe_monitor/stream_state.md)
+    * [SSL/TLS](monitor/tls_state.md)
+    * [HTTP](monitor/http_state.md)
+    * [HTTP2](monitor/http2_state.md)
+    * [SPDY](monitor/spdy_state.md)
+    * [WebSocket](monitor/websocket_state.md)
+    * [Stream](monitor/stream_state.md)
   * 路由
-    * [域名表](bfe_monitor/host_table_status.md)
+    * [域名表](monitor/host_table_status.md)
   * 负载均衡
-    * [均衡详情](bfe_monitor/bal_table_status.md)
-    * [均衡错误](bfe_monitor/bal_state.md)
+    * [均衡详情](monitor/bal_table_status.md)
+    * [均衡错误](monitor/bal_state.md)
   * 反向代理
-    * [转发状态](bfe_monitor/proxy_state.md)
+    * [转发状态](monitor/proxy_state.md)
   * 扩展模块
-    * [module_status](bfe_monitor/module_status.md)
-    * [mod_block](bfe_monitor/mod_block.md)
-    * [mod_logid](bfe_monitor/mod_logid.md)
-    * [mod_trust_clientip](bfe_monitor/mod_trust_clientip.md)
+    * [module_status](monitor/module_status.md)
+    * [mod_block](monitor/mod_block.md)
+    * [mod_logid](monitor/mod_logid.md)
+    * [mod_trust_clientip](monitor/mod_trust_clientip.md)
   * 延迟
-    * [延迟分布](bfe_monitor/proxy_XXX_delay.md)
+    * [延迟分布](monitor/proxy_XXX_delay.md)
 * 附录C： 条件原语
