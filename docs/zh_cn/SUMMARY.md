@@ -57,3 +57,17 @@
   * 延迟
     * [延迟分布](monitor/proxy_XXX_delay.md)
 * 附录C： 条件原语
+  * [条件原语名称规范](condition/condition_primitive_standard.md)
+  * [规则语法](condition/rule_grammar.md)
+  * 条件原语详细介绍
+    - Request相关条件原语
+      - [URI相关条件原语](condition/request/uri.md)
+      - [Header相关条件原语](condition/request/header.md)
+      - [Cookie相关条件原语](condition/request/cookie.md)
+      - [Method相关条件原语](condition/request/method.md)
+      - [IP相关条件原语](condition/request/ip.md)
+      - [Protocol相关条件原语](condition/request/protocol.md)
+      - [Tag相关条件原语](condition/request/tag.md)
+    - [Response相关条件原语](condition/response.md)
+    - 系统相关条件原语
+      - [时间相关条件原语](condition/system/time.md)
