@@ -43,7 +43,6 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 
 	// create bfe server
 	bfeServer := NewBfeServer(cfg, lnMap, version)
-	bfeServer.InitLayer4InfoFetcher()
 
 	// initial http
 	err = bfeServer.InitHttp()
@@ -129,6 +128,9 @@ func createListeners(config bfe_conf.BfeConfig) (map[string]net.Listener, error)
 		if err != nil {
 			return nil, err
 		}
+
+		// wrap underlying listener according to balancer type
+		listener = NewBfeListener(listener, config)
 		lnMap[proto] = listener
 		log.Logger.Info("createListeners(): begin to listen port[:%d]", port)
 	}

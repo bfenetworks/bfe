@@ -15,8 +15,10 @@
 package bfe_util
 
 import (
+	"encoding/binary"
 	"fmt"
 	"net"
+	"os"
 	"reflect"
 )
 
@@ -27,6 +29,32 @@ import (
 import (
 	sys "golang.org/x/sys/unix"
 )
+
+// CloseWriter is the interface that wraps the basic CloseWrite method.
+type CloseWriter interface {
+	CloseWrite() error
+}
+
+// AddressFetcher is the interface that group the address related method.
+type AddressFetcher interface {
+	// RemoteAddr returns the remote network address.
+	RemoteAddr() net.Addr
+
+	// LocalAddr returns the local network address.
+	LocalAddr() net.Addr
+
+	// VirtualAddr returns the virtual network address.
+	VirtualAddr() net.Addr
+
+	// BalancerAddr return the balancer network address. May be nil.
+	BalancerAddr() net.Addr
+}
+
+// ConnFetcher is the interface that wrap the GetNetConn
+type ConnFetcher interface {
+	// GetNetConn returns the underlying net.Conn
+	GetNetConn() net.Conn
+}
 
 // GetTCPConn returns underlying TCPConn of given conn.
 func GetTCPConn(conn net.Conn) (*net.TCPConn, error) {
@@ -41,9 +69,49 @@ func GetTCPConn(conn net.Conn) (*net.TCPConn, error) {
 	}
 }
 
+// GetConnFile get a copy of underlying os.File of tcp conn
+func GetConnFile(conn net.Conn) (*os.File, error) {
+	// get underlying net.Conn
+	if c, ok := conn.(ConnFetcher); ok {
+		conn = c.GetNetConn()
+		return GetConnFile(conn)
+	}
+
+	// the fd is tcpConn.fd.sysfd
+	if c, ok := conn.(*net.TCPConn); ok {
+		return c.File()
+	}
+
+	return nil, fmt.Errorf("GetConnFd(): conn type not support %s", reflect.TypeOf(conn))
+}
+
 // GetsockoptMutiByte returns the value of the socket option opt for the
 // socket associated with fd at the given socket level.
 func GetsockoptMutiByte(fd, level, opt int) ([]byte, error) {
 	val, err := sys.GetsockoptString(fd, level, opt)
 	return []byte(val), err
+}
+
+// ParseIpAndPort return parsed ip address
+func ParseIpAndPort(addr string) (net.IP, int, error) {
+	taddr, err := net.ResolveTCPAddr("tcp", addr)
+	if err != nil {
+		return nil, 0, err
+	}
+	return taddr.IP, taddr.Port, nil
+}
+
+func NativeUint16(data []byte) uint16 {
+	if IsBigEndian() {
+		return binary.BigEndian.Uint16(data)
+	} else {
+		return binary.LittleEndian.Uint16(data)
+	}
+}
+
+// IsBigEndian check machine is big endian or not
+func IsBigEndian() bool {
+	var i int32 = 0x12345678
+	var b byte = byte(i)
+	return b == 0x12
 }

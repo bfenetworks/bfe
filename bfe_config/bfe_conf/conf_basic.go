@@ -27,6 +27,12 @@ import (
 	"github.com/baidu/bfe/bfe_util"
 )
 
+const (
+	BALANCER_BGW   = "BGW"   // layer4 balancer in baidu
+	BALANCER_PROXY = "PROXY" // layer4 balancer working in PROXY mode (eg. F5, Ctrix, ELB etc)
+	BALANCER_NONE  = "NONE"  // layer4 balancer not used
+)
+
 type ConfigBasic struct {
 	HttpPort    int // listen port for http
 	HttpsPort   int // listen port for https
@@ -43,6 +49,7 @@ type ConfigBasic struct {
 	GracefulShutdownTimeout int  // graceful shutdown timeout, in seconds
 	MaxHeaderBytes          int  // max header length in bytes in request
 	MaxHeaderUriBytes       int  // max URI(in header) length in bytes in request
+	MaxProxyHeaderBytes     int  // max header lenght in bytes in Proxy protocol
 	KeepAliveEnabled        bool // if false, client connection is shutdown disregard of http headers
 
 	Modules []string // modules to load
@@ -117,8 +124,8 @@ func basicConfCheck(cfg *ConfigBasic) error {
 	}
 
 	// check Layer4LoadBalancer
-	if cfg.Layer4LoadBalancer != "BGW" && cfg.Layer4LoadBalancer != "" {
-		return fmt.Errorf("Layer4LoadBalancer[%s] not support", cfg.Layer4LoadBalancer)
+	if err := checkLayer4LoadBalancer(cfg); err != nil {
+		return err
 	}
 
 	// check TlsHandshakeTimeout
@@ -173,6 +180,23 @@ func basicConfCheck(cfg *ConfigBasic) error {
 	}
 
 	return nil
+}
+
+func checkLayer4LoadBalancer(cfg *ConfigBasic) error {
+	if len(cfg.Layer4LoadBalancer) == 0 {
+		cfg.Layer4LoadBalancer = BALANCER_BGW // default BGW
+	}
+
+	switch cfg.Layer4LoadBalancer {
+	case BALANCER_BGW:
+		return nil
+	case BALANCER_PROXY:
+		return nil
+	case BALANCER_NONE:
+		return nil
+	default:
+		return fmt.Errorf("Layer4LoadBalancer[%s] should be BGW/PROXY/NONE", cfg.Layer4LoadBalancer)
+	}
 }
 
 func dataFileConfCheck(cfg *ConfigBasic, confRoot string) error {
