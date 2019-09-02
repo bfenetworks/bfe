@@ -813,8 +813,8 @@ type errorWriterToTest struct {
 	expected   error
 }
 
-func (r errorWriterToTest) Read(p []byte) (int, error) {
-	return len(p) * r.rn, r.rerr
+func (w errorWriterToTest) Read(p []byte) (int, error) {
+	return len(p) * w.rn, w.rerr
 }
 
 func (w errorWriterToTest) Write(p []byte) (int, error) {
@@ -879,8 +879,8 @@ func (r errorReaderFromTest) Read(p []byte) (int, error) {
 	return len(p) * r.rn, r.rerr
 }
 
-func (w errorReaderFromTest) Write(p []byte) (int, error) {
-	return len(p) * w.wn, w.werr
+func (r errorReaderFromTest) Write(p []byte) (int, error) {
+	return len(p) * r.wn, r.werr
 }
 
 var errorReaderFromTests = []errorReaderFromTest{
