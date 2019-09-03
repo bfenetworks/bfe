@@ -49,7 +49,7 @@ type ConfigBasic struct {
 	GracefulShutdownTimeout int  // graceful shutdown timeout, in seconds
 	MaxHeaderBytes          int  // max header length in bytes in request
 	MaxHeaderUriBytes       int  // max URI(in header) length in bytes in request
-	MaxProxyHeaderBytes     int  // max header lenght in bytes in Proxy protocol
+	MaxProxyHeaderBytes     int  // max header length in bytes in Proxy protocol
 	KeepAliveEnabled        bool // if false, client connection is shutdown disregard of http headers
 
 	Modules []string // modules to load

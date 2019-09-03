@@ -12,7 +12,7 @@ bfe.conf是BFE的核心配置。
 | HttpsPort               | Int    | HTTPS流量监听端口                                            |
 | MonitorPort             | Int    | 监控流量监听端口                                             |
 | MaxCpus                 | Int    | 最大使用CPU核数; 0代表使用所有CPU核                          |
-| Layer4LoadBalancer      | String | 四层负载均衡器类型                                           |
+| Layer4LoadBalancer      | String | 四层负载均衡器类型 (PROXY/BGW/NONE                           |
 | TlsHandshakeTimeout     | Int    | TLS握手超时时间，单位为秒                                    |
 | ClientReadTimeout       | Int    | 读客户端超时时间，单位为秒                                   |
 | ClientWriteTimeout      | Int    | 写客户端超时时间，单位为秒                                   |
@@ -79,7 +79,13 @@ monitorPort = 8299
 # max number of CPUs to use (0 to use all CPUs)
 maxCpus = 0
 
-# type of layer-4 load balancer
+# type of layer-4 load balancer (PROXY/BGW/NONE)
+#
+# Note:
+# - PROXY: layer-4 balancer talking the proxy protocol
+#          eg. F5 BigIP/Citrix ADC
+# - BGW: Baidu GateWay
+# - NONE: layer-4 balancer disabled
 layer4LoadBalancer = ""
 
 # tls handshake timeout, in seconds
