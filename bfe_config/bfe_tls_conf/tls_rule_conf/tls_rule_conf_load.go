@@ -129,7 +129,7 @@ func TlsRuleConfCheck(conf *TlsRuleConf) error {
 
 	conf.Grade = strings.ToUpper(conf.Grade)
 	if !checkGrade(conf) {
-		return fmt.Errorf("invalid tls grade: %s, currently only A,B,C supported", conf.Grade)
+		return fmt.Errorf("invalid tls grade: %s, currently only A+,A,B,C supported", conf.Grade)
 	}
 
 	if conf.ClientAuth && len(conf.ClientCAName) == 0 {
@@ -181,7 +181,7 @@ func checkGrade(conf *TlsRuleConf) bool {
 	}
 
 	switch conf.Grade {
-	case bfe_tls.GradeA, bfe_tls.GradeB, bfe_tls.GradeC:
+	case bfe_tls.GRADE_APLUS, bfe_tls.GradeA, bfe_tls.GradeB, bfe_tls.GradeC:
 		return true
 	default:
 		return false
