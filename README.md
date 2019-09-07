@@ -1,4 +1,8 @@
 # BFE
+
+![GitHub](https://img.shields.io/github/license/baidu/bfe)
+![Travis (.com)](https://img.shields.io/travis/com/baidu/bfe)
+
 BFE is an open-source layer 7 load balancer derived from proprietary Baidu FrontEnd.
 
 ## Advantages
