@@ -720,3 +720,44 @@ func NewHostMatcher(patterns string) (*HostMatcher, error) {
 		patterns: p,
 	}, nil
 }
+
+type ContainMatcher struct {
+	patterns []string
+	foldCase bool
+}
+
+func NewContainMatcher(patterns string, foldCase bool) *ContainMatcher {
+	p := strings.Split(patterns, "|")
+
+	if foldCase {
+		p = toUpper(p)
+	}
+
+	return &ContainMatcher{
+		patterns: p,
+		foldCase: foldCase,
+	}
+}
+
+func contain(v string, patterns []string) bool {
+	for _, pattern := range patterns {
+		if strings.Contains(v, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (cm *ContainMatcher) Match(v interface{}) bool {
+	vs, ok := v.(string)
+	if !ok {
+		return false
+	}
+
+	if cm.foldCase {
+		vs = strings.ToUpper(vs)
+	}
+
+	return contain(vs, cm.patterns)
+}
