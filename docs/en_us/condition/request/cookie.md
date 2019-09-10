@@ -45,6 +45,12 @@
     # if the value after hash of UID(case-insensitive) in cookie is 100
     req_cookie_value_hash_in(“UID”, “100”, true)
     ```
-  
+- **req_cookie_value_contain(key, patterns, case_insensitive)**
+  - Judge if value of key in cookie contains configured patterns
+
+    ```
+    # if the value of UID(case-insensitive) contains cookie is XXX
+    req_cookie_value_contain(“UID”, "XXX", true)
+    ```
     
 

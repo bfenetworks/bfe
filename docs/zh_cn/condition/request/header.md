@@ -48,4 +48,10 @@
     # header中Host值hash取模后，值为100-200或400的请求
     req_header_value_hash_in("Host", "100-200|400", true)
     ```
+- **req_header_value_contain(key, patterns, case_insensitive)**
+  - 判断http消息头部字段是否包含patterns之一
 
+    ```
+    # header中Host值包含XXX的请求
+    req_header_value_contain(“Host”, “XXX”, true)
+    ```
