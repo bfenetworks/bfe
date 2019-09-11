@@ -49,7 +49,14 @@ right：req_header_key_in(“Header-Test”)
     # if the value after hash of Host in header is 100~200 or 400
     req_header_value_hash_in("Host", "100-200|400", true)
     ```
-  
+- **req_header_value_contain(header_name, patterns, case_insensitive)**
+
+  - Judge if value of key in header contains configured patterns
+
+    ```
+    # if the value of Host in header contains XXX.com
+    req_header_value_contain("Host", "XXX.com", true)
+    ```
     
   
   

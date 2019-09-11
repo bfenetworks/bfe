@@ -16,7 +16,7 @@ TLS配置详情如下:
 | ------------ | ------------ | ------------------------------------------------------------------------ |
 | CertName     | String       | 服务端证书名称（注：在server_cert_conf.data文件中定义）                  |
 | NextProtos   | String Array | TLS应用层协议(h2, spdy/3.1, http/1.1); 缺省为"http/1.1"                  |
-| Grade        | String       | TLS安全等级                                                              |
+| Grade        | String       | TLS安全等级（A+，A，B，C）                                               |
 | ClientAuth   | Bool         | 是否启用TLS双向认证                                                      |
 | ClientCAName | String       | 客户端证书签发CA名称                                                     |
 | VipConf      | String Array | VIP列表（注：优先依据VIP来确定TLS配置）                                  |
