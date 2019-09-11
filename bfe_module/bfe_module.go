@@ -55,6 +55,7 @@ func AddModule(module BfeModule) {
 	modulesAll = append(modulesAll, module.Name())
 }
 
+// Only modules held in BfeModules will be initialized.
 type BfeModules struct {
 	workModules map[string]BfeModule // work modules, configure in bfe conf file
 }

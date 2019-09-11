@@ -37,6 +37,7 @@ const (
 	HANDLE_FINISH          = 8
 )
 
+// BfeCallbacks holds handlers of every callback point.
 type BfeCallbacks struct {
 	callbacks map[int]*HandlerList
 }
