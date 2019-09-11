@@ -26,6 +26,7 @@ import (
 	"github.com/baidu/bfe/bfe_http"
 	"github.com/baidu/bfe/bfe_http2"
 	"github.com/baidu/bfe/bfe_module"
+	"github.com/baidu/bfe/bfe_proxy"
 	"github.com/baidu/bfe/bfe_spdy"
 	"github.com/baidu/bfe/bfe_stream"
 	"github.com/baidu/bfe/bfe_tls"
@@ -51,6 +52,10 @@ const (
 )
 
 type ServerStatus struct {
+	// for proxy protocol
+	ProxyProtocolState   *bfe_proxy.ProxyState
+	ProxyProtocolMetrics metrics.Metrics
+
 	// for tls protocol
 	TlsState   *bfe_tls.TlsState
 	TlsMetrics metrics.Metrics
@@ -99,6 +104,7 @@ func NewServerStatus() *ServerStatus {
 	m := new(ServerStatus)
 
 	// initialize counter state
+	m.ProxyProtocolState = bfe_proxy.GetProxyState()
 	m.TlsState = bfe_tls.GetTlsState()
 	m.SpdyState = bfe_spdy.GetSpdyState()
 	m.Http2State = bfe_http2.GetHttp2State()
@@ -109,6 +115,7 @@ func NewServerStatus() *ServerStatus {
 	m.BalState = bal.GetBalErrState()
 
 	// initialize metrics
+	m.ProxyProtocolMetrics.Init(m.ProxyProtocolState, KP_PROXY_STATE, 0)
 	m.TlsMetrics.Init(m.TlsState, KP_PROXY_STATE, 0)
 	m.SpdyMetrics.Init(m.SpdyState, KP_PROXY_STATE, 0)
 	m.Http2Metrics.Init(m.Http2State, KP_PROXY_STATE, 0)
@@ -138,6 +145,16 @@ func NewServerStatus() *ServerStatus {
 	m.ProxyHandshakeResumeDelay.SetKeyPrefix(KP_PROXY_HANDSHAKE_RESUME_DELAY)
 
 	return m
+}
+
+func (srv *BfeServer) proxyProtocolStateGetAll(params map[string][]string) ([]byte, error) {
+	s := srv.serverStatus.ProxyProtocolMetrics.GetAll()
+	return s.Format(params)
+}
+
+func (srv *BfeServer) proxyProtocolStateGetDiff(params map[string][]string) ([]byte, error) {
+	s := srv.serverStatus.ProxyProtocolMetrics.GetDiff()
+	return s.Format(params)
 }
 
 func (srv *BfeServer) tlsStateGetAll(params map[string][]string) ([]byte, error) {

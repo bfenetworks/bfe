@@ -19,6 +19,7 @@ import (
 	"encoding/asn1"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 )
@@ -26,17 +27,27 @@ import (
 import (
 	"github.com/baidu/bfe/bfe_basic"
 	"github.com/baidu/bfe/bfe_tls"
+	"github.com/baidu/bfe/bfe_util"
 )
 
 type HeaderValueHandler func(req *bfe_basic.Request) string
+
+const (
+	UNKNOWN = "unknown"
+)
 
 var VariableHandlers = map[string]HeaderValueHandler{
 	// for client
 	"bfe_client_ip":    getClientIp,
 	"bfe_client_port":  getClientPort,
 	"bfe_request_host": getRequestHost,
-	"bfe_session_id":   getSessionId,
-	"bfe_vip":          getBfeVip,
+
+	// for conn info
+	"bfe_session_id": getSessionId,
+	"bfe_cip":        getClientIp, // client ip (alias for bfe_clientip)
+	"bfe_vip":        getBfeVip,   // virtual ip
+	"bfe_bip":        getBfeBip,   // balancer ip
+	"bfe_rip":        getBfeRip,   // bfe ip
 
 	// for bfe
 	"bfe_server_name": getBfeServerName,
@@ -240,7 +251,46 @@ func getBfeVip(req *bfe_basic.Request) string {
 		return req.Session.Vip.String()
 	}
 
-	return "unknown"
+	return UNKNOWN
+}
+
+func getAddressFetcher(conn net.Conn) bfe_util.AddressFetcher {
+	if c, ok := conn.(*bfe_tls.Conn); ok {
+		conn = c.GetNetConn()
+	}
+	if f, ok := conn.(bfe_util.AddressFetcher); ok {
+		return f
+	}
+	return nil
+}
+
+func getBfeBip(req *bfe_basic.Request) string {
+	f := getAddressFetcher(req.Session.Connection)
+	if f == nil {
+		return UNKNOWN
+	}
+
+	baddr := f.BalancerAddr()
+	if baddr == nil {
+		return UNKNOWN
+	}
+	bip, _, err := net.SplitHostPort(baddr.String())
+	if err != nil { /* never come here */
+		return UNKNOWN
+	}
+
+	return bip
+}
+
+func getBfeRip(req *bfe_basic.Request) string {
+	conn := req.Session.Connection
+	raddr := conn.LocalAddr()
+	rip, _, err := net.SplitHostPort(raddr.String())
+	if err != nil { /* never come here */
+		return UNKNOWN
+	}
+
+	return rip
 }
 
 func getBfeBackendInfo(req *bfe_basic.Request) string {
@@ -252,7 +302,7 @@ func getBfeBackendInfo(req *bfe_basic.Request) string {
 func getBfeServerName(req *bfe_basic.Request) string {
 	hostname, err := os.Hostname()
 	if err != nil {
-		return "unknown"
+		return UNKNOWN
 	}
 
 	return hostname

@@ -113,7 +113,7 @@ func (srv *BfeServer) Balance(e interface{}) (*backend.BfeBackend, error) {
 
 	// create pesudo request
 	session := bfe_basic.NewSession(conn)
-	vip, vport, err := bfe_util.GetVipAndPort(conn)
+	vip, vport, err := bfe_util.GetVipPort(conn)
 	if err == nil {
 		session.Vip = vip
 		session.Vport = vport

@@ -251,6 +251,13 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			fetcher: &QueryValueFetcher{node.Args[0].Value},
 			matcher: NewRegMatcher(reg),
 		}, nil
+	case "req_query_value_contain":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &QueryValueFetcher{node.Args[0].Value},
+			matcher: NewContainMatcher(node.Args[1].Value, node.Args[2].ToBool()),
+		}, nil
 	case "req_cookie_key_in":
 		return &PrimitiveCond{
 			name: node.Fun.Name,
@@ -280,6 +287,13 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			node:    node,
 			fetcher: &CookieValueFetcher{node.Args[0].Value},
 			matcher: NewSuffixInMatcher(node.Args[1].Value, node.Args[2].ToBool()),
+		}, nil
+	case "req_cookie_value_contain":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &CookieValueFetcher{node.Args[0].Value},
+			matcher: NewContainMatcher(node.Args[1].Value, node.Args[2].ToBool()),
 		}, nil
 	case "req_port_in":
 		return &PrimitiveCond{
@@ -348,6 +362,13 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			node:    node,
 			fetcher: &HeaderValueFetcher{node.Args[0].Value},
 			matcher: NewRegMatcher(reg),
+		}, nil
+	case "req_header_value_contain":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &HeaderValueFetcher{node.Args[0].Value},
+			matcher: NewContainMatcher(node.Args[1].Value, node.Args[2].ToBool()),
 		}, nil
 	case "req_method_in":
 		return &PrimitiveCond{

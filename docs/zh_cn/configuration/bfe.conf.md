@@ -12,20 +12,20 @@ bfe.conf是BFE的核心配置。
 | HttpsPort               | Int    | HTTPS流量监听端口                                            |
 | MonitorPort             | Int    | 监控流量监听端口                                             |
 | MaxCpus                 | Int    | 最大使用CPU核数; 0代表使用所有CPU核                          |
-| Layer4LoadBalancer      | String | 四层负载均衡器类型                                           |
+| Layer4LoadBalancer      | String | 四层负载均衡器类型 (PROXY/BGW/NONE                           |
 | TlsHandshakeTimeout     | Int    | TLS握手超时时间，单位为秒                                    |
 | ClientReadTimeout       | Int    | 读客户端超时时间，单位为秒                                   |
 | ClientWriteTimeout      | Int    | 写客户端超时时间，单位为秒                                   |
 | GracefulShutdownTimeout | Int    | 优雅退出超时时间，单位为秒，最大300秒                        |
 | KeepAliveEnabled        | Bool   | 与用户端连接是否启用HTTP KeepAlive                           |
-| MaxHeaderBytes          | Int    | 请求头部的最大程度，单位为Bytes                              |
+| MaxHeaderBytes          | Int    | 请求头部的最大长度，单位为Bytes                              |
 | MaxHeaderUriBytes       | Int    | 请求头部URI的最大长度，单位为Byte                            |
 | HostRuleConf            | String | 租户域名表配置文件                                           |
 | VipRuleConf             | String | 租户VIP表配置文件                                            |
 | RouteRuleConf           | String | 转发规则配置文件                                             |
 | ClusterConf             | String | 后端集群相关配置文件                                         |
-| GslbConf                | String | 集群级别负载均衡配置(GSLB)                                   |
-| ClusterTableConf        | String | 子集群级别负载均衡配置文件                                   |
+| GslbConf                | String | 子集群级别负载均衡配置文件(GSLB)                             |
+| ClusterTableConf        | String | 实例级别负载均衡配置文件                                     |
 | NameConf                | String | 名字与实例映射表配置文件                                     |
 | Modules                 | String | 启用的模块列表; 多个模块增加多个Modules即可                  |
 | MonitorInterval         | Int    | monitor统计周期                                              |
@@ -40,10 +40,10 @@ bfe.conf是BFE的核心配置。
 | ---------------------- | ------ | ------------------------------------------------------------ |
 | ServerCertConf         | String | 证书与密钥的配置文件                                         |
 | TlsRuleConf            | String | TLS协议参数配置文件                                          |
-| CipherSuites           | String | 启用的加密套件列表。多个套件增加多个cipherSuites即可         |
-| CurvePreferences       | String | 启用的ECC椭圆曲线。                                          |
+| CipherSuites           | String | 启用的加密套件列表; 多个套件增加多个cipherSuites即可         |
+| CurvePreferences       | String | 启用的ECC椭圆曲线                                            |
 | EnableSslv2ClientHello | Bool   | 针对SSLv3协议，启用对SSLv2格式ClientHello的兼容              |
-| ClientCABaseDir        | String | 客户端根CA证书目录。<br>注意：证书文件后缀约定必须是 ".crt"  |
+| ClientCABaseDir        | String | 客户端根CA证书目录 <br>注意：证书文件后缀约定必须是 ".crt"   |
 
 ## TLS Session Cache相关配置
 
@@ -79,7 +79,13 @@ monitorPort = 8299
 # max number of CPUs to use (0 to use all CPUs)
 maxCpus = 0
 
-# type of layer-4 load balancer
+# type of layer-4 load balancer (PROXY/BGW/NONE)
+#
+# Note:
+# - PROXY: layer-4 balancer talking the proxy protocol
+#          eg. F5 BigIP/Citrix ADC
+# - BGW: Baidu GateWay
+# - NONE: layer-4 balancer disabled
 layer4LoadBalancer = ""
 
 # tls handshake timeout, in seconds
