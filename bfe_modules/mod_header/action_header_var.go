@@ -30,12 +30,15 @@ import (
 	"github.com/baidu/bfe/bfe_util"
 )
 
+// Handler of variable.
 type HeaderValueHandler func(req *bfe_basic.Request) string
 
 const (
+	// Unknown header value.
 	UNKNOWN = "unknown"
 )
 
+// Mapping variable to its handler.
 var VariableHandlers = map[string]HeaderValueHandler{
 	// for client
 	"bfe_client_ip":    getClientIp,

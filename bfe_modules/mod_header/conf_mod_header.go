@@ -23,6 +23,7 @@ import (
 	"github.com/baidu/bfe/bfe_util"
 )
 
+// Config of header module.
 type ConfModHeader struct {
 	Basic struct {
 		DataPath             string // path of config data (mod_header)
@@ -34,6 +35,7 @@ type ConfModHeader struct {
 	}
 }
 
+// Load config of header module.
 func ConfLoad(filePath string, confRoot string) (*ConfModHeader, error) {
 	var err error
 	var cfg ConfModHeader
@@ -53,11 +55,8 @@ func ConfLoad(filePath string, confRoot string) (*ConfModHeader, error) {
 	return &cfg, nil
 }
 
+// Check config of header module.
 func (cfg *ConfModHeader) Check(confRoot string) error {
-	return ConfModHeaderCheck(cfg, confRoot)
-}
-
-func ConfModHeaderCheck(cfg *ConfModHeader, confRoot string) error {
 	if cfg.Basic.DataPath == "" {
 		log.Logger.Warn("ModHeader.DataPath not set, use default value")
 		cfg.Basic.DataPath = "mod_header/mod_header.data"

@@ -18,18 +18,21 @@ import (
 	"sync"
 )
 
+// Rule table of ProductRules.
 type HeaderTable struct {
 	lock         sync.RWMutex
 	version      string
 	productRules ProductRules
 }
 
+// NewHeaderTable creates new HeaderTable.
 func NewHeaderTable() *HeaderTable {
 	t := new(HeaderTable)
 	t.productRules = make(ProductRules)
 	return t
 }
 
+// Update productRules and version of HeaderTable.
 func (t *HeaderTable) Update(conf HeaderConf) {
 	t.lock.Lock()
 
@@ -39,6 +42,7 @@ func (t *HeaderTable) Update(conf HeaderConf) {
 	t.lock.Unlock()
 }
 
+// Search rules of product.
 func (t *HeaderTable) Search(product string) ([]*RuleList, bool) {
 	t.lock.RLock()
 	productRules := t.productRules

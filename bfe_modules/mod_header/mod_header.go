@@ -32,11 +32,14 @@ import (
 )
 
 const (
+	// Header of request.
 	ReqHeader = 0
+	// Header of response.
 	RspHeader = 1
 )
 
 const (
+	// Global product, rules of global product will be applied to every request.
 	GlobalProduct = "global"
 )
 
@@ -44,6 +47,7 @@ var (
 	openDebug = false
 )
 
+// Header module.
 type ModuleHeader struct {
 	name                 string       // name of module
 	configPath           string       // path of config file
@@ -51,6 +55,7 @@ type ModuleHeader struct {
 	ruleTable            *HeaderTable // table of header rules
 }
 
+// NewModuleHeader creates new ModuleHeader.
 func NewModuleHeader() *ModuleHeader {
 	m := new(ModuleHeader)
 	m.name = "mod_header"
@@ -58,6 +63,7 @@ func NewModuleHeader() *ModuleHeader {
 	return m
 }
 
+// Module name.
 func (m *ModuleHeader) Name() string {
 	return m.name
 }
@@ -82,6 +88,7 @@ func (m *ModuleHeader) loadConfData(query url.Values) error {
 	return nil
 }
 
+// Do actions to the request if rule is matched.
 func DoHeader(req *bfe_basic.Request, headerType int, ruleList *RuleList) {
 	for _, rule := range *ruleList {
 		// rule condition is satisfied ?
@@ -157,6 +164,7 @@ func (m *ModuleHeader) rspHeaderHandler(request *bfe_basic.Request, res *bfe_htt
 	return bfe_module.BFE_HANDLER_GOON
 }
 
+// Initializes the module.
 func (m *ModuleHeader) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers,
 	cr string) error {
 	var err error

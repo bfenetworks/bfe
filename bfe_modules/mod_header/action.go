@@ -27,18 +27,22 @@ import (
 	"github.com/baidu/bfe/bfe_net/textproto"
 )
 
+// ActionFile if used to load action in data config file.
 type ActionFile struct {
 	Cmd    *string // command of action
 	Params []string
 }
 
+// Action of header rule.
 type Action struct {
 	Cmd    string   // command of action (for header set/add/del)
 	Params []string // params of action ([header, value] or [header])
 }
 
+// List of ActionFile
 type ActionFileList []ActionFile
 
+// Check ActionFile.
 func ActionFileCheck(conf ActionFile) error {
 	// check command
 	if conf.Cmd == nil {
@@ -133,6 +137,7 @@ func checkHeaderModParams(params []string) error {
 	return nil
 }
 
+// Check ActionFileList.
 func ActionFileListCheck(conf *ActionFileList) error {
 	for index, action := range *conf {
 		err := ActionFileCheck(action)
@@ -381,6 +386,7 @@ func actionsConvert(actionFiles ActionFileList) ([]Action, error) {
 	return actions, nil
 }
 
+// Do header action.
 func HeaderActionDo(h *bfe_http.Header, cmd string, headerName string, value string) {
 	switch cmd {
 	// insert or modify
@@ -406,6 +412,7 @@ func getHeader(req *bfe_basic.Request, headerType int) (h *bfe_http.Header) {
 	return h
 }
 
+// Do header actions.
 func HeaderActionsDo(req *bfe_basic.Request, headerType int, actions []Action) {
 	var key string
 	var value string

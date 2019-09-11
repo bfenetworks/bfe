@@ -26,6 +26,7 @@ import (
 	"github.com/baidu/bfe/bfe_basic/condition"
 )
 
+// HeaderRuleFile is used for loading header rules from config file.
 type HeaderRuleFile struct {
 	Cond    *string         // condition for header
 	Actions *ActionFileList // list of actions
@@ -33,6 +34,7 @@ type HeaderRuleFile struct {
 	// the condition is satisfied
 }
 
+// Rule for header module.
 type HeaderRule struct {
 	Cond    condition.Condition // condition for header
 	Actions []Action            // list of actions
@@ -40,22 +42,31 @@ type HeaderRule struct {
 	// the condition is satisfied
 }
 
+// List of HeaderRuleFile.
 type RuleFileList []HeaderRuleFile
+
+// List of HeaderRule.
 type RuleList []HeaderRule
 
-type ProductRulesFile map[string]*RuleFileList // product => list of header rules
-type ProductRules map[string][]*RuleList       // product => list of header rules
+// Mapping product to RuleFileList.
+type ProductRulesFile map[string]*RuleFileList
 
+// Mapping product to []*RuleList
+type ProductRules map[string][]*RuleList
+
+// HeaderConfFile is used for loading data config file of header module.
 type HeaderConfFile struct {
 	Version *string // version of the config
 	Config  *ProductRulesFile
 }
 
+// Data config of header module.
 type HeaderConf struct {
 	Version string       // version of the config
 	Config  ProductRules // product rules for header
 }
 
+// Check rule of data config file.
 func HeaderRuleCheck(conf HeaderRuleFile) error {
 	var err error
 
@@ -82,6 +93,7 @@ func HeaderRuleCheck(conf HeaderRuleFile) error {
 	return nil
 }
 
+// Check all header rules of every product.
 func RuleListCheck(conf *RuleFileList) error {
 	for index, rule := range *conf {
 		err := HeaderRuleCheck(rule)
@@ -93,6 +105,7 @@ func RuleListCheck(conf *RuleFileList) error {
 	return nil
 }
 
+// Check all products' rules.
 func ProductRulesCheck(conf *ProductRulesFile) error {
 	for product, ruleList := range *conf {
 		if ruleList == nil {
@@ -108,6 +121,7 @@ func ProductRulesCheck(conf *ProductRulesFile) error {
 	return nil
 }
 
+// Check data config of header module.
 func HeaderConfCheck(conf HeaderConfFile) error {
 	var err error
 
@@ -204,14 +218,14 @@ func HeaderConfLoad(filename string) (HeaderConf, error) {
 	var conf HeaderConf
 	var err error
 
-	/* open the file    */
+	// open the file
 	file, err1 := os.Open(filename)
 
 	if err1 != nil {
 		return conf, err1
 	}
 
-	/* decode the file  */
+	// decode the file
 	decoder := json.NewDecoder(file)
 
 	var config HeaderConfFile
@@ -228,7 +242,7 @@ func HeaderConfLoad(filename string) (HeaderConf, error) {
 		return conf, err
 	}
 
-	/* convert config   */
+	// convert config
 	conf.Version = *config.Version
 	conf.Config = make(ProductRules)
 
