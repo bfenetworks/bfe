@@ -43,7 +43,7 @@ func CopyWithoutBuffer(wf bfe_http.WriteFlusher, src io.Reader) (written int64, 
 		nr, er := src.Read(buf)
 		if nr > 0 {
 			nw, ew := wf.Write(buf[0:nr])
-			// flush immediately regardless of write result. 
+			// flush immediately regardless of write result.
 			ef := wf.Flush()
 			if nw > 0 {
 				written += int64(nw)
