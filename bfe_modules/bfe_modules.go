@@ -18,6 +18,7 @@ package bfe_modules
 
 import (
 	"github.com/baidu/bfe/bfe_module"
+	"github.com/baidu/bfe/bfe_modules/mod_access"
 	"github.com/baidu/bfe/bfe_modules/mod_block"
 	"github.com/baidu/bfe/bfe_modules/mod_header"
 	"github.com/baidu/bfe/bfe_modules/mod_logid"
@@ -49,6 +50,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_header
 	mod_header.NewModuleHeader(),
+
+	// mod_access
+	mod_access.NewModuleAccess(),
 }
 
 // init modules list
