@@ -5,7 +5,13 @@ does not necessarily reflect the changes.
 
 # Changelog
 
-## v0.2.0 (unreleased)
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+
+## [Unreleased]
 
 ### Added
 - Add proxy protocol to be compatible with F5 BigIP/Citrix ADC etc
@@ -19,12 +25,15 @@ does not necessarily reflect the changes.
 - reverseproxy: flush response header immediately if flushInterval<0
 
 
-## v0.1.0
+## [v0.1.0] - 2019-08-01
 
-### Core Features
+### Added
 - Multiple protocols supported, including HTTP, HTTPS, SPDY, HTTP2, WebSocket, TLS, etc
 - Content based routing, support user-defined routing rule in advanced domain-specific language
 - Support multiple load balancing policies
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
+
+[Unreleased]: https://github.com/baidu/bfe/compare/v0.1.0...HEAD
+[v0.1.0]: https://github.com/baidu/bfe/releases/tag/v0.1.0
