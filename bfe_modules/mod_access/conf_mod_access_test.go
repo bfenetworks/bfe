@@ -29,3 +29,46 @@ func TestConfLoad(t *testing.T) {
 		t.Errorf("Log.Prefix should be access")
 	}
 }
+
+func TestTokenTypeGet(t *testing.T) {
+	template := "123$status_code$res_header"
+
+	logType, end, err := tokenTypeGet(&template, 4)
+	if err != nil {
+		t.Errorf("tokenTypeGet() error: %v", err)
+	}
+	if logType != fmtTable["status_code"] {
+		t.Errorf("logType error, logType: %d", logType)
+	}
+	if end != 14 {
+		t.Errorf("end error, end: %d", end)
+	}
+
+	logType, end, err = tokenTypeGet(&template, 16)
+	if err != nil {
+		t.Errorf("tokenTypeGet() error: %v", err)
+	}
+	if logType != fmtTable["res_header"] {
+		t.Errorf("logType error, logType: %d", logType)
+	}
+	if end != 25 {
+		t.Errorf("end error, end: %d", end)
+	}
+}
+
+func TestParseBracketToken(t *testing.T) {
+	template := "{CLIENTIP}res_cookie, log"
+
+	item, end, err := parseBracketToken(&template, 0)
+	if err != nil {
+		t.Errorf("parseBracketToken() error: %v", err)
+	}
+
+	if end != 19 {
+		t.Errorf("end error, end: %d", end)
+	}
+
+	if item.Key != "CLIENTIP" || item.Type != fmtTable["res_cookie"] {
+		t.Errorf("item error, item: %v", item)
+	}
+}

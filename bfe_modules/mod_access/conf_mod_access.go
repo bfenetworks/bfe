@@ -19,7 +19,6 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/log/log4go"
 	gcfg "gopkg.in/gcfg.v1"
 )
@@ -38,27 +37,6 @@ type ConfModAccess struct {
 		SessionTemplate string // session finish log formate string
 	}
 }
-
-var (
-	defaultRequestTemplate = "REQUEST_LOG $time " +
-		"clientip: \"$remote_addr\" " +
-		"serverip: \"$server_addr\" " +
-		"host: \"$host\" " +
-		"product: \"$product\" " +
-		"user_agent: \"${User-Agent}req_header\" " +
-		"status: \"$status_code\" " +
-		"error: \"$error\""
-
-	defaultSessionTemplate = "SESSION_LOG  $time " +
-		"clientip: \"$ses_clientip\" " +
-		"start_time: \"$ses_start_time\" " +
-		"end_time: \"$ses_end_time\" " +
-		"overhead: \"$ses_overhead\" " +
-		"read_total: \"$ses_read_total\" " +
-		"write_total: \"$ses_write_total\" " +
-		"keepalive_num: \"$ses_keepalive_num\" " +
-		"error: \"$ses_error\""
-)
 
 // ConfLoad loads config of access module from file.
 func ConfLoad(filePath string) (*ConfModAccess, error) {
@@ -96,13 +74,11 @@ func (cfg *ConfModAccess) Check() error {
 	}
 
 	if cfg.Template.RequestTemplate == "" {
-		log.Logger.Warn("ModAccess.RequestTemplate not set, use default value")
-		cfg.Template.RequestTemplate = defaultRequestTemplate
+		return fmt.Errorf("ModAccess.RequestTemplate not set")
 	}
 
 	if cfg.Template.SessionTemplate == "" {
-		log.Logger.Warn("ModAccess.SessionTemplate not set, use default value")
-		cfg.Template.SessionTemplate = defaultSessionTemplate
+		return fmt.Errorf("ModAccess.SessionTemplate not set")
 	}
 
 	return nil
