@@ -27,10 +27,11 @@ BFE每次发新的版本，遵循以下流程:
 1. 从`develop`分支派生出新的分支，分支名为`release/vX.Y.Z`。例如，`release/v0.10.0`
 1. 将新分支的版本打上tag，tag为`vX.Y.Z-rc.N` （N代表Patch号）。第一个tag为`v0.10.0-rc.1`，第二个为`v0.10.0-rc.2`，依次类推。
 1. 对这个版本的提交，做如下几个操作:
-	* 修改`Makefile`中的版本信息。
+	* 修改`VERSION`文件中的版本信息。
 	* 测试版本的功能正确性。如果失败，在这个`release/vX.Y.Z`分支中修复所有bug，返回第二步并将Patch号加一。
+1. 完成[Release Note](https://github.com/baidu/bfe/blob/develop/CHANGELOG.md)的书写。
 1. 第三步完成后，将`release/vX.Y.Z`分支合入master分支，并删除`release/vX.Y.Z`分支。同时再将`master`分支合入`develop`分支。
-1. 将master分支的合入commit打上tag，tag为`vX.Y.Z`，并完成Release Note的书写。
+1. 将master分支的合入commit打上tag，tag为`vX.Y.Z`。
 
 需要注意的是:
 

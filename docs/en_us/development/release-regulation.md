@@ -36,13 +36,15 @@ Follow the following procedures to release a new version:
 
 1. For the submission of this version, do the following:
 
-    * Modify version information in 'Makefile'.
+    * Modify version information in 'VERSION' file.
 
     * Test the functional correctness of the version. If it fails, fixing all the bugs in the 'release/vX.Y.Z' branch, and return to the second step with patch number added by 1. 
 
-1. After the third step, merge the 'release/vX.Y.Z' branch into the master branch, and delete the 'release/vX.Y.Z' branch. Merge 'master' branches into the 'develop' branch.
+1. Complete the writing of [Release Note](https://github.com/baidu/bfe/blob/develop/CHANGELOG.md).
 
-1. Tag the latest commit of the master branch with 'vX.Y.Z' and complete the writing of Release Note
+1. Merge the 'release/vX.Y.Z' branch into the master branch, and delete the 'release/vX.Y.Z' branch. Merge 'master' branches into the 'develop' branch.
+
+1. Tag the latest commit of the master branch with 'vX.Y.Z'
 
 Note:
 
