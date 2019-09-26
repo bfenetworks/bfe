@@ -11,7 +11,7 @@
     * [Local development](development/local_dev_guide.md)
     * [Sumbit PR](development/submit_pr_guide.md)
   * [Contribute documents](development/write_doc_guide.md)
-  * [Releasing process](development/releasing_process.md)
+  * [Releasing process](development/release_regulation.md)
   * Development guides
     * [Source code layout](development/source_code_layout.md)
 * Appendix A: Configuration

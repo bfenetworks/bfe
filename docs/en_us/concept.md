@@ -18,7 +18,7 @@
 
 # Typical message routing flow
 
-![Traffic Fowarding](../images/traffic-routing.svg)
+![Traffic Fowarding](../images/traffic-forward.svg)
 
 - Step1-2：DNS query
     - request host name：demo.example.com

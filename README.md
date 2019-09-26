@@ -28,6 +28,7 @@ BFE is an open-source layer 7 load balancer derived from proprietary Baidu Front
 - [Functionality](docs/en_us/functionality.md)
 - [Monitor](docs/en_us/monitor.md)
 - [Plugin](docs/en_us/modules.md)
+- [Summary](docs/en_us/SUMMARY.md)
 
 ## Contributing
 - Please create an issue in [issue list](http://github.com/baidu/bfe/issues).

@@ -10,7 +10,7 @@
     * [本地开发指南](development/local_dev_guide.md)
     * [提交PR注意事项](development/submit_pr_guide.md)
   * [如何贡献文档](development/write_doc_guide.md)
-  * [版本发布说明](development/releasing_process.md)
+  * [版本发布说明](development/release_regulation.md)
   * 开发参考
     * [代码结构说明](development/source_code_layout.md)
 * 附录A: 配置说明
