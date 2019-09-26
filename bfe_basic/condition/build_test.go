@@ -222,6 +222,36 @@ var buildPrimitiveTests = []struct {
 		nil,
 		true,
 	},
+	{
+		"testBuildHashInErr1",
+		"req_header_value_hash_in(\"X-Bfe-Uid\", \"abc\", true)",
+		nil,
+		true,
+	},
+	{
+		"testBuildHashInErr2",
+		"req_header_value_hash_in(\"X-Bfe-Uid\", \"100-200|300-\", true)",
+		nil,
+		true,
+	},
+	{
+		"testBuildHashInErr3",
+		"req_header_value_hash_in(\"X-Bfe-Uid\", \"100-200|300-400-500\", true)",
+		nil,
+		true,
+	},
+	{
+		"testBuildHashInErr4",
+		"req_header_value_hash_in(\"X-Bfe-Uid\", \"100-10000\", true)",
+		nil,
+		true,
+	},
+	{
+		"testBuildHashInErr4",
+		"req_header_value_hash_in(\"X-Bfe-Uid\", \"100-99\", true)",
+		nil,
+		true,
+	},
 }
 
 func TestBuildPrimitive(t *testing.T) {
@@ -286,5 +316,30 @@ func TestBuildReqVipRange(t *testing.T) {
 	req.Session.Vip = net.ParseIP("2001:ffff::ffff")
 	if !buildC.Match(&req) {
 		t.Errorf("2001:ffff::ffff not match req_vip_range(\"2001:0DB8:02de:0::e13\", \"2002:0DB8:02de:0::e13\")")
+	}
+}
+
+func TestBuildHeaderValueHashIn(t *testing.T) {
+	buildC, err := Build("req_header_value_hash_in(\"X-Bfe-Uid\", \"4073|5000-9999\", true)")
+	if err != nil {
+		t.Errorf("build failed, req_header_value_hash_in(\"X-Bfe-Uid\", \"4073|5000-9999\", true), err(%s)",
+			err.Error())
+	}
+	req.HttpRequest.Header = make(map[string][]string)
+	req.HttpRequest.Header["X-Bfe-Uid"] = []string{"TEST-uid-0001"} // hash_bucket of "test-uid-0001": 5968
+	if !buildC.Match(&req) {
+		t.Errorf("TEST-uid-0001 not match req_header_value_hash_in(\"X-Bfe-Uid\", \"4073|5000-9999\", true)")
+	}
+	req.HttpRequest.Header["X-Bfe-Uid"] = []string{"test-uid-0002"} // hash_bucket of "test-uid-0002": 4073
+	if !buildC.Match(&req) {
+		t.Errorf("test-uid-0002 not match req_header_value_hash_in(\"X-Bfe-Uid\", \"4073|5000-9999\", true)")
+	}
+	req.HttpRequest.Header["X-Bfe-Uid"] = []string{"test-uid-0003"} // hash_bucket of "test-uid-0003: 4055
+	if buildC.Match(&req) {
+		t.Errorf("test-uid-0003 match req_header_value_hash_in(\"X-Bfe-Uid\", \"4073|5000-9999\", true)")
+	}
+	req.HttpRequest.Header["X-Bfe-Uid"] = []string{"test-uid-0004"} // hash_bucket of "test-uid-0004: 9683
+	if !buildC.Match(&req) {
+		t.Errorf("test-uid-0004 not match req_header_value_hash_in(\"X-Bfe-Uid\", \"4073|5000-9999\", true)")
 	}
 }
