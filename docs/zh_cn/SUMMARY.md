@@ -29,8 +29,10 @@
   * 名字服务
     * [名字规则](configuration/server_data_conf/name_conf.data.md)
   * 扩展模块
+    * [mod_access](configuration/mod_access/mod_access.md)
     * [mod_block](configuration/mod_block/mod_block.md)
     * [mod_header](configuration/mod_header/mod_header.md)
+    * [mod_key_log](configuration/mod_key_log/mod_key_log.md)
     * [mod_redirect](configuration/mod_redirect/mod_redirect.md)
     * [mod_rewrite](configuration/mod_rewrite/mod_rewrite.md)
     * [mod_trust_clientip](configuration/mod_trust_clientip/mod_trust_clientip.md)
