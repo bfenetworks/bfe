@@ -39,7 +39,7 @@ Block incoming connection/request based on defined rules.
   
     | Action | Description          |
     | ------ | -------------------- |
-    | CLOSE  | Close the connection |
+    | CLOSE  | Close the connection |
   
     ```
     {

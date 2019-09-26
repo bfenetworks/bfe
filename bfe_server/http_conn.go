@@ -147,10 +147,10 @@ func newConn(rwc net.Conn, srv *BfeServer) (c *conn, err error) {
 	br := srv.BufioCache.newBufioReader(c.lr)
 	bw := srv.BufioCache.newBufioWriterSize(c.rwc, 4<<10)
 	c.buf = bfe_bufio.NewReadWriter(br, bw)
+	c.reqSN = 0
 
 	c.session = bfe_basic.NewSession(rwc)
-	c.reqSN = 0
-	vip, vport, err := bfe_util.GetVipAndPort(rwc)
+	vip, vport, err := bfe_util.GetVipPort(rwc)
 	if err == nil {
 		c.session.Vip = vip
 		c.session.Vport = vport
@@ -244,8 +244,8 @@ const rstAvoidanceDelay = 500 * time.Millisecond
 // See http://golang.org/issue/3595
 func (c *conn) closeWriteAndWait() {
 	c.finalFlush()
-	if tcp, ok := c.rwc.(*net.TCPConn); ok {
-		tcp.CloseWrite()
+	if cw, ok := c.rwc.(bfe_util.CloseWriter); ok {
+		cw.CloseWrite()
 	}
 	time.Sleep(rstAvoidanceDelay)
 }

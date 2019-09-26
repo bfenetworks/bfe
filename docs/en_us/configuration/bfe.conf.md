@@ -12,7 +12,7 @@ bfe.conf is the core config file of BFE.
 | HttpsPort               | Int    | Listen port for HTTPS                                        |
 | MonitorPort             | Int    | Listen port for monitor                                      |
 | MaxCpus                 | Int    | Max number of CPUs to use (0 to use all CPUs)                |
-| Layer4LoadBalancer      | String | Type of layer-4 load balancer                                |
+| Layer4LoadBalancer      | String | Type of layer-4 load balancer (PROXY/BGW/NONE)               |
 | TlsHandshakeTimeout     | Int    | TLS handshake timeout, in seconds                            |
 | ClientReadTimeout       | Int    | Read timeout of communicating with http client, in seconds   |
 | ClientWriteTimeout      | Int    | Write timeout of communicating with http client, in seconds  |
@@ -80,6 +80,13 @@ monitorPort = 8299
 # max number of CPUs to use (0 to use all CPUs)
 maxCpus = 0
 
+# type of layer-4 load balancer (PROXY/BGW/NONE)
+# 
+# Note:
+# - PROXY: layer-4 balancer talking the proxy protocol
+#          eg. F5 BigIP/Citrix ADC 
+# - BGW: Baidu GateWay
+# - NONE: layer-4 balancer disabled 
 layer4LoadBalancer = ""
 
 # tls handshake timeout, in seconds

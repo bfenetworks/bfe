@@ -1,4 +1,11 @@
 # BFE
+
+[![GitHub](https://img.shields.io/github/license/baidu/bfe)](https://github.com/baidu/bfe/blob/develop/LICENSE)
+[![Travis (.com)](https://img.shields.io/travis/com/baidu/bfe)](https://travis-ci.com/baidu/bfe)
+[![Go Report Card](https://goreportcard.com/badge/github.com/baidu/bfe)](https://goreportcard.com/report/github.com/baidu/bfe)
+[![GoDoc](https://godoc.org/github.com/baidu/bfe?status.svg)](https://godoc.org/github.com/baidu/bfe/bfe_module)
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/3209/badge)](https://bestpractices.coreinfrastructure.org/projects/3209)
+
 BFE is an open-source layer 7 load balancer derived from proprietary Baidu FrontEnd.
 
 ## Advantages
@@ -29,12 +36,15 @@ BFE is an open-source layer 7 load balancer derived from proprietary Baidu Front
 - See the [CONTRIBUTING](CONTRIBUTING.md) file for details
 
 ## Authors
-- Owners: zhangmiao02, yangsijie
-- Committers: yangsijie
+- Owners: [Miao Zhang](mailto:zhangmiao02@baidu.com), [Sijie Yang](mailto:yangsijie@baidu.com)
+- Committers: [Sijie Yang](mailto:yangsijie@baidu.com)
+- Contributors: [CONTRIBUTORS](CONTRIBUTORS.md)
 
 ## Discussion
 - Issue: https://github.com/baidu/bfe/issues
 
+## Contact
+- Email：bfe-osc@baidu.com
+
 ## License
 BFE is under the Apache 2.0 license. See the [LICENSE](LICENSE) file for details.
-

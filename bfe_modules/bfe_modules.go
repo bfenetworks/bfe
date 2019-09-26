@@ -18,8 +18,10 @@ package bfe_modules
 
 import (
 	"github.com/baidu/bfe/bfe_module"
+	"github.com/baidu/bfe/bfe_modules/mod_access"
 	"github.com/baidu/bfe/bfe_modules/mod_block"
 	"github.com/baidu/bfe/bfe_modules/mod_header"
+	"github.com/baidu/bfe/bfe_modules/mod_key_log"
 	"github.com/baidu/bfe/bfe_modules/mod_logid"
 	"github.com/baidu/bfe/bfe_modules/mod_redirect"
 	"github.com/baidu/bfe/bfe_modules/mod_rewrite"
@@ -49,6 +51,12 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_header
 	mod_header.NewModuleHeader(),
+
+	// mod_key_log
+	mod_key_log.NewModuleKeyLog(),
+
+	// mod_access
+	mod_access.NewModuleAccess(),
 }
 
 // init modules list

@@ -16,7 +16,7 @@ The struct of tls rule detail is as followed:
 | ------------ | ------------ | -------------------------------------------------------------- |
 | CertName     | String       | Name of server certificate (Defined in server_cert_conf.data)  |
 | NextProtos   | String Array | TLS application layer protocol<br>- if empty, default http/1.1 |
-| Grade        | String       | TLS Security grade                                             |
+| Grade        | String       | TLS Security grade (A+, A, B, C)                           |
 | ClientAuth   | Bool         | Enable TLS Client Authentication                               |
 | ClientCAName | String       | Name of Client CA certificate                                  |
 | VipConf      | String Array | List of VIP addresses                                          |

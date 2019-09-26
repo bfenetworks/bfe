@@ -30,7 +30,7 @@ GOGET   := $(GO) get
 GOGEN   := $(GO) generate
 
 # init bfe version
-BFE_VERSION ?= $(shell git rev-parse --short HEAD || echo "GitNotFound")
+BFE_VERSION ?= $(shell cat VERSION)
 
 # make, make all
 all: prepare compile package

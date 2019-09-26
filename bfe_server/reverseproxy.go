@@ -739,6 +739,10 @@ func (p *ReverseProxy) copyResponse(dst io.Writer, src io.ReadCloser,
 
 	if flushInterval < 0 {
 		if wf, ok := dst.(bfe_http.WriteFlusher); ok {
+			// Note: Flush response header immediately
+			if err := wf.Flush(); err != nil {
+				return err
+			}
 			_, err := bfe_util.CopyWithoutBuffer(wf, src)
 			return err
 		}
