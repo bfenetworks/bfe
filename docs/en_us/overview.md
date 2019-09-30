@@ -14,4 +14,4 @@
 
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly.
 
-- Detailed built-in metrics avaiable for service status monitor.
+- Detailed built-in metrics available for service status monitor.
