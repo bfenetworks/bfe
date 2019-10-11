@@ -7,3 +7,7 @@ script:
   - echo "start to build and test bfe"
   - make
   - echo "finish"
+
+after_success:
+  - make coverage
+  - bash <(curl -s https://codecov.io/bash)

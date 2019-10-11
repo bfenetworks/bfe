@@ -32,6 +32,9 @@ GOGEN   := $(GO) generate
 # init bfe version
 BFE_VERSION ?= $(shell cat VERSION)
 
+# init bfe packages
+BFE_PKGS := $(shell go list ./...)
+
 # make, make all
 all: prepare compile package
 
@@ -43,7 +46,7 @@ prepare-gen:
 	cd "bfe_basic/condition/parser" && $(GOGEN)
 
 # make compile, go build
-compile: build
+compile: test build
 build:
 	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION)" 
 
@@ -53,6 +56,11 @@ test-case:
 	$(GOTEST) -race -cover ./...
 vet-case:
 	${GOVET} ./...
+
+# make coverage for codecov
+coverage:
+	echo -n > coverage.txt
+	for pkg in $(BFE_PKGS) ; do $(GOTEST) -race -coverprofile=cover.out -covermode=atomic $${pkg} && cat cover.out >> coverage.txt; done
 
 # make package
 package:
