@@ -47,15 +47,12 @@
 
 ## Condition Primitive Grammar
 
-- Basic conditional judgment unit, format is shown as follows
+- Basic conditional judgment unit, format is shown as follows:
 
 ​           **FuncName( params )**
 
--  The number of parameters can be one or more
-
-- Condition Primitive Grammar
-  - The type of return value is bool
-  - Condition primitive like function definition, multiple parameters are supported in it
+- Condition primitive like function definition: FuncName is name of condition primitive; params are input parameters
+- Return value type of Condition Primitive is bool
 
 
 ## Condition Expression Grammar

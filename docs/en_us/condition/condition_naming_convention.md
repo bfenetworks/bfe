@@ -11,20 +11,28 @@
     - e.g. **bfe_time_range**()
 
 
-- Name prefix of compare actions:
-  - **match**：accurate matching
+- Name of compare actions:
+  - **match**：exact matching
     - In this situation, the only one parameter is given
+    - eg. **req_tag_match()**
   - **in**：if the value is in the configured set
+    - eg. **req_host_in()**
   - **prefix_in**：if the value prefix is in the configured set
+    - eg. **req_path_prefix_in()**
   - **suffix_in**：if the value suffix is in the configured set
+    - eg. **req_path_suffix_in()**
   - **key_exist**：if the key exists
-    - In general, this action is used in the compare of query/cookie/header
+    - eg. **req_query_key_exist()**
   - **value_in**：for the configured key, judge if the value is in the configured value set
+    - eg. **req_query_key_exist()**
   - **value_prefix_in**：for the configured key, judge if the value prefix is in the configured set
+    - eg. **req_header_value_prefix_in()**
   - **value_suffix_in**：for the configured key, judge if the value suffix is in the configured set
+    - eg. **req_header_value_suffix_in()**
   - **range**: scope match
-    - In general, this action is used in the compare of ip/time
+    - eg. **req_cip_range()**
   - **regmatch**：regular match
-    - This action is not encouraged to use
-  - **dictmatch**：if matching the content of dictionary
+    - eg. **req_url_regmatch()**
   - **contain**: if include the configured string
+    - eg. **req_cookie_value_contain()**
+

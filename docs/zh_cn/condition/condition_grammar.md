@@ -40,12 +40,10 @@
 
 ​           **FuncName( params )**
 
-- params 是参数，参数个数可能是1个或多个
-
-- ConditionPrimitive是一系列预定义好的内置条件原语
-  - 例如 method_match(“GET”) ，表示的是判断http请求的方法是不是GET
-  - 条件原语的返回值都是bool类型
-  - 条件原语类似于函数定义，可以有多个参数
+- 条件原语类似于函数定义，FuncName是条件原语名称, params是参数，可能是1个或多个
+- 条件原语的返回值都是bool类型
+- BFE支持一系列预定义的内置条件原语
+  - 例: method_match(“GET”) ，表示的是判断http请求的方法是不是GET
 
 
 ## 条件表达式的语法
