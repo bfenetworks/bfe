@@ -1,6 +1,6 @@
-# Condition Primitive Standard
+# Condition Naming Convention
 
-- **Request** or **Response**
+- Name prefix of condition primitive:
   - Condition primitive about request is used ”**req_**“ prefix
     - e.g. **req_host_in()**
   - Condition primitive about response is used ”**res_**“ prefix
@@ -9,7 +9,9 @@
     - e.g. **ses_vip_in()**
   - Condition primitive about system is used ”**bfe_**“ prefix
     - e.g. **bfe_time_range**()
-- Compare actions include as follows:
+
+
+- Name prefix of compare actions:
   - **match**：accurate matching
     - In this situation, the only one parameter is given
   - **in**：if the value is in the configured set

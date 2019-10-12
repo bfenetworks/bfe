@@ -1,18 +1,4 @@
-# Response
-
-## Response Status Code
-
-- **res_code_in(codes)**
-  - Judge response HTTP status code is in configured codes
-  
-  - Codes represent multiple HTTP status code, it is string, format is as "200|400|403"
-  
-    ```
-    # if response status code is 200 or 500
-    res_code_in(200|500)
-    ```
-
-## Header
+# Response Header
 
 - **res_header_key_in(patterns)**
   - Judge if key in Header of response matches configured patterns
@@ -34,5 +20,3 @@
     # if the value of Header-Test in header is XXX
     res_header_value_in("Header-Test", "XXX", true)
     ```
-  
-    

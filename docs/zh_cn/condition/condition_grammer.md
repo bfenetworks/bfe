@@ -1,6 +1,7 @@
-# 规则语法
+# 条件语法
 
-## 原语、表达式和变量
+
+## 基本概念: 原语、表达式和变量
 
 - **条件原语**（Condition Primitive）：
 
@@ -31,7 +32,6 @@ req_host_in(“bfe-networks.com”) && req_method_in(“GET”) # 域名是bfe-n
     ```
   $news_host && req_method_in("GET") # 符合变量news_host、且方法是"GET"
     ```
-  
 
 
 ## 条件原语的语法
@@ -46,6 +46,7 @@ req_host_in(“bfe-networks.com”) && req_method_in(“GET”) # 域名是bfe-n
   - 例如对于之前的case：method_match(“GET”) ，表示的是判断http请求的方法是不是GET；
   - 条件原语的返回值都是bool类型；
   - 条件原语类似于函数定义，可以有多个参数；
+
 
 ## 条件表达式的语法
 
@@ -63,7 +64,6 @@ req_host_in(“bfe-networks.com”) && req_method_in(“GET”) # 域名是bfe-n
                    | ! CE
                    | Condition Primitive
   ```
-  
   
 
 ## 高级条件表达式的语法
@@ -83,5 +83,4 @@ req_host_in(“bfe-networks.com”) && req_method_in(“GET”) # 域名是bfe-n
                    | Condition Primitive
   | Condition Variable
   ```
-  
   

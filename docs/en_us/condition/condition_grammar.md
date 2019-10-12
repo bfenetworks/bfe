@@ -1,6 +1,6 @@
-# Rule Grammar
+# Condition Grammar
 
-## 1. Basic Concepts
+## Basic Concepts
 
 - **Condition Primitive**：
 
@@ -45,7 +45,7 @@
     ```
 
 
-## 2. Condition Primitive Grammar
+## Condition Primitive Grammar
 
 - Basic conditional judgment unit, format is shown as fol：
 
@@ -57,7 +57,8 @@
   - The type of returning  value is bool；
   - Condition primitive like function definition, multiple parameters are supported in it;
 
-## 3. Condition Expression Grammar
+
+## Condition Expression Grammar
 
 Condition Expression grammar is defined as follows:
 
@@ -76,7 +77,7 @@ Condition Expression grammar is defined as follows:
   
   
 
-## 4. Advanced Condition Expression Grammar
+## Advanced Condition Expression Grammar
 
 Advanced Condition Expression grammar is defined as follows:：
 
