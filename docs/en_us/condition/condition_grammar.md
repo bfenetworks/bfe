@@ -2,9 +2,9 @@
 
 ## Basic Concepts
 
-- **Condition Primitive**：
+- **Condition Primitive**
 
-  - Basic conditional judgment unit, which defines the primitive of comparison;
+  - Basic conditional judgment unit, which defines the primitive of comparison
 
   - e.g.
 
@@ -14,7 +14,7 @@
 
 - **Condition Expression**
 
-  - Expression using "and/or/not" to connect condition primitive ；
+  - Expression using "and/or/not" to connect condition primitive
 
   - e.g.
 
@@ -24,7 +24,7 @@
 
 - **Condition Variable**
 
-  - Variable that is defined by **Condition Expression**;
+  - Variable that is defined by **Condition Expression**
 
   - e.g.
 
@@ -36,7 +36,7 @@
 
   - Expression using "and/or/not" to connect condition primitive and condition variable
 
-  - In advanced condition expression, condition variable is identified by  **"$" prefix**；
+  - In advanced condition expression, condition variable is identified by  **"$" prefix**
 
   - e.g.
   
@@ -47,28 +47,28 @@
 
 ## Condition Primitive Grammar
 
-- Basic conditional judgment unit, format is shown as fol：
+- Basic conditional judgment unit, format is shown as follows
 
 ​           **FuncName( params )**
 
 -  The number of parameters can be one or more
 
 - Condition Primitive Grammar
-  - The type of returning  value is bool；
-  - Condition primitive like function definition, multiple parameters are supported in it;
+  - The type of return value is bool
+  - Condition primitive like function definition, multiple parameters are supported in it
 
 
 ## Condition Expression Grammar
 
 Condition Expression grammar is defined as follows:
 
-- Priority and combination rule of "&&/||/!" is same as them in C language;
+- Priority and combination rule of "&&/||/!" is same as them in C language
 
 - Expression description
 
   ```
   Condition Expression(CE) -> 
-  CE && CE
+                     CE && CE
                    | CE || CE
                    | ( CE )
                    | ! CE
@@ -79,20 +79,20 @@ Condition Expression grammar is defined as follows:
 
 ## Advanced Condition Expression Grammar
 
-Advanced Condition Expression grammar is defined as follows:：
+Advanced Condition Expression grammar is defined as follows:
 
-- Priority and combination rule of "&&/||/!" is same as them in C language;
+- Priority and combination rule of "&&/||/!" is same as them in C language
 
 - Expression description
 
   ```
   Advanced Condition Expression(ACE) -> 
-  ACE && ACE
+                     ACE && ACE
                    | ACE || ACE
                    | ( ACE)
                    | ! ACE
                    | Condition Primitive
-  | Condition Variable
+                   | Condition Variable
   ```
   
   
