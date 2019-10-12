@@ -60,7 +60,7 @@ vet-case:
 # make coverage for codecov
 coverage:
 	echo -n > coverage.txt
-	for pkg in $(BFE_PKGS) ; do $(GOTEST) -race -coverprofile=cover.out -covermode=atomic $${pkg} && cat cover.out >> coverage.txt; done
+	for pkg in $(BFE_PKGS) ; do $(GOTEST) -race -coverprofile=profile.out -covermode=atomic $${pkg} && cat profile.out >> coverage.txt; done
 
 # make package
 package:
