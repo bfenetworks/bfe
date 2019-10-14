@@ -60,7 +60,7 @@
     * [mod_trust_clientip](monitor/mod_trust_clientip.md)
   * 延迟
     * [延迟分布](monitor/proxy_XXX_delay.md)
-* 附录C： 条件原语
+* 附录C：条件原语
   * [条件的概念及语法](condition/condition_grammar.md)
   * [条件原语命名规范](condition/condition_naming_convention.md)
   * [条件原语索引](condition/condition_primitive_index.md)
@@ -75,5 +75,7 @@
   * 响应相关条件原语
     * [Code](condition/response/code.md)
     * [Header](condition/response/header.md)
+  * 会话相关条件原语
+    * [IP](condition/session/ip.md)
   * 系统相关条件原语
     * [Time](condition/system/time.md)

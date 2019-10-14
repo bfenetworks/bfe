@@ -74,6 +74,8 @@
   * Response related Condition Primitives
     * [Code](condition/response/code.md)
     * [Header](condition/response/header.md)
+  * Session related Condition Primitives
+    * [IP](condition/session/ip.md)
   * System related Condition Primitives
     * [Time](condition/system/time.md)
 
