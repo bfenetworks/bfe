@@ -1,7 +1,23 @@
 {
-  "files": ["CONTRIBUTORS.md"],
+  "files": [
+    "CONTRIBUTORS.md"
+  ],
   "imageSize": 100,
   "contributorsPerLine": 7,
   "skipCi": "true",
-  "contributors": []
+  "contributors": [
+    {
+      "login": "yangqingxin1993",
+      "name": "icyang",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/29617153?v=4",
+      "profile": "https://github.com/yangqingxin1993",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
+  "projectName": "bfe",
+  "projectOwner": "baidu",
+  "repoType": "github",
+  "repoHost": "https://github.com"
 }
