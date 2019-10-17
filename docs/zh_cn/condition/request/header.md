@@ -4,7 +4,7 @@
 
 - header_name：字符串，请求header中的key
 - patterns：字符串，表示多个可匹配的pattern，用‘|’连接
-- case_insensitive：bool类型，是否忽略key的值大小写
+- case_insensitive：bool类型，是否忽略大小写
 
 ## 请求Header原语
 
@@ -12,26 +12,31 @@
   - 判断请求头部中key是否为patterns之一
   - **注意：Header名称使用HTTP协议规范形式**
   ```
-  正确：req_header_key_in(“Header-Test”)
-  错误：req_header_key_in(“Header-test”), req_header_key_in(“header-test”), req_header_key_in(“header-Test”)
+  # 正确：
+  req_header_key_in(“Header-Test”)
+  
+  #错误：
+  req_header_key_in(“Header-test”)
+  req_header_key_in(“header-test”)
+  req_header_key_in(“header-Test”)
   ```
   
 - **req_header_value_in(header_name, patterns, case_insensitive)**
   - 判断http消息头部字段是否为patterns之一
   ```
-  # header中Host为XXX.com的请求
+  # header中Host值为XXX.com的请求
   req_header_value_in("Host", "XXX.com", true)
   ```
 
 - **req_header_value_prefix_in(header_name, patterns, case_insensitive)**
-  - 判断http消息头部字段是否前缀匹配patterns之一
+  - 判断http消息头部字段值是否前缀匹配patterns之一
   ```
   # header中Host值前缀为XXX的请求
   req_header_prefix_value_in("Host", "XXX", true)
   ```
 
 - **req_header_value_suffix_in(header_name, patterns, case_insensitive)**
-  - 判断http消息头部字段是否后缀匹配patterns之一
+  - 判断http消息头部字段值是否后缀匹配patterns之一
   ```
   # header中Host值后缀为XXX的请求
   req_header_suffix_value_in("Host", "XXX", true)
@@ -45,7 +50,7 @@
   ```
 
 - **req_header_value_contain(key, patterns, case_insensitive)**
-  - 判断http消息头部字段是否包含patterns之一
+  - 判断http消息头部字段值是否包含patterns之一
   ```
   # header中Host值包含XXX的请求
   req_header_value_contain(“Host”, “XXX”, true)

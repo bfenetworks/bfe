@@ -12,7 +12,7 @@
 
 
 - Name of compare actions:
-  - **match**：exact matching
+  - **match**：exact match
     - In this situation, the only one parameter is given
     - eg. **req_tag_match()**
   - **in**：if the value is in the configured set
@@ -29,10 +29,10 @@
     - eg. **req_header_value_prefix_in()**
   - **value_suffix_in**：for the configured key, judge if the value suffix is in the configured set
     - eg. **req_header_value_suffix_in()**
-  - **range**: scope match
+  - **range**: range match
     - eg. **req_cip_range()**
   - **regmatch**：regular match
     - eg. **req_url_regmatch()**
-  - **contain**: if include the configured string
+  - **contain**: string match
     - eg. **req_cookie_value_contain()**
 

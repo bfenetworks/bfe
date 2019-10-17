@@ -2,8 +2,8 @@
 
 ## 请求clientip相关的条件原语
 
-- **req_cip_range("startIP", "endIP")**
-  - 判断请求的clientip是否在 [startIP, endIP] 的区间内
+- **req_cip_range("start_ip", "end_ip")**
+  - 判断请求的clientip是否在 [start_ip, end_ip] 的区间内
   ```
   # clientip在10.0.0.1~10.0.0.10的请求
   req_cip_range("10.0.0.1", "10.0.0.10")
@@ -30,7 +30,7 @@
   ```
 
 - **req_vip_range("startVIP", "endVIP")**
-  - 判断访问VIP是否在指定 [startIP, endIP] 的区间内
+  - 判断访问VIP是否在指定 [start_ip, end_ip] 的区间内
   ```
   # vip在10.0.0.1~10.0.0.10的请求
   req_vip_range("10.0.0.1", "10.0.0.10")

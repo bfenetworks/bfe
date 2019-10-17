@@ -3,7 +3,7 @@
 
 ## 通用原语参数
 - patterns：字符串，表示多个可匹配的pattern，用‘|’连接
-- case_insensitive：bool类型，是否忽略key的值大小写
+- case_insensitive：bool类型，是否忽略大小写
 
 ## 请求Host相关
 注:由于host本身是忽略大小写的，所以所有host相关的原语不提供是否大小写忽略选项

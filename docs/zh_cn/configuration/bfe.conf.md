@@ -12,13 +12,13 @@ bfe.conf是BFE的核心配置。
 | HttpsPort               | Int    | HTTPS流量监听端口                                            |
 | MonitorPort             | Int    | 监控流量监听端口                                             |
 | MaxCpus                 | Int    | 最大使用CPU核数; 0代表使用所有CPU核                          |
-| Layer4LoadBalancer      | String | 四层负载均衡器类型 (PROXY/BGW/NONE                           |
+| Layer4LoadBalancer      | String | 四层负载均衡器类型 (PROXY/BGW/NONE)                          |
 | TlsHandshakeTimeout     | Int    | TLS握手超时时间，单位为秒                                    |
 | ClientReadTimeout       | Int    | 读客户端超时时间，单位为秒                                   |
 | ClientWriteTimeout      | Int    | 写客户端超时时间，单位为秒                                   |
 | GracefulShutdownTimeout | Int    | 优雅退出超时时间，单位为秒，最大300秒                        |
 | KeepAliveEnabled        | Bool   | 与用户端连接是否启用HTTP KeepAlive                           |
-| MaxHeaderBytes          | Int    | 请求头部的最大长度，单位为Bytes                              |
+| MaxHeaderBytes          | Int    | 请求头部的最大长度，单位为Byte                               |
 | MaxHeaderUriBytes       | Int    | 请求头部URI的最大长度，单位为Byte                            |
 | HostRuleConf            | String | 租户域名表配置文件                                           |
 | VipRuleConf             | String | 租户VIP表配置文件                                            |

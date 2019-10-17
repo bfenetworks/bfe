@@ -2,10 +2,10 @@
 
 - **req_tag_match(tagName, tagValue)**
   - 在请求处理过程中，在某些环节可能会打上一些标签
-  - 如：在经过词典匹配后，设置clientIP这个tag的值为news_blackIPList
+  - 如：在经过词典匹配后，设置请求clientIP类型tag的值为blacklist
     
   ```
-  # clientIP tag的值为news_blackIPList的请求
-  req_tag_match("clientIP", "news_blackIPList")
+  # 判断请求clientIP tag的值为blacklist
+  req_tag_match("clientIP", "blacklist")
   ```
 

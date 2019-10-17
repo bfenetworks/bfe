@@ -14,7 +14,7 @@
 - **条件表达式**（Condition Expression）：基于条件原语的“与/或/非组合”
 
   ```
-  req_host_in("bfe-networks.com") && req_method_in("GET") # 域名是bfe-networks.com 且方法是GET
+  req_host_in("bfe-networks.com") && req_method_in("GET") # 域名是bfe-networks.com且方法是GET
   ```
   
 - **条件变量**（Condition Variable）
@@ -27,10 +27,10 @@
   
 - **高级条件表达式**（Advanced Condition Expression）：基于条件原语和条件变量的“与/或/非组合”
 
-  - 在高级条件表达式中，条件变量以**“$”前缀**作为标示
+  - 在高级条件表达式中，条件变量以$前缀作为标示
 
   ```
-  $news_host && req_method_in("GET") # 符合变量news_host、且方法是GET
+  $news_host && req_method_in("GET") # 符合变量news_host且方法是GET
   ```
 
 
@@ -38,12 +38,12 @@
 
 - **条件原语**是最基本的条件判断单元，形式为：
 
-​           **FuncName( params )**
+​           **func_name( params )**
 
-- 条件原语类似于函数定义，FuncName是条件原语名称, params是参数，可能是1个或多个
+- 条件原语类似于函数定义: func_name是条件原语名称; params是参数，可能是1个或多个
 - 条件原语的返回值都是bool类型
-- BFE支持一系列预定义的内置条件原语
-  - 例: method_match(“GET”) ，表示的是判断http请求的方法是不是GET
+- BFE支持一系列预定义的内置[条件原语](condition_primitive_index.md)
+  - 例: req_method_in("GET|POST") ，表示判断http请求的方法是不是GET或POST
 
 
 ## 条件表达式的语法
