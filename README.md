@@ -5,7 +5,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/baidu/bfe)](https://goreportcard.com/report/github.com/baidu/bfe)
 [![GoDoc](https://godoc.org/github.com/baidu/bfe?status.svg)](https://godoc.org/github.com/baidu/bfe/bfe_module)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/3209/badge)](https://bestpractices.coreinfrastructure.org/projects/3209)
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fbaidu%2Fbfe.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fbaidu%2Fbfe?ref=badge_shield)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fbaidu%2Fbfe.svg?type=shield)](https://app.fossa.io/reports/1bd1bae4-31bf-41bf-8865-320eedbd1f85)
 
 BFE is an open-source layer 7 load balancer derived from proprietary Baidu FrontEnd.
 
