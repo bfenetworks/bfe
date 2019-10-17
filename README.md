@@ -50,6 +50,3 @@ BFE is an open-source layer 7 load balancer derived from proprietary Baidu Front
 
 ## License
 BFE is under the Apache 2.0 license. See the [LICENSE](LICENSE) file for details.
-
-
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fbaidu%2Fbfe.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fbaidu%2Fbfe?ref=badge_large)
