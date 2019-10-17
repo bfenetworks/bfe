@@ -44,6 +44,7 @@ var VariableHandlers = map[string]HeaderValueHandler{
 
 	// for conn info
 	"bfe_session_id": getSessionId,
+	"bfe_log_id":     getLogId,
 	"bfe_cip":        getClientIp, // client ip (alias for bfe_clientip)
 	"bfe_vip":        getBfeVip,   // virtual ip
 	"bfe_bip":        getBfeBip,   // balancer ip
@@ -310,4 +311,8 @@ func getBfeServerName(req *bfe_basic.Request) string {
 
 func getSessionId(req *bfe_basic.Request) string {
 	return fmt.Sprintf("%d", req.Session.SessionId)
+}
+
+func getLogId(req *bfe_basic.Request) string {
+	return req.LogId
 }

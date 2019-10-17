@@ -1,6 +1,6 @@
-# Condition Primitive Standard
+# Condition Naming Convention
 
-- **Request** or **Response**
+- Name prefix of condition primitive:
   - Condition primitive about request is used ”**req_**“ prefix
     - e.g. **req_host_in()**
   - Condition primitive about response is used ”**res_**“ prefix
@@ -9,20 +9,30 @@
     - e.g. **ses_vip_in()**
   - Condition primitive about system is used ”**bfe_**“ prefix
     - e.g. **bfe_time_range**()
-- Compare actions include as follows:
-  - **match**：accurate matching
+
+
+- Name of compare actions:
+  - **match**：exact match
     - In this situation, the only one parameter is given
+    - eg. **req_tag_match()**
   - **in**：if the value is in the configured set
+    - eg. **req_host_in()**
   - **prefix_in**：if the value prefix is in the configured set
+    - eg. **req_path_prefix_in()**
   - **suffix_in**：if the value suffix is in the configured set
+    - eg. **req_path_suffix_in()**
   - **key_exist**：if the key exists
-    - In general, this action is used in the compare of query/cookie/header
+    - eg. **req_query_key_exist()**
   - **value_in**：for the configured key, judge if the value is in the configured value set
+    - eg. **req_query_key_exist()**
   - **value_prefix_in**：for the configured key, judge if the value prefix is in the configured set
+    - eg. **req_header_value_prefix_in()**
   - **value_suffix_in**：for the configured key, judge if the value suffix is in the configured set
-  - **range**: scope match
-    - In general, this action is used in the compare of ip/time
+    - eg. **req_header_value_suffix_in()**
+  - **range**: range match
+    - eg. **req_cip_range()**
   - **regmatch**：regular match
-    - This action is not encouraged to use
-  - **dictmatch**：if matching the content of dictionary
-  - **contain**: if include the configured string
+    - eg. **req_url_regmatch()**
+  - **contain**: string match
+    - eg. **req_cookie_value_contain()**
+

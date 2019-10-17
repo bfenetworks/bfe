@@ -30,7 +30,7 @@ BFE development follows [git-flow](http://nvie.com/posts/a-successful-git-branch
 
 Follow the following procedures to release a new version:
 
-1. Create a new branch from the 'develop' branch with the name 'release/xX.Y.Z'. For example, `release/v0.10.0`
+1. Create a new branch from the 'develop' branch with the name 'release/vX.Y.Z'. For example, `release/v0.10.0`
 
 1. Tag the version of the new branch with 'X.Y.Z-rc.N' (N is patch number). The first tag is'0.10.0-rc.1', the second tag is '0.10.0-rc.2', and so on.
 

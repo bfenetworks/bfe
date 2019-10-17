@@ -28,7 +28,7 @@
     $ make
     ```
 
-- Running the tests:
+- Run the tests:
     ```
     $ make test
     ```
@@ -42,7 +42,7 @@
 
 ## Run
 
-- Run bfe with the exmaple configures: conf
+- Run bfe with the example configurations: conf
 
     ```
     $ cd output/bin/

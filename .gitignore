@@ -6,3 +6,5 @@ output
 .*.swo
 /**/y.output
 /**/*.log
+profile.out
+coverage.txt
