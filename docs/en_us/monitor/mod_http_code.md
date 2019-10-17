@@ -1,6 +1,6 @@
 # Introduction
 
-mod_http_code is used to count HTTP status codes.
+Count HTTP status codes.
 
 # Monitor Item
 
