@@ -310,7 +310,7 @@ func getBfeServerName(req *bfe_basic.Request) string {
 }
 
 func getSessionId(req *bfe_basic.Request) string {
-	return fmt.Sprintf("%d", req.Session.SessionId)
+	return req.Session.SessionId
 }
 
 func getLogId(req *bfe_basic.Request) string {
