@@ -18,8 +18,8 @@ package mod_logid
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
-	"math/big"
 )
 
 import (
@@ -35,7 +35,6 @@ import (
 
 const (
 	ModLogId = "mod_logid"
-	LogIdLen = 32
 )
 
 type ModuleLogIdState struct {
@@ -88,7 +87,7 @@ func (m *ModuleLogId) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 }
 
 func (m *ModuleLogId) afterAccept(session *bfe_basic.Session) int {
-	session.SessionId = genLogID(LogIdLen)
+	session.SessionId = genLogId()
 
 	return bfe_module.BFE_HANDLER_GOON
 }
@@ -106,7 +105,7 @@ func (m *ModuleLogId) beforeLocation(req *bfe_basic.Request) (int, *bfe_http.Res
 	}
 
 	// generate a new log id
-	req.LogId = genLogID(LogIdLen)
+	req.LogId = genLogId()
 	return bfe_module.BFE_HANDLER_GOON, nil
 }
 
@@ -120,12 +119,8 @@ func (m *ModuleLogId) getState(params map[string][]string) ([]byte, error) {
 	return s.Format(params)
 }
 
-func genLogID(len int) string {
-	var logId string
-	bigInt := big.NewInt(16)
-	for i := 0; i < len; i++ {
-		randomInt, _ := rand.Int(rand.Reader, bigInt)
-		logId += fmt.Sprintf("%X", randomInt)
-	}
-	return logId
+func genLogId() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }
