@@ -121,6 +121,9 @@ func (m *ModuleLogId) getState(params map[string][]string) ([]byte, error) {
 
 func genLogId() string {
 	b := make([]byte, 16)
-	rand.Read(b)
+	_, err := rand.Read(b)
+	if err != nil {
+		return ""
+	}
 	return hex.EncodeToString(b)
 }
