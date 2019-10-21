@@ -151,7 +151,7 @@ func testMockServer(t *testing.T, hs bfe_util.MockHandler, hc bfe_util.MockHandl
 }
 
 func testProxyConnRead(t *testing.T, br *bufio.Reader, timeout time.Duration, limit int64, e string) {
-	done := make(chan error, 0)
+	done := make(chan error)
 
 	testMockServer(t, func(c net.Conn) {
 		// create proxy conn
@@ -174,8 +174,8 @@ func testProxyConnRead(t *testing.T, br *bufio.Reader, timeout time.Duration, li
 }
 
 func testProxyConnAddr(t *testing.T, br *bufio.Reader, caddr, vaddr net.Addr, success bool) {
-	cliDone := make(chan net.Conn, 0)
-	srvDone := make(chan net.Conn, 0)
+	cliDone := make(chan net.Conn)
+	srvDone := make(chan net.Conn)
 
 	testMockServer(t, func(c net.Conn) {
 		pconn := NewConn(c, 0, 0)
