@@ -13,13 +13,6 @@ cluster_conf.data为集群转发配置文件。
 
 ## 集群转发配置 ClusterConf
 
-| 配置项  | 类型   | 描述                                                 |
-| ------- | ------ | ---------------------------------------------------- |
-| BackendConf | BackendConf | 后端基础配置                                         |
-| CheckConf  | BackendConf | 健康检查配置 |
-| GslbBasic | BackendConf | GSLB基础配置 |
-| ClusterBasic | BackendConf | 集群基础配置 |
-
 ### 后端基础配置 BackendConf
 
 | 配置项                | 类型 | 描述                                                         |
