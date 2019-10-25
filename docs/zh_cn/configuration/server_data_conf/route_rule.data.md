@@ -7,7 +7,15 @@ route_rule.data 是BFE的分流配置文件。
 | 配置项      | 类型   | 描述                                                         |
 | ----------- | ------ | ------------------------------------------------------------ |
 | Version     | String | 配置文件版本                                                 |
-| ProductRule | Struct | 产品线的分流规则配置，该配置是个map数据，key是产品线名称，value是分流规则。每个分流规则包括：<br>- Cond: 分流条件<br>- ClusterName: 目的集群 |
+| ProductRule | Map&lt;String, Array&lt;RouteRule&gt;&gt; | 产品线的分流规则配置，key是产品线名称，value是分流规则表，包含多条有序分流规则 |
+
+## RouteRule
+分流规则包含分流条件及目标集群：
+| 配置项      | 类型   | 描述                                                         |
+| ----------- | ------ | ------------------------------------------------------------ |
+| Cond     | String | [分流条件](../../condition/condition_grammar.md)  |
+| ClusterName | String | 目的集群 |
+
 
 # 示例
 
