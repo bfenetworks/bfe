@@ -10,7 +10,9 @@ route_rule.data 是BFE的分流配置文件。
 | ProductRule | Map&lt;String, Array&lt;RouteRule&gt;&gt; | 产品线的分流规则配置，key是产品线名称，value是分流规则表，包含多条有序分流规则 |
 
 ## RouteRule
+
 分流规则包含[分流条件]](../../condition/condition_grammar.md)及目的集群：
+
 | 配置项      | 类型   | 描述                                                         |
 | ----------- | ------ | ------------------------------------------------------------ |
 | Cond     | String | 分流条件 |
