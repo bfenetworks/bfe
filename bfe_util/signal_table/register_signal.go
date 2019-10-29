@@ -29,5 +29,4 @@ func RegisterSignalHandlers(signalTable *SignalTable) {
 	signalTable.Register(syscall.SIGILL, IgnoreHandler)
 	signalTable.Register(syscall.SIGTRAP, IgnoreHandler)
 	signalTable.Register(syscall.SIGABRT, IgnoreHandler)
-	signalTable.Register(syscall.SIGSTKFLT, IgnoreHandler)
 }
