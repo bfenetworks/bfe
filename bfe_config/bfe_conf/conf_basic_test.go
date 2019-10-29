@@ -26,6 +26,7 @@ func confBasicLoad(filePath string, confRoot string) (BfeConfig, error) {
 	var cfg BfeConfig
 	var err error
 
+	cfg.Server.SetDefaultConf()
 	// read config from file
 	err = gcfg.ReadFileInto(&cfg, filePath)
 	if err != nil {
@@ -90,8 +91,8 @@ func Test_conf_basic_case3(t *testing.T) {
 func Test_conf_basic_case4(t *testing.T) {
 	// maxCpus is zero
 	_, err := confBasicLoad("./testdata/conf_basic/bfe_4.conf", "")
-	if err == nil {
-		t.Error("BfeConfigLoad() should return nil")
+	if err != nil {
+		t.Errorf("BfeConfigLoad() should return nil, but is:%s", err.Error())
 	}
 }
 

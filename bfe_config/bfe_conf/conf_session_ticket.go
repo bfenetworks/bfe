@@ -30,6 +30,11 @@ type ConfigSessionTicket struct {
 	SessionTicketKeyFile string
 }
 
+func (cfg *ConfigSessionTicket) SetDefaultConf() {
+	cfg.SessionTicketsDisabled = true
+	cfg.SessionTicketKeyFile = "tls_conf/session_ticket_key.data"
+}
+
 func (cfg *ConfigSessionTicket) Check(confRoot string) error {
 	return ConfSessionTicketCheck(cfg, confRoot)
 }
