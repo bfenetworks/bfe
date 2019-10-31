@@ -80,6 +80,30 @@ type ConfigHttpsBasic struct {
 	ClientCABaseDir string // client root CAs base directory
 }
 
+func (cfg *ConfigHttpsBasic) SetDefaultConf() {
+	cfg.ServerCertConf = "tls_conf/server_cert_conf.data"
+	cfg.TlsRuleConf = "tls_conf/tls_rule_conf.data"
+
+	cfg.CipherSuites = []string{
+		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+		"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+		"TLS_ECDHE_RSA_WITH_RC4_128_SHA",
+		"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+		"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+		"TLS_RSA_WITH_RC4_128_SHA",
+		"TLS_RSA_WITH_AES_128_CBC_SHA",
+		"TLS_RSA_WITH_AES_256_CBC_SHA",
+	}
+	cfg.CurvePreferences = []string{
+		"CurveP256",
+	}
+
+	cfg.EnableSslv2ClientHello = true
+
+	cfg.ClientCABaseDir = "tls_conf/client_ca"
+}
+
 func (cfg *ConfigHttpsBasic) Check(confRoot string) error {
 	// check cert file conf
 	err := certConfCheck(cfg, confRoot)
