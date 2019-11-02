@@ -19,7 +19,11 @@ proxy_state 是BFE服务的核心状态信息。
 | CLIENT_REQ_WITH_CROSS_RETRY     | 跨集群重试的请求数                  |
 | CLIENT_REQ_WITH_RETRY           | 重试的请求数                        |
 
+
 ## 客户端相关错误
+
+| 监控项                          | 描述                                |
+| ------------------------------- | ----------------------------------- |
 | ERR_BK_CONNECT_BACKEND          | 连接后端错误的数量                    |
 | ERR_BK_FIND_PRODUCT             | 查找产品线失败的数量                |
 | ERR_BK_FIND_LOCATION            | 查找目的集群失败的数量                  |
@@ -31,7 +35,11 @@ proxy_state 是BFE服务的核心状态信息。
 | ERR_BK_TRANSPORT_BROKEN         | 后端连接出错数量                    |
 | ERR_BK_WRITE_REQUEST            | 写请求到后端的错误数                |
 
+
 ## 后端相关错误
+
+| 监控项                          | 描述                                |
+| ------------------------------- | ----------------------------------- |
 | ERR_CLIENT_BAD_REQUEST          | 客户端请求格式错误数                          |
 | ERR_CLIENT_CLOSE                | 客户端关闭连接的数量                |
 | ERR_CLIENT_CONN_ACCEPT          | 接受客户端连接失败的数量          |
@@ -43,12 +51,20 @@ proxy_state 是BFE服务的核心状态信息。
 | ERR_CLIENT_WRITE                | 向客户端写响应错误的数量            |
 | ERR_CLIENT_ZERO_CONTENTLEN      | 从客户端读取请求包含错误的零Content-Length的数量  |
 
+
 ## Panic相关异常
+
+| 监控项                          | 描述                                |
+| ------------------------------- | ----------------------------------- |
 | PANIC_BACKEND_READ              | 读后端协程panic的数量               |
 | PANIC_BACKEND_WRITE             | 写后端协程panic的数量               |
 | PANIC_CLIENT_CONN_SERVE         | 客户端连接协程panic的数量     |
 
+
 ## 流量相关
+
+| 监控项                          | 描述                                |
+| ------------------------------- | ----------------------------------- |
 | HTTP2_CLIENT_CONN_ACTIVE        | HTTP2协议活跃连接数               |
 | HTTP2_CLIENT_CONN_SERVED        | HTTP2协议处理连接数                   |
 | HTTP2_CLIENT_REQ_ACTIVE         | HTTP2协议活跃请求数               |
@@ -72,7 +88,11 @@ proxy_state 是BFE服务的核心状态信息。
 | WS_CLIENT_CONN_ACTIVE           | WS协议活跃连接数                  |
 | WS_CLIENT_CONN_SERVED           | WS协议处理连接数                      |
 
+
 ## TLS协议相关
+
+| 监控项                          | 描述                                |
+| ------------------------------- | ----------------------------------- |
 | SESSION_CACHE_CONN              | 与session cache建立连接的数量     |
 | SESSION_CACHE_CONN_FAIL         | 与session cache建立连接失败的数量 |
 | SESSION_CACHE_GET               | 查询session cache的数量             |
