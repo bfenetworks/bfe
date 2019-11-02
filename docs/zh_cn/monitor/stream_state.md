@@ -1,6 +1,6 @@
 # 简介
 
-stream_state 是 STREAM的状态信息。
+stream_state 是TLS-TCP反向代理的状态信息。
 
 # 监控项
 
