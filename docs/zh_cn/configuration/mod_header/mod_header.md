@@ -4,7 +4,7 @@
 
 # 配置
 
-- 模块配置文件
+## 模块配置文件
 
   conf/mod_header/mod_header.conf
 
@@ -13,25 +13,39 @@
   DataPath = ../conf/mod_header/header_rule.data
   ```
 
-- 规则配置文件
+## 规则配置文件
 
   conf/mod_header/header_rule.data
 
   | 配置项  | 类型   | 描述                                                         |
   | ------- | ------ | ------------------------------------------------------------ |
   | Version | String | 配置文件版本                                                 |
-  | Config  | Struct | 基于产品线的规则配置，每条规则包括： <br>- Cond: 描述匹配请求的条件<br>- Actions: 匹配成功后的动作<br>- Last: 当为true时，命中规则后，不再向后匹配 |
+  | Config  | Map&lt;String, Array&lt;HeaderRule&gt;&gt; | 各产品线的规则配置 |
+  
+- HeaderRule
+  | 配置项  | 类型   | 描述                                                         |
+  | ------- | ------ | ------------------------------------------------------------ |
+  | Cond | String | 条件原语                                                 |
+  | Actions  | Array&lt;Action&gt; | 执行动作列表 |
+
+- Action
+  | 配置项  | 类型   | 描述                                                         |
+  | ------- | ------ | ------------------------------------------------------------ |
+  | Cmd | String | 动作类型，详见下表                                                 |
+  | Params  | Array&lt;String&gt; | 动作参数 |
 
   | 动作           | 描述       |
   | -------------- | ---------- |
   | REQ_HEADER_SET | 设置请求头 |
   | REQ_HEADER_ADD | 添加请求头 |
+  | REQ_HEADER_MOD | 修改请求头 |
+  | REQ_HEADER_DEL | 删除请求头 |
   | RSP_HEADER_SET | 设置响应头 |
   | RSP_HEADER_ADD | 添加响应头 |
-  | REQ_HEADER_DEL | 删除请求头 |
-  | RSP_HEADER_DEL | 删除响应头 |
-  | REQ_HEADER_MOD | 修改请求头 |
   | RSP_HEADER_MOD | 修改响应头 |
+  | RSP_HEADER_DEL | 删除响应头 |
+  
+# 示例
 
   ```
   {
@@ -55,5 +69,3 @@
       }
   }
   ```
-
-  
