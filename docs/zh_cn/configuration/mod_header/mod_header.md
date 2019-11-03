@@ -22,30 +22,53 @@
   | Version | String | 配置文件版本                                                 |
   | Config  | Map&lt;String, Array&lt;HeaderRule&gt;&gt; | 各产品线的规则配置 |
   
-- HeaderRule
+### HeaderRule
 
   | 配置项  | 类型   | 描述                                                         |
   | ------- | ------ | ------------------------------------------------------------ |
   | Cond | String | 条件原语                                                 |
   | Actions  | Array&lt;Action&gt; | 执行动作列表 |
 
-- Action
+### Action
 
   | 配置项  | 类型   | 描述                                                         |
   | ------- | ------ | ------------------------------------------------------------ |
-  | Cmd | String | 动作类型，详见下表                                                 |
-  | Params  | Array&lt;String&gt; | 动作参数 |
+  | Cmd | String | 动作名称，详见下表                                                 |
+  | Params  | Array&lt;String&gt; | 动作参数列表 |
 
-  | 动作           | 描述       |
+## 内置动作说明
+
+  | 动作名称        | 描述       | 参数列表说明 |
+  | -------------- | ---------- | --------- |
+  | REQ_HEADER_SET | 设置请求头 | HeaderName, HeaderValue | 
+  | REQ_HEADER_ADD | 添加请求头 | HeaderName, HeaderValue |
+  | REQ_HEADER_DEL | 删除请求头 | HeaderName |
+  | RSP_HEADER_SET | 设置响应头 | HeaderName, HeaderValue |
+  | RSP_HEADER_ADD | 添加响应头 | HeaderName, HeaderValue |
+  | RSP_HEADER_DEL | 删除响应头 | HeaderName |
+  
+## 内置变量说明
+
+在配置文件 %variable 使用变量
+
+  | 变量名         | 描述       |
   | -------------- | ---------- |
-  | REQ_HEADER_SET | 设置请求头 |
-  | REQ_HEADER_ADD | 添加请求头 |
-  | REQ_HEADER_MOD | 修改请求头 |
-  | REQ_HEADER_DEL | 删除请求头 |
-  | RSP_HEADER_SET | 设置响应头 |
-  | RSP_HEADER_ADD | 添加响应头 |
-  | RSP_HEADER_MOD | 修改响应头 |
-  | RSP_HEADER_DEL | 删除响应头 |
+  | bfe_client_ip | 客户端IP |
+  | bfe_client_port | 客户端端口 |
+  | bfe_request_host | 请求Host |
+  | bfe_session_id | 会话ID |
+  | bfe_log_id | 请求ID |
+  | bfe_cip | 客户端IP (CIP) |
+  | bfe_vip | 服务端IP (VIP) |
+  | bfe_server_name | 添加请求头 |
+  | bfe_cluster | 目的集群 |
+  | bfe_backend_info | 后端信息 |
+  | bfe_ssl_resume | 是否tls/ssl会话复用 |
+  | bfe_ssl_cipher | tls/ssl加密套件 |
+  | bfe_ssl_version | tls/ssl协议版本 |
+  | bfe_protocol | 访问协议 |
+  | client_cert_serial_number | 客户端证书序列号 |
+  | client_cert_subject_title | 客户端证书Subject title |
   
 # 示例
 
