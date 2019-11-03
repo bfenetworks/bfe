@@ -49,7 +49,7 @@
   
 ## 内置变量说明
 
-在配置文件 %variable 使用变量
+可以通过 %variable 使用变量，参见下文示例
 
   | 变量名         | 描述       |
   | -------------- | ---------- |
@@ -80,6 +80,20 @@
               {
                   "cond": "req_path_prefix_in(\"/header\", false)",
                   "actions": [
+                      {
+                          "cmd": "REQ_HEADER_SET",
+                          "params": [
+                              "X-Bfe-Log-Id",
+                              "%bfe_log_id"
+                          ]
+                      }，
+                      {
+                          "cmd": "REQ_HEADER_SET",
+                          "params": [
+                              "X-Bfe-Vip",
+                              "%bfe_vip"
+                          ]
+                      }，
                       {
                           "cmd": "RSP_HEADER_SET",
                           "params": [
