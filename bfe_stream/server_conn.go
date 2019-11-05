@@ -156,13 +156,13 @@ func TLSProxyHandler(s *Server, c net.Conn, b net.Conn, errCh chan error) {
 	// TODO: add read/write timeout
 	go func() {
 		n, err := io.Copy(b, c)
-		state.StreamBytesRecv.Inc(int(n))
+		state.StreamBytesRecv.Inc(uint(n))
 		errCh <- err
 	}()
 
 	go func() {
 		n, err := io.Copy(c, b)
-		state.StreamBytesSent.Inc(int(n))
+		state.StreamBytesSent.Inc(uint(n))
 		errCh <- err
 	}()
 }

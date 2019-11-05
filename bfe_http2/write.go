@@ -192,8 +192,8 @@ func (w *writeResHeaders) writeFrame(ctx writeContext) error {
 		panic("unexpected empty hpack")
 	}
 
-	state.H2ResHeaderOriginalSize.Inc(headerSize)
-	state.H2ResHeaderCompressSize.Inc(len(headerBlock))
+	state.H2ResHeaderOriginalSize.Inc(uint(headerSize))
+	state.H2ResHeaderCompressSize.Inc(uint(len(headerBlock)))
 
 	// For now we're lazy and just pick the minimum MAX_FRAME_SIZE
 	// that all peers must support (16KB). Later we could care

@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/asergeyev/nradix v0.0.0-20170505151046-3872ab85bb56 // indirect
-	github.com/baidu/go-lib v0.0.0-20190731032112-26c6ce93bc54
+	github.com/baidu/go-lib v0.0.0-20191102055223-5926b52ca0eb
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/pquerna/ffjson v0.0.0-20181028064349-e517b90714f7
 	github.com/spaolacci/murmur3 v1.1.0
