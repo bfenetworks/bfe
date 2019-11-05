@@ -288,8 +288,8 @@ func (f *Framer) writeSynReplyFrame(frame *SynReplyFrame) (err error) {
 	}
 	f.headerBuf.Reset()
 
-	state.SpdyResHeaderOriginalSize.Inc(headerLen)
-	state.SpdyResHeaderCompressSize.Inc(int(frame.CFHeader.length + 8)) // size of SynReply frame
+	state.SpdyResHeaderOriginalSize.Inc(uint(headerLen))
+	state.SpdyResHeaderCompressSize.Inc(uint(frame.CFHeader.length + 8)) // size of SynReply frame
 
 	return
 }

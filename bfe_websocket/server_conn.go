@@ -210,14 +210,14 @@ func (sc *serverConn) websocketDataTransfer() {
 	// proxy data from client to backend
 	go func() {
 		n, err := io.Copy(sc.bconn, sc.cconn)
-		state.WebSocketBytesRecv.Inc(int(n))
+		state.WebSocketBytesRecv.Inc(uint(n))
 		errCh <- err
 	}()
 
 	// proxy data from backend to client
 	go func() {
 		n, err := io.Copy(sc.cconn, sc.bconn)
-		state.WebSocketBytesSent.Inc(int(n))
+		state.WebSocketBytesSent.Inc(uint(n))
 		errCh <- err
 	}()
 }

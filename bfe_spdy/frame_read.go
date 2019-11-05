@@ -306,8 +306,8 @@ func (f *Framer) readSynStreamFrame(h ControlFrameHeader, frame *SynStreamFrame)
 		return &Error{ZeroStreamId, 0}
 	}
 
-	state.SpdyReqHeaderOriginalSize.Inc(int(headerLen))
-	state.SpdyReqHeaderCompressSize.Inc(int(h.length + 8)) // size of SynStream frame
+	state.SpdyReqHeaderOriginalSize.Inc(uint(headerLen))
+	state.SpdyReqHeaderCompressSize.Inc(uint(h.length + 8)) // size of SynStream frame
 
 	return nil
 }
