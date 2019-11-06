@@ -122,6 +122,18 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			fetcher: &CIPFetcher{},
 			matcher: matcher,
 		}, nil
+	case "req_cip_hash_in":
+		matcher, err := NewHashMatcher(node.Args[0].Value, false)
+		if err != nil {
+			return nil, err
+		}
+
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &CIPFetcher{},
+			matcher: matcher,
+		}, nil
 	case "req_proto_match":
 		return &PrimitiveCond{
 			name:    node.Fun.Name,
@@ -258,6 +270,18 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			fetcher: &QueryValueFetcher{node.Args[0].Value},
 			matcher: NewContainMatcher(node.Args[1].Value, node.Args[2].ToBool()),
 		}, nil
+	case "req_query_value_hash_in":
+		matcher, err := NewHashMatcher(node.Args[1].Value, node.Args[2].ToBool())
+		if err != nil {
+			return nil, err
+		}
+
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &QueryValueFetcher{node.Args[0].Value},
+			matcher: matcher,
+		}, nil
 	case "req_cookie_key_in":
 		return &PrimitiveCond{
 			name: node.Fun.Name,
@@ -294,6 +318,18 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			node:    node,
 			fetcher: &CookieValueFetcher{node.Args[0].Value},
 			matcher: NewContainMatcher(node.Args[1].Value, node.Args[2].ToBool()),
+		}, nil
+	case "req_cookie_value_hash_in":
+		matcher, err := NewHashMatcher(node.Args[1].Value, node.Args[2].ToBool())
+		if err != nil {
+			return nil, err
+		}
+
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &CookieValueFetcher{node.Args[0].Value},
+			matcher: matcher,
 		}, nil
 	case "req_port_in":
 		return &PrimitiveCond{
@@ -369,6 +405,18 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			node:    node,
 			fetcher: &HeaderValueFetcher{node.Args[0].Value},
 			matcher: NewContainMatcher(node.Args[1].Value, node.Args[2].ToBool()),
+		}, nil
+	case "req_header_value_hash_in":
+		matcher, err := NewHashMatcher(node.Args[1].Value, node.Args[2].ToBool())
+		if err != nil {
+			return nil, err
+		}
+
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &HeaderValueFetcher{node.Args[0].Value},
+			matcher: matcher,
 		}, nil
 	case "req_method_in":
 		return &PrimitiveCond{

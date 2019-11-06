@@ -4,13 +4,11 @@
 
 - **bfe_time_range(start_time, end_time)**
   - Judge if current time is in [start_time, end_time]
-  
-  - Time format：yyyymmddhhmmssZ，Z is time zone，detail information is shown in the table of Section3
-  
-    ```
-    # time is in 2019-02-04 20:30～20:45 of Hotel Time Zone
-    bfe_time_range("20190204203000H", "20190204204500H")
-    ```
+  - Time format：yyyymmddhhmmssZ，Z is time zone，detail information is shown in Section "Time Zone Detail"
+  ```
+  # time is in 2019-02-04 20:30～20:45 of Hotel Time Zone
+  bfe_time_range("20190204203000H", "20190204204500H")
+  ```
 
 ## Condition Primitive Test
 

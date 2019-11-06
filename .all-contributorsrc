@@ -1,0 +1,95 @@
+{
+  "files": [
+    "CONTRIBUTORS.md"
+  ],
+  "imageSize": 100,
+  "contributorsPerLine": 7,
+  "skipCi": "true",
+  "contributors": [
+    {
+      "login": "kaiyuzheng",
+      "name": "Kaiyu Zheng",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/20748771?v=4",
+      "profile": "https://github.com/kaiyuzheng",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "guolu60",
+      "name": "Lu Guo",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/54354584?v=4",
+      "profile": "https://github.com/guolu60",
+      "contributions": [
+        "test"
+      ]
+    },
+    {
+      "login": "daimin",
+      "name": "Min Dai",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/1744100?v=4",
+      "profile": "https://github.com/daimin",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "yangqingxin1993",
+      "name": "icyang",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/29617153?v=4",
+      "profile": "https://github.com/yangqingxin1993",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "iyangsj",
+      "name": "Sijie Yang",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/780807?v=4",
+      "profile": "https://github.com/iyangsj",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "WJTian",
+      "name": "Wenjie Tian",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/3991942?v=4",
+      "profile": "https://github.com/WJTian",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "tianxinheihei",
+      "name": "Wensi Yang",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/27761212?v=4",
+      "profile": "https://github.com/tianxinheihei",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "xiaofei0800",
+      "name": "Xiaofei Yu",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/54530729?v=4",
+      "profile": "https://github.com/xiaofei0800",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "dut-yangliu",
+      "name": "Yang Liu",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/15979943?v=4",
+      "profile": "https://github.com/dut-yangliu",
+      "contributions": [
+        "test"
+      ]
+    }
+  ],
+  "projectName": "bfe",
+  "projectOwner": "baidu",
+  "repoType": "github",
+  "repoHost": "https://github.com"
+}

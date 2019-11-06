@@ -11,7 +11,7 @@
     * [Local development](development/local_dev_guide.md)
     * [Sumbit PR](development/submit_pr_guide.md)
   * [Contribute documents](development/write_doc_guide.md)
-  * [Releasing process](development/releasing_process.md)
+  * [Releasing process](development/release_regulation.md)
   * Development guides
     * [Source code layout](development/source_code_layout.md)
 * Appendix A: Configuration
@@ -60,3 +60,23 @@
   * Lentency
     * [Lentency histogram](monitor/proxy_XXX_delay.md)
 * Appendix C: Condition
+  * [Condition Concept and Grammar](condition/condition_grammar.md)
+  * [Condition Naming Convention](condition/condition_naming_convention.md)
+  * [Condition Primitives Index](condition/condition_primitive_index.md)
+  * Request related Condition Primitives
+    * [Method](condition/request/method.md)
+    * [URI](condition/request/uri.md)
+    * [Protocol](condition/request/protocol.md)
+    * [Header](condition/request/header.md)
+    * [Cookie](condition/request/cookie.md)
+    * [Tag](condition/request/tag.md)
+    * [IP](condition/request/ip.md)
+  * Response related Condition Primitives
+    * [Code](condition/response/code.md)
+    * [Header](condition/response/header.md)
+  * Session related Condition Primitives
+    * [IP](condition/session/ip.md)
+  * System related Condition Primitives
+    * [Time](condition/system/time.md)
+
+Note: This documentation is working in process. Please help improve it by [filing issues](https://github.com/baidu/bfe/issues/new/choose) or [pull requests](development/submit_pr_guide.md).

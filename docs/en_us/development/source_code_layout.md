@@ -3,7 +3,7 @@
 ## Server
 - `bfe_server`: implementation of core server 
 - `bfe_basic`: defines basic data type
-- `bfe_data`: implementation of routing
+- `bfe_route`: implementation of routing
 - `bfe_balance`: implementation of load balancing
 - `bfe_config`: implementation of config
 - `bfe_debug`: defines debug flags for important components 
@@ -21,3 +21,4 @@
 - `bfe_spdy`: implementation of SPDY protocol
 - `bfe_stream`: implementation of TLS/TCP proxy
 - `bfe_websocket`: implementation WebSocket protocl
+- `bfe_proxy`: implementation of Proxy protocol

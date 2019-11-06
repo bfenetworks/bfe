@@ -11,7 +11,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased]
+## [v0.3.0] - 2019-10-17
+
+### Added
+- Add condition primitive: req_cip_hash_in/req_header_value_hash_in/req_cookie_value_hash_in/req_query_value_hash_in
+- Add mod_header variable: bfe_log_id
+- Add mod_http_code to maintain basic status about response forwarded
+
+### Security
+- Fix http2: limit number of control frames in server send queue (CVE-2019-9512, CVE-2019-9514)
+
+
+## [v0.2.0] - 2019-09-26
 
 ### Added
 - Add proxy protocol to be compatible with F5 BigIP/Citrix ADC etc
@@ -34,6 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
-
-[Unreleased]: https://github.com/baidu/bfe/compare/v0.1.0...HEAD
+[v0.3.0]: https://github.com/baidu/bfe/compare/v0.2.0...v0.3.0
+[v0.2.0]: https://github.com/baidu/bfe/compare/v0.1.0...v0.2.0
 [v0.1.0]: https://github.com/baidu/bfe/releases/tag/v0.1.0

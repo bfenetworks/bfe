@@ -3,7 +3,7 @@
 ## 服务框架
 - `bfe_server`: BFE服务端主体部分
 - `bfe_basic`: BFE基础数据类型定义
-- `bfe_data`: BFE分流转发相关代码
+- `bfe_route`: BFE分流转发相关代码
 - `bfe_balance`: BFE负载均衡相关代码
 - `bfe_config`: BFE配置加载相关代码
 - `bfe_debug`: BFE模块调试开关相关代码
@@ -21,3 +21,4 @@
 - `bfe_spdy`: BFE SPDY协议基础代码
 - `bfe_stream`:	BFE TLS代理基础代码
 - `bfe_websocket`: BFE WebSocket代理基础代码
+- `bfe_proxy`: BFE Proxy协议基础代码
