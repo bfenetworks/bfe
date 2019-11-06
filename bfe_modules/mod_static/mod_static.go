@@ -42,10 +42,10 @@ var (
 )
 
 type ModuleStaticState struct {
-	FileBrowseCount    *metrics.Counter
-	FileCurrentOpened  *metrics.Counter
-	FileBrowseNotExist *metrics.Counter
-	FileBrowseSize     *metrics.Counter
+	FileBrowseCount    *metrics.Gauge
+	FileCurrentOpened  *metrics.Gauge
+	FileBrowseNotExist *metrics.Gauge
+	FileBrowseSize     *metrics.Gauge
 }
 
 type ModuleStatic struct {
@@ -81,7 +81,7 @@ func (s *staticFile) Close() error {
 	}
 
 	state := s.m.state
-	state.FileCurrentOpened.Inc(-1)
+	state.FileCurrentOpened.Dec(1)
 	return nil
 }
 
@@ -175,7 +175,7 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 			return
 		}
 	}
-	m.state.FileBrowseSize.Inc(int(fileInfo.Size()))
+	m.state.FileBrowseSize.Inc(uint(fileInfo.Size()))
 
 	resp.StatusCode = bfe_http.StatusOK
 	setLastModified(resp, fileInfo.ModTime())
