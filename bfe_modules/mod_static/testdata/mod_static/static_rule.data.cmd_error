@@ -1,0 +1,17 @@
+{
+    "Config": {
+        "unittest": [
+            {
+                "Cond": "req_host_in(\"www.example.org\")",
+                "Action": {
+                    "Cmd": "INDEX",
+                    "Params": [
+                        "./testdata/mod_static/",
+                        "index.html"
+                    ]
+                }
+            }
+        ]
+    },
+    "Version": "unittest"
+}
