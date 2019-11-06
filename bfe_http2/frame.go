@@ -1568,8 +1568,8 @@ func (fr *Framer) readMetaFrame(f *HeadersFrame) (*MetaHeadersFrame, error) {
 
 	// only count size when invalid == nil
 	// so the state of headerSize and blockSize keep consistency
-	state.H2ReqHeaderOriginalSize.Inc(int(headerSize))
-	state.H2ReqHeaderCompressSize.Inc(blockSize)
+	state.H2ReqHeaderOriginalSize.Inc(uint(headerSize))
+	state.H2ReqHeaderCompressSize.Inc(uint(blockSize))
 
 	return mh, nil
 }

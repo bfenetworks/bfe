@@ -74,6 +74,32 @@ type ConfigBasic struct {
 	DebugHealthCheck bool // whether open health check debug log
 }
 
+func (cfg *ConfigBasic) SetDefaultConf() {
+	cfg.HttpPort = 8080
+	cfg.HttpsPort = 8443
+	cfg.MonitorPort = 8299
+	cfg.MaxCpus = 0
+
+	cfg.TlsHandshakeTimeout = 30
+	cfg.ClientReadTimeout = 60
+	cfg.ClientWriteTimeout = 60
+	cfg.GracefulShutdownTimeout = 10
+	cfg.MaxHeaderBytes = 1048576
+	cfg.MaxHeaderUriBytes = 8192
+	cfg.KeepAliveEnabled = true
+
+	cfg.HostRuleConf = "server_data_conf/host_rule.data"
+	cfg.VipRuleConf = "server_data_conf/vip_rule.data"
+	cfg.RouteRuleConf = "server_data_conf/route_rule.data"
+
+	cfg.ClusterTableConf = "cluster_conf/cluster_table.data"
+	cfg.GslbConf = "cluster_conf/gslb.data"
+	cfg.ClusterConf = "server_data_conf/cluster_conf.data"
+	cfg.NameConf = "server_data_conf/name_conf.data"
+
+	cfg.MonitorInterval = 20
+}
+
 func (cfg *ConfigBasic) Check(confRoot string) error {
 	return ConfBasicCheck(cfg, confRoot)
 }

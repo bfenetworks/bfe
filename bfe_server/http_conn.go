@@ -298,7 +298,7 @@ func (c *conn) serve() {
 		c.close()
 
 		if len(session.Proto) > 0 {
-			proxyState.ClientConnActiveInc(session.Proto, -1)
+			proxyState.ClientConnActiveDec(session.Proto, 1)
 		}
 		if session.ReqNumActive != 0 {
 			proxyState.ClientConnUnfinishedReq.Inc(1)
@@ -478,7 +478,7 @@ func (c *conn) serve() {
 			switch nextProto {
 			case bfe_websocket.WebSocket:
 				// update counters for websocket
-				proxyState.ClientConnActiveInc(c.session.Proto, -1)
+				proxyState.ClientConnActiveDec(c.session.Proto, 1)
 				c.session.Proto = bfe_websocket.Scheme(c.rwc)
 				proxyState.ClientConnServedInc(c.session.Proto, 1)
 				proxyState.ClientConnActiveInc(c.session.Proto, 1)
@@ -555,7 +555,7 @@ func (c *conn) serveRequest(w bfe_http.ResponseWriter, request *bfe_basic.Reques
 
 	// modify state counters
 	session.IncReqNumActive(-1)
-	proxyState.ClientReqActiveInc(session.Proto, -1)
+	proxyState.ClientReqActiveDec(session.Proto, 1)
 	if request.ErrCode != nil {
 		proxyState.ClientReqFail.Inc(1)
 	} else {

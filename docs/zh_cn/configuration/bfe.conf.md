@@ -8,9 +8,9 @@ bfe.conf是BFE的核心配置。
 
 | 配置项                  | 类型   | 描述                                                         |
 | ----------------------- | ------ | ------------------------------------------------------------ |
-| HttpPort                | Int    | HTTP流量监听端口                                             |
-| HttpsPort               | Int    | HTTPS流量监听端口                                            |
-| MonitorPort             | Int    | 监控流量监听端口                                             |
+| HttpPort                | Int    | HTTP监听端口                                             |
+| HttpsPort               | Int    | HTTPS(TLS)监听端口                                            |
+| MonitorPort             | Int    | Monitor监听端口                                             |
 | MaxCpus                 | Int    | 最大使用CPU核数; 0代表使用所有CPU核                          |
 | Layer4LoadBalancer      | String | 四层负载均衡器类型 (PROXY/BGW/NONE)                          |
 | TlsHandshakeTimeout     | Int    | TLS握手超时时间，单位为秒                                    |
@@ -27,36 +27,36 @@ bfe.conf是BFE的核心配置。
 | GslbConf                | String | 子集群级别负载均衡配置文件(GSLB)                             |
 | ClusterTableConf        | String | 实例级别负载均衡配置文件                                     |
 | NameConf                | String | 名字与实例映射表配置文件                                     |
-| Modules                 | String | 启用的模块列表; 多个模块增加多个Modules即可                  |
-| MonitorInterval         | Int    | monitor统计周期                                              |
-| DebugServHttp           | Bool   | 是否开启ServHttp调试日志                                     |
-| DebugBfeRoute           | Bool   | 是否开启BfeRoute调试日志                                     |
-| DebugBal                | Bool   | 是否开启Bal调试日志                                          |
-| DebugHealthCheck        | Bool   | 是否开启HealthCheck调试日志                                  |
+| Modules                 | String | 启用的模块列表; 启用多个模块请增加多行Modules配置，详见下文示例  |
+| MonitorInterval         | Int    | Monitor数据统计周期                                          |
+| DebugServHttp           | Bool   | 是否开启反向代理模块调试日志                                  |
+| DebugBfeRoute           | Bool   | 是否开启流量路由模块调试日志                                  |
+| DebugBal                | Bool   | 是否开启负载均衡模块调试日志                                  |
+| DebugHealthCheck        | Bool   | 是否开启健康检查模块调试日志                                  |
 
-## HTTPS基础配置
+## TLS基础配置
 
 | 配置项                 | 类型   | 描述                                                         |
 | ---------------------- | ------ | ------------------------------------------------------------ |
-| ServerCertConf         | String | 证书与密钥的配置文件                                         |
+| ServerCertConf         | String | 服务端证书与密钥的配置文件                                     |
 | TlsRuleConf            | String | TLS协议参数配置文件                                          |
-| CipherSuites           | String | 启用的加密套件列表; 多个套件增加多个cipherSuites即可         |
-| CurvePreferences       | String | 启用的ECC椭圆曲线                                            |
+| CipherSuites           | String | 启用的加密套件列表; 启用多个套件请增加多行cipherSuites配置，详见下文示例  |
+| CurvePreferences       | String | 启用的ECC椭圆曲线 ，详见下文示例                              |
 | EnableSslv2ClientHello | Bool   | 针对SSLv3协议，启用对SSLv2格式ClientHello的兼容              |
-| ClientCABaseDir        | String | 客户端根CA证书目录 <br>注意：证书文件后缀约定必须是 ".crt"   |
+| ClientCABaseDir        | String | 客户端根CA证书基目录 <br>注意：证书文件后缀约定必须是 ".crt"   |
 
 ## TLS Session Cache相关配置
 
 | 配置项               | 类型   | 描述                                                         |
 | -------------------- | ------ | ------------------------------------------------------------ |
 | SessionCacheDisabled | Bool   | 是否禁用TLS Session Cache机制                                |
-| Servers              | String | Cache Server的访问地址                                       |
+| Servers              | String | Cache服务的访问地址                                       |
 | KeyPrefix            | String | 缓存key前缀                                                  |
-| ConnectTimeout       | Int    | 连接Cache Server的超时时间, 单位毫秒                         |
-| ReadTimeout          | Int    | 读取Cache Server的超时时间, 单位毫秒                         |
-| WriteTimeout         | Int    | 写入Cache Server的超时时间, 单位毫秒                         |
-| MaxIdle              | Int    | 与Cache Server的最大空闲长连接数                             |
-| SessionExpire        | Int    | Cache Server中存储值的过期时间, 单位秒                       |
+| ConnectTimeout       | Int    | 连接Cache服务的超时时间, 单位毫秒                         |
+| ReadTimeout          | Int    | 读取Cache服务的超时时间, 单位毫秒                         |
+| WriteTimeout         | Int    | 写入Cache服务的超时时间, 单位毫秒                         |
+| MaxIdle              | Int    | 与Cache服务的最大空闲长连接数                             |
+| SessionExpire        | Int    | 存储在Cache服务中会话信息的过期时间, 单位秒                |
 
 ## TLS Session Ticket相关配置
 

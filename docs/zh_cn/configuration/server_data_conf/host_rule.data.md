@@ -8,8 +8,8 @@ host_rule.data是BFE的产品线域名表配置文件。
 | -------------- | ------ | ------------------------------------------------------------ |
 | Version        | String | 配置文件版本                                                 |
 | DefaultProduct | String | 默认的产品线名称                                             |
-| Hosts          | Struct | 域名标签和域名列表的映射关系，是一个map数据，key是域名标签，value是域名列表 |
-| HostTags       | Struct | 产品线和域名标签的映射关系，是一个map数据，key是产品线名称，value是域名标签 |
+| Hosts          | Map&lt;String, Array&lt;String&gt;&gt; | 域名标签和域名列表的映射关系，key是域名标签，value是域名列表 |
+| HostTags       | Map&lt;String, Array&lt;String&gt;&gt; | 产品线和域名标签的映射关系，key是产品线名称，value是域名标签列表 |
 
 # 示例
 
