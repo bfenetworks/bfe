@@ -38,7 +38,6 @@ const (
 )
 
 var (
-	openDebug     = false
 	unixEpochTime = time.Unix(0, 0)
 )
 
@@ -76,7 +75,7 @@ func newStaticFile(root string, filename string, m *ModuleStatic) (*staticFile, 
 }
 
 func (s *staticFile) Close() error {
-	err := s.Close()
+	err := s.File.Close()
 	if err != nil {
 		return err
 	}
