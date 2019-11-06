@@ -142,15 +142,15 @@ func setLastModified(resp *bfe_http.Response, modtime time.Time) {
 }
 
 func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
-	rule *StaticRule) (resp *bfe_http.Response) {
-	resp = bfe_basic.CreateInternalResp(req, bfe_http.StatusOK)
+	rule *StaticRule) *bfe_http.Response {
+	resp := bfe_basic.CreateInternalResp(req, bfe_http.StatusOK)
 	root := rule.Action.Params[0]
 	defaultFile := rule.Action.Params[1]
 
 	httpRequest := req.HttpRequest
 	if httpRequest.Method != "GET" && httpRequest.Method != "HEAD" {
 		resp.StatusCode = bfe_http.StatusMethodNotAllowed
-		return
+		return resp
 	}
 
 	reqPath := httpRequest.URL.Path
@@ -160,19 +160,19 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 	}
 	if err != nil {
 		resp.StatusCode = errorStatusCode(err)
-		return
+		return resp
 	}
 
 	fileInfo, err := file.Stat()
 	if err != nil {
 		resp.StatusCode = errorStatusCode(err)
-		return
+		return resp
 	}
 	if fileInfo.IsDir() {
 		file, err = m.tryDefaultFile(root, defaultFile)
 		if err != nil {
 			resp.StatusCode = errorStatusCode(err)
-			return
+			return resp
 		}
 	}
 	m.state.FileBrowseSize.Inc(uint(fileInfo.Size()))
@@ -180,7 +180,7 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 	resp.StatusCode = bfe_http.StatusOK
 	setLastModified(resp, fileInfo.ModTime())
 	resp.Body = file
-	return
+	return resp
 }
 
 func (m *ModuleStatic) staticFileHandler(req *bfe_basic.Request) (int, *bfe_http.Response) {
