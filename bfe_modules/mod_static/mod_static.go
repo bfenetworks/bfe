@@ -214,7 +214,6 @@ func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 		return fmt.Errorf("%s: conf load err: %v", m.name, err)
 	}
 
-	openDebug = cfg.Log.OpenDebug
 	m.configPath = cfg.Basic.DataPath
 
 	if err = m.loadConfData(nil); err != nil {
