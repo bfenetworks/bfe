@@ -26,6 +26,7 @@ import (
 	"github.com/baidu/bfe/bfe_modules/mod_logid"
 	"github.com/baidu/bfe/bfe_modules/mod_redirect"
 	"github.com/baidu/bfe/bfe_modules/mod_rewrite"
+	"github.com/baidu/bfe/bfe_modules/mod_static"
 	"github.com/baidu/bfe/bfe_modules/mod_trust_clientip"
 )
 
@@ -45,6 +46,9 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_redirect
 	// Requirement: After mod_dict_client, mod_logid
 	mod_redirect.NewModuleRedirect(),
+
+	// mod_static
+	mod_static.NewModuleStatic(),
 
 	// mod_rewrite
 	// Requirement: After mod_dict_client
