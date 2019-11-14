@@ -7,6 +7,7 @@
   * [路由及负载均衡](functionality.md)
   * 使用示例
     * [redirect](example/redirect.md)
+    * [rewrite](example/rewrite.md)
 * 开发指南
   * 如何贡献代码
     * [本地开发指南](development/local_dev_guide.md)
