@@ -6,6 +6,7 @@
   * [基本概念](concept.md)
   * [路由及负载均衡](functionality.md)
   * 使用示例
+    * [block](example/block.md)
     * [redirect](example/redirect.md)
     * [rewrite](example/rewrite.md)
 * 开发指南
