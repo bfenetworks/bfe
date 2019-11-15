@@ -7,11 +7,9 @@
   enable = [
     "deadcode",
     "depguard",
-    "errcheck",
     "goconst",
     "gocyclo",
     "gocritic",
-    "golint",
     "gosec",
     "gosimple",
     "ineffassign",

@@ -1,11 +1,11 @@
-# Redirect
+# 重定向
 
 ## 场景说明
 
 * 假设我们的web server已经升级为https，希望将所有的http请求重定向至https
   * 域名：example.org
 
-在[样例配置](../../../conf/)上添加一些新的配置，就可以实现上述redirect行为
+在[样例配置](../../../conf/)上添加一些新的配置，就可以实现上述重定向行为
 
 * 首先，bfe启用mod_redirect模块（[bfe.conf](../../../conf/bfe.conf)第51行）
 
