@@ -8,6 +8,7 @@
 | Miao Zhang |     |
 | Min Dai | daimin |
 | Qingxin Yang | yangqingxin1993 |
+| Shuai Yan | yanshuai615270 |
 | Sijie Yang | iyangsj |
 | Wenjie Tian | WJTian |
 | Wensi Yang | tianxinheihei | 
