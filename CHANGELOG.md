@@ -12,11 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unrelease]
 ### Added
+- Expose metrics in prometheus text-based format
 - Add default value for core config and cluster config
+- Add mod_static to serve static content by customize rules
 - Documents optimization
+
+### Changed
+- mod_logid: random logid in hex encoding format
 
 ### Removed
 - Remove signal SIGSTKFLT
+
 
 ## [v0.3.0] - 2019-10-17
 

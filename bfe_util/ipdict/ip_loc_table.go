@@ -111,7 +111,7 @@ func (t *IpLocationTable) Add(startIP, endIP net.IP, location string) error {
 	loc.endIp = endIP16
 	loc.location = make([]byte, t.LocLen)
 	copy(loc.location[0:t.LocLen], location)
-	t.writeStruct(uint32(t.offset), loc)
+	t.writeStruct(t.offset, loc)
 
 	t.offset++
 	return nil
@@ -150,7 +150,7 @@ func (t *IpLocationTable) Search(cip net.IP) (string, error) {
 
 	if uint32(idx) == indexLen {
 		// consider ipAdd last element(uint32(idx) == indexLen)
-		preIdx = uint32(indexLen - 1)
+		preIdx = indexLen - 1
 	} else if bytes.Equal(fristIp, ipAddr16) || idx == 0 {
 		// consider ipAdd locate in frist section (idx == 0)
 		// consider ipAdd is first ip in ip's section(fristIp == ipAddr16)

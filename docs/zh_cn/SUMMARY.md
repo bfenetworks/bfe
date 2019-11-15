@@ -6,7 +6,10 @@
   * [基本概念](concept.md)
   * [路由及负载均衡](functionality.md)
   * 使用示例
-    * [redirect](example/redirect.md)
+    * [分流转发](example/route.md)
+    * [黑名单封禁](example/block.md)
+    * [重定向](example/redirect.md)
+    * [重写](example/rewrite.md)
 * 开发指南
   * 如何贡献代码
     * [本地开发指南](development/local_dev_guide.md)
