@@ -18,7 +18,7 @@
 
 # Typical message routing flow
 
-![Traffic Fowarding](../images/traffic-forward.svg)
+![Traffic Forwarding](../images/traffic-forward.svg)
 
 - Step1-2：DNS query
     - request host name：demo.example.com
@@ -43,6 +43,6 @@
 
 - Step9：request is sent to instance "a-demo-static-1.idc1".
 
-- Step10：BFE recieve response message from "a-demo-static-1.idc1".
+- Step10：BFE receive response message from "a-demo-static-1.idc1".
 
-- Step11-12：BFE send back reponse to client, via L4LB.
+- Step11-12：BFE send back response to client, via L4LB.
