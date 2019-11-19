@@ -135,7 +135,7 @@ func parseBracketToken(templatePtr *string, offset int) (LogFmtItem, int, error)
 	}
 
 	if endOfBracket == (length - 1) {
-		return LogFmtItem{}, -1, fmt.Errorf("log format: } must followed a charactor")
+		return LogFmtItem{}, -1, fmt.Errorf("log format: } must followed a character")
 	}
 
 	key := (*templatePtr)[offset+1 : endOfBracket]
@@ -161,7 +161,7 @@ func parseLogTemplate(logTemplate string) ([]LogFmtItem, error) {
 		}
 
 		if (i + 1) == templateLen {
-			return nil, fmt.Errorf("log format: $ must followed with a charactor")
+			return nil, fmt.Errorf("log format: $ must followed with a character")
 		}
 
 		if start <= (i - 1) {
