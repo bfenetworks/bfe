@@ -17,8 +17,7 @@ WORKROOT := $(shell pwd)
 OUTDIR   := $(WORKROOT)/output
 
 # init environment variables
-export GOPATH      := $(WORKROOT)/../../../../
-export PATH        := $(GOPATH)/bin:$(PATH)
+export PATH        := $(shell go env GOPATH)/bin:$(PATH)
 export GO111MODULE := on
 
 # init command params

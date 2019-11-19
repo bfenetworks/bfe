@@ -4,7 +4,6 @@
 
 ### Prerequisite
 - golang 1.12+
-- golang yacc
 - git
 
 ### Download the source code
@@ -15,15 +14,15 @@
 
 - Clone the main BFE repo:
     ```
-    $ mkdir -p gocode/src/github.com/baidu
-    $ cd gocode/src/github.com/baidu
+    $ mkdir -p github.com/baidu
+    $ cd github.com/baidu
     $ git clone https://github.com/baidu/bfe
     $ cd bfe
     ```
 
 ### Build from source
 
-- Run build script in source directory of bfe (src/github.com/baidu/bfe)：
+- Run make in source directory of bfe (github.com/baidu/bfe)：
     ```
     $ make
     ```
