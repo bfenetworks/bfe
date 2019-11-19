@@ -28,7 +28,7 @@ import (
 )
 
 type Session struct {
-	SessionId uint64    // session id
+	SessionId string    // session id
 	StartTime time.Time // time of accept the connection
 	EndTime   time.Time // time of close connection
 	Overhead  time.Duration

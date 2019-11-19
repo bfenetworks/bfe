@@ -10,6 +10,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0]
+### Added
+- Expose metrics in prometheus text-based format
+- Add default value for core configs to reduce configuration cost
+- Add mod_static to serve static content by customize rules
+- Documents optimization
+
+### Changed
+- mod_logid: random logid in hex encoding format
+
+### Removed
+- Remove signal SIGSTKFLT
+
 
 ## [v0.3.0] - 2019-10-17
 
@@ -45,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
+[v0.4.0]: https://github.com/baidu/bfe/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/baidu/bfe/compare/v0.2.0...v0.3.0
 [v0.2.0]: https://github.com/baidu/bfe/compare/v0.1.0...v0.2.0
 [v0.1.0]: https://github.com/baidu/bfe/releases/tag/v0.1.0

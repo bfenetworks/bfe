@@ -93,11 +93,11 @@ type ProxyState struct {
 	SpdyClientReqServed  *metrics.Counter
 
 	// active request
-	ClientReqActive      *metrics.Counter
-	HttpClientReqActive  *metrics.Counter
-	HttpsClientReqActive *metrics.Counter
-	Http2ClientReqActive *metrics.Counter
-	SpdyClientReqActive  *metrics.Counter
+	ClientReqActive      *metrics.Gauge
+	HttpClientReqActive  *metrics.Gauge
+	HttpsClientReqActive *metrics.Gauge
+	Http2ClientReqActive *metrics.Gauge
+	SpdyClientReqActive  *metrics.Gauge
 
 	// connection successful accepted
 	ClientConnServed       *metrics.Counter
@@ -110,17 +110,17 @@ type ProxyState struct {
 	WssClientConnServed    *metrics.Counter
 
 	// active connection
-	ClientConnActive       *metrics.Counter
-	HttpClientConnActive   *metrics.Counter
-	HttpsClientConnActive  *metrics.Counter
-	Http2ClientConnActive  *metrics.Counter
-	SpdyClientConnActive   *metrics.Counter
-	StreamClientConnActive *metrics.Counter
-	WsClientConnActive     *metrics.Counter
-	WssClientConnActive    *metrics.Counter
+	ClientConnActive       *metrics.Gauge
+	HttpClientConnActive   *metrics.Gauge
+	HttpsClientConnActive  *metrics.Gauge
+	Http2ClientConnActive  *metrics.Gauge
+	SpdyClientConnActive   *metrics.Gauge
+	StreamClientConnActive *metrics.Gauge
+	WsClientConnActive     *metrics.Gauge
+	WssClientConnActive    *metrics.Gauge
 }
 
-func (s *ProxyState) ClientConnServedInc(proto string, value int) {
+func (s *ProxyState) ClientConnServedInc(proto string, value uint) {
 	switch proto {
 	case "http":
 		s.HttpClientConnServed.Inc(value)
@@ -140,7 +140,7 @@ func (s *ProxyState) ClientConnServedInc(proto string, value int) {
 	s.ClientConnServed.Inc(value)
 }
 
-func (s *ProxyState) ClientConnActiveInc(proto string, value int) {
+func (s *ProxyState) ClientConnActiveInc(proto string, value uint) {
 	switch proto {
 	case "http":
 		s.HttpClientConnActive.Inc(value)
@@ -160,7 +160,27 @@ func (s *ProxyState) ClientConnActiveInc(proto string, value int) {
 	s.ClientConnActive.Inc(value)
 }
 
-func (s *ProxyState) ClientReqServedInc(proto string, value int) {
+func (s *ProxyState) ClientConnActiveDec(proto string, value uint) {
+	switch proto {
+	case "http":
+		s.HttpClientConnActive.Dec(value)
+	case "https":
+		s.HttpsClientConnActive.Dec(value)
+	case "h2":
+		s.Http2ClientConnActive.Dec(value)
+	case "spdy/3.1":
+		s.SpdyClientConnActive.Dec(value)
+	case "ws":
+		s.WsClientConnActive.Dec(value)
+	case "wss":
+		s.WssClientConnActive.Dec(value)
+	case "stream":
+		s.StreamClientConnActive.Dec(value)
+	}
+	s.ClientConnActive.Dec(value)
+}
+
+func (s *ProxyState) ClientReqServedInc(proto string, value uint) {
 	switch proto {
 	case "http":
 		s.HttpClientReqServed.Inc(value)
@@ -174,7 +194,7 @@ func (s *ProxyState) ClientReqServedInc(proto string, value int) {
 	s.ClientReqServed.Inc(value)
 }
 
-func (s *ProxyState) ClientReqActiveInc(proto string, value int) {
+func (s *ProxyState) ClientReqActiveInc(proto string, value uint) {
 	switch proto {
 	case "http":
 		s.HttpClientReqActive.Inc(value)
@@ -186,4 +206,18 @@ func (s *ProxyState) ClientReqActiveInc(proto string, value int) {
 		s.SpdyClientReqActive.Inc(value)
 	}
 	s.ClientReqActive.Inc(value)
+}
+
+func (s *ProxyState) ClientReqActiveDec(proto string, value uint) {
+	switch proto {
+	case "http":
+		s.HttpClientReqActive.Dec(value)
+	case "https":
+		s.HttpsClientReqActive.Dec(value)
+	case "h2":
+		s.Http2ClientReqActive.Dec(value)
+	case "spdy/3.1":
+		s.SpdyClientReqActive.Dec(value)
+	}
+	s.ClientReqActive.Dec(value)
 }

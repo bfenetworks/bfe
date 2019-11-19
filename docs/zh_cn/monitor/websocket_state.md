@@ -14,5 +14,5 @@ websocket_state 是websocket的状态信息。
 | WEB_SOCKET_ERR_HANDSHAKE      | 握手错误的数量              |
 | WEB_SOCKET_ERR_PROXY          | 查找后端错误的数量          |
 | WEB_SOCKET_ERR_TRANSFER       | 转发错误的数量              |
-| WEB_SOCKET_PANIC_CONN         | 连接出现panic的数量         |
+| WEB_SOCKET_PANIC_CONN         | 连接出现panic的数量         |
 

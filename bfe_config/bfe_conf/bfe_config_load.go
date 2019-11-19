@@ -32,11 +32,20 @@ type BfeConfig struct {
 	SessionTicket ConfigSessionTicket
 }
 
+func SetDefaultConf(conf *BfeConfig) {
+	conf.Server.SetDefaultConf()
+	conf.HttpsBasic.SetDefaultConf()
+	conf.SessionCache.SetDefaultConf()
+	conf.SessionTicket.SetDefaultConf()
+}
+
 // BfeConfigLoad loades config from config file.
 // NOTICE: some value will be modified when not set or out of range!!
 func BfeConfigLoad(filePath string, confRoot string) (BfeConfig, error) {
 	var cfg BfeConfig
 	var err error
+
+	SetDefaultConf(&cfg)
 
 	// read config from file
 	err = gcfg.ReadFileInto(&cfg, filePath)

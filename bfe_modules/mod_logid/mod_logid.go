@@ -17,8 +17,9 @@
 package mod_logid
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
-	"strconv"
 )
 
 import (
@@ -30,7 +31,6 @@ import (
 	"github.com/baidu/bfe/bfe_basic"
 	"github.com/baidu/bfe/bfe_http"
 	"github.com/baidu/bfe/bfe_module"
-	"github.com/baidu/bfe/bfe_util"
 )
 
 const (
@@ -87,8 +87,7 @@ func (m *ModuleLogId) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 }
 
 func (m *ModuleLogId) afterAccept(session *bfe_basic.Session) int {
-	conn := session.Connection
-	session.SessionId = bfe_util.GetLogID(conn)
+	session.SessionId = genLogId()
 
 	return bfe_module.BFE_HANDLER_GOON
 }
@@ -105,8 +104,8 @@ func (m *ModuleLogId) beforeLocation(req *bfe_basic.Request) (int, *bfe_http.Res
 		}
 	}
 
-	// calculate a new log id
-	req.LogId = strconv.FormatUint(bfe_util.GetLogID(req.Connection), 10)
+	// generate a new log id
+	req.LogId = genLogId()
 	return bfe_module.BFE_HANDLER_GOON, nil
 }
 
@@ -118,4 +117,13 @@ func (m *ModuleLogId) afterLocation(req *bfe_basic.Request) (int, *bfe_http.Resp
 func (m *ModuleLogId) getState(params map[string][]string) ([]byte, error) {
 	s := m.metrics.GetAll()
 	return s.Format(params)
+}
+
+func genLogId() string {
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		return ""
+	}
+	return hex.EncodeToString(b)
 }

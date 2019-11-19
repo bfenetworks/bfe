@@ -1,21 +1,21 @@
 # Request Routing between clusters
 
-In BFE configuration, a "product" could be composed of mulitple clusters. User can define how requests are routed among the clusters. Request routing is based on the content of HTTP request.
+In BFE configuration, a "product" could be composed of multiple clusters. User can define how requests are routed among the clusters. Request routing is based on the content of HTTP request.
 
 ## Rule configuration
 
 - Fields in HTTP Header is used to define routing rule for distributing traffic in cluster level, for example:
     - host, path, query, cookie, method, etc.
 - BFE provide a "Condition" expression to define how to route message with special header. This is routing rule in cluster level load balance.
-- If multiple rules are configured, BFE would match the rules in sequece. Matching procedure stop if one rule is matched.
+- If multiple rules are configured, BFE would match the rules in sequence. Matching procedure stop if one rule is matched.
 
 ## Example
 
-- A product "demo", which needs process three kinds of traffic: static content traffic, "post" traffic, other traffic, then we can define threee clusters ：
+- A product "demo", which needs process three kinds of traffic: static content traffic, "post" traffic, other traffic, then we can define three clusters ：
 
     - demo-static：serve static content 
     - demo-post：serve post message
-    - demo-main: serve other trafic
+    - demo-main: serve other traffic
 
 - To BFE configuration, following routing rules can be added:
     - Rule 1: req_path_prefix_in("/static", false) -> demo-static, which means messages with path prefixed with "/static" will be routed to cluster demo-static.
@@ -26,7 +26,7 @@ In BFE configuration, a "product" could be composed of mulitple clusters. User c
 
 - In sub cluster level, load balance rules also can be configured. The rules define traffic weight which is distributed to each sub cluster。
 
-- A special virutal sub cluster "BLACKHOLE" could be used to discard traffic。
+- A special virtual sub cluster "BLACKHOLE" could be used to discard traffic。
 
 ## Example
 
@@ -40,22 +40,22 @@ In BFE configuration, a "product" could be composed of mulitple clusters. User c
     - BFE2：{sub-cluster-1:w21，sub-cluster-2:w22, Blackhole:w2B}
 
 - Based on the weight in configuration, BFE distribute traffic to backend sub cluster.
-    - For exmaple，if weight configuration {w11, w12, w1B} ={45，45，10}, percent of traffic to sub cluster is sub-cluster-1, sub-cluster-2 and Blackhole is 45%, 45% and 10%.
+    - For example，if weight configuration {w11, w12, w1B} ={45，45，10}, percent of traffic to sub cluster is sub-cluster-1, sub-cluster-2 and Blackhole is 45%, 45% and 10%.
 
 
 # Instance level load balance
 
 - Usually, a sub cluster is composed of multiple instances. Within sub cluster, WRR（weighted round robin) is used to distribute message among instance。
-- Instance can be assign diffrent weight based on its capacity。
+- Instance can be assign different weight based on its capacity。
 
 # Health check of instance
 BFE do health check for each backend instance. A instance has following two states: 
 
-- NORAML state：the instance act normally in processing message.
+- NORMAL state：the instance act normally in processing message.
 - CHECKING state：the instance is abnormal and can't process message. BFE do health check periodically in this state. 
 
 State switch:
-- NORAML to CHECKING, when：
+- NORMAL to CHECKING, when：
     - Consecutive failure, in connecting or sending message to the instance, exceed a threshhod.
 
 - CHECKING to NORMAL, when：
@@ -78,7 +78,7 @@ TCP connection between BFE and backend instance support：
 - connection pool：
     - BFE maintain connection pool to instances.
     - To an incoming request：
-        - if there is an avaiable connection, reuse it.
+        - if there is an available connection, reuse it.
         - else establish a new TCP connection.
 
     - After finish processing a request via a connection:
@@ -89,7 +89,7 @@ TCP connection between BFE and backend instance support：
 
 BFE support session stickiness based on following identity of request message:
 - Source IP
-- Field in reuqest header, cookie etc.
+- Field in request header, cookie etc.
 
 Keep session in different routing level:
 - Sub cluster level: message of a session is sent to same sub cluster (may be different instance in this sub cluster).
