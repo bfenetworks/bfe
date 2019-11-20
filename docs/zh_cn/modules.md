@@ -8,5 +8,6 @@
 - [mod_key_log](configuration/mod_key_log/mod_key_log.md)
 - [mod_redirect](configuration/mod_redirect/mod_redirect.md)
 - [mod_rewrite](configuration/mod_rewrite/mod_rewrite.md)
+- [mod_static](configuration/mod_static/mod_static.md)
 - [mod_trust_clientip](configuration/mod_trust_clientip/mod_trust_clientip.md)
 
