@@ -143,10 +143,10 @@ func ProductRuleConfLoad(filename string) (productRuleConf, error) {
 	var err error
 
 	file, err := os.Open(filename)
-	defer file.Close()
 	if err != nil {
 		return conf, err
 	}
+	defer file.Close()
 
 	decoder := json.NewDecoder(file)
 	var config productRuleConfFile

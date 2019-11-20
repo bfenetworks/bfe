@@ -55,7 +55,6 @@ type EncodeInfo struct {
 }
 
 type ModuleCompress struct {
-	lock      sync.RWMutex
 	name      string
 	conf      *ConfModCompress
 	ruleTable *CompressRuleTable
