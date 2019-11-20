@@ -112,6 +112,24 @@ func (m *ModuleStatic) loadConfData(query url.Values) error {
 	return nil
 }
 
+func (m *ModuleStatic) getState(params map[string][]string) ([]byte, error) {
+	s := m.metrics.GetAll()
+	return s.Format(params)
+}
+
+func (m *ModuleStatic) getStateDiff(params map[string][]string) ([]byte, error) {
+	s := m.metrics.GetDiff()
+	return s.Format(params)
+}
+
+func (m *ModuleStatic) monitorHandlers() map[string]interface{} {
+	handlers := map[string]interface{}{
+		m.name:           m.getState,
+		m.name + ".diff": m.getStateDiff,
+	}
+	return handlers
+}
+
 func errorStatusCode(err error) int {
 	if os.IsNotExist(err) {
 		return bfe_http.StatusNotFound
@@ -169,6 +187,7 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 		return resp
 	}
 	if fileInfo.IsDir() {
+		file.Close()
 		file, err = m.tryDefaultFile(root, defaultFile)
 		if err != nil {
 			resp.StatusCode = errorStatusCode(err)
@@ -223,6 +242,11 @@ func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	err = cbs.AddFilter(bfe_module.HANDLE_FOUND_PRODUCT, m.staticFileHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.staticFileHandler): %v", m.name, err)
+	}
+
+	err = web_monitor.RegisterHandlers(whs, web_monitor.WEB_HANDLE_MONITOR, m.monitorHandlers())
+	if err != nil {
+		return fmt.Errorf("%s.Init():RegisterHandlers(m.monitorHandlers): %s", m.name, err.Error())
 	}
 
 	err = whs.RegisterHandler(web_monitor.WEB_HANDLE_RELOAD, m.name, m.loadConfData)
