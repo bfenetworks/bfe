@@ -17,7 +17,6 @@ package mod_compress
 import (
 	"fmt"
 	"net/url"
-	"sync"
 )
 
 import (
