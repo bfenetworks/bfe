@@ -16,9 +16,12 @@ package mod_static
 
 import (
 	"fmt"
+	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -149,6 +152,23 @@ func (m *ModuleStatic) tryDefaultFile(root string, defaultFile string) (*staticF
 	return nil, os.ErrNotExist
 }
 
+func detectContentType(filename string, file *staticFile) (string, error) {
+	ctype := mime.TypeByExtension(filepath.Ext(filename))
+	if ctype != "" {
+		return ctype, nil
+	}
+
+	var buf [512]byte
+	n, _ := io.ReadFull(file, buf[:])
+	ctype = http.DetectContentType(buf[:n])
+	_, err := file.Seek(0, io.SeekStart)
+	if err != nil {
+		return "", fmt.Errorf("seeker can't seek")
+	}
+
+	return ctype, nil
+}
+
 func isZeroTime(t time.Time) bool {
 	return t.IsZero() || t.Equal(unixEpochTime)
 }
@@ -194,11 +214,17 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 			return resp
 		}
 	}
-	m.state.FileBrowseSize.Inc(uint(fileInfo.Size()))
 
+	ctype, err := detectContentType(fileInfo.Name(), file)
+	if err != nil {
+		resp.StatusCode = errorStatusCode(err)
+		return resp
+	}
+	resp.Header.Set("Content-Type", ctype)
 	resp.StatusCode = bfe_http.StatusOK
 	setLastModified(resp, fileInfo.ModTime())
 	resp.Body = file
+	m.state.FileBrowseSize.Inc(uint(fileInfo.Size()))
 	return resp
 }
 
