@@ -190,7 +190,7 @@ func (m *ModuleHeader) init(cfg *ConfModHeader, cbs *bfe_module.BfeCallbacks,
 	}
 
 	// register handler
-	err = cbs.AddFilter(bfe_module.HANDLE_READ_BACKEND, m.rspHeaderHandler)
+	err = cbs.AddFilter(bfe_module.HANDLE_READ_RESPONSE, m.rspHeaderHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.respHeaderHandler): %s", m.name, err.Error())
 	}

@@ -5,7 +5,7 @@
 | ---- | -------------- |
 | Kaiyu Zheng | kaiyuzheng | 
 | Lu Guo | guolu60 |
-| Miao Zhang |     |
+| Miao Zhang | mileszhang2016 |
 | Min Dai | daimin |
 | Qingxin Yang | yangqingxin1993 |
 | Shuai Yan | yanshuai615270 |
@@ -14,3 +14,5 @@
 | Wensi Yang | tianxinheihei | 
 | Xiaofei Yu | xiaofei0800 |
 | Yang Liu | dut-yangliu |
+|          | 0xflotus |
+|          | shanhuhai5739 |
