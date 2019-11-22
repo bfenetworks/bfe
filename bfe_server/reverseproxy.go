@@ -678,8 +678,8 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 response_got:
 	defer res.Body.Close()
 
-	// Callback for HANDLE_READ_BACKEND
-	hl = srv.CallBacks.GetHandlerList(bfe_module.HANDLE_READ_BACKEND)
+	// Callback for HANDLE_READ_RESPONSE
+	hl = srv.CallBacks.GetHandlerList(bfe_module.HANDLE_READ_RESPONSE)
 	if hl != nil {
 		retVal = hl.FilterResponse(basicReq, res)
 		switch retVal {

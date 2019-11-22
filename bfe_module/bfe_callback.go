@@ -32,7 +32,7 @@ const (
 	HANDLE_FOUND_PRODUCT   = 3
 	HANDLE_AFTER_LOCATION  = 4
 	HANDLE_FORWARD         = 5
-	HANDLE_READ_BACKEND    = 6
+	HANDLE_READ_RESPONSE   = 6
 	HANDLE_REQUEST_FINISH  = 7
 	HANDLE_FINISH          = 8
 )
@@ -61,7 +61,7 @@ func NewBfeCallbacks() *BfeCallbacks {
 	bfeCallbacks.callbacks[HANDLE_FORWARD] = NewHandlerList(HANDLERS_FORWARD)
 
 	// for HANDLERS_RESPONSE
-	bfeCallbacks.callbacks[HANDLE_READ_BACKEND] = NewHandlerList(HANDLERS_RESPONSE)
+	bfeCallbacks.callbacks[HANDLE_READ_RESPONSE] = NewHandlerList(HANDLERS_RESPONSE)
 	bfeCallbacks.callbacks[HANDLE_REQUEST_FINISH] = NewHandlerList(HANDLERS_RESPONSE)
 
 	// for HANDLERS_FINISH
