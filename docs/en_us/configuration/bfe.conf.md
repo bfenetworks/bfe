@@ -75,7 +75,7 @@ httpPort = 8080
 # listen port for https request
 httpsPort = 8443
 # listen port for monitor request
-monitorPort = 8299
+monitorPort = 8421
 
 # max number of CPUs to use (0 to use all CPUs)
 maxCpus = 0

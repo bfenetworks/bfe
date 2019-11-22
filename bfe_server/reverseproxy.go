@@ -674,11 +674,12 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 
 	// for read next request
 	defer p.setTimeout(bfe_basic.StageEndRequest, basicReq.Connection, req, cluster.TimeoutReadClientAgain())
-	defer res.Body.Close()
 
 response_got:
-	// Callback for HANDLE_READ_BACKEND
-	hl = srv.CallBacks.GetHandlerList(bfe_module.HANDLE_READ_BACKEND)
+	defer res.Body.Close()
+
+	// Callback for HANDLE_READ_RESPONSE
+	hl = srv.CallBacks.GetHandlerList(bfe_module.HANDLE_READ_RESPONSE)
 	if hl != nil {
 		retVal = hl.FilterResponse(basicReq, res)
 		switch retVal {

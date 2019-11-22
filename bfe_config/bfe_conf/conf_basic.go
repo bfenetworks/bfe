@@ -77,7 +77,7 @@ type ConfigBasic struct {
 func (cfg *ConfigBasic) SetDefaultConf() {
 	cfg.HttpPort = 8080
 	cfg.HttpsPort = 8443
-	cfg.MonitorPort = 8299
+	cfg.MonitorPort = 8421
 	cfg.MaxCpus = 0
 
 	cfg.TlsHandshakeTimeout = 30

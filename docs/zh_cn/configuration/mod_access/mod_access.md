@@ -49,13 +49,13 @@ mod_access模块以特定格式记录请求日志和会话日志。
 | vip                   | 请求访问VIP                                 |
 | is_trust_clientip     | 请求是否来自信任IP                          |
 | req_uri               | 请求行URI                                   |
-| req_header            | 请求头部, 例$[User-Agent]req_header         |
+| req_header            | 请求头部, 例${User-Agent}req_header         |
 | req_cookie            | 请求Cookie                                  |
 | req_nth               | 请求序号（连接上第几个请求)                 |
 | body_len_in           | 请求内容长度                                |
 | status_code           | 响应状态码                                  |
 | res_proto             | 响应HTTP协议版本                            |
-| res_header            | 响应头部, 例$[Server]req_header             |
+| res_header            | 响应头部, 例${Server}req_header             |
 | res_cookie            | 响应Set-Cookie                              |
 | redirect              | 重定向响应地址                              |
 | body_len_out          | 响应内容长度                                |

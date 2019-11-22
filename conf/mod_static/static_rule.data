@@ -1,0 +1,17 @@
+{
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "req_host_in(\"example.org\")",
+                "Action": {
+                    "Cmd": "BROWSE",
+                    "Params": [
+                        "../conf/mod_static",
+                        "index.html"
+                    ]
+                }
+            }
+        ]
+    },
+    "Version": "20190101000000"
+}
