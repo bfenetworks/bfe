@@ -206,7 +206,7 @@ func (m *ModuleCompress) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.Web
 		return fmt.Errorf("%s.Init(): AddFilter(m.checkHandler): %v", m.name, err)
 	}
 
-	err = cbs.AddFilter(bfe_module.HANDLE_READ_BACKEND, m.compressHandler)
+	err = cbs.AddFilter(bfe_module.HANDLE_READ_RESPONSE, m.compressHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.compressHandler): %v", m.name, err)
 	}
