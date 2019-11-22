@@ -217,9 +217,7 @@ func GetNamesForCert(cert *bfe_tls.Certificate) []string {
 	if len(x509Cert.Subject.CommonName) > 0 {
 		names = append(names, x509Cert.Subject.CommonName)
 	}
-	for _, san := range x509Cert.DNSNames {
-		names = append(names, san)
-	}
+	names = append(names, x509Cert.DNSNames...)
 
 	return names
 }
