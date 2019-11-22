@@ -201,7 +201,7 @@ func (m *ModuleCompress) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.Web
 		return fmt.Errorf("%s: loadProductRuleConf() err %v", m.name, err)
 	}
 
-	err = cbs.AddFilter(bfe_module.HANDLE_AFTER_LOCATION, m.checkHandler)
+	err = cbs.AddFilter(bfe_module.HANDLE_FOUND_PRODUCT, m.checkHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.checkHandler): %v", m.name, err)
 	}
