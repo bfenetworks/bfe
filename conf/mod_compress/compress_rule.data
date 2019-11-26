@@ -1,15 +1,15 @@
 {
+    "Version": "init version",
     "Config": {
-        "unittest": [
+        "example_product": [
             {
-                "Cond": "default_t()",
+                "Cond": "req_host_in(\"example.org\")",
                 "Action": {
-                    "Cmd": "ERR_COMPRESS",
+                    "Cmd": "GZIP",
                     "Quality": 9,
                     "FlushSize": 512
                 }
             }
         ]
-    },
-    "Version": "unittest"
+    }
 }

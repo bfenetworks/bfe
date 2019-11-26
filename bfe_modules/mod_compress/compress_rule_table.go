@@ -37,7 +37,6 @@ func (t *CompressRuleTable) Update(conf productRuleConf) {
 	t.lock.Unlock()
 }
 
-// find rules for given product
 func (t *CompressRuleTable) Search(product string) (*compressRuleList, bool) {
 	t.lock.RLock()
 	productRules := t.productRules

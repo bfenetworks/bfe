@@ -2,12 +2,12 @@
     "Config": {
         "unittest": [
             {
-                "Cond": "default_t()", 
-				"Action": {
-					"Cmd": "GZIP",
-					"Quality": 9,
-					"FlushSize": 512
-				}
+                "Cond": "default_t()",
+                "Action": {
+                    "Cmd": "GZIP",
+                    "Quality": 9,
+                    "FlushSize": 512
+                }
             }
         ]
     },
