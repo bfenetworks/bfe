@@ -16,9 +16,12 @@ package mod_static
 
 import (
 	"fmt"
+	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -42,10 +45,11 @@ var (
 )
 
 type ModuleStaticState struct {
-	FileBrowseCount    *metrics.Gauge
-	FileCurrentOpened  *metrics.Gauge
-	FileBrowseNotExist *metrics.Gauge
-	FileBrowseSize     *metrics.Gauge
+	FileBrowseSize             *metrics.Gauge
+	FileBrowseCount            *metrics.Gauge
+	FileCurrentOpened          *metrics.Gauge
+	FileBrowseNotExist         *metrics.Gauge
+	FileBrowseContentTypeError *metrics.Gauge
 }
 
 type ModuleStatic struct {
@@ -149,6 +153,23 @@ func (m *ModuleStatic) tryDefaultFile(root string, defaultFile string) (*staticF
 	return nil, os.ErrNotExist
 }
 
+func detectContentType(filename string, file *staticFile) (string, error) {
+	ctype := mime.TypeByExtension(filepath.Ext(filename))
+	if ctype != "" {
+		return ctype, nil
+	}
+
+	var buf [512]byte
+	n, err := io.ReadFull(file, buf[:])
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return "", err
+	}
+
+	ctype = http.DetectContentType(buf[:n])
+	_, err = file.Seek(0, io.SeekStart)
+	return ctype, err
+}
+
 func isZeroTime(t time.Time) bool {
 	return t.IsZero() || t.Equal(unixEpochTime)
 }
@@ -194,11 +215,17 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 			return resp
 		}
 	}
-	m.state.FileBrowseSize.Inc(uint(fileInfo.Size()))
 
-	resp.StatusCode = bfe_http.StatusOK
+	ctype, err := detectContentType(fileInfo.Name(), file)
+	if err != nil {
+		m.state.FileBrowseContentTypeError.Inc(1)
+		resp.StatusCode = errorStatusCode(err)
+		return resp
+	}
+	resp.Header.Set("Content-Type", ctype)
 	setLastModified(resp, fileInfo.ModTime())
 	resp.Body = file
+	m.state.FileBrowseSize.Inc(uint(fileInfo.Size()))
 	return resp
 }
 
