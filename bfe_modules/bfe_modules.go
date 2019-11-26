@@ -20,6 +20,7 @@ import (
 	"github.com/baidu/bfe/bfe_module"
 	"github.com/baidu/bfe/bfe_modules/mod_access"
 	"github.com/baidu/bfe/bfe_modules/mod_block"
+	"github.com/baidu/bfe/bfe_modules/mod_geo"
 	"github.com/baidu/bfe/bfe_modules/mod_header"
 	"github.com/baidu/bfe/bfe_modules/mod_http_code"
 	"github.com/baidu/bfe/bfe_modules/mod_key_log"
@@ -53,6 +54,10 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_rewrite
 	// Requirement: After mod_dict_client
 	mod_rewrite.NewModuleReWrite(),
+
+	// mod_geo
+	// Requirement: Before mod_hrader
+	mod_geo.NewModuleGeo(),
 
 	// mod_header
 	mod_header.NewModuleHeader(),
