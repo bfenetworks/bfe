@@ -45,10 +45,11 @@ var (
 )
 
 type ModuleStaticState struct {
-	FileBrowseCount    *metrics.Gauge
-	FileCurrentOpened  *metrics.Gauge
-	FileBrowseNotExist *metrics.Gauge
-	FileBrowseSize     *metrics.Gauge
+	FileBrowseSize             *metrics.Gauge
+	FileBrowseCount            *metrics.Gauge
+	FileCurrentOpened          *metrics.Gauge
+	FileBrowseNotExist         *metrics.Gauge
+	FileBrowseContentTypeError *metrics.Gauge
 }
 
 type ModuleStatic struct {
@@ -159,14 +160,14 @@ func detectContentType(filename string, file *staticFile) (string, error) {
 	}
 
 	var buf [512]byte
-	n, _ := io.ReadFull(file, buf[:])
-	ctype = http.DetectContentType(buf[:n])
-	_, err := file.Seek(0, io.SeekStart)
-	if err != nil {
-		return "", fmt.Errorf("seeker can't seek")
+	n, err := io.ReadFull(file, buf[:])
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return "", err
 	}
 
-	return ctype, nil
+	ctype = http.DetectContentType(buf[:n])
+	_, err = file.Seek(0, io.SeekStart)
+	return ctype, err
 }
 
 func isZeroTime(t time.Time) bool {
@@ -217,11 +218,11 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 
 	ctype, err := detectContentType(fileInfo.Name(), file)
 	if err != nil {
+		m.state.FileBrowseContentTypeError.Inc(1)
 		resp.StatusCode = errorStatusCode(err)
 		return resp
 	}
 	resp.Header.Set("Content-Type", ctype)
-	resp.StatusCode = bfe_http.StatusOK
 	setLastModified(resp, fileInfo.ModTime())
 	resp.Body = file
 	m.state.FileBrowseSize.Inc(uint(fileInfo.Size()))
