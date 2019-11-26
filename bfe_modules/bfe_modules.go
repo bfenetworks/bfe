@@ -20,6 +20,7 @@ import (
 	"github.com/baidu/bfe/bfe_module"
 	"github.com/baidu/bfe/bfe_modules/mod_access"
 	"github.com/baidu/bfe/bfe_modules/mod_block"
+	"github.com/baidu/bfe/bfe_modules/mod_compress"
 	"github.com/baidu/bfe/bfe_modules/mod_header"
 	"github.com/baidu/bfe/bfe_modules/mod_http_code"
 	"github.com/baidu/bfe/bfe_modules/mod_key_log"
@@ -40,18 +41,21 @@ var moduleList = []bfe_module.BfeModule{
 	mod_logid.NewModuleLogId(),
 
 	// mod_block
-	// Requirement: After mod_dict_client, mod_logid
+	// Requirement: After mod_logid
 	mod_block.NewModuleBlock(),
 
 	// mod_redirect
-	// Requirement: After mod_dict_client, mod_logid
+	// Requirement: After mod_logid
 	mod_redirect.NewModuleRedirect(),
+
+	// mod_compress
+	// Requirement: before mod_static
+	mod_compress.NewModuleCompress(),
 
 	// mod_static
 	mod_static.NewModuleStatic(),
 
 	// mod_rewrite
-	// Requirement: After mod_dict_client
 	mod_rewrite.NewModuleReWrite(),
 
 	// mod_header
