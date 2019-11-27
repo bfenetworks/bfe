@@ -491,4 +491,12 @@ sub vcl_deliver {
     }
 }
 
+* 源站1.1.1.1 添加iptables规则，只允许2.2.2.2 和3.3.3.3 访问tcp 8080端口
 
+iptables -A INPUT -p icmp -j ACCEPT
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A INPUT -p tcp -m multiport --dports 20,21,22,25,26,53,80,110,443 -j ACCEPT
+iptables -A INPUT -p tcp --dport 8080 -s 2.2.2.2 -j ACCEPT
+iptables -A INPUT -p tcp --dport 8080 -s 3.3.3.3 -j ACCEPT
+iptables -A INPUT -p tcp --dport 8080 -j DROP
+iptalbes -A INPUT -p udp -m multiport --dports 53,33333 -j ACCEPT
