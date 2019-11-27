@@ -2,12 +2,16 @@
 
 ## 场景说明
 * 假设源站IP：1.1.1.1。有两个CDN节点：电信：2.2.2.2，联通：3.3.3.3
+
 * 源站WEB服务器为Nginx，CDN采用varnish，前端使用开源bfe 0.4.0
+
 * 做CDN加速的域名为：www.test1.com www.test2.com
+
 * 本例子bfe配置文件在/usr/local/baidu_bfe/conf
 
 * 源站Nginx 配置如下：
-test1.com.conf
+
+  test1.com.conf
 
 server {
         listen 80;
@@ -47,18 +51,18 @@ server {
     location / {
             index  index.html index.htm index.php;
     }
-
+    
     location ~ \.php(/|$) {
             include fastcgi_params;
             fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
             fastcgi_pass 127.0.0.1:9001;
     }
-
+    
     location ~ /\.svn|/\.git {
             deny all;
             internal;
     }
-
+    
     ssl_certificate /etc/nginx/ssl/www.test1.com.crt;
     ssl_certificate_key /etc/nginx/ssl/www.test1.com.key;
     ssl_session_cache shared:SSL:20m;
@@ -74,24 +78,24 @@ www.test1.com_ssl.conf
 server {
     listen       443 ssl http2;
     server_name  www.test1.com;
-
+    
     root /var/www/html/test1.com;
-
+    
     location / {
             index  index.html index.htm index.php;
     }
-
+    
     location ~ \.php(/|$) {
             include fastcgi_params;
             fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
             fastcgi_pass 127.0.0.1:9001;
     }
-
+    
     location ~ /\.svn|/\.git {
             deny all;
             internal;
     }
-
+    
     ssl_certificate /etc/nginx/ssl/www.test1.com.crt;
     ssl_certificate_key /etc/nginx/ssl/www.test1.com.key;
     ssl_session_cache shared:SSL:20m;
@@ -113,13 +117,13 @@ server {
         location / {
             index  index.html index.htm index.php;
         }
-
+    
         location ~ \.php(/|$) {
                 include fastcgi_params;
                 fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
                 fastcgi_pass 127.0.0.1:9001;
         }
-
+    
         location ~ /\.svn|/\.git {
             deny all;
             internal;
