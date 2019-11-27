@@ -8,6 +8,7 @@
 
 * 源站Nginx 配置如下：
 test1.com.conf
+
 server {
         listen 80;
         server_name test1.com;
@@ -21,6 +22,7 @@ server {
 }
 
 www.test1.com.conf
+
 server {
         listen 80;
         server_name www.test1.com;
@@ -34,6 +36,7 @@ server {
 }
 
 test1.com_ssl.conf
+
 server {
     listen       443 ssl http2;
     server_name  test1.com;
@@ -67,10 +70,11 @@ server {
 }
 
 www.test1.com_ssl.conf
+
 server {
     listen       443 ssl http2;
     server_name  www.test1.com;
-    
+
     root /var/www/html/test1.com;
 
     location / {
@@ -98,8 +102,9 @@ server {
     add_header Strict-Transport-Security "max-age=31536000" always;
 }
 
-再配置供电信和联通前端varnish访问的8080端口：
+## 再配置供电信和联通前端varnish访问的8080端口：
 www.test1.com_8080.conf
+
 server {
         listen 8080;
         server_name www.test1.com;
@@ -124,7 +129,9 @@ server {
 ## test2.com nginx配置和test1.com配置类似。
 
 * 电信CDN varnish节点配置，联通CDN varnish节点配置类似。
+
 /etc/varnish/varnish.params
+
 RELOAD_VCL=1
 VARNISH_VCL_CONF=/etc/varnish/default.vcl
 VARNISH_LISTEN_ADDRESS=127.0.0.1
@@ -137,8 +144,8 @@ VARNISH_USER=varnish
 VARNISH_GROUP=varnish 
 
 /etc/varnish/default.vcl
-vcl 4.0;
 
+vcl 4.0;
 backend default {
     .host = "1.1.1.1";
     .port = "8080";
@@ -151,7 +158,6 @@ backend web2 {
     .host = "test2.com";	
     .port = "8080";
 }
-
 acl purge {
  "127.0.0.1";
   "localhost";
@@ -255,6 +261,7 @@ sub vcl_deliver {
 * 电信前端bfe 0.4.0配置，联通前端 bfe 0.4.0配置类似。
 
 /usr/local/baidu_bfe/conf/mod_redirect/redirect.data
+
 {
     "Version": "init version",
     "Config": {
@@ -322,6 +329,7 @@ sub vcl_deliver {
 }
 
 /usr/local/baidu_bfe/conf/server_data_conf/host_rule.data
+
 {
     "Version": "init version",
     "DefaultProduct": null,
@@ -362,6 +370,7 @@ sub vcl_deliver {
 }
 
 /usr/local/baidu_bfe/conf/server_data_conf/route_rule.data
+
 {
     "Version": "init version",
     "ProductRule": {
@@ -419,6 +428,7 @@ sub vcl_deliver {
 }
 
 /usr/local/baidu_bfe/conf/cluster_conf/cluster_table.data
+
 {
     "Config": {
         "cluster_example": {
@@ -462,6 +472,7 @@ sub vcl_deliver {
 }
 
 /usr/local/baidu_bfe/conf/tls_conf/server_cert_conf.data
+
 {
     "Version": "init version",
     "Config": {
