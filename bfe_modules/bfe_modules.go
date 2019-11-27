@@ -21,6 +21,7 @@ import (
 	"github.com/baidu/bfe/bfe_modules/mod_access"
 	"github.com/baidu/bfe/bfe_modules/mod_block"
 	"github.com/baidu/bfe/bfe_modules/mod_compress"
+	"github.com/baidu/bfe/bfe_modules/mod_geo"
 	"github.com/baidu/bfe/bfe_modules/mod_header"
 	"github.com/baidu/bfe/bfe_modules/mod_http_code"
 	"github.com/baidu/bfe/bfe_modules/mod_key_log"
@@ -39,6 +40,10 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_logid
 	// Requirement: After mod_trust_clientip
 	mod_logid.NewModuleLogId(),
+
+	// mod_geo
+	// Requirement: After mod_logid
+	mod_geo.NewModuleGeo(),
 
 	// mod_block
 	// Requirement: After mod_logid
