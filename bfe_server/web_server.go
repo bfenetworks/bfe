@@ -19,6 +19,7 @@ package bfe_server
 import (
 	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
+	"net/http/pprof"
 )
 
 type BfeMonitor struct {
@@ -130,6 +131,17 @@ func (m *BfeMonitor) reloadHandlers() map[string]interface{} {
 	return handlers
 }
 
+// pprofHandlers holds all pprof handlers.
+func (m *BfeMonitor) pprofHandlers() map[string]interface{} {
+	handlers := map[string]interface{}{
+		"cmdline": pprof.Cmdline,
+		"profile": pprof.Profile,
+		"symbol": pprof.Symbol,
+		"trace": pprof.Trace,
+	}
+	return handlers
+}
+
 func (m *BfeMonitor) WebHandlersInit(srv *BfeServer) error {
 	// register handlers for monitor
 	err := web_monitor.RegisterHandlers(m.WebHandlers, web_monitor.WEB_HANDLE_MONITOR,
@@ -138,9 +150,16 @@ func (m *BfeMonitor) WebHandlersInit(srv *BfeServer) error {
 		return err
 	}
 
-	// register handlers for for reload
+	// register handlers for reload
 	err = web_monitor.RegisterHandlers(m.WebHandlers, web_monitor.WEB_HANDLE_RELOAD,
 		m.reloadHandlers())
+	if err != nil {
+		return err
+	}
+
+	// register handlers for pprof
+	err = web_monitor.RegisterHandlers(m.WebHandlers, web_monitor.WEB_HANDLE_PPROF,
+		m.pprofHandlers())
 	if err != nil {
 		return err
 	}
