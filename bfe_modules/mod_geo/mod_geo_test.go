@@ -84,10 +84,4 @@ func TestGeoHandler(t *testing.T) {
 	if req.GetContext(CtxCountryIsoCode).(string) != "CN" {
 		t.Errorf("get country iso code(%s) err, expect CN", req.GetContext(CtxCountryIsoCode).(string))
 	}
-	if req.GetContext(CtxSubdivisionIsoCode).(string) != "BJ" {
-		t.Errorf("get subvidision iso code(%s) err, expect BJ", req.GetContext(CtxSubdivisionIsoCode).(string))
-	}
-	if req.GetContext(CtxCityName).(string) != "Beijing" {
-		t.Errorf("get city name(%s) err, expect Beijing", req.GetContext(CtxSubdivisionIsoCode).(string))
-	}
 }
