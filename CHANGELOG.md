@@ -11,6 +11,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unrelease]
+### Added
+- Add mod_compress to compress response by customize rules
+- Add mod_geo to determine user geolocation by IP address
+- mod_static detect content type based on file extension or content
+
+### Changed
+- Change default monitor port to 8421
+- Rename HANDLE_READ_BACKEND to HANDLE_READ_RESPONSE
+
+### Removed
+- Remove some legacy fields from mod_access
 
 
 ## [v0.4.0] - 2019-11-19
