@@ -153,12 +153,5 @@ func (b *BasicLit) ToBool() bool {
 		return false
 	}
 
-	switch strings.ToUpper(b.Value) {
-	case "TRUE":
-		return true
-	case "FALSE":
-		return false
-	default:
-		return false
-	}
+	return strings.ToUpper(b.Value) == "TRUE"
 }

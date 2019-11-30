@@ -41,7 +41,7 @@ cluster_conf.data为集群转发配置文件。
 | ----------- | ------ | ------------------------------------------------------------ |
 | CrossRetry  | Int    | 跨子集群最大重试次数                                         |
 | RetryMax    | Int    | 子集群内最大重试次数                                         |
-| BalanceMode | String | 负载均衡模式，默认为WRR                                      |
+| BalanceMode | String | 负载均衡模式，默认为WRR<br>-WRR: 加权轮询 <br>- WLC: 加权最小连接数 |
 | HashConf    | Struct | 会话保持的HASH策略配置<br>- HashStrategy: 会话保持的哈希策略。例如：ClientIdOnly, ClientIpOnly, ClientIdPreferred<br>- HashHeader: 会话保持的hash请求头<br>- SessionSticky: 是否开启会话保持 （开启后，可以保证来源于同一个用户的请求可以发送到同一个后端） |
 
 ### 集群基础配置 ClusterBasic

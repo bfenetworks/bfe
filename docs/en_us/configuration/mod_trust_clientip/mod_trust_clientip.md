@@ -17,10 +17,10 @@ Check client IP of incoming request against trusted ip dict. If matched, mark re
 
   conf/mod_trust_clientip/trust_client_ip.data
 
-  | Config Item | Type   | Description                                                     |
-  | ----------- | ------ | --------------------------------------------------------------- |
-  | Version     | String | Verson of config file                                           |
-  | Config      | Struct | trusted client ip dict. Key: lable, Value: a list of IP segment |
+| Config Item | Type   | Description                                                     |
+| ----------- | ------ | --------------------------------------------------------------- |
+| Version     | String | Verson of config file                                           |
+| Config      | Struct | trusted client ip dict. Key: lable, Value: a list of IP segment |
 
   ```
   {
