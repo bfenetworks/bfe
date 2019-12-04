@@ -138,12 +138,12 @@ func (header *Header) writeVersion1(w io.Writer) (int64, error) {
 func parseV1PortNumber(portStr string) (uint16, error) {
 	var port uint16
 
-	_port, err := strconv.Atoi(portStr)
+	pval, err := strconv.Atoi(portStr)
 	if err == nil {
-		if port < 0 || port > 65535 {
+		if pval < 0 || pval > 65535 {
 			err = ErrInvalidPortNumber
 		}
-		port = uint16(_port)
+		port = uint16(pval)
 	}
 
 	return port, err
