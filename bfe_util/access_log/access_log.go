@@ -39,7 +39,7 @@ func logDirCreate(logDir string) error {
 // fullPathGen generate full path of the file
 func fullPathGen(fileName, logDir string) string {
 	// remove the last '/'
-	strings.TrimSuffix(logDir, "/")
+	logDir = strings.TrimSuffix(logDir, "/")
 	fullPath := filepath.Join(logDir, fileName)
 	return fullPath
 }
