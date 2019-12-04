@@ -151,7 +151,7 @@ func (t *IpLocationTable) Search(cip net.IP) (string, error) {
 	if uint32(idx) == indexLen {
 		// consider ipAdd last element(uint32(idx) == indexLen)
 		preIdx = indexLen - 1
-	} else if bytes.Equal(fristIp, ipAddr16) || idx == 0 {
+	} else if fristIp.Equal(ipAddr16) || idx == 0 {
 		// consider ipAdd locate in frist section (idx == 0)
 		// consider ipAdd is first ip in ip's section(fristIp == ipAddr16)
 		preIdx = uint32(idx)
