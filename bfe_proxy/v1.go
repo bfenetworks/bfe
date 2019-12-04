@@ -140,7 +140,7 @@ func parseV1PortNumber(portStr string) (uint16, error) {
 
 	_port, err := strconv.Atoi(portStr)
 	if err == nil {
-		if port < 0 || port > 65535 {
+		if _port < 0 || _port > 65535 {
 			err = ErrInvalidPortNumber
 		}
 		port = uint16(_port)
