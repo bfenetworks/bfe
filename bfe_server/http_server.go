@@ -75,6 +75,7 @@ func (srv *BfeServer) Serve(l net.Listener, raw net.Listener, proto string) erro
 		rw, e := l.Accept()
 		if e != nil {
 			if isTimeout(e) {
+				proxyState.ErrClientTimeout.Inc(1)
 				continue
 			}
 			proxyState.ErrClientConnAccept.Inc(1)
