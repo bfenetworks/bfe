@@ -21,6 +21,7 @@ import (
 	"github.com/baidu/bfe/bfe_modules/mod_access"
 	"github.com/baidu/bfe/bfe_modules/mod_block"
 	"github.com/baidu/bfe/bfe_modules/mod_compress"
+	"github.com/baidu/bfe/bfe_modules/mod_errors"
 	"github.com/baidu/bfe/bfe_modules/mod_geo"
 	"github.com/baidu/bfe/bfe_modules/mod_header"
 	"github.com/baidu/bfe/bfe_modules/mod_http_code"
@@ -65,6 +66,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_header
 	mod_header.NewModuleHeader(),
+
+	// mod_errors
+	mod_errors.NewModuleErrors(),
 
 	// mod_key_log
 	mod_key_log.NewModuleKeyLog(),

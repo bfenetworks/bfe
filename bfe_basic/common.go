@@ -42,6 +42,10 @@ const (
 	StageEndRequest
 )
 
+const (
+	GlobalProduct = "global"
+)
+
 // CreateInternalSrvErrResp returns a HTTP 500 response
 func CreateInternalSrvErrResp(request *Request) *bfe_http.Response {
 	return CreateInternalResp(request, bfe_http.StatusInternalServerError)
