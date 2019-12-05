@@ -786,7 +786,7 @@ func (matcher *HashValueMatcher) Match(v interface{}) bool {
 	}
 
 	value := rawValue
-	if matcher.insensitive == true {
+	if matcher.insensitive {
 		value = strings.ToLower(rawValue)
 	}
 
