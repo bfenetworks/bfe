@@ -3,10 +3,13 @@
 
 | Name | Github Account |
 | ---- | -------------- |
+| Derek Zheng | shanhuhai5739 |
 | Kaiyu Zheng | kaiyuzheng | 
+| Lihua Chen | clh651188968 |
 | Lu Guo | guolu60 |
 | Miao Zhang | mileszhang2016 |
 | Min Dai | daimin |
+| Qing Liu | liuximu |
 | Qingxin Yang | yangqingxin1993 |
 | Shuai Yan | yanshuai615270 |
 | Sijie Yang | iyangsj |
@@ -18,4 +21,4 @@
 | Yang Liu | dut-yangliu |
 |          | 0xflotus |
 |          | MoonShining |
-|          | shanhuhai5739 |
+|          | xiaocongwjb |
