@@ -36,7 +36,8 @@ mod_auth_basic支持HTTP基本认证。
   ```
 
 - 用户密码文件
-  密码使用MD5、SHA1或BCrypt进行哈希编码。可以使用htpasswd、openssl生成用户密码文件。
+
+  密码使用MD5、SHA1或BCrypt进行哈希编码。可以使用htpasswd、openssl生成userfile文件。
   openssl生成密码示例：printf "user1:$(openssl passwd -apr1 123456)\n" >> ./userfile。
 
   ```
