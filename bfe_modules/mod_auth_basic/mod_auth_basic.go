@@ -37,11 +37,10 @@ const (
 )
 
 type ModuleAuthBasicState struct {
-	AuthBasicRuleHit          *metrics.Gauge
-	AuthBasicNotAuthenticated *metrics.Gauge
-	AuthBasicAuthenticated    *metrics.Gauge
-	AuthBasicPasswdSha        *metrics.Gauge
-	AuthBasicPasswdMd5        *metrics.Gauge
+	ReqAuthRuleHit   *metrics.Counter
+	ReqAuthChallenge *metrics.Counter
+	ReqAuthSuccess   *metrics.Counter
+	ReqAuthFailure   *metrics.Counter
 }
 
 type ModuleAuthBasic struct {
@@ -101,11 +100,12 @@ func (m *ModuleAuthBasic) monitorHandlers() map[string]interface{} {
 	return handlers
 }
 
-func (m *ModuleAuthBasic) isAuthenticated(req *bfe_basic.Request,
+func (m *ModuleAuthBasic) checkAuthCredentials(req *bfe_basic.Request,
 	rule *AuthBasicRule) bool {
 	httpRequest := req.HttpRequest
 	username, passwd, ok := httpRequest.BasicAuth()
 	if !ok {
+		m.state.ReqAuthChallenge.Inc(1)
 		return false
 	}
 	if openDebug {
@@ -117,16 +117,23 @@ func (m *ModuleAuthBasic) isAuthenticated(req *bfe_basic.Request,
 		if openDebug {
 			log.Logger.Debug("%s check passwd, no username[%s]", m.name, username)
 		}
+		m.state.ReqAuthFailure.Inc(1)
 		return false
 	}
 
-	return auth.CheckSecret(passwd, hashedPasswd)
+	if !auth.CheckSecret(passwd, hashedPasswd) {
+		m.state.ReqAuthFailure.Inc(1)
+		return false
+	}
+
+	m.state.ReqAuthSuccess.Inc(1)
+	return true
 }
 
 func (m *ModuleAuthBasic) createUnauthorizedResp(req *bfe_basic.Request,
 	rule *AuthBasicRule) *bfe_http.Response {
 	resp := bfe_basic.CreateInternalResp(req, bfe_http.StatusUnauthorized)
-	resp.Header.Set("WWW-Authenticate", "Basic realm=\""+rule.Realm+"\"")
+	resp.Header.Set("WWW-Authenticate", fmt.Sprintf("Basic realm=\"%s\"", rule.Realm))
 	return resp
 }
 
@@ -138,15 +145,11 @@ func (m *ModuleAuthBasic) authBasicHandler(req *bfe_basic.Request) (int, *bfe_ht
 
 	for _, rule := range *rules {
 		if rule.Cond.Match(req) {
-			m.state.AuthBasicRuleHit.Inc(1)
+			m.state.ReqAuthRuleHit.Inc(1)
 
-			isAuthenticated := m.isAuthenticated(req, &rule)
-			if !isAuthenticated {
-				m.state.AuthBasicNotAuthenticated.Inc(1)
+			if !m.checkAuthCredentials(req, &rule) {
 				return bfe_module.BFE_HANDLER_RESPONSE, m.createUnauthorizedResp(req, &rule)
 			}
-
-			m.state.AuthBasicAuthenticated.Inc(1)
 			return bfe_module.BFE_HANDLER_GOON, nil
 		}
 	}
