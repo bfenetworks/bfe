@@ -15,7 +15,6 @@
 package mod_auth_basic
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 )
@@ -55,8 +54,6 @@ type ModuleAuthBasic struct {
 
 var (
 	openDebug = false
-
-	errMismatchedHashAndPasswd = errors.New("mismatched hash and password")
 )
 
 func NewModuleAuthBasic() *ModuleAuthBasic {
