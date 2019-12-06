@@ -19,6 +19,7 @@ package bfe_modules
 import (
 	"github.com/baidu/bfe/bfe_module"
 	"github.com/baidu/bfe/bfe_modules/mod_access"
+	"github.com/baidu/bfe/bfe_modules/mod_auth_basic"
 	"github.com/baidu/bfe/bfe_modules/mod_block"
 	"github.com/baidu/bfe/bfe_modules/mod_compress"
 	"github.com/baidu/bfe/bfe_modules/mod_errors"
@@ -53,6 +54,10 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_redirect
 	// Requirement: After mod_logid
 	mod_redirect.NewModuleRedirect(),
+
+	// mod_auth_basic
+	// Requirement: before mod_static
+	mod_auth_basic.NewModuleAuthBasic(),
 
 	// mod_compress
 	// Requirement: before mod_static

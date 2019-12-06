@@ -1,0 +1,12 @@
+{
+    "Config": {
+        "unittest": [
+            {
+                "Cond": "req_host_in(\"www.example.org\")",
+                "UserFile": "./testdata/mod_auth_basic/userfile",
+                "Realm": "unittest"
+            }
+        ]
+    },
+    "Version": "unittest"
+}
