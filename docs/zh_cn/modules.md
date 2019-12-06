@@ -1,6 +1,7 @@
 # 扩展模块
 
 - [mod_access](configuration/mod_access/mod_access.md)
+- [mod_auth_basic](configuration/mod_auth_basic/mod_auth_basic.md)
 - [mod_block](configuration/mod_block/mod_block.md)
 - [mod_compress](configuration/mod_compress/mod_compress.md)
 - [mod_header](configuration/mod_header/mod_header.md)
