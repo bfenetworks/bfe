@@ -12,9 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unrelease]
 ### Added
+- Add mod_geo to determine user geolocation by MaxMind database
+- Add mod_auth_basic to restrict access from unknown users
 - Add mod_compress to compress response by customize rules
-- Add mod_geo to determine user geolocation by IP address
+- Add mod_errors to replace unexpected resposne
 - mod_static detect content type based on file extension or content
+- Expose pprof items in web monitor
 
 ### Changed
 - Change default monitor port to 8421
