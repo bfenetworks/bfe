@@ -22,6 +22,7 @@ package bfe_http
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -540,6 +541,37 @@ func NewRequest(method, urlStr string, body io.Reader) (*Request, error) {
 	}
 
 	return req, nil
+}
+
+// BasicAuth returns the username and password provided in the request's
+// Authorization header, if the request uses HTTP Basic Authentication.
+// See RFC 2617, Section 2.
+func (r *Request) BasicAuth() (username, password string, ok bool) {
+	auth := r.Header.Get("Authorization")
+	if auth == "" {
+		return
+	}
+	return parseBasicAuth(auth)
+}
+
+// parseBasicAuth parses an HTTP Basic Authentication string.
+// "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==" returns ("Aladdin", "open sesame", true).
+func parseBasicAuth(auth string) (username, password string, ok bool) {
+	const prefix = "Basic "
+	// Case insensitive prefix match. See Issue 22736.
+	if len(auth) < len(prefix) || !strings.EqualFold(auth[:len(prefix)], prefix) {
+		return
+	}
+	c, err := base64.StdEncoding.DecodeString(auth[len(prefix):])
+	if err != nil {
+		return
+	}
+	cs := string(c)
+	s := strings.IndexByte(cs, ':')
+	if s < 0 {
+		return
+	}
+	return cs[:s], cs[s+1:], true
 }
 
 // SetBasicAuth sets the request's Authorization header to use HTTP
