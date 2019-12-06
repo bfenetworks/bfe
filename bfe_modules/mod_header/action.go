@@ -166,7 +166,7 @@ func expectVariableParam(str string) int {
 	// variable param, variable now only has
 	// characters [a-z] and '_'
 	for _, c := range str {
-		if strings.Index(variableCharset, string(c)) < 0 {
+		if !strings.Contains(variableCharset, string(c)) {
 			break
 		}
 		index++
