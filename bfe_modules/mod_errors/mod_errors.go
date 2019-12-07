@@ -77,12 +77,12 @@ func (m *ModuleErrors) errorsHandler(req *bfe_basic.Request, resp *bfe_http.Resp
 	if req.HttpResponse == nil {
 		// never go here
 		log.Logger.Debug("%s:errorsHandler(): no response found", m.name)
-		return bfe_module.BFE_HANDLER_GOON
+		return bfe_module.BfeHandlerGoOn
 	}
 
 	rules, ok := m.ruleTable.Search(req.Route.Product)
 	if !ok {
-		return bfe_module.BFE_HANDLER_GOON
+		return bfe_module.BfeHandlerGoOn
 	}
 
 	for _, rule := range *rules {
@@ -90,10 +90,10 @@ func (m *ModuleErrors) errorsHandler(req *bfe_basic.Request, resp *bfe_http.Resp
 		if rule.Cond.Match(req) {
 			// do actions of the rule
 			ErrorsActionsDo(req, rule.Actions)
-			return bfe_module.BFE_HANDLER_GOON
+			return bfe_module.BfeHandlerGoOn
 		}
 	}
-	return bfe_module.BFE_HANDLER_GOON
+	return bfe_module.BfeHandlerGoOn
 }
 
 func (m *ModuleErrors) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers,
@@ -116,7 +116,7 @@ func (m *ModuleErrors) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	}
 
 	// register handler
-	err = cbs.AddFilter(bfe_module.HANDLE_READ_RESPONSE, m.errorsHandler)
+	err = cbs.AddFilter(bfe_module.HandleReadResponse, m.errorsHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.errorsHandler): %s", m.name, err.Error())
 	}

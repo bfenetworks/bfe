@@ -167,7 +167,7 @@ func (m *ModuleTrustClientIP) acceptHandler(session *bfe_basic.Session) int {
 			session.RemoteAddr.IP, session.IsTrustIP)
 	}
 
-	return bfe_module.BFE_HANDLER_GOON
+	return bfe_module.BfeHandlerGoOn
 }
 
 func (m *ModuleTrustClientIP) getState(params map[string][]string) ([]byte, error) {
@@ -218,7 +218,7 @@ func (m *ModuleTrustClientIP) init(cfg *ConfModTrustClientIP, cbs *bfe_module.Bf
 
 	// register handler
 	// for accept
-	err := cbs.AddFilter(bfe_module.HANDLE_ACCEPT, m.acceptHandler)
+	err := cbs.AddFilter(bfe_module.HandleAccept, m.acceptHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.acceptHandler): %s", m.name, err.Error())
 	}

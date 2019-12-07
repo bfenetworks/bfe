@@ -120,10 +120,10 @@ func (m *ModuleRedirect) redirectHandler(request *bfe_basic.Request) (int, *bfe_
 		}
 
 		if needRedirect {
-			return bfe_module.BFE_HANDLER_REDIRECT, nil
+			return bfe_module.BfeHandlerRedirect, nil
 		}
 	}
-	return bfe_module.BFE_HANDLER_GOON, nil
+	return bfe_module.BfeHandlerGoOn, nil
 }
 
 func (m *ModuleRedirect) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers,
@@ -151,7 +151,7 @@ func (m *ModuleRedirect) init(cfg *ConfModRedirect, cbs *bfe_module.BfeCallbacks
 	}
 
 	// register handler
-	err := cbs.AddFilter(bfe_module.HANDLE_AFTER_LOCATION, m.redirectHandler)
+	err := cbs.AddFilter(bfe_module.HandleAfterLocation, m.redirectHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.redirectHandler): %s", m.name, err.Error())
 	}

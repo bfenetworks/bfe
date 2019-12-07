@@ -140,7 +140,7 @@ func (m *ModuleAuthBasic) createUnauthorizedResp(req *bfe_basic.Request,
 func (m *ModuleAuthBasic) authBasicHandler(req *bfe_basic.Request) (int, *bfe_http.Response) {
 	rules, ok := m.ruleTable.Search(req.Route.Product)
 	if !ok {
-		return bfe_module.BFE_HANDLER_GOON, nil
+		return bfe_module.BfeHandlerGoOn, nil
 	}
 
 	for _, rule := range *rules {
@@ -148,13 +148,13 @@ func (m *ModuleAuthBasic) authBasicHandler(req *bfe_basic.Request) (int, *bfe_ht
 			m.state.ReqAuthRuleHit.Inc(1)
 
 			if !m.checkAuthCredentials(req, &rule) {
-				return bfe_module.BFE_HANDLER_RESPONSE, m.createUnauthorizedResp(req, &rule)
+				return bfe_module.BfeHandlerResponse, m.createUnauthorizedResp(req, &rule)
 			}
-			return bfe_module.BFE_HANDLER_GOON, nil
+			return bfe_module.BfeHandlerGoOn, nil
 		}
 	}
 
-	return bfe_module.BFE_HANDLER_GOON, nil
+	return bfe_module.BfeHandlerGoOn, nil
 }
 
 func (m *ModuleAuthBasic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers,
@@ -174,7 +174,7 @@ func (m *ModuleAuthBasic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.We
 		return fmt.Errorf("err in loadConfData(): %v", err)
 	}
 
-	err = cbs.AddFilter(bfe_module.HANDLE_FOUND_PRODUCT, m.authBasicHandler)
+	err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.authBasicHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.authBasicHandler): %v", m.name, err)
 	}

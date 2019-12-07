@@ -113,7 +113,7 @@ func (m *ModuleReWrite) rewriteHandler(request *bfe_basic.Request) (int, *bfe_ht
 		}
 	}
 
-	return bfe_module.BFE_HANDLER_GOON, nil
+	return bfe_module.BfeHandlerGoOn, nil
 }
 
 func (m *ModuleReWrite) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers,
@@ -141,7 +141,7 @@ func (m *ModuleReWrite) init(cfg *ConfModReWrite, cbs *bfe_module.BfeCallbacks,
 	}
 
 	// register handler
-	err := cbs.AddFilter(bfe_module.HANDLE_AFTER_LOCATION, m.rewriteHandler)
+	err := cbs.AddFilter(bfe_module.HandleAfterLocation, m.rewriteHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.rewriteHandler): %s", m.name, err.Error())
 	}

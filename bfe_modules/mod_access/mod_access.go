@@ -98,12 +98,12 @@ func (m *ModuleAccess) init(conf *ConfModAccess, cbs *bfe_module.BfeCallbacks, w
 		return fmt.Errorf("%s.Init(): create logger", m.name)
 	}
 
-	err = cbs.AddFilter(bfe_module.HANDLE_REQUEST_FINISH, m.requestLogHandler)
+	err = cbs.AddFilter(bfe_module.HandleRequestFinish, m.requestLogHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m. requestLogHandler): %s", m.name, err.Error())
 	}
 
-	err = cbs.AddFilter(bfe_module.HANDLE_FINISH, m.sessionLogHandler)
+	err = cbs.AddFilter(bfe_module.HandleFinish, m.sessionLogHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.sessionLogHandler): %s", m.name, err.Error())
 	}
@@ -151,7 +151,7 @@ func (m *ModuleAccess) requestLogHandler(req *bfe_basic.Request, res *bfe_http.R
 	byteStr.WriteString("\n")
 	m.logger.Info(byteStr.Bytes())
 
-	return bfe_module.BFE_HANDLER_GOON
+	return bfe_module.BfeHandlerGoOn
 }
 
 func (m *ModuleAccess) sessionLogHandler(session *bfe_basic.Session) int {
@@ -176,5 +176,5 @@ func (m *ModuleAccess) sessionLogHandler(session *bfe_basic.Session) int {
 	byteStr.WriteString("\n")
 	m.logger.Info(byteStr.Bytes())
 
-	return bfe_module.BFE_HANDLER_GOON
+	return bfe_module.BfeHandlerGoOn
 }
