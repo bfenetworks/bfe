@@ -262,6 +262,6 @@ func (srv *BfeServer) proxyHandshakeResumeDelayGet(params map[string][]string) (
 	return d.FormatOutput(params)
 }
 
-func (srv *BfeServer) ModuleStatusGetJson() ([]byte, error) {
-	return bfe_module.ModuleStatusGetJson()
+func (srv *BfeServer) ModuleStatusGetJSON() ([]byte, error) {
+	return bfe_module.ModuleStatusGetJSON()
 }

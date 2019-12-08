@@ -101,7 +101,7 @@ func (m *ModuleCompress) checkHandler(req *bfe_basic.Request) (int, *bfe_http.Re
 	m.state.ReqTotal.Inc(1)
 
 	if !checkSupportCompress(req) {
-		return bfe_module.BFE_HANDLER_GOON, nil
+		return bfe_module.BfeHandlerGoOn, nil
 	}
 	m.state.ReqSupportCompress.Inc(1)
 
@@ -110,7 +110,7 @@ func (m *ModuleCompress) checkHandler(req *bfe_basic.Request) (int, *bfe_http.Re
 		if openDebug {
 			log.Logger.Debug("%s product %s not found, just pass", m.name, req.Route.Product)
 		}
-		return bfe_module.BFE_HANDLER_GOON, nil
+		return bfe_module.BfeHandlerGoOn, nil
 	}
 
 	for _, rule := range *rules {
@@ -126,7 +126,7 @@ func (m *ModuleCompress) checkHandler(req *bfe_basic.Request) (int, *bfe_http.Re
 		}
 	}
 
-	return bfe_module.BFE_HANDLER_GOON, nil
+	return bfe_module.BfeHandlerGoOn, nil
 }
 
 func (m *ModuleCompress) compressHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
@@ -134,32 +134,32 @@ func (m *ModuleCompress) compressHandler(req *bfe_basic.Request, res *bfe_http.R
 
 	val := req.GetContext(ReqCtxEncodeInfo)
 	if val == nil {
-		return bfe_module.BFE_HANDLER_GOON
+		return bfe_module.BfeHandlerGoOn
 	}
 
 	encodeInfo, ok := val.(*EncodeInfo)
 	if !ok {
-		return bfe_module.BFE_HANDLER_GOON
+		return bfe_module.BfeHandlerGoOn
 	}
 
 	if res.StatusCode != 200 {
-		return bfe_module.BFE_HANDLER_GOON
+		return bfe_module.BfeHandlerGoOn
 	}
 
 	if len(res.Header.GetDirect("Content-Encoding")) != 0 {
-		return bfe_module.BFE_HANDLER_GOON
+		return bfe_module.BfeHandlerGoOn
 	}
 
 	res.Body, err = NewGzipFilter(res.Body, encodeInfo.Quality, encodeInfo.FlushSize)
 	if err != nil {
-		return bfe_module.BFE_HANDLER_GOON
+		return bfe_module.BfeHandlerGoOn
 	}
 
 	res.Header.Set("Content-Encoding", EncodeGzip)
 	res.Header.Del("Content-Length")
 	m.state.ResEncodeCompress.Inc(1)
 
-	return bfe_module.BFE_HANDLER_GOON
+	return bfe_module.BfeHandlerGoOn
 }
 
 func (m *ModuleCompress) getState(params map[string][]string) ([]byte, error) {
@@ -201,12 +201,12 @@ func (m *ModuleCompress) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.Web
 		return fmt.Errorf("%s: loadProductRuleConf() err %v", m.name, err)
 	}
 
-	err = cbs.AddFilter(bfe_module.HANDLE_FOUND_PRODUCT, m.checkHandler)
+	err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.checkHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.checkHandler): %v", m.name, err)
 	}
 
-	err = cbs.AddFilter(bfe_module.HANDLE_READ_RESPONSE, m.compressHandler)
+	err = cbs.AddFilter(bfe_module.HandleReadResponse, m.compressHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.compressHandler): %v", m.name, err)
 	}

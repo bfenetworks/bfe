@@ -43,8 +43,8 @@ func TestStaticFileHandler(t *testing.T) {
 	req.Route.Product = "unittest"
 	req.HttpRequest, _ = bfe_http.NewRequest("GET", "http://www.example.org", nil)
 	ret, resp := m.staticFileHandler(req)
-	if ret != bfe_module.BFE_HANDLER_RESPONSE {
-		t.Errorf("ret should be %d, not %d", bfe_module.BFE_HANDLER_RESPONSE, ret)
+	if ret != bfe_module.BfeHandlerResponse {
+		t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerResponse, ret)
 		return
 	}
 	if resp.StatusCode != bfe_http.StatusOK {
@@ -54,7 +54,7 @@ func TestStaticFileHandler(t *testing.T) {
 
 	req.HttpRequest.Host = "example.org"
 	ret, _ = m.staticFileHandler(req)
-	if ret != bfe_module.BFE_HANDLER_GOON {
-		t.Errorf("ret should be %d, not %d", bfe_module.BFE_HANDLER_GOON, ret)
+	if ret != bfe_module.BfeHandlerGoOn {
+		t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
 	}
 }

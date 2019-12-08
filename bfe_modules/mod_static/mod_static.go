@@ -232,7 +232,7 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 func (m *ModuleStatic) staticFileHandler(req *bfe_basic.Request) (int, *bfe_http.Response) {
 	rules, ok := m.ruleTable.Search(req.Route.Product)
 	if !ok {
-		return bfe_module.BFE_HANDLER_GOON, nil
+		return bfe_module.BfeHandlerGoOn, nil
 	}
 
 	for _, rule := range *rules {
@@ -240,14 +240,14 @@ func (m *ModuleStatic) staticFileHandler(req *bfe_basic.Request) (int, *bfe_http
 			switch rule.Action.Cmd {
 			case ActionBrowse:
 				m.state.FileBrowseCount.Inc(1)
-				return bfe_module.BFE_HANDLER_RESPONSE, m.createRespFromStaticFile(req, &rule)
+				return bfe_module.BfeHandlerResponse, m.createRespFromStaticFile(req, &rule)
 			default:
 				continue
 			}
 		}
 	}
 
-	return bfe_module.BFE_HANDLER_GOON, nil
+	return bfe_module.BfeHandlerGoOn, nil
 }
 
 func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers,
@@ -266,7 +266,7 @@ func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 		return fmt.Errorf("err in loadConfData(): %v", err)
 	}
 
-	err = cbs.AddFilter(bfe_module.HANDLE_FOUND_PRODUCT, m.staticFileHandler)
+	err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.staticFileHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.staticFileHandler): %v", m.name, err)
 	}

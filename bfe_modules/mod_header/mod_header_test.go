@@ -58,7 +58,7 @@ func TestModHeaderSetGlobal(t *testing.T) {
 	req.Route.Product = "pb"
 
 	handler, _ := m.reqHeaderHandler(req)
-	if handler != bfe_module.BFE_HANDLER_GOON {
+	if handler != bfe_module.BfeHandlerGoOn {
 		t.Error("reqHeaderHandler works abnormal")
 	}
 
@@ -82,7 +82,7 @@ func TestModHeaderSet(t *testing.T) {
 	req.Route.Product = "pn"
 
 	handler, _ := m.reqHeaderHandler(req)
-	if handler != bfe_module.BFE_HANDLER_GOON {
+	if handler != bfe_module.BfeHandlerGoOn {
 		t.Error("reqHeaderHandler works abnormal")
 	}
 
@@ -93,7 +93,7 @@ func TestModHeaderSet(t *testing.T) {
 
 	req.Session.IsSecure = false
 	handler, _ = m.reqHeaderHandler(req)
-	if handler != bfe_module.BFE_HANDLER_GOON {
+	if handler != bfe_module.BfeHandlerGoOn {
 		t.Error("reqHeaderHandler works abnormal")
 	}
 
@@ -116,7 +116,7 @@ func TestModHeaderAdd(t *testing.T) {
 	req.Route.Product = "pb"
 
 	handler, _ := m.reqHeaderHandler(req)
-	if handler != bfe_module.BFE_HANDLER_GOON {
+	if handler != bfe_module.BfeHandlerGoOn {
 		t.Error("reqHeaderHandler works abnormal")
 	}
 
@@ -143,7 +143,7 @@ func TestModHeaderDel(t *testing.T) {
 	req.Route.Product = "pb"
 
 	handler, _ := m.reqHeaderHandler(req)
-	if handler != bfe_module.BFE_HANDLER_GOON {
+	if handler != bfe_module.BfeHandlerGoOn {
 		t.Error("reqHeaderHandler works abnormal")
 	}
 
@@ -169,7 +169,7 @@ func TestModHeaderTrustIP(t *testing.T) {
 	req.Route.Product = "pb"
 
 	handler, _ := m.reqHeaderHandler(req)
-	if handler != bfe_module.BFE_HANDLER_GOON {
+	if handler != bfe_module.BfeHandlerGoOn {
 		t.Error("reqHeaderHandler works abnormal")
 	}
 
@@ -180,7 +180,7 @@ func TestModHeaderTrustIP(t *testing.T) {
 
 	req.Session.IsTrustIP = true
 	handler, _ = m.reqHeaderHandler(req)
-	if handler != bfe_module.BFE_HANDLER_GOON {
+	if handler != bfe_module.BfeHandlerGoOn {
 		t.Error("reqHeaderHandler works abnormal")
 	}
 
@@ -205,7 +205,7 @@ func TestDelXsslHeaderNotTrustIPAndHttp(t *testing.T) {
 	req.Route.Product = "pb"
 
 	handler, _ := m.reqHeaderHandler(req)
-	if handler != bfe_module.BFE_HANDLER_GOON {
+	if handler != bfe_module.BfeHandlerGoOn {
 		t.Error("reqHeaderHandler works abnormal")
 	}
 

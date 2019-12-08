@@ -109,7 +109,7 @@ func (m *ModuleGeo) geoHandler(req *bfe_basic.Request) (int, *bfe_http.Response)
 			log.Logger.Debug("%s: req.ClientAddr is nil", m.name)
 		}
 
-		return bfe_module.BFE_HANDLER_GOON, nil
+		return bfe_module.BfeHandlerGoOn, nil
 	}
 
 	m.lock.RLock()
@@ -125,12 +125,12 @@ func (m *ModuleGeo) geoHandler(req *bfe_basic.Request) (int, *bfe_http.Response)
 			log.Logger.Debug("%s: get city info err: %s", m.name, err)
 		}
 
-		return bfe_module.BFE_HANDLER_GOON, nil
+		return bfe_module.BfeHandlerGoOn, nil
 	}
 
 	m.setGeoInfoToReqContext(req, cityInfo)
 
-	return bfe_module.BFE_HANDLER_GOON, nil
+	return bfe_module.BfeHandlerGoOn, nil
 }
 
 func (m *ModuleGeo) setGeoInfoToReqContext(req *bfe_basic.Request, cityInfo *geoip2.City) {
@@ -194,7 +194,7 @@ func (m *ModuleGeo) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandl
 	}
 
 	// register handler
-	err = cbs.AddFilter(bfe_module.HANDLE_BEFORE_LOCATION, m.geoHandler)
+	err = cbs.AddFilter(bfe_module.HandleBeforeLocation, m.geoHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.rewriteHandler): %s", m.name, err.Error())
 	}
