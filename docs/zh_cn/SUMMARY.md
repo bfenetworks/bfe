@@ -64,8 +64,13 @@
     * [转发状态](monitor/proxy_state.md)
   * 扩展模块
     * [module_status](monitor/module_status.md)
+    * [mod_auth_basic](monitor/mod_auth_basic.md)
     * [mod_block](monitor/mod_block.md)
+    * [mod_compress](monitor/mod_compress.md)
+    * [mod_geo](monitor/mod_geo.md)
+    * [mod_http_code](monitor/mod_http_code.md)
     * [mod_logid](monitor/mod_logid.md)
+    * [mod_static](monitor/mod_static.md)
     * [mod_trust_clientip](monitor/mod_trust_clientip.md)
   * 延迟
     * [延迟分布](monitor/proxy_XXX_delay.md)
