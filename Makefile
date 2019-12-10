@@ -68,6 +68,13 @@ package:
 	mv bfe  $(OUTDIR)/bin
 	cp -r conf $(OUTDIR)
 
+# make docker
+docker:
+	docker build \
+		-t bfe:$(BFE_VERSION) \
+		-f Dockerfile \
+		.
+
 # make clean
 clean:
 	rm -rf $(OUTDIR)
