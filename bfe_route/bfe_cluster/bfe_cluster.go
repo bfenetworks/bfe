@@ -161,6 +161,10 @@ func (cluster *BfeCluster) ResFlushInterval() time.Duration {
 	return res
 }
 
+func (cluster *BfeCluster) DefaultSSEFlushInterval() time.Duration {
+	return time.Second
+}
+
 func (cluster *BfeCluster) CancelOnClientClose() bool {
 	cluster.RLock()
 	res := cluster.cancelOnClientClose

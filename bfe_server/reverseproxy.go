@@ -660,6 +660,9 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	}
 	resFlushInterval = cluster.ResFlushInterval()
 	cancelOnClientClose = cluster.CancelOnClientClose()
+	if resFlushInterval == 0 && basicReq.HttpRequest.Header.Get("Accept") == "text/event-stream" {
+		resFlushInterval = cluster.DefaultSSEFlushInterval()
+	}
 
 	// timeout for write response to client
 	// Note: we use io.Copy() to read from backend and write to client.
