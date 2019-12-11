@@ -211,12 +211,12 @@ func (m *ModuleCompress) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.Web
 		return fmt.Errorf("%s.Init(): AddFilter(m.compressHandler): %v", m.name, err)
 	}
 
-	err = web_monitor.RegisterHandlers(whs, web_monitor.WEB_HANDLE_MONITOR, m.monitorHandlers())
+	err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())
 	if err != nil {
 		return fmt.Errorf("%s.Init(): RegisterHandlers(m.monitorHandlers): %v", m.name, err)
 	}
 
-	err = web_monitor.RegisterHandlers(whs, web_monitor.WEB_HANDLE_RELOAD, m.reloadHandlers())
+	err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleReload, m.reloadHandlers())
 	if err != nil {
 		return fmt.Errorf("%s.Init(): RegisterHandlers(m.reloadHandlerr): %v", m.name, err)
 	}

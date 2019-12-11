@@ -196,7 +196,7 @@ func (m *ModuleHeader) init(cfg *ConfModHeader, cbs *bfe_module.BfeCallbacks,
 	}
 
 	// register web handler for reload
-	err = whs.RegisterHandler(web_monitor.WEB_HANDLE_RELOAD, m.name, m.loadConfData)
+	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %s", m.name, err.Error())
 	}

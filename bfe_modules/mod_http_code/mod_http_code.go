@@ -93,7 +93,7 @@ func (m *ModuleHttpCode) Init(cbs *bfe_module.BfeCallbacks,
 	}
 
 	// register web handlers for monitor
-	err = web_monitor.RegisterHandlers(whs, web_monitor.WEB_HANDLE_MONITOR, m.monitorHandlers())
+	err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())
 	if err != nil {
 		return fmt.Errorf("%s.Init(): RegisterHandlers(m.monitorHandlers): %v", m.name, err)
 	}
