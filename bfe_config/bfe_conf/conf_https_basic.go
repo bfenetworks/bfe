@@ -117,6 +117,11 @@ func (cfg *ConfigHttpsBasic) Check(confRoot string) error {
 		return err
 	}
 
+	err = clientCABaseDirCheck(cfg, confRoot)
+	if err != nil {
+		return err
+	}
+
 	// check CipherSuites
 	for _, cipherGroup := range cfg.CipherSuites {
 		ciphers := strings.Split(cipherGroup, EquivCipherSep)
@@ -163,6 +168,15 @@ func certRuleCheck(cfg *ConfigHttpsBasic, confRoot string) error {
 		cfg.TlsRuleConf = "tls_conf/tls_rule_conf.data"
 	}
 	cfg.TlsRuleConf = bfe_util.ConfPathProc(cfg.TlsRuleConf, confRoot)
+	return nil
+}
+
+func clientCABaseDirCheck(cfg *ConfigHttpsBasic, confRoot string) error {
+	if cfg.ClientCABaseDir == "" {
+		log.Logger.Warn("ClientCABaseDir not set, use default value")
+		cfg.ClientCABaseDir = "tls_conf/client_ca"
+	}
+	cfg.ClientCABaseDir = bfe_util.ConfPathProc(cfg.ClientCABaseDir, confRoot)
 	return nil
 }
 

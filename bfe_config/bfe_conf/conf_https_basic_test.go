@@ -73,7 +73,6 @@ func TestConfHttpsBasicLoad2(t *testing.T) {
 	confFiles := []string{
 		"testdata/conf_https_basic/bfe_2.conf",
 		"testdata/conf_https_basic/bfe_3.conf",
-		"testdata/conf_https_basic/bfe_5.conf",
 	}
 
 	for _, file := range confFiles {
