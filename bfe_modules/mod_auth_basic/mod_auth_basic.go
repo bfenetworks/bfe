@@ -179,12 +179,12 @@ func (m *ModuleAuthBasic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.We
 		return fmt.Errorf("%s.Init(): AddFilter(m.authBasicHandler): %v", m.name, err)
 	}
 
-	err = web_monitor.RegisterHandlers(whs, web_monitor.WEB_HANDLE_MONITOR, m.monitorHandlers())
+	err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())
 	if err != nil {
 		return fmt.Errorf("%s.Init():RegisterHandlers(m.monitorHandlers): %v", m.name, err)
 	}
 
-	err = whs.RegisterHandler(web_monitor.WEB_HANDLE_RELOAD, m.name, m.loadConfData)
+	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %v", m.name, err)
 	}

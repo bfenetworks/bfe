@@ -78,7 +78,7 @@ func (m *ModuleLogId) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 	}
 
 	// register web handler
-	err = whs.RegisterHandler(web_monitor.WEB_HANDLE_MONITOR, m.name, m.getState)
+	err = whs.RegisterHandler(web_monitor.WebHandleMonitor, m.name, m.getState)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): RegisterHandler(m.getState): %s", m.name, err.Error())
 	}

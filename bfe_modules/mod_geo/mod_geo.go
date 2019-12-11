@@ -200,12 +200,12 @@ func (m *ModuleGeo) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandl
 	}
 
 	// register web handler for reload
-	err = whs.RegisterHandler(web_monitor.WEB_HANDLE_RELOAD, m.name, m.loadConfData)
+	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %s", m.name, err.Error())
 	}
 	// register web handler for monitor
-	err = whs.RegisterHandler(web_monitor.WEB_HANDLE_MONITOR, m.name, m.getState)
+	err = whs.RegisterHandler(web_monitor.WebHandleMonitor, m.name, m.getState)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): RegisterHandler(m.getState): %s", m.name, err.Error())
 	}

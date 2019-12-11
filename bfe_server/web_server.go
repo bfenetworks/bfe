@@ -132,14 +132,14 @@ func (m *BfeMonitor) reloadHandlers() map[string]interface{} {
 
 func (m *BfeMonitor) WebHandlersInit(srv *BfeServer) error {
 	// register handlers for monitor
-	err := web_monitor.RegisterHandlers(m.WebHandlers, web_monitor.WEB_HANDLE_MONITOR,
+	err := web_monitor.RegisterHandlers(m.WebHandlers, web_monitor.WebHandleMonitor,
 		m.monitorHandlers())
 	if err != nil {
 		return err
 	}
 
 	// register handlers for for reload
-	err = web_monitor.RegisterHandlers(m.WebHandlers, web_monitor.WEB_HANDLE_RELOAD,
+	err = web_monitor.RegisterHandlers(m.WebHandlers, web_monitor.WebHandleReload,
 		m.reloadHandlers())
 	if err != nil {
 		return err
