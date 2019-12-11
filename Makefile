@@ -28,7 +28,6 @@ GOTEST  := $(GO) test
 GOVET   := $(GO) vet
 GOGET   := $(GO) get
 GOGEN   := $(GO) generate
-GOCLEAN := $(GO) clean
 
 # init bfe version
 BFE_VERSION ?= $(shell cat VERSION)
@@ -71,7 +70,6 @@ package:
 
 # make clean
 clean:
-	$(GOCLEAN)
 	rm -rf $(OUTDIR)
 	rm -rf $(WORKROOT)/bfe
 	rm -rf $(GOPATH)/pkg/linux_amd64
