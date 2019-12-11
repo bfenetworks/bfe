@@ -32,7 +32,7 @@ func TestAddItem(t *testing.T) {
 	if node != 0 {
 		t.Errorf("node should be 0 %d", node)
 	}
-	if bytes.Compare(np.element(0), Item) != 0 {
+	if !bytes.Equal(np.element(0), Item) {
 		t.Error("element is wrong")
 	}
 
@@ -44,7 +44,7 @@ func TestAddItem(t *testing.T) {
 	if node != 1 {
 		t.Errorf("node should be 0 %d", node)
 	}
-	if bytes.Compare(np.element(1), Item) != 0 {
+	if !bytes.Equal(np.element(1), Item) {
 		t.Error("element is wrong")
 	}
 	if !np.exist(0, Item) {

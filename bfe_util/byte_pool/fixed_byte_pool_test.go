@@ -38,7 +38,7 @@ func TestFixedBytePool(t *testing.T) {
 	if len(key) != len(resuItem) {
 		t.Error("testItem and resuItem not same len")
 	}
-	if bytes.Compare(key, resuItem) != 0 {
+	if !bytes.Equal(key, resuItem) {
 		t.Error("testItem, and resuItem not equal")
 	}
 
