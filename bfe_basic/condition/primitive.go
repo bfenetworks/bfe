@@ -210,7 +210,7 @@ func (qf *QueryKeyPrefixInFetcher) Fetch(req *bfe_basic.Request) (interface{}, e
 
 	ok := false
 	for k := range req.CachedQuery() {
-		if prefix_in(k, qf.keys) {
+		if prefixIn(k, qf.keys) {
 			ok = true
 			break
 		}
@@ -436,7 +436,7 @@ func (p *PrefixInMatcher) Match(v interface{}) bool {
 		vs = strings.ToUpper(vs)
 	}
 
-	return prefix_in(vs, p.patterns)
+	return prefixIn(vs, p.patterns)
 }
 
 func NewPrefixInMatcher(patterns string, foldCase bool) *PrefixInMatcher {
@@ -467,7 +467,7 @@ func (p *SuffixInMatcher) Match(v interface{}) bool {
 		vs = strings.ToUpper(vs)
 	}
 
-	return suffix_in(vs, p.patterns)
+	return suffixIn(vs, p.patterns)
 }
 
 func NewSuffixInMatcher(patterns string, foldCase bool) *SuffixInMatcher {
@@ -507,7 +507,7 @@ func in(v string, patterns []string) bool {
 	return i < len(patterns) && patterns[i] == v
 }
 
-func prefix_in(v string, patterns []string) bool {
+func prefixIn(v string, patterns []string) bool {
 	for _, pattern := range patterns {
 		if strings.HasPrefix(v, pattern) {
 			return true
@@ -517,7 +517,7 @@ func prefix_in(v string, patterns []string) bool {
 	return false
 }
 
-func suffix_in(v string, patterns []string) bool {
+func suffixIn(v string, patterns []string) bool {
 	for _, pattern := range patterns {
 		if strings.HasSuffix(v, pattern) {
 			return true
