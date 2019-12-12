@@ -4,11 +4,14 @@
 | Name | Github Account |
 | ---- | -------------- |
 | Derek Zheng | shanhuhai5739 |
+| Jiyang Zhang | scriptkids |
 | Kaiyu Zheng | kaiyuzheng | 
 | Lihua Chen | clh651188968 |
 | Lu Guo | guolu60 |
 | Miao Zhang | mileszhang2016 |
 | Min Dai | daimin |
+| Ming Lin | zhugelianglongming |
+| Pengwei Tian | Tovi163 |
 | Qing Liu | liuximu |
 | Qingxin Yang | yangqingxin1993 |
 | Shuai Yan | yanshuai615270 |
