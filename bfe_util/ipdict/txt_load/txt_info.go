@@ -132,7 +132,7 @@ func getActualFileInfo(path string) (*MetaInfo, error) {
 		}
 
 		// insert start ip and end ip into dict
-		if bytes.Compare(startIP, endIP) == 0 {
+		if bytes.Equal(startIP, endIP) {
 			singleIPCounter += 1
 		} else {
 			pairIPCounter += 1

@@ -89,7 +89,7 @@ func TestProxyConnReadNormal(t *testing.T) {
 		buf := make([]byte, 16*1024)
 		_, err := io.ReadFull(c, buf)
 		checkError(t, "", err)
-		if bytes.Compare(msg, buf) != 0 {
+		if !bytes.Equal(msg, buf) {
 			t.Errorf("Read want %v: \ngot %v", msg, buf)
 		}
 	})
