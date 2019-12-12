@@ -24,6 +24,13 @@ import (
 )
 
 func modHeaderForwardedAddr(req *bfe_basic.Request) {
+	if clientHost := req.HttpRequest.Host; clientHost != "" {
+		if prior, existHost := req.HttpRequest.Header[bfe_basic.HeaderForwardedHost]; existHost {
+			clientHost = strings.Join(prior, ", ") + ", " + clientHost
+		}
+		req.HttpRequest.Header.Set(bfe_basic.HeaderForwardedHost, clientHost)
+	}
+
 	if clientIP, clientPort, err := net.SplitHostPort(req.HttpRequest.RemoteAddr); err == nil {
 		if prior, existIP := req.HttpRequest.Header[bfe_basic.HeaderForwardedFor]; existIP {
 			clientIP = strings.Join(prior, ", ") + ", " + clientIP

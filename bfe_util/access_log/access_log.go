@@ -36,14 +36,6 @@ func logDirCreate(logDir string) error {
 	return nil
 }
 
-// fullPathGen generate full path of the file
-func fullPathGen(fileName, logDir string) string {
-	// remove the last '/'
-	strings.TrimSuffix(logDir, "/")
-	fullPath := filepath.Join(logDir, fileName)
-	return fullPath
-}
-
 // prefix2Name generate fileName from prefix
 func prefix2Name(prefix string) string {
 	return prefix + ".log"
@@ -93,7 +85,7 @@ func LoggerInitWithFormat2(fileName, logDir, when string, backupCount int,
 	// create logger
 	logger = make(log4go.Logger)
 	// create file writer for all log
-	fullPath := fullPathGen(fileName, logDir)
+	fullPath := filepath.Join(logDir, fileName)
 	logWriter := log4go.NewTimeFileLogWriter(fullPath, when, backupCount)
 	if logWriter == nil {
 		return logger, fmt.Errorf("error in log4go.NewTimeFileLogWriter(%s)", fullPath)

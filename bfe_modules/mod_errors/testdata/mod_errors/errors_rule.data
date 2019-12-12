@@ -1,0 +1,31 @@
+{
+    "Config": {
+       "example": [
+            {
+                "cond": "res_code_in(\"404\")",
+                "actions": [
+                    {
+                        "cmd": "SET_PAGE",
+                        "params": [
+                            "200",
+                            "text/html",
+                            "./testdata/mod_errors/test.html"
+                        ]
+                    }
+                ]
+            },
+            {
+                "cond": "res_code_in(\"500\")",
+                "actions": [
+                    {
+                        "cmd": "SET_REDIRECT",
+                        "params": [
+                            "http://example.com/error.html"
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "Version": "SCMPF_MODULE_VERSION"
+}

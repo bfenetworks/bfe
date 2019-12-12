@@ -26,15 +26,15 @@ import (
 
 // Callback point.
 const (
-	HANDLE_ACCEPT          = 0
-	HANDLE_HANDSHAKE       = 1
-	HANDLE_BEFORE_LOCATION = 2
-	HANDLE_FOUND_PRODUCT   = 3
-	HANDLE_AFTER_LOCATION  = 4
-	HANDLE_FORWARD         = 5
-	HANDLE_READ_BACKEND    = 6
-	HANDLE_REQUEST_FINISH  = 7
-	HANDLE_FINISH          = 8
+	HandleAccept         = 0
+	HandleHandshake      = 1
+	HandleBeforeLocation = 2
+	HandleFoundProduct   = 3
+	HandleAfterLocation  = 4
+	HandleForward        = 5
+	HandleReadResponse   = 6
+	HandleRequestFinish  = 7
+	HandleFinish         = 8
 )
 
 type BfeCallbacks struct {
@@ -49,23 +49,23 @@ func NewBfeCallbacks() *BfeCallbacks {
 
 	// create handler list for each callback point
 	// for HANDLERS_ACCEPT
-	bfeCallbacks.callbacks[HANDLE_ACCEPT] = NewHandlerList(HANDLERS_ACCEPT)
-	bfeCallbacks.callbacks[HANDLE_HANDSHAKE] = NewHandlerList(HANDLERS_ACCEPT)
+	bfeCallbacks.callbacks[HandleAccept] = NewHandlerList(HandleAccept)
+	bfeCallbacks.callbacks[HandleHandshake] = NewHandlerList(HandleAccept)
 
 	// for HANDLERS_REQUEST
-	bfeCallbacks.callbacks[HANDLE_BEFORE_LOCATION] = NewHandlerList(HANDLERS_REQUEST)
-	bfeCallbacks.callbacks[HANDLE_FOUND_PRODUCT] = NewHandlerList(HANDLERS_REQUEST)
-	bfeCallbacks.callbacks[HANDLE_AFTER_LOCATION] = NewHandlerList(HANDLERS_REQUEST)
+	bfeCallbacks.callbacks[HandleBeforeLocation] = NewHandlerList(HandlersRequest)
+	bfeCallbacks.callbacks[HandleFoundProduct] = NewHandlerList(HandlersRequest)
+	bfeCallbacks.callbacks[HandleAfterLocation] = NewHandlerList(HandlersRequest)
 
 	// for HANDLERS_FORWARD
-	bfeCallbacks.callbacks[HANDLE_FORWARD] = NewHandlerList(HANDLERS_FORWARD)
+	bfeCallbacks.callbacks[HandleForward] = NewHandlerList(HandlersForward)
 
 	// for HANDLERS_RESPONSE
-	bfeCallbacks.callbacks[HANDLE_READ_BACKEND] = NewHandlerList(HANDLERS_RESPONSE)
-	bfeCallbacks.callbacks[HANDLE_REQUEST_FINISH] = NewHandlerList(HANDLERS_RESPONSE)
+	bfeCallbacks.callbacks[HandleReadResponse] = NewHandlerList(HandlersResponse)
+	bfeCallbacks.callbacks[HandleRequestFinish] = NewHandlerList(HandlersResponse)
 
 	// for HANDLERS_FINISH
-	bfeCallbacks.callbacks[HANDLE_FINISH] = NewHandlerList(HANDLERS_FINISH)
+	bfeCallbacks.callbacks[HandleFinish] = NewHandlerList(HandlersFinish)
 
 	return bfeCallbacks
 }
@@ -79,19 +79,19 @@ func (bcb *BfeCallbacks) AddFilter(point int, f interface{}) error {
 	}
 
 	var err error
-	switch hl.h_type {
-	case HANDLERS_ACCEPT:
+	switch hl.handlerType {
+	case HandlersAccept:
 		err = hl.AddAcceptFilter(f)
-	case HANDLERS_REQUEST:
+	case HandlersRequest:
 		err = hl.AddRequestFilter(f)
-	case HANDLERS_FORWARD:
+	case HandlersForward:
 		err = hl.AddForwardFilter(f)
-	case HANDLERS_RESPONSE:
+	case HandlersResponse:
 		err = hl.AddResponseFilter(f)
-	case HANDLERS_FINISH:
+	case HandlersFinish:
 		err = hl.AddFinishFilter(f)
 	default:
-		err = fmt.Errorf("invalid type of handler list[%d]", hl.h_type)
+		err = fmt.Errorf("invalid type of handler list[%d]", hl.handlerType)
 	}
 	return err
 }

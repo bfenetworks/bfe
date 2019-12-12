@@ -1,0 +1,29 @@
+{
+    "Version": "20190101000000",
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "res_code_in(\"404\")",
+                "Actions": [
+                    {
+                        "Cmd": "RETURN",
+                        "Params": [
+                            "200", "text/html", "../conf/mod_errors/404.html"
+                        ]
+                    }
+                ]
+            },
+            {
+                "Cond": "res_code_in(\"500\")",
+                "Actions": [
+                    {
+                        "Cmd": "REDIRECT",
+                        "Params": [
+                            "http://example.org/error.html"
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

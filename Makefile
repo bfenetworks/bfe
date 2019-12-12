@@ -28,6 +28,7 @@ GOTEST  := $(GO) test
 GOVET   := $(GO) vet
 GOGET   := $(GO) get
 GOGEN   := $(GO) generate
+GOCLEAN := $(GO) clean
 
 # init bfe version
 BFE_VERSION ?= $(shell cat VERSION)
@@ -68,8 +69,16 @@ package:
 	mv bfe  $(OUTDIR)/bin
 	cp -r conf $(OUTDIR)
 
+# make docker
+docker:
+	docker build \
+		-t bfe:$(BFE_VERSION) \
+		-f Dockerfile \
+		.
+
 # make clean
 clean:
+	$(GOCLEAN)
 	rm -rf $(OUTDIR)
 	rm -rf $(WORKROOT)/bfe
 	rm -rf $(GOPATH)/pkg/linux_amd64

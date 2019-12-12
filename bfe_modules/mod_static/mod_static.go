@@ -16,9 +16,12 @@ package mod_static
 
 import (
 	"fmt"
+	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -42,10 +45,11 @@ var (
 )
 
 type ModuleStaticState struct {
-	FileBrowseCount    *metrics.Gauge
-	FileCurrentOpened  *metrics.Gauge
-	FileBrowseNotExist *metrics.Gauge
-	FileBrowseSize     *metrics.Gauge
+	FileBrowseSize             *metrics.Gauge
+	FileBrowseCount            *metrics.Gauge
+	FileCurrentOpened          *metrics.Gauge
+	FileBrowseNotExist         *metrics.Gauge
+	FileBrowseContentTypeError *metrics.Gauge
 }
 
 type ModuleStatic struct {
@@ -112,6 +116,24 @@ func (m *ModuleStatic) loadConfData(query url.Values) error {
 	return nil
 }
 
+func (m *ModuleStatic) getState(params map[string][]string) ([]byte, error) {
+	s := m.metrics.GetAll()
+	return s.Format(params)
+}
+
+func (m *ModuleStatic) getStateDiff(params map[string][]string) ([]byte, error) {
+	s := m.metrics.GetDiff()
+	return s.Format(params)
+}
+
+func (m *ModuleStatic) monitorHandlers() map[string]interface{} {
+	handlers := map[string]interface{}{
+		m.name:           m.getState,
+		m.name + ".diff": m.getStateDiff,
+	}
+	return handlers
+}
+
 func errorStatusCode(err error) int {
 	if os.IsNotExist(err) {
 		return bfe_http.StatusNotFound
@@ -129,6 +151,23 @@ func (m *ModuleStatic) tryDefaultFile(root string, defaultFile string) (*staticF
 	}
 	m.state.FileBrowseNotExist.Inc(1)
 	return nil, os.ErrNotExist
+}
+
+func detectContentType(filename string, file *staticFile) (string, error) {
+	ctype := mime.TypeByExtension(filepath.Ext(filename))
+	if ctype != "" {
+		return ctype, nil
+	}
+
+	var buf [512]byte
+	n, err := io.ReadFull(file, buf[:])
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return "", err
+	}
+
+	ctype = http.DetectContentType(buf[:n])
+	_, err = file.Seek(0, io.SeekStart)
+	return ctype, err
 }
 
 func isZeroTime(t time.Time) bool {
@@ -169,24 +208,31 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 		return resp
 	}
 	if fileInfo.IsDir() {
+		file.Close()
 		file, err = m.tryDefaultFile(root, defaultFile)
 		if err != nil {
 			resp.StatusCode = errorStatusCode(err)
 			return resp
 		}
 	}
-	m.state.FileBrowseSize.Inc(uint(fileInfo.Size()))
 
-	resp.StatusCode = bfe_http.StatusOK
+	ctype, err := detectContentType(fileInfo.Name(), file)
+	if err != nil {
+		m.state.FileBrowseContentTypeError.Inc(1)
+		resp.StatusCode = errorStatusCode(err)
+		return resp
+	}
+	resp.Header.Set("Content-Type", ctype)
 	setLastModified(resp, fileInfo.ModTime())
 	resp.Body = file
+	m.state.FileBrowseSize.Inc(uint(fileInfo.Size()))
 	return resp
 }
 
 func (m *ModuleStatic) staticFileHandler(req *bfe_basic.Request) (int, *bfe_http.Response) {
 	rules, ok := m.ruleTable.Search(req.Route.Product)
 	if !ok {
-		return bfe_module.BFE_HANDLER_GOON, nil
+		return bfe_module.BfeHandlerGoOn, nil
 	}
 
 	for _, rule := range *rules {
@@ -194,14 +240,14 @@ func (m *ModuleStatic) staticFileHandler(req *bfe_basic.Request) (int, *bfe_http
 			switch rule.Action.Cmd {
 			case ActionBrowse:
 				m.state.FileBrowseCount.Inc(1)
-				return bfe_module.BFE_HANDLER_RESPONSE, m.createRespFromStaticFile(req, &rule)
+				return bfe_module.BfeHandlerResponse, m.createRespFromStaticFile(req, &rule)
 			default:
 				continue
 			}
 		}
 	}
 
-	return bfe_module.BFE_HANDLER_GOON, nil
+	return bfe_module.BfeHandlerGoOn, nil
 }
 
 func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers,
@@ -220,12 +266,17 @@ func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 		return fmt.Errorf("err in loadConfData(): %v", err)
 	}
 
-	err = cbs.AddFilter(bfe_module.HANDLE_FOUND_PRODUCT, m.staticFileHandler)
+	err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.staticFileHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.staticFileHandler): %v", m.name, err)
 	}
 
-	err = whs.RegisterHandler(web_monitor.WEB_HANDLE_RELOAD, m.name, m.loadConfData)
+	err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())
+	if err != nil {
+		return fmt.Errorf("%s.Init():RegisterHandlers(m.monitorHandlers): %s", m.name, err.Error())
+	}
+
+	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %v", m.name, err)
 	}

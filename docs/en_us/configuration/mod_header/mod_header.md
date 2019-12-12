@@ -17,21 +17,21 @@ Modify header of HTTP request/response based on defined rules.
 
   conf/mod_header/header_rule.data
 
-  | Config Item | Type   | Description                                                  |
-  | ----------- | ------ | ------------------------------------------------------------ |
-  | Version     | String | Verson of config file                                        |
-  | Config      | Struct | Header rules for each product. Header rule include: <br>- Cond: "condition" expression <br>- Actions: what to do after matched<br>- Last: if true, stop to check the remaining rules |
+| Config Item | Type   | Description                                                  |
+| ----------- | ------ | ------------------------------------------------------------ |
+| Version     | String | Verson of config file                                        |
+| Config      | Struct | Header rules for each product. Header rule include: <br>- Cond: "condition" expression <br>- Actions: what to do after matched<br>- Last: if true, stop to check the remaining rules |
 
-  | Action         | Description            |
-  | -------------- | ---------------------- |
-  | REQ_HEADER_SET | Set request header     |
-  | REQ_HEADER_ADD | Add request header     |
-  | RSP_HEADER_SET | Set response header    |
-  | RSP_HEADER_ADD | Add response header    |
-  | REQ_HEADER_DEL | Delete request header  |
-  | RSP_HEADER_DEL | Delete response header |
-  | REQ_HEADER_MOD | Modify request header  |
-  | RSP_HEADER_MOD | Modify response header |
+| Action         | Description            |
+| -------------- | ---------------------- |
+| REQ_HEADER_SET | Set request header     |
+| REQ_HEADER_ADD | Add request header     |
+| RSP_HEADER_SET | Set response header    |
+| RSP_HEADER_ADD | Add response header    |
+| REQ_HEADER_DEL | Delete request header  |
+| RSP_HEADER_DEL | Delete response header |
+| REQ_HEADER_MOD | Modify request header  |
+| RSP_HEADER_MOD | Modify response header |
 
   ```
   {

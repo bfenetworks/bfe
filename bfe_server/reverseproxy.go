@@ -247,11 +247,11 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 			request.Trans.Backend.Addr, request.Trans.Backend.Port)
 
 		// Callback for HANDLE_FORWARD
-		hl := srv.CallBacks.GetHandlerList(bfe_module.HANDLE_FORWARD)
+		hl := srv.CallBacks.GetHandlerList(bfe_module.HandleForward)
 		if hl != nil {
 			retVal := hl.FilterForward(request)
 			switch retVal {
-			case bfe_module.BFE_HANDLER_FINISH:
+			case bfe_module.BfeHandlerFinish:
 				// close the connection after response
 				action = closeAfterReply
 				return
@@ -425,11 +425,11 @@ func (p *ReverseProxy) FinishReq(rw bfe_http.ResponseWriter, request *bfe_basic.
 	}()
 
 	// Callback for HANDLE_REQUEST_FINISH
-	hl := srv.CallBacks.GetHandlerList(bfe_module.HANDLE_REQUEST_FINISH)
+	hl := srv.CallBacks.GetHandlerList(bfe_module.HandleRequestFinish)
 	if hl != nil {
 		retVal := hl.FilterResponse(request, request.HttpResponse)
 		switch retVal {
-		case bfe_module.BFE_HANDLER_FINISH:
+		case bfe_module.BfeHandlerFinish:
 			// close the connection after response
 			action = closeAfterReply
 			return
@@ -508,27 +508,27 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	setClientAddr(basicReq)
 
 	// Callback for HANDLE_BEFORE_LOCATION
-	hl = srv.CallBacks.GetHandlerList(bfe_module.HANDLE_BEFORE_LOCATION)
+	hl = srv.CallBacks.GetHandlerList(bfe_module.HandleBeforeLocation)
 	if hl != nil {
 		retVal, res = hl.FilterRequest(basicReq)
 		basicReq.HttpResponse = res
 		switch retVal {
-		case bfe_module.BFE_HANDLER_CLOSE:
+		case bfe_module.BfeHandlerClose:
 			// close the connection directly (with no response)
 			action = closeDirectly
 			return
-		case bfe_module.BFE_HANDLER_FINISH:
+		case bfe_module.BfeHandlerFinish:
 			// close the connection after response
 			action = closeAfterReply
 			basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
 			return
-		case bfe_module.BFE_HANDLER_REDIRECT:
+		case bfe_module.BfeHandlerRedirect:
 			// make redirect
 			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code)
 			isRedirect = true
 			basicReq.BfeStatusCode = basicReq.Redirect.Code
 			goto send_response
-		case bfe_module.BFE_HANDLER_RESPONSE:
+		case bfe_module.BfeHandlerResponse:
 			goto response_got
 		}
 	}
@@ -547,28 +547,28 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 		goto response_got
 	}
 
-	// Callback for HANDLE_FOUND_PRODUCT
-	hl = srv.CallBacks.GetHandlerList(bfe_module.HANDLE_FOUND_PRODUCT)
+	// Callback for HandleFoundProduct
+	hl = srv.CallBacks.GetHandlerList(bfe_module.HandleFoundProduct)
 	if hl != nil {
 		retVal, res = hl.FilterRequest(basicReq)
 		basicReq.HttpResponse = res
 		switch retVal {
-		case bfe_module.BFE_HANDLER_CLOSE:
+		case bfe_module.BfeHandlerClose:
 			// close the connection directly (with no response)
 			action = closeDirectly
 			return
-		case bfe_module.BFE_HANDLER_FINISH:
+		case bfe_module.BfeHandlerFinish:
 			// close the connection after response
 			action = closeAfterReply
 			basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
 			return
-		case bfe_module.BFE_HANDLER_REDIRECT:
+		case bfe_module.BfeHandlerRedirect:
 			// make redirect
 			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code)
 			isRedirect = true
 			basicReq.BfeStatusCode = basicReq.Redirect.Code
 			goto send_response
-		case bfe_module.BFE_HANDLER_RESPONSE:
+		case bfe_module.BfeHandlerResponse:
 			goto response_got
 		}
 	}
@@ -607,22 +607,22 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	// set deadline to finish read client request body
 	p.setTimeout(bfe_basic.StageReadReqBody, basicReq.Connection, req, cluster.TimeoutReadClient())
 
-	// Callback for HANDLE_AFTER_LOCATION
-	hl = srv.CallBacks.GetHandlerList(bfe_module.HANDLE_AFTER_LOCATION)
+	// Callback for HandleAfterLocation
+	hl = srv.CallBacks.GetHandlerList(bfe_module.HandleAfterLocation)
 	if hl != nil {
 		retVal, res = hl.FilterRequest(basicReq)
 		basicReq.HttpResponse = res
 		switch retVal {
-		case bfe_module.BFE_HANDLER_CLOSE:
+		case bfe_module.BfeHandlerClose:
 			// close the connection directly (with no response)
 			action = closeDirectly
 			return
-		case bfe_module.BFE_HANDLER_FINISH:
+		case bfe_module.BfeHandlerFinish:
 			// close the connection after response
 			action = closeAfterReply
 			basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
 			return
-		case bfe_module.BFE_HANDLER_REDIRECT:
+		case bfe_module.BfeHandlerRedirect:
 			// make redirect
 			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code)
 
@@ -630,7 +630,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 
 			basicReq.BfeStatusCode = basicReq.Redirect.Code
 			goto send_response
-		case bfe_module.BFE_HANDLER_RESPONSE:
+		case bfe_module.BfeHandlerResponse:
 			goto response_got
 		}
 	}
@@ -660,6 +660,9 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	}
 	resFlushInterval = cluster.ResFlushInterval()
 	cancelOnClientClose = cluster.CancelOnClientClose()
+	if resFlushInterval == 0 && basicReq.HttpRequest.Header.Get("Accept") == "text/event-stream" {
+		resFlushInterval = cluster.DefaultSSEFlushInterval()
+	}
 
 	// timeout for write response to client
 	// Note: we use io.Copy() to read from backend and write to client.
@@ -674,20 +677,21 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 
 	// for read next request
 	defer p.setTimeout(bfe_basic.StageEndRequest, basicReq.Connection, req, cluster.TimeoutReadClientAgain())
-	defer res.Body.Close()
 
 response_got:
-	// Callback for HANDLE_READ_BACKEND
-	hl = srv.CallBacks.GetHandlerList(bfe_module.HANDLE_READ_BACKEND)
+	defer res.Body.Close()
+
+	// Callback for HandleReadResponse
+	hl = srv.CallBacks.GetHandlerList(bfe_module.HandleReadResponse)
 	if hl != nil {
 		retVal = hl.FilterResponse(basicReq, res)
 		switch retVal {
-		case bfe_module.BFE_HANDLER_FINISH:
+		case bfe_module.BfeHandlerFinish:
 			// close the connection after response
 			action = closeAfterReply
 			basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
 			return
-		case bfe_module.BFE_HANDLER_REDIRECT:
+		case bfe_module.BfeHandlerRedirect:
 			// make redirect
 			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code)
 			isRedirect = true

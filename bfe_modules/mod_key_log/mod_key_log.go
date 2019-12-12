@@ -64,7 +64,7 @@ func (m *ModuleKeyLog) loadConf(confPath string) error {
 func (m *ModuleKeyLog) logTlsKey(session *bfe_basic.Session) int {
 	tlsState := session.TlsState
 	if tlsState == nil {
-		return bfe_module.BFE_HANDLER_GOON
+		return bfe_module.BfeHandlerGoOn
 	}
 
 	// key log format: <label> <ClientRandom> <MasterSecret>
@@ -73,7 +73,7 @@ func (m *ModuleKeyLog) logTlsKey(session *bfe_basic.Session) int {
 		hex.EncodeToString(tlsState.MasterSecret)) // connection master secret
 	m.logger.Info(keyLog)
 
-	return bfe_module.BFE_HANDLER_GOON
+	return bfe_module.BfeHandlerGoOn
 }
 
 func (m *ModuleKeyLog) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers,
@@ -93,7 +93,7 @@ func (m *ModuleKeyLog) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	}
 
 	// register handler
-	err = cbs.AddFilter(bfe_module.HANDLE_HANDSHAKE, m.logTlsKey)
+	err = cbs.AddFilter(bfe_module.HandleHandshake, m.logTlsKey)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.logTlsKey): %s", m.name, err.Error())
 	}
