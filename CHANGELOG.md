@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unrelease]
+## [v0.5.0] - 2019-12-12
 ### Added
 - Add mod_geo to determine user geolocation by MaxMind database
 - Add mod_auth_basic to restrict access from unknown users
@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add mod_errors to replace unexpected resposne
 - mod_static detect content type based on file extension or content
 - Expose pprof items in web monitor
+- Add default resFlushInterval for SSE(Server-Sent Events) response
+- Support X-Forwarded-Host Header
+- Support docker image in Makefile
+- Documents optimization
 
 ### Changed
 - Change default monitor port to 8421
@@ -75,7 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
-[Unrelease]: https://github.com/baidu/bfe/compare/v0.4.0...HEAD
+[v0.5.0]: https://github.com/baidu/bfe/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/baidu/bfe/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/baidu/bfe/compare/v0.2.0...v0.3.0
 [v0.2.0]: https://github.com/baidu/bfe/compare/v0.1.0...v0.2.0
