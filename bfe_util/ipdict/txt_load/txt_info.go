@@ -152,13 +152,13 @@ func getActualFileInfo(path string) (*MetaInfo, error) {
 }
 
 /* check meta info */
-func checkMetaInfo(Info MetaInfo) error {
-	if Info.Version == "" {
+func checkMetaInfo(info MetaInfo) error {
+	if info.Version == "" {
 		return fmt.Errorf("metaInfo:Version is empty string")
 	}
 
 	/* PairIPNum/SingleIPNum must >= 0 */
-	if Info.PairIPNum < 0 || Info.SingleIPNum < 0 {
+	if info.PairIPNum < 0 || info.SingleIPNum < 0 {
 		return fmt.Errorf("metaInfo:PairIPNum || SingleIPNum < 0")
 	}
 
