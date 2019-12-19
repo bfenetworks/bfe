@@ -58,6 +58,15 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 		return err
 	}
 
+	// load data
+	err = bfeServer.InitDataLoad()
+	if err != nil {
+		log.Logger.Error("StartUp(): bfeServer.InitDataLoad():%s",
+			err.Error())
+		return err
+	}
+	log.Logger.Info("StartUp(): bfeServer.InitDataLoad() OK")
+
 	// setup signal table
 	bfeServer.InitSignalTable()
 	log.Logger.Info("StartUp():bfeServer.InitSignalTable() OK")
@@ -85,15 +94,6 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 		return err
 	}
 	log.Logger.Info("StartUp():bfeServer.InitModules() OK")
-
-	// load data
-	err = bfeServer.InitDataLoad()
-	if err != nil {
-		log.Logger.Error("StartUp(): bfeServer.InitDataLoad():%s",
-			err.Error())
-		return err
-	}
-	log.Logger.Info("StartUp(): bfeServer.InitDataLoad() OK")
 
 	// start embedded web server
 	bfeServer.Monitor.Start()
