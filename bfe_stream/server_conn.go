@@ -56,8 +56,7 @@ func (sc *serverConn) serve() {
 	sc.conn.SetDeadline(zero)
 
 	// connect start time
-	var start time.Time
-	start = time.Now()
+	start := time.Now()
 
 	// select and connect to backend
 	bc, back, err := sc.findBackend()
