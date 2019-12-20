@@ -473,7 +473,22 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			fetcher: &SIPFetcher{},
 			matcher: matcher,
 		}, nil
-
+	case "ses_tls_sni_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &SniFetcher{},
+			matcher: NewInMatcher(node.Args[0].Value, true),
+		}, nil
+	case "ses_tls_client_auth":
+		return &ClientAuthMatcher{}, nil
+	case "ses_tls_client_ca_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &ClientCANameFetcher{},
+			matcher: NewInMatcher(node.Args[0].Value, false),
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported primitive %s", node.Fun.Name)
 	}

@@ -878,3 +878,46 @@ func GetHash(value []byte, base uint) int {
 
 	return int(hash % uint64(base))
 }
+
+// SniFetcher fetches serverName in tls
+type SniFetcher struct{}
+
+func (fetcher *SniFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
+	if req == nil {
+		return nil, fmt.Errorf("fetcher: no req")
+	}
+
+	ses := req.Session
+	if ses == nil || !ses.IsSecure || ses.TlsState == nil || ses.TlsState.ServerName == "" {
+		return nil, fmt.Errorf("fetcher: no sni")
+	}
+
+	return req.Session.TlsState.ServerName, nil
+}
+
+type ClientAuthMatcher struct{}
+
+func (m *ClientAuthMatcher) Match(req *bfe_basic.Request) bool {
+	if req == nil || req.Session == nil || !req.Session.IsSecure || req.Session.TlsState == nil {
+		return false
+	}
+
+	return req.Session.TlsState.ClientAuth
+}
+
+// ClientCANameFetcher fetches client CA name
+type ClientCANameFetcher struct{}
+
+func (fetcher *ClientCANameFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
+	if req == nil {
+		return nil, fmt.Errorf("fetcher: no req")
+	}
+
+	ses := req.Session
+	if ses == nil || !ses.IsSecure || ses.TlsState == nil || !ses.TlsState.ClientAuth ||
+		ses.TlsState.ClientCAName == "" {
+		return nil, fmt.Errorf("fetcher: no client CA name")
+	}
+
+	return req.Session.TlsState.ClientCAName, nil
+}

@@ -191,6 +191,7 @@ func (m *TLSServerRuleMap) createServerRule(conf *tls_rule_conf.TlsRuleConf,
 	// tls client auth policy
 	r.TlsRule.ClientAuth = conf.ClientAuth
 	r.TlsRule.ClientCAs = clientCAs
+	r.TlsRule.ClientCAName = conf.ClientCAName
 
 	// enable chacha20-poly1305 cipher suites
 	r.TlsRule.Chacha20 = conf.Chacha20

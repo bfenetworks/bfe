@@ -69,6 +69,9 @@ var funcProtos = map[string][]Token{
 	"res_header_value_in":        {STRING, STRING, BOOL},
 	"ses_vip_range":              {STRING, STRING},
 	"ses_sip_range":              {STRING, STRING},
+	"ses_tls_sni_in":             {STRING},
+	"ses_tls_client_auth":        nil,
+	"ses_tls_client_ca_in":       {STRING},
 }
 
 func prototypeCheck(expr *CallExpr) error {

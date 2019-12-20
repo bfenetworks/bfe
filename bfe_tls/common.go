@@ -222,6 +222,8 @@ type ConnectionState struct {
 	ServerRandom               []byte                // random in server hello
 	MasterSecret               []byte                // master secret used by the connection
 	ClientCiphers              []uint16              // ciphers supported by client
+	ClientAuth                 bool                  // enable TLS Client Authentication
+	ClientCAName               string                // TLS client CA name
 }
 
 // ClientAuthType declares the policy the server will follow for
@@ -298,6 +300,9 @@ type Rule struct {
 
 	// client CA certificate
 	ClientCAs *x509.CertPool
+
+	// client CA name
+	ClientCAName string
 
 	// enable Chacha20-poly1305 cipher suites
 	Chacha20 bool
