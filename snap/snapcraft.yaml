@@ -1,0 +1,14 @@
+
+  name: bfe
+  version: git
+  summary: Open-source layer 7 load balancer
+  description: |
+    BFE is an open-source layer 7 load balancer derived from proprietary Baidu FrontEnd.
+
+  grade: stable
+  confinement: devmode # use 'strict' once you have the right plugs and slots
+
+  parts:
+    my-part:
+      plugin: nil
+  
