@@ -161,7 +161,7 @@ func detectContentType(filename string, file *staticFile) (string, error) {
 
 	var buf [512]byte
 	n, err := io.ReadFull(file, buf[:])
-	if err != nil && err != io.ErrUnexpectedEOF {
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 		return "", err
 	}
 
