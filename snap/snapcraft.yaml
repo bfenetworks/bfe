@@ -1,5 +1,5 @@
 
-  name: bfe
+  name: test-snap-xiaofei0800
   version: git
   summary: Open-source layer 7 load balancer
   description: |
@@ -9,6 +9,19 @@
   confinement: devmode # use 'strict' once you have the right plugs and slots
 
   parts:
-    my-part:
-      plugin: nil
-  
+    go:
+      source-tag: go1.13.5
+    test-snap-xiaofei0800:
+      after: [go]
+      plugin: go
+      go-importpath: github.com/baidu/bfe
+      source: .
+      source-type: local
+      override-build: | 
+        make
+        cp -r output/* $SNAPCRAFT_PART_INSTALL/
+
+  apps:
+    test-snap-xiaofei0800:
+      command: bin/bfe
+      plugs: [network-bind]
