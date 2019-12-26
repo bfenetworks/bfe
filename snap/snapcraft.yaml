@@ -12,6 +12,8 @@
   parts:
     go:
       source-tag: go1.13.5
+      plugin: nil
+      
     test-snap-xiaofei0800:
       after: [go]
       plugin: go
