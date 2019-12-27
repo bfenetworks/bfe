@@ -25,7 +25,8 @@ import (
 
 type ConfModStatic struct {
 	Basic struct {
-		DataPath string
+		DataPath     string
+		MimeTypePath string
 	}
 
 	Log struct {
@@ -57,5 +58,8 @@ func (cfg *ConfModStatic) Check(confRoot string) error {
 	}
 
 	cfg.Basic.DataPath = bfe_util.ConfPathProc(cfg.Basic.DataPath, confRoot)
+	if len(cfg.Basic.MimeTypePath) != 0 {
+		cfg.Basic.MimeTypePath = bfe_util.ConfPathProc(cfg.Basic.MimeTypePath, confRoot)
+	}
 	return nil
 }

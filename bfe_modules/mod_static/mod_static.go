@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -45,19 +46,21 @@ var (
 )
 
 type ModuleStaticState struct {
-	FileBrowseSize             *metrics.Gauge
-	FileBrowseCount            *metrics.Gauge
+	FileBrowseSize             *metrics.Counter
+	FileBrowseCount            *metrics.Counter
+	FileBrowseNotExist         *metrics.Counter
+	FileBrowseContentTypeError *metrics.Counter
 	FileCurrentOpened          *metrics.Gauge
-	FileBrowseNotExist         *metrics.Gauge
-	FileBrowseContentTypeError *metrics.Gauge
 }
 
 type ModuleStatic struct {
-	name       string
-	state      ModuleStaticState
-	metrics    metrics.Metrics
-	configPath string
-	ruleTable  *StaticRuleTable
+	name         string
+	state        ModuleStaticState
+	metrics      metrics.Metrics
+	configPath   string
+	mimeTypePath string
+	ruleTable    *StaticRuleTable
+	mimeType     *MimeType
 }
 
 type staticFile struct {
@@ -116,6 +119,21 @@ func (m *ModuleStatic) loadConfData(query url.Values) error {
 	return nil
 }
 
+func (m *ModuleStatic) loadMimeType(query url.Values) error {
+	var err error
+	path := query.Get("path")
+	if path == "" {
+		path = m.mimeTypePath
+	}
+
+	m.mimeType, err = MimeTypeLoad(path)
+	if err != nil {
+		return fmt.Errorf("error in MimeTypeLoad(%s): %v", path, err)
+	}
+
+	return nil
+}
+
 func (m *ModuleStatic) getState(params map[string][]string) ([]byte, error) {
 	s := m.metrics.GetAll()
 	return s.Format(params)
@@ -130,6 +148,14 @@ func (m *ModuleStatic) monitorHandlers() map[string]interface{} {
 	handlers := map[string]interface{}{
 		m.name:           m.getState,
 		m.name + ".diff": m.getStateDiff,
+	}
+	return handlers
+}
+
+func (m *ModuleStatic) reloadHandlers() map[string]interface{} {
+	handlers := map[string]interface{}{
+		m.name:                              m.loadConfData,
+		fmt.Sprintf("%s.mime_type", m.name): m.loadMimeType,
 	}
 	return handlers
 }
@@ -153,10 +179,17 @@ func (m *ModuleStatic) tryDefaultFile(root string, defaultFile string) (*staticF
 	return nil, os.ErrNotExist
 }
 
-func detectContentType(filename string, file *staticFile) (string, error) {
-	ctype := mime.TypeByExtension(filepath.Ext(filename))
+func (m *ModuleStatic) detectContentType(filename string, file *staticFile) (string, error) {
+	ext := filepath.Ext(filename)
+	ctype := mime.TypeByExtension(ext)
 	if ctype != "" {
 		return ctype, nil
+	}
+
+	if m.mimeType != nil {
+		if v, ok := m.mimeType.Load(strings.ToLower(ext)); ok {
+			return v.(string), nil
+		}
 	}
 
 	var buf [512]byte
@@ -216,7 +249,7 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 		}
 	}
 
-	ctype, err := detectContentType(fileInfo.Name(), file)
+	ctype, err := m.detectContentType(fileInfo.Name(), file)
 	if err != nil {
 		m.state.FileBrowseContentTypeError.Inc(1)
 		resp.StatusCode = errorStatusCode(err)
@@ -261,6 +294,14 @@ func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	}
 
 	m.configPath = cfg.Basic.DataPath
+	m.mimeTypePath = cfg.Basic.MimeTypePath
+
+	if len(m.mimeTypePath) != 0 {
+		err = m.loadMimeType(nil)
+		if err != nil {
+			return fmt.Errorf("err in loadMimeType(): %v", err)
+		}
+	}
 
 	if err = m.loadConfData(nil); err != nil {
 		return fmt.Errorf("err in loadConfData(): %v", err)
@@ -273,12 +314,12 @@ func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 
 	err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())
 	if err != nil {
-		return fmt.Errorf("%s.Init():RegisterHandlers(m.monitorHandlers): %s", m.name, err.Error())
+		return fmt.Errorf("%s.Init():RegisterHandlers(m.monitorHandlers): %v", m.name, err)
 	}
 
-	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
+	err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleReload, m.reloadHandlers())
 	if err != nil {
-		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %v", m.name, err)
+		return fmt.Errorf("%s.Init(): RegisterHandlers(): %v", m.name, err)
 	}
 
 	return nil
