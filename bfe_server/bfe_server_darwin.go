@@ -14,7 +14,7 @@
 
 // the main structure of bfe-server
 
-// +build linux
+// +build darwin
 
 package bfe_server
 
