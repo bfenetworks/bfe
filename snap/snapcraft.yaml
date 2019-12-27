@@ -1,5 +1,5 @@
 
-  name: test-snap-xiaofei0800
+  name: bfe
   version: git
   summary: Open-source layer 7 load balancer
   description: |
@@ -7,7 +7,6 @@
 
   grade: stable
   confinement: devmode # use 'strict' once you have the right plugs and slots
-  base: core18
 
   parts:
     bfe:
