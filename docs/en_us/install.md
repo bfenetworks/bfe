@@ -3,7 +3,7 @@
 ## Build
 
 ### Prerequisite
-- golang 1.12+
+- golang 1.13+
 - git
 
 ### Download the source code
