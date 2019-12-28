@@ -45,11 +45,11 @@ var (
 )
 
 type ModuleStaticState struct {
-	FileBrowseSize             *metrics.Gauge
-	FileBrowseCount            *metrics.Gauge
-	FileCurrentOpened          *metrics.Gauge
-	FileBrowseNotExist         *metrics.Gauge
-	FileBrowseContentTypeError *metrics.Gauge
+	FileBrowseSize             *metrics.Counter
+	FileBrowseCount            *metrics.Counter
+	FileCurrentOpened          *metrics.Counter
+	FileBrowseNotExist         *metrics.Counter
+	FileBrowseContentTypeError *metrics.Counter
 }
 
 type ModuleStatic struct {
