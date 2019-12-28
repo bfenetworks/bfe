@@ -11,6 +11,7 @@
   parts:
     bfe:
       plugin: go
+      go-channel: 1.13/stable
       go-importpath: github.com/baidu/bfe
       source: https://github.com/baidu/bfe.git
       source-type: git
