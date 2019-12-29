@@ -181,7 +181,7 @@ func checkGrade(conf *TlsRuleConf) bool {
 	}
 
 	switch conf.Grade {
-	case bfe_tls.GRADE_APLUS, bfe_tls.GradeA, bfe_tls.GradeB, bfe_tls.GradeC:
+	case bfe_tls.GradeAPlus, bfe_tls.GradeA, bfe_tls.GradeB, bfe_tls.GradeC:
 		return true
 	default:
 		return false
