@@ -182,15 +182,16 @@ func (m *ModuleStatic) tryDefaultFile(root string, defaultFile string) (*staticF
 
 func (m *ModuleStatic) detectContentType(filename string, file *staticFile) (string, error) {
 	ext := filepath.Ext(filename)
+
+	if m.mimeTypeTable != nil {
+		if ctype, ok := m.mimeTypeTable.Search(strings.ToLower(ext)); ok {
+			return ctype, nil
+		}
+	}
+
 	ctype := mime.TypeByExtension(ext)
 	if ctype != "" {
 		return ctype, nil
-	}
-
-	if m.mimeTypeTable != nil {
-		if v, ok := m.mimeTypeTable.Search(strings.ToLower(ext)); ok {
-			return v, nil
-		}
 	}
 
 	var buf [512]byte
