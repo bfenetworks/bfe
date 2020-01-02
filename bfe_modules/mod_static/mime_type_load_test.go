@@ -18,15 +18,10 @@ import (
 	"testing"
 )
 
-func TestMimeTypeLoad(t *testing.T) {
-	mimeType, err := MimeTypeLoad("./testdata/mod_static/mime_type.data")
+func TestMimeTypeConfLoad(t *testing.T) {
+	_, err := MimeTypeConfLoad("./testdata/mod_static/mime_type.data")
 	if err != nil {
 		t.Errorf("MimeTypeLoad() error: %v", err)
 		return
-	}
-
-	value, ok := mimeType.Load(".doc")
-	if !ok || value != "application/msword" {
-		t.Errorf("mime type value should be \"application/msword\", not %s", value)
 	}
 }

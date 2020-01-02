@@ -16,37 +16,40 @@ package mod_static
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
-	"strings"
-	"sync"
 )
 
-type MimeType struct {
-	sync.Map
+type MimeType map[string]string
+
+type MimeTypeConf struct {
+	Version string
+	Config  MimeType
 }
 
-func (t *MimeType) UnmarshalJSON(data []byte) error {
-	var types map[string]string
-	if err := json.Unmarshal(data, &types); err != nil {
-		return err
-	}
-
-	for k, v := range types {
-		t.Store(strings.ToLower(k), v)
+func MimeTypeConfCheck(mimeTypeConf MimeTypeConf) error {
+	if len(mimeTypeConf.Version) == 0 {
+		return fmt.Errorf("no Version")
 	}
 
 	return nil
 }
 
-func MimeTypeLoad(filename string) (*MimeType, error) {
+func MimeTypeConfLoad(filename string) (MimeTypeConf, error) {
+	var mimeTypeConf MimeTypeConf
+
 	file, err := os.Open(filename)
 	if err != nil {
-		return nil, err
+		return mimeTypeConf, err
 	}
 	defer file.Close()
 
 	decoder := json.NewDecoder(file)
-	var mimeType MimeType
-	err = decoder.Decode(&mimeType)
-	return &mimeType, err
+	err = decoder.Decode(&mimeTypeConf)
+	if err != nil {
+		return mimeTypeConf, err
+	}
+
+	err = MimeTypeConfCheck(mimeTypeConf)
+	return mimeTypeConf, err
 }

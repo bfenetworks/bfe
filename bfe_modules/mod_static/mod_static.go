@@ -54,13 +54,13 @@ type ModuleStaticState struct {
 }
 
 type ModuleStatic struct {
-	name         string
-	state        ModuleStaticState
-	metrics      metrics.Metrics
-	configPath   string
-	mimeTypePath string
-	ruleTable    *StaticRuleTable
-	mimeType     *MimeType
+	name          string
+	state         ModuleStaticState
+	metrics       metrics.Metrics
+	configPath    string
+	mimeTypePath  string
+	ruleTable     *StaticRuleTable
+	mimeTypeTable *MimeTypeTable
 }
 
 type staticFile struct {
@@ -126,10 +126,11 @@ func (m *ModuleStatic) loadMimeType(query url.Values) error {
 		path = m.mimeTypePath
 	}
 
-	m.mimeType, err = MimeTypeLoad(path)
+	conf, err := MimeTypeConfLoad(path)
 	if err != nil {
-		return fmt.Errorf("error in MimeTypeLoad(%s): %v", path, err)
+		return fmt.Errorf("error in MimeTypeConfLoad(%s): %v", path, err)
 	}
+	m.mimeTypeTable.Update(conf)
 
 	return nil
 }
@@ -186,9 +187,9 @@ func (m *ModuleStatic) detectContentType(filename string, file *staticFile) (str
 		return ctype, nil
 	}
 
-	if m.mimeType != nil {
-		if v, ok := m.mimeType.Load(strings.ToLower(ext)); ok {
-			return v.(string), nil
+	if m.mimeTypeTable != nil {
+		if v, ok := m.mimeTypeTable.Search(strings.ToLower(ext)); ok {
+			return v, nil
 		}
 	}
 
@@ -297,6 +298,7 @@ func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	m.mimeTypePath = cfg.Basic.MimeTypePath
 
 	if len(m.mimeTypePath) != 0 {
+		m.mimeTypeTable = NewMimeTypeTable()
 		err = m.loadMimeType(nil)
 		if err != nil {
 			return fmt.Errorf("err in loadMimeType(): %v", err)
