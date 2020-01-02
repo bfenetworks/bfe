@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 )
 
 type MimeType map[string]string
@@ -33,6 +34,15 @@ func MimeTypeConfCheck(mimeTypeConf MimeTypeConf) error {
 	}
 
 	return nil
+}
+
+func MimeTypeConfConvert(mimeTypeConf *MimeTypeConf) {
+	mimeType := make(MimeType)
+	for k, v := range mimeTypeConf.Config {
+		mimeType[strings.ToLower(k)] = v
+	}
+
+	mimeTypeConf.Config = mimeType
 }
 
 func MimeTypeConfLoad(filename string) (MimeTypeConf, error) {
@@ -51,5 +61,11 @@ func MimeTypeConfLoad(filename string) (MimeTypeConf, error) {
 	}
 
 	err = MimeTypeConfCheck(mimeTypeConf)
+	if err != nil {
+		return mimeTypeConf, err
+	}
+
+	MimeTypeConfConvert(&mimeTypeConf)
+
 	return mimeTypeConf, err
 }

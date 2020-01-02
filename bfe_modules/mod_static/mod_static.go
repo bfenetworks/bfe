@@ -97,6 +97,7 @@ func NewModuleStatic() *ModuleStatic {
 	m.name = ModStatic
 	m.metrics.Init(&m.state, ModStatic, 0)
 	m.ruleTable = NewStaticRuleTable()
+	m.mimeTypeTable = NewMimeTypeTable()
 	return m
 }
 
@@ -298,16 +299,12 @@ func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	m.configPath = cfg.Basic.DataPath
 	m.mimeTypePath = cfg.Basic.MimeTypePath
 
-	if len(m.mimeTypePath) != 0 {
-		m.mimeTypeTable = NewMimeTypeTable()
-		err = m.loadMimeType(nil)
-		if err != nil {
-			return fmt.Errorf("err in loadMimeType(): %v", err)
-		}
-	}
-
 	if err = m.loadConfData(nil); err != nil {
 		return fmt.Errorf("err in loadConfData(): %v", err)
+	}
+
+	if err = m.loadMimeType(nil); err != nil {
+		return fmt.Errorf("err in loadMimeType(): %v", err)
 	}
 
 	err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.staticFileHandler)

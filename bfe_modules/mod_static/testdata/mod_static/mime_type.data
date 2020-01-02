@@ -2,6 +2,6 @@
     "Version": "unittest",
     "Config": {
         ".avi": "video/x-msvideo",
-        ".doc": "application/msword"
+        ".DOC": "application/msword"
     }
 }

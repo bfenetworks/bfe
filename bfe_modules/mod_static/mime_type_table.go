@@ -15,7 +15,6 @@
 package mod_static
 
 import (
-	"strings"
 	"sync"
 )
 
@@ -32,14 +31,9 @@ func NewMimeTypeTable() *MimeTypeTable {
 }
 
 func (t *MimeTypeTable) Update(conf MimeTypeConf) {
-	mimeType := make(MimeType)
-	for k, v := range conf.Config {
-		mimeType[strings.ToLower(k)] = v
-	}
-
 	t.lock.Lock()
 	t.version = conf.Version
-	t.mimeType = mimeType
+	t.mimeType = conf.Config
 	t.lock.Unlock()
 }
 
