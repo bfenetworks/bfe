@@ -48,9 +48,9 @@ var (
 type ModuleStaticState struct {
 	FileBrowseSize             *metrics.Counter
 	FileBrowseCount            *metrics.Counter
+	FileCurrentOpened          *metrics.Gauge
 	FileBrowseNotExist         *metrics.Counter
 	FileBrowseContentTypeError *metrics.Counter
-	FileCurrentOpened          *metrics.Gauge
 }
 
 type ModuleStatic struct {
