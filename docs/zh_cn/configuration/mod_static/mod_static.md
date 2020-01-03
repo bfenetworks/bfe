@@ -49,7 +49,10 @@ mod_static支持静态文件访问。
 
   ```
     {
-        ".avi": "video/x-msvideo",
-        ".doc": "application/msword"
+        "Config": {
+            ".avi": "video/x-msvideo",
+            ".doc": "application/msword"
+        },
+        "Version": "20190101000000"
     }
   ```
