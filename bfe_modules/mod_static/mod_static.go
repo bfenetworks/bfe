@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -53,11 +54,13 @@ type ModuleStaticState struct {
 }
 
 type ModuleStatic struct {
-	name       string
-	state      ModuleStaticState
-	metrics    metrics.Metrics
-	configPath string
-	ruleTable  *StaticRuleTable
+	name          string
+	state         ModuleStaticState
+	metrics       metrics.Metrics
+	configPath    string
+	mimeTypePath  string
+	ruleTable     *StaticRuleTable
+	mimeTypeTable *MimeTypeTable
 }
 
 type staticFile struct {
@@ -94,6 +97,7 @@ func NewModuleStatic() *ModuleStatic {
 	m.name = ModStatic
 	m.metrics.Init(&m.state, ModStatic, 0)
 	m.ruleTable = NewStaticRuleTable()
+	m.mimeTypeTable = NewMimeTypeTable()
 	return m
 }
 
@@ -116,6 +120,22 @@ func (m *ModuleStatic) loadConfData(query url.Values) error {
 	return nil
 }
 
+func (m *ModuleStatic) loadMimeType(query url.Values) error {
+	var err error
+	path := query.Get("path")
+	if path == "" {
+		path = m.mimeTypePath
+	}
+
+	conf, err := MimeTypeConfLoad(path)
+	if err != nil {
+		return fmt.Errorf("error in MimeTypeConfLoad(%s): %v", path, err)
+	}
+	m.mimeTypeTable.Update(conf)
+
+	return nil
+}
+
 func (m *ModuleStatic) getState(params map[string][]string) ([]byte, error) {
 	s := m.metrics.GetAll()
 	return s.Format(params)
@@ -130,6 +150,14 @@ func (m *ModuleStatic) monitorHandlers() map[string]interface{} {
 	handlers := map[string]interface{}{
 		m.name:           m.getState,
 		m.name + ".diff": m.getStateDiff,
+	}
+	return handlers
+}
+
+func (m *ModuleStatic) reloadHandlers() map[string]interface{} {
+	handlers := map[string]interface{}{
+		m.name:                              m.loadConfData,
+		fmt.Sprintf("%s.mime_type", m.name): m.loadMimeType,
 	}
 	return handlers
 }
@@ -153,8 +181,14 @@ func (m *ModuleStatic) tryDefaultFile(root string, defaultFile string) (*staticF
 	return nil, os.ErrNotExist
 }
 
-func detectContentType(filename string, file *staticFile) (string, error) {
-	ctype := mime.TypeByExtension(filepath.Ext(filename))
+func (m *ModuleStatic) detectContentType(filename string, file *staticFile) (string, error) {
+	ext := filepath.Ext(filename)
+
+	if ctype, ok := m.mimeTypeTable.Search(strings.ToLower(ext)); ok {
+		return ctype, nil
+	}
+
+	ctype := mime.TypeByExtension(ext)
 	if ctype != "" {
 		return ctype, nil
 	}
@@ -216,7 +250,7 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 		}
 	}
 
-	ctype, err := detectContentType(fileInfo.Name(), file)
+	ctype, err := m.detectContentType(fileInfo.Name(), file)
 	if err != nil {
 		m.state.FileBrowseContentTypeError.Inc(1)
 		resp.StatusCode = errorStatusCode(err)
@@ -261,9 +295,14 @@ func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	}
 
 	m.configPath = cfg.Basic.DataPath
+	m.mimeTypePath = cfg.Basic.MimeTypePath
 
 	if err = m.loadConfData(nil); err != nil {
 		return fmt.Errorf("err in loadConfData(): %v", err)
+	}
+
+	if err = m.loadMimeType(nil); err != nil {
+		return fmt.Errorf("err in loadMimeType(): %v", err)
 	}
 
 	err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.staticFileHandler)
@@ -273,12 +312,12 @@ func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 
 	err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())
 	if err != nil {
-		return fmt.Errorf("%s.Init():RegisterHandlers(m.monitorHandlers): %s", m.name, err.Error())
+		return fmt.Errorf("%s.Init():RegisterHandlers(m.monitorHandlers): %v", m.name, err)
 	}
 
-	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
+	err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleReload, m.reloadHandlers())
 	if err != nil {
-		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %v", m.name, err)
+		return fmt.Errorf("%s.Init(): RegisterHandlers(): %v", m.name, err)
 	}
 
 	return nil

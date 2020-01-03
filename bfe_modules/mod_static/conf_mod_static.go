@@ -25,7 +25,8 @@ import (
 
 type ConfModStatic struct {
 	Basic struct {
-		DataPath string
+		DataPath     string
+		MimeTypePath string
 	}
 
 	Log struct {
@@ -55,7 +56,13 @@ func (cfg *ConfModStatic) Check(confRoot string) error {
 		log.Logger.Warn("ModStatic.DataPath not set, use default value")
 		cfg.Basic.DataPath = "mod_static/static_rule.data"
 	}
+	if cfg.Basic.MimeTypePath == "" {
+		log.Logger.Warn("ModStatic.MimeTypePath not set, use default value")
+		cfg.Basic.DataPath = "mod_static/mime_type.data"
+	}
 
 	cfg.Basic.DataPath = bfe_util.ConfPathProc(cfg.Basic.DataPath, confRoot)
+	cfg.Basic.MimeTypePath = bfe_util.ConfPathProc(cfg.Basic.MimeTypePath, confRoot)
+
 	return nil
 }
