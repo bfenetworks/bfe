@@ -4,9 +4,11 @@
 | Name | Github Account |
 | ---- | -------------- |
 | Derek Zheng | shanhuhai5739 |
+| Jin Tong | cumirror |
 | Jiyang Zhang | scriptkids |
 | Kaiyu Zheng | kaiyuzheng | 
 | Lihua Chen | clh651188968 |
+| Limei Xiao | limeix |
 | Lu Guo | guolu60 |
 | Miao Zhang | mileszhang2016 |
 | Min Dai | daimin |
