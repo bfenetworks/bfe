@@ -65,23 +65,6 @@ func TestModuleCompress(t *testing.T) {
 	req := prepareRequest()
 	res := prepareResponse(filename)
 
-	m.checkHandler(req)
-	val := req.GetContext(ReqCtxEncodeInfo)
-	if val == nil {
-		t.Errorf("unexpected encode info")
-		return
-	}
-
-	encodeInfo := val.(*EncodeInfo)
-	if encodeInfo.Quality != 9 {
-		t.Errorf("unexpected compress quality: %d", encodeInfo.Quality)
-		return
-	}
-	if encodeInfo.FlushSize != 512 {
-		t.Errorf("unexpected compress flushSize: %d", encodeInfo.FlushSize)
-		return
-	}
-
 	m.compressHandler(req, res)
 	contentEncoding := res.Header.GetDirect("Content-Encoding")
 	if !bfe_http.HasToken(contentEncoding, EncodeGzip) {
