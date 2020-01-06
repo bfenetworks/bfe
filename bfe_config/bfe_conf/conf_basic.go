@@ -210,7 +210,7 @@ func basicConfCheck(cfg *ConfigBasic) error {
 
 func checkLayer4LoadBalancer(cfg *ConfigBasic) error {
 	if len(cfg.Layer4LoadBalancer) == 0 {
-		cfg.Layer4LoadBalancer = BALANCER_BGW // default BGW
+		cfg.Layer4LoadBalancer = BALANCER_NONE // default NONE
 	}
 
 	switch cfg.Layer4LoadBalancer {
