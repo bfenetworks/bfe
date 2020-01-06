@@ -59,10 +59,6 @@ var moduleList = []bfe_module.BfeModule{
 	// Requirement: After mod_logid
 	mod_redirect.NewModuleRedirect(),
 
-	// mod_compress
-	// Requirement: before mod_static
-	mod_compress.NewModuleCompress(),
-
 	// mod_static
 	mod_static.NewModuleStatic(),
 
@@ -74,6 +70,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_errors
 	mod_errors.NewModuleErrors(),
+
+	// mod_compress
+	mod_compress.NewModuleCompress(),
 
 	// mod_key_log
 	mod_key_log.NewModuleKeyLog(),
