@@ -54,6 +54,7 @@ const (
 	FormatVIP
 	FormatWriteServeTime
 	FormatString
+	FormatCommon
 
 	FormatSesClientIP
 	FormatSesEndTime
@@ -118,6 +119,7 @@ var (
 		"url":                   FormatURL,
 		"vip":                   FormatVIP,
 		"write_serve_time":      FormatWriteServeTime,
+		"COMMON":                FormatCommon,
 
 		"ses_clientip":          FormatSesClientIP,
 		"ses_end_time":          FormatSesEndTime,
@@ -174,6 +176,7 @@ var (
 		FormatURL:                 Request,
 		FormatVIP:                 Request,
 		FormatWriteServeTime:      Request,
+		FormatCommon:              Request,
 
 		FormatSesClientIP:        Session,
 		FormatSesEndTime:         Session,
@@ -227,6 +230,7 @@ var (
 		FormatVIP:                 onLogFmtVip,
 		FormatWriteServeTime:      onLogFmtWriteSrvTime,
 		FormatHost:                onLogFmtHost,
+		FormatCommon:              onLogFmtCommon,
 
 		FormatSesClientIP:        onLogFmtSesClientIp,
 		FormatSesEndTime:         onLogFmtSesEndTime,

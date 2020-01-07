@@ -153,6 +153,59 @@ func onLogFmtHost(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 	return nil
 }
 
+func onLogFmtCommon(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
+	req *bfe_basic.Request, res *bfe_http.Response) error {
+
+	if req == nil {
+		return errors.New("req is nil")
+	}
+
+	//remotehost
+	remoteAddr := "-"
+	if req.RemoteAddr != nil {
+		remoteAddr = getClfField(req.RemoteAddr.IP.String())
+	}
+	//rfc931
+	//authuser
+
+	//date
+	startTime := "-"
+	if req.Stat != nil {
+		t := req.Stat.ReadReqStart.Format("02/Jan/2006:15:04:05 -0700")
+		startTime = getClfField(fmt.Sprintf("[%s]", t))
+	}
+
+	//request
+	requestURI := "-"
+	if req.HttpRequest != nil {
+		requestURI = getClfField(fmt.Sprintf("\"%s %s %s\"", req.HttpRequest.Method, req.HttpRequest.RequestURI, req.HttpRequest.Proto))
+	}
+
+	//status
+	statusCode := "-"
+	if res != nil {
+		statusCode = getClfField(fmt.Sprintf("%d", res.StatusCode))
+	}
+
+	//bytes
+	bytes := "-"
+	if req.Stat != nil {
+		bytes = getClfField(fmt.Sprintf("%d", req.Stat.BodyLenOut))
+	}
+
+	msg := fmt.Sprintf("%s %s %s %s %s %s %s", remoteAddr, "-", "-", startTime, requestURI, statusCode, bytes)
+
+	buff.WriteString(msg)
+	return nil
+}
+
+func getClfField(f string) string {
+	if len(f) > 0 {
+		return f
+	}
+	return "-"
+}
+
 func onLogFmtIsTrustip(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 	req *bfe_basic.Request, res *bfe_http.Response) error {
 	if req == nil {
