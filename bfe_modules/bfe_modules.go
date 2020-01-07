@@ -51,13 +51,13 @@ var moduleList = []bfe_module.BfeModule{
 	// Requirement: After mod_logid
 	mod_block.NewModuleBlock(),
 
-	// mod_redirect
-	// Requirement: After mod_logid
-	mod_redirect.NewModuleRedirect(),
-
 	// mod_auth_basic
 	// Requirement: before mod_static
 	mod_auth_basic.NewModuleAuthBasic(),
+
+	// mod_redirect
+	// Requirement: After mod_logid
+	mod_redirect.NewModuleRedirect(),
 
 	// mod_compress
 	// Requirement: before mod_static
