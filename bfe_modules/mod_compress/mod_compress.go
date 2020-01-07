@@ -33,8 +33,9 @@ import (
 )
 
 const (
-	EncodeGzip  = "gzip"
-	ModCompress = "mod_compress"
+	EncodeGzip     = "gzip"
+	EncodeIdentity = "identity"
+	ModCompress    = "mod_compress"
 )
 
 var (
@@ -95,11 +96,6 @@ func (m *ModuleCompress) getCompressRule(req *bfe_basic.Request) (*compressRule,
 	}
 	m.state.ReqTotal.Inc(1)
 
-	if !checkSupportCompress(req) {
-		return nil, errors.New("gzip not support")
-	}
-	m.state.ReqSupportCompress.Inc(1)
-
 	rules, ok := m.ruleTable.Search(req.Route.Product)
 	if !ok {
 		if openDebug {
@@ -123,11 +119,13 @@ func (m *ModuleCompress) getCompressRule(req *bfe_basic.Request) (*compressRule,
 }
 
 func (m *ModuleCompress) compressHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
-	if res.StatusCode != 200 {
+	if !checkSupportCompress(req) {
 		return bfe_module.BfeHandlerGoOn
 	}
+	m.state.ReqSupportCompress.Inc(1)
 
-	if len(res.Header.GetDirect("Content-Encoding")) != 0 {
+	contentEncoding := res.Header.GetDirect("Content-Encoding")
+	if len(contentEncoding) != 0 && contentEncoding != EncodeIdentity {
 		return bfe_module.BfeHandlerGoOn
 	}
 
