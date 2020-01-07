@@ -72,11 +72,6 @@ func (m *ModuleLogId) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 		return fmt.Errorf("%s.Init(): AddFilter(m.beforeLocation): %s", m.name, err.Error())
 	}
 
-	err = cbs.AddFilter(bfe_module.HandleAfterLocation, m.afterLocation)
-	if err != nil {
-		return fmt.Errorf("%s.Init(): AddFilter(m.afterLocation): %s", m.name, err.Error())
-	}
-
 	// register web handler
 	err = whs.RegisterHandler(web_monitor.WebHandleMonitor, m.name, m.getState)
 	if err != nil {
@@ -106,10 +101,6 @@ func (m *ModuleLogId) beforeLocation(req *bfe_basic.Request) (int, *bfe_http.Res
 
 	// generate a new log id
 	req.LogId = genLogId()
-	return bfe_module.BfeHandlerGoOn, nil
-}
-
-func (m *ModuleLogId) afterLocation(req *bfe_basic.Request) (int, *bfe_http.Response) {
 	req.HttpRequest.Header.Set(bfe_basic.HeaderBfeLogId, req.LogId)
 	return bfe_module.BfeHandlerGoOn, nil
 }
