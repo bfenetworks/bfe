@@ -65,6 +65,7 @@ type ModuleStatic struct {
 
 type staticFile struct {
 	http.File
+	os.FileInfo
 	m *ModuleStatic
 }
 
@@ -73,6 +74,11 @@ func newStaticFile(root string, filename string, m *ModuleStatic) (*staticFile, 
 	s := new(staticFile)
 	s.m = m
 	s.File, err = http.Dir(root).Open(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	s.FileInfo, err = s.File.Stat()
 	if err != nil {
 		return nil, err
 	}
@@ -175,14 +181,24 @@ func errorStatusCode(err error) int {
 
 func (m *ModuleStatic) tryDefaultFile(root string, defaultFile string) (*staticFile, error) {
 	if len(defaultFile) != 0 {
-		return newStaticFile(root, defaultFile, m)
+		file, err := newStaticFile(root, defaultFile, m)
+		if err != nil {
+			return nil, err
+		}
+
+		if file.FileInfo.IsDir() {
+			return nil, fmt.Errorf("default file not support directory")
+		}
+
+		return file, err
 	}
+
 	m.state.FileBrowseNotExist.Inc(1)
 	return nil, os.ErrNotExist
 }
 
-func (m *ModuleStatic) detectContentType(filename string, file *staticFile) (string, error) {
-	ext := filepath.Ext(filename)
+func (m *ModuleStatic) detectContentType(file *staticFile) (string, error) {
+	ext := filepath.Ext(file.FileInfo.Name())
 
 	if ctype, ok := m.mimeTypeTable.Search(strings.ToLower(ext)); ok {
 		return ctype, nil
@@ -231,17 +247,13 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 	if os.IsNotExist(err) {
 		file, err = m.tryDefaultFile(root, defaultFile)
 	}
+
 	if err != nil {
 		resp.StatusCode = errorStatusCode(err)
 		return resp
 	}
 
-	fileInfo, err := file.Stat()
-	if err != nil {
-		resp.StatusCode = errorStatusCode(err)
-		return resp
-	}
-	if fileInfo.IsDir() {
+	if file.FileInfo.IsDir() {
 		file.Close()
 		file, err = m.tryDefaultFile(root, defaultFile)
 		if err != nil {
@@ -250,16 +262,16 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 		}
 	}
 
-	ctype, err := m.detectContentType(fileInfo.Name(), file)
+	ctype, err := m.detectContentType(file)
 	if err != nil {
 		m.state.FileBrowseContentTypeError.Inc(1)
 		resp.StatusCode = errorStatusCode(err)
 		return resp
 	}
 	resp.Header.Set("Content-Type", ctype)
-	setLastModified(resp, fileInfo.ModTime())
+	setLastModified(resp, file.FileInfo.ModTime())
 	resp.Body = file
-	m.state.FileBrowseSize.Inc(uint(fileInfo.Size()))
+	m.state.FileBrowseSize.Inc(uint(file.FileInfo.Size()))
 	return resp
 }
 
@@ -296,7 +308,6 @@ func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 
 	m.configPath = cfg.Basic.DataPath
 	m.mimeTypePath = cfg.Basic.MimeTypePath
-
 	if err = m.loadConfData(nil); err != nil {
 		return fmt.Errorf("err in loadConfData(): %v", err)
 	}
