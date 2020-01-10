@@ -58,12 +58,14 @@ var VariableHandlers = map[string]HeaderValueHandler{
 	"bfe_backend_info": getBfeBackendInfo,
 
 	// for tls
-	"bfe_ssl_resume":            getBfeSslResume,
-	"bfe_ssl_cipher":            getBfeSslCipher,
-	"bfe_ssl_version":           getBfeSslVersion,
-	"bfe_protocol":              getBfeProtocol,
-	"client_cert_serial_number": getClientCertSerialNumber,
-	"client_cert_subject_title": getClientCertSubjectTitle,
+	"bfe_ssl_resume":                   getBfeSslResume,
+	"bfe_ssl_cipher":                   getBfeSslCipher,
+	"bfe_ssl_version":                  getBfeSslVersion,
+	"bfe_protocol":                     getBfeProtocol,
+	"client_cert_serial_number":        getClientCertSerialNumber,
+	"client_cert_subject_title":        getClientCertSubjectTitle,
+	"client_cert_subject_common_name":  getClientCertSubjectCommonName,
+	"client_cert_subject_organization": getClientCertSubjectOrganization,
 }
 
 func uint16ToStr(u16 uint16) string {
@@ -225,6 +227,27 @@ func getClientCertSubjectTitle(req *bfe_basic.Request) string {
 		if val, ok := name.Value.(string); ok {
 			return val
 		}
+	}
+	return ""
+}
+
+func getClientCertSubjectCommonName(req *bfe_basic.Request) string {
+	clientCert := getClientCert(req)
+	if clientCert == nil {
+		return ""
+	}
+
+	return clientCert.Subject.CommonName
+}
+
+func getClientCertSubjectOrganization(req *bfe_basic.Request) string {
+	clientCert := getClientCert(req)
+	if clientCert == nil {
+		return ""
+	}
+
+	if len(clientCert.Subject.Organization) > 0 {
+		return clientCert.Subject.Organization[0]
 	}
 	return ""
 }
