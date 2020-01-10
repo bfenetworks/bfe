@@ -54,13 +54,14 @@ type ModuleStaticState struct {
 }
 
 type ModuleStatic struct {
-	name          string
-	state         ModuleStaticState
-	metrics       metrics.Metrics
-	configPath    string
-	mimeTypePath  string
-	ruleTable     *StaticRuleTable
-	mimeTypeTable *MimeTypeTable
+	name             string
+	state            ModuleStaticState
+	metrics          metrics.Metrics
+	configPath       string
+	mimeTypePath     string
+	contentDetection bool
+	ruleTable        *StaticRuleTable
+	mimeTypeTable    *MimeTypeTable
 }
 
 type staticFile struct {
@@ -193,6 +194,10 @@ func (m *ModuleStatic) detectContentType(filename string, file *staticFile) (str
 		return ctype, nil
 	}
 
+	if !m.contentDetection {
+		return "", fmt.Errorf("contentDetection disabled, get content type failed")
+	}
+
 	var buf [512]byte
 	n, err := io.ReadFull(file, buf[:])
 	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
@@ -296,6 +301,7 @@ func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 
 	m.configPath = cfg.Basic.DataPath
 	m.mimeTypePath = cfg.Basic.MimeTypePath
+	m.contentDetection = cfg.Basic.ContentDetection
 
 	if err = m.loadConfData(nil); err != nil {
 		return fmt.Errorf("err in loadConfData(): %v", err)

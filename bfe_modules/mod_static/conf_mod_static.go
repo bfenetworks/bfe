@@ -25,8 +25,9 @@ import (
 
 type ConfModStatic struct {
 	Basic struct {
-		DataPath     string
-		MimeTypePath string
+		DataPath         string
+		MimeTypePath     string
+		ContentDetection bool
 	}
 
 	Log struct {
