@@ -58,7 +58,7 @@ func (cfg *ConfModStatic) Check(confRoot string) error {
 	}
 	if cfg.Basic.MimeTypePath == "" {
 		log.Logger.Warn("ModStatic.MimeTypePath not set, use default value")
-		cfg.Basic.DataPath = "mod_static/mime_type.data"
+		cfg.Basic.MimeTypePath = "mod_static/mime_type.data"
 	}
 
 	cfg.Basic.DataPath = bfe_util.ConfPathProc(cfg.Basic.DataPath, confRoot)
