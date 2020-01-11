@@ -2,8 +2,12 @@ package bfe_grpc
 
 import (
 	"context"
-	"google.golang.org/grpc"
 	"errors"
+)
+
+import (
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 var (
@@ -12,15 +16,21 @@ var (
 	ErrUnknownMethodString = "unknown method"
 )
 
-type StreamDirector func(ctx context.Context, methodName string) (context.Context, *grpc.ClientConn, error)
+// StreamDesc
+type StreamDirector func(ctx context.Context, fullMethodName string) (context.Context, *grpc.ClientConn, error)
 
-func Director() func(ctx context.Context, methodName string) (context.Context, *grpc.ClientConn, error) {
+func Director() func(ctx context.Context, fullMethodName string) (context.Context, *grpc.ClientConn, error) {
 
-	return func(ctx context.Context, methodName string) (context.Context, *grpc.ClientConn, error) {
-		// TODO: tls
+	return func(ctx context.Context, fullMethodName string) (context.Context, *grpc.ClientConn, error) {
 		// TODO: balance
-		// TODO: unknown method
-		conn, err := grpc.DialContext(ctx, "localhost:50000", grpc.WithCodec(Codec()), grpc.WithInsecure())
-		return ctx, conn, err
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			return ctx, nil, ErrExtractMetadata
+		}
+
+		outCtx := metadata.NewOutgoingContext(ctx, md.Copy())
+
+		conn, err := grpc.DialContext(outCtx, "localhost:50000", grpc.WithCodec(CustomCodec()), grpc.WithInsecure())
+		return outCtx, conn, err
 	}
 }
