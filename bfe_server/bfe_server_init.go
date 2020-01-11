@@ -58,6 +58,13 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 		return err
 	}
 
+	// initial grpc
+	err = bfeServer.InitGRPC()
+	if err != nil {
+		log.Logger.Error("StartUp(): InitGRPC():%s", err.Error())
+		return err
+	}
+
 	// setup signal table
 	bfeServer.InitSignalTable()
 	log.Logger.Info("StartUp():bfeServer.InitSignalTable() OK")
@@ -112,6 +119,12 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 		serveChan <- httpsErr
 	}()
 
+	// start goroutine to accept grpc connections
+	go func() {
+		grpcErr := bfeServer.ServeGRPC(bfeServer.GRPCListener)
+		serveChan <- grpcErr
+	}()
+
 	err = <-serveChan
 	return err
 }
@@ -121,6 +134,7 @@ func createListeners(config bfe_conf.BfeConfig) (map[string]net.Listener, error)
 	lnConf := map[string]int{
 		"HTTP":  config.Server.HttpPort,
 		"HTTPS": config.Server.HttpsPort,
+		"GRPC": config.Server.GrpcPort,
 	}
 
 	for proto, port := range lnConf {

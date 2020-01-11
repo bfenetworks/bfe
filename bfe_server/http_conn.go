@@ -42,6 +42,7 @@ import (
 	"github.com/baidu/bfe/bfe_tls"
 	"github.com/baidu/bfe/bfe_util"
 	"github.com/baidu/bfe/bfe_websocket"
+	"fmt"
 )
 
 // This should be >= 512 bytes for DetectContentType,
@@ -361,7 +362,11 @@ func (c *conn) serve() {
 			// Note: if mandatory protocol configed, use it anyway
 			proto = mandatoryProtocol
 		}
+
+		// TODO: set proto to GRPC
+		proto = "grpc"
 		if validNPN(proto) {
+			fmt.Println("validNPN proto: ", proto)
 			if fn := c.server.TLSNextProto[proto]; fn != nil {
 				log.Logger.Debug("conn.serve(): Use negotiated protocol %s over TLS", proto)
 				proxyState.ClientConnServedInc(proto, 1) // Note: counter for negotiated protocol
@@ -474,7 +479,6 @@ func (c *conn) serve() {
 		if firstRequest {
 			nextProto := checkHttpUpgrade(request)
 			fn := c.server.HTTPNextProto[nextProto]
-
 			switch nextProto {
 			case bfe_websocket.WebSocket:
 				// update counters for websocket

@@ -56,6 +56,11 @@ func (srv *BfeServer) ServeHttps(ln *HttpsListener) error {
 	return srv.Serve(ln.tlsListener, ln.tcpListener, "HTTPS")
 }
 
+// ServeGrpc accept incoming grpc connections
+func (srv *BfeServer) ServeGRPC(ln *HttpsListener) error {
+	return srv.Serve(ln.tlsListener, ln.tcpListener, "GRPC")
+}
+
 // Serve accepts incoming connections on the Listener l, creating a
 // new service goroutine for each.  The service goroutines read requests and
 // then call srv.Handler to reply to them.

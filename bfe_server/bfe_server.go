@@ -45,6 +45,7 @@ import (
 	"github.com/baidu/bfe/bfe_tls"
 	"github.com/baidu/bfe/bfe_util/signal_table"
 	"github.com/baidu/bfe/bfe_websocket"
+	"github.com/baidu/bfe/bfe_grpc"
 )
 
 // BfeServer
@@ -55,6 +56,7 @@ type BfeServer struct {
 	listenerMap   map[string]net.Listener // all listeners
 	HttpListener  net.Listener            // listener for http
 	HttpsListener *HttpsListener          // listener for https
+	GRPCListener *HttpsListener           // listener for grpc
 
 	connWaitGroup sync.WaitGroup // waits for server conns to finish
 
@@ -192,6 +194,25 @@ func (srv *BfeServer) InitHttps() (err error) {
 
 	// initialize https listeners
 	srv.HttpsListener = NewHttpsListener(srv.listenerMap["HTTPS"], srv.TLSConfig)
+
+	return nil
+}
+
+func (srv *BfeServer) InitGRPC() (err error) {
+	// initialize tls config
+	if err := srv.initTLSConfig(); err != nil {
+		return err
+	}
+	// TODO:
+	srv.TLSConfig.NextProtos = append(srv.TLSConfig.NextProtos, bfe_grpc.NextProtoTLS)
+
+	// init next protocol handler
+	tlsNextProto := make(map[string]func(*bfe_http.Server, *bfe_tls.Conn, bfe_http.Handler))
+	tlsNextProto[tls_rule_conf.GRPC] = bfe_grpc.NewProtoHandler(nil)
+	srv.TLSNextProto = tlsNextProto
+
+	// initialize https listeners
+	srv.GRPCListener = NewHttpsListener(srv.listenerMap["GRPC"], srv.TLSConfig)
 
 	return nil
 }
