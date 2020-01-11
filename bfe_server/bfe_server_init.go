@@ -101,16 +101,20 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	serveChan := make(chan error)
 
 	// start goroutine to accept http connections
-	go func() {
-		httpErr := bfeServer.ServeHttp(bfeServer.HttpListener)
-		serveChan <- httpErr
-	}()
+	for i := 0; i < cfg.Server.AcceptNum; i++ {
+		go func() {
+			httpErr := bfeServer.ServeHttp(bfeServer.HttpListener)
+			serveChan <- httpErr
+		}()
+	}
 
 	// start goroutine to accept https connections
-	go func() {
-		httpsErr := bfeServer.ServeHttps(bfeServer.HttpsListener)
-		serveChan <- httpsErr
-	}()
+	for i := 0; i < cfg.Server.AcceptNum; i++ {
+		go func() {
+			httpsErr := bfeServer.ServeHttps(bfeServer.HttpsListener)
+			serveChan <- httpsErr
+		}()
+	}
 
 	err = <-serveChan
 	return err

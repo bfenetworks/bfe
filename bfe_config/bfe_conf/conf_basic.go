@@ -38,6 +38,7 @@ type ConfigBasic struct {
 	HttpsPort   int // listen port for https
 	MonitorPort int // web server port for monitor
 	MaxCpus     int // number of max cpus to use
+	AcceptNum   int // number of accept groutine for each listenr, default 1
 
 	// settings of layer-4 load balancer
 	Layer4LoadBalancer string
@@ -152,6 +153,13 @@ func basicConfCheck(cfg *ConfigBasic) error {
 	// check Layer4LoadBalancer
 	if err := checkLayer4LoadBalancer(cfg); err != nil {
 		return err
+	}
+
+	// check AcceptNum
+	if cfg.AcceptNum < 0 {
+		return fmt.Errorf("AcceptNum[%d] is too small", cfg.AcceptNum)
+	} else if cfg.AcceptNum == 0 {
+		cfg.AcceptNum = 1
 	}
 
 	// check TlsHandshakeTimeout
