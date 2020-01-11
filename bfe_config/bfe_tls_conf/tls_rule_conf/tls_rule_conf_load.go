@@ -69,9 +69,10 @@ const (
 	HTTP2  = "h2"       // http2 protocol
 	SPDY31 = "spdy/3.1" // spdy/3.1 protocol
 	STREAM = "stream"
+	GRPC = "grpc" // grpc protocol
 )
 
-var validNextProtos = []string{HTTP11, HTTP2, SPDY31, STREAM}
+var validNextProtos = []string{HTTP11, HTTP2, SPDY31, STREAM, GRPC}
 
 // negotiation level for protocols
 const (

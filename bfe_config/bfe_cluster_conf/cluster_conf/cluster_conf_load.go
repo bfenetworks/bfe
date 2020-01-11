@@ -262,8 +262,9 @@ func BackendCheckCheck(conf *BackendCheck) error {
 		conf.SuccNum = &succNum
 	}
 
-	if *conf.Schem != "http" && *conf.Schem != "tcp" {
-		return errors.New("schem for BackendCheck should be http/tcp")
+	if *conf.Schem != "http" && *conf.Schem != "tcp" && *conf.Schem != "grpc" {
+		fmt.Println("schem: ",*conf.Schem)
+		return errors.New("schem for BackendCheck should be http/tcp/grpc")
 	}
 
 	if *conf.Schem == "http" {

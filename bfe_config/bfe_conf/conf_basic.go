@@ -36,6 +36,7 @@ const (
 type ConfigBasic struct {
 	HttpPort    int // listen port for http
 	HttpsPort   int // listen port for https
+	GrpcPort   int // listen port for grpc
 	MonitorPort int // web server port for monitor
 	MaxCpus     int // number of max cpus to use
 
@@ -77,6 +78,7 @@ type ConfigBasic struct {
 func (cfg *ConfigBasic) SetDefaultConf() {
 	cfg.HttpPort = 8080
 	cfg.HttpsPort = 8443
+	cfg.GrpcPort = 50051
 	cfg.MonitorPort = 8421
 	cfg.MaxCpus = 0
 
