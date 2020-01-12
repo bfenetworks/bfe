@@ -55,14 +55,14 @@ func (conf *VipTableConf) LoadAndCheck(filename string) (string, error) {
 	}
 
 	// check config
-	if err := VipTableConfCheck(*conf); err != nil {
+	if err := VipTableConfCheck(conf); err != nil {
 		return "", err
 	}
 
 	return conf.Version, nil
 }
 
-func VipTableConfCheck(conf VipTableConf) error {
+func VipTableConfCheck(conf *VipTableConf) error {
 	if conf.Version == "" {
 		return errors.New("no Version")
 	}
