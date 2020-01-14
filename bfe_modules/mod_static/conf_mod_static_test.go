@@ -28,4 +28,12 @@ func TestConfLoad(t *testing.T) {
 	if config.Basic.DataPath != "mod_static/static_rule.data" {
 		t.Errorf("DataPath should be mod_static/static_rule.data, not %s", config.Basic.DataPath)
 	}
+
+	if config.Basic.MimeTypePath != "mod_static/mime_type.data" {
+		t.Errorf("MimeTypePath should be mod_static/mime_type.data, not %s", config.Basic.MimeTypePath)
+	}
+
+	if !config.Basic.ContentDetection {
+		t.Errorf("ContentDetection should be true")
+	}
 }
