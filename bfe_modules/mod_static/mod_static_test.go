@@ -58,3 +58,29 @@ func TestStaticFileHandler(t *testing.T) {
 		t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
 	}
 }
+
+func TestStaticFileHandler_Compressed(t *testing.T) {
+	m := NewModuleStatic()
+	cb := bfe_module.NewBfeCallbacks()
+	wh := web_monitor.NewWebHandlers()
+	err := m.Init(cb, wh, "./testdata")
+	if err != nil {
+		t.Errorf("Init() error: %v", err)
+		return
+	}
+
+	req := new(bfe_basic.Request)
+	req.Session = new(bfe_basic.Session)
+	req.Route.Product = "unittest"
+	req.HttpRequest, _ = bfe_http.NewRequest("GET", "http://www.example.org/index.html", nil)
+	req.HttpRequest.Header.Set("Accept-Encoding", "gzip")
+	ret, resp := m.staticFileHandler(req)
+	if ret != bfe_module.BfeHandlerResponse {
+		t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerResponse, ret)
+		return
+	}
+	if resp.StatusCode != bfe_http.StatusOK {
+		t.Errorf("status code should be %d, not %d", bfe_http.StatusOK, resp.StatusCode)
+		return
+	}
+}

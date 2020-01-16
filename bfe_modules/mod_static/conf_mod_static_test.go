@@ -36,4 +36,8 @@ func TestConfLoad(t *testing.T) {
 	if !config.Basic.ContentDetection {
 		t.Errorf("ContentDetection should be true")
 	}
+
+	if !config.Basic.EnableCompress {
+		t.Errorf("EnableCompress should be true")
+	}
 }

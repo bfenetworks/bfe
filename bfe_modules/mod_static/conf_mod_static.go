@@ -28,6 +28,7 @@ type ConfModStatic struct {
 		DataPath         string
 		MimeTypePath     string
 		ContentDetection bool
+		EnableCompress   bool
 	}
 
 	Log struct {
