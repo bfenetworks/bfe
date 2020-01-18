@@ -60,6 +60,7 @@ type ModuleStatic struct {
 	configPath       string
 	mimeTypePath     string
 	contentDetection bool
+	enableCompress   bool
 	ruleTable        *StaticRuleTable
 	mimeTypeTable    *MimeTypeTable
 }
@@ -219,6 +220,14 @@ func setLastModified(resp *bfe_http.Response, modtime time.Time) {
 	}
 }
 
+func tryCompressedStaticFile(root string, filename string, cliCompressEnable bool, m *ModuleStatic) (*staticFile, error) {
+	_, err := os.Stat(root + filename + ".gz")
+	if cliCompressEnable && m.enableCompress && err == nil {
+		return newStaticFile(root, filename+".gz", m)
+	}
+	return newStaticFile(root, filename, m)
+}
+
 func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 	rule *StaticRule) *bfe_http.Response {
 	resp := bfe_basic.CreateInternalResp(req, bfe_http.StatusOK)
@@ -232,7 +241,8 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 	}
 
 	reqPath := httpRequest.URL.Path
-	file, err := newStaticFile(root, reqPath, m)
+	cliCompressEnable := strings.Contains(httpRequest.Header.Get("Accept-Encoding"), "gzip")
+	file, err := tryCompressedStaticFile(root, reqPath, cliCompressEnable, m)
 	if os.IsNotExist(err) {
 		file, err = m.tryDefaultFile(root, defaultFile)
 	}
@@ -302,6 +312,7 @@ func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	m.configPath = cfg.Basic.DataPath
 	m.mimeTypePath = cfg.Basic.MimeTypePath
 	m.contentDetection = cfg.Basic.ContentDetection
+	m.enableCompress = cfg.Basic.EnableCompress
 
 	if err = m.loadConfData(nil); err != nil {
 		return fmt.Errorf("err in loadConfData(): %v", err)
