@@ -16,6 +16,10 @@ import (
 	discovery "github.com/baidu/bfe/bfe_discovery"
 )
 
+const (
+	PathPrefix = "bfe"
+)
+
 type Etcdv3 struct {
 	cli *etcd.Client
 	once sync.Once
@@ -34,6 +38,7 @@ func New(config *discovery.Config) (discovery.Store, error)  {
 		config = &discovery.Config{
 			Addrs: []string{"127.0.0.1:2379"},
 			DialTimeout: 5 * time.Second,
+			PathPrefix: PathPrefix,
 		}
 	}
 
@@ -149,6 +154,51 @@ func (e *Etcdv3) Exist(ctx context.Context, key string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+func (e *Etcdv3) Watch(ctx context.Context, key string, options *discovery.ReadOptions) (<-chan *discovery.KVPair, error) {
+	respCh := make(chan *discovery.KVPair)
+
+	go func() {
+		defer close(respCh)
+
+		rch := e.cli.Watch(ctx, key)
+		for wresp := range rch {
+			for _, ev := range wresp.Events {
+				respCh <- &discovery.KVPair{
+					Key:string(ev.Kv.Key),
+					Value:ev.Kv.Value,
+				}
+			}
+		}
+	}()
+
+	return respCh,nil
+}
+
+func (e *Etcdv3) WatchList(ctx context.Context, key string, options *discovery.ReadOptions) (<-chan []*discovery.KVPair, error) {
+	respCh := make(chan []*discovery.KVPair)
+
+	go func() {
+		defer close(respCh)
+
+		// TODO maybe we need revision on watch
+		rch := e.cli.Watch(ctx, key, etcd.WithPrefix())
+		for wresp := range rch {
+
+			list := make([]*discovery.KVPair, len(wresp.Events))
+			for i, ev := range wresp.Events {
+				list[i] = &discovery.KVPair{
+					Key:string(ev.Kv.Key),
+					Value:ev.Kv.Value,
+				}
+
+				respCh <- list
+			}
+		}
+	}()
+
+	return respCh,nil
 }
 
 func (e *Etcdv3)Close()  {

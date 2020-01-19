@@ -13,8 +13,8 @@ type Store interface {
 	Put(ctx context.Context, key string, value []byte, options *WriteOptions) error
 	Delete(ctx context.Context, key string) error
 	Exist(ctx context.Context, key string) (bool,error)
-	//Watch(ctx context.Context, key string, options *ReadOptions) (<-chan *KVPair, error)
-	//WatchList(ctx context.Context, key string, options *ReadOptions) (<-chan []*KVPair, error)
+	Watch(ctx context.Context, key string, options *ReadOptions) (<-chan *KVPair, error)
+	WatchList(ctx context.Context, key string, options *ReadOptions) (<-chan []*KVPair, error)
 	Close()
 }
 
@@ -36,6 +36,6 @@ type ReadOptions struct {
 }
 
 type WriteOptions struct {
-	IsDir bool
+	IsDir bool // Etcdv2
 	TTL   time.Duration
 }
