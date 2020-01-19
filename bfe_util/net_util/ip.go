@@ -44,10 +44,7 @@ var privateRanges = []IpRange{
 
 // InRange checks whether a given ip address is within a range given
 func InRange(r IpRange, ip net.IP) bool {
-	if bytes.Compare(ip, r.start) >= 0 && bytes.Compare(ip, r.end) <= 0 {
-		return true
-	}
-	return false
+	return bytes.Compare(ip, r.start) >= 0 && bytes.Compare(ip, r.end) <= 0
 }
 
 // ParseIPv4 parse IP addr from string to net.IP

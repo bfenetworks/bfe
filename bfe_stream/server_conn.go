@@ -55,6 +55,9 @@ func (sc *serverConn) serve() {
 	var zero time.Time
 	sc.conn.SetDeadline(zero)
 
+	// connect start time
+	start := time.Now()
+
 	// select and connect to backend
 	bc, back, err := sc.findBackend()
 	if err != nil {
@@ -74,9 +77,13 @@ func (sc *serverConn) serve() {
 	for {
 		select {
 		case err := <-sc.copyErrCh:
-			log.Logger.Debug("bfe_stream: stream conn finish %v: %v", sc.conn.RemoteAddr(), err)
 			if err != nil {
 				state.StreamErrTransfer.Inc(1)
+				duration := time.Since(start)
+				tlsConn := sc.conn.(*tls.Conn)
+				log.Logger.Info("bfe_stream: stream conn finish: vip:[%s], sni:[%s], clientip:[%v], backend:[%s], "+
+					"duration:%fs, error:[%v]", tlsConn.GetVip().String(), sc.tlsState.ServerName, sc.conn.RemoteAddr(),
+					back.AddrInfo, duration.Seconds(), err)
 			}
 			sc.shutDownIn(250 * time.Millisecond)
 
@@ -148,13 +155,13 @@ func TLSProxyHandler(s *Server, c net.Conn, b net.Conn, errCh chan error) {
 	// TODO: add read/write timeout
 	go func() {
 		n, err := io.Copy(b, c)
-		state.StreamBytesRecv.Inc(int(n))
+		state.StreamBytesRecv.Inc(uint(n))
 		errCh <- err
 	}()
 
 	go func() {
 		n, err := io.Copy(c, b)
-		state.StreamBytesSent.Inc(int(n))
+		state.StreamBytesSent.Inc(uint(n))
 		errCh <- err
 	}()
 }

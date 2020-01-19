@@ -30,17 +30,17 @@ func TestDNSMatch(t *testing.T) {
 	trie.Set(strings.Split("com.baidu.*", "."), "2")
 	trie.Set(strings.Split("co.baidu.weidu", "."), "2")
 
-	match, ok := trie.Get(strings.Split("com.baidu.www", "."))
+	_, ok := trie.Get(strings.Split("com.baidu.www", "."))
 	if !ok {
 		t.Error()
 	}
 
-	match, ok = trie.Get(strings.Split("com.baidu.100", "."))
+	_, ok = trie.Get(strings.Split("com.baidu.100", "."))
 	if !ok {
 		t.Error()
 	}
 
-	match, ok = trie.Get(strings.Split("com.1baidu.100", "."))
+	match, _ := trie.Get(strings.Split("com.1baidu.100", "."))
 	if match != nil {
 		t.Error()
 	}

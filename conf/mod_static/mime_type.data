@@ -1,0 +1,7 @@
+{
+    "Version": "20190101000000",
+    "Config": {
+        ".avi": "video/x-msvideo",
+        ".doc": "application/msword"
+    }
+}

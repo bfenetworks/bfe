@@ -66,6 +66,10 @@ func (m *BfeMonitor) monitorHandlers() map[string]interface{} {
 		"bal_state":      m.srv.balStateGetAll,
 		"bal_state_diff": m.srv.balStateGetDiff,
 
+		// for proxy protocol
+		"proxy_protocol_state":      m.srv.proxyProtocolStateGetAll,
+		"proxy_protocol_state_diff": m.srv.proxyProtocolStateGetDiff,
+
 		// for tls
 		"tls_state":      m.srv.tlsStateGetAll,
 		"tls_state_diff": m.srv.tlsStateGetDiff,
@@ -100,7 +104,9 @@ func (m *BfeMonitor) monitorHandlers() map[string]interface{} {
 		"proxy_handshake_resume_delay": m.srv.proxyHandshakeResumeDelayGet,
 
 		// for module status
-		"module_status": m.srv.ModuleStatusGetJson,
+		"module_status":   m.srv.ModuleStatusGetJSON,
+		"module_handlers": m.srv.ModuleHandlersGetJSON,
+
 		// for proxy memory stat
 		"proxy_mem_stat": web_monitor.CreateMemStatsHandler("proxy_mem_stat"),
 	}
@@ -128,14 +134,14 @@ func (m *BfeMonitor) reloadHandlers() map[string]interface{} {
 
 func (m *BfeMonitor) WebHandlersInit(srv *BfeServer) error {
 	// register handlers for monitor
-	err := web_monitor.RegisterHandlers(m.WebHandlers, web_monitor.WEB_HANDLE_MONITOR,
+	err := web_monitor.RegisterHandlers(m.WebHandlers, web_monitor.WebHandleMonitor,
 		m.monitorHandlers())
 	if err != nil {
 		return err
 	}
 
 	// register handlers for for reload
-	err = web_monitor.RegisterHandlers(m.WebHandlers, web_monitor.WEB_HANDLE_RELOAD,
+	err = web_monitor.RegisterHandlers(m.WebHandlers, web_monitor.WebHandleReload,
 		m.reloadHandlers())
 	if err != nil {
 		return err

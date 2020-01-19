@@ -358,6 +358,9 @@ func TestCreateParseHeadersFrameCompressionEnable(t *testing.T) {
 	headersFrame.Headers = HeadersFixture
 
 	framer, err := NewFramer(buffer, buffer)
+	if err != nil {
+		t.Fatal("NewFramer error:", err)
+	}
 	if err := framer.WriteFrame(&headersFrame); err != nil {
 		t.Fatal("WriteFrame with compression:", err)
 	}

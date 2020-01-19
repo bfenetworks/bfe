@@ -20,7 +20,7 @@
 
 BFE转发和处理流程
 
-![](../images/traffic-routing.svg)
+![流量接入与转发](../images/traffic-forward.svg)
 
 - Step1-2：DNS解析
     - 请求的域名为demo.example.com

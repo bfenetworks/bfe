@@ -113,8 +113,8 @@ func NewRequest(request *bfe_http.Request, conn net.Conn, stat *RequestStat,
 	fReq.Context = make(map[interface{}]interface{})
 	fReq.Tags.TagTable = make(map[string][]string)
 
-	if conn != nil {
-		fReq.RemoteAddr = conn.RemoteAddr().(*net.TCPAddr)
+	if session != nil {
+		fReq.RemoteAddr = session.RemoteAddr
 	}
 
 	fReq.SvrDataConf = svrDataConf

@@ -61,6 +61,7 @@ const (
 	// we choose 200 here.
 	defaultMaxStreams             = 200 // TODO: make this 100 as the GFE seems to?
 	defaultReadClientAgainTimeout = 60 * time.Second
+	maxQueuedControlFrames        = 10000
 )
 
 var (
@@ -152,6 +153,15 @@ func (s *Server) maxConcurrentStreams(r *Rule) uint32 {
 		return v
 	}
 	return defaultMaxStreams
+}
+
+// maxQueuedControlFrames is the maximum number of control frames like
+// SETTINGS, PING and RST_STREAM that will be queued for writing before
+// the connection is closed to prevent memory exhaustion attacks.
+func (s *Server) maxQueuedControlFrames() int {
+	// TODO: if anybody asks, add a Server field, and remember to define the
+	// behavior of negative values.
+	return maxQueuedControlFrames
 }
 
 // ConfigureServer adds HTTP/2 support to a net/http Server.
@@ -498,6 +508,7 @@ type serverConn struct {
 	sawFirstSettings      bool // got the initial SETTINGS frame after the preface
 	needToSendSettingsAck bool
 	unackedSettings       int    // how many SETTINGS have we sent without ACKs?
+	queuedControlFrames   int    // control frames in the writeSched queue
 	clientMaxStreams      uint32 // SETTINGS_MAX_CONCURRENT_STREAMS from client (our PUSH_PROMISE limit)
 	advMaxStreams         uint32 // our SETTINGS_MAX_CONCURRENT_STREAMS advertised the client
 	curOpenStreams        uint32 // client's number of open streams
@@ -899,6 +910,15 @@ func (sc *serverConn) serve() {
 		case fn := <-sc.testHookCh:
 			fn(loopNum)
 		}
+
+		// If the peer is causing us to generate a lot of control frames,
+		// but not reading them from us, assume they are trying to make us
+		// run out of memory.
+		if sc.queuedControlFrames > sc.srv.maxQueuedControlFrames() {
+			state.H2ConnExceedMaxQueuedControlFrames.Inc(1)
+			log.Logger.Debug("http2: too many control frames in send queue, closing connection")
+			return
+		}
 	}
 }
 
@@ -1070,6 +1090,11 @@ func (sc *serverConn) writeFrameFromHandler(wm frameWriteMsg) error {
 // If you're not on the serve goroutine, use writeFrameFromHandler instead.
 func (sc *serverConn) writeFrame(wm frameWriteMsg) {
 	sc.serveG.Check()
+
+	if wm.isControl() {
+		sc.queuedControlFrames++
+	}
+
 	sc.writeSched.add(wm)
 	sc.scheduleFrameWrite()
 }
@@ -1202,6 +1227,9 @@ func (sc *serverConn) scheduleFrameWrite() {
 	}
 	if !sc.inGoAway || sc.goAwayCode == ErrCodeNo {
 		if wm, ok := sc.writeSched.take(); ok {
+			if wm.isControl() {
+				sc.queuedControlFrames--
+			}
 			sc.startFrameWrite(wm)
 			return
 		}

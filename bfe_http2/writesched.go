@@ -35,6 +35,12 @@ type frameWriteMsg struct {
 	done chan error
 }
 
+// isControl reports whether wr is a control frame for MaxQueuedControlFrames
+// purposes. That includes non-stream frames and RST_STREAM frames.
+func (wr frameWriteMsg) isControl() bool {
+	return wr.stream == nil
+}
+
 // for debugging only:
 func (wm frameWriteMsg) String() string {
 	var streamID uint32

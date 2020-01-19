@@ -43,7 +43,6 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 
 	// create bfe server
 	bfeServer := NewBfeServer(cfg, lnMap, version)
-	bfeServer.InitLayer4InfoFetcher()
 
 	// initial http
 	err = bfeServer.InitHttp()
@@ -58,6 +57,15 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 		log.Logger.Error("StartUp(): InitHttps():%s", err.Error())
 		return err
 	}
+
+	// load data
+	err = bfeServer.InitDataLoad()
+	if err != nil {
+		log.Logger.Error("StartUp(): bfeServer.InitDataLoad():%s",
+			err.Error())
+		return err
+	}
+	log.Logger.Info("StartUp(): bfeServer.InitDataLoad() OK")
 
 	// setup signal table
 	bfeServer.InitSignalTable()
@@ -87,31 +95,26 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	}
 	log.Logger.Info("StartUp():bfeServer.InitModules() OK")
 
-	// load data
-	err = bfeServer.InitDataLoad()
-	if err != nil {
-		log.Logger.Error("StartUp(): bfeServer.InitDataLoad():%s",
-			err.Error())
-		return err
-	}
-	log.Logger.Info("StartUp(): bfeServer.InitDataLoad() OK")
-
 	// start embedded web server
 	bfeServer.Monitor.Start()
 
 	serveChan := make(chan error)
 
 	// start goroutine to accept http connections
-	go func() {
-		httpErr := bfeServer.ServeHttp(bfeServer.HttpListener)
-		serveChan <- httpErr
-	}()
+	for i := 0; i < cfg.Server.AcceptNum; i++ {
+		go func() {
+			httpErr := bfeServer.ServeHttp(bfeServer.HttpListener)
+			serveChan <- httpErr
+		}()
+	}
 
 	// start goroutine to accept https connections
-	go func() {
-		httpsErr := bfeServer.ServeHttps(bfeServer.HttpsListener)
-		serveChan <- httpsErr
-	}()
+	for i := 0; i < cfg.Server.AcceptNum; i++ {
+		go func() {
+			httpsErr := bfeServer.ServeHttps(bfeServer.HttpsListener)
+			serveChan <- httpsErr
+		}()
+	}
 
 	err = <-serveChan
 	return err
@@ -129,6 +132,9 @@ func createListeners(config bfe_conf.BfeConfig) (map[string]net.Listener, error)
 		if err != nil {
 			return nil, err
 		}
+
+		// wrap underlying listener according to balancer type
+		listener = NewBfeListener(listener, config)
 		lnMap[proto] = listener
 		log.Logger.Info("createListeners(): begin to listen port[:%d]", port)
 	}

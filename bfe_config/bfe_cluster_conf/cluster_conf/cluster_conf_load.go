@@ -130,11 +130,13 @@ type BfeClusterConf struct {
 // BackendBasicCheck check BackendBasic config.
 func BackendBasicCheck(conf *BackendBasic) error {
 	if conf.TimeoutConnSrv == nil {
-		return errors.New("no TimeoutConnSrv")
+		defaultTimeConnSrv := 2000
+		conf.TimeoutConnSrv = &defaultTimeConnSrv
 	}
 
 	if conf.TimeoutResponseHeader == nil {
-		return errors.New("no TimeoutResponseHeader")
+		defaultTimeoutResponseHeader := 60000
+		conf.TimeoutResponseHeader = &defaultTimeoutResponseHeader
 	}
 
 	if conf.MaxIdleConnsPerHost == nil {
@@ -228,41 +230,54 @@ func BackendCheckCheck(conf *BackendCheck) error {
 		// set default schem to http
 		schem := "http"
 		conf.Schem = &schem
-	} else if *conf.Schem != "http" && *conf.Schem != "tcp" {
+	}
+
+	if conf.Uri == nil {
+		uri := "/health_check"
+		conf.Uri = &uri
+	}
+
+	if conf.Host == nil {
+		host := ""
+		conf.Host = &host
+	}
+
+	if conf.StatusCode == nil {
+		statusCode := 0
+		conf.StatusCode = &statusCode
+	}
+
+	if conf.FailNum == nil {
+		failNum := 5
+		conf.FailNum = &failNum
+	}
+
+	if conf.CheckInterval == nil {
+		checkInterval := 1000
+		conf.CheckInterval = &checkInterval
+	}
+
+	if conf.SuccNum == nil {
+		succNum := 1
+		conf.SuccNum = &succNum
+	}
+
+	if *conf.Schem != "http" && *conf.Schem != "tcp" {
 		return errors.New("schem for BackendCheck should be http/tcp")
 	}
 
 	if *conf.Schem == "http" {
-		if conf.Uri == nil {
-			return errors.New("no Uri")
-		}
 		if !strings.HasPrefix(*conf.Uri, "/") {
 			return errors.New("Uri should be start with '/'")
 		}
-		if conf.StatusCode == nil {
-			defaultStatusCode := 200
-			conf.StatusCode = &defaultStatusCode
-		}
-		err := checkStatusCode(*conf.StatusCode)
-		if err != nil {
+
+		if err := checkStatusCode(*conf.StatusCode); err != nil {
 			return err
 		}
 	}
 
-	if conf.FailNum == nil {
-		return errors.New("no FailNum")
-	}
-
-	if conf.SuccNum == nil {
-		SuccNum := 1
-		conf.SuccNum = &SuccNum
-	}
 	if *conf.SuccNum < 1 {
 		return errors.New("SuccNum should be bigger than 0")
-	}
-
-	if conf.CheckInterval == nil {
-		return errors.New("no CheckInterval")
 	}
 
 	return nil
@@ -271,31 +286,26 @@ func BackendCheckCheck(conf *BackendCheck) error {
 // GslbBasicConfCheck check GslbBasicConf config.
 func GslbBasicConfCheck(conf *GslbBasicConf) error {
 	if conf.CrossRetry == nil {
-		return errors.New("no CrossRetry")
+		defaultCrossRetry := 0
+		conf.CrossRetry = &defaultCrossRetry
 	}
 
 	if conf.RetryMax == nil {
-		return errors.New("no RetryMax")
+		defaultRetryMax := 2
+		conf.RetryMax = &defaultRetryMax
 	}
 
 	if conf.HashConf == nil {
-		defaultStrategy := ClientIpOnly
-		defaultSessionSticky := false
-		defaultHashConf := HashConf{
-			HashStrategy:  &defaultStrategy,
-			SessionSticky: &defaultSessionSticky,
-		}
-		conf.HashConf = &defaultHashConf
-	}
-
-	if err := HashConfCheck(conf.HashConf); err != nil {
-		return err
+		conf.HashConf = &HashConf{}
 	}
 
 	if conf.BalanceMode == nil {
 		defaultBalMode := BalanceModeWrr
-
 		conf.BalanceMode = &defaultBalMode
+	}
+
+	if err := HashConfCheck(conf.HashConf); err != nil {
+		return err
 	}
 
 	// check balanceMode
@@ -313,8 +323,15 @@ func GslbBasicConfCheck(conf *GslbBasicConf) error {
 // HashConfCheck check HashConf config.
 func HashConfCheck(conf *HashConf) error {
 	if conf.HashStrategy == nil {
-		return errors.New("no HashStrategy")
+		defaultStrategy := ClientIpOnly
+		conf.HashStrategy = &defaultStrategy
 	}
+
+	if conf.SessionSticky == nil {
+		defaultSessionSticky := false
+		conf.SessionSticky = &defaultSessionSticky
+	}
+
 	if *conf.HashStrategy != ClientIdOnly &&
 		*conf.HashStrategy != ClientIpOnly && *conf.HashStrategy != ClientIdPreferred {
 		return fmt.Errorf("HashStrategy[%d] must be [%d], [%d] or [%d]",
@@ -329,34 +346,41 @@ func HashConfCheck(conf *HashConf) error {
 		}
 	}
 
-	if conf.SessionSticky == nil {
-		defaultSessionSticky := false
-		conf.SessionSticky = &defaultSessionSticky
-	}
-
 	return nil
 }
 
 // ClusterBasicConfCheck check ClusterBasicConf.
 func ClusterBasicConfCheck(conf *ClusterBasicConf) error {
-	if conf.TimeoutReadClientAgain == nil ||
-		conf.TimeoutReadClient == nil ||
-		conf.TimeoutWriteClient == nil {
-		return errors.New("timeout configure error")
+	if conf.TimeoutReadClient == nil {
+		timeoutReadClient := 30000
+		conf.TimeoutReadClient = &timeoutReadClient
+	}
+
+	if conf.TimeoutWriteClient == nil {
+		timoutWriteClient := 60000
+		conf.TimeoutWriteClient = &timoutWriteClient
+	}
+
+	if conf.TimeoutReadClientAgain == nil {
+		timeoutReadClientAgain := 60000
+		conf.TimeoutReadClientAgain = &timeoutReadClientAgain
 	}
 
 	if conf.ReqWriteBufferSize == nil {
 		reqWriteBufferSize := 512
 		conf.ReqWriteBufferSize = &reqWriteBufferSize
 	}
+
 	if conf.ReqFlushInterval == nil {
 		reqFlushInterval := 0
 		conf.ReqFlushInterval = &reqFlushInterval
 	}
+
 	if conf.ResFlushInterval == nil {
-		resFlushInterval := 20
+		resFlushInterval := -1
 		conf.ResFlushInterval = &resFlushInterval
 	}
+
 	if conf.CancelOnClientClose == nil {
 		cancelOnClientClose := false
 		conf.CancelOnClientClose = &cancelOnClientClose
@@ -371,7 +395,7 @@ func ClusterConfCheck(conf *ClusterConf) error {
 
 	// check BackendConf
 	if conf.BackendConf == nil {
-		return errors.New("no BackendConf")
+		conf.BackendConf = &BackendBasic{}
 	}
 	err = BackendBasicCheck(conf.BackendConf)
 	if err != nil {
@@ -380,7 +404,7 @@ func ClusterConfCheck(conf *ClusterConf) error {
 
 	// check CheckConf
 	if conf.CheckConf == nil {
-		return errors.New("no CheckConf")
+		conf.CheckConf = &BackendCheck{}
 	}
 	err = BackendCheckCheck(conf.CheckConf)
 	if err != nil {
@@ -389,7 +413,7 @@ func ClusterConfCheck(conf *ClusterConf) error {
 
 	// check GslbBasic
 	if conf.GslbBasic == nil {
-		return errors.New("no GslbBasic")
+		conf.GslbBasic = &GslbBasicConf{}
 	}
 	err = GslbBasicConfCheck(conf.GslbBasic)
 	if err != nil {
@@ -398,7 +422,7 @@ func ClusterConfCheck(conf *ClusterConf) error {
 
 	// check ClusterBasic
 	if conf.ClusterBasic == nil {
-		return errors.New("no ClusterBasic")
+		conf.ClusterBasic = &ClusterBasicConf{}
 	}
 	err = ClusterBasicConfCheck(conf.ClusterBasic)
 	if err != nil {

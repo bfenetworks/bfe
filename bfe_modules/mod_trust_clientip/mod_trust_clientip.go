@@ -167,7 +167,7 @@ func (m *ModuleTrustClientIP) acceptHandler(session *bfe_basic.Session) int {
 			session.RemoteAddr.IP, session.IsTrustIP)
 	}
 
-	return bfe_module.BFE_HANDLER_GOON
+	return bfe_module.BfeHandlerGoOn
 }
 
 func (m *ModuleTrustClientIP) getState(params map[string][]string) ([]byte, error) {
@@ -218,19 +218,19 @@ func (m *ModuleTrustClientIP) init(cfg *ConfModTrustClientIP, cbs *bfe_module.Bf
 
 	// register handler
 	// for accept
-	err := cbs.AddFilter(bfe_module.HANDLE_ACCEPT, m.acceptHandler)
+	err := cbs.AddFilter(bfe_module.HandleAccept, m.acceptHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.acceptHandler): %s", m.name, err.Error())
 	}
 
 	// register web handler for monitor
-	err = web_monitor.RegisterHandlers(whs, web_monitor.WEB_HANDLE_MONITOR, m.monitorHandlers())
+	err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())
 	if err != nil {
 		return fmt.Errorf("%s.Init():RegisterHandlers(m.monitorHandlers): %s", m.name, err.Error())
 	}
 
 	// register web handler for reload
-	err = whs.RegisterHandler(web_monitor.WEB_HANDLE_RELOAD, m.name, m.loadConfData)
+	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %s", m.name, err.Error())
 	}

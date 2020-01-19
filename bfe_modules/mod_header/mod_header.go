@@ -144,7 +144,7 @@ func (m *ModuleHeader) reqHeaderHandler(request *bfe_basic.Request) (int, *bfe_h
 	// product specific rule will overwrite global rule for HEADER_SET action
 	m.applyProductRule(request, ReqHeader, request.Route.Product)
 
-	return bfe_module.BFE_HANDLER_GOON, nil
+	return bfe_module.BfeHandlerGoOn, nil
 }
 
 func (m *ModuleHeader) rspHeaderHandler(request *bfe_basic.Request, res *bfe_http.Response) int {
@@ -154,7 +154,7 @@ func (m *ModuleHeader) rspHeaderHandler(request *bfe_basic.Request, res *bfe_htt
 	// product specific rule will overwrite global rule for HEADER_SET action
 	m.applyProductRule(request, RspHeader, request.Route.Product)
 
-	return bfe_module.BFE_HANDLER_GOON
+	return bfe_module.BfeHandlerGoOn
 }
 
 func (m *ModuleHeader) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers,
@@ -184,19 +184,19 @@ func (m *ModuleHeader) init(cfg *ConfModHeader, cbs *bfe_module.BfeCallbacks,
 	}
 
 	// register handler
-	err := cbs.AddFilter(bfe_module.HANDLE_AFTER_LOCATION, m.reqHeaderHandler)
+	err := cbs.AddFilter(bfe_module.HandleAfterLocation, m.reqHeaderHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.headerHandler): %s", m.name, err.Error())
 	}
 
 	// register handler
-	err = cbs.AddFilter(bfe_module.HANDLE_READ_BACKEND, m.rspHeaderHandler)
+	err = cbs.AddFilter(bfe_module.HandleReadResponse, m.rspHeaderHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.respHeaderHandler): %s", m.name, err.Error())
 	}
 
 	// register web handler for reload
-	err = whs.RegisterHandler(web_monitor.WEB_HANDLE_RELOAD, m.name, m.loadConfData)
+	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %s", m.name, err.Error())
 	}

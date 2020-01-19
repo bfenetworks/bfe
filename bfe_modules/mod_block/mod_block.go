@@ -140,7 +140,7 @@ func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {
 		log.Logger.Debug("%s refuse connection (remote: %v)",
 			m.name, session.RemoteAddr)
 		m.state.ConnRefuse.Inc(1)
-		return bfe_module.BFE_HANDLER_CLOSE
+		return bfe_module.BfeHandlerClose
 	}
 
 	if openDebug {
@@ -148,7 +148,7 @@ func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {
 			m.name, session.RemoteAddr)
 	}
 	m.state.ConnAccept.Inc(1)
-	return bfe_module.BFE_HANDLER_GOON
+	return bfe_module.BfeHandlerGoOn
 }
 
 // productBlockHandler is a handler for doing product block.
@@ -166,7 +166,7 @@ func (m *ModuleBlock) productBlockHandler(request *bfe_basic.Request) (
 			log.Logger.Debug("%s product %s not found, just pass",
 				m.name, request.Route.Product)
 		}
-		return bfe_module.BFE_HANDLER_GOON, nil
+		return bfe_module.BfeHandlerGoOn, nil
 	}
 
 	m.state.ReqToCheck.Inc(1)
@@ -192,7 +192,7 @@ func (m *ModuleBlock) productRulesProcess(req *bfe_basic.Request, rules *blockRu
 				log.Logger.Debug("%s block connection (rule:%v, remote:%s)",
 					m.name, rule, req.RemoteAddr)
 				m.state.ReqRefuse.Inc(1)
-				return bfe_module.BFE_HANDLER_CLOSE, nil
+				return bfe_module.BfeHandlerClose, nil
 			default:
 				if openDebug {
 					log.Logger.Debug("%s unknown block command (%s), just pass",
@@ -207,7 +207,7 @@ func (m *ModuleBlock) productRulesProcess(req *bfe_basic.Request, rules *blockRu
 		log.Logger.Debug("%s accept request", m.name)
 	}
 	m.state.ReqAccept.Inc(1)
-	return bfe_module.BFE_HANDLER_GOON, nil
+	return bfe_module.BfeHandlerGoOn, nil
 }
 
 func (m *ModuleBlock) getState(params map[string][]string) ([]byte, error) {
@@ -260,23 +260,23 @@ func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 	}
 
 	// register handler
-	err = cbs.AddFilter(bfe_module.HANDLE_ACCEPT, m.globalBlockHandler)
+	err = cbs.AddFilter(bfe_module.HandleAccept, m.globalBlockHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.globalBlockHandler): %s", m.name, err.Error())
 	}
 
-	err = cbs.AddFilter(bfe_module.HANDLE_AFTER_LOCATION, m.productBlockHandler)
+	err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.productBlockHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.productBlockHandler): %s", m.name, err.Error())
 	}
 
 	// register web handler for monitor
-	err = web_monitor.RegisterHandlers(whs, web_monitor.WEB_HANDLE_MONITOR, m.monitorHandlers())
+	err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())
 	if err != nil {
 		return fmt.Errorf("%s.Init():RegisterHandlers(m.monitorHandlers): %s", m.name, err.Error())
 	}
 	// register web handler for reload
-	err = web_monitor.RegisterHandlers(whs, web_monitor.WEB_HANDLE_RELOAD, m.reloadHandlers())
+	err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleReload, m.reloadHandlers())
 	if err != nil {
 		return fmt.Errorf("%s.Init():RegisterHandlers(m.reloadHandlers): %s", m.name, err.Error())
 	}

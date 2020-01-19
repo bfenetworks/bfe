@@ -304,7 +304,7 @@ func (bal *BalanceGslb) Balance(req *bfe_basic.Request) (*bal_backend.BfeBackend
 	var backend *bal_backend.BfeBackend
 	var current *SubCluster
 	var err error
-	balAlgor := bal_slb.WrrSmooth
+	var balAlgor int
 
 	bal.lock.Lock()
 	defer bal.lock.Unlock()

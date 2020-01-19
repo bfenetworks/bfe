@@ -32,32 +32,32 @@ import (
 
 // HandlerList type.
 const (
-	HANDLERS_ACCEPT   = 0 // for AcceptFilter
-	HANDLERS_REQUEST  = 1 // for RequestFilter
-	HANDLERS_FORWARD  = 2 // for ForwardFilter
-	HANDLERS_RESPONSE = 3 // for ResponseFilter
-	HANDLERS_FINISH   = 4 // for FinishFilter
+	HandlersAccept   = 0 // for AcceptFilter
+	HandlersRequest  = 1 // for RequestFilter
+	HandlersForward  = 2 // for ForwardFilter
+	HandlersResponse = 3 // for ResponseFilter
+	HandlersFinish   = 4 // for FinishFilter
 )
 
 // Return value of handler.
 const (
-	BFE_HANDLER_FINISH   = 0 // to close the connection after response
-	BFE_HANDLER_GOON     = 1 // to go on next handler
-	BFE_HANDLER_REDIRECT = 2 // to redirect
-	BFE_HANDLER_RESPONSE = 3 // to send response
-	BFE_HANDLER_CLOSE    = 4 // to close the connection directly, with no data sent.
+	BfeHandlerFinish   = 0 // to close the connection after response
+	BfeHandlerGoOn     = 1 // to go on next handler
+	BfeHandlerRedirect = 2 // to redirect
+	BfeHandlerResponse = 3 // to send response
+	BfeHandlerClose    = 4 // to close the connection directly, with no data sent.
 )
 
 type HandlerList struct {
-	h_type   int        /* type of handlers */
-	handlers *list.List /* list of handlers */
+	handlerType int        /* type of handlers */
+	handlers    *list.List /* list of handlers */
 }
 
 // NewHandlerList creates a HandlerList.
-func NewHandlerList(h_type int) *HandlerList {
+func NewHandlerList(handlerType int) *HandlerList {
 	handlers := new(HandlerList)
 
-	handlers.h_type = h_type
+	handlers.handlerType = handlerType
 	handlers.handlers = list.New()
 
 	return handlers
@@ -65,14 +65,14 @@ func NewHandlerList(h_type int) *HandlerList {
 
 // FilterAccept filters accept with HandlerList.
 func (hl *HandlerList) FilterAccept(session *bfe_basic.Session) int {
-	retVal := BFE_HANDLER_GOON
+	retVal := BfeHandlerGoOn
 
 LOOP:
 	for e := hl.handlers.Front(); e != nil; e = e.Next() {
 		switch filter := e.Value.(type) {
 		case AcceptFilter:
 			retVal = filter.FilterAccept(session)
-			if retVal != BFE_HANDLER_GOON {
+			if retVal != BfeHandlerGoOn {
 				break LOOP
 			}
 		default:
@@ -87,14 +87,14 @@ LOOP:
 // FilterRequest filters request with HandlerList.
 func (hl *HandlerList) FilterRequest(req *bfe_basic.Request) (int, *bfe_http.Response) {
 	var res *bfe_http.Response
-	retVal := BFE_HANDLER_GOON
+	retVal := BfeHandlerGoOn
 
 LOOP:
 	for e := hl.handlers.Front(); e != nil; e = e.Next() {
 		switch filter := e.Value.(type) {
 		case RequestFilter:
 			retVal, res = filter.FilterRequest(req)
-			if retVal != BFE_HANDLER_GOON {
+			if retVal != BfeHandlerGoOn {
 				break LOOP
 			}
 		default:
@@ -108,14 +108,14 @@ LOOP:
 
 // FilterForward filters forward with HandlerList.
 func (hl *HandlerList) FilterForward(req *bfe_basic.Request) int {
-	retVal := BFE_HANDLER_GOON
+	retVal := BfeHandlerGoOn
 
 LOOP:
 	for e := hl.handlers.Front(); e != nil; e = e.Next() {
 		switch filter := e.Value.(type) {
 		case ForwardFilter:
 			retVal = filter.FilterForward(req)
-			if retVal != BFE_HANDLER_GOON {
+			if retVal != BfeHandlerGoOn {
 				break LOOP
 			}
 		default:
@@ -129,14 +129,14 @@ LOOP:
 
 // FilterResponse filters request with HandlerList.
 func (hl *HandlerList) FilterResponse(req *bfe_basic.Request, res *bfe_http.Response) int {
-	retVal := BFE_HANDLER_GOON
+	retVal := BfeHandlerGoOn
 
 LOOP:
 	for e := hl.handlers.Front(); e != nil; e = e.Next() {
 		switch filter := e.Value.(type) {
 		case ResponseFilter:
 			retVal = filter.FilterResponse(req, res)
-			if retVal != BFE_HANDLER_GOON {
+			if retVal != BfeHandlerGoOn {
 				break LOOP
 			}
 		default:
@@ -150,14 +150,14 @@ LOOP:
 
 // FilterFinish filters finished session with HandlerList.
 func (hl *HandlerList) FilterFinish(session *bfe_basic.Session) int {
-	retVal := BFE_HANDLER_GOON
+	retVal := BfeHandlerGoOn
 
 LOOP:
 	for e := hl.handlers.Front(); e != nil; e = e.Next() {
 		switch filter := e.Value.(type) {
 		case FinishFilter:
 			retVal = filter.FilterFinish(session)
-			if retVal != BFE_HANDLER_GOON {
+			if retVal != BfeHandlerGoOn {
 				break LOOP
 			}
 		default:

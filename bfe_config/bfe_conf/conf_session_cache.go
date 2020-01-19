@@ -41,6 +41,15 @@ type ConfigSessionCache struct {
 	SessionExpire int
 }
 
+func (cfg *ConfigSessionCache) SetDefaultConf() {
+	cfg.SessionCacheDisabled = true
+	cfg.KeyPrefix = "bfe"
+	cfg.ConnectTimeout = 50
+	cfg.WriteTimeout = 50
+	cfg.MaxIdle = 20
+	cfg.SessionExpire = 3600
+}
+
 func (cfg *ConfigSessionCache) Check(confRoot string) error {
 	return ConfSessionCacheCheck(cfg, confRoot)
 }

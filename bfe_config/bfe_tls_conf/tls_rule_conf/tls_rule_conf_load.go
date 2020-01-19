@@ -129,7 +129,7 @@ func TlsRuleConfCheck(conf *TlsRuleConf) error {
 
 	conf.Grade = strings.ToUpper(conf.Grade)
 	if !checkGrade(conf) {
-		return fmt.Errorf("invalid tls grade: %s, currently only A,B,C supported", conf.Grade)
+		return fmt.Errorf("invalid tls grade: %s, currently only A+,A,B,C supported", conf.Grade)
 	}
 
 	if conf.ClientAuth && len(conf.ClientCAName) == 0 {
@@ -137,9 +137,11 @@ func TlsRuleConfCheck(conf *TlsRuleConf) error {
 	}
 
 	for i, vip := range conf.VipConf {
-		if net.ParseIP(vip) == nil {
+		vaddr := net.ParseIP(vip)
+		if vaddr == nil {
 			return fmt.Errorf("invalid vip (%d) %s", i, vip)
 		}
+		conf.VipConf[i] = vaddr.String()
 	}
 
 	return nil
@@ -181,7 +183,7 @@ func checkGrade(conf *TlsRuleConf) bool {
 	}
 
 	switch conf.Grade {
-	case bfe_tls.GradeA, bfe_tls.GradeB, bfe_tls.GradeC:
+	case bfe_tls.GradeAPlus, bfe_tls.GradeA, bfe_tls.GradeB, bfe_tls.GradeC:
 		return true
 	default:
 		return false

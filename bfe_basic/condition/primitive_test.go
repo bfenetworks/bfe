@@ -185,3 +185,39 @@ func TestHostMatcher_2(t *testing.T) {
 		t.Errorf("NewHostMatcher() return wrong error: %v", err)
 	}
 }
+
+// test ContainMatcher, case-sensitive
+func TestContainMatcher_1(t *testing.T) {
+	matcher := NewContainMatcher("yingwen|中文|%e4%b8%ad%e6%96%87|YINGWEN", false)
+	if !matcher.Match("yingwen") {
+		t.Fatalf("should match yingwen")
+	}
+
+	if matcher.Match("Yingwen") {
+		t.Fatalf("should not match Yingwen")
+	}
+
+	if !matcher.Match("hi，中文") {
+		t.Fatalf("should match hi，中文")
+	}
+
+	if matcher.Match("文") {
+		t.Fatalf("should not match 文")
+	}
+
+	if !matcher.Match("%e4%b8%ad%e6%96%87") {
+		t.Fatalf("should match %%e4%%b8%%ad%%e6%%96%%87")
+	}
+
+	if !matcher.Match("YINGWEN") {
+		t.Fatalf("should match YINGWEN")
+	}
+}
+
+// test for ContainMatcher, ignore case
+func TestContainMatcher_2(t *testing.T) {
+	matcher := NewContainMatcher("yingwen", true)
+	if !matcher.Match("Yingwen") {
+		t.Fatalf("should match Yingwen")
+	}
+}

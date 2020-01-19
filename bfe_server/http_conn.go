@@ -147,10 +147,10 @@ func newConn(rwc net.Conn, srv *BfeServer) (c *conn, err error) {
 	br := srv.BufioCache.newBufioReader(c.lr)
 	bw := srv.BufioCache.newBufioWriterSize(c.rwc, 4<<10)
 	c.buf = bfe_bufio.NewReadWriter(br, bw)
+	c.reqSN = 0
 
 	c.session = bfe_basic.NewSession(rwc)
-	c.reqSN = 0
-	vip, vport, err := bfe_util.GetVipAndPort(rwc)
+	vip, vport, err := bfe_util.GetVipPort(rwc)
 	if err == nil {
 		c.session.Vip = vip
 		c.session.Vport = vport
@@ -244,8 +244,8 @@ const rstAvoidanceDelay = 500 * time.Millisecond
 // See http://golang.org/issue/3595
 func (c *conn) closeWriteAndWait() {
 	c.finalFlush()
-	if tcp, ok := c.rwc.(*net.TCPConn); ok {
-		tcp.CloseWrite()
+	if cw, ok := c.rwc.(bfe_util.CloseWriter); ok {
+		cw.CloseWrite()
 	}
 	time.Sleep(rstAvoidanceDelay)
 }
@@ -257,8 +257,8 @@ func (c *conn) finish() {
 	// finish session
 	c.session.Finish()
 
-	// Callback for HANDLE_FINISH
-	hl := srv.CallBacks.GetHandlerList(bfe_module.HANDLE_FINISH)
+	// Callback for HandleFinish
+	hl := srv.CallBacks.GetHandlerList(bfe_module.HandleFinish)
 	if hl != nil {
 		hl.FilterFinish(c.session)
 	}
@@ -298,7 +298,7 @@ func (c *conn) serve() {
 		c.close()
 
 		if len(session.Proto) > 0 {
-			proxyState.ClientConnActiveInc(session.Proto, -1)
+			proxyState.ClientConnActiveDec(session.Proto, 1)
 		}
 		if session.ReqNumActive != 0 {
 			proxyState.ClientConnUnfinishedReq.Inc(1)
@@ -306,10 +306,10 @@ func (c *conn) serve() {
 	}()
 
 	// Callback for HANDLE_ACCEPT
-	hl = c.server.CallBacks.GetHandlerList(bfe_module.HANDLE_ACCEPT)
+	hl = c.server.CallBacks.GetHandlerList(bfe_module.HandleAccept)
 	if hl != nil {
 		retVal = hl.FilterAccept(c.session)
-		if retVal == bfe_module.BFE_HANDLER_CLOSE {
+		if retVal == bfe_module.BfeHandlerClose {
 			// close the connection
 			return
 		}
@@ -346,10 +346,10 @@ func (c *conn) serve() {
 		}
 
 		// Callback for HANDLE_HANDSHAKE
-		hl = c.server.CallBacks.GetHandlerList(bfe_module.HANDLE_HANDSHAKE)
+		hl = c.server.CallBacks.GetHandlerList(bfe_module.HandleHandshake)
 		if hl != nil {
 			retVal = hl.FilterAccept(c.session)
-			if retVal == bfe_module.BFE_HANDLER_CLOSE {
+			if retVal == bfe_module.BfeHandlerClose {
 				// close the connection
 				return
 			}
@@ -478,7 +478,7 @@ func (c *conn) serve() {
 			switch nextProto {
 			case bfe_websocket.WebSocket:
 				// update counters for websocket
-				proxyState.ClientConnActiveInc(c.session.Proto, -1)
+				proxyState.ClientConnActiveDec(c.session.Proto, 1)
 				c.session.Proto = bfe_websocket.Scheme(c.rwc)
 				proxyState.ClientConnServedInc(c.session.Proto, 1)
 				proxyState.ClientConnActiveInc(c.session.Proto, 1)
@@ -555,7 +555,7 @@ func (c *conn) serveRequest(w bfe_http.ResponseWriter, request *bfe_basic.Reques
 
 	// modify state counters
 	session.IncReqNumActive(-1)
-	proxyState.ClientReqActiveInc(session.Proto, -1)
+	proxyState.ClientReqActiveDec(session.Proto, 1)
 	if request.ErrCode != nil {
 		proxyState.ClientReqFail.Inc(1)
 	} else {

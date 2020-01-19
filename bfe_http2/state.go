@@ -19,23 +19,24 @@ import (
 )
 
 type Http2State struct {
-	H2TimeoutPreface        *metrics.Counter
-	H2TimeoutSetting        *metrics.Counter
-	H2TimeoutConn           *metrics.Counter
-	H2TimeoutReadStream     *metrics.Counter
-	H2TimeoutWriteStream    *metrics.Counter
-	H2ErrGotReset           *metrics.Counter
-	H2ErrMaxStreamPerConn   *metrics.Counter
-	H2ErrMaxHeaderListSize  *metrics.Counter
-	H2ErrMaxHeaderUriSize   *metrics.Counter
-	H2PanicConn             *metrics.Counter
-	H2PanicStream           *metrics.Counter
-	H2ReqHeaderOriginalSize *metrics.Counter
-	H2ReqHeaderCompressSize *metrics.Counter
-	H2ResHeaderOriginalSize *metrics.Counter
-	H2ResHeaderCompressSize *metrics.Counter
-	H2ConnOverload          *metrics.Counter
-	H2ReqOverload           *metrics.Counter
+	H2TimeoutPreface                   *metrics.Counter
+	H2TimeoutSetting                   *metrics.Counter
+	H2TimeoutConn                      *metrics.Counter
+	H2TimeoutReadStream                *metrics.Counter
+	H2TimeoutWriteStream               *metrics.Counter
+	H2ErrGotReset                      *metrics.Counter
+	H2ErrMaxStreamPerConn              *metrics.Counter
+	H2ErrMaxHeaderListSize             *metrics.Counter
+	H2ErrMaxHeaderUriSize              *metrics.Counter
+	H2PanicConn                        *metrics.Counter
+	H2PanicStream                      *metrics.Counter
+	H2ReqHeaderOriginalSize            *metrics.Counter
+	H2ReqHeaderCompressSize            *metrics.Counter
+	H2ResHeaderOriginalSize            *metrics.Counter
+	H2ResHeaderCompressSize            *metrics.Counter
+	H2ConnOverload                     *metrics.Counter
+	H2ReqOverload                      *metrics.Counter
+	H2ConnExceedMaxQueuedControlFrames *metrics.Counter
 }
 
 var state Http2State

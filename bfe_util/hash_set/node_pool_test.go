@@ -32,7 +32,7 @@ func TestAddItem(t *testing.T) {
 	if node != 0 {
 		t.Errorf("node should be 0 %d", node)
 	}
-	if bytes.Compare(np.element(0), Item) != 0 {
+	if !bytes.Equal(np.element(0), Item) {
 		t.Error("element is wrong")
 	}
 
@@ -44,7 +44,7 @@ func TestAddItem(t *testing.T) {
 	if node != 1 {
 		t.Errorf("node should be 0 %d", node)
 	}
-	if bytes.Compare(np.element(1), Item) != 0 {
+	if !bytes.Equal(np.element(1), Item) {
 		t.Error("element is wrong")
 	}
 	if !np.exist(0, Item) {
@@ -59,12 +59,11 @@ func TestAddItem(t *testing.T) {
 func TestDelItem(t *testing.T) {
 	np := newNodePool(32, 32*32, false)
 
-	Item := []byte("keyForTest")
-	Item1 := []byte("keyForTest1")
-	node, err := np.add(-1, Item)
-	node, err = np.add(0, Item)
-	node, err = np.add(1, Item1)
-	_, _ = node, err
+	Item1 := []byte("ItemForTest1")
+	Item2 := []byte("ItemForTest2")
+	np.add(-1, Item1)
+	np.add(0, Item1)
+	np.add(1, Item2)
 	if np.array[1].next != 0 {
 		t.Error("1 should link to 0")
 	}
@@ -73,12 +72,12 @@ func TestDelItem(t *testing.T) {
 	}
 
 	// del at list
-	if np.del(1, Item) != 0 {
+	if np.del(1, Item1) != 0 {
 		t.Error("del should return newhead")
 	}
 
 	// del head
-	if np.del(0, Item1) != 0 {
+	if np.del(0, Item2) != 0 {
 		t.Error("del should return newhead")
 	}
 }

@@ -19,6 +19,7 @@ package condition
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
 	"net"
 	"regexp"
 	"sort"
@@ -30,6 +31,11 @@ import (
 	"github.com/baidu/bfe/bfe_basic"
 	"github.com/baidu/bfe/bfe_basic/condition/parser"
 	"github.com/baidu/bfe/bfe_util/net_util"
+	"github.com/spaolacci/murmur3"
+)
+
+const (
+	HashMatcherBucketSize = 10000 // default hash bucket size for hash value matcher
 )
 
 type Fetcher interface {
@@ -204,7 +210,7 @@ func (qf *QueryKeyPrefixInFetcher) Fetch(req *bfe_basic.Request) (interface{}, e
 
 	ok := false
 	for k := range req.CachedQuery() {
-		if prefix_in(k, qf.keys) {
+		if prefixIn(k, qf.keys) {
 			ok = true
 			break
 		}
@@ -430,7 +436,7 @@ func (p *PrefixInMatcher) Match(v interface{}) bool {
 		vs = strings.ToUpper(vs)
 	}
 
-	return prefix_in(vs, p.patterns)
+	return prefixIn(vs, p.patterns)
 }
 
 func NewPrefixInMatcher(patterns string, foldCase bool) *PrefixInMatcher {
@@ -461,7 +467,7 @@ func (p *SuffixInMatcher) Match(v interface{}) bool {
 		vs = strings.ToUpper(vs)
 	}
 
-	return suffix_in(vs, p.patterns)
+	return suffixIn(vs, p.patterns)
 }
 
 func NewSuffixInMatcher(patterns string, foldCase bool) *SuffixInMatcher {
@@ -501,7 +507,7 @@ func in(v string, patterns []string) bool {
 	return i < len(patterns) && patterns[i] == v
 }
 
-func prefix_in(v string, patterns []string) bool {
+func prefixIn(v string, patterns []string) bool {
 	for _, pattern := range patterns {
 		if strings.HasPrefix(v, pattern) {
 			return true
@@ -511,7 +517,7 @@ func prefix_in(v string, patterns []string) bool {
 	return false
 }
 
-func suffix_in(v string, patterns []string) bool {
+func suffixIn(v string, patterns []string) bool {
 	for _, pattern := range patterns {
 		if strings.HasSuffix(v, pattern) {
 			return true
@@ -719,4 +725,199 @@ func NewHostMatcher(patterns string) (*HostMatcher, error) {
 	return &HostMatcher{
 		patterns: p,
 	}, nil
+}
+
+type ContainMatcher struct {
+	patterns []string
+	foldCase bool
+}
+
+func NewContainMatcher(patterns string, foldCase bool) *ContainMatcher {
+	p := strings.Split(patterns, "|")
+
+	if foldCase {
+		p = toUpper(p)
+	}
+
+	return &ContainMatcher{
+		patterns: p,
+		foldCase: foldCase,
+	}
+}
+
+func contain(v string, patterns []string) bool {
+	for _, pattern := range patterns {
+		if strings.Contains(v, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (cm *ContainMatcher) Match(v interface{}) bool {
+	vs, ok := v.(string)
+	if !ok {
+		return false
+	}
+
+	if cm.foldCase {
+		vs = strings.ToUpper(vs)
+	}
+
+	return contain(vs, cm.patterns)
+}
+
+type HashValueMatcher struct {
+	buckets     []bool
+	insensitive bool
+}
+
+func (matcher *HashValueMatcher) Match(v interface{}) bool {
+	var rawValue string
+
+	switch v.(type) {
+	case string:
+		rawValue = v.(string)
+	case net.IP:
+		rawValue = v.(net.IP).String()
+	default:
+		return false
+	}
+
+	value := rawValue
+	if matcher.insensitive {
+		value = strings.ToLower(rawValue)
+	}
+
+	bucket := GetHash([]byte(value), HashMatcherBucketSize)
+	return matcher.buckets[bucket]
+}
+
+// setHashBuckets returns the result of inserting one section of hash bucket number to buckets table
+// section is one section of bucket number. e.g.: "20" or "0-99"
+// buckets is destination bucket table to be inserted
+func setHashBuckets(section string, buckets *[]bool) error {
+	// split numbers
+	start, end, err := parserHashSectionConf(section)
+	if err != nil {
+		return err
+	}
+
+	// set buckets
+	for i := start; i <= end; i++ {
+		(*buckets)[i] = true
+	}
+
+	return nil
+}
+
+// parserHashSectionConf returns start number, end number and parse result
+func parserHashSectionConf(section string) (int, int, error) {
+	// split numbers
+	numbers := strings.Split(section, "-")
+	if len(numbers) == 0 || len(numbers) > 2 {
+		return 0, 0, fmt.Errorf("hash value section %s length error", section)
+	}
+
+	// checkt numbers
+	var start, end int
+	for i, numberRawStr := range numbers {
+		numberStr := strings.Replace(numberRawStr, " ", "", -1)
+		number, err := strconv.Atoi(numberStr)
+		if err != nil {
+			return 0, 0, fmt.Errorf("hash value check section %s number %s err %s",
+				section, numberStr, err.Error())
+		}
+
+		if number < 0 || number >= HashMatcherBucketSize {
+			return 0, 0, fmt.Errorf("hash value check section %s number %s overlimit",
+				section, numberStr)
+		}
+
+		if i == 0 {
+			start = number
+			end = number
+		}
+
+		if i == 1 {
+			end = number
+			if end < start {
+				return 0, 0, fmt.Errorf("hash value check section %s err, start is larger", section)
+			}
+		}
+	}
+
+	return start, end, nil
+}
+
+func NewHashMatcher(patterns string, insensitive bool) (*HashValueMatcher, error) {
+	buckets := make([]bool, HashMatcherBucketSize)
+
+	sections := strings.Split(patterns, "|")
+	for _, section := range sections {
+		if err := setHashBuckets(section, &buckets); err != nil {
+			return nil, err
+		}
+	}
+
+	return &HashValueMatcher{
+		buckets:     buckets,
+		insensitive: insensitive,
+	}, nil
+}
+
+func GetHash(value []byte, base uint) int {
+	var hash uint64
+
+	if value == nil {
+		hash = uint64(rand.Uint32())
+	} else {
+		hash = murmur3.Sum64(value)
+	}
+
+	return int(hash % uint64(base))
+}
+
+// SniFetcher fetches serverName in tls
+type SniFetcher struct{}
+
+func (fetcher *SniFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
+	if req == nil {
+		return nil, fmt.Errorf("fetcher: no req")
+	}
+
+	ses := req.Session
+	if ses == nil || !ses.IsSecure || ses.TlsState == nil || ses.TlsState.ServerName == "" {
+		return nil, fmt.Errorf("fetcher: no sni")
+	}
+
+	return req.Session.TlsState.ServerName, nil
+}
+
+type ClientAuthMatcher struct{}
+
+func (m *ClientAuthMatcher) Match(req *bfe_basic.Request) bool {
+	if req == nil || req.Session == nil || !req.Session.IsSecure || req.Session.TlsState == nil {
+		return false
+	}
+
+	return req.Session.TlsState.ClientAuth
+}
+
+// ClientCANameFetcher fetches client CA name
+type ClientCANameFetcher struct{}
+
+func (fetcher *ClientCANameFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
+	if req == nil {
+		return nil, fmt.Errorf("fetcher: no req")
+	}
+
+	ses := req.Session
+	if ses == nil || !ses.IsSecure || ses.TlsState == nil || !ses.TlsState.ClientAuth ||
+		ses.TlsState.ClientCAName == "" {
+		return nil, fmt.Errorf("fetcher: no client CA name")
+	}
+
+	return req.Session.TlsState.ClientCAName, nil
 }

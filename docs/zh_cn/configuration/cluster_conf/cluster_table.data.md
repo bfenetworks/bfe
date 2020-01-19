@@ -1,15 +1,29 @@
 # 简介
 
-cluster_table.data配置文件记录各后端集群包含的:
-- 子集群名称
-- 子集群内的实例信息（访问地址、权重）
+cluster_table.data配置文件记录各后端集群包含的子集群及实例
 
 # 配置
 
 | 配置项  | 类型   | 描述                                                           |
 | ------- | ------ | -------------------------------------------------------------- |
 | Version | String | 配置版本                                                       |
-| Config  | Struct | 各集群的子集群和对应的实例列表。 <br>集群 => 子集群 =>实例信息 |
+| Config  | Map<String, Cluster> | 各集群信息配置。Key代表集群名称，Value代表集群信息 |
+
+## Cluster
+Cluster记录集群信息，类型为Map<String, Array<Backend>>
+- Key代表子集群名称
+- Value代表子集群包含的实例信息列表
+    
+## Backend
+Backend记录后端实例信息
+
+| 配置项  | 类型   | 描述         |
+| ------- | ------ | ----------- |
+| Addr   | String | 实例监听地址  |
+| Port   | Int    | 实例监听端口  |
+| Weight | Int    | 实例权重     |
+| Name   | String | 实例名称     |
+
 
 # 示例
 

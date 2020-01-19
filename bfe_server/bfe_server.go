@@ -43,7 +43,6 @@ import (
 	"github.com/baidu/bfe/bfe_spdy"
 	"github.com/baidu/bfe/bfe_stream"
 	"github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_util"
 	"github.com/baidu/bfe/bfe_util/signal_table"
 	"github.com/baidu/bfe/bfe_websocket"
 )
@@ -312,12 +311,6 @@ func (srv *BfeServer) initTLSNextProtoHandler() {
 	bfe_http2.EnableLargeConnRecvWindow()
 }
 
-func (srv *BfeServer) InitLayer4InfoFetcher() {
-	if srv.Config.Server.Layer4LoadBalancer == "BGW" {
-		bfe_util.InitLayer4InfoFetcher(new(bfe_util.BGWInfoFetcher))
-	}
-}
-
 func (srv *BfeServer) InitModules(confRoot string) error {
 	return srv.Modules.Init(srv.CallBacks, srv.Monitor.WebHandlers, confRoot)
 }
@@ -333,7 +326,6 @@ func (srv *BfeServer) InitSignalTable() {
 	srv.SignalTable.Register(syscall.SIGILL, signal_table.IgnoreHandler)
 	srv.SignalTable.Register(syscall.SIGTRAP, signal_table.IgnoreHandler)
 	srv.SignalTable.Register(syscall.SIGABRT, signal_table.IgnoreHandler)
-	srv.SignalTable.Register(syscall.SIGSTKFLT, signal_table.IgnoreHandler)
 
 	/* start signal handler routine */
 	srv.SignalTable.StartSignalHandle()

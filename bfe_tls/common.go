@@ -57,14 +57,16 @@ const (
 
 // the following grade (A, B, C) is defined by
 // www.ssllabs.com
+// Grade A+: no ssl3, tls1.0, tls1.1 && no RC4 ciphers
 // Grade A: no ssl3 && no RC4 ciphers
 // Grade B: ssl3 is ok only with RC4 cipher, or
 //    modern version(>=tls10) with no RC4 cipher
 // Grade C: ssl3 is ok only with RC4 cipher
 const (
-	GradeA = "A"
-	GradeB = "B"
-	GradeC = "C"
+	GradeAPlus = "A+"
+	GradeA      = "A"
+	GradeB      = "B"
+	GradeC      = "C"
 )
 
 /*
@@ -220,6 +222,8 @@ type ConnectionState struct {
 	ServerRandom               []byte                // random in server hello
 	MasterSecret               []byte                // master secret used by the connection
 	ClientCiphers              []uint16              // ciphers supported by client
+	ClientAuth                 bool                  // enable TLS Client Authentication
+	ClientCAName               string                // TLS client CA name
 }
 
 // ClientAuthType declares the policy the server will follow for
@@ -296,6 +300,9 @@ type Rule struct {
 
 	// client CA certificate
 	ClientCAs *x509.CertPool
+
+	// client CA name
+	ClientCAName string
 
 	// enable Chacha20-poly1305 cipher suites
 	Chacha20 bool
@@ -559,10 +566,13 @@ func (c *Config) mutualVersion(vers uint16) (uint16, bool) {
 }
 
 // followed the rule definded in www.ssllabs.com:
+// in Grade "A+", ssl version older than tls1.2 is not allowed
 // in Grade "A", ssl verion older than tls1.0 is not allowed
 func (c *Config) checkVersionGrade(vers uint16, grade string) (uint16, bool) {
 	// ssl ver older than tls1.0 is not allowed for Grade A
 	if grade == GradeA && vers < VersionTLS10 {
+		return 0, false
+	} else if grade == GradeAPlus && vers < VersionTLS12 { // ssl version older than tls1.2 is not allowed for Grade A+
 		return 0, false
 	}
 
@@ -575,13 +585,15 @@ const (
 	onlyRC4    uint8 = 3
 )
 
-// currently, only Grade A need to exclude some ciphers with "RC4"
+// currently, Grade A+ and Grade A need to exclude some ciphers with "RC4"
 // ssl grade rule is defined by www.ssllabs.com:
 // Grade A: no ssl3 && no RC4 ciphers
 // Grade B: ssl3 is ok only with RC4 cipher, or modern version(>=tls10) with no RC4 cipher
 // Grade C: ssl3 is ok only with RC4 cipher
 func (c *Config) checkCipherGrade(conn *Conn) (useRC4 uint8) {
 	switch conn.grade {
+	case GradeAPlus:
+		fallthrough
 	case GradeA:
 		return disableRC4
 	case GradeB:

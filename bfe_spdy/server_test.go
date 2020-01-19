@@ -1306,9 +1306,8 @@ func TestServer_Exceed_Max_Concurrent_Streams(t *testing.T) {
 		if err := st.writeSynStream(5, headers, true); err != nil {
 			st.t.Fatal("client writing Frame should not fail")
 		}
-
-		time.Sleep(100 * time.Millisecond)
-		if err := st.writeSynStream(7, headers, true); err == nil {
+		st.writeSynStream(7, headers, true)
+		if _, err := st.readFrame(); err == nil {
 			st.t.Fatal("client writing Frame should fail")
 		}
 	})
@@ -1320,7 +1319,8 @@ func TestServer_Read_First_Request_Header_Timeout(t *testing.T) {
 		return nil
 	}, func(st *serverTester) {
 		time.Sleep(1200 * time.Millisecond)
-		if err := getSlash(st); err == nil {
+		getSlash(st)
+		if _, err := st.readFrame(); err == nil {
 			st.t.Fatal("client writing Frame should fail")
 		} else {
 			fmt.Printf("expecting error: %v\n", err)
@@ -1386,7 +1386,8 @@ func TestServer_Read_Client_Again_Timeout(t *testing.T) {
 			st.t.Fatalf("%v: wantSynReply for id5: %v", time.Now(), err)
 		}
 		time.Sleep(1200 * time.Millisecond)
-		if err := st.writeSynStream(4, nil, true); err == nil {
+		st.writeSynStream(4, nil, true)
+		if _, err := st.readFrame(); err == nil {
 			st.t.Fatalf("%v: client writing Frame should fail", time.Now())
 		} else {
 			fmt.Printf("expecting err: %v\n", err)

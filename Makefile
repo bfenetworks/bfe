@@ -17,8 +17,7 @@ WORKROOT := $(shell pwd)
 OUTDIR   := $(WORKROOT)/output
 
 # init environment variables
-export GOPATH      := $(WORKROOT)/../../../../
-export PATH        := $(GOPATH)/bin:$(PATH)
+export PATH        := $(shell go env GOPATH)/bin:$(PATH)
 export GO111MODULE := on
 
 # init command params
@@ -28,9 +27,13 @@ GOTEST  := $(GO) test
 GOVET   := $(GO) vet
 GOGET   := $(GO) get
 GOGEN   := $(GO) generate
+GOCLEAN := $(GO) clean
 
 # init bfe version
-BFE_VERSION ?= $(shell git rev-parse --short HEAD || echo "GitNotFound")
+BFE_VERSION ?= $(shell cat VERSION)
+
+# init bfe packages
+BFE_PKGS := $(shell go list ./...)
 
 # make, make all
 all: prepare compile package
@@ -43,7 +46,7 @@ prepare-gen:
 	cd "bfe_basic/condition/parser" && $(GOGEN)
 
 # make compile, go build
-compile: build
+compile: test build
 build:
 	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION)" 
 
@@ -54,14 +57,27 @@ test-case:
 vet-case:
 	${GOVET} ./...
 
+# make coverage for codecov
+coverage:
+	echo -n > coverage.txt
+	for pkg in $(BFE_PKGS) ; do $(GOTEST) -race -coverprofile=profile.out -covermode=atomic $${pkg} && cat profile.out >> coverage.txt; done
+
 # make package
 package:
 	mkdir -p $(OUTDIR)/bin
 	mv bfe  $(OUTDIR)/bin
 	cp -r conf $(OUTDIR)
 
+# make docker
+docker:
+	docker build \
+		-t bfe:$(BFE_VERSION) \
+		-f Dockerfile \
+		.
+
 # make clean
 clean:
+	$(GOCLEAN)
 	rm -rf $(OUTDIR)
 	rm -rf $(WORKROOT)/bfe
 	rm -rf $(GOPATH)/pkg/linux_amd64

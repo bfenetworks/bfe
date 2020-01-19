@@ -1,6 +1,7 @@
 # Contribute Code
 
-You are welcome to contribute to project BFE. 
+You are welcome to contribute to project BFE. To contribute to BFE, you have to agree with the 
+[Contributor License Agreement](https://cla-assistant.io/baidu/bfe).
 
 We sincerely appreciate your contribution. This document explains our workflow and work style.
 
