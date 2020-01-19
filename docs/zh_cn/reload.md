@@ -23,6 +23,10 @@ BFE内置reload接口以支持配置热加载，通过发送reload请求能够�
 
 | 功能名称                 | 默认配置文件                | 热加载接口          |
 | ----------------------- | ---------------------------- | ----------------- |
+| mod_auth_basic     | mod_auth_basic/auth_basic_rule.data | /reload/mod_auth_basic|
+| mod_compress       | mod_compress/compress_rule.data | /reload/mod_compress |
+| mod_geo            | mod_geo/geo.db | /reload/mod_geo |
+| mod_static         | mod_static/static_rule.data<br>mod_static/mime_type.data | /reload/mod_static<br>/reload/mod_static.mime_type   |
 | mod_block | mod_block/block_rules.data<br>mod_block/ip_blacklist.data | /reload/mod_block.product_rule_table<br>/reload/mod_block.global_ip_table |
 | mod_errors         | mod_errors/errors_rule.data | /reload/mod_errors |
 | mod_header              | mod_header/header_rule.data | /reload/mod_header |
