@@ -33,7 +33,7 @@ type ConfModRedirect struct {
 	}
 }
 
-// ConfLoad loades config from config file
+// ConfLoad loads config from config file
 func ConfLoad(filePath string, confRoot string) (*ConfModRedirect, error) {
 	var cfg ConfModRedirect
 	var err error

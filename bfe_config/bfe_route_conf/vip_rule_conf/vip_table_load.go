@@ -83,7 +83,7 @@ func VipTableConfCheck(conf *VipTableConf) error {
 	return nil
 }
 
-// VipRuleConfLoad loades config of vip table from file.
+// VipRuleConfLoad loads config of vip table from file.
 func VipRuleConfLoad(filename string) (VipConf, error) {
 	var vipConf VipConf
 

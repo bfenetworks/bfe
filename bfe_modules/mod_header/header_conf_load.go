@@ -199,7 +199,7 @@ func classifyRules(ruleList *RuleList) []*RuleList {
 	return ruleLists
 }
 
-// HeaderConfLoad loades config of header from file.
+// HeaderConfLoad loads config of header from file.
 func HeaderConfLoad(filename string) (HeaderConf, error) {
 	var conf HeaderConf
 	var err error
