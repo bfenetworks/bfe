@@ -82,10 +82,10 @@ func (c *Conn) serverHandshake() error {
 		if err := hs.establishKeys(); err != nil {
 			return err
 		}
-		if err := hs.sendFinished(isResume); err != nil {
+		if err := hs.sendFinished(); err != nil {
 			return err
 		}
-		if err := hs.readFinished(isResume); err != nil {
+		if err := hs.readFinished(); err != nil {
 			return err
 		}
 		c.didResume = true
@@ -100,13 +100,13 @@ func (c *Conn) serverHandshake() error {
 		if err := hs.establishKeys(); err != nil {
 			return err
 		}
-		if err := hs.readFinished(isResume); err != nil {
+		if err := hs.readFinished(); err != nil {
 			return err
 		}
-		if err := hs.sendSessionTicket(isResume); err != nil {
+		if err := hs.sendSessionTicket(); err != nil {
 			return err
 		}
-		if err := hs.sendFinished(isResume); err != nil {
+		if err := hs.sendFinished(); err != nil {
 			return err
 		}
 
@@ -784,7 +784,7 @@ func (hs *serverHandshakeState) establishKeys() error {
 	return nil
 }
 
-func (hs *serverHandshakeState) readFinished(isResume bool) error {
+func (hs *serverHandshakeState) readFinished() error {
 	c := hs.c
 
 	c.readRecord(recordTypeChangeCipherSpec)
@@ -827,7 +827,7 @@ func (hs *serverHandshakeState) readFinished(isResume bool) error {
 	return nil
 }
 
-func (hs *serverHandshakeState) sendSessionTicket(isResume bool) error {
+func (hs *serverHandshakeState) sendSessionTicket() error {
 	if !hs.hello.ticketSupported {
 		return nil
 	}
@@ -853,7 +853,7 @@ func (hs *serverHandshakeState) sendSessionTicket(isResume bool) error {
 	return nil
 }
 
-func (hs *serverHandshakeState) sendFinished(isResume bool) error {
+func (hs *serverHandshakeState) sendFinished() error {
 	c := hs.c
 
 	c.writeRecord(recordTypeChangeCipherSpec, []byte{1})
