@@ -272,7 +272,7 @@ func NewBalTableState() *BalTableState {
 	return state
 }
 
-// GetState returnes state of BalTable.
+// GetState returns state of BalTable.
 func (t *BalTable) GetState() *BalTableState {
 	state := NewBalTableState()
 
@@ -290,7 +290,7 @@ func (t *BalTable) GetState() *BalTableState {
 	return state
 }
 
-// GetVersions returnes versions of BalTable.
+// GetVersions returns versions of BalTable.
 func (t *BalTable) GetVersions() BalVersion {
 	t.lock.RLock()
 	versions := t.versions

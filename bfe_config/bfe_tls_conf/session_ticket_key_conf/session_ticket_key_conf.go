@@ -54,7 +54,7 @@ func SessionTicketKeyConfCheck(conf SessionTicketKeyConf) error {
 	return nil
 }
 
-// rawSessionTicketKeyLoad loades session ticket key from file in raw format (48 bytes binary file).
+// rawSessionTicketKeyLoad loads session ticket key from file in raw format (48 bytes binary file).
 func rawSessionTicketKeyLoad(filename string) (SessionTicketKeyConf, error) {
 	var config SessionTicketKeyConf
 

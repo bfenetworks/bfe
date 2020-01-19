@@ -124,7 +124,7 @@ func HostTableConfCheck(conf HostTableConf) error {
 	return nil
 }
 
-// HostRuleConfLoad loades config of host table from file.
+// HostRuleConfLoad loads config of host table from file.
 func HostRuleConfLoad(filename string) (HostConf, error) {
 	var conf HostConf
 	var config HostTableConf

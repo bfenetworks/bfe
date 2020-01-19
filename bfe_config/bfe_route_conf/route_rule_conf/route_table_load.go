@@ -122,7 +122,7 @@ func (conf *RouteTableConf) LoadAndCheck(filename string) (string, error) {
 	return conf.Version, nil
 }
 
-// RouteConfLoad loades config of route table from file.
+// RouteConfLoad loads config of route table from file.
 func RouteConfLoad(filename string) (*RouteTableConf, error) {
 	var conf RouteTableConf
 	if _, err := conf.LoadAndCheck(filename); err != nil {

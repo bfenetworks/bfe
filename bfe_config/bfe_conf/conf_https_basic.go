@@ -204,7 +204,7 @@ func tlsVersionCheck(cfg *ConfigHttpsBasic) error {
 	return nil
 }
 
-// LoadClientCAFile loades client ca certificate in PEM format
+// LoadClientCAFile loads client ca certificate in PEM format
 func LoadClientCAFile(path string) (*x509.CertPool, error) {
 	roots := x509.NewCertPool()
 	data, err := ioutil.ReadFile(path)
