@@ -2,6 +2,26 @@
     "Config": {
         "unittest": [
             {
+                "Cond": "req_host_in(\"www.example.org\") && req_path_prefix_in(\"/empty\", false)",
+                "Action": {
+                    "Cmd": "BROWSE",
+                    "Params": [
+                        "./testdata/mod_static/",
+                        ""
+                    ]
+                }
+            },
+             {
+                "Cond": "req_host_in(\"www.example.org\") && req_path_prefix_in(\"/directory\", false)",
+                "Action": {
+                    "Cmd": "BROWSE",
+                    "Params": [
+                        "./testdata/mod_static/",
+                        "./"
+                    ]
+                }
+            },
+            {
                 "Cond": "req_host_in(\"www.example.org\")",
                 "Action": {
                     "Cmd": "BROWSE",

@@ -37,25 +37,77 @@ func TestStaticFileHandler(t *testing.T) {
 		t.Errorf("Init() error: %v", err)
 		return
 	}
+	m.enableCompress = false
 
 	req := new(bfe_basic.Request)
 	req.Session = new(bfe_basic.Session)
 	req.Route.Product = "unittest"
+
+	// Case 1.
 	req.HttpRequest, _ = bfe_http.NewRequest("GET", "http://www.example.org", nil)
 	ret, resp := m.staticFileHandler(req)
 	if ret != bfe_module.BfeHandlerResponse {
 		t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerResponse, ret)
-		return
 	}
 	if resp.StatusCode != bfe_http.StatusOK {
 		t.Errorf("status code should be %d, not %d", bfe_http.StatusOK, resp.StatusCode)
-		return
 	}
+	resp.Body.Close()
 
+	// Case 2.
 	req.HttpRequest.Host = "example.org"
 	ret, _ = m.staticFileHandler(req)
 	if ret != bfe_module.BfeHandlerGoOn {
 		t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
+	}
+
+	// Case 3.
+	req.HttpRequest, _ = bfe_http.NewRequest("GET", "http://www.example.org/empty", nil)
+	ret, resp = m.staticFileHandler(req)
+	if ret != bfe_module.BfeHandlerResponse {
+		t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerResponse, ret)
+	}
+	if resp.StatusCode != bfe_http.StatusNotFound {
+		t.Errorf("status code should be %d, not %d", bfe_http.StatusNotFound, resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	// Case 4.
+	req.HttpRequest, _ = bfe_http.NewRequest("GET", "http://www.example.org/directory", nil)
+	ret, resp = m.staticFileHandler(req)
+	if ret != bfe_module.BfeHandlerResponse {
+		t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerResponse, ret)
+	}
+	if resp.StatusCode != bfe_http.StatusInternalServerError {
+		t.Errorf("status code should be %d, not %d",
+			bfe_http.StatusInternalServerError, resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	// Case 5.
+	req.HttpRequest, _ = bfe_http.NewRequest("GET", "http://www.example.org/hello", nil)
+	ret, resp = m.staticFileHandler(req)
+	if ret != bfe_module.BfeHandlerResponse {
+		t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerResponse, ret)
+	}
+	if resp.StatusCode != bfe_http.StatusOK {
+		t.Errorf("status code should be %d, not %d",
+			bfe_http.StatusInternalServerError, resp.StatusCode)
+	}
+	if resp.Header.Get("Content-Type") != "text/plain; charset=utf-8" {
+		t.Errorf("Content-Type should be \"text/plain; charset=utf-8\", not %s",
+			resp.Header.Get("Content-Type"))
+	}
+	resp.Body.Close()
+
+	// Check state.
+	fileCurrentOpened := m.state.FileCurrentOpened.Get()
+	if fileCurrentOpened != 0 {
+		t.Errorf("fileCurrentOpened should be 0, not %d", fileCurrentOpened)
+	}
+	fileBrowseNotExist := m.state.FileBrowseNotExist.Get()
+	if fileBrowseNotExist != 1 {
+		t.Errorf("fileBrowseNotExist should be 1, not %d", fileBrowseNotExist)
 	}
 }
 
@@ -82,5 +134,9 @@ func TestStaticFileHandler_Compressed(t *testing.T) {
 	if resp.StatusCode != bfe_http.StatusOK {
 		t.Errorf("status code should be %d, not %d", bfe_http.StatusOK, resp.StatusCode)
 		return
+	}
+	if resp.Header.Get("Content-Type") != "application/gzip" {
+		t.Errorf("Content-Type should be \"application/gzip\", not %s",
+			resp.Header.Get("Content-Type"))
 	}
 }
