@@ -33,10 +33,6 @@ func TestConfLoad(t *testing.T) {
 		t.Errorf("MimeTypePath should be mod_static/mime_type.data, not %s", config.Basic.MimeTypePath)
 	}
 
-	if !config.Basic.ContentDetection {
-		t.Errorf("ContentDetection should be true")
-	}
-
 	if !config.Basic.EnableCompress {
 		t.Errorf("EnableCompress should be true")
 	}

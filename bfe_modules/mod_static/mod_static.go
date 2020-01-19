@@ -16,18 +16,14 @@ package mod_static
 
 import (
 	"fmt"
-	"io"
 	"mime"
-	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
 
 import (
-	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/web-monitor/metrics"
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
 )
@@ -39,14 +35,11 @@ import (
 )
 
 const (
-	EncodeGzip = "gzip"
-
 	ModStatic = "mod_static"
 )
 
 var (
-	openDebug = false
-
+	openDebug     = false
 	unixEpochTime = time.Unix(0, 0)
 )
 
@@ -55,55 +48,17 @@ type ModuleStaticState struct {
 	FileBrowseCount            *metrics.Counter
 	FileBrowseNotExist         *metrics.Counter
 	FileBrowseContentTypeError *metrics.Counter
+	FileBrowseFallbackDefault  *metrics.Counter
 	FileCurrentOpened          *metrics.Gauge
 }
 
 type ModuleStatic struct {
-	name             string
-	state            ModuleStaticState
-	metrics          metrics.Metrics
-	configPath       string
-	mimeTypePath     string
-	contentDetection bool
-	enableCompress   bool
-	ruleTable        *StaticRuleTable
-	mimeTypeTable    *MimeTypeTable
-}
-
-type staticFile struct {
-	http.File
-	os.FileInfo
-	m *ModuleStatic
-}
-
-func newStaticFile(root string, filename string, m *ModuleStatic) (*staticFile, error) {
-	var err error
-	s := new(staticFile)
-	s.m = m
-	s.File, err = http.Dir(root).Open(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	s.FileInfo, err = s.File.Stat()
-	if err != nil {
-		s.File.Close()
-		return nil, err
-	}
-
-	m.state.FileCurrentOpened.Inc(1)
-	return s, nil
-}
-
-func (s *staticFile) Close() error {
-	err := s.File.Close()
-	if err != nil {
-		return err
-	}
-
-	state := s.m.state
-	state.FileCurrentOpened.Dec(1)
-	return nil
+	name          string
+	state         ModuleStaticState
+	metrics       metrics.Metrics
+	conf          *ConfModStatic
+	ruleTable     *StaticRuleTable
+	mimeTypeTable *MimeTypeTable
 }
 
 func NewModuleStatic() *ModuleStatic {
@@ -122,7 +77,7 @@ func (m *ModuleStatic) Name() string {
 func (m *ModuleStatic) loadConfData(query url.Values) error {
 	path := query.Get("path")
 	if path == "" {
-		path = m.configPath
+		path = m.conf.Basic.DataPath
 	}
 
 	conf, err := StaticConfLoad(path)
@@ -138,7 +93,7 @@ func (m *ModuleStatic) loadMimeType(query url.Values) error {
 	var err error
 	path := query.Get("path")
 	if path == "" {
-		path = m.mimeTypePath
+		path = m.conf.Basic.MimeTypePath
 	}
 
 	conf, err := MimeTypeConfLoad(path)
@@ -187,111 +142,70 @@ func errorStatusCode(err error) int {
 	return bfe_http.StatusInternalServerError
 }
 
-func (m *ModuleStatic) tryDefaultFile(root string, defaultFile string) (*staticFile, error) {
-	if len(defaultFile) != 0 {
-		file, err := newStaticFile(root, defaultFile, m)
-		if err != nil {
-			return nil, err
-		}
-
-		if file.IsDir() {
-			if openDebug {
-				log.Logger.Debug("%s: %s is directory", m.Name(), file.Name())
-			}
-			file.Close()
-			return nil, fmt.Errorf("directory is not supported")
-		}
-
-		return file, nil
-	}
-	m.state.FileBrowseNotExist.Inc(1)
-	return nil, os.ErrNotExist
-}
-
-func checkSupportCompress(req *bfe_http.Request) bool {
-	header := req.Header
-	acceptEncoding := header.GetDirect("Accept-Encoding")
-	return bfe_http.HasToken(acceptEncoding, EncodeGzip)
-}
-
-func (m *ModuleStatic) tryCompressedStaticFile(req *bfe_http.Request,
-	root string) (*staticFile, error) {
-	filename := req.URL.Path
-
-	if checkSupportCompress(req) {
-		_, err := os.Stat(root + filename + ".gz")
-		if m.enableCompress && err == nil {
-			return newStaticFile(root, filename+".gz", m)
-		}
-	}
-
-	return newStaticFile(root, filename, m)
-}
-
 func (m *ModuleStatic) openStaticFile(req *bfe_http.Request, root string,
 	defaultFile string) (*staticFile, error) {
-	file, err := m.tryCompressedStaticFile(req, root)
+	filename := req.URL.Path
+
+	// check accept encoding
+	encodingList := make([]string, 0)
+	if m.conf.Basic.EnableCompress {
+		encodingList = CheckAcceptEncoding(req)
+	}
+
+	// try specified file
+	file, err := newStaticFile(root, filename, encodingList, m)
 	if os.IsNotExist(err) {
-		file, err = m.tryDefaultFile(root, defaultFile)
-	}
-	if err != nil {
-		return nil, err
+		m.state.FileBrowseNotExist.Inc(1)
 	}
 
-	if file.IsDir() {
-		if openDebug {
-			log.Logger.Debug("%s: %s is directory", m.Name(), file.Name())
-		}
-
-		file.Close()
-		file, err = m.tryDefaultFile(root, defaultFile)
-		if err != nil {
-			return nil, err
+	// try default file
+	if os.IsNotExist(err) || err == errUnexpectedDir {
+		if len(defaultFile) != 0 {
+			file, err = newStaticFile(root, defaultFile, encodingList, m)
+			m.state.FileBrowseFallbackDefault.Inc(1)
 		}
 	}
 
-	return file, nil
+	return file, err
 }
 
-func (m *ModuleStatic) detectContentType(file *staticFile) (string, error) {
-	ext := filepath.Ext(file.Name())
-
-	if ctype, ok := m.mimeTypeTable.Search(strings.ToLower(ext)); ok {
-		return ctype, nil
+func (m *ModuleStatic) processContentType(resp *bfe_http.Response, file *staticFile) {
+	// get and check mime type
+	ctype, ok := m.mimeTypeTable.Search(strings.ToLower(file.extension))
+	if !ok {
+		ctype = mime.TypeByExtension(file.extension)
+	}
+	if ctype == "" {
+		m.state.FileBrowseContentTypeError.Inc(1)
+		return
 	}
 
-	ctype := mime.TypeByExtension(ext)
-	if ctype != "" {
-		return ctype, nil
-	}
-
-	if !m.contentDetection {
-		if openDebug {
-			log.Logger.Debug("%s: unknown file extension: %s", m.Name(), ext)
-		}
-
-		return "", fmt.Errorf("unknown file extension: %s", ext)
-	}
-
-	var buf [512]byte
-	n, err := io.ReadFull(file, buf[:])
-	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-		return "", err
-	}
-
-	ctype = http.DetectContentType(buf[:n])
-	_, err = file.Seek(0, io.SeekStart)
-	return ctype, err
+	// set Content-Type header
+	resp.Header.Set("Content-Type", ctype)
 }
 
-func isZeroTime(t time.Time) bool {
-	return t.IsZero() || t.Equal(unixEpochTime)
+func (m *ModuleStatic) processContentEncoding(resp *bfe_http.Response, file *staticFile) {
+	switch file.encoding {
+	case EncodeGzip, EncodeBrotil:
+		resp.Header.Set("Content-Encoding", file.encoding)
+	default:
+		return
+	}
 }
 
-func setLastModified(resp *bfe_http.Response, modtime time.Time) {
-	if !isZeroTime(modtime) {
-		resp.Header.Set("Last-Modified", modtime.UTC().Format(bfe_http.TimeFormat))
+func (m *ModuleStatic) processContentLength(resp *bfe_http.Response, file *staticFile) {
+	resp.Header.Set("Content-Length", fmt.Sprintf("%d", file.Size()))
+}
+
+func (m *ModuleStatic) processLastModified(resp *bfe_http.Response, file *staticFile) {
+	// get and check mod time
+	t := file.ModTime()
+	if t.IsZero() || t.Equal(unixEpochTime) {
+		return
 	}
+
+	// set Last-Modified header
+	resp.Header.Set("Last-Modified", t.UTC().Format(bfe_http.TimeFormat))
 }
 
 func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
@@ -300,29 +214,28 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 	root := rule.Action.Params[0]
 	defaultFile := rule.Action.Params[1]
 
+	// check request method
 	httpRequest := req.HttpRequest
-	if httpRequest.Method != "GET" && httpRequest.Method != "HEAD" {
+	if httpRequest.Method != "GET" {
 		resp.StatusCode = bfe_http.StatusMethodNotAllowed
 		return resp
 	}
 
+	// open static file
 	file, err := m.openStaticFile(httpRequest, root, defaultFile)
 	if err != nil {
 		resp.StatusCode = errorStatusCode(err)
 		return resp
 	}
-
-	ctype, err := m.detectContentType(file)
-	if err != nil {
-		m.state.FileBrowseContentTypeError.Inc(1)
-		resp.StatusCode = errorStatusCode(err)
-		return resp
-	}
-
-	resp.Header.Set("Content-Type", ctype)
-	setLastModified(resp, file.ModTime())
-	resp.Body = file
 	m.state.FileBrowseSize.Inc(uint(file.Size()))
+
+	// prepare response
+	m.processContentType(resp, file)
+	m.processContentEncoding(resp, file)
+	m.processContentLength(resp, file)
+	m.processLastModified(resp, file)
+	resp.Body = file
+
 	return resp
 }
 
@@ -333,14 +246,16 @@ func (m *ModuleStatic) staticFileHandler(req *bfe_basic.Request) (int, *bfe_http
 	}
 
 	for _, rule := range *rules {
-		if rule.Cond.Match(req) {
-			switch rule.Action.Cmd {
-			case ActionBrowse:
-				m.state.FileBrowseCount.Inc(1)
-				return bfe_module.BfeHandlerResponse, m.createRespFromStaticFile(req, &rule)
-			default:
-				continue
-			}
+		if !rule.Cond.Match(req) {
+			continue
+		}
+
+		switch rule.Action.Cmd {
+		case ActionBrowse:
+			m.state.FileBrowseCount.Inc(1)
+			return bfe_module.BfeHandlerResponse, m.createRespFromStaticFile(req, &rule)
+		default: // never come here
+			return bfe_module.BfeHandlerGoOn, nil
 		}
 	}
 
@@ -356,12 +271,8 @@ func (m *ModuleStatic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	if cfg, err = ConfLoad(confPath, cr); err != nil {
 		return fmt.Errorf("%s: conf load err: %v", m.name, err)
 	}
-
 	openDebug = cfg.Log.OpenDebug
-	m.configPath = cfg.Basic.DataPath
-	m.mimeTypePath = cfg.Basic.MimeTypePath
-	m.contentDetection = cfg.Basic.ContentDetection
-	m.enableCompress = cfg.Basic.EnableCompress
+	m.conf = cfg
 
 	if err = m.loadConfData(nil); err != nil {
 		return fmt.Errorf("err in loadConfData(): %v", err)

@@ -25,10 +25,9 @@ import (
 
 type ConfModStatic struct {
 	Basic struct {
-		DataPath         string
-		MimeTypePath     string
-		ContentDetection bool
-		EnableCompress   bool
+		DataPath       string
+		MimeTypePath   string
+		EnableCompress bool
 	}
 
 	Log struct {
