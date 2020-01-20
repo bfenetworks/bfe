@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/abbot/go-http-auth v0.4.1-0.20181019201920-860ed7f246ff
 	github.com/asergeyev/nradix v0.0.0-20170505151046-3872ab85bb56 // indirect
-	github.com/baidu/go-lib v0.0.0-20191211084149-f80a8a568e3f
+	github.com/baidu/go-lib v0.0.0-20191217050907-c1bbbad6b030
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/oschwald/geoip2-golang v1.3.0
 	github.com/oschwald/maxminddb-golang v1.5.0 // indirect
