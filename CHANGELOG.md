@@ -12,15 +12,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unrelease]
 ### Added
+- Add mod_prison to limit the amount of requests a user can make in a given period of time.
 - Add condition primitive: ses_tls_sni_in/ses_tls_client_auth/ses_tls_client_ca_in
 - Add tls mutual authentication
+- mod_header support client cert related variables
+- mod_header support geo related variables
 - mod_static support customized mime rules
-- Expose info of module handlers in web monitor
+- mod_static allow sending precompressed files instead of regular files
+- Expose information about module handlers in web monitor
+- Optimize number of accept goroutines
 - Optimize lock of bfe_balance.BalTable
+- Optimize io.Copy while forwarding responses
+- Compiling on MacOS is supported
 - Documents optimization
 
 ### Changed
 - Change default Layer4LoadBalancer to NONE
+- Upgrade from go1.12 to go1.13
 
 
 ## [v0.5.0] - 2019-12-12
