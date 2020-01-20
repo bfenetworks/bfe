@@ -147,7 +147,7 @@ func (m *ModulePrison) getStateDiff(params map[string][]string) ([]byte, error) 
 }
 
 func (m *ModulePrison) loadProductRuleTable(query url.Values) (string, error) {
-        // get reload file path
+	// get reload file path
 	path := query.Get("path")
 	if path == "" {
 		path = m.productConfPath // use default

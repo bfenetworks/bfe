@@ -28,6 +28,7 @@ import (
 	"github.com/baidu/bfe/bfe_modules/mod_http_code"
 	"github.com/baidu/bfe/bfe_modules/mod_key_log"
 	"github.com/baidu/bfe/bfe_modules/mod_logid"
+	"github.com/baidu/bfe/bfe_modules/mod_prison"
 	"github.com/baidu/bfe/bfe_modules/mod_redirect"
 	"github.com/baidu/bfe/bfe_modules/mod_rewrite"
 	"github.com/baidu/bfe/bfe_modules/mod_static"
@@ -50,6 +51,10 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_block
 	// Requirement: After mod_logid
 	mod_block.NewModuleBlock(),
+
+	// mod_prison
+	// Requirement: After mod_logid
+	mod_prison.NewModulePrison(),
 
 	// mod_auth_basic
 	// Requirement: before mod_static
