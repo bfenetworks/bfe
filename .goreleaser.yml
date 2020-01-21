@@ -1,0 +1,30 @@
+project_name: bfe
+
+builds:
+  - binary: bfe
+    main: ./bfe.go
+    ldflags:
+      - -X main.Version={{.Version}}
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - 386
+
+changelog:
+  skip: true
+
+archives:
+  - id: bfe
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: tar.gz
+    files:
+      - LICENSE
+      - CHANGELOG.md
+      - conf/*/*
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+
+release:
+  disable: true

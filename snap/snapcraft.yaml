@@ -1,0 +1,26 @@
+  name: bfe
+  version: git
+  summary: Open-source layer 7 load balancer
+  description: |
+    BFE is an open-source layer 7 load balancer derived from proprietary Baidu FrontEnd.
+
+  license: Apache-2.0
+  base: core18
+  grade: stable
+  confinement: strict
+
+  parts:
+    bfe:
+      plugin: go
+      go-channel: 1.13/stable
+      go-importpath: github.com/baidu/bfe
+      source: https://github.com/baidu/bfe.git
+      source-type: git
+      override-build: | 
+        make
+        cp -r output/* $SNAPCRAFT_PART_INSTALL/
+
+  apps:
+    bfe:
+      command: bin/bfe -c $SNAP/conf -l $SNAP_DATA/log
+      plugs: [network-bind]

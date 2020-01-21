@@ -53,22 +53,22 @@ type IpLocationTable struct {
 	locations []byte
 }
 
-func NewIpLocationTable(maxSize uint32, LocLen uint32) (*IpLocationTable, error) {
+func NewIpLocationTable(maxSize uint32, locLen uint32) (*IpLocationTable, error) {
 	// maxSize max is MAX_LINE
 	if maxSize == 0 || maxSize > MAX_LINE {
 		return nil, fmt.Errorf("NewIpLocationTable caused by maxSize :%d", maxSize)
 	}
 
 	// LocLen max size is MAX_LOC_LEN
-	if LocLen == 0 || LocLen > MAX_LOC_LEN {
-		return nil, fmt.Errorf("NewIpLocationTable caused by LocLen :%d", LocLen)
+	if locLen == 0 || locLen > MAX_LOC_LEN {
+		return nil, fmt.Errorf("NewIpLocationTable caused by LocLen :%d", locLen)
 	}
 
 	ipLocTable := new(IpLocationTable)
 	ipLocTable.maxSize = maxSize
 	ipLocTable.offset = 0
-	ipLocTable.LocLen = LocLen
-	ipLocTable.locations = make([]byte, (HEADER_LEN+LocLen)*maxSize, (HEADER_LEN+LocLen)*maxSize)
+	ipLocTable.LocLen = locLen
+	ipLocTable.locations = make([]byte, (HEADER_LEN+locLen)*maxSize, (HEADER_LEN+locLen)*maxSize)
 	return ipLocTable, nil
 }
 

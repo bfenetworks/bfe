@@ -88,7 +88,7 @@ func (m *ModuleBlock) Name() string {
 	return m.name
 }
 
-// loadGlobalIPTable loades global ip blacklist.
+// loadGlobalIPTable loads global ip blacklist.
 func (m *ModuleBlock) loadGlobalIPTable(query url.Values) error {
 	// get reload file path
 	path := query.Get("path")
@@ -265,7 +265,7 @@ func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 		return fmt.Errorf("%s.Init(): AddFilter(m.globalBlockHandler): %s", m.name, err.Error())
 	}
 
-	err = cbs.AddFilter(bfe_module.HandleAfterLocation, m.productBlockHandler)
+	err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.productBlockHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.productBlockHandler): %s", m.name, err.Error())
 	}

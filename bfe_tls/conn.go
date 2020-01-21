@@ -69,6 +69,7 @@ type Conn struct {
 	grade               string         // tls security grade, usually is "A", "B", "C"
 	clientAuth          ClientAuthType // tls client auth type
 	clientCAs           *x509.CertPool
+	clientCAName        string   // tls client CA name
 	enableDynamicRecord bool     // enable dynamic record size or not
 	clientRandom        []byte   // random in client hello msg
 	serverRandom        []byte   // random in server hello msg
@@ -1270,6 +1271,10 @@ func (c *Conn) ConnectionState() ConnectionState {
 		state.ServerRandom = c.serverRandom
 		state.MasterSecret = c.masterSecret
 		state.ClientCiphers = c.clientCiphers
+		if c.clientAuth == RequireAndVerifyClientCert {
+			state.ClientAuth = true
+		}
+		state.ClientCAName = c.clientCAName
 	}
 
 	return state

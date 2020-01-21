@@ -11,15 +11,15 @@
 - **req_header_key_in(patterns)**
   - Judge if header key in matches configured patterns
   - **Note: each word in header key need to be capitalized**
-  ```
-  # right：
-  req_header_key_in("Header-Test")
+   ```
+   # right：
+   req_header_key_in("Header-Test")
 
-  # wrong：
-  req_header_key_in("Header-test")
-  req_header_key_in("header-test")
-  req_header_key_in("header-Test")
-  ```
+   # wrong：
+   req_header_key_in("Header-test")
+   req_header_key_in("header-test")
+   req_header_key_in("header-Test")
+   ```
   
 - **req_header_value_in(header_name, patterns, case_insensitive)**
   - Judge if value of key in header matches configured patterns

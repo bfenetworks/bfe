@@ -44,6 +44,11 @@
 package bfe_module
 
 import (
+	"reflect"
+	"runtime"
+)
+
+import (
 	"github.com/baidu/bfe/bfe_basic"
 	"github.com/baidu/bfe/bfe_http"
 )
@@ -69,6 +74,11 @@ func (f *genericRequestFilter) FilterRequest(request *bfe_basic.Request) (int, *
 	return f.f(request)
 }
 
+func (f *genericRequestFilter) String() string {
+	ptr := reflect.ValueOf(f.f).Pointer()
+	return runtime.FuncForPC(ptr).Name()
+}
+
 // ResponseFilter filters outgoing responses. This can be used to modify the response
 // before it is sent.
 type ResponseFilter interface {
@@ -88,6 +98,11 @@ type genericResponseFilter struct {
 
 func (f *genericResponseFilter) FilterResponse(req *bfe_basic.Request, res *bfe_http.Response) int {
 	return f.f(req, res)
+}
+
+func (f *genericResponseFilter) String() string {
+	ptr := reflect.ValueOf(f.f).Pointer()
+	return runtime.FuncForPC(ptr).Name()
 }
 
 // AcceptFilter filters incoming connections.
@@ -110,6 +125,11 @@ func (f *genericAcceptFilter) FilterAccept(session *bfe_basic.Session) int {
 	return f.f(session)
 }
 
+func (f *genericAcceptFilter) String() string {
+	ptr := reflect.ValueOf(f.f).Pointer()
+	return runtime.FuncForPC(ptr).Name()
+}
+
 // ForwardFilter filters to forward request
 type ForwardFilter interface {
 	FilterForward(*bfe_basic.Request) int
@@ -130,6 +150,11 @@ func (f *genericForwardFilter) FilterForward(req *bfe_basic.Request) int {
 	return f.f(req)
 }
 
+func (f *genericForwardFilter) String() string {
+	ptr := reflect.ValueOf(f.f).Pointer()
+	return runtime.FuncForPC(ptr).Name()
+}
+
 // FinishFilter filters finished session(connection)
 type FinishFilter interface {
 	FilterFinish(*bfe_basic.Session) int
@@ -148,4 +173,9 @@ type genericFinishFilter struct {
 
 func (f *genericFinishFilter) FilterFinish(session *bfe_basic.Session) int {
 	return f.f(session)
+}
+
+func (f *genericFinishFilter) String() string {
+	ptr := reflect.ValueOf(f.f).Pointer()
+	return runtime.FuncForPC(ptr).Name()
 }

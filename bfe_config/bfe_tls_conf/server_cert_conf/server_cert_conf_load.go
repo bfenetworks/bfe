@@ -104,7 +104,7 @@ func BfeServerCertConfCheck(conf BfeServerCertConf) error {
 	return nil
 }
 
-// ServerCertConfLoad loades config of certificate from file.
+// ServerCertConfLoad loads config of certificate from file.
 func ServerCertConfLoad(filename string) (BfeServerCertConf, error) {
 	var config BfeServerCertConf
 
@@ -204,7 +204,7 @@ func ServerCertParse(certConf BfeServerCertConf) (map[string]*bfe_tls.Certificat
 	return certMap, nil
 }
 
-// GetNamesForCert returnes all subject names of cert.
+// GetNamesForCert returns all subject names of cert.
 func GetNamesForCert(cert *bfe_tls.Certificate) []string {
 	// parse certificate
 	x509Cert, err := x509.ParseCertificate(cert.Certificate[0])

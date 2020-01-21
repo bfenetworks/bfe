@@ -12,7 +12,7 @@ bfe.conf是BFE的核心配置。
 | HttpsPort               | Int    | HTTPS(TLS)监听端口                                           | 8443                               |
 | MonitorPort             | Int    | Monitor监听端口                                              | 8421                               |
 | MaxCpus                 | Int    | 最大使用CPU核数; 0代表使用所有CPU核                          | 0                                  |
-| Layer4LoadBalancer      | String | 四层负载均衡器类型 (PROXY/BGW/NONE)                          | BGW                                |
+| Layer4LoadBalancer      | String | 四层负载均衡器类型 (PROXY/BGW/NONE)                          | NONE                                |
 | TlsHandshakeTimeout     | Int    | TLS握手超时时间，单位为秒                                    | 30s                                |
 | ClientReadTimeout       | Int    | 读客户端超时时间，单位为秒                                   | 60s                                |
 | ClientWriteTimeout      | Int    | 写客户端超时时间，单位为秒                                   | 60s                                |

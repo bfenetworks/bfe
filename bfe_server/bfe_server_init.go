@@ -58,6 +58,15 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 		return err
 	}
 
+	// load data
+	err = bfeServer.InitDataLoad()
+	if err != nil {
+		log.Logger.Error("StartUp(): bfeServer.InitDataLoad():%s",
+			err.Error())
+		return err
+	}
+	log.Logger.Info("StartUp(): bfeServer.InitDataLoad() OK")
+
 	// setup signal table
 	bfeServer.InitSignalTable()
 	log.Logger.Info("StartUp():bfeServer.InitSignalTable() OK")
@@ -86,31 +95,26 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	}
 	log.Logger.Info("StartUp():bfeServer.InitModules() OK")
 
-	// load data
-	err = bfeServer.InitDataLoad()
-	if err != nil {
-		log.Logger.Error("StartUp(): bfeServer.InitDataLoad():%s",
-			err.Error())
-		return err
-	}
-	log.Logger.Info("StartUp(): bfeServer.InitDataLoad() OK")
-
 	// start embedded web server
 	bfeServer.Monitor.Start()
 
 	serveChan := make(chan error)
 
 	// start goroutine to accept http connections
-	go func() {
-		httpErr := bfeServer.ServeHttp(bfeServer.HttpListener)
-		serveChan <- httpErr
-	}()
+	for i := 0; i < cfg.Server.AcceptNum; i++ {
+		go func() {
+			httpErr := bfeServer.ServeHttp(bfeServer.HttpListener)
+			serveChan <- httpErr
+		}()
+	}
 
 	// start goroutine to accept https connections
-	go func() {
-		httpsErr := bfeServer.ServeHttps(bfeServer.HttpsListener)
-		serveChan <- httpsErr
-	}()
+	for i := 0; i < cfg.Server.AcceptNum; i++ {
+		go func() {
+			httpsErr := bfeServer.ServeHttps(bfeServer.HttpsListener)
+			serveChan <- httpsErr
+		}()
+	}
 
 	err = <-serveChan
 	return err

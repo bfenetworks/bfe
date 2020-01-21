@@ -298,6 +298,7 @@ Curves:
 	if rule != nil && rule.ClientAuth {
 		c.clientAuth = RequireAndVerifyClientCert
 		c.clientCAs = rule.ClientCAs
+		c.clientCAName = rule.ClientCAName
 	}
 
 	// check whether chacha20-poly1305 is enabled for current connection

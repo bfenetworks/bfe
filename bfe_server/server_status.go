@@ -265,3 +265,7 @@ func (srv *BfeServer) proxyHandshakeResumeDelayGet(params map[string][]string) (
 func (srv *BfeServer) ModuleStatusGetJSON() ([]byte, error) {
 	return bfe_module.ModuleStatusGetJSON()
 }
+
+func (srv *BfeServer) ModuleHandlersGetJSON() ([]byte, error) {
+	return srv.CallBacks.ModuleHandlersGetJSON()
+}

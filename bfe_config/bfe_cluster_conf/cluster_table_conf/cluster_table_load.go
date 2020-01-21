@@ -210,7 +210,7 @@ func ClusterTableConfCheck(conf ClusterTableConf) error {
 	return nil
 }
 
-// ClusterTableLoad loades config of cluster table from file
+// ClusterTableLoad loads config of cluster table from file
 func ClusterTableLoad(filename string) (ClusterTableConf, error) {
 	var config ClusterTableConf
 

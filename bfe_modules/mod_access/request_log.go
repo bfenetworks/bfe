@@ -187,7 +187,7 @@ func onLogFmtLogId(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 		return errors.New("req is nil")
 	}
 
-	msg := fmt.Sprintf("%s", req.LogId)
+	msg := req.LogId
 	buff.WriteString(msg)
 
 	return nil
@@ -448,7 +448,7 @@ func onLogFmtResProto(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 
 	msg := "-"
 	if res != nil {
-		msg = fmt.Sprintf("%s", res.Proto)
+		msg = res.Proto
 	}
 	buff.WriteString(msg)
 
@@ -504,7 +504,7 @@ func onLogFmtResStatus(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 
 	msg := "-"
 	if res != nil {
-		msg = fmt.Sprintf("%s", res.Status)
+		msg = res.Status
 	}
 	buff.WriteString(msg)
 

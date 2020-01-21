@@ -1,0 +1,27 @@
+{
+	"Version": "20190101000000",
+	"Config": {
+		"example_product": [{
+			"Name": "example_prison",
+			"Cond": "req_path_prefix_in(\"/prison\", false)",
+			"accessSignConf": {
+				"url": false,
+				"path": false,
+				"query": [],
+				"header": [],
+				"Cookie": [
+					"UID"
+				]
+			},
+			"action": {
+				"cmd": "CLOSE",
+				"params": []
+			},
+			"checkPeriod": 10,
+			"stayPeriod": 10,
+			"threshold": 5,
+			"accessDictSize": 1000,
+			"prisonDictSize": 1000
+		}]
+	}
+}

@@ -144,7 +144,7 @@ func ActionFileListCheck(conf *ActionFileList) error {
 	return nil
 }
 
-// expectPercent returnes index of '%', otherwise return
+// expectPercent returns index of '%', otherwise return
 // last index of str
 func expectPercent(str string) int {
 	index := 0

@@ -140,7 +140,7 @@ func (bal *BalanceGslb) BackendInit(clusterBackend cluster_table_conf.ClusterBac
 	return nil
 }
 
-// Reload reloades gslb config
+// Reload reloads gslb config
 func (bal *BalanceGslb) Reload(gslbConf gslb_conf.GslbClusterConf) error {
 	bal.lock.Lock()
 	defer bal.lock.Unlock()

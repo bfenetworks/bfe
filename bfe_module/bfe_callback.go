@@ -17,6 +17,7 @@
 package bfe_module
 
 import (
+	"encoding/json"
 	"fmt"
 )
 
@@ -36,6 +37,31 @@ const (
 	HandleRequestFinish  = 7
 	HandleFinish         = 8
 )
+
+func CallbackPointName(point int) string {
+	switch point {
+	case HandleAccept:
+		return "HandleAccept"
+	case HandleHandshake:
+		return "HandleHandshake"
+	case HandleBeforeLocation:
+		return "HandleBeforeLocation"
+	case HandleFoundProduct:
+		return "HandleFoundProduct"
+	case HandleAfterLocation:
+		return "HandleAfterLocation"
+	case HandleForward:
+		return "HandleForward"
+	case HandleReadResponse:
+		return "HandleReadResponse"
+	case HandleRequestFinish:
+		return "HandleRequestFinish"
+	case HandleFinish:
+		return "HandleFinish"
+	default:
+		return "HandleUnknown"
+	}
+}
 
 type BfeCallbacks struct {
 	callbacks map[int]*HandlerList
@@ -106,4 +132,20 @@ func (bcb *BfeCallbacks) GetHandlerList(point int) *HandlerList {
 	}
 
 	return hl
+}
+
+// ModuleHandlersGetJSON get info of hanlders
+func (bcb *BfeCallbacks) ModuleHandlersGetJSON() ([]byte, error) {
+	cbs := make(map[string][]string)
+
+	for point, hl := range bcb.callbacks {
+		pointName := fmt.Sprintf("%d#%s", point, CallbackPointName(point))
+		handlerNames := make([]string, 0)
+		for e := hl.handlers.Front(); e != nil; e = e.Next() {
+			handlerNames = append(handlerNames, fmt.Sprintf("%s", e.Value))
+		}
+		cbs[pointName] = handlerNames
+	}
+
+	return json.Marshal(cbs)
 }
