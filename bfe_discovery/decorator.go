@@ -14,29 +14,17 @@
 
 package bfe_discovery
 
-import "time"
+type Decorator func(string) string
 
-type Config struct {
-	Addrs []string
-	DialTimeout time.Duration
-
-	// TODO bfe_ prefix
-	PathPrefix string
-
-	// TODO cancel context timeout
-	OpTimeout time.Duration
-
-	// TODO tls
-	TLSConfig *TLSConfig
-
-	// TODO auth
-	Username string
-	Password string
-	Token string
+func Decorate(s string, ds ...Decorator) string {
+	for _, decorator := range ds {
+		s = decorator(s)
+	}
+	return s
 }
 
-type TLSConfig struct {
-	CertFile string
-	KeyFile string
-	CACertFile string
+func DecoPathPrefix(string) func(string) string  {
+	return func(s string) string {
+		return
+	}
 }

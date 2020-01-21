@@ -1,11 +1,25 @@
+// Copyright (c) 2019 Baidu, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package v3
 
 import (
-	"time"
-	"sync"
 	"context"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 )
 
 import (
@@ -21,24 +35,24 @@ const (
 )
 
 type Etcdv3 struct {
-	cli *etcd.Client
+	cli  *etcd.Client
 	once sync.Once
 }
 
-func init()  {
+func init() {
 	discovery.Register(discovery.BACKENDETCDV3, New)
 }
 
-func New(config *discovery.Config) (discovery.Store, error)  {
+func New(config *discovery.Config) (discovery.Store, error) {
 	var err error
 	e := &Etcdv3{}
 
 	// defautl config
 	if config == nil {
 		config = &discovery.Config{
-			Addrs: []string{"127.0.0.1:2379"},
+			Addrs:       []string{"127.0.0.1:2379"},
 			DialTimeout: 5 * time.Second,
-			PathPrefix: PathPrefix,
+			PathPrefix:  PathPrefix,
 		}
 	}
 
@@ -47,7 +61,7 @@ func New(config *discovery.Config) (discovery.Store, error)  {
 		DialTimeout: config.DialTimeout,
 
 		Username: config.Username,
-		Password:config.Password,
+		Password: config.Password,
 	})
 	if err != nil {
 		return nil, err
@@ -61,20 +75,20 @@ func (e *Etcdv3) Get(ctx context.Context, key string, options *discovery.ReadOpt
 
 	if options != nil && !options.Consistency {
 		resp, err = e.cli.Get(ctx, key)
-	}else {
+	} else {
 		resp, err = e.cli.Get(ctx, key, etcd.WithSerializable())
 	}
 	if err != nil {
-		return  nil, err
+		return nil, err
 	}
 
 	if resp.Count == 0 {
-		return nil, fmt.Errorf("%s(%s)",discovery.ErrKeyNotFound, key)
+		return nil, fmt.Errorf("%s(%s)", discovery.ErrKeyNotFound, key)
 	}
 
 	kvPair := &discovery.KVPair{
-		Key:string(resp.Kvs[0].Key),
-		Value:resp.Kvs[0].Value,
+		Key:   string(resp.Kvs[0].Key),
+		Value: resp.Kvs[0].Value,
 	}
 
 	return kvPair, nil
@@ -86,22 +100,22 @@ func (e *Etcdv3) List(ctx context.Context, key string, options *discovery.ReadOp
 
 	if options != nil && !options.Consistency {
 		resp, err = e.cli.Get(ctx, key, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortDescend))
-	}else {
+	} else {
 		resp, err = e.cli.Get(ctx, key, etcd.WithSerializable(), etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortDescend))
 	}
 	if err != nil {
-		return  nil, err
+		return nil, err
 	}
 
 	if resp.Count == 0 {
-		return nil, fmt.Errorf("%s(%s)",discovery.ErrKeyNotFound, key)
+		return nil, fmt.Errorf("%s(%s)", discovery.ErrKeyNotFound, key)
 	}
 
 	var kvPair []*discovery.KVPair
 	for _, kv := range resp.Kvs {
 		kvPair = append(kvPair, &discovery.KVPair{
-			Key: string(kv.Key),
-			Value:kv.Value,
+			Key:   string(kv.Key),
+			Value: kv.Value,
 		})
 	}
 
@@ -111,17 +125,17 @@ func (e *Etcdv3) List(ctx context.Context, key string, options *discovery.ReadOp
 func (e *Etcdv3) Put(ctx context.Context, key string, value []byte, options *discovery.WriteOptions) error {
 	var err error
 
-	if options != nil && options.TTL > 0{
+	if options != nil && options.TTL > 0 {
 		grantResp, err := e.cli.Grant(context.Background(), int64(options.TTL/time.Second))
 		if err != nil {
 			return err
 		}
 		_, err = e.cli.Put(ctx, key, string(value), etcd.WithLease(grantResp.ID))
-	}else {
+	} else {
 		_, err = e.cli.Put(ctx, key, string(value))
 	}
 	if err != nil {
-		return  err
+		return err
 	}
 
 	return nil
@@ -136,7 +150,7 @@ func (e *Etcdv3) Delete(ctx context.Context, key string) error {
 	}
 
 	if resp.Deleted == 0 {
-		return fmt.Errorf("%s(%s)",discovery.ErrKeyNotFound, key)
+		return fmt.Errorf("%s(%s)", discovery.ErrKeyNotFound, key)
 	}
 
 	return nil
@@ -166,14 +180,14 @@ func (e *Etcdv3) Watch(ctx context.Context, key string, options *discovery.ReadO
 		for wresp := range rch {
 			for _, ev := range wresp.Events {
 				respCh <- &discovery.KVPair{
-					Key:string(ev.Kv.Key),
-					Value:ev.Kv.Value,
+					Key:   string(ev.Kv.Key),
+					Value: ev.Kv.Value,
 				}
 			}
 		}
 	}()
 
-	return respCh,nil
+	return respCh, nil
 }
 
 func (e *Etcdv3) WatchList(ctx context.Context, key string, options *discovery.ReadOptions) (<-chan []*discovery.KVPair, error) {
@@ -189,8 +203,8 @@ func (e *Etcdv3) WatchList(ctx context.Context, key string, options *discovery.R
 			list := make([]*discovery.KVPair, len(wresp.Events))
 			for i, ev := range wresp.Events {
 				list[i] = &discovery.KVPair{
-					Key:string(ev.Kv.Key),
-					Value:ev.Kv.Value,
+					Key:   string(ev.Kv.Key),
+					Value: ev.Kv.Value,
 				}
 
 				respCh <- list
@@ -198,10 +212,10 @@ func (e *Etcdv3) WatchList(ctx context.Context, key string, options *discovery.R
 		}
 	}()
 
-	return respCh,nil
+	return respCh, nil
 }
 
-func (e *Etcdv3)Close()  {
+func (e *Etcdv3) Close() {
 	e.once.Do(func() {
 		e.cli.Close()
 	})
