@@ -1,10 +1,24 @@
+// Copyright (c) 2019 Baidu, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package v3
 
 import (
-	"context"
-	"time"
 	"bytes"
+	"context"
 	"testing"
+	"time"
 )
 
 import (
@@ -25,7 +39,7 @@ func TestEtcdv3(t *testing.T) {
 
 	// put key
 	err = store.Put(ctx, "bfe_key", []byte("bfe_key"), &bfe_discovery.WriteOptions{
-		TTL:10*time.Second,
+		TTL: 10 * time.Second,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -33,13 +47,13 @@ func TestEtcdv3(t *testing.T) {
 
 	// put dir
 	err = store.Put(ctx, "bfe_key_dir/aaa", []byte("aaa"), &bfe_discovery.WriteOptions{
-		TTL:10*time.Second,
+		TTL: 10 * time.Second,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	err = store.Put(ctx, "bfe_key_dir/bbb", []byte("bbb"), &bfe_discovery.WriteOptions{
-		TTL:10*time.Second,
+		TTL: 10 * time.Second,
 	})
 	if err != nil {
 		t.Fatal(err)

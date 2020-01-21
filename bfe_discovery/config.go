@@ -16,8 +16,13 @@ package bfe_discovery
 
 import "time"
 
+const (
+	Prefix = "/bfe"
+	Suffix = "/"
+)
+
 type Config struct {
-	Addrs []string
+	Addrs       []string
 	DialTimeout time.Duration
 
 	// TODO bfe_ prefix
@@ -32,11 +37,11 @@ type Config struct {
 	// TODO auth
 	Username string
 	Password string
-	Token string
+	Token    string
 }
 
 type TLSConfig struct {
-	CertFile string
-	KeyFile string
+	CertFile   string
+	KeyFile    string
 	CACertFile string
 }
