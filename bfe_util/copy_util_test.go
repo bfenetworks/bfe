@@ -115,7 +115,7 @@ func TestCopyWithoutBuffer(t *testing.T) {
 			}
 		}
 		expectBytes := cases[i].data[:written]
-		if bytes.Compare(wf.sink.Bytes(), expectBytes) != 0 {
+		if !bytes.Equal(wf.sink.Bytes(), expectBytes) {
 			t.Fatalf("Case %d: written bytes not match.\n", i)
 		}
 		fmt.Printf("Case %d: written=%d, err=%v, expectWritten=%d, expectErr=%v.\n", i, written, err, expectWritten, expectErr)

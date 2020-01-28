@@ -87,13 +87,13 @@ func (m *ModuleHttpCode) Init(cbs *bfe_module.BfeCallbacks,
 	var err error
 
 	// register handler
-	err = cbs.AddFilter(bfe_module.HANDLE_REQUEST_FINISH, m.requestFinish)
+	err = cbs.AddFilter(bfe_module.HandleRequestFinish, m.requestFinish)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.requestFinish): %v", m.name, err)
 	}
 
 	// register web handlers for monitor
-	err = web_monitor.RegisterHandlers(whs, web_monitor.WEB_HANDLE_MONITOR, m.monitorHandlers())
+	err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())
 	if err != nil {
 		return fmt.Errorf("%s.Init(): RegisterHandlers(m.monitorHandlers): %v", m.name, err)
 	}
@@ -103,7 +103,7 @@ func (m *ModuleHttpCode) Init(cbs *bfe_module.BfeCallbacks,
 
 func (m *ModuleHttpCode) requestFinish(req *bfe_basic.Request, res *bfe_http.Response) int {
 	if req.HttpResponse == nil {
-		return bfe_module.BFE_HANDLER_GOON
+		return bfe_module.BfeHandlerGoOn
 	}
 
 	statusCode := req.HttpResponse.StatusCode
@@ -118,5 +118,5 @@ func (m *ModuleHttpCode) requestFinish(req *bfe_basic.Request, res *bfe_http.Res
 		m.state.All5XX.Inc(1)
 	}
 
-	return bfe_module.BFE_HANDLER_GOON
+	return bfe_module.BfeHandlerGoOn
 }

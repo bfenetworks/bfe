@@ -5,6 +5,7 @@
 * 使用指南
   * [基本概念](concept.md)
   * [路由及负载均衡](functionality.md)
+  * [热加载配置](reload.md)
   * 使用示例
     * [分流转发](example/route.md)
     * [黑名单封禁](example/block.md)
@@ -35,11 +36,16 @@
     * [名字规则](configuration/server_data_conf/name_conf.data.md)
   * 扩展模块
     * [mod_access](configuration/mod_access/mod_access.md)
+    * [mod_auth_basic](configuration/mod_auth_basic/mod_auth_basic.md)
     * [mod_block](configuration/mod_block/mod_block.md)
+    * [mod_compress](configuration/mod_compress/mod_compress.md)
+    * [mod_errors](configuration/mod_errors/mod_errors.md)
     * [mod_header](configuration/mod_header/mod_header.md)
+    * [mod_http_code](configuration/mod_http_code/mod_http_code.md)
     * [mod_key_log](configuration/mod_key_log/mod_key_log.md)
     * [mod_redirect](configuration/mod_redirect/mod_redirect.md)
     * [mod_rewrite](configuration/mod_rewrite/mod_rewrite.md)
+    * [mod_static](configuration/mod_static/mod_static.md)
     * [mod_trust_clientip](configuration/mod_trust_clientip/mod_trust_clientip.md)
 * [附录B: 监控](monitor.md)
   * 协议 
@@ -58,8 +64,13 @@
     * [转发状态](monitor/proxy_state.md)
   * 扩展模块
     * [module_status](monitor/module_status.md)
+    * [mod_auth_basic](monitor/mod_auth_basic.md)
     * [mod_block](monitor/mod_block.md)
+    * [mod_compress](monitor/mod_compress.md)
+    * [mod_geo](monitor/mod_geo.md)
+    * [mod_http_code](monitor/mod_http_code.md)
     * [mod_logid](monitor/mod_logid.md)
+    * [mod_static](monitor/mod_static.md)
     * [mod_trust_clientip](monitor/mod_trust_clientip.md)
   * 延迟
     * [延迟分布](monitor/proxy_XXX_delay.md)
@@ -80,5 +91,6 @@
     * [Header](condition/response/header.md)
   * 会话相关条件原语
     * [IP](condition/session/ip.md)
+    * [TLS](condition/session/tls.md)
   * 系统相关条件原语
     * [Time](condition/system/time.md)

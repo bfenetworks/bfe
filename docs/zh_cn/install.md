@@ -2,8 +2,7 @@
 
 ## 编译
 ### 环境准备
-- golang 1.12+
-- golang yacc
+- golang 1.13+
 - git
 
 ### 源代码下载
@@ -14,15 +13,15 @@
 
 - clone代码
     ```
-    $ mkdir -p gocode/src/github.com/baidu
-    $ cd gocode/src/github.com/baidu
+    $ mkdir -p github.com/baidu
+    $ cd github.com/baidu
     $ git clone https://github.com/baidu/bfe
     $ cd bfe
     ```
 
 ### 源代码编译
 
-- 在BFE源代码目录(src/github.com/baidu/bfe)运行命令：
+- 在BFE源代码目录(github.com/baidu/bfe)运行命令：
     ```
     $ make
     ```

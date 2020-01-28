@@ -257,8 +257,8 @@ func (c *conn) finish() {
 	// finish session
 	c.session.Finish()
 
-	// Callback for HANDLE_FINISH
-	hl := srv.CallBacks.GetHandlerList(bfe_module.HANDLE_FINISH)
+	// Callback for HandleFinish
+	hl := srv.CallBacks.GetHandlerList(bfe_module.HandleFinish)
 	if hl != nil {
 		hl.FilterFinish(c.session)
 	}
@@ -306,10 +306,10 @@ func (c *conn) serve() {
 	}()
 
 	// Callback for HANDLE_ACCEPT
-	hl = c.server.CallBacks.GetHandlerList(bfe_module.HANDLE_ACCEPT)
+	hl = c.server.CallBacks.GetHandlerList(bfe_module.HandleAccept)
 	if hl != nil {
 		retVal = hl.FilterAccept(c.session)
-		if retVal == bfe_module.BFE_HANDLER_CLOSE {
+		if retVal == bfe_module.BfeHandlerClose {
 			// close the connection
 			return
 		}
@@ -346,10 +346,10 @@ func (c *conn) serve() {
 		}
 
 		// Callback for HANDLE_HANDSHAKE
-		hl = c.server.CallBacks.GetHandlerList(bfe_module.HANDLE_HANDSHAKE)
+		hl = c.server.CallBacks.GetHandlerList(bfe_module.HandleHandshake)
 		if hl != nil {
 			retVal = hl.FilterAccept(c.session)
-			if retVal == bfe_module.BFE_HANDLER_CLOSE {
+			if retVal == bfe_module.BfeHandlerClose {
 				// close the connection
 				return
 			}

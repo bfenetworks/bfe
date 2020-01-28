@@ -17,9 +17,9 @@ mod_static serves static files.
 
   conf/mod_static/static_rule.data
 
-  | Action                    | Description                        |
-  | ------------------------- | ---------------------------------- |
-  | BROWSE                    | Serve static files. <br>The first parameter is the location of root directory.<br> The second parameter is the name of default file.|
+| Action                    | Description                        |
+| ------------------------- | ---------------------------------- |
+| BROWSE                    | Serve static files. <br>The first parameter is the location of root directory.<br> The second parameter is the name of default file.|
 
    ```
     {

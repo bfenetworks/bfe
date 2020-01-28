@@ -17,7 +17,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	_ "net/http/pprof"
 	"path"
 	"runtime"
 	"time"

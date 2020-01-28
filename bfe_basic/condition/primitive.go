@@ -210,7 +210,7 @@ func (qf *QueryKeyPrefixInFetcher) Fetch(req *bfe_basic.Request) (interface{}, e
 
 	ok := false
 	for k := range req.CachedQuery() {
-		if prefix_in(k, qf.keys) {
+		if prefixIn(k, qf.keys) {
 			ok = true
 			break
 		}
@@ -436,7 +436,7 @@ func (p *PrefixInMatcher) Match(v interface{}) bool {
 		vs = strings.ToUpper(vs)
 	}
 
-	return prefix_in(vs, p.patterns)
+	return prefixIn(vs, p.patterns)
 }
 
 func NewPrefixInMatcher(patterns string, foldCase bool) *PrefixInMatcher {
@@ -467,7 +467,7 @@ func (p *SuffixInMatcher) Match(v interface{}) bool {
 		vs = strings.ToUpper(vs)
 	}
 
-	return suffix_in(vs, p.patterns)
+	return suffixIn(vs, p.patterns)
 }
 
 func NewSuffixInMatcher(patterns string, foldCase bool) *SuffixInMatcher {
@@ -507,7 +507,7 @@ func in(v string, patterns []string) bool {
 	return i < len(patterns) && patterns[i] == v
 }
 
-func prefix_in(v string, patterns []string) bool {
+func prefixIn(v string, patterns []string) bool {
 	for _, pattern := range patterns {
 		if strings.HasPrefix(v, pattern) {
 			return true
@@ -517,7 +517,7 @@ func prefix_in(v string, patterns []string) bool {
 	return false
 }
 
-func suffix_in(v string, patterns []string) bool {
+func suffixIn(v string, patterns []string) bool {
 	for _, pattern := range patterns {
 		if strings.HasSuffix(v, pattern) {
 			return true
@@ -786,7 +786,7 @@ func (matcher *HashValueMatcher) Match(v interface{}) bool {
 	}
 
 	value := rawValue
-	if matcher.insensitive == true {
+	if matcher.insensitive {
 		value = strings.ToLower(rawValue)
 	}
 
@@ -877,4 +877,47 @@ func GetHash(value []byte, base uint) int {
 	}
 
 	return int(hash % uint64(base))
+}
+
+// SniFetcher fetches serverName in tls
+type SniFetcher struct{}
+
+func (fetcher *SniFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
+	if req == nil {
+		return nil, fmt.Errorf("fetcher: no req")
+	}
+
+	ses := req.Session
+	if ses == nil || !ses.IsSecure || ses.TlsState == nil || ses.TlsState.ServerName == "" {
+		return nil, fmt.Errorf("fetcher: no sni")
+	}
+
+	return req.Session.TlsState.ServerName, nil
+}
+
+type ClientAuthMatcher struct{}
+
+func (m *ClientAuthMatcher) Match(req *bfe_basic.Request) bool {
+	if req == nil || req.Session == nil || !req.Session.IsSecure || req.Session.TlsState == nil {
+		return false
+	}
+
+	return req.Session.TlsState.ClientAuth
+}
+
+// ClientCANameFetcher fetches client CA name
+type ClientCANameFetcher struct{}
+
+func (fetcher *ClientCANameFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
+	if req == nil {
+		return nil, fmt.Errorf("fetcher: no req")
+	}
+
+	ses := req.Session
+	if ses == nil || !ses.IsSecure || ses.TlsState == nil || !ses.TlsState.ClientAuth ||
+		ses.TlsState.ClientCAName == "" {
+		return nil, fmt.Errorf("fetcher: no client CA name")
+	}
+
+	return req.Session.TlsState.ClientCAName, nil
 }

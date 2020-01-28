@@ -22,6 +22,7 @@ import (
 const (
 	HeaderBfeIP         = "X-Bfe-Ip"
 	HeaderBfeLogId      = "X-Bfe-Log-Id"
+	HeaderForwardedHost = "X-Forwarded-Host"
 	HeaderForwardedFor  = "X-Forwarded-For"
 	HeaderForwardedPort = "X-Forwarded-Port"
 	HeaderRealIP        = "X-Real-Ip"
@@ -40,6 +41,10 @@ const (
 	StageReadResponseBody
 	StageWriteClient
 	StageEndRequest
+)
+
+const (
+	GlobalProduct = "global"
 )
 
 // CreateInternalSrvErrResp returns a HTTP 500 response

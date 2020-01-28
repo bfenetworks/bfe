@@ -155,7 +155,7 @@ func ruleListConvert(ruleFileList *RuleFileList) (*RuleList, error) {
 	return ruleList, nil
 }
 
-// redirectConfLoad loades config of redirect from file.
+// redirectConfLoad loads config of redirect from file.
 func redirectConfLoad(filename string) (redirectConf, error) {
 	var conf redirectConf
 	var err error

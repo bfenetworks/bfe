@@ -1,0 +1,15 @@
+{
+    "Config": {
+        "unittest": [
+            {
+                "Cond": "default_t()",
+                "Action": {
+                    "Cmd": "ERR_COMPRESS",
+                    "Quality": 9,
+                    "FlushSize": 512
+                }
+            }
+        ]
+    },
+    "Version": "unittest"
+}

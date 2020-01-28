@@ -69,6 +69,8 @@
   | bfe_protocol | 访问协议 |
   | client_cert_serial_number | 客户端证书序列号 |
   | client_cert_subject_title | 客户端证书Subject title |
+  | client_cert_subject_common_name | 客户端证书Subject Common Name |
+  | client_cert_subject_organization | 客户端证书Subject Organization |
   
 # 示例
 

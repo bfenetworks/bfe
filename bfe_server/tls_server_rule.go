@@ -73,13 +73,13 @@ func NewTLSServerRuleMap(state *ProxyState) *TLSServerRuleMap {
 	return m
 }
 
-// Get returnes tls rule for given connection.
+// Get returns tls rule for given connection.
 func (m *TLSServerRuleMap) Get(c *bfe_tls.Conn) *bfe_tls.Rule {
 	r := m.getRule(c)
 	return &r.TlsRule
 }
 
-// GetRule returnes h2 rule for given connection
+// GetRule returns h2 rule for given connection
 func (m *TLSServerRuleMap) GetRule(c *bfe_tls.Conn) *bfe_http2.Rule {
 	r := m.getRule(c)
 	return &r.H2Rule
@@ -191,6 +191,7 @@ func (m *TLSServerRuleMap) createServerRule(conf *tls_rule_conf.TlsRuleConf,
 	// tls client auth policy
 	r.TlsRule.ClientAuth = conf.ClientAuth
 	r.TlsRule.ClientCAs = clientCAs
+	r.TlsRule.ClientCAName = conf.ClientCAName
 
 	// enable chacha20-poly1305 cipher suites
 	r.TlsRule.Chacha20 = conf.Chacha20

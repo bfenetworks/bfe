@@ -63,7 +63,7 @@ const (
 //    modern version(>=tls10) with no RC4 cipher
 // Grade C: ssl3 is ok only with RC4 cipher
 const (
-	GRADE_APLUS = "A+"
+	GradeAPlus = "A+"
 	GradeA      = "A"
 	GradeB      = "B"
 	GradeC      = "C"
@@ -222,6 +222,8 @@ type ConnectionState struct {
 	ServerRandom               []byte                // random in server hello
 	MasterSecret               []byte                // master secret used by the connection
 	ClientCiphers              []uint16              // ciphers supported by client
+	ClientAuth                 bool                  // enable TLS Client Authentication
+	ClientCAName               string                // TLS client CA name
 }
 
 // ClientAuthType declares the policy the server will follow for
@@ -298,6 +300,9 @@ type Rule struct {
 
 	// client CA certificate
 	ClientCAs *x509.CertPool
+
+	// client CA name
+	ClientCAName string
 
 	// enable Chacha20-poly1305 cipher suites
 	Chacha20 bool
@@ -567,7 +572,7 @@ func (c *Config) checkVersionGrade(vers uint16, grade string) (uint16, bool) {
 	// ssl ver older than tls1.0 is not allowed for Grade A
 	if grade == GradeA && vers < VersionTLS10 {
 		return 0, false
-	} else if grade == GRADE_APLUS && vers < VersionTLS12 { // ssl version older than tls1.2 is not allowed for Grade A+
+	} else if grade == GradeAPlus && vers < VersionTLS12 { // ssl version older than tls1.2 is not allowed for Grade A+
 		return 0, false
 	}
 
@@ -587,7 +592,7 @@ const (
 // Grade C: ssl3 is ok only with RC4 cipher
 func (c *Config) checkCipherGrade(conn *Conn) (useRC4 uint8) {
 	switch conn.grade {
-	case GRADE_APLUS:
+	case GradeAPlus:
 		fallthrough
 	case GradeA:
 		return disableRC4

@@ -38,7 +38,7 @@ func TestBytePool(t *testing.T) {
 		t.Error("result should keep length")
 	}
 
-	if bytes.Compare(key, result) != 0 {
+	if !bytes.Equal(key, result) {
 		t.Error("item should keep unchanged")
 	}
 

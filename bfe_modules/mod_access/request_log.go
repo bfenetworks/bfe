@@ -57,7 +57,7 @@ func onLogFmtBackend(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 	return nil
 }
 
-func onLogFmtBodyLenIn(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
+func onLogFmtReqBodyLen(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 	req *bfe_basic.Request, res *bfe_http.Response) error {
 	if req == nil {
 		return errors.New("req is nil")
@@ -72,7 +72,7 @@ func onLogFmtBodyLenIn(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 	return nil
 }
 
-func onLogFmtBodyLenOut(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
+func onLogFmtResBodyLen(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 	req *bfe_basic.Request, res *bfe_http.Response) error {
 	if req == nil {
 		return errors.New("req is nil")
@@ -82,22 +82,6 @@ func onLogFmtBodyLenOut(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer
 	}
 
 	msg := fmt.Sprintf("%d", req.Stat.BodyLenOut)
-	buff.WriteString(msg)
-
-	return nil
-}
-
-func onLogFmtClientReadTime(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
-	req *bfe_basic.Request, res *bfe_http.Response) error {
-	if req == nil {
-		return errors.New("req is nil")
-	}
-	if req.Stat == nil {
-		return errors.New("req.Stat is nil")
-	}
-
-	ms := req.Stat.ReadReqEnd.Sub(req.Stat.ReadReqStart).Nanoseconds() / 1000000
-	msg := fmt.Sprintf("%d", ms)
 	buff.WriteString(msg)
 
 	return nil
@@ -134,22 +118,6 @@ func onLogFmtClusterName(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffe
 	return nil
 }
 
-func onLogFmtClusterServeTime(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
-	req *bfe_basic.Request, res *bfe_http.Response) error {
-	if req == nil {
-		return errors.New("req is nil")
-	}
-	if req.Stat == nil {
-		return errors.New("req.Stat is nil")
-	}
-
-	ms := req.Stat.ClusterEnd.Sub(req.Stat.ClusterStart).Nanoseconds() / 1000000
-	msg := fmt.Sprintf("%d", ms)
-	buff.WriteString(msg)
-
-	return nil
-}
-
 func onLogFmtConnectBackendTime(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 	req *bfe_basic.Request, res *bfe_http.Response) error {
 	if req == nil || req.OutRequest == nil {
@@ -171,21 +139,6 @@ func onLogFmtConnectBackendTime(m *ModuleAccess, logItem *LogFmtItem, buff *byte
 	return nil
 }
 
-func onLogFmtReqContentLen(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
-	req *bfe_basic.Request, res *bfe_http.Response) error {
-	if req == nil {
-		return errors.New("req is nil")
-	}
-	if req.HttpRequest == nil {
-		return errors.New("req.HttpRequest is nil")
-	}
-
-	msg := fmt.Sprintf("%d", req.HttpRequest.ContentLength)
-	buff.WriteString(msg)
-
-	return nil
-}
-
 func onLogFmtHost(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 	req *bfe_basic.Request, res *bfe_http.Response) error {
 	if req == nil {
@@ -196,25 +149,6 @@ func onLogFmtHost(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 	}
 
 	buff.WriteString(req.HttpRequest.Host)
-
-	return nil
-}
-
-func onLogFmtHttp(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
-	req *bfe_basic.Request, res *bfe_http.Response) error {
-	if req == nil {
-		return errors.New("req is nil")
-	}
-	if req.HttpRequest == nil {
-		return errors.New("req.HttpRequest is nil")
-	}
-
-	msg := "-"
-	data, found := req.HttpRequest.Header[logItem.Key]
-	if found {
-		msg = strings.Join(data, ",")
-	}
-	buff.WriteString(msg)
 
 	return nil
 }
@@ -253,7 +187,7 @@ func onLogFmtLogId(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 		return errors.New("req is nil")
 	}
 
-	msg := fmt.Sprintf("%s", req.LogId)
+	msg := req.LogId
 	buff.WriteString(msg)
 
 	return nil
@@ -269,22 +203,6 @@ func onLogFmtNthReqInSession(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.B
 	if req.HttpRequest != nil && req.HttpRequest.State != nil {
 		msg = fmt.Sprintf("%d", req.HttpRequest.State.SerialNumber)
 	}
-	buff.WriteString(msg)
-
-	return nil
-}
-
-func onLogFmtResContentLen(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
-	req *bfe_basic.Request, res *bfe_http.Response) error {
-	if req == nil {
-		return errors.New("req is nil")
-	}
-
-	msg := "-"
-	if req.Stat != nil {
-		msg = fmt.Sprintf("%d", req.Stat.BodyLenOut)
-	}
-
 	buff.WriteString(msg)
 
 	return nil
@@ -530,7 +448,7 @@ func onLogFmtResProto(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 
 	msg := "-"
 	if res != nil {
-		msg = fmt.Sprintf("%s", res.Proto)
+		msg = res.Proto
 	}
 	buff.WriteString(msg)
 
@@ -586,7 +504,7 @@ func onLogFmtResStatus(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 
 	msg := "-"
 	if res != nil {
-		msg = fmt.Sprintf("%s", res.Status)
+		msg = res.Status
 	}
 	buff.WriteString(msg)
 
@@ -675,7 +593,7 @@ func onLogFmtVip(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 	return nil
 }
 
-func onLogFmtUri(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
+func onLogFmtUrl(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 	req *bfe_basic.Request, res *bfe_http.Response) error {
 	if req == nil {
 		return errors.New("req is nil")

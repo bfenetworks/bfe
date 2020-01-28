@@ -258,9 +258,9 @@ func (t *BalTable) lookup(clusterName string) (*bal_gslb.BalanceGslb, error) {
 
 // Lookup lookup BalanceGslb by cluster name.
 func (t *BalTable) Lookup(clusterName string) (*bal_gslb.BalanceGslb, error) {
-	t.lock.Lock()
+	t.lock.RLock()
 	res, err := t.lookup(clusterName)
-	t.lock.Unlock()
+	t.lock.RUnlock()
 
 	return res, err
 }
@@ -272,11 +272,11 @@ func NewBalTableState() *BalTableState {
 	return state
 }
 
-// GetState returnes state of BalTable.
+// GetState returns state of BalTable.
 func (t *BalTable) GetState() *BalTableState {
 	state := NewBalTableState()
 
-	t.lock.Lock()
+	t.lock.RLock()
 
 	// go through clusters
 	for name, bal := range t.balTable {
@@ -285,12 +285,16 @@ func (t *BalTable) GetState() *BalTableState {
 		state.BackendNum += gs.BackendNum
 	}
 
-	t.lock.Unlock()
+	t.lock.RUnlock()
 
 	return state
 }
 
-// GetVersions returnes versions of BalTable.
+// GetVersions returns versions of BalTable.
 func (t *BalTable) GetVersions() BalVersion {
-	return t.versions
+	t.lock.RLock()
+	versions := t.versions
+	t.lock.RUnlock()
+	
+	return versions
 }
