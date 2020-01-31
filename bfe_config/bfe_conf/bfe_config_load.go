@@ -39,7 +39,7 @@ func SetDefaultConf(conf *BfeConfig) {
 	conf.SessionTicket.SetDefaultConf()
 }
 
-// BfeConfigLoad loades config from config file.
+// BfeConfigLoad loads config from config file.
 // NOTICE: some value will be modified when not set or out of range!!
 func BfeConfigLoad(filePath string, confRoot string) (BfeConfig, error) {
 	var cfg BfeConfig

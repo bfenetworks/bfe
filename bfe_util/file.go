@@ -17,6 +17,7 @@ package bfe_util
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 )
@@ -68,5 +69,23 @@ func BackupFile(path string, bakPath string) error {
 		return err
 	}
 
+	return nil
+}
+
+// check local file
+func CheckStaticFile(filename string, sizeLimit int64) error {
+	stat, err := os.Stat(filename)
+	if err != nil {
+		return err
+	}
+	if stat.IsDir() {
+		return fmt.Errorf("%s is not regular file", filename)
+	}
+	if stat.Size() > sizeLimit {
+		return fmt.Errorf("%s file size too large[> %d]", filename, sizeLimit)
+	}
+	if _, err := ioutil.ReadFile(filename); err != nil {
+		return fmt.Errorf("read %s: %s", filename, err)
+	}
 	return nil
 }

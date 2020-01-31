@@ -32,14 +32,14 @@ Block incoming connection/request based on defined rules.
 
     conf/mod_block/block_rules.data
 
-    | Config Item | Type   | Description                                                  |
-    | ----------- | ------ | ------------------------------------------------------------ |
-    | Version     | String | Verson of config file                                        |
-    | Config      | Struct | Block rules for each product. Block rule include: <br>- Cond: "condition" expression <br>- Action: what to do after matched<br>- Name: rule name |
+| Config Item | Type   | Description                                                  |
+| ----------- | ------ | ------------------------------------------------------------ |
+| Version     | String | Verson of config file                                        |
+| Config      | Struct | Block rules for each product. Block rule include: <br>- Cond: "condition" expression <br>- Action: what to do after matched<br>- Name: rule name |
   
-    | Action | Description          |
-    | ------ | -------------------- |
-    | CLOSE  | Close the connection |
+| Action | Description          |
+| ------ | -------------------- |
+| CLOSE  | Close the connection |
   
     ```
     {

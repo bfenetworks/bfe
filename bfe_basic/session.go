@@ -21,6 +21,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"fmt"
 )
 
 import (
@@ -140,4 +141,11 @@ func (s *Session) GetContext(key interface{}) interface{} {
 	val := s.Context[key]
 	s.lock.Unlock()
 	return val
+}
+
+func (s *Session) String() string {
+	s.lock.Lock()
+	val := s.SessionId
+	s.lock.Unlock()
+	return fmt.Sprintf("session id: %s", val)
 }

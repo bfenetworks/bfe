@@ -1,0 +1,34 @@
+{
+    "config" : {
+        "example": [
+            {
+                "Name": "ip cookie prison 1",
+                "Cond": "default_t()", 
+                "accessSignConf": {
+                    "url": false,
+                    "path": false,
+                    "query": [
+                        "wd"
+                    ],
+                    "header": [
+                        "User-Agent",
+                        "Referer"
+                    ],
+                    "Cookie": [
+                        "UID"
+                    ]
+                },
+                "action": {
+                    "cmd": "CLOSE",
+                    "params": []
+                },
+                "checkPeriod": 10,
+                "stayPeriod": 10,
+                "threshold": 100,
+                "accessDictSize": 1000,
+                "prisonDictSize": 1000
+            }
+        ] 
+   },
+   "version": "1.0"
+}

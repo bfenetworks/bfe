@@ -117,6 +117,11 @@ func (cfg *ConfigHttpsBasic) Check(confRoot string) error {
 		return err
 	}
 
+	err = clientCABaseDirCheck(cfg, confRoot)
+	if err != nil {
+		return err
+	}
+
 	// check CipherSuites
 	for _, cipherGroup := range cfg.CipherSuites {
 		ciphers := strings.Split(cipherGroup, EquivCipherSep)
@@ -166,6 +171,15 @@ func certRuleCheck(cfg *ConfigHttpsBasic, confRoot string) error {
 	return nil
 }
 
+func clientCABaseDirCheck(cfg *ConfigHttpsBasic, confRoot string) error {
+	if cfg.ClientCABaseDir == "" {
+		log.Logger.Warn("ClientCABaseDir not set, use default value")
+		cfg.ClientCABaseDir = "tls_conf/client_ca"
+	}
+	cfg.ClientCABaseDir = bfe_util.ConfPathProc(cfg.ClientCABaseDir, confRoot)
+	return nil
+}
+
 func tlsVersionCheck(cfg *ConfigHttpsBasic) error {
 	if len(cfg.MaxTlsVersion) == 0 {
 		cfg.MaxTlsVersion = "VersionTLS12"
@@ -190,7 +204,7 @@ func tlsVersionCheck(cfg *ConfigHttpsBasic) error {
 	return nil
 }
 
-// LoadClientCAFile loades client ca certificate in PEM format
+// LoadClientCAFile loads client ca certificate in PEM format
 func LoadClientCAFile(path string) (*x509.CertPool, error) {
 	roots := x509.NewCertPool()
 	data, err := ioutil.ReadFile(path)

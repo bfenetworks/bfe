@@ -1,0 +1,4 @@
+# user1, 123456
+user1:$apr1$mI7SilJz$CWwYJyYKbhVDNl26sdUSh/
+
+user2:{SHA}fEqNCco3Yq9h5ZUglD3CZJT4lBs=:user2, 123456

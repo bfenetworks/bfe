@@ -55,8 +55,8 @@ func TestRedirectHandler(t *testing.T) {
 	req1.HttpRequest.URL, _ = url.Parse("/index/?space=true")
 
 	result, _ := m.redirectHandler(req1)
-	if result != bfe_module.BFE_HANDLER_REDIRECT {
-		t.Errorf("Should return BFE_HANDLER_REDIRECT")
+	if result != bfe_module.BfeHandlerRedirect {
+		t.Errorf("Should return BfeHandlerRedirect")
 	}
 
 	// case 2
@@ -67,7 +67,7 @@ func TestRedirectHandler(t *testing.T) {
 	req2.HttpRequest.URL, _ = url.Parse("/index/?space=true")
 
 	result, _ = m.redirectHandler(req2)
-	if result == bfe_module.BFE_HANDLER_REDIRECT {
-		t.Errorf("Should return BFE_HANDLER_GOON")
+	if result == bfe_module.BfeHandlerRedirect {
+		t.Errorf("Should return BfeHandlerGoOn")
 	}
 }

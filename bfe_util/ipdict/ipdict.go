@@ -111,7 +111,7 @@ func (ipItems *IPItems) checkMerge(i, j int) int {
 
 		// Merge items [i+1, j)
 		for k := i + 1; k < j; k++ {
-			if bytes.Equal(items[k].endIP, net.IPv6zero) || bytes.Equal(items[k].endIP, net.IPv4zero) {
+			if items[k].endIP.Equal(net.IPv6zero) || items[k].endIP.Equal(net.IPv4zero) {
 				continue
 			}
 
@@ -149,12 +149,12 @@ func (ipItems *IPItems) mergeItems() int {
 
 	for i := 0; i < length-1; i++ {
 
-		if bytes.Equal(items[i].endIP, net.IPv6zero) || bytes.Equal(items[i].endIP, net.IPv4zero) {
+		if items[i].endIP.Equal(net.IPv6zero) || items[i].endIP.Equal(net.IPv4zero) {
 			continue
 		}
 
 		for j := i + 1; j < length; j++ {
-			if bytes.Equal(items[j].endIP, net.IPv6zero) || bytes.Equal(items[i].endIP, net.IPv4zero) {
+			if items[j].endIP.Equal(net.IPv6zero) || items[i].endIP.Equal(net.IPv4zero) {
 				continue
 			}
 

@@ -17,22 +17,17 @@ package mod_access
 const (
 	FormatAllServeTime = iota
 	FormatBackend
-	FormatBodyLenIn
-	FormatBodyLenOut
-	FormatClientReadTime
+	FormatReqBodyLen
+	FormatResBodyLen
 	FormatClusterDuration
 	FormatClusterName
-	FormatClusterServeTime
 	FormatConnectTime
-	FormatReqContentLen
 	FormatReqHeaderLen
 	FormatHost
-	FormatHTTP
 	FormatIsTrustIP
 	FormatLastBackendDuration
 	FormatLogID
 	FormatNthReqInSession
-	FormatResContentLen
 	FormatResHeaderLen
 	FormatStatusCode
 	FormatProduct
@@ -55,7 +50,7 @@ const (
 	FormatSinceSessionTime
 	FormatSubclusterName
 	FormatTime
-	FormatURI
+	FormatURL
 	FormatVIP
 	FormatWriteServeTime
 	FormatString
@@ -91,16 +86,13 @@ var (
 
 		"all_time":              FormatAllServeTime,
 		"backend":               FormatBackend,
-		"body_len_in":           FormatBodyLenIn,
-		"body_len_out":          FormatBodyLenOut,
-		"client_read_time":      FormatClientReadTime,
+		"req_body_len":          FormatReqBodyLen,
+		"res_body_len":          FormatResBodyLen,
 		"cluster_name":          FormatClusterName,
 		"cluster_duration":      FormatClusterDuration,
-		"cluster_time":          FormatClusterServeTime,
 		"connect_time":          FormatConnectTime,
 		"error":                 FormatReqErrorCode,
 		"host":                  FormatHost,
-		"http":                  FormatHTTP,
 		"is_trust_clientip":     FormatIsTrustIP,
 		"last_backend_duration": FormatLastBackendDuration,
 		"log_id":                FormatLogID,
@@ -110,12 +102,10 @@ var (
 		"readwrite_serve_time":  FormatReadWriteSrvTime,
 		"redirect":              FormatRedirect,
 		"remote_addr":           FormatRemoteAddr,
-		"req_content_len":       FormatReqContentLen,
 		"req_cookie":            FormatReqCookie,
 		"req_header":            FormatReqHeader,
 		"req_nth":               FormatNthReqInSession,
 		"req_uri":               FormatReqURI,
-		"res_content_len":       FormatResContentLen,
 		"res_cookie":            FormatResCookie,
 		"res_header":            FormatResHeader,
 		"res_proto":             FormatResProto,
@@ -125,7 +115,7 @@ var (
 		"since_ses_start_time":  FormatSinceSessionTime,
 		"status_code":           FormatStatusCode,
 		"subcluster":            FormatSubclusterName,
-		"uri":                   FormatURI,
+		"url":                   FormatURL,
 		"vip":                   FormatVIP,
 		"write_serve_time":      FormatWriteServeTime,
 
@@ -149,21 +139,16 @@ var (
 
 		FormatAllServeTime:        Request,
 		FormatBackend:             Request,
-		FormatBodyLenIn:           Request,
-		FormatBodyLenOut:          Request,
-		FormatClientReadTime:      Request,
+		FormatReqBodyLen:          Request,
+		FormatResBodyLen:          Request,
 		FormatClusterDuration:     Request,
 		FormatClusterName:         Request,
-		FormatClusterServeTime:    Request,
 		FormatConnectTime:         Request,
-		FormatReqContentLen:       Request,
 		FormatHost:                Request,
-		FormatHTTP:                Request,
 		FormatIsTrustIP:           Request,
 		FormatLastBackendDuration: Request,
 		FormatLogID:               Request,
 		FormatNthReqInSession:     Request,
-		FormatResContentLen:       Request,
 		FormatStatusCode:          Request,
 		FormatProduct:             Request,
 		FormatProxyDelayTime:      Request,
@@ -186,7 +171,7 @@ var (
 		FormatServerAddr:          Request,
 		FormatSinceSessionTime:    Request,
 		FormatSubclusterName:      Request,
-		FormatURI:                 Request,
+		FormatURL:                 Request,
 		FormatVIP:                 Request,
 		FormatWriteServeTime:      Request,
 
@@ -207,14 +192,11 @@ var (
 	fmtHandlerTable = map[int]interface{}{
 		FormatAllServeTime:        onLogFmtAllServeTime,
 		FormatBackend:             onLogFmtBackend,
-		FormatBodyLenIn:           onLogFmtBodyLenIn,
-		FormatBodyLenOut:          onLogFmtBodyLenOut,
-		FormatClientReadTime:      onLogFmtClientReadTime,
+		FormatReqBodyLen:          onLogFmtReqBodyLen,
+		FormatResBodyLen:          onLogFmtResBodyLen,
 		FormatClusterDuration:     onLogFmtClusterDuration,
 		FormatClusterName:         onLogFmtClusterName,
-		FormatClusterServeTime:    onLogFmtClusterServeTime,
 		FormatConnectTime:         onLogFmtConnectBackendTime,
-		FormatHTTP:                onLogFmtHttp,
 		FormatIsTrustIP:           onLogFmtIsTrustip,
 		FormatLastBackendDuration: onLogFmtLastBackendDuration,
 		FormatLogID:               onLogFmtLogId,
@@ -226,12 +208,10 @@ var (
 		FormatRedirect:            onLogFmtRedirect,
 		FormatRemoteAddr:          onLogFmtClientIp,
 		FormatReqCookie:           onLogFmtReqCookie,
-		FormatReqContentLen:       onLogFmtReqContentLen,
 		FormatReqErrorCode:        onLogFmtErrorCode,
 		FormatReqHeader:           onLogFmtRequestHeader,
 		FormatReqHeaderLen:        onLogFmtReqHeaderLen,
 		FormatReqURI:              onLogFmtRequestUri,
-		FormatResContentLen:       onLogFmtResContentLen,
 		FormatResCookie:           onLogFmtResCookie,
 		FormatResHeader:           onLogFmtResponseHeader,
 		FormatResHeaderLen:        onLogFmtResHeaderLen,
@@ -243,7 +223,7 @@ var (
 		FormatSinceSessionTime:    onLogFmtSinceSessionTime,
 		FormatStatusCode:          onLogFmtStatusCode,
 		FormatSubclusterName:      onLogFmtSubclusterName,
-		FormatURI:                 onLogFmtUri,
+		FormatURL:                 onLogFmtUrl,
 		FormatVIP:                 onLogFmtVip,
 		FormatWriteServeTime:      onLogFmtWriteSrvTime,
 		FormatHost:                onLogFmtHost,

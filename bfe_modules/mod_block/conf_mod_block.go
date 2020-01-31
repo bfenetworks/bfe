@@ -34,7 +34,7 @@ type ConfModBlock struct {
 	}
 }
 
-// ConfLoad loades config from config file
+// ConfLoad loads config from config file
 func ConfLoad(filePath string, confRoot string) (*ConfModBlock, error) {
 	var cfg ConfModBlock
 	var err error

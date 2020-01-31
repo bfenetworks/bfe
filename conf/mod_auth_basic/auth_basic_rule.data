@@ -1,0 +1,12 @@
+{
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "req_host_in(\"www.example.org\")",
+                "UserFile": "../conf/mod_auth_basic/userfile",
+                "Realm": "example_product"
+            }
+        ]
+    },
+    "Version": "init version"
+}

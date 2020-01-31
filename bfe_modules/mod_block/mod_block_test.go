@@ -51,28 +51,28 @@ func TestGlobalBlock(t *testing.T) {
 	// case 1
 	s.RemoteAddr, _ = net.ResolveTCPAddr("tcp", "192.168.1.10:8098")
 	status := m.globalBlockHandler(s)
-	if status != bfe_module.BFE_HANDLER_GOON {
+	if status != bfe_module.BfeHandlerGoOn {
 		t.Errorf("Should not block session")
 	}
 
 	// case 2
 	s.RemoteAddr, _ = net.ResolveTCPAddr("tcp", "10.1.1.200:8098")
 	status = m.globalBlockHandler(s)
-	if status != bfe_module.BFE_HANDLER_CLOSE {
+	if status != bfe_module.BfeHandlerClose {
 		t.Errorf("Should block session")
 	}
 
 	// case 3
 	s.RemoteAddr, _ = net.ResolveTCPAddr("tcp", "[1::2]:8098")
 	status = m.globalBlockHandler(s)
-	if status != bfe_module.BFE_HANDLER_GOON {
+	if status != bfe_module.BfeHandlerGoOn {
 		t.Errorf("Should not block session")
 	}
 
 	// case 4
 	s.RemoteAddr, _ = net.ResolveTCPAddr("tcp", "[1::1]:8098")
 	status = m.globalBlockHandler(s)
-	if status != bfe_module.BFE_HANDLER_CLOSE {
+	if status != bfe_module.BfeHandlerClose {
 		t.Errorf("Should block session")
 	}
 }
@@ -83,7 +83,7 @@ func TestProductBlock(t *testing.T) {
 	// case 1
 	req := prepareRequest()
 	status, _ := m.productBlockHandler(req)
-	if status != bfe_module.BFE_HANDLER_GOON {
+	if status != bfe_module.BfeHandlerGoOn {
 		t.Errorf("Should not block request")
 	}
 
@@ -95,7 +95,7 @@ func TestProductBlock(t *testing.T) {
 	}
 	req.Route = bfe_basic.RequestRoute{Product: "pn"}
 	status, _ = m.productBlockHandler(req)
-	if status != bfe_module.BFE_HANDLER_CLOSE {
+	if status != bfe_module.BfeHandlerClose {
 		t.Errorf("Should block request")
 	}
 

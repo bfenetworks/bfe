@@ -17,8 +17,7 @@ WORKROOT := $(shell pwd)
 OUTDIR   := $(WORKROOT)/output
 
 # init environment variables
-export GOPATH      := $(WORKROOT)/../../../../
-export PATH        := $(GOPATH)/bin:$(PATH)
+export PATH        := $(shell go env GOPATH)/bin:$(PATH)
 export GO111MODULE := on
 
 # init command params
@@ -74,8 +73,16 @@ check:
 	$(GO) get honnef.co/go/tools/cmd/staticcheck
 	$(STATICCHECK) ./...
 
+# make docker
+docker:
+	docker build \
+		-t bfe:$(BFE_VERSION) \
+		-f Dockerfile \
+		.
+
 # make clean
 clean:
+	$(GOCLEAN)
 	rm -rf $(OUTDIR)
 	rm -rf $(WORKROOT)/bfe
 	rm -rf $(GOPATH)/pkg/linux_amd64

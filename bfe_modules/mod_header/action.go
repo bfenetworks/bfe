@@ -144,7 +144,7 @@ func ActionFileListCheck(conf *ActionFileList) error {
 	return nil
 }
 
-// expectPercent returnes index of '%', otherwise return
+// expectPercent returns index of '%', otherwise return
 // last index of str
 func expectPercent(str string) int {
 	index := 0
@@ -166,7 +166,7 @@ func expectVariableParam(str string) int {
 	// variable param, variable now only has
 	// characters [a-z] and '_'
 	for _, c := range str {
-		if strings.Index(variableCharset, string(c)) < 0 {
+		if !strings.Contains(variableCharset, string(c)) {
 			break
 		}
 		index++

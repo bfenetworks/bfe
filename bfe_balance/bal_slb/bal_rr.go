@@ -323,7 +323,7 @@ func leastConnsBalance(backs BackendList) (BackendList, error) {
 	}
 
 	// single backend, return directly
-	if singleBackend == true {
+	if singleBackend {
 		candidates = append(candidates, best)
 		return candidates, nil
 	}
