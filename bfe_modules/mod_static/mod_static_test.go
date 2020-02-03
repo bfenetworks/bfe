@@ -40,11 +40,6 @@ func TestStaticFileHandlerNormalFile(t *testing.T) {
 		if resp.Header.Get("Content-Length") != "53" {
 			t.Errorf("content-length should be 53, not %s", resp.Header.Get("Content-Length"))
 		}
-		resp.Body.Close()
-		fileCurrentOpened := m.state.FileCurrentOpened.Get()
-		if fileCurrentOpened != 0 {
-			t.Errorf("fileCurrentOpened should be 0, not %d", fileCurrentOpened)
-		}
 	})
 }
 
@@ -66,7 +61,6 @@ func TestStaticFileHandlerInvalidMethod(t *testing.T) {
 		if resp.StatusCode != bfe_http.StatusMethodNotAllowed {
 			t.Errorf("status code should be %d, not %d", bfe_http.StatusMethodNotAllowed, resp.StatusCode)
 		}
-		resp.Body.Close()
 	})
 }
 
@@ -82,7 +76,6 @@ func TestStaticFileHandlerFileEmpty(t *testing.T) {
 		if resp.Header.Get("Content-Length") != "0" {
 			t.Errorf("content-length should be 0, not %s", resp.Header.Get("Content-Length"))
 		}
-		resp.Body.Close()
 	})
 }
 
@@ -96,7 +89,6 @@ func TestStaticFileHandlerDir(t *testing.T) {
 			t.Errorf("status code should be %d, not %d",
 				bfe_http.StatusInternalServerError, resp.StatusCode)
 		}
-		resp.Body.Close()
 	})
 }
 
@@ -110,7 +102,6 @@ func TestStaticFileHandlerFileNotExist(t *testing.T) {
 			t.Errorf("status code should be %d, not %d",
 				bfe_http.StatusNotFound, resp.StatusCode)
 		}
-		resp.Body.Close()
 
 		fileBrowseNotExist := m.state.FileBrowseNotExist.Get()
 		if fileBrowseNotExist != 1 {
@@ -129,7 +120,6 @@ func TestStaticFileHandlerFileNotExistUseDefault(t *testing.T) {
 			t.Errorf("status code should be %d, not %d",
 				bfe_http.StatusOK, resp.StatusCode)
 		}
-		resp.Body.Close()
 
 		fileBrowseNotExist := m.state.FileBrowseNotExist.Get()
 		if fileBrowseNotExist != 1 {
@@ -161,7 +151,24 @@ func TestStaticFileHandlerCompressed(t *testing.T) {
 		if resp.Header.Get("Content-Length") != "70" {
 			t.Errorf("content-length should be 70, not %s", resp.Header.Get("Content-Length"))
 		}
-		resp.Body.Close()
+	})
+}
+
+func TestStaticFileHandlerHeadMethod(t *testing.T) {
+	header := make(bfe_http.Header)
+	testModuleStatic(t, "HEAD", "http://www.example.org/index.html", header, func(
+		t *testing.T, m *ModuleStatic, ret int, resp *bfe_http.Response) {
+		if ret != bfe_module.BfeHandlerResponse {
+			t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerResponse, ret)
+			return
+		}
+		if resp.StatusCode != bfe_http.StatusOK {
+			t.Errorf("status code should be %d, not %d", bfe_http.StatusOK, resp.StatusCode)
+			return
+		}
+		if resp.Header.Get("Content-Length") != "53" {
+			t.Errorf("content-length should be 53, not %s", resp.Header.Get("Content-Length"))
+		}
 	})
 }
 
@@ -189,4 +196,12 @@ func testModuleStatic(t *testing.T, method string, url string, header bfe_http.H
 	// process request and check
 	ret, resp := m.staticFileHandler(req)
 	check(t, m, ret, resp)
+	if resp != nil {
+		resp.Body.Close()
+	}
+
+	fileCurrentOpened := m.state.FileCurrentOpened.Get()
+	if fileCurrentOpened != 0 {
+		t.Errorf("fileCurrentOpened should be 0, not %d", fileCurrentOpened)
+	}
 }
