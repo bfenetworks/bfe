@@ -234,8 +234,11 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 	m.processContentEncoding(resp, file)
 	m.processContentLength(resp, file)
 	m.processLastModified(resp, file)
+
 	if httpRequest.Method != "HEAD" {
 		resp.Body = file
+	} else {
+		file.Close()
 	}
 
 	return resp
