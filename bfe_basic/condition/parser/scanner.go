@@ -453,6 +453,4 @@ scanAgain:
 			lit = string(ch)
 		}
 	}
-
-	return
 }
