@@ -1,7 +1,59 @@
 {
     "Version": "1234",
     "Config": {
-        "pn": [
+        "p1": [
+            {
+                "cond": "req_path_prefix_in(\"/first\", false)",
+                "actions": [
+                    {
+                        "cmd": "REQ_COOKIE_ADD",
+                        "params": [
+                            "FIRST",
+                            "1"
+                        ]
+                    }
+                ],
+                "last": false
+            },
+            {
+                "cond": "req_path_prefix_in(\"/second\", false)",
+                "actions": [
+                    {
+                        "cmd": "REQ_COOKIE_ADD",
+                        "params": [
+                            "SECOND",
+                            "2"
+                        ]
+                    }
+                ],
+                "last": true
+            },
+            {
+                "cond": "req_path_prefix_in(\"/first\", false)",
+                "actions": [
+                    {
+                        "cmd": "RSP_COOKIE_DEL",
+                        "params": [
+                            "FIRST"
+                        ]
+                    }
+                ],
+                "last": false
+            },
+            {
+                "cond": "default_t()",
+                "actions": [
+                    {
+                        "cmd": "RSP_COOKIE_DEL",
+                        "params": [
+                            "SECOND"
+                        ]
+                    }
+                ],
+                "last": true
+            }
+        ],
+         "pn": [
             {
                 "cond": "req_proto_secure()",
                 "actions": [

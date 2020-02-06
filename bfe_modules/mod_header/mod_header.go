@@ -34,6 +34,9 @@ import (
 const (
 	ReqHeader = 0
 	RspHeader = 1
+	ReqCookie = 2
+	RspCookie = 3
+	TotalType = 4
 )
 
 const (
@@ -97,6 +100,23 @@ func DoHeader(req *bfe_basic.Request, headerType int, ruleList *RuleList) {
 	}
 }
 
+func DoCookie(req *bfe_basic.Request, cookieType int, ruleList *RuleList) {
+	for _, rule := range *ruleList {
+		if rule.Cond.Match(req) {
+			switch cookieType {
+			case ReqCookie:
+				ReqCookieActionsDo(req, rule.Actions)
+			case RspCookie:
+				RspCookieActionsDo(req, rule.Actions)
+			}
+
+			if rule.Last {
+				break
+			}
+		}
+	}
+}
+
 func (m *ModuleHeader) applyProductRule(request *bfe_basic.Request, headerType int, product string) {
 	// find rules for given product
 	rules, ok := m.ruleTable.Search(product)
@@ -106,8 +126,10 @@ func (m *ModuleHeader) applyProductRule(request *bfe_basic.Request, headerType i
 			log.Logger.Debug("%s:before:headers=%s", m.name, *h)
 		}
 
-		// do rewrite to request, according to rules
 		DoHeader(request, headerType, rules[headerType])
+
+		cookieType := headerType + ReqCookie
+		DoCookie(request, cookieType, rules[cookieType])
 
 		if openDebug {
 			log.Logger.Debug("%s:after:headers=%s", m.name, *h)

@@ -74,6 +74,16 @@ func ActionFileCheck(conf ActionFile) error {
 			return fmt.Errorf("checkHeaderModParams: %s", err.Error())
 		}
 
+	case "REQ_COOKIE_ADD":
+		if len(conf.Params) != 2 {
+			return fmt.Errorf("num of params:[ok:2, now:%d]", len(conf.Params))
+		}
+
+	case "RSP_COOKIE_DEL":
+		if len(conf.Params) != 1 {
+			return fmt.Errorf("num of params:[ok:1, now:%d]", len(conf.Params))
+		}
+
 	default:
 		return fmt.Errorf("invalid cmd:%s", *conf.Cmd)
 	}
@@ -359,6 +369,9 @@ func actionConvert(actionFile ActionFile) (Action, error) {
 		action.Params = append(action.Params, cmd)
 		action.Params = append(action.Params, key)
 		action.Params = append(action.Params, actionFile.Params[2:]...)
+
+	case "REQ_COOKIE_ADD", "RSP_COOKIE_DEL":
+		action.Params = actionFile.Params
 
 	default:
 		return action, fmt.Errorf("invalid cmd:%s", action.Cmd)
