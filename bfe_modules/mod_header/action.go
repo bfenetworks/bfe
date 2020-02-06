@@ -370,7 +370,7 @@ func actionConvert(actionFile ActionFile) (Action, error) {
 		action.Params = append(action.Params, key)
 		action.Params = append(action.Params, actionFile.Params[2:]...)
 
-	case "REQ_COOKIE_ADD", "RSP_COOKIE_DEL":
+	case ReqCookieAdd, RspCookieDel:
 		action.Params = actionFile.Params
 
 	default:
