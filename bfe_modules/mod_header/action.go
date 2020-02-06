@@ -74,12 +74,12 @@ func ActionFileCheck(conf ActionFile) error {
 			return fmt.Errorf("checkHeaderModParams: %s", err.Error())
 		}
 
-	case "REQ_COOKIE_ADD":
+	case ReqCookieAdd:
 		if len(conf.Params) != 2 {
 			return fmt.Errorf("num of params:[ok:2, now:%d]", len(conf.Params))
 		}
 
-	case "RSP_COOKIE_DEL":
+	case RspCookieDel:
 		if len(conf.Params) != 1 {
 			return fmt.Errorf("num of params:[ok:1, now:%d]", len(conf.Params))
 		}

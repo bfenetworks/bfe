@@ -32,11 +32,11 @@ import (
 )
 
 const (
-	ReqHeader = 0
-	RspHeader = 1
-	ReqCookie = 2
-	RspCookie = 3
-	TotalType = 4
+	ReqHeader = iota
+	RspHeader
+	ReqCookie
+	RspCookie
+	TotalType
 )
 
 const (

@@ -23,6 +23,11 @@ import (
 	"github.com/baidu/bfe/bfe_http"
 )
 
+const (
+	ReqCookieAdd = "REQ_COOKIE_ADD"
+	RspCookieDel = "RSP_COOKIE_DEL"
+)
+
 func getCookieValue(req *bfe_basic.Request, value string) string {
 	if strings.HasPrefix(value, "%") {
 		if cookieHandler, ok := VariableHandlers[value[1:]]; ok {
@@ -78,8 +83,7 @@ func ReqCookieActionDo(req *bfe_basic.Request, action Action) {
 		Name:  action.Params[0],
 		Value: getCookieValue(req, action.Params[1]),
 	}
-	switch action.Cmd {
-	case "REQ_COOKIE_ADD":
+	if action.Cmd == ReqCookieAdd {
 		reqAddCookie(req, cookie)
 	}
 }
@@ -94,8 +98,7 @@ func RspCookieActionDo(req *bfe_basic.Request, action Action) {
 	cookie := bfe_http.Cookie{
 		Name: action.Params[0],
 	}
-	switch action.Cmd {
-	case "RSP_COOKIE_DEL":
+	if action.Cmd == RspCookieDel {
 		rspDelCookie(req.HttpResponse, cookie)
 	}
 }
