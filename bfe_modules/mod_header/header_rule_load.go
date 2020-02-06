@@ -191,7 +191,7 @@ func getCmdType(cmd string) int {
 	return -1
 }
 
-func classfyRuleByAction(rule HeaderRule) RuleList {
+func classifyRuleByAction(rule HeaderRule) RuleList {
 	ruleList := make(RuleList, TotalType)
 	for i := 0; i < len(ruleList); i++ {
 		ruleList[i].Cond = rule.Cond
@@ -210,7 +210,7 @@ func classifyRules(ruleList *RuleList) []*RuleList {
 	ruleLists := initRuleLists()
 
 	for _, rule := range *ruleList {
-		ruleList := classfyRuleByAction(rule)
+		ruleList := classifyRuleByAction(rule)
 
 		for i := 0; i < len(ruleLists); i++ {
 			if len(ruleList[i].Actions) != 0 {
