@@ -14,32 +14,35 @@
 
 package bfe_discovery
 
-import "time"
-
-const (
-	Prefix = "/bfe"
-	Suffix = "/"
+import (
+	"strings"
 )
 
-type Config struct {
-	Addrs       []string
-	DialTimeout time.Duration
+var DefaultDecorators = []Decorator{DecoToLower, DecoPrefix}
 
-	// TODO bfe_ prefix
-	PathPrefix string
+type Decorator func(string) string
 
-	// TODO cancel context timeout
-	OpTimeout time.Duration
-
-	// TODO tls
-	TLSConfig *TLSConfig
-
-	Username string
-	Password string
+func Decorate(key string, ds ...Decorator) string {
+	for _, decorator := range ds {
+		key = decorator(key)
+	}
+	return key
 }
 
-type TLSConfig struct {
-	CertFile   string
-	KeyFile    string
-	CACertFile string
+var DecoToUpper Decorator = strings.ToUpper
+
+var DecoToLower Decorator = strings.ToLower
+
+func DecoPrefix(key string) string {
+	if !strings.HasPrefix(key, Prefix) {
+		return Prefix + key
+	}
+	return key
+}
+
+func DecoSuffix(key string) string {
+	if !strings.HasSuffix(key, Suffix) {
+		key += Suffix
+	}
+	return key
 }

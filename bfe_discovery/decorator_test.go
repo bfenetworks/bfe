@@ -14,32 +14,20 @@
 
 package bfe_discovery
 
-import "time"
+import "testing"
 
-const (
-	Prefix = "/bfe"
-	Suffix = "/"
-)
-
-type Config struct {
-	Addrs       []string
-	DialTimeout time.Duration
-
-	// TODO bfe_ prefix
-	PathPrefix string
-
-	// TODO cancel context timeout
-	OpTimeout time.Duration
-
-	// TODO tls
-	TLSConfig *TLSConfig
-
-	Username string
-	Password string
+func TestDecorate(t *testing.T) {
+	var key string = "/TEST"
+	key = Decorate(key, DefaultDecorators...)
+	if key != "/bfe/test" {
+		t.Fatal("unexpected")
+	}
 }
 
-type TLSConfig struct {
-	CertFile   string
-	KeyFile    string
-	CACertFile string
+func TestDecorate2(t *testing.T) {
+	var key string = "/TEST"
+	key = Decorate(key, DecoPrefix, DecoToUpper, DecoSuffix)
+	if key != "/BFE/TEST/" {
+		t.Fatal("unexpected")
+	}
 }
