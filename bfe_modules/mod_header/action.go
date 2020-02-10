@@ -93,18 +93,16 @@ func ActionFileCheck(conf ActionFile) error {
 		if len(conf.Params) != 6 {
 			return fmt.Errorf("num of params:[ok:6, now:%d]", len(conf.Params))
 		}
-		_, err := time.Parse(time.RFC1123, conf.Params[2])
-		if err != nil {
+		if _, err := time.Parse(time.RFC1123, conf.Params[2]); err != nil {
 			return fmt.Errorf("expires format error, should be RFC1123 format")
 		}
-		_, err = strconv.Atoi(conf.Params[3])
-		if err != nil {
+		if _, err := strconv.Atoi(conf.Params[3]); err != nil {
 			return fmt.Errorf("type of max age should be int")
 		}
-		if conf.Params[4] != "true" && conf.Params[4] != "false" {
+		if _, err := strconv.ParseBool(conf.Params[4]); err != nil {
 			return fmt.Errorf("type of http only should be bool")
 		}
-		if conf.Params[5] != "true" && conf.Params[5] != "false" {
+		if _, err := strconv.ParseBool(conf.Params[5]); err != nil {
 			return fmt.Errorf("type of secure should be bool")
 		}
 

@@ -270,7 +270,7 @@ func TestRspDelCookieExist(t *testing.T) {
 		},
 	}
 
-	testRspHandler(t, "http://www.example.org/second", nil, "p1", false, false, "http", nil, cookies,
+	testRspHandler(t, "http://www.example.org/second", "p1", cookies,
 		func(t *testing.T, m *ModuleHeader, ret int, req *bfe_basic.Request) {
 			if ret != bfe_module.BfeHandlerGoOn {
 				t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
@@ -298,7 +298,7 @@ func TestRspDelCookieNotExist(t *testing.T) {
 		},
 	}
 
-	testRspHandler(t, "http://www.example.org/second", nil, "p1", false, false, "http", nil, cookies,
+	testRspHandler(t, "http://www.example.org/second", "p1", cookies,
 		func(t *testing.T, m *ModuleHeader, ret int, req *bfe_basic.Request) {
 			if ret != bfe_module.BfeHandlerGoOn {
 				t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
@@ -326,7 +326,7 @@ func TestRspAddCookie(t *testing.T) {
 		},
 	}
 
-	testRspHandler(t, "http://www.example.org/rsp_cookie_add", nil, "p1", false, false, "http", nil, cookies,
+	testRspHandler(t, "http://www.example.org/rsp_cookie_add", "p1", cookies,
 		func(t *testing.T, m *ModuleHeader, ret int, req *bfe_basic.Request) {
 			if ret != bfe_module.BfeHandlerGoOn {
 				t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
@@ -354,7 +354,7 @@ func TestRspSetCookieExist(t *testing.T) {
 		},
 	}
 
-	testRspHandler(t, "http://www.example.org/rsp_cookie_set", nil, "p1", false, false, "http", nil, cookies,
+	testRspHandler(t, "http://www.example.org/rsp_cookie_set", "p1", cookies,
 		func(t *testing.T, m *ModuleHeader, ret int, req *bfe_basic.Request) {
 			if ret != bfe_module.BfeHandlerGoOn {
 				t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
@@ -382,7 +382,7 @@ func TestRspSetCookieNotExist(t *testing.T) {
 		},
 	}
 
-	testRspHandler(t, "http://www.example.org/rsp_cookie_set", nil, "p1", false, false, "http", nil, cookies,
+	testRspHandler(t, "http://www.example.org/rsp_cookie_set", "p1", cookies,
 		func(t *testing.T, m *ModuleHeader, ret int, req *bfe_basic.Request) {
 			if ret != bfe_module.BfeHandlerGoOn {
 				t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
@@ -433,23 +433,18 @@ func testReqHandler(t *testing.T, url string, header bfe_http.Header, product st
 	check(t, m, ret, req)
 }
 
-func initResponse(req *bfe_basic.Request, rspHeader bfe_http.Header, rspCookies []bfe_http.Cookie) {
+func initResponse(req *bfe_basic.Request, rspCookies []bfe_http.Cookie) {
 	req.HttpResponse = new(bfe_http.Response)
 	req.HttpResponse.Header = make(bfe_http.Header)
-	if rspHeader != nil {
-		req.HttpResponse.Header = rspHeader
-	}
 	for _, rspCookie := range rspCookies {
 		req.HttpResponse.Header.Add("Set-Cookie", rspCookie.String())
 	}
 }
 
-func testRspHandler(t *testing.T, url string, header bfe_http.Header, product string,
-	isSecure bool, isTrustIP bool, proto string,
-	rspHeader bfe_http.Header, rspCookies []bfe_http.Cookie,
+func testRspHandler(t *testing.T, url string, product string, rspCookies []bfe_http.Cookie,
 	check func(*testing.T, *ModuleHeader, int, *bfe_basic.Request)) {
-	m, req := initTestModuleHeader(t, url, header, product, isSecure, isTrustIP, proto)
-	initResponse(req, rspHeader, rspCookies)
+	m, req := initTestModuleHeader(t, url, nil, product, false, false, "http")
+	initResponse(req, rspCookies)
 
 	// process request and check
 	ret := m.rspHeaderHandler(req, req.HttpResponse)

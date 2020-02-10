@@ -152,13 +152,8 @@ func buildCookie(req *bfe_basic.Request, action Action) *bfe_http.Cookie {
 
 	cookie.Expires, _ = time.Parse(time.RFC1123, action.Params[2])
 	cookie.MaxAge, _ = strconv.Atoi(action.Params[3])
-	if action.Params[4] == "true" {
-		cookie.HttpOnly = true
-	}
-	if action.Params[5] == "true" {
-		cookie.Secure = true
-	}
-
+	cookie.HttpOnly, _ = strconv.ParseBool(action.Params[4])
+	cookie.Secure, _ = strconv.ParseBool(action.Params[5])
 	return cookie
 }
 
