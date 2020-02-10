@@ -66,6 +66,20 @@
                 "last": false
             },
             {
+                "cond": "default_t()",
+                "actions": [
+                    {
+                        "cmd": "RSP_COOKIE_DEL",
+                        "params": [
+                            "SECOND"
+                        ]
+                    }
+                ],
+                "last": true
+            }
+        ],
+        "p2": [
+            {
                 "cond": "req_path_prefix_in(\"/rsp_cookie_add\", false)",
                 "actions": [
                     {
@@ -98,21 +112,9 @@
                     }
                 ],
                 "last": true
-            },
-            {
-                "cond": "default_t()",
-                "actions": [
-                    {
-                        "cmd": "RSP_COOKIE_DEL",
-                        "params": [
-                            "SECOND"
-                        ]
-                    }
-                ],
-                "last": true
             }
         ],
-         "pn": [
+        "pn": [
             {
                 "cond": "req_proto_secure()",
                 "actions": [

@@ -326,7 +326,7 @@ func TestRspAddCookie(t *testing.T) {
 		},
 	}
 
-	testRspHandler(t, "http://www.example.org/rsp_cookie_add", "p1", cookies,
+	testRspHandler(t, "http://www.example.org/rsp_cookie_add", "p2", cookies,
 		func(t *testing.T, m *ModuleHeader, ret int, req *bfe_basic.Request) {
 			if ret != bfe_module.BfeHandlerGoOn {
 				t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
@@ -354,7 +354,7 @@ func TestRspSetCookieExist(t *testing.T) {
 		},
 	}
 
-	testRspHandler(t, "http://www.example.org/rsp_cookie_set", "p1", cookies,
+	testRspHandler(t, "http://www.example.org/rsp_cookie_set", "p2", cookies,
 		func(t *testing.T, m *ModuleHeader, ret int, req *bfe_basic.Request) {
 			if ret != bfe_module.BfeHandlerGoOn {
 				t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
@@ -382,7 +382,7 @@ func TestRspSetCookieNotExist(t *testing.T) {
 		},
 	}
 
-	testRspHandler(t, "http://www.example.org/rsp_cookie_set", "p1", cookies,
+	testRspHandler(t, "http://www.example.org/rsp_cookie_set", "p2", cookies,
 		func(t *testing.T, m *ModuleHeader, ret int, req *bfe_basic.Request) {
 			if ret != bfe_module.BfeHandlerGoOn {
 				t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
