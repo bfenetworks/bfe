@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 import (
@@ -175,20 +176,12 @@ func initRuleLists() []*RuleList {
 	return ruleLists
 }
 
-func getCmdType(cmd string) int {
-	cmdPrefix := cmd[0:10]
-	switch cmdPrefix {
-	case "REQ_HEADER":
+func getHeaderType(cmd string) int {
+	if strings.HasPrefix(cmd, "REQ_") {
 		return ReqHeader
-	case "RSP_HEADER":
-		return RspHeader
-	case "REQ_COOKIE":
-		return ReqCookie
-	case "RSP_COOKIE":
-		return RspCookie
 	}
 
-	return -1
+	return RspHeader
 }
 
 func classifyRuleByAction(rule HeaderRule) RuleList {
@@ -199,8 +192,8 @@ func classifyRuleByAction(rule HeaderRule) RuleList {
 	}
 
 	for _, action := range rule.Actions {
-		cmdType := getCmdType(action.Cmd)
-		ruleList[cmdType].Actions = append(ruleList[cmdType].Actions, action)
+		headerType := getHeaderType(action.Cmd)
+		ruleList[headerType].Actions = append(ruleList[headerType].Actions, action)
 	}
 
 	return ruleList

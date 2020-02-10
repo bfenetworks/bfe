@@ -18,7 +18,9 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 )
 
 import (
@@ -74,14 +76,36 @@ func ActionFileCheck(conf ActionFile) error {
 			return fmt.Errorf("checkHeaderModParams: %s", err.Error())
 		}
 
-	case ReqCookieAdd:
+	case ReqCookieAdd,
+		ReqCookieSet:
 		if len(conf.Params) != 2 {
 			return fmt.Errorf("num of params:[ok:2, now:%d]", len(conf.Params))
 		}
 
-	case RspCookieDel:
+	case ReqCookieDel,
+		RspCookieDel:
 		if len(conf.Params) != 1 {
 			return fmt.Errorf("num of params:[ok:1, now:%d]", len(conf.Params))
+		}
+
+	case RspCookieAdd,
+		RspCookieSet:
+		if len(conf.Params) != 6 {
+			return fmt.Errorf("num of params:[ok:6, now:%d]", len(conf.Params))
+		}
+		_, err := time.Parse(time.RFC1123, conf.Params[2])
+		if err != nil {
+			return fmt.Errorf("expires format error, should be RFC1123 format")
+		}
+		_, err = strconv.Atoi(conf.Params[3])
+		if err != nil {
+			return fmt.Errorf("type of max age should be int")
+		}
+		if conf.Params[4] != "true" && conf.Params[4] != "false" {
+			return fmt.Errorf("type of http only should be bool")
+		}
+		if conf.Params[5] != "true" && conf.Params[5] != "false" {
+			return fmt.Errorf("type of secure should be bool")
 		}
 
 	default:
@@ -370,7 +394,8 @@ func actionConvert(actionFile ActionFile) (Action, error) {
 		action.Params = append(action.Params, key)
 		action.Params = append(action.Params, actionFile.Params[2:]...)
 
-	case ReqCookieAdd, RspCookieDel:
+	case ReqCookieAdd, ReqCookieSet, ReqCookieDel,
+		RspCookieAdd, RspCookieSet, RspCookieDel:
 		action.Params = actionFile.Params
 
 	default:
@@ -419,29 +444,45 @@ func getHeader(req *bfe_basic.Request, headerType int) (h *bfe_http.Header) {
 	return h
 }
 
-func HeaderActionsDo(req *bfe_basic.Request, headerType int, actions []Action) {
+func processHeader(req *bfe_basic.Request, headerType int, action Action) {
 	var key string
 	var value string
 
-	for _, action := range actions {
-		h := getHeader(req, headerType)
+	h := getHeader(req, headerType)
 
-		if action.Cmd[4:] == "HEADER_MOD" {
-			key = action.Params[1]
-			// get header value
-			if value = h.Get(key); value == "" {
-				// if req do not have this header, continue
-				continue
-			}
-
-			// mod header value
-			value = modHeaderValue(value, action)
-		} else {
-			key = action.Params[0]
-			value = getHeaderValue(req, action)
+	if action.Cmd[4:] == "HEADER_MOD" {
+		key = action.Params[1]
+		// get header value
+		if value = h.Get(key); value == "" {
+			// if req do not have this header, continue
+			return
 		}
 
-		// trim action.Cmd prefix REQ_ and RSP_
-		HeaderActionDo(h, action.Cmd[4:], key, value)
+		// mod header value
+		value = modHeaderValue(value, action)
+	} else {
+		key = action.Params[0]
+		value = getHeaderValue(req, action)
+	}
+
+	// trim action.Cmd prefix REQ_ and RSP_
+	HeaderActionDo(h, action.Cmd[4:], key, value)
+}
+
+func processCookie(req *bfe_basic.Request, headerType int, action Action) {
+	if headerType == ReqHeader {
+		ReqCookieActionDo(req, action)
+		return
+	}
+	RspCookieActionDo(req, action)
+}
+
+func HeaderActionsDo(req *bfe_basic.Request, headerType int, actions []Action) {
+	for _, action := range actions {
+		if strings.Contains(action.Cmd, "HEADER") {
+			processHeader(req, headerType, action)
+		} else {
+			processCookie(req, headerType, action)
+		}
 	}
 }

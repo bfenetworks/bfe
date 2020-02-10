@@ -15,7 +15,9 @@
 package mod_header
 
 import (
+	"strconv"
 	"strings"
+	"time"
 )
 
 import (
@@ -25,6 +27,10 @@ import (
 
 const (
 	ReqCookieAdd = "REQ_COOKIE_ADD"
+	ReqCookieSet = "REQ_COOKIE_SET"
+	ReqCookieDel = "REQ_COOKIE_DEL"
+	RspCookieAdd = "RSP_COOKIE_ADD"
+	RspCookieSet = "RSP_COOKIE_SET"
 	RspCookieDel = "RSP_COOKIE_DEL"
 )
 
@@ -38,73 +44,144 @@ func getCookieValue(req *bfe_basic.Request, value string) string {
 	return value
 }
 
-// reqAddCookie adds cookie for request if this cookie key not exists
-func reqAddCookie(req *bfe_basic.Request, cookie bfe_http.Cookie) {
-	httpRequest := req.HttpRequest
-	_, err := httpRequest.Cookie(cookie.Name)
-	if err != bfe_http.ErrNoCookie {
-		// cookie already exists
+func reqAddCookie(req *bfe_basic.Request, cookie *bfe_http.Cookie) {
+	req.HttpRequest.AddCookie(cookie)
+	if req.CookieMap != nil {
+		req.CookieMap[cookie.Name] = cookie
+	}
+}
+
+func reqSetCookie(req *bfe_basic.Request, cookie *bfe_http.Cookie) {
+	_, err := req.HttpRequest.Cookie(cookie.Name)
+	if err == bfe_http.ErrNoCookie {
+		reqAddCookie(req, cookie)
 		return
 	}
 
-	// add cookie
-	httpRequest.AddCookie(&cookie)
+	cookies := req.HttpRequest.Cookies()
+	req.HttpRequest.Header.Del("Cookie")
+
+	for i := 0; i < len(cookies); i++ {
+		if cookies[i].Name == cookie.Name {
+			cookies[i].Value = cookie.Value
+		}
+		req.HttpRequest.AddCookie(cookies[i])
+	}
+
 	if req.CookieMap != nil {
-		// add to cached cookie map if cookies have beed parsed
-		req.CookieMap[cookie.Name] = &cookie
+		req.CookieMap[cookie.Name] = cookie
 	}
 }
 
-func setCookie(rspHeader bfe_http.Header, cookie bfe_http.Cookie) {
-	if v := cookie.String(); v != "" {
-		rspHeader.Add("Set-Cookie", v)
+func reqDelCookie(req *bfe_basic.Request, cookie *bfe_http.Cookie) {
+	cookies := req.HttpRequest.Cookies()
+	req.HttpRequest.Header.Del("Cookie")
+
+	for i := 0; i < len(cookies); i++ {
+		if cookies[i].Name == cookie.Name {
+			continue
+		}
+		req.HttpRequest.AddCookie(cookies[i])
+	}
+
+	if req.CookieMap != nil {
+		delete(req.CookieMap, cookie.Name)
 	}
 }
 
-func rspFindCookie(resp *bfe_http.Response, cookieName string) (*bfe_http.Cookie, bool) {
-	cookies := resp.Cookies()
+func rspAddCookie(rsp *bfe_http.Response, cookie *bfe_http.Cookie) {
+	rsp.Header.Add("Set-Cookie", cookie.String())
+}
+
+func isRspCookieExist(rsp *bfe_http.Response, cookieName string) bool {
+	cookies := rsp.Cookies()
 	for _, cookie := range cookies {
 		if cookie.Name == cookieName {
-			return cookie, true
+			return true
 		}
 	}
-	return nil, false
+	return false
 }
 
-func rspDelCookie(resp *bfe_http.Response, cookie bfe_http.Cookie) {
-	if cookieExist, ok := rspFindCookie(resp, cookie.Name); ok {
-		cookieExist.MaxAge = -1
-		setCookie(resp.Header, *cookieExist)
+func rspSetCookie(rsp *bfe_http.Response, cookie *bfe_http.Cookie) {
+	if !isRspCookieExist(rsp, cookie.Name) {
+		rspAddCookie(rsp, cookie)
+		return
 	}
+
+	cookies := rsp.Cookies()
+	rsp.Header.Del("Set-Cookie")
+
+	for i := 0; i < len(cookies); i++ {
+		if cookies[i].Name == cookie.Name {
+			cookies[i] = cookie
+		}
+		rspAddCookie(rsp, cookies[i])
+	}
+}
+
+func rspDelCookie(rsp *bfe_http.Response, cookie *bfe_http.Cookie) {
+	if !isRspCookieExist(rsp, cookie.Name) {
+		return
+	}
+
+	cookies := rsp.Cookies()
+	rsp.Header.Del("Set-Cookie")
+
+	for i := 0; i < len(cookies); i++ {
+		if cookies[i].Name == cookie.Name {
+			continue
+		}
+		rspAddCookie(rsp, cookies[i])
+	}
+}
+
+func buildCookie(req *bfe_basic.Request, action Action) *bfe_http.Cookie {
+	cookie := &bfe_http.Cookie{
+		Name: action.Params[0],
+	}
+
+	if action.Cmd == ReqCookieDel || action.Cmd == RspCookieDel {
+		return cookie
+	}
+
+	cookie.Value = getCookieValue(req, action.Params[1])
+	if action.Cmd == ReqCookieAdd || action.Cmd == ReqCookieSet {
+		return cookie
+	}
+
+	cookie.Expires, _ = time.Parse(time.RFC1123, action.Params[2])
+	cookie.MaxAge, _ = strconv.Atoi(action.Params[3])
+	if action.Params[4] == "true" {
+		cookie.HttpOnly = true
+	}
+	if action.Params[5] == "true" {
+		cookie.Secure = true
+	}
+
+	return cookie
 }
 
 func ReqCookieActionDo(req *bfe_basic.Request, action Action) {
-	cookie := bfe_http.Cookie{
-		Name:  action.Params[0],
-		Value: getCookieValue(req, action.Params[1]),
-	}
-	if action.Cmd == ReqCookieAdd {
+	cookie := buildCookie(req, action)
+	switch action.Cmd {
+	case ReqCookieAdd:
 		reqAddCookie(req, cookie)
-	}
-}
-
-func ReqCookieActionsDo(req *bfe_basic.Request, actions []Action) {
-	for _, action := range actions {
-		ReqCookieActionDo(req, action)
+	case ReqCookieSet:
+		reqSetCookie(req, cookie)
+	case ReqCookieDel:
+		reqDelCookie(req, cookie)
 	}
 }
 
 func RspCookieActionDo(req *bfe_basic.Request, action Action) {
-	cookie := bfe_http.Cookie{
-		Name: action.Params[0],
-	}
-	if action.Cmd == RspCookieDel {
+	cookie := buildCookie(req, action)
+	switch action.Cmd {
+	case RspCookieAdd:
+		rspAddCookie(req.HttpResponse, cookie)
+	case RspCookieSet:
+		rspSetCookie(req.HttpResponse, cookie)
+	case RspCookieDel:
 		rspDelCookie(req.HttpResponse, cookie)
-	}
-}
-
-func RspCookieActionsDo(req *bfe_basic.Request, actions []Action) {
-	for _, action := range actions {
-		RspCookieActionDo(req, action)
 	}
 }
