@@ -25,7 +25,7 @@ import (
 
 type ConfModUserID struct {
 	Basic struct {
-		DataPath string // path of config data (UserID)
+		DataPath string // path of config data
 	}
 
 	Log struct {
@@ -37,7 +37,7 @@ func ConfLoad(filePath, confRoot string) (*ConfModUserID, error) {
 	cfg := &ConfModUserID{}
 
 	// read config from file
-    err := gcfg.ReadFileInto(cfg, filePath)
+	err := gcfg.ReadFileInto(cfg, filePath)
 	if err != nil {
 		return nil, err
 	}

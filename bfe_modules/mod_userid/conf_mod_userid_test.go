@@ -44,7 +44,7 @@ func TestConfLoad(t *testing.T) {
 			},
 			want: &ConfModUserID{
 				Basic: struct {
-					DataPath string // path of config data (UserID)
+					DataPath string
 				}{
 					DataPath: bfe_util.ConfPathProc(defaultDataPath, "./testdata"),
 				},
@@ -72,7 +72,7 @@ func TestConfLoad(t *testing.T) {
 			},
 			want: &ConfModUserID{
 				Basic: struct {
-					DataPath string // path of config data (UserID)
+					DataPath string
 				}{
 					DataPath: bfe_util.ConfPathProc(defaultDataPath, "./testdata"),
 				},

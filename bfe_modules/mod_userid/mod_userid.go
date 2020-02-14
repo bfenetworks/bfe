@@ -39,13 +39,12 @@ import (
 var openDebug = false
 
 const (
-	UidCtxKey = "mod_userid.uid_cookie"
 	ModName   = "mod_userid"
+	UidCtxKey = "mod_userid.uid_cookie"
 )
 
 type ModuleUserID struct {
-	name string
-
+	name         string
 	confFile     string
 	config       *Config
 	configLocker sync.RWMutex
@@ -75,7 +74,7 @@ func (m *ModuleUserID) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 		return fmt.Errorf("%s: conf load err %v", m.name, err)
 	}
 
-	// register
+	// register handlers
 	if err := whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData); err != nil {
 		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %s", m.name, err.Error())
 	}
@@ -93,11 +92,8 @@ func (m *ModuleUserID) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 
 func (m *ModuleUserID) loadConfData(query url.Values) (string, error) {
 	path := m.confFile
-
-	if query != nil {
-		if q := query.Get("path"); q != "" {
-			path = q
-		}
+	if q := query.Get("path"); q != "" {
+		path = q
 	}
 
 	config, err := NewConfigFromFile(path)
@@ -125,11 +121,6 @@ func (m *ModuleUserID) getConfig() *Config {
 	return config
 }
 
-func GenUid() string {
-	id := fmt.Sprintf("%d_%d", time.Now().UnixNano(), rand.Intn(2<<8))
-	return hex.EncodeToString([]byte(id))
-}
-
 func (m *ModuleUserID) reqSetUid(request *bfe_basic.Request) (int, *bfe_http.Response) {
 	conf := m.getConfig()
 	if conf == nil {
@@ -137,46 +128,35 @@ func (m *ModuleUserID) reqSetUid(request *bfe_basic.Request) (int, *bfe_http.Res
 	}
 
 	productRules := conf.FindProductRules(request.Route.Product)
-	if productRules == nil {
-		return bfe_module.BfeHandlerGoOn, nil
-	}
-
-	for _, productRule := range productRules {
-		if !productRule.Cond.Match(request) {
+	for _, rule := range productRules {
+		if !rule.Cond.Match(request) {
 			continue
 		}
 
-		// get uid
-		uidCookie, ok := request.Cookie(productRule.Params.Name)
-		if ok && uidCookie.Value != "" {
+		params := rule.Params
+		if _, ok := request.Cookie(params.Name); ok {
 			return bfe_module.BfeHandlerGoOn, nil
 		}
 
-		// set uid for downstream
-		setCookie2Request(request, &bfe_http.Cookie{
-			Name:  productRule.Params.Name,
-			Value: GenUid(),
-			Path:  productRule.Params.Path,
-
-			// both set
-			Expires: time.Now().Add(productRule.Params.MaxAge),
-			MaxAge:  int(productRule.Params.MaxAge.Seconds()),
-		})
-
+		cookie := &bfe_http.Cookie{
+			Name:    params.Name,
+			Value:   genUid(),
+			Path:    params.Path,
+			Expires: time.Now().Add(params.MaxAge),
+			MaxAge:  int(params.MaxAge.Seconds()),
+		}
+		request.CookieMap[cookie.Name] = cookie
+		request.HttpRequest.AddCookie(cookie)
+		request.SetContext(UidCtxKey, cookie)
 		break
 	}
+
 	return bfe_module.BfeHandlerGoOn, nil
 }
 
-func setCookie2Request(request *bfe_basic.Request, cookie *bfe_http.Cookie) {
-	// reset useridcookie so downstream can get it
-	request.CookieMap[cookie.Name] = cookie
-	request.HttpRequest.Header.Del("Cookie")
-	for _, v := range request.CookieMap {
-		request.HttpRequest.AddCookie(v)
-	}
-
-	request.SetContext(UidCtxKey, cookie)
+func genUid() string {
+	id := fmt.Sprintf("%d_%d", time.Now().UnixNano(), rand.Intn(2<<30))
+	return hex.EncodeToString([]byte(id))
 }
 
 func (m *ModuleUserID) rspSetUid(request *bfe_basic.Request, res *bfe_http.Response) int {
@@ -190,11 +170,6 @@ func (m *ModuleUserID) rspSetUid(request *bfe_basic.Request, res *bfe_http.Respo
 		return bfe_module.BfeHandlerGoOn
 	}
 
-	setCookie2Response(res, uidCookie)
-
-	return bfe_module.BfeHandlerGoOn
-}
-
-func setCookie2Response(res *bfe_http.Response, uidCookie *bfe_http.Cookie) {
 	res.Header.Add("Set-Cookie", uidCookie.String())
+	return bfe_module.BfeHandlerGoOn
 }
