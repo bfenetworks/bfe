@@ -71,8 +71,8 @@ func VipTableConfCheck(conf *VipTableConf) error {
 	for product, vipList := range conf.Vips {
 		var formattedVipList VipList
 		for _, vip := range vipList {
-			ip, err := net.ResolveIPAddr("ip", vip)
-			if err != nil {
+			ip := net.ParseIP(vip)
+			if ip == nil {
 				return fmt.Errorf("invalid vip %s for %s", vip, product)
 			}
 

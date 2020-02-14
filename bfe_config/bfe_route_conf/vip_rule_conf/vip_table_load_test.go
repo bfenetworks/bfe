@@ -50,7 +50,7 @@ func TestVipTableLoad_3(t *testing.T) {
 		return
 	}
 
-	vip, _ := net.ResolveIPAddr("ip", "2001:0:1111:A:B0::9000:200")
+	vip := net.ParseIP("2001:0:1111:A:B0::9000:200")
 	if config.VipMap[vip.String()] != "pb" {
 		t.Errorf("config.VipMap['2001:0:1111:A:B0::9000:200'] should be 'pb', not %s",
 			config.VipMap[vip.String()])
