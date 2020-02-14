@@ -16,6 +16,8 @@ package mod_access
 
 const (
 	FormatAllServeTime = iota
+	FormatRequestTime
+	FormatRequestLine
 	FormatBackend
 	FormatReqBodyLen
 	FormatResBodyLen
@@ -45,6 +47,7 @@ const (
 	FormatResDuration
 	FormatResProto
 	FormatResStatus
+	FormatResLen
 	FormatRetryNum
 	FormatServerAddr
 	FormatSinceSessionTime
@@ -85,6 +88,8 @@ var (
 		"time": FormatTime,
 
 		"all_time":              FormatAllServeTime,
+		"request_time":          FormatRequestTime,
+		"request_line":          FormatRequestLine,
 		"backend":               FormatBackend,
 		"req_body_len":          FormatReqBodyLen,
 		"res_body_len":          FormatResBodyLen,
@@ -109,6 +114,7 @@ var (
 		"res_cookie":            FormatResCookie,
 		"res_header":            FormatResHeader,
 		"res_proto":             FormatResProto,
+		"res_len":               FormatResLen,
 		"response_duration":     FormatResDuration,
 		"retry_num":             FormatRetryNum,
 		"server_addr":           FormatServerAddr,
@@ -138,6 +144,8 @@ var (
 		FormatTime:   DomainAll,
 
 		FormatAllServeTime:        Request,
+		FormatRequestTime:         Request,
+		FormatRequestLine:         Request,
 		FormatBackend:             Request,
 		FormatReqBodyLen:          Request,
 		FormatResBodyLen:          Request,
@@ -167,6 +175,7 @@ var (
 		FormatResHeaderLen:        Request,
 		FormatResProto:            Request,
 		FormatResStatus:           Request,
+		FormatResLen:              Request,
 		FormatRetryNum:            Request,
 		FormatServerAddr:          Request,
 		FormatSinceSessionTime:    Request,
@@ -191,6 +200,8 @@ var (
 
 	fmtHandlerTable = map[int]interface{}{
 		FormatAllServeTime:        onLogFmtAllServeTime,
+		FormatRequestTime:         onLogFmtRequestTime,
+		FormatRequestLine:         onLogFmtRequestLine,
 		FormatBackend:             onLogFmtBackend,
 		FormatReqBodyLen:          onLogFmtReqBodyLen,
 		FormatResBodyLen:          onLogFmtResBodyLen,
@@ -218,6 +229,7 @@ var (
 		FormatResDuration:         onLogFmtResDuration,
 		FormatResProto:            onLogFmtResProto,
 		FormatResStatus:           onLogFmtResStatus,
+		FormatResLen:              onLogFmtResLen,
 		FormatRetryNum:            onLogFmtRetryNum,
 		FormatServerAddr:          onLogFmtServerAddr,
 		FormatSinceSessionTime:    onLogFmtSinceSessionTime,

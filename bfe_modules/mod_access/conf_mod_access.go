@@ -53,6 +53,8 @@ func ConfLoad(filePath string) (*ConfModAccess, error) {
 		return &cfg, err
 	}
 
+	cfg.Convert()
+
 	return &cfg, nil
 }
 
@@ -82,6 +84,13 @@ func (cfg *ConfModAccess) Check() error {
 	}
 
 	return nil
+}
+
+func (cfg *ConfModAccess) Convert() {
+	switch cfg.Template.RequestTemplate {
+	case "COMMON":
+		cfg.Template.RequestTemplate = "$host - - $request_time $request_line $status_code $res_len"
+	}
 }
 
 func checkLogFmt(item LogFmtItem, logFmtType string) error {
