@@ -8,7 +8,7 @@ func TestNewTypedError(t *testing.T) {
 	if _, ok := rawError.(TypedError); ok {
 		t.Error("Raw error type should not be able to be casted as TypedError.")
 	}
-	err := NewTypedError(-1, rawError)
+	err := NewTypedError(int(^uint(0)>>1), rawError)
 	if _, ok := interface{}(err).(error); !ok {
 		t.Error("TypedError must be error type.")
 	}
@@ -17,4 +17,5 @@ func TestNewTypedError(t *testing.T) {
 		errUndefined.Error() != "TypeUndefined: " {
 		t.Error("Incorrect type mapping in TypedError.")
 	}
+	return
 }

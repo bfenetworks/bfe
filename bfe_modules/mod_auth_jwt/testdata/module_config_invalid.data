@@ -1,0 +1,3 @@
+[basic]
+SecretPath = ./../
+ProductConfigPath = ./product_config.data

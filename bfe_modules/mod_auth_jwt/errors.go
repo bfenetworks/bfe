@@ -6,13 +6,37 @@ const (
 	TypeUndefined = iota
 	ConfigItemRequired
 	ConfigItemInvalid
+	ConfigLoadFailed
+	JsonDecoderError
+	BuildConfigItemFailed
+	BuildCondFailed
+	InvalidConfigItem
+	BadSecretConfig
+	ModuleConfigLoadFailed
+	MetricsInitFailed
+	AuthServiceRegisterFailed
+	MonitorServiceRegisterFailed
+	HotDeploymentServiceRegisterFailed
+	TokenClaimValidationFailed
 )
 
 // map error code with error name
 var typeMapping = map[int]string{
-	TypeUndefined:      "TypeUndefined",
-	ConfigItemRequired: "ConfigItemRequired",
-	ConfigItemInvalid:  "ConfigItemInvalid",
+	TypeUndefined:                      "TypeUndefined",
+	ConfigItemRequired:                 "ConfigItemRequired",
+	ConfigItemInvalid:                  "ConfigItemInvalid",
+	ConfigLoadFailed:                   "ConfigLoadFailed",
+	JsonDecoderError:                   "JsonDecoderError",
+	BuildConfigItemFailed:              "BuildConfigItemFailed",
+	BuildCondFailed:                    "BuildCondFailed",
+	InvalidConfigItem:                  "InvalidConfigItem",
+	BadSecretConfig:                    "BadSecretConfig",
+	ModuleConfigLoadFailed:             "ModuleConfigLoadFailed",
+	MetricsInitFailed:                  "MetricsInitFailed",
+	AuthServiceRegisterFailed:          "AuthServiceRegisterFailed",
+	MonitorServiceRegisterFailed:       "MonitorServiceRegisterFailed",
+	HotDeploymentServiceRegisterFailed: "HotDeploymentServiceRegisterFailed",
+	TokenClaimValidationFailed:         "TokenClaimValidationFailed",
 }
 
 type TypedError struct {
@@ -29,6 +53,6 @@ func (e TypedError) Error() string {
 }
 
 // Factory function to generate typed error
-func NewTypedError(code int, context error) TypedError {
-	return TypedError{code, context}
+func NewTypedError(code int, context error) *TypedError {
+	return &TypedError{code, context}
 }
