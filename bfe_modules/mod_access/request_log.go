@@ -67,7 +67,7 @@ func onLogFmtRequestLine(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffe
 		return errors.New("req.HttpRequest is nil")
 	}
 
-	l := fmt.Sprintf("\"%s %s %s\"", req.HttpRequest.Method, req.HttpRequest.RequestURI, req.HttpRequest.Proto)
+	l := fmt.Sprintf("%s %s %s", req.HttpRequest.Method, req.HttpRequest.RequestURI, req.HttpRequest.Proto)
 	buff.WriteString(l)
 	return nil
 }
