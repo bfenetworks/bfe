@@ -89,7 +89,9 @@ func (cfg *ConfModAccess) Check() error {
 func (cfg *ConfModAccess) Convert() {
 	switch cfg.Template.RequestTemplate {
 	case "COMMON":
-		cfg.Template.RequestTemplate = "$host - - $request_time $request_line $status_code $res_len"
+		cfg.Template.RequestTemplate = "$host - - $request_time \"$request_line\" $status_code $res_len"
+	case "COMBINED":
+		cfg.Template.RequestTemplate = "$host - - $request_time \"$request_line\" $status_code $res_len \"${Referer}req_header\" \"${User-Agent}req_header\""
 	}
 }
 
