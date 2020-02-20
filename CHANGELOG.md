@@ -12,9 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unrelease]
 ### Added
-- mod_access support CLF format
-- mod_static suuport HTTP HEAD method
+- mod_access support CLF/ELF format
 - Add mod_userid for client identification
+- Add mod_tag for tagging and tracking groups of requests
+- mod_static suuport HTTP HEAD method
 - Add static check in Makefile
 - Compiling on Windows OS is supported
 
