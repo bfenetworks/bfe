@@ -3,7 +3,7 @@ package mod_auth_jwt
 import "testing"
 
 func TestNewModuleConfigProxy_GetWithLock(t *testing.T) {
-	config, err := NewModuleConfigProxy("./testdata/mod_auth_jwt.conf")
+	config, err := NewModuleConfigProxy("./testdata/mod_auth_jwt/mod_auth_jwt.conf")
 	if err != nil {
 		t.Error(err)
 		return
@@ -20,7 +20,7 @@ func TestNewModuleConfigProxy_GetWithLock(t *testing.T) {
 }
 
 func TestModuleConfigProxy_FindProductConfig(t *testing.T) {
-	config, err := NewModuleConfigProxy("./testdata/mod_auth_jwt.conf")
+	config, err := NewModuleConfigProxy("./testdata/mod_auth_jwt/mod_auth_jwt.conf")
 	if err != nil {
 		t.Error(err)
 		return
@@ -33,13 +33,13 @@ func TestModuleConfigProxy_FindProductConfig(t *testing.T) {
 }
 
 func TestModuleConfigProxy_Update(t *testing.T) {
-	config, err := NewModuleConfigProxy("./testdata/mod_auth_jwt.conf")
+	config, err := NewModuleConfigProxy("./testdata/mod_auth_jwt/mod_auth_jwt.conf")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	rawConfig, rawProductConfig := config.Config, config.ProductConfig
-	err = config.Update("./testdata/mod_auth_jwt.conf") // simply reload config
+	err = config.Update("./testdata/mod_auth_jwt/mod_auth_jwt.conf") // simply reload config
 	if err != nil {
 		t.Error(err)
 		return

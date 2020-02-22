@@ -62,7 +62,7 @@ func LoadModuleConfig(path string) (config *ModuleConfig, err *TypedError) {
 	secretPath, ProductConfigPath := config.Basic.SecretPath, config.Basic.ProductConfigPath
 	if len(secretPath) == 0 || len(ProductConfigPath) == 0 {
 		err = NewTypedError(ConfigItemRequired,
-			errors.New("Config item SecretPath and ProductConfigPath cannot be left blank"))
+			errors.New("config item SecretPath and ProductConfigPath cannot be left blank"))
 		return nil, err
 	}
 
@@ -75,10 +75,7 @@ func LoadModuleConfig(path string) (config *ModuleConfig, err *TypedError) {
 		return nil, err
 	}
 	// read secret Config
-	// error ignored here (validation passed above)
-	file, _ := os.Open(config.Basic.SecretPath)
-	defer file.Close()
-	rawErr = json.NewDecoder(file).Decode(&config.Basic.Secret)
+	rawErr = readSecret(config.Basic.SecretPath, &config.Basic.Secret)
 	if rawErr != nil {
 		return nil, NewTypedError(BadSecretConfig, rawErr)
 	}
@@ -87,26 +84,43 @@ func LoadModuleConfig(path string) (config *ModuleConfig, err *TypedError) {
 
 // validation for Config item
 func validateModuleConfig(config *ModuleConfig) (err *TypedError) {
-	statSecret, statErr := os.Stat(config.Basic.SecretPath)
-	// should be accessible
-	if statErr != nil {
-		return NewTypedError(ConfigItemInvalid, statErr)
-	}
-	// should be a file
-	if statSecret.IsDir() {
+	if isFile, err := isFile(config.Basic.SecretPath); !isFile || err != nil {
+		if err != nil {
+			return NewTypedError(ConfigItemInvalid, err)
+		}
 		return NewTypedError(ConfigItemInvalid, errors.New("the SecretPath should be a file, not directory"))
 	}
-	statProduct, statErr := os.Stat(config.Basic.ProductConfigPath)
-	//
-	if statErr != nil {
-		return NewTypedError(ConfigItemInvalid, statErr)
-	}
-	//
-	if statProduct.IsDir() {
+	if isFile, err := isFile(config.Basic.ProductConfigPath); !isFile || err != nil {
+		if err != nil {
+			return NewTypedError(ConfigItemInvalid, err)
+		}
 		return NewTypedError(ConfigItemInvalid,
 			errors.New("the ProductConfigPath should be a file, not directory"))
 	}
 	return nil
+}
+
+func isFile(path string) (result bool, err error) {
+	stat, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+	return !stat.IsDir(), nil
+}
+
+func readSecret(path string, dst interface{}) (err error) {
+	if isFile, err := isFile(path); !isFile || err != nil {
+		if err != nil {
+			return err
+		}
+		return errors.New("secret path should be a file")
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return json.NewDecoder(file).Decode(dst)
 }
 
 func LoadProductConfig(modConfig *ModuleConfig) (config *ProductConfig, err *TypedError) {
@@ -189,6 +203,18 @@ func buildProductConfigItem(config map[string]interface{}, modConfig *ModuleConf
 	err = merge(refItem, jwtConfig, config)
 	if err != nil {
 		return nil, err
+	}
+	if item.SecretPath != modConfig.Basic.SecretPath {
+		root, _ := filepath.Split(modConfig.Basic.ProductConfigPath)
+		// ensure secret path is absolute path
+		item.SecretPath = util.ConfPathProc(item.SecretPath, root)
+		// alloc space for item secret
+		item.Secret = make(map[string]interface{})
+		// read secret config
+		rawErr = readSecret(item.SecretPath, &item.Secret)
+		if rawErr != nil {
+			return nil, NewTypedError(BadSecretConfig, rawErr)
+		}
 	}
 	return item, nil
 }
