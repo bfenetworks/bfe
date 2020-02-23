@@ -2,6 +2,7 @@
 
 - [mod_access](configuration/mod_access/mod_access.md)
 - [mod_auth_basic](configuration/mod_auth_basic/mod_auth_basic.md)
+- [mod_auth_jwt](configuration/mod_auth_jwt/mod_auth_jwt.md)
 - [mod_block](configuration/mod_block/mod_block.md)
 - [mod_compress](configuration/mod_compress/mod_compress.md)
 - [mod_errors](configuration/mod_errors/mod_errors.md)

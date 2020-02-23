@@ -37,6 +37,7 @@
   * 扩展模块
     * [mod_access](configuration/mod_access/mod_access.md)
     * [mod_auth_basic](configuration/mod_auth_basic/mod_auth_basic.md)
+    * [mod_auth_jwt](configuration/mod_auth_jwt/mod_auth_jwt.md)
     * [mod_block](configuration/mod_block/mod_block.md)
     * [mod_compress](configuration/mod_compress/mod_compress.md)
     * [mod_errors](configuration/mod_errors/mod_errors.md)
@@ -65,6 +66,7 @@
   * 扩展模块
     * [module_status](monitor/module_status.md)
     * [mod_auth_basic](monitor/mod_auth_basic.md)
+    * [mod_auth_jwt](monitor/mod_auth_jwt.md)
     * [mod_block](monitor/mod_block.md)
     * [mod_compress](monitor/mod_compress.md)
     * [mod_geo](monitor/mod_geo.md)
