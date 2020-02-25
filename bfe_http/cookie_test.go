@@ -62,6 +62,22 @@ var writeSetCookiesTests = []struct {
 		&Cookie{Name: "cookie-8", Value: "eight", Domain: "::1"},
 		"cookie-8=eight",
 	},
+	{
+		&Cookie{Name: "cookie-12", Value: "samesite-default", SameSite: SameSiteDefaultMode},
+		"cookie-12=samesite-default; SameSite",
+	},
+	{
+		&Cookie{Name: "cookie-13", Value: "samesite-lax", SameSite: SameSiteLaxMode},
+		"cookie-13=samesite-lax; SameSite=Lax",
+	},
+	{
+		&Cookie{Name: "cookie-14", Value: "samesite-strict", SameSite: SameSiteStrictMode},
+		"cookie-14=samesite-strict; SameSite=Strict",
+	},
+	{
+		&Cookie{Name: "cookie-15", Value: "samesite-none", SameSite: SameSiteNoneMode},
+		"cookie-15=samesite-none; SameSite=None",
+	},
 }
 
 func TestWriteSetCookies(t *testing.T) {
@@ -180,7 +196,42 @@ var readSetCookiesTests = []struct {
 			Raw:      "ASP.NET_SessionId=foo; path=/; HttpOnly",
 		}},
 	},
-
+	{
+		Header{"Set-Cookie": {"samesitedefault=foo; SameSite"}},
+		[]*Cookie{{
+			Name:     "samesitedefault",
+			Value:    "foo",
+			SameSite: SameSiteDefaultMode,
+			Raw:      "samesitedefault=foo; SameSite",
+		}},
+	},
+	{
+		Header{"Set-Cookie": {"samesitelax=foo; SameSite=Lax"}},
+		[]*Cookie{{
+			Name:     "samesitelax",
+			Value:    "foo",
+			SameSite: SameSiteLaxMode,
+			Raw:      "samesitelax=foo; SameSite=Lax",
+		}},
+	},
+	{
+		Header{"Set-Cookie": {"samesitestrict=foo; SameSite=Strict"}},
+		[]*Cookie{{
+			Name:     "samesitestrict",
+			Value:    "foo",
+			SameSite: SameSiteStrictMode,
+			Raw:      "samesitestrict=foo; SameSite=Strict",
+		}},
+	},
+	{
+		Header{"Set-Cookie": {"samesitenone=foo; SameSite=None"}},
+		[]*Cookie{{
+			Name:     "samesitenone",
+			Value:    "foo",
+			SameSite: SameSiteNoneMode,
+			Raw:      "samesitenone=foo; SameSite=None",
+		}},
+	},
 	// TODO(bradfitz): users have reported seeing this in the
 	// wild, but do browsers handle it? RFC 6265 just says "don't
 	// do that" (section 3) and then never mentions header folding

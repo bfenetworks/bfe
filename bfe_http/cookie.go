@@ -51,11 +51,27 @@ type Cookie struct {
 	MaxAge   int
 	Secure   bool
 	HttpOnly bool
+	SameSite SameSite
 	Raw      string
 	Unparsed []string // Raw text of unparsed attribute-value pairs
 }
 
 type CookieMap map[string]*Cookie
+
+// SameSite allows a server to define a cookie attribute making it impossible for
+// the browser to send this cookie along with cross-site requests. The main
+// goal is to mitigate the risk of cross-origin information leakage, and provide
+// some protection against cross-site request forgery attacks.
+//
+// See https://tools.ietf.org/html/draft-ietf-httpbis-cookie-same-site-00 for details.
+type SameSite int
+
+const (
+	SameSiteDefaultMode SameSite = iota + 1
+	SameSiteLaxMode
+	SameSiteStrictMode
+	SameSiteNoneMode
+)
 
 // CookieMapGet parse cookies(slice) to req.Route.CookieMap(map)
 func CookieMapGet(cookies []*Cookie) CookieMap {
@@ -130,6 +146,19 @@ func readSetCookies(h Header) []*Cookie {
 				continue
 			}
 			switch lowerAttr {
+			case "samesite":
+				lowerVal := strings.ToLower(val)
+				switch lowerVal {
+				case "lax":
+					c.SameSite = SameSiteLaxMode
+				case "strict":
+					c.SameSite = SameSiteStrictMode
+				case "none":
+					c.SameSite = SameSiteNoneMode
+				default:
+					c.SameSite = SameSiteDefaultMode
+				}
+				continue
 			case "secure":
 				c.Secure = true
 				continue
@@ -218,6 +247,16 @@ func (c *Cookie) String() string {
 	}
 	if c.Secure {
 		fmt.Fprintf(&b, "; Secure")
+	}
+	switch c.SameSite {
+	case SameSiteDefaultMode:
+		b.WriteString("; SameSite")
+	case SameSiteNoneMode:
+		b.WriteString("; SameSite=None")
+	case SameSiteLaxMode:
+		b.WriteString("; SameSite=Lax")
+	case SameSiteStrictMode:
+		b.WriteString("; SameSite=Strict")
 	}
 	return b.String()
 }
