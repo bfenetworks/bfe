@@ -98,6 +98,32 @@ func (cm CookieMap) Get(key string) (*Cookie, bool) {
 	return val, ok
 }
 
+// http://tools.ietf.org/html/rfc6265#section-5.2.1 only specify an algorithm to parse a cookie-date
+// According to https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie, Expires format should be HTTP-date
+// Preferred syntax: <day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT
+// However, there are some obsolete formats, specified in https://tools.ietf.org/html/rfc7231#section-7.1.1.2
+func parseExpireTime(val string) (time.Time, bool) {
+	// preferred format
+	exptime, err := time.Parse(TimeFormat, val)
+	if err == nil {
+		return exptime.UTC(), true
+	}
+	exptime, err = time.Parse("Mon, 02-Jan-06 15:04:05 GMT", val)
+	if err == nil {
+		return exptime.UTC(), true
+	}
+	exptime, err = time.Parse(time.RFC1123, val)
+	if err == nil {
+		return exptime.UTC(), true
+	}
+	// set-cookie expire format of php version: Sun, 07-May-2028 10:53:08 GMT
+	exptime, err = time.Parse("Mon, 02-Jan-2006 15:04:05 MST", val)
+	if err == nil {
+		return exptime.UTC(), true
+	}
+	return time.Time{}, false
+}
+
 // readSetCookies parses all "Set-Cookie" values from
 // the header h and returns the successfully parsed Cookies.
 func readSetCookies(h Header) []*Cookie {
@@ -182,16 +208,12 @@ func readSetCookies(h Header) []*Cookie {
 				continue
 			case "expires":
 				c.RawExpires = val
-				exptime, err := time.Parse(time.RFC1123, val)
-				if err != nil {
-					exptime, err = time.Parse("Mon, 02-Jan-2006 15:04:05 MST", val)
-					if err != nil {
-						c.Expires = time.Time{}
-						break
-					}
+				// if parse failed, will add to Unparsed
+				exp, ok := parseExpireTime(val)
+				if ok {
+					c.Expires = exp
+					continue
 				}
-				c.Expires = exptime.UTC()
-				continue
 			case "path":
 				c.Path = val
 				// TODO: Add path parsing
@@ -235,7 +257,7 @@ func (c *Cookie) String() string {
 		}
 	}
 	if c.Expires.Unix() > 0 {
-		fmt.Fprintf(&b, "; Expires=%s", c.Expires.UTC().Format(time.RFC1123))
+		fmt.Fprintf(&b, "; Expires=%s", c.Expires.UTC().Format(TimeFormat))
 	}
 	if c.MaxAge > 0 {
 		fmt.Fprintf(&b, "; Max-Age=%d", c.MaxAge)

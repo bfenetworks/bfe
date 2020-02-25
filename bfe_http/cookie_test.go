@@ -232,6 +232,34 @@ var readSetCookiesTests = []struct {
 			Raw:      "samesitenone=foo; SameSite=None",
 		}},
 	},
+	{
+		Header{"Set-Cookie": {"SID=XXX; expires=Thu, 18-Feb-21 06:59:27 GMT; max-age=31536000; path=/; domain=.test.com; version=1"}},
+		[]*Cookie{{
+			Name:       "SID",
+			Value:      "XXX",
+			Expires:    time.Date(2021, time.February, 18, 6, 59, 27, 0, time.UTC),
+			RawExpires: "Thu, 18-Feb-21 06:59:27 GMT",
+			MaxAge:     31536000,
+			Path:       "/",
+			Domain:     ".test.com",
+			Unparsed:   []string{"version=1"},
+			Raw:        "SID=XXX; expires=Thu, 18-Feb-21 06:59:27 GMT; max-age=31536000; path=/; domain=.test.com; version=1",
+		}},
+	},
+	{
+		Header{"Set-Cookie": {"STOKEN=xxx; expires=Tue, 25-Apr-2028 08:07:15 GMT; path=/; domain=test2.com; secure; httponly"}},
+		[]*Cookie{{
+			Name:       "STOKEN",
+			Value:      "xxx",
+			Expires:    time.Date(2028, time.April, 25, 8, 7, 15, 0, time.UTC),
+			RawExpires: "Tue, 25-Apr-2028 08:07:15 GMT",
+			Path:       "/",
+			Domain:     "test2.com",
+			HttpOnly:   true,
+			Secure:     true,
+			Raw:        "STOKEN=xxx; expires=Tue, 25-Apr-2028 08:07:15 GMT; path=/; domain=test2.com; secure; httponly",
+		}},
+	},
 	// TODO(bradfitz): users have reported seeing this in the
 	// wild, but do browsers handle it? RFC 6265 just says "don't
 	// do that" (section 3) and then never mentions header folding
