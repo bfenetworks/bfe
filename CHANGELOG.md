@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unrelease]
 ### Added
-- mod_access support CLF(Common Log Format)/ELF(Extended Log Format)
+- mod_access support NCSA Common Log Format(CLF) and W3C Extended Log Format(ELF)
 - mod_static suuport HTTP HEAD method
 - Add mod_userid for client identification
 - Add mod_tag for tagging and tracking groups of requests
