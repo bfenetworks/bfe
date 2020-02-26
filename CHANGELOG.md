@@ -12,15 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unrelease]
 ### Added
-- mod_access support CLF/ELF format
+- mod_access support CLF(Common Log Format)/ELF(Extended Log Format)
+- mod_static suuport HTTP HEAD method
 - Add mod_userid for client identification
 - Add mod_tag for tagging and tracking groups of requests
-- mod_static suuport HTTP HEAD method
+- http cookie: support Expires attribute in GMT format
+- http cookie: support SameSite attribute 
 - Add static check in Makefile
 - Compiling on Windows OS is supported
+- Documents optimization
 
 ### Fixed
-- Fix a ip-parsing bug that causes invalid ips are treated as domain names
+- Fix a bug that causes invalid ips are parsed and treated as domain names
 
 ## [v0.6.0] - 2020-01-21
 ### Added
