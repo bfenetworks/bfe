@@ -51,11 +51,27 @@ type Cookie struct {
 	MaxAge   int
 	Secure   bool
 	HttpOnly bool
+	SameSite SameSite
 	Raw      string
 	Unparsed []string // Raw text of unparsed attribute-value pairs
 }
 
 type CookieMap map[string]*Cookie
+
+// SameSite allows a server to define a cookie attribute making it impossible for
+// the browser to send this cookie along with cross-site requests. The main
+// goal is to mitigate the risk of cross-origin information leakage, and provide
+// some protection against cross-site request forgery attacks.
+//
+// See https://tools.ietf.org/html/draft-ietf-httpbis-cookie-same-site-00 for details.
+type SameSite int
+
+const (
+	SameSiteDefaultMode SameSite = iota + 1
+	SameSiteLaxMode
+	SameSiteStrictMode
+	SameSiteNoneMode
+)
 
 // CookieMapGet parse cookies(slice) to req.Route.CookieMap(map)
 func CookieMapGet(cookies []*Cookie) CookieMap {
@@ -80,6 +96,32 @@ func (cm CookieMap) Get(key string) (*Cookie, bool) {
 
 	val, ok := cm[key]
 	return val, ok
+}
+
+// http://tools.ietf.org/html/rfc6265#section-5.2.1 only specify an algorithm to parse a cookie-date
+// According to https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie, Expires format should be HTTP-date
+// Preferred syntax: <day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT
+// However, there are some obsolete formats, specified in https://tools.ietf.org/html/rfc7231#section-7.1.1.2
+func parseExpireTime(val string) (time.Time, bool) {
+	// preferred format
+	exptime, err := time.Parse(TimeFormat, val)
+	if err == nil {
+		return exptime.UTC(), true
+	}
+	exptime, err = time.Parse("Mon, 02-Jan-06 15:04:05 GMT", val)
+	if err == nil {
+		return exptime.UTC(), true
+	}
+	exptime, err = time.Parse(time.RFC1123, val)
+	if err == nil {
+		return exptime.UTC(), true
+	}
+	// set-cookie expire format of php version: Sun, 07-May-2028 10:53:08 GMT
+	exptime, err = time.Parse("Mon, 02-Jan-2006 15:04:05 MST", val)
+	if err == nil {
+		return exptime.UTC(), true
+	}
+	return time.Time{}, false
 }
 
 // readSetCookies parses all "Set-Cookie" values from
@@ -130,6 +172,19 @@ func readSetCookies(h Header) []*Cookie {
 				continue
 			}
 			switch lowerAttr {
+			case "samesite":
+				lowerVal := strings.ToLower(val)
+				switch lowerVal {
+				case "lax":
+					c.SameSite = SameSiteLaxMode
+				case "strict":
+					c.SameSite = SameSiteStrictMode
+				case "none":
+					c.SameSite = SameSiteNoneMode
+				default:
+					c.SameSite = SameSiteDefaultMode
+				}
+				continue
 			case "secure":
 				c.Secure = true
 				continue
@@ -153,16 +208,12 @@ func readSetCookies(h Header) []*Cookie {
 				continue
 			case "expires":
 				c.RawExpires = val
-				exptime, err := time.Parse(time.RFC1123, val)
-				if err != nil {
-					exptime, err = time.Parse("Mon, 02-Jan-2006 15:04:05 MST", val)
-					if err != nil {
-						c.Expires = time.Time{}
-						break
-					}
+				// if parse failed, will add to Unparsed
+				exp, ok := parseExpireTime(val)
+				if ok {
+					c.Expires = exp
+					continue
 				}
-				c.Expires = exptime.UTC()
-				continue
 			case "path":
 				c.Path = val
 				// TODO: Add path parsing
@@ -206,7 +257,7 @@ func (c *Cookie) String() string {
 		}
 	}
 	if c.Expires.Unix() > 0 {
-		fmt.Fprintf(&b, "; Expires=%s", c.Expires.UTC().Format(time.RFC1123))
+		fmt.Fprintf(&b, "; Expires=%s", c.Expires.UTC().Format(TimeFormat))
 	}
 	if c.MaxAge > 0 {
 		fmt.Fprintf(&b, "; Max-Age=%d", c.MaxAge)
@@ -218,6 +269,16 @@ func (c *Cookie) String() string {
 	}
 	if c.Secure {
 		fmt.Fprintf(&b, "; Secure")
+	}
+	switch c.SameSite {
+	case SameSiteDefaultMode:
+		b.WriteString("; SameSite")
+	case SameSiteNoneMode:
+		b.WriteString("; SameSite=None")
+	case SameSiteLaxMode:
+		b.WriteString("; SameSite=Lax")
+	case SameSiteStrictMode:
+		b.WriteString("; SameSite=Strict")
 	}
 	return b.String()
 }
