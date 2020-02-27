@@ -10,6 +10,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.7.0] - 2020-02-26
+### Added
+- mod_access support NCSA Common Log Format(CLF) and W3C Extended Log Format(ELF)
+- mod_static suuport HTTP HEAD method
+- Add mod_userid for client identification
+- Add mod_tag for tagging and tracking groups of requests
+- http cookie: support Expires attribute in GMT format
+- http cookie: support SameSite attribute 
+- Add static check in Makefile
+- Compiling on Windows OS is supported
+- Documents optimization
+
+### Fixed
+- Fix a bug that causes invalid ips are parsed and treated as domain names
+
 ## [v0.6.0] - 2020-01-21
 ### Added
 - Add mod_prison to limit the amount of requests a user can make in a given period of time.
@@ -23,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optimize number of accept goroutines
 - Optimize lock of bfe_balance.BalTable
 - Optimize io.Copy while forwarding responses
-- Compiling on MacOS is supported
+- Compiling on Mac OS is supported
 - Documents optimization
 
 ### Changed
@@ -100,6 +115,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
+[v0.7.0]: https://github.com/baidu/bfe/compare/v0.6.0...v0.7.0
 [v0.6.0]: https://github.com/baidu/bfe/compare/v0.5.0...v0.6.0
 [v0.5.0]: https://github.com/baidu/bfe/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/baidu/bfe/compare/v0.3.0...v0.4.0

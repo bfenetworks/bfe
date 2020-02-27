@@ -216,7 +216,7 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 
 	// check request method
 	httpRequest := req.HttpRequest
-	if httpRequest.Method != "GET" {
+	if httpRequest.Method != "GET" && httpRequest.Method != "HEAD" {
 		resp.StatusCode = bfe_http.StatusMethodNotAllowed
 		return resp
 	}
@@ -234,7 +234,12 @@ func (m *ModuleStatic) createRespFromStaticFile(req *bfe_basic.Request,
 	m.processContentEncoding(resp, file)
 	m.processContentLength(resp, file)
 	m.processLastModified(resp, file)
-	resp.Body = file
+
+	if httpRequest.Method != "HEAD" {
+		resp.Body = file
+	} else {
+		file.Close()
+	}
 
 	return resp
 }

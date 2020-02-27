@@ -32,7 +32,11 @@ mod_access模块以特定格式记录请求日志和会话日志。
 
   ```
 
- * 注：RequestTemplate/SessionTemplate 中 $开头的代表变量, 支持的变量列表详见"变量"章节说明
+ * 注：
+    * RequestTemplate/SessionTemplate 中 $开头的代表变量, 支持的变量列表详见"变量"章节说明
+    * RequestTemplate 还支持以下几种内置模板，如配置 RequestTemplate = COMMON打印CLF日志
+       * COMMON：Common Log Format; 等价于配置 RequestTemplate = $host - - $request_time \\"$request_line\\" $status_code $res_len
+       * COMBINED：Combined Log Format; 等价于配置 RequestTemplate = $host - - $request_time \\"$request_line\\" $status_code $res_len \\"${Referer}req_header\\" \\"${User-Agent}req_header\\"
 
 
 # 变量

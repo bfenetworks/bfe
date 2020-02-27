@@ -44,6 +44,34 @@ func onLogFmtAllServeTime(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buff
 	return nil
 }
 
+func onLogFmtRequestTime(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
+	req *bfe_basic.Request, res *bfe_http.Response) error {
+	if req == nil {
+		return errors.New("req is nil")
+	}
+	if req.Stat == nil {
+		return errors.New("req.Stat is nil")
+	}
+
+	t := req.Stat.ReadReqStart.Format("[02/Jan/2006:15:04:05 -0700]")
+	buff.WriteString(t)
+	return nil
+}
+
+func onLogFmtRequestLine(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
+	req *bfe_basic.Request, res *bfe_http.Response) error {
+	if req == nil {
+		return errors.New("req is nil")
+	}
+	if req.HttpRequest == nil {
+		return errors.New("req.HttpRequest is nil")
+	}
+
+	l := fmt.Sprintf("%s %s %s", req.HttpRequest.Method, req.HttpRequest.RequestURI, req.HttpRequest.Proto)
+	buff.WriteString(l)
+	return nil
+}
+
 func onLogFmtBackend(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 	req *bfe_basic.Request, res *bfe_http.Response) error {
 	if req == nil {
@@ -493,6 +521,23 @@ func onLogFmtResHeaderLen(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buff
 
 	buff.WriteString(msg)
 
+	return nil
+}
+
+func onLogFmtResLen(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
+	req *bfe_basic.Request, res *bfe_http.Response) error {
+	if req == nil {
+		return errors.New("req is nil")
+	}
+	if req.Stat == nil {
+		return errors.New("req.Stat is nil")
+	}
+
+	msg := "-"
+	if res != nil {
+		msg = fmt.Sprintf("%d", req.Stat.HeaderLenOut+req.Stat.BodyLenOut)
+	}
+	buff.WriteString(msg)
 	return nil
 }
 
