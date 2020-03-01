@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwk"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -17,9 +18,10 @@ import (
 
 // universal parameters for module Config and product Config
 type JWTConfig struct {
-	Secret               map[string]interface{}
+	Secret               *jwk.JWK
 	SecretPath           string
 	EnabledPayloadClaims bool
+	ValidateNested       bool
 	ValidateClaimExp     bool
 	ValidateClaimNbf     bool
 	ValidateClaimIss     string
@@ -75,7 +77,7 @@ func LoadModuleConfig(path string) (config *ModuleConfig, err *TypedError) {
 		return nil, err
 	}
 	// read secret Config
-	rawErr = readSecret(config.Basic.SecretPath, &config.Basic.Secret)
+	config.Basic.Secret, rawErr = readSecret(config.Basic.SecretPath)
 	if rawErr != nil {
 		return nil, NewTypedError(BadSecretConfig, rawErr)
 	}
@@ -108,19 +110,24 @@ func isFile(path string) (result bool, err error) {
 	return !stat.IsDir(), nil
 }
 
-func readSecret(path string, dst interface{}) (err error) {
+func readSecret(path string) (mJWK *jwk.JWK, err error) {
 	if isFile, err := isFile(path); !isFile || err != nil {
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return errors.New("secret path should be a file")
+		return nil, errors.New("secret path should be a file")
 	}
 	file, err := os.Open(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer file.Close()
-	return json.NewDecoder(file).Decode(dst)
+	keyMap := make(map[string]interface{})
+	err = json.NewDecoder(file).Decode(&keyMap)
+	if err != nil {
+		return nil, err
+	}
+	return jwk.NewJWK(keyMap)
 }
 
 func LoadProductConfig(modConfig *ModuleConfig) (config *ProductConfig, err *TypedError) {
@@ -208,10 +215,8 @@ func buildProductConfigItem(config map[string]interface{}, modConfig *ModuleConf
 		root, _ := filepath.Split(modConfig.Basic.ProductConfigPath)
 		// ensure secret path is absolute path
 		item.SecretPath = util.ConfPathProc(item.SecretPath, root)
-		// alloc space for item secret
-		item.Secret = make(map[string]interface{})
-		// read secret config
-		rawErr = readSecret(item.SecretPath, &item.Secret)
+		// read secret
+		item.Secret, rawErr = readSecret(item.SecretPath)
 		if rawErr != nil {
 			return nil, NewTypedError(BadSecretConfig, rawErr)
 		}

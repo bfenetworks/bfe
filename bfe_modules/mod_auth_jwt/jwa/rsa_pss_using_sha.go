@@ -24,27 +24,25 @@ func (ps *PS) Sign() (sig []byte) {
 }
 
 func (ps *PS) Verify(sig []byte) bool {
-	if rsa.VerifyPSS(ps.pub, ps.cSha, ps.Sign(), sig, nil) != nil {
-		return false
-	}
-	return true
+	return rsa.VerifyPSS(ps.pub, ps.cSha, ps.Sign(), sig, nil) == nil
 }
 
-func NewPS(sha crypto.Hash, mJWK *jwk.JWK) (ps SignAlg, err error) {
+func NewPS(sha crypto.Hash, mJWK *jwk.JWK) (ps JWSAlg, err error) {
 	if mJWK.Kty != jwk.RSA {
-		return nil, errors.New("unsupported algorithm type: RSx")
+		return nil, errors.New("unsupported algorithm type: PSx")
 	}
-	return &PS{sha, sha.New(), &rsa.PublicKey{N: mJWK.RSA.N.Decoded, E: int(mJWK.RSA.E.Decoded.Uint64())}}, nil
+	pub := &rsa.PublicKey{N: mJWK.RSA.N.Decoded, E: int(mJWK.RSA.E.Decoded.Uint64())}
+	return &PS{sha, sha.New(), pub}, nil
 }
 
-func NewPS256(mJWK *jwk.JWK) (ps SignAlg, err error) {
+func NewPS256(mJWK *jwk.JWK) (ps JWSAlg, err error) {
 	return NewPS(crypto.SHA256, mJWK)
 }
 
-func NewPS384(mJWK *jwk.JWK) (ps SignAlg, err error) {
+func NewPS384(mJWK *jwk.JWK) (ps JWSAlg, err error) {
 	return NewPS(crypto.SHA384, mJWK)
 }
 
-func NewPS512(mJWK *jwk.JWK) (ps SignAlg, err error) {
+func NewPS512(mJWK *jwk.JWK) (ps JWSAlg, err error) {
 	return NewPS(crypto.SHA512, mJWK)
 }

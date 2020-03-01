@@ -1,0 +1,30 @@
+package jwa
+
+import (
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwk"
+	"io/ioutil"
+	"strings"
+	"testing"
+)
+
+func TestNewRSA15(t *testing.T) {
+	path := "./../testdata/mod_auth_jwt"
+	token, _ := ioutil.ReadFile(fmt.Sprintf("%s/test_jwe_RSA1_5_A128GCM.txt", path))
+	secret, _ := ioutil.ReadFile(fmt.Sprintf("%s/secret_test_jwe_RSA1_5_A128GCM.key", path))
+	eCek, _ := base64.RawURLEncoding.DecodeString(strings.Split(string(token), ".")[1])
+	keyMap := make(map[string]interface{})
+	_ = json.Unmarshal(secret, &keyMap)
+	mJWK, _ := jwk.NewJWK(keyMap)
+	context, err := NewRSA15(mJWK, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cek, err := context.Decrypt(eCek)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(cek)
+}

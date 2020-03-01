@@ -26,21 +26,21 @@ func (hs *HS) Verify(sig []byte) bool {
 	return hmac.Equal(sig, hs.Sign())
 }
 
-func NewHS(factory HashFactory, mJWK *jwk.JWK) (hs SignAlg, err error) {
+func NewHS(factory HashFactory, mJWK *jwk.JWK) (hs JWSAlg, err error) {
 	if mJWK.Kty != jwk.OCT {
 		return nil, errors.New("unsupported algorithm type: HSx")
 	}
 	return &HS{hmac.New(factory, mJWK.Symmetric.K.Decoded)}, nil
 }
 
-func NewHS256(mJWK *jwk.JWK) (hs SignAlg, err error) {
+func NewHS256(mJWK *jwk.JWK) (hs JWSAlg, err error) {
 	return NewHS(sha256.New, mJWK)
 }
 
-func NewHS384(mJWK *jwk.JWK) (hs SignAlg, err error) {
+func NewHS384(mJWK *jwk.JWK) (hs JWSAlg, err error) {
 	return NewHS(sha512.New384, mJWK)
 }
 
-func NewHS512(mJWK *jwk.JWK) (hs SignAlg, err error) {
+func NewHS512(mJWK *jwk.JWK) (hs JWSAlg, err error) {
 	return NewHS(sha512.New, mJWK)
 }
