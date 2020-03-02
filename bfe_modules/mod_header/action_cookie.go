@@ -53,11 +53,7 @@ func reqAddCookie(req *bfe_basic.Request, cookie *bfe_http.Cookie) {
 
 func isReqCookieExist(req *bfe_http.Request, cookieName string) bool {
 	_, err := req.Cookie(cookieName)
-	if err != nil {
-		return false
-	}
-
-	return true
+	return err == nil
 }
 
 func reqSetCookie(req *bfe_basic.Request, cookie *bfe_http.Cookie) {
