@@ -1,6 +1,21 @@
 # 简介
 
-mod_auth_jwt支持JWT令牌(JWS和JWE)身份认证。
+mod_auth_jwt支持JWT令牌(JWS和JWE)基础验证、字段验证、嵌套JWT验证。
+
++ 已支持的算法：
+  + JWS：
+    - HS256/384/512
+    - RS256/384/512
+    - ES256/384/512
+    - PS256/384/512
+  + alg for JWE：
+    + RSA1_5
+    + RSA-OAEP / RSA-OAEP-256
+    + A128KW / A192KW / A256KW
+    + dir
+  + enc for JWE：
+    + A128CBC-HS256 / A192CBC-HS384 / A256CBC-HS512
+    + A128GCM / A192GCM / A256GCM
 
 # 使用说明
 
@@ -32,7 +47,7 @@ mod_auth_jwt支持JWT令牌(JWS和JWE)身份认证。
   ```
   {
   	“kty": "oct", // 密钥类型:字节序列(对称密钥)
-  	"k": "secret key", // 密钥
+  	"k": "...", // base64URL编码的对称密钥
   	// ...
   }
   ```
@@ -73,6 +88,14 @@ mod_auth_jwt支持JWT令牌(JWS和JWE)身份认证。
   # in the case that a claim validation was enabled while it's not exists in the JWT header (Only effective for JWS, NO JWE).
   # Can be override in product config
   EnabledPayloadClaims = false
+  
+  # Enabled validation for nested JWT
+  # NOTICE:
+  # This step will be skipped in the case that the nested JWT parse failed,
+  # it is in the consideration of different encryption key may be used for the nested JWT.
+  # The nested JWT should be Base64URL-encoded as the payload for JWS,
+  # or Base64URL-encoded as encrypted plaintext for JWE.
+  ValidateNested = true
   
   # Validation for JWT claims
   # NOTICE:
