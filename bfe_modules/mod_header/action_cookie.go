@@ -51,9 +51,17 @@ func reqAddCookie(req *bfe_basic.Request, cookie *bfe_http.Cookie) {
 	}
 }
 
+func isReqCookieExist(req *bfe_http.Request, cookieName string) bool {
+	_, err := req.Cookie(cookieName)
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
 func reqSetCookie(req *bfe_basic.Request, cookie *bfe_http.Cookie) {
-	_, err := req.HttpRequest.Cookie(cookie.Name)
-	if err == bfe_http.ErrNoCookie {
+	if !isReqCookieExist(req.HttpRequest, cookie.Name) {
 		reqAddCookie(req, cookie)
 		return
 	}
@@ -74,6 +82,10 @@ func reqSetCookie(req *bfe_basic.Request, cookie *bfe_http.Cookie) {
 }
 
 func reqDelCookie(req *bfe_basic.Request, cookie *bfe_http.Cookie) {
+	if !isReqCookieExist(req.HttpRequest, cookie.Name) {
+		return
+	}
+
 	cookies := req.HttpRequest.Cookies()
 	req.HttpRequest.Header.Del("Cookie")
 
