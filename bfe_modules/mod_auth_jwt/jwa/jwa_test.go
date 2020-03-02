@@ -32,18 +32,21 @@ func TestJWSAlg(t *testing.T) {
 	}
 }
 
-// test algorithms not need header
 func TestJWEAlg(t *testing.T) {
 	path := "./../testdata/mod_auth_jwt"
 	for name, alg := range JWEAlgSet {
 		current := fmt.Sprintf("testing %s:", name)
 		secret, _ := ioutil.ReadFile(fmt.Sprintf("%s/secret_test_jwe_%s_A128GCM.key", path, name))
 		token, _ := ioutil.ReadFile(fmt.Sprintf("%s/test_jwe_%s_A128GCM.txt", path, name))
+		tokens := strings.Split(string(token), ".")
 		keyMap := make(map[string]interface{})
+		header := make(map[string]interface{})
+		headerStr, _ := base64.RawURLEncoding.DecodeString(tokens[0])
 		_ = json.Unmarshal(secret, &keyMap)
+		_ = json.Unmarshal(headerStr, &header)
 		mJWK, _ := jwk.NewJWK(keyMap)
-		handler, _ := alg(mJWK, nil)
-		eCek, _ := base64.RawURLEncoding.DecodeString(strings.Split(string(token), ".")[1])
+		handler, _ := alg(mJWK, header)
+		eCek, _ := base64.RawURLEncoding.DecodeString(tokens[1])
 		_, err := handler.Decrypt(eCek)
 		if err != nil {
 			t.Error(current, "failed")

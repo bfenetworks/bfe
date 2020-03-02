@@ -59,5 +59,8 @@ var (
 		"A128KW":       NewA128KW,
 		"A192KW":       NewA192KW,
 		"A256KW":       NewA256KW,
+		"A128GCMKW":    NewA128GCMKW,
+		"A192GCMKW":    NewA192GCMKW,
+		"A256GCMKW":    NewA256GCMKW,
 	}
 )

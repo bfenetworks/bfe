@@ -9,10 +9,11 @@ mod_auth_jwt支持JWT令牌(JWS和JWE)基础验证、字段验证、嵌套JWT验
     - ES256/384/512
     - PS256/384/512
   + alg for JWE：
+    + dir
     + RSA1_5
     + RSA-OAEP / RSA-OAEP-256
     + A128KW / A192KW / A256KW
-    + dir
+    + A128GCMKW / A192GCMKW / A256GCMKW
   + enc for JWE：
     + A128CBC-HS256 / A192CBC-HS384 / A256CBC-HS512
     + A128GCM / A192GCM / A256GCM
@@ -27,7 +28,10 @@ mod_auth_jwt支持JWT令牌(JWS和JWE)基础验证、字段验证、嵌套JWT验
 
   模块配置必须配置字段：SecretPath、ProductConfigPath。
 
-  **SecretPath**是存放认证私钥的文件路径，它是一个JSON格式的键-值对配置文件，有关键-值对的信息，请参阅JWK：https://tools.ietf.org/html/rfc7517。
+  **SecretPath**是存放认证私钥的文件路径，它是一个JSON格式的键-值对配置文件，有关键-值对的信息，请参阅：
+
+  + JWK：https://tools.ietf.org/html/rfc7517
+  + JWA：https://tools.ietf.org/html/rfc7518
 
   **ProductConfigPath**是存放对产品相关规则配置的文件路径，同样是一个JSON格式的键-值对配置文件，更多信息参阅下述配置规则。
 
