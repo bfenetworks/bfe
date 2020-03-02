@@ -5,7 +5,6 @@ package jwt
 
 import (
 	"fmt"
-	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt"
 	"strings"
 	"time"
 )
@@ -19,7 +18,7 @@ type JWT struct {
 	JWS     *JWS
 	Claims  *Claims
 	Nested  *JWT // nested jwt
-	config  *mod_auth_jwt.JWTConfig
+	config  *Config
 	context tokenValidator // current token context
 }
 
@@ -167,7 +166,7 @@ func (mJWT *JWT) validateSub() (err error) {
 	return mJWT.validateEqual("iss", sub)
 }
 
-func NewJWT(token string, conf *mod_auth_jwt.JWTConfig) (mJWT *JWT, err error) {
+func NewJWT(token string, conf *Config) (mJWT *JWT, err error) {
 	mJWT, length := &JWT{config: conf}, len(strings.Split(token, "."))
 	if length == 3 {
 		err = mJWT.buildJWS(token)

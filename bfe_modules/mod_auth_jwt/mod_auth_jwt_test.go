@@ -53,23 +53,23 @@ func TestAuthService_valid(t *testing.T) {
 	}
 }
 
-//func TestAuthService_invalid(t *testing.T) {
-//	products := []string{"jwe_invalid_1", "jws_invalid_1",}
-//	for _, product := range products {
-//		request.Route.Product = fmt.Sprintf("test_%s", product)
-//		file, err := os.Open(fmt.Sprintf("./testdata/mod_auth_jwt/%s.txt", product))
-//		if err != nil {
-//			t.Fatal(err)
-//		}
-//		token, _ := ioutil.ReadAll(file)
-//		_ = file.Close()
-//		t.Logf("%s", token)
-//		request.HttpRequest.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-//		flag, response := module.authService(request)
-//		if flag != bfe_module.BfeHandlerResponse {
-//			t.Errorf("Expected flag code %d, got %d", bfe_module.BfeHandlerResponse, flag)
-//			return
-//		}
-//		t.Logf("%+v", response)
-//	}
-//}
+func TestAuthService_invalid(t *testing.T) {
+	products := []string{"jwe_invalid_1", "jws_invalid_1"}
+	for _, product := range products {
+		request.Route.Product = fmt.Sprintf("test_%s", product)
+		file, err := os.Open(fmt.Sprintf("./testdata/mod_auth_jwt/%s.txt", product))
+		if err != nil {
+			t.Fatal(err)
+		}
+		token, _ := ioutil.ReadAll(file)
+		_ = file.Close()
+		t.Logf("%s", token)
+		request.HttpRequest.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+		flag, response := module.authService(request)
+		if flag != bfe_module.BfeHandlerResponse {
+			t.Errorf("Expected flag code %d, got %d", bfe_module.BfeHandlerResponse, flag)
+			return
+		}
+		t.Logf("%+v", response)
+	}
+}

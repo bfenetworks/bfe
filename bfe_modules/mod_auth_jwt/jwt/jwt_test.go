@@ -3,22 +3,13 @@ package jwt
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt"
 	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwa"
 	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwk"
 	"io/ioutil"
 	"testing"
 )
 
-var config *mod_auth_jwt.ModuleConfig
-
-func init() {
-	var err *mod_auth_jwt.TypedError
-	config, err = mod_auth_jwt.LoadModuleConfig("./../testdata/mod_auth_jwt/mod_auth_jwt.conf")
-	if err != nil {
-		panic(err)
-	}
-}
+var config Config
 
 func TestJWSValidate(t *testing.T) {
 	for name := range jwa.JWSAlgSet {
@@ -28,8 +19,8 @@ func TestJWSValidate(t *testing.T) {
 		secret, _ := ioutil.ReadFile(secretPath)
 		keyMap := make(map[string]interface{})
 		_ = json.Unmarshal(secret, &keyMap)
-		config.Basic.Secret, _ = jwk.NewJWK(keyMap)
-		mJWT, err := NewJWT(string(token), &config.Basic.JWTConfig)
+		config.Secret, _ = jwk.NewJWK(keyMap)
+		mJWT, err := NewJWT(string(token), &config)
 		if err != nil {
 			t.Error(name, err)
 		}
@@ -47,8 +38,8 @@ func TestJWEValidate(t *testing.T) {
 		secret, _ := ioutil.ReadFile(secretPath)
 		keyMap := make(map[string]interface{})
 		_ = json.Unmarshal(secret, &keyMap)
-		config.Basic.Secret, _ = jwk.NewJWK(keyMap)
-		mJWT, err := NewJWT(string(token), &config.Basic.JWTConfig)
+		config.Secret, _ = jwk.NewJWK(keyMap)
+		mJWT, err := NewJWT(string(token), &config)
 		if err != nil {
 			t.Error(name, err)
 		}

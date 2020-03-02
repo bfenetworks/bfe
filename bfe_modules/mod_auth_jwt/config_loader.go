@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwk"
+	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -16,22 +17,9 @@ import (
 	"gopkg.in/gcfg.v1"
 )
 
-// universal parameters for module Config and product Config
-type JWTConfig struct {
-	Secret               *jwk.JWK
-	SecretPath           string
-	EnabledPayloadClaims bool
-	ValidateNested       bool
-	ValidateClaimExp     bool
-	ValidateClaimNbf     bool
-	ValidateClaimIss     string
-	ValidateClaimSub     string
-	ValidateClaimAud     string
-}
-
 type ModuleConfig struct {
 	Basic struct {
-		JWTConfig
+		jwt.Config
 		ProductConfigPath string
 	}
 
@@ -42,7 +30,7 @@ type ModuleConfig struct {
 
 // Config items
 type ProductConfigItem struct {
-	JWTConfig
+	jwt.Config
 	Cond condition.Condition
 }
 
@@ -203,7 +191,7 @@ func buildProductConfigItem(config map[string]interface{}, modConfig *ModuleConf
 	}
 	item.Cond = condBuilt
 	// get anonymous field JWTConfig from module Config
-	jwtConfig := reflect.ValueOf(modConfig.Basic).FieldByName("JWTConfig")
+	jwtConfig := reflect.ValueOf(modConfig.Basic).FieldByName("Config")
 	// cast Config item as reflect.Value
 	refItem := reflect.Indirect(reflect.ValueOf(item))
 	// merge default Config

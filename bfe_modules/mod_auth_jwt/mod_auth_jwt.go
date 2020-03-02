@@ -2,12 +2,11 @@ package mod_auth_jwt
 
 import (
 	"bytes"
-	"encoding/base64"
 	"errors"
-	"fmt"
 	"github.com/baidu/bfe/bfe_basic"
 	"github.com/baidu/bfe/bfe_http"
 	"github.com/baidu/bfe/bfe_module"
+	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwt"
 	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/web-monitor/metrics"
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
@@ -105,6 +104,9 @@ func (module *moduleAuthJWT) authService(request *bfe_basic.Request) (flag int, 
 	if err != nil {
 		if Debug {
 			log.Logger.Debug("Auth failed: %s", err)
+		} else {
+			// hide error detail for user
+			err = errors.New("your token was rejected")
 		}
 		module.counters.AuthFailed.Inc(1)
 		return bfe_module.BfeHandlerResponse, createUnauthorizedResponse(
@@ -118,20 +120,11 @@ func (module *moduleAuthJWT) authService(request *bfe_basic.Request) (flag int, 
 }
 
 func (module *moduleAuthJWT) validateToken(token string, config *ProductConfigItem) (err error) {
-	tokenParsed := parseToken(token)
-	// tokenParsed(each part keep base64URL encoded):
-	// JWS(length: 3): []string{header, payload, signature, }
-	// JWE(length: 5): []string{header, encryptedKey, initializationVector, cipherText, authenticationTag, }
-	if tokenParsed == nil {
-		return errors.New("invalid token given")
-	}
-	// TODO: basic validation
-
-	// apply claims validation
-	if err := ValidateClaims(tokenParsed, config); err != nil {
+	mJWT, err := jwt.NewJWT(token, &config.Config)
+	if err != nil {
 		return err
 	}
-	return nil
+	return mJWT.Validate()
 }
 
 func createUnauthorizedResponse(request *bfe_basic.Request, body string) (response *bfe_http.Response) {
@@ -139,22 +132,6 @@ func createUnauthorizedResponse(request *bfe_basic.Request, body string) (respon
 	response.Header.Set("WWW-Authenticate", "Bearer")
 	response.Body = ioutil.NopCloser(bytes.NewBufferString(body))
 	return response
-}
-
-func parseToken(token string) (parsed []string) {
-	parsed = strings.Split(token, ".")
-	// JWS: 3, JWE: 5
-	if len(parsed) != 3 && len(parsed) != 5 {
-		return nil
-	}
-	for _, s := range parsed {
-		_, err := base64.RawURLEncoding.DecodeString(s)
-		if err != nil {
-			fmt.Println("error: ", err)
-			return nil
-		}
-	}
-	return parsed
 }
 
 func (module *moduleAuthJWT) getMetrics(params map[string][]string) ([]byte, error) {
