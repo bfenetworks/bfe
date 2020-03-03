@@ -14,19 +14,6 @@ type Base64URLJson struct {
 	DecodedBase64URL []byte
 }
 
-// universal parameters for module Config and product Config
-type Config struct {
-	Secret               *jwk.JWK
-	SecretPath           string
-	EnabledPayloadClaims bool
-	ValidateNested       bool
-	ValidateClaimExp     bool
-	ValidateClaimNbf     bool
-	ValidateClaimIss     string
-	ValidateClaimSub     string
-	ValidateClaimAud     string
-}
-
 var (
 	Base64URLDecode = jwk.Base64URLDecode
 	NewBase64URL    = jwk.NewBase64URL

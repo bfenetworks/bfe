@@ -83,12 +83,15 @@ func CatchCryptoPanic(errPtr *error) {
 	*errPtr = err // this pointer was bind to the return value
 }
 
-func ParseBase64URLHeader(header map[string]interface{}, key ...string) (result map[string]*jwk.Base64URL, err error) {
+func ParseBase64URLHeader(header map[string]interface{}, required bool, key ...string) (result map[string]*jwk.Base64URL, err error) {
 	result = make(map[string]*jwk.Base64URL, len(key))
 	for _, k := range key {
 		v, ok := header[k]
 		if !ok {
-			return nil, fmt.Errorf("missing header parameter: %s", k)
+			if required {
+				return nil, fmt.Errorf("missing header parameter: %s", k)
+			}
+			v = ""
 		}
 		vStr, ok := v.(string)
 		if !ok {

@@ -23,7 +23,7 @@ func TestBuildRSAParams(t *testing.T) {
 	if err = json.Unmarshal(secret, &keyMap); err != nil {
 		t.Fatal(err)
 	}
-	params, err := buildRSAParams(keyMap)
+	params, err := buildRSAParams(keyMap, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestBuildRSAParamsWithOTH(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	params, err := buildRSAParams(keyMap)
+	params, err := buildRSAParams(keyMap, true)
 	if err != nil {
 		t.Fatal(err)
 	}

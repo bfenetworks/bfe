@@ -47,23 +47,28 @@ var (
 	checkRuleSym = map[string]reflect.Kind{
 		"k": reflect.String,
 	}
-	checkRuleCrv = map[string]reflect.Kind{
+	checkRuleCrvPub = map[string]reflect.Kind{
 		"crv": reflect.String,
 		"x":   reflect.String,
 		"y":   reflect.String,
+	}
+	checkRuleCrvPriv = map[string]reflect.Kind{
+		"d": reflect.String,
 	}
 	checkRuleOth = map[string]reflect.Kind{
 		"r": reflect.String,
 		"d": reflect.String,
 		"t": reflect.String,
 	}
-	// public key parameter n, e & required private key parameter d
-	checkRuleRSA = map[string]reflect.Kind{
+	// RSA public key parameter n, e & required private key parameter d
+	checkRuleRSAPub = map[string]reflect.Kind{
 		"n": reflect.String,
 		"e": reflect.String,
+	}
+	checkRuleRSAPriv = map[string]reflect.Kind{
 		"d": reflect.String,
 	}
-	// key parameters except listed above
+	// RSA key parameters except listed above
 	// all parameters should be present if any private key parameter except d present
 	checkRuleRSAFull = map[string]reflect.Kind{
 		"p":  reflect.String,
@@ -107,10 +112,16 @@ func buildSymmetricParams(keyMap map[string]interface{}) (params *symmetricParam
 	return &symmetricParams{k}, nil
 }
 
-func buildCurveParams(keyMap map[string]interface{}) (params *curveParams, err error) {
+func buildCurveParams(keyMap map[string]interface{}, private bool) (params *curveParams, err error) {
 	// key type check
-	if err = KeyCheck(keyMap, checkRuleCrv); err != nil {
+	if err = KeyCheck(keyMap, checkRuleCrvPub); err != nil {
 		return nil, err
+	}
+	if private {
+		// check for private key parameters
+		if err = KeyCheck(keyMap, checkRuleCrvPriv); err != nil {
+			return nil, err
+		}
 	}
 	crvCode, ok := GetCrvCode(keyMap["crv"].(string))
 	if !ok {
@@ -125,9 +136,15 @@ func buildCurveParams(keyMap map[string]interface{}) (params *curveParams, err e
 	return params, nil
 }
 
-func buildRSAParams(keyMap map[string]interface{}) (params *rsaParams, err error) {
-	if err = KeyCheck(keyMap, checkRuleRSA); err != nil {
+func buildRSAParams(keyMap map[string]interface{}, private bool) (params *rsaParams, err error) {
+	if err = KeyCheck(keyMap, checkRuleRSAPub); err != nil {
 		return nil, err
+	}
+	if private {
+		// check for private key parameter
+		if err = KeyCheck(keyMap, checkRuleRSAPriv); err != nil {
+			return nil, err
+		}
 	}
 	params = &rsaParams{Full: true}
 	if err = KeyCheck(keyMap, checkRuleRSAFull); err != nil {

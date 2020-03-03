@@ -24,7 +24,7 @@ func NewAGCMKW(kBit int, mJWK *jwk.JWK, header map[string]interface{}) (agk JWEA
 	if len(mJWK.Symmetric.K.Decoded) != kBit/8 {
 		return nil, fmt.Errorf("bad key leangth for algorithm: A%dGCMKW", kBit)
 	}
-	params, err := ParseBase64URLHeader(header, "iv", "tag")
+	params, err := ParseBase64URLHeader(header, true, "iv", "tag")
 	if err != nil {
 		return nil, err
 	}

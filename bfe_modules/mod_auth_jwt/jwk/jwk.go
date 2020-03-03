@@ -48,14 +48,39 @@ func NewJWK(keyMap map[string]interface{}) (mJWK *JWK, err error) {
 
 	case "EC":
 		mJWK.Kty = EC
-		mJWK.Curve, err = buildCurveParams(keyMap)
+		mJWK.Curve, err = buildCurveParams(keyMap, true)
 
 	case "RSA":
 		mJWK.Kty = RSA
-		mJWK.RSA, err = buildRSAParams(keyMap)
+		mJWK.RSA, err = buildRSAParams(keyMap, true)
 
 	default:
 		return nil, fmt.Errorf("invalid key value for kty: %+v", kty)
+
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return mJWK, nil
+}
+
+func NewJWKPub(keyMap map[string]interface{}) (mJWK *JWK, err error) {
+	mJWK, kty := new(JWK), keyMap["kty"]
+
+	switch kty {
+
+	case "EC":
+		mJWK.Kty = EC
+		mJWK.Curve, err = buildCurveParams(keyMap, false)
+
+	case "RSA":
+		mJWK.Kty = RSA
+		mJWK.RSA, err = buildRSAParams(keyMap, false)
+
+	default:
+		return nil, fmt.Errorf("invalid key value for kty(public): %+v", kty)
 
 	}
 

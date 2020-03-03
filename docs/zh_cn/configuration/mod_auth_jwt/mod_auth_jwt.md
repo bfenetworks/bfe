@@ -2,8 +2,8 @@
 
 mod_auth_jwt支持JWT令牌(JWS和JWE)基础验证、字段验证、嵌套JWT验证。
 
-+ 已支持的算法：
-  + JWS：
++ alg和enc的支持情况：
+  + alg for JWS：
     - HS256/384/512
     - RS256/384/512
     - ES256/384/512
@@ -14,6 +14,8 @@ mod_auth_jwt支持JWT令牌(JWS和JWE)基础验证、字段验证、嵌套JWT验
     + RSA-OAEP / RSA-OAEP-256
     + A128KW / A192KW / A256KW
     + A128GCMKW / A192GCMKW / A256GCMKW
+    + ECDH-ES
+    + ECDH-ES+A128KW / ECDH-ES+A192KW / ECDH-ES+A256KW
   + enc for JWE：
     + A128CBC-HS256 / A192CBC-HS384 / A256CBC-HS512
     + A128GCM / A192GCM / A256GCM

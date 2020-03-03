@@ -51,16 +51,29 @@ var (
 		"A256GCM":       NewA256GCM,
 	}
 
+	JWEEncKeyLength = map[string]int{
+		"A128CBC-HS256": 128,
+		"A192CBC-HS384": 192,
+		"A256CBC-HS512": 256,
+		"A128GCM":       128,
+		"A192GCM":       192,
+		"A256GCM":       256,
+	}
+
 	JWEAlgSet = map[string]jweAlgFactory{
-		"dir":          NewDir,
-		"RSA1_5":       NewRSA15,
-		"RSA-OAEP":     NewRSAOAEPDefault,
-		"RSA-OAEP-256": NewRSAOAEP256,
-		"A128KW":       NewA128KW,
-		"A192KW":       NewA192KW,
-		"A256KW":       NewA256KW,
-		"A128GCMKW":    NewA128GCMKW,
-		"A192GCMKW":    NewA192GCMKW,
-		"A256GCMKW":    NewA256GCMKW,
+		"dir":            NewDir,
+		"RSA1_5":         NewRSA15,
+		"RSA-OAEP":       NewRSAOAEPDefault,
+		"RSA-OAEP-256":   NewRSAOAEP256,
+		"A128KW":         NewA128KW,
+		"A192KW":         NewA192KW,
+		"A256KW":         NewA256KW,
+		"A128GCMKW":      NewA128GCMKW,
+		"A192GCMKW":      NewA192GCMKW,
+		"A256GCMKW":      NewA256GCMKW,
+		"ECDH-ES":        NewECDHES,
+		"ECDH-ES+A128KW": NewECDHESA128KW,
+		"ECDH-ES+A192KW": NewECDHESA192KW,
+		"ECDH-ES+A256KW": NewECDHESA256KW,
 	}
 )

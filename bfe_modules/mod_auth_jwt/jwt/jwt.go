@@ -5,12 +5,26 @@ package jwt
 
 import (
 	"fmt"
+	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwk"
 	"strings"
 	"time"
 )
 
 type tokenValidator interface {
 	BasicCheck() error
+}
+
+// universal parameters for module Config and product Config
+type Config struct {
+	Secret               *jwk.JWK
+	SecretPath           string
+	EnabledPayloadClaims bool
+	ValidateNested       bool
+	ValidateClaimExp     bool
+	ValidateClaimNbf     bool
+	ValidateClaimIss     string
+	ValidateClaimSub     string
+	ValidateClaimAud     string
 }
 
 type JWT struct {
