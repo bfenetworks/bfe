@@ -104,3 +104,11 @@ func ParseBase64URLHeader(header map[string]interface{}, required bool, key ...s
 	}
 	return result, nil
 }
+
+func StitchingSalt(arrays ...[]byte) []byte {
+	var ret = arrays[0]
+	for _, arr := range arrays[1:] {
+		ret = append(ret, arr...)
+	}
+	return ret
+}
