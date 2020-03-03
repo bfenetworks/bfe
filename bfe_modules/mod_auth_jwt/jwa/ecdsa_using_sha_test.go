@@ -10,6 +10,9 @@ import (
 
 func TestNewES256(t *testing.T) {
 	secret, err := ioutil.ReadFile("./../testdata/mod_auth_jwt/secret_test_jws_ES256.key")
+	if err != nil {
+		t.Fatal(err)
+	}
 	token, err := ioutil.ReadFile("./../testdata/mod_auth_jwt/test_jws_ES256.txt")
 	if err != nil {
 		t.Fatal(err)

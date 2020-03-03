@@ -158,13 +158,13 @@ func buildProductConfig(data map[string]interface{}, modConfig *ModuleConfig) (c
 		converted, ok := conf.(map[string]interface{})
 		if !ok {
 			return nil, NewTypedError(ConfigLoadFailed,
-				errors.New(fmt.Sprintf("invalid type for product Config(%s) item `Config`", name)))
+				fmt.Errorf("invalid type for product Config(%s) item `Config`", name))
 		}
 		// build Config for each product
 		item, err := buildProductConfigItem(converted, modConfig)
 		if err != nil {
 			return nil, NewTypedError(BuildConfigItemFailed,
-				errors.New(fmt.Sprintf("building for product: %s.\n%s", name, err.Error())))
+				fmt.Errorf("building for product: %s.\n%s", name, err.Error()))
 		}
 		config.Config[name] = *item
 	}
@@ -232,7 +232,7 @@ func merge(conf reflect.Value, defConf reflect.Value, keySet map[string]interfac
 			if convertV.Type() != refValue.Type() {
 				// type check failed
 				return NewTypedError(InvalidConfigItem,
-					errors.New(fmt.Sprintf("invalid type of item `%s`", name)))
+					fmt.Errorf("invalid type of item `%s`", name))
 			}
 			// override Config item
 			refValue.Set(convertV)

@@ -14,10 +14,11 @@ import (
 	"testing"
 )
 
+const relativePath = "./../testdata/mod_auth_jwt"
+
 func TestNewA192KW(t *testing.T) {
-	path := "./../testdata/mod_auth_jwt"
-	token, _ := ioutil.ReadFile(fmt.Sprintf("%s/test_jwe_A192KW_A128GCM.txt", path))
-	secret, _ := ioutil.ReadFile(fmt.Sprintf("%s/secret_test_jwe_A192KW_A128GCM.key", path))
+	token, _ := ioutil.ReadFile(fmt.Sprintf("%s/test_jwe_A192KW_A128GCM.txt", relativePath))
+	secret, _ := ioutil.ReadFile(fmt.Sprintf("%s/secret_test_jwe_A192KW_A128GCM.key", relativePath))
 	eCek, _ := base64.RawURLEncoding.DecodeString(strings.Split(string(token), ".")[1])
 	keyMap := make(map[string]interface{})
 	_ = json.Unmarshal(secret, &keyMap)

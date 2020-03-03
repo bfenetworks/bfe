@@ -10,6 +10,9 @@ import (
 
 func TestNewPS256(t *testing.T) {
 	secret, err := ioutil.ReadFile("./../testdata/mod_auth_jwt/secret_test_jws_PS256.key")
+	if err != nil {
+		t.Fatal(err)
+	}
 	token, err := ioutil.ReadFile("./../testdata/mod_auth_jwt/test_jws_PS256.txt")
 	if err != nil {
 		t.Fatal(err)

@@ -11,11 +11,10 @@ import (
 )
 
 func TestJWSAlg(t *testing.T) {
-	path := "./../testdata/mod_auth_jwt"
 	for name, alg := range JWSAlgSet {
 		current := fmt.Sprintf("testing %s:", name)
-		secret, _ := ioutil.ReadFile(fmt.Sprintf("%s/secret_test_jws_%s.key", path, name))
-		token, _ := ioutil.ReadFile(fmt.Sprintf("%s/test_jws_%s.txt", path, name))
+		secret, _ := ioutil.ReadFile(fmt.Sprintf("%s/secret_test_jws_%s.key", relativePath, name))
+		token, _ := ioutil.ReadFile(fmt.Sprintf("%s/test_jws_%s.txt", relativePath, name))
 		keyMap := make(map[string]interface{})
 		_ = json.Unmarshal(secret, &keyMap)
 		mJWK, _ := jwk.NewJWK(keyMap)
@@ -33,11 +32,10 @@ func TestJWSAlg(t *testing.T) {
 }
 
 func TestJWEAlg(t *testing.T) {
-	path := "./../testdata/mod_auth_jwt"
 	for name, alg := range JWEAlgSet {
 		current := fmt.Sprintf("testing %s:", name)
-		secret, _ := ioutil.ReadFile(fmt.Sprintf("%s/secret_test_jwe_%s_A128GCM.key", path, name))
-		token, _ := ioutil.ReadFile(fmt.Sprintf("%s/test_jwe_%s_A128GCM.txt", path, name))
+		secret, _ := ioutil.ReadFile(fmt.Sprintf("%s/secret_test_jwe_%s_A128GCM.key", relativePath, name))
+		token, _ := ioutil.ReadFile(fmt.Sprintf("%s/test_jwe_%s_A128GCM.txt", relativePath, name))
 		tokens := strings.Split(string(token), ".")
 		keyMap := make(map[string]interface{})
 		header := make(map[string]interface{})

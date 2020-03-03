@@ -17,5 +17,4 @@ func TestNewTypedError(t *testing.T) {
 		errUndefined.Error() != "TypeUndefined: " {
 		t.Error("Incorrect type mapping in TypedError.")
 	}
-	return
 }
