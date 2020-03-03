@@ -71,6 +71,7 @@ func (ec *ECDHES) Decrypt(eCek []byte) (cek []byte, err error) {
 func otherInfo(alg, apu, apv []byte, kBit int) (other []byte) {
 	// see chapter 5.8.1.2: https://tools.ietf.org/html/rfc7518#section-4.6
 	// see also: https://tools.ietf.org/html/rfc7518#section-4.6.2
+	//
 	// For this format, OtherInfo is a bit string equal to the following concatenation:
 	// AlgorithmID || PartyUInfo || PartyVInfo {|| SuppPubInfo }{|| SuppPrivInfo },
 	// where the five subfields are bit strings comprised of items of information as described in Section 5.8.1.2.
@@ -111,9 +112,15 @@ func _NewECDHES(wrapper jweAlgFactory, alg []byte, kBit int, mJWK *jwk.JWK, head
 	if err != nil {
 		return nil, err
 	}
+	if ec.pub.Kty != jwk.EC {
+		return nil, fmt.Errorf("bad value for epk.kty, expected EC")
+	}
 	params, err := ParseBase64URLHeader(header, false, "apu", "apv")
 	if err != nil {
 		return nil, err
+	}
+	if alg == nil {
+		alg = []byte(header["alg"].(string))
 	}
 	ec.other = otherInfo(alg, params["apu"].Decoded, params["apv"].Decoded, kBit)
 	return ec, nil
@@ -125,16 +132,13 @@ func NewECDHES(mJWK *jwk.JWK, header map[string]interface{}) (ec JWEAlg, err err
 }
 
 func NewECDHESA128KW(mJWK *jwk.JWK, header map[string]interface{}) (ec JWEAlg, err error) {
-	alg := header["alg"].(string)
-	return _NewECDHES(NewA128KW, []byte(alg), 128, mJWK, header)
+	return _NewECDHES(NewA128KW, nil, 128, mJWK, header)
 }
 
 func NewECDHESA192KW(mJWK *jwk.JWK, header map[string]interface{}) (ec JWEAlg, err error) {
-	alg := header["alg"].(string)
-	return _NewECDHES(NewA192KW, []byte(alg), 192, mJWK, header)
+	return _NewECDHES(NewA192KW, nil, 192, mJWK, header)
 }
 
 func NewECDHESA256KW(mJWK *jwk.JWK, header map[string]interface{}) (ec JWEAlg, err error) {
-	alg := header["alg"].(string)
-	return _NewECDHES(NewA256KW, []byte(alg), 256, mJWK, header)
+	return _NewECDHES(NewA256KW, nil, 256, mJWK, header)
 }

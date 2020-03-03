@@ -16,6 +16,8 @@ mod_auth_jwt支持JWT令牌(JWS和JWE)基础验证、字段验证、嵌套JWT验
     + A128GCMKW / A192GCMKW / A256GCMKW
     + ECDH-ES
     + ECDH-ES+A128KW / ECDH-ES+A192KW / ECDH-ES+A256KW
+    + PBES2-HS256+A128KW / PBES2-HS384+A192KW / PBES2-HS512+A256KW
+    + **注：使用PBES系列算法请将passphrase进行base64URL编码后以对称密钥的形式在私钥文件内提供。**
   + enc for JWE：
     + A128CBC-HS256 / A192CBC-HS384 / A256CBC-HS512
     + A128GCM / A192GCM / A256GCM
