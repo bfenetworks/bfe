@@ -3,18 +3,22 @@ package jwt
 import "errors"
 
 type Claims struct {
-	header         map[string]interface{}
-	payload        map[string]interface{}
-	enabledPayload bool
+	header        map[string]interface{}
+	payload       map[string]interface{}
+	enabledHeader bool
 }
 
 // get claim from JWT header and payload(if enabledPayload was set to true)
 func (context *Claims) Claim(name string) (claim interface{}, ok bool) {
-	if claim, ok := context.header[name]; ok {
-		return claim, true
+	if context.payload != nil {
+		// payload maybe nil
+		if claim, ok := context.payload[name]; ok {
+			return claim, true
+		}
 	}
-	if context.payload != nil && context.enabledPayload {
-		claim, ok = context.payload[name]
+	if context.enabledHeader {
+		// header always not nil
+		claim, ok = context.header[name]
 		return claim, ok
 	}
 	return nil, false
@@ -72,9 +76,9 @@ func (context *Claims) Sub() (claim interface{}, sub string, ok bool) {
 	return context.GetString("sub")
 }
 
-func NewClaims(header, payload map[string]interface{}, enabledPayload bool) (claims *Claims, err error) {
+func NewClaims(header, payload map[string]interface{}, enabledHeader bool) (claims *Claims, err error) {
 	if header == nil {
 		return nil, errors.New("Claims: header should not be nil. ")
 	}
-	return &Claims{header, payload, enabledPayload}, nil
+	return &Claims{header, payload, enabledHeader}, nil
 }

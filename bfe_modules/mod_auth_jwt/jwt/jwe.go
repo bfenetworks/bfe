@@ -13,6 +13,7 @@ import (
 type JWE struct {
 	Raw               string
 	Header            *Base64URLJson
+	Payload           *Base64URLJson
 	EncryptedKey      *Base64URL
 	InitialVector     *Base64URL
 	CipherText        *Base64URL
@@ -20,7 +21,7 @@ type JWE struct {
 	Secret            *jwk.JWK
 }
 
-func (mJWE *JWE) GetCek() (cek []byte, err error) {
+func (mJWE *JWE) Cek() (cek []byte, err error) {
 	alg, ok := mJWE.Header.Decoded["alg"]
 	if !ok {
 		return nil, fmt.Errorf("missing header parameter alg")
@@ -40,7 +41,7 @@ func (mJWE *JWE) GetCek() (cek []byte, err error) {
 	return context.Decrypt(mJWE.EncryptedKey.Decoded)
 }
 
-func (mJWE *JWE) GetPayload() (payload []byte, err error) {
+func (mJWE *JWE) Plaintext() (plaintext []byte, err error) {
 	enc, ok := mJWE.Header.Decoded["enc"]
 	if !ok {
 		return nil, fmt.Errorf("missing header parameter enc")
@@ -53,7 +54,7 @@ func (mJWE *JWE) GetPayload() (payload []byte, err error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown enc: %s", encStr)
 	}
-	cek, err := mJWE.GetCek()
+	cek, err := mJWE.Cek()
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +67,7 @@ func (mJWE *JWE) GetPayload() (payload []byte, err error) {
 }
 
 func (mJWE *JWE) BasicCheck() (err error) {
-	_, err = mJWE.GetPayload()
+	_, err = mJWE.Plaintext()
 	return err
 }
 
@@ -95,6 +96,13 @@ func NewJWE(token string, secret *jwk.JWK) (mJWE *JWE, err error) {
 	mJWE.AuthenticationTag, err = NewBase64URL(parts[4])
 	if err != nil {
 		return nil, err
+	}
+	// parse payload for lookup claims or nested JWT
+	// error ignored parsing payload this stage
+	plaintext, err := mJWE.Plaintext()
+	if err == nil {
+		// payload can be not a base64URL-encoded json object
+		mJWE.Payload, _ = NewBase64URLJson(string(plaintext), false)
 	}
 	return mJWE, nil
 }

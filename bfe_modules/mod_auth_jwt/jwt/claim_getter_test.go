@@ -14,8 +14,8 @@ func TestNewClaims(t *testing.T) {
 		"aud": "audience",
 	}
 	claims, _ := NewClaims(header, payload, true)
-	if _, _, ok := claims.Aud(); !ok {
-		t.Error("failed to get claim from payload")
+	if _, _, ok := claims.Exp(); !ok {
+		t.Error("failed to get claim from header")
 	}
 	if claim, exp, ok := claims.Exp(); !ok {
 		t.Logf("%+v, %+v", claim, exp)

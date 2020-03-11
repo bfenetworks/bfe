@@ -4,7 +4,6 @@
 package jwa
 
 import (
-	"bytes"
 	"crypto"
 	"crypto/elliptic"
 	"encoding/base64"
@@ -69,7 +68,7 @@ func (ec *ECDHES) Decrypt(eCek []byte) (cek []byte, err error) {
 }
 
 func otherInfo(alg, apu, apv []byte, kBit int) (other []byte) {
-	// see chapter 5.8.1.2: https://tools.ietf.org/html/rfc7518#section-4.6
+	// see chapter 5.8.1.2: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-56Ar2.pdf
 	// see also: https://tools.ietf.org/html/rfc7518#section-4.6.2
 	//
 	// For this format, OtherInfo is a bit string equal to the following concatenation:
@@ -79,15 +78,15 @@ func otherInfo(alg, apu, apv []byte, kBit int) (other []byte) {
 	temp := make([]byte, 4) // 32 bit container
 
 	binary.BigEndian.PutUint32(temp, uint32(len(alg)))
-	algorithmID := bytes.Join([][]byte{temp, alg}, nil)
+	algorithmID := append(temp, alg...)
 	other = append(other, algorithmID...)
 
 	binary.BigEndian.PutUint32(temp, uint32(len(apu)))
-	partyUInfo := bytes.Join([][]byte{temp, apu}, nil)
+	partyUInfo := append(temp, apu...)
 	other = append(other, partyUInfo...)
 
 	binary.BigEndian.PutUint32(temp, uint32(len(apv)))
-	partyVInfo := bytes.Join([][]byte{temp, apv}, nil)
+	partyVInfo := append(temp, apv...)
 	other = append(other, partyVInfo...)
 
 	// SUppPubInfo is set to the keydatalen represented as a 32-bit big-endian integer

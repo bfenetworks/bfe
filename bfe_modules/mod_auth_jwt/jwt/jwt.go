@@ -16,15 +16,15 @@ type tokenValidator interface {
 
 // universal parameters for module Config and product Config
 type Config struct {
-	Secret               *jwk.JWK
-	SecretPath           string
-	EnabledPayloadClaims bool
-	ValidateNested       bool
-	ValidateClaimExp     bool
-	ValidateClaimNbf     bool
-	ValidateClaimIss     string
-	ValidateClaimSub     string
-	ValidateClaimAud     string
+	Secret              *jwk.JWK
+	SecretPath          string
+	EnabledHeaderClaims bool
+	ValidateNested      bool
+	ValidateClaimExp    bool
+	ValidateClaimNbf    bool
+	ValidateClaimIss    string
+	ValidateClaimSub    string
+	ValidateClaimAud    string
 }
 
 type JWT struct {
@@ -44,7 +44,7 @@ func (mJWT *JWT) buildJWS(token string) (err error) {
 	}
 	mJWT.context = mJWT.JWS
 	mJWT.Claims, err = NewClaims(mJWT.JWS.Header.Decoded,
-		mJWT.JWS.Payload.Decoded, mJWT.config.EnabledPayloadClaims)
+		mJWT.JWS.Payload.Decoded, mJWT.config.EnabledHeaderClaims)
 	if mJWT.JWS.Header.Decoded["cty"] == "JWT" {
 		// build nested JWT
 		// error ignored because the jwk for the nested jwt may be different
@@ -60,13 +60,16 @@ func (mJWT *JWT) buildJWE(token string) (err error) {
 		return err
 	}
 	mJWT.context = mJWT.JWE
-	mJWT.Claims, err = NewClaims(mJWT.JWE.Header.Decoded, nil,
-		mJWT.config.EnabledPayloadClaims)
-	if mJWT.JWE.Header.Decoded["cty"] == "JWT" {
+	var payload map[string]interface{} = nil
+	if mJWT.JWE.Payload != nil {
+		payload = mJWT.JWE.Payload.Decoded
+	}
+	mJWT.Claims, err = NewClaims(mJWT.JWE.Header.Decoded, payload,
+		mJWT.config.EnabledHeaderClaims)
+	if mJWT.JWE.Header.Decoded["cty"] == "JWT" && mJWT.JWE.Payload != nil {
 		// build nested JWT
 		// error ignored because the jwk for the nested jwt may be different
-		token, _ := mJWT.JWE.GetPayload()
-		mJWT.Nested, _ = NewJWT(string(token), mJWT.config)
+		mJWT.Nested, _ = NewJWT(mJWT.JWE.Payload.Raw, mJWT.config)
 	}
 	return err
 }
