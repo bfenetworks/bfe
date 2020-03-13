@@ -32,7 +32,9 @@ import (
 	"github.com/baidu/bfe/bfe_modules/mod_redirect"
 	"github.com/baidu/bfe/bfe_modules/mod_rewrite"
 	"github.com/baidu/bfe/bfe_modules/mod_static"
+	"github.com/baidu/bfe/bfe_modules/mod_tag"
 	"github.com/baidu/bfe/bfe_modules/mod_trust_clientip"
+	"github.com/baidu/bfe/bfe_modules/mod_userid"
 )
 
 // list of all modules, the order is very important
@@ -44,9 +46,15 @@ var moduleList = []bfe_module.BfeModule{
 	// Requirement: After mod_trust_clientip
 	mod_logid.NewModuleLogId(),
 
+	// mode_userid
+	mod_userid.NewModuleUserID(),
+
 	// mod_geo
 	// Requirement: After mod_logid
 	mod_geo.NewModuleGeo(),
+
+	// mod_tag
+	mod_tag.NewModuleTag(),
 
 	// mod_block
 	// Requirement: After mod_logid

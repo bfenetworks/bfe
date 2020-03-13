@@ -21,13 +21,13 @@ export PATH        := $(shell go env GOPATH)/bin:$(PATH)
 export GO111MODULE := on
 
 # init command params
-GO      := go
-GOBUILD := $(GO) build
-GOTEST  := $(GO) test
-GOVET   := $(GO) vet
-GOGET   := $(GO) get
-GOGEN   := $(GO) generate
-GOCLEAN := $(GO) clean
+GO           := go
+GOBUILD      := $(GO) build
+GOTEST       := $(GO) test
+GOVET        := $(GO) vet
+GOGET        := $(GO) get
+GOGEN        := $(GO) generate
+STATICCHECK  := staticcheck
 
 # init bfe version
 BFE_VERSION ?= $(shell cat VERSION)
@@ -67,6 +67,11 @@ package:
 	mkdir -p $(OUTDIR)/bin
 	mv bfe  $(OUTDIR)/bin
 	cp -r conf $(OUTDIR)
+
+# make check
+check:
+	$(GO) get honnef.co/go/tools/cmd/staticcheck
+	$(STATICCHECK) ./...
 
 # make docker
 docker:
