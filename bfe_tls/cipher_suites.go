@@ -31,6 +31,8 @@ import (
 )
 
 import (
+	"github.com/tjfoc/gmsm/sm3"
+	"github.com/tjfoc/gmsm/sm4"
 	"golang.org/x/crypto/chacha20poly1305"
 )
 
@@ -113,6 +115,7 @@ var cipherSuites = []*cipherSuite{
 	{TLS_RSA_WITH_AES_256_CBC_SHA, 32, 20, 16, rsaKA, 0, cipherAES, macSHA1, nil},
 	{TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA, 24, 20, 8, ecdheRSAKA, suiteECDHE, cipher3DES, macSHA1, nil},
 	{TLS_RSA_WITH_3DES_EDE_CBC_SHA, 24, 20, 8, rsaKA, 0, cipher3DES, macSHA1, nil},
+	{TLS_RSA_WITH_SM4_SM3, 16, 32, 16, rsaKA, 0, cipherSM4, macSM3, nil},
 }
 
 // CheckSuiteRSA checks whether cipher suite using RSA key argreement
@@ -125,6 +128,8 @@ func CheckSuiteRSA(id uint16) bool {
 	case TLS_RSA_WITH_AES_256_CBC_SHA:
 		return true
 	case TLS_RSA_WITH_3DES_EDE_CBC_SHA:
+		return true
+        case TLS_RSA_WITH_SM4_SM3:
 		return true
 	}
 	return false
@@ -206,6 +211,14 @@ func cipherAES(key, iv []byte, isRead bool) interface{} {
 	return cipher.NewCBCEncrypter(block, iv)
 }
 
+func cipherSM4(key, iv []byte, isRead bool) interface{} {
+	block, _ := sm4.NewCipher(key)
+	if isRead {
+		return cipher.NewCBCDecrypter(block, iv)
+	}
+	return cipher.NewCBCEncrypter(block, iv)
+}
+
 // macSHA1 returns a macFunction for the given protocol version.
 func macSHA1(version uint16, key []byte) macFunction {
 	if version == VersionSSL30 {
@@ -217,6 +230,10 @@ func macSHA1(version uint16, key []byte) macFunction {
 		return mac
 	}
 	return tls10MAC{hmac.New(sha1.New, key)}
+}
+
+func macSM3(version uint16, key []byte) macFunction {
+	return sm3MAC{hmac.New(sm3.New, key)}
 }
 
 type macFunction interface {
@@ -335,6 +352,23 @@ func aeadChaCha20Poly1305(key, fixedNonce []byte) cipher.AEAD {
 	return &xorNonceAEAD{nonce1, nonce2, aead}
 }
 
+type sm3MAC struct {
+	h hash.Hash
+}
+
+func (s sm3MAC) Size() int {
+	return s.h.Size()
+}
+
+func (s sm3MAC) MAC(digestBuf, seq, header, data []byte) []byte {
+	s.h.Reset()
+	s.h.Write(seq)
+	s.h.Write(header)
+	s.h.Write(data)
+	res := s.h.Sum(digestBuf[:0])
+	return res
+}
+
 // ssl30MAC implements the SSLv3 MAC function, as defined in
 // www.mozilla.org/projects/security/pki/nss/ssl/draft302.txt section 5.2.3.1
 type ssl30MAC struct {
@@ -441,6 +475,7 @@ const (
 	TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256       uint16 = 0xc02b
 	TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256   uint16 = 0xcca8
 	TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 uint16 = 0xcca9
+	TLS_RSA_WITH_SM4_SM3                          uint16 = 0xe019
 
 	// TLS_FALLBACK_SCSV isn't a standard cipher suite but an indicator
 	// that the client is doing version fallback. See
@@ -469,6 +504,7 @@ var cipherSuiteTextMap = map[uint16]string{
 	TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:       "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
 	TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:   "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
 	TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256: "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+	TLS_RSA_WITH_SM4_SM3:                          "TLS_RSA_WITH_SM4_SM3",
 }
 
 func CipherSuiteText(suite uint16) string {
