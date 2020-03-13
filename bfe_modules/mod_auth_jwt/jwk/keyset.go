@@ -1,5 +1,18 @@
-// defined a set of key for different key type
+// Copyright (c) 2019 Baidu, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
+// defined a set of key for different key type
 package jwk
 
 import (
@@ -88,7 +101,9 @@ func base64URLBuilder(s string) (v *reflect.Value, err error) {
 	if err != nil {
 		return nil, err
 	}
+
 	v0 := reflect.Indirect(reflect.ValueOf(ptr))
+
 	return &v0, nil
 }
 
@@ -97,7 +112,9 @@ func base64URLUintBuilder(s string) (v *reflect.Value, err error) {
 	if err != nil {
 		return nil, err
 	}
+
 	v0 := reflect.Indirect(reflect.ValueOf(ptr))
+
 	return &v0, nil
 }
 
@@ -105,10 +122,12 @@ func buildSymmetricParams(keyMap map[string]interface{}) (params *symmetricParam
 	if err = KeyCheck(keyMap, checkRuleSym); err != nil {
 		return nil, err
 	}
+
 	k, err := NewBase64URL(keyMap["k"].(string))
 	if err != nil {
 		return nil, err
 	}
+
 	return &symmetricParams{k}, nil
 }
 
@@ -123,16 +142,20 @@ func buildCurveParams(keyMap map[string]interface{}, private bool) (params *curv
 			return nil, err
 		}
 	}
+
 	crvCode, ok := GetCrvCode(keyMap["crv"].(string))
 	if !ok {
 		return nil, fmt.Errorf("invalid value for key: crv")
 	}
+
 	params = &curveParams{Crv: crvCode}
 	refValue := reflect.Indirect(reflect.ValueOf(params))
+
 	// set x and y for curve params
 	if err = buildAndSetParams(base64URLBuilder, keyMap, &refValue); err != nil {
 		return nil, err
 	}
+
 	return params, nil
 }
 
@@ -146,6 +169,7 @@ func buildRSAParams(keyMap map[string]interface{}, private bool) (params *rsaPar
 			return nil, err
 		}
 	}
+
 	params = &rsaParams{Full: true}
 	if err = KeyCheck(keyMap, checkRuleRSAFull); err != nil {
 		// only n, e, d available
@@ -161,11 +185,13 @@ func buildRSAParams(keyMap map[string]interface{}, private bool) (params *rsaPar
 			}
 		}
 	}
+
 	refV := reflect.Indirect(reflect.ValueOf(params))
 	// build key parameters
 	if err = buildAndSetParams(base64URLUintBuilder, keyMap, &refV); err != nil {
 		return nil, err
 	}
+
 	// build oth
 	if oth, ok := keyMap["oth"]; ok {
 		if err = KeyCheck(keyMap, checkRuleRSAOTH); err != nil {
@@ -176,6 +202,7 @@ func buildRSAParams(keyMap map[string]interface{}, private bool) (params *rsaPar
 			return nil, fmt.Errorf("parsing oth: %s", err)
 		}
 	}
+
 	return params, nil
 }
 
@@ -186,15 +213,18 @@ func parseOth(jsonStr string) (others []*oth, err error) {
 	if err != nil {
 		return nil, err
 	}
+
 	for _, keyMap := range o {
 		if err = KeyCheck(keyMap, checkRuleOth); err != nil {
 			return nil, err
 		}
+
 		other := new(oth)
 		refO := reflect.Indirect(reflect.ValueOf(other))
 		if err = buildAndSetParams(base64URLUintBuilder, keyMap, &refO); err != nil {
 			return nil, err
 		}
+
 		others = append(others, other)
 	}
 	return others, nil
@@ -213,5 +243,6 @@ func buildAndSetParams(builder paramsBuilder, keyMap map[string]interface{}, dst
 		}
 		field.Set(value.Addr())
 	}
+
 	return nil
 }

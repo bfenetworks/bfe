@@ -1,3 +1,17 @@
+// Copyright (c) 2019 Baidu, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package mod_auth_jwt
 
 import (
@@ -35,6 +49,7 @@ func NewModuleAuthJWT() (module *moduleAuthJWT) {
 	module.counters = new(counters)
 	module.metrics = new(metrics.Metrics)
 	module.config = new(moduleConfigProxy)
+
 	return module
 }
 
@@ -45,22 +60,26 @@ func (module *moduleAuthJWT) Name() (name string) {
 func (module *moduleAuthJWT) Init(callbacks *bfe_module.BfeCallbacks,
 	handlers *web_monitor.WebHandlers, confRoot string) (err error) {
 	module.confPath = bfe_module.ModConfPath(confRoot, module.Name())
+
 	// initialization for module config
 	if err := module.config.Update(module.confPath); err != nil {
 		return NewTypedError(ModuleConfigLoadFailed, err)
 	}
 	debug, _ := module.config.GetWithLock("Log.OpenDebug")
 	Debug = debug.Bool()
+
 	// initialization for metrics
 	err = module.metrics.Init(module.counters, module.Name(), 0)
 	if err != nil {
 		return NewTypedError(MetricsInitFailed, err)
 	}
+
 	// register filter for auth service
 	err = callbacks.AddFilter(bfe_module.HandleFoundProduct, module.authService)
 	if err != nil {
 		return NewTypedError(AuthServiceRegisterFailed, err)
 	}
+
 	// register handler for monitor service
 	err = web_monitor.RegisterHandlers(handlers, web_monitor.WebHandleMonitor, map[string]interface{}{
 		module.Name():           module.getMetrics,
@@ -69,11 +88,13 @@ func (module *moduleAuthJWT) Init(callbacks *bfe_module.BfeCallbacks,
 	if err != nil {
 		return NewTypedError(MonitorServiceRegisterFailed, err)
 	}
+
 	// register handler for hot deployment service
 	err = handlers.RegisterHandler(web_monitor.WebHandleReload, module.Name(), module.reloadService)
 	if err != nil {
 		return NewTypedError(HotDeploymentServiceRegisterFailed, err)
 	}
+
 	return nil
 }
 
@@ -81,41 +102,51 @@ func (module *moduleAuthJWT) authService(request *bfe_basic.Request) (flag int, 
 	config, ok := module.config.FindProductConfig(request.Route.Product)
 	if !ok || !config.Cond.Match(request) {
 		if Debug && ok {
-			log.Logger.Debug("Product(%s) found but failed to match with the condition: %s",
-				request.Route.Product, config.Cond)
+			log.Logger.Debug("%s found product %s but mismatch with the condition: %s",
+				module.Name(), request.Route.Product, config.Cond)
 		}
 		return bfe_module.BfeHandlerGoOn, nil
 	}
+
 	if Debug {
-		log.Logger.Debug("Auth for request %+v", request)
+		log.Logger.Debug("%s perform auth service for %+v", module.Name(), request)
 	}
 	module.counters.AuthTotal.Inc(1)
+
 	authorization := request.HttpRequest.Header.Get("Authorization")
 	prefix := "Bearer "
 	if !strings.HasPrefix(authorization, prefix) {
+		if Debug {
+			log.Logger.Debug("%s auth failed: bad token type given", module.Name())
+		}
+
 		module.counters.AuthFailed.Inc(1)
 		// send an unauthorized response
 		return bfe_module.BfeHandlerResponse, createUnauthorizedResponse(
 			request, "Bearer type token required.")
 	}
+
 	token := authorization[len(prefix):]
 	// apply validation for token
 	err := module.validateToken(token, config)
 	if err != nil {
 		if Debug {
-			log.Logger.Debug("Auth failed: %s", err)
+			log.Logger.Debug("%s auth failed: %s", module.Name(), err)
 		} else {
 			// hide error detail for user
-			err = errors.New("your token was rejected")
+			err = errors.New("your access token was rejected")
 		}
+
 		module.counters.AuthFailed.Inc(1)
 		return bfe_module.BfeHandlerResponse, createUnauthorizedResponse(
 			request, err.Error())
 	}
+
 	if Debug {
-		log.Logger.Debug("Auth success.")
+		log.Logger.Debug("%s auth success.", module.Name())
 	}
 	module.counters.AuthSuccess.Inc(1)
+
 	return bfe_module.BfeHandlerGoOn, nil
 }
 

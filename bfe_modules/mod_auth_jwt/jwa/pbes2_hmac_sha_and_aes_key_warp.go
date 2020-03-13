@@ -1,3 +1,17 @@
+// Copyright (c) 2019 Baidu, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package jwa
 
 import (
@@ -26,34 +40,42 @@ func (phakw *PBESHSAKW) unwrap(key, eCek []byte) (cek []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
+
 	context, err := phakw.wrapper(mJWK, nil)
 	if err != nil {
 		return nil, err
 	}
+
 	return context.Decrypt(eCek)
 }
 
 func (phakw *PBESHSAKW) Decrypt(eCek []byte) (cek []byte, err error) {
 	dk := pbkdf2.Key(phakw.jwk.Symmetric.K.Decoded, phakw.saltInput, phakw.count, phakw.kBit/8, phakw.factory)
-	if phakw.wrapper != nil {
-		return phakw.unwrap(dk, eCek)
-	}
-	return cek, nil
+
+	// unwrap encrypted Key (eCek) using derived key (dk) as symmetric key
+	return phakw.unwrap(dk, eCek)
 }
 
 func NewPBES2HSAKW(wrapper jweAlgFactory, kBit int, factory HashFactory, mJWK *jwk.JWK, header map[string]interface{}) (phakw JWEAlg, err error) {
+	if wrapper == nil {
+		return nil, fmt.Errorf("key Wrapper should not be nil")
+	}
+
 	if mJWK.Kty != jwk.OCT {
 		return nil, fmt.Errorf("unsupported algorithm: PBES2-HS%d+A%dKW", factory().Size(), kBit)
 	}
+
 	params, err := ParseBase64URLHeader(header, false, "p2s")
 	if err != nil {
 		return nil, err
 	}
+
 	alg, p2s, p2c := []byte(header["alg"].(string)), params["p2s"].Decoded, header["p2c"].(float64)
 	//The salt value used is (UTF8(Alg) || 0x00 || Salt Input)
 	//Alg is the "alg" (algorithm) Header Parameter value.
 	saltInput := StitchingSalt(alg, []byte{0}, p2s)
 	count := int(p2c)
+
 	return &PBESHSAKW{wrapper, mJWK, factory, saltInput, count, kBit}, nil
 }
 

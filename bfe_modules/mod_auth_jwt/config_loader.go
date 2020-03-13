@@ -1,3 +1,17 @@
+// Copyright (c) 2019 Baidu, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package mod_auth_jwt
 
 import (
@@ -53,6 +67,7 @@ func LoadModuleConfig(path string) (config *ModuleConfig, err *TypedError) {
 	if len(secretPath) == 0 || len(ProductConfigPath) == 0 {
 		err = NewTypedError(ConfigItemRequired,
 			errors.New("config item SecretPath and ProductConfigPath cannot be left blank"))
+
 		return nil, err
 	}
 
@@ -60,15 +75,18 @@ func LoadModuleConfig(path string) (config *ModuleConfig, err *TypedError) {
 	root, _ := filepath.Split(path)
 	config.Basic.SecretPath = util.ConfPathProc(secretPath, root)
 	config.Basic.ProductConfigPath = util.ConfPathProc(ProductConfigPath, root)
+
 	// validation for Config item
 	if err = validateModuleConfig(config); err != nil {
 		return nil, err
 	}
+
 	// read secret Config
 	config.Basic.Secret, rawErr = readSecret(config.Basic.SecretPath)
 	if rawErr != nil {
 		return nil, NewTypedError(BadSecretConfig, rawErr)
 	}
+
 	return config, nil
 }
 
@@ -87,6 +105,7 @@ func validateModuleConfig(config *ModuleConfig) (err *TypedError) {
 		return NewTypedError(ConfigItemInvalid,
 			errors.New("the ProductConfigPath should be a file, not directory"))
 	}
+
 	return nil
 }
 
@@ -105,16 +124,19 @@ func readSecret(path string) (mJWK *jwk.JWK, err error) {
 		}
 		return nil, errors.New("secret path should be a file")
 	}
+
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
+
 	keyMap := make(map[string]interface{})
 	err = json.NewDecoder(file).Decode(&keyMap)
 	if err != nil {
 		return nil, err
 	}
+
 	return jwk.NewJWK(keyMap)
 }
 
@@ -124,6 +146,7 @@ func LoadProductConfig(modConfig *ModuleConfig) (config *ProductConfig, err *Typ
 		return nil, NewTypedError(ConfigLoadFailed, rawErr)
 	}
 	defer file.Close()
+
 	rawData := make(map[string]interface{})
 	decoder := json.NewDecoder(file)
 	// read Config from file
@@ -139,6 +162,7 @@ func LoadProductConfig(modConfig *ModuleConfig) (config *ProductConfig, err *Typ
 // and merge overridable item from module Config
 func buildProductConfig(data map[string]interface{}, modConfig *ModuleConfig) (config *ProductConfig, err *TypedError) {
 	config = new(ProductConfig)
+
 	// apply type check
 	version, ok := data["Version"].(string)
 	if !ok {
@@ -146,6 +170,7 @@ func buildProductConfig(data map[string]interface{}, modConfig *ModuleConfig) (c
 			errors.New("invalid type for product Config item `Version`"))
 	}
 	config.Version = version
+
 	//
 	confMap, ok := data["Config"].(map[string]interface{})
 	if !ok {
@@ -153,6 +178,7 @@ func buildProductConfig(data map[string]interface{}, modConfig *ModuleConfig) (c
 			errors.New("invalid type for product Config item `Config`"))
 	}
 	config.Config = make(productConfig)
+
 	// build Config item
 	for name, conf := range confMap {
 		converted, ok := conf.(map[string]interface{})
@@ -160,6 +186,7 @@ func buildProductConfig(data map[string]interface{}, modConfig *ModuleConfig) (c
 			return nil, NewTypedError(ConfigLoadFailed,
 				fmt.Errorf("invalid type for product Config(%s) item `Config`", name))
 		}
+
 		// build Config for each product
 		item, err := buildProductConfigItem(converted, modConfig)
 		if err != nil {
@@ -168,6 +195,7 @@ func buildProductConfig(data map[string]interface{}, modConfig *ModuleConfig) (c
 		}
 		config.Config[name] = *item
 	}
+
 	return config, nil
 }
 
@@ -179,21 +207,26 @@ func buildProductConfigItem(config map[string]interface{}, modConfig *ModuleConf
 		return nil, NewTypedError(ConfigItemRequired,
 			errors.New("missing required Config item `Cond`"))
 	}
+
 	condStr, ok := cond.(string)
 	if !ok {
 		return nil, NewTypedError(InvalidConfigItem,
 			errors.New("invalid type of item `Cond`"))
 	}
+
 	// building condition
 	condBuilt, rawErr := condition.Build(condStr)
 	if rawErr != nil {
 		return nil, NewTypedError(BuildCondFailed, rawErr)
 	}
 	item.Cond = condBuilt
+
 	// get anonymous field JWTConfig from module Config
 	jwtConfig := reflect.ValueOf(modConfig.Basic).FieldByName("Config")
+
 	// cast Config item as reflect.Value
 	refItem := reflect.Indirect(reflect.ValueOf(item))
+
 	// merge default Config
 	err = merge(refItem, jwtConfig, config)
 	if err != nil {
@@ -201,14 +234,17 @@ func buildProductConfigItem(config map[string]interface{}, modConfig *ModuleConf
 	}
 	if item.SecretPath != modConfig.Basic.SecretPath {
 		root, _ := filepath.Split(modConfig.Basic.ProductConfigPath)
+
 		// ensure secret path is absolute path
 		item.SecretPath = util.ConfPathProc(item.SecretPath, root)
+
 		// read secret
 		item.Secret, rawErr = readSecret(item.SecretPath)
 		if rawErr != nil {
 			return nil, NewTypedError(BadSecretConfig, rawErr)
 		}
 	}
+
 	return item, nil
 }
 
@@ -224,11 +260,13 @@ func merge(conf reflect.Value, defConf reflect.Value, keySet map[string]interfac
 		// get name and value from module JWTConfig
 		name := typeJwtConfig.Field(i).Name
 		value := defConf.FieldByName(name)
+
 		// get value field for refItem by name
 		refValue := conf.FieldByName(name)
 		if v, ok := keySet[name]; ok {
 			// cast v as type reflect.Value
 			convertV := reflect.ValueOf(v)
+
 			if convertV.Type() != refValue.Type() {
 				// type check failed
 				return NewTypedError(InvalidConfigItem,
@@ -242,5 +280,6 @@ func merge(conf reflect.Value, defConf reflect.Value, keySet map[string]interfac
 			refValue.Set(value)
 		}
 	}
+
 	return nil
 }

@@ -1,21 +1,35 @@
+// Copyright (c) 2019 Baidu, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package jwa
 
 import "github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwk"
 
-// algorithm calculating signature for JWS
+// algorithm used to calculate signature for JWS
 type JWSAlg interface {
 	Update(msg []byte) (n int, err error) // update msg
 	Sign() (sig []byte)                   // get signature
 	Verify(sig []byte) bool               // verify signature
 }
 
-// algorithm use to encrypt & decrypt CEK(Content Encryption Key) fro JWE
+// algorithm used to encrypt & decrypt CEK(Content Encryption Key) fro JWE
 type JWEAlg interface {
 	//Encrypt(msg []byte) (cipher []byte) // implement this if needed
 	Decrypt(eCek []byte) (cek []byte, err error)
 }
 
-// algorithm use to encrypt & decrypt content for JWE
+// algorithm used to encrypt & decrypt content for JWE
 type JWEEnc interface {
 	//Encrypt(msg []byte) (cipher []byte) // implement this if needed
 	Decrypt(iv, aad, cipherText, tag []byte) (msg []byte, err error)
