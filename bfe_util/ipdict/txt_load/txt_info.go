@@ -16,7 +16,6 @@ package txt_load
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -132,7 +131,7 @@ func getActualFileInfo(path string) (*MetaInfo, error) {
 		}
 
 		// insert start ip and end ip into dict
-		if bytes.Equal(startIP, endIP) {
+		if startIP.Equal(endIP) {
 			singleIPCounter += 1
 		} else {
 			pairIPCounter += 1
