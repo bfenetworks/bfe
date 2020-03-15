@@ -3,6 +3,7 @@
 
 | Name | Github Account |
 | ---- | -------------- |
+| Caiyuan Yang | jansci621 |
 | Chongmiao Liu | lcmmhcc |
 | Derek Zheng | shanhuhai5739 |
 | Jie Liu | freeHackOfJeff |
@@ -12,6 +13,7 @@
 | Lihua Chen | clh651188968 |
 | Limei Xiao | limeix |
 | Lu Guo | guolu60 |
+| Lujie Zheng | ilujiez |
 | Miao Zhang | mileszhang2016 |
 | Min Dai | daimg |
 | Ming Lin | zhugelianglongming |
