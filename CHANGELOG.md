@@ -10,6 +10,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unrelease]
+### Added
+- Support TLS protocol with SM related ciphersuites
+
+
 ## [v0.7.0] - 2020-02-26
 ### Added
 - mod_access support NCSA Common Log Format(CLF) and W3C Extended Log Format(ELF)
@@ -24,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fix a bug that causes invalid ips are parsed and treated as domain names
+
 
 ## [v0.6.0] - 2020-01-21
 ### Added
@@ -115,6 +121,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
+[Unrelease]: https://github.com/baidu/bfe/compare/v0.6.0...HEAD
 [v0.7.0]: https://github.com/baidu/bfe/compare/v0.6.0...v0.7.0
 [v0.6.0]: https://github.com/baidu/bfe/compare/v0.5.0...v0.6.0
 [v0.5.0]: https://github.com/baidu/bfe/compare/v0.4.0...v0.5.0
