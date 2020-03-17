@@ -33,6 +33,7 @@ import (
 	"github.com/baidu/bfe/bfe_modules/mod_rewrite"
 	"github.com/baidu/bfe/bfe_modules/mod_static"
 	"github.com/baidu/bfe/bfe_modules/mod_tag"
+	"github.com/baidu/bfe/bfe_modules/mod_trace"
 	"github.com/baidu/bfe/bfe_modules/mod_trust_clientip"
 	"github.com/baidu/bfe/bfe_modules/mod_userid"
 )
@@ -55,6 +56,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_tag
 	mod_tag.NewModuleTag(),
+
+	// mod_trace
+	mod_trace.NewModuleTrace(),
 
 	// mod_block
 	// Requirement: After mod_logid
