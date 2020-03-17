@@ -1,0 +1,12 @@
+{
+    "Version": "init",
+    "Config": {
+        "unittest": [
+            {
+                "Cond": "default_t()",
+                "Net": "UDP",
+                "Address": "8.8.8.8:53"
+            }
+        ]
+    }
+}
