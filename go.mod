@@ -12,8 +12,9 @@ require (
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/stretchr/testify v1.4.0 // indirect
+	github.com/tjfoc/gmsm v1.3.0
 	github.com/zmap/go-iptree v0.0.0-20170831022036-1948b1097e25
-	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413
+	golang.org/x/crypto v0.0.0-20191219195013-becbf705a915
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
 	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449
 	golang.org/x/tools v0.0.0-20200216192241-b320d3a0f5a2 // indirect

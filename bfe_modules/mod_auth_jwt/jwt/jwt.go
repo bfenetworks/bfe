@@ -175,7 +175,7 @@ func (mJWT *JWT) validateNbf() (err error) {
 
 	nbfTime := time.Unix(nbf, 0)
 	if time.Now().Before(nbfTime) {
-		return fmt.Errorf("this access token could not be accept now, try again on %s", nbfTime)
+		return fmt.Errorf("this access token could not be accepted now, try again on %s", nbfTime)
 	}
 
 	return nil
@@ -207,15 +207,15 @@ func (mJWT *JWT) validateAud() (err error) {
 	if len(aud) == 0 {
 		return nil
 	}
-	return mJWT.validateEqual("iss", aud)
+	return mJWT.validateEqual("aud", aud)
 }
 
 func (mJWT *JWT) validateSub() (err error) {
-	sub := mJWT.config.ValidateClaimIss
+	sub := mJWT.config.ValidateClaimSub
 	if len(sub) == 0 {
 		return nil
 	}
-	return mJWT.validateEqual("iss", sub)
+	return mJWT.validateEqual("sub", sub)
 }
 
 func NewJWT(token string, conf *Config) (mJWT *JWT, err error) {
