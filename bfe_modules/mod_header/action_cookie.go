@@ -26,10 +26,8 @@ import (
 )
 
 const (
-	ReqCookieAdd = "REQ_COOKIE_ADD"
 	ReqCookieSet = "REQ_COOKIE_SET"
 	ReqCookieDel = "REQ_COOKIE_DEL"
-	RspCookieAdd = "RSP_COOKIE_ADD"
 	RspCookieSet = "RSP_COOKIE_SET"
 	RspCookieDel = "RSP_COOKIE_DEL"
 )
@@ -101,10 +99,12 @@ func rspAddCookie(rsp *bfe_http.Response, cookie *bfe_http.Cookie) {
 	rsp.Header.Add("Set-Cookie", cookie.String())
 }
 
-func isRspCookieExist(rsp *bfe_http.Response, cookieName string) bool {
+func isRspCookieExist(rsp *bfe_http.Response, cookie *bfe_http.Cookie) bool {
 	cookies := rsp.Cookies()
-	for _, cookie := range cookies {
-		if cookie.Name == cookieName {
+	for _, rspCookie := range cookies {
+		if rspCookie.Name == cookie.Name &&
+			rspCookie.Path == cookie.Path &&
+			rspCookieDomain == cookie.Domain {
 			return true
 		}
 	}
@@ -112,7 +112,7 @@ func isRspCookieExist(rsp *bfe_http.Response, cookieName string) bool {
 }
 
 func rspSetCookie(rsp *bfe_http.Response, cookie *bfe_http.Cookie) {
-	if !isRspCookieExist(rsp, cookie.Name) {
+	if !isRspCookieExist(rsp, cookie) {
 		rspAddCookie(rsp, cookie)
 		return
 	}
@@ -129,7 +129,7 @@ func rspSetCookie(rsp *bfe_http.Response, cookie *bfe_http.Cookie) {
 }
 
 func rspDelCookie(rsp *bfe_http.Response, cookie *bfe_http.Cookie) {
-	if !isRspCookieExist(rsp, cookie.Name) {
+	if !isRspCookieExist(rsp, cookie) {
 		return
 	}
 
@@ -154,7 +154,7 @@ func buildCookie(req *bfe_basic.Request, action Action) *bfe_http.Cookie {
 	}
 
 	cookie.Value = getCookieValue(req, action.Params[1])
-	if action.Cmd == ReqCookieAdd || action.Cmd == ReqCookieSet {
+	if action.Cmd == ReqCookieSet {
 		return cookie
 	}
 
@@ -168,8 +168,6 @@ func buildCookie(req *bfe_basic.Request, action Action) *bfe_http.Cookie {
 func ReqCookieActionDo(req *bfe_basic.Request, action Action) {
 	cookie := buildCookie(req, action)
 	switch action.Cmd {
-	case ReqCookieAdd:
-		reqAddCookie(req, cookie)
 	case ReqCookieSet:
 		reqSetCookie(req, cookie)
 	case ReqCookieDel:
@@ -180,8 +178,6 @@ func ReqCookieActionDo(req *bfe_basic.Request, action Action) {
 func RspCookieActionDo(req *bfe_basic.Request, action Action) {
 	cookie := buildCookie(req, action)
 	switch action.Cmd {
-	case RspCookieAdd:
-		rspAddCookie(req.HttpResponse, cookie)
 	case RspCookieSet:
 		rspSetCookie(req.HttpResponse, cookie)
 	case RspCookieDel:

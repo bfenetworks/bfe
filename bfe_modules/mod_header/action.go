@@ -76,20 +76,13 @@ func ActionFileCheck(conf ActionFile) error {
 			return fmt.Errorf("checkHeaderModParams: %s", err.Error())
 		}
 
-	case ReqCookieAdd,
-		ReqCookieSet:
-		if len(conf.Params) != 2 {
-			return fmt.Errorf("num of params:[ok:2, now:%d]", len(conf.Params))
-		}
-
 	case ReqCookieDel,
 		RspCookieDel:
 		if len(conf.Params) != 1 {
 			return fmt.Errorf("num of params:[ok:1, now:%d]", len(conf.Params))
 		}
 
-	case RspCookieAdd,
-		RspCookieSet:
+	case RspCookieSet:
 		if len(conf.Params) != 6 {
 			return fmt.Errorf("num of params:[ok:6, now:%d]", len(conf.Params))
 		}
@@ -392,8 +385,8 @@ func actionConvert(actionFile ActionFile) (Action, error) {
 		action.Params = append(action.Params, key)
 		action.Params = append(action.Params, actionFile.Params[2:]...)
 
-	case ReqCookieAdd, ReqCookieSet, ReqCookieDel,
-		RspCookieAdd, RspCookieSet, RspCookieDel:
+	case ReqCookieSet, ReqCookieDel,
+		RspCookieSet, RspCookieDel:
 		action.Params = actionFile.Params
 
 	default:
