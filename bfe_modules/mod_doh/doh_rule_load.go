@@ -17,6 +17,7 @@ package mod_doh
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 )
 
@@ -25,9 +26,10 @@ import (
 )
 
 type DohRuleFile struct {
-	Cond    string
-	Net     string
-	Address string
+	Cond string
+	Net  string
+	Ip   string
+	Port int
 }
 
 type DohRule struct {
@@ -57,11 +59,18 @@ func DohRuleCheck(conf DohRuleFile) error {
 		return fmt.Errorf("no Cond")
 	}
 
-	if conf.Net != "TCP" && conf.Net != "UDP" {
-		return fmt.Errorf("Net should be \"TCP\" or \"UDP\"")
+	if conf.Net != "tcp" && conf.Net != "udp" {
+		return fmt.Errorf("Net should be \"tcp\" or \"udp\"")
 	}
 
-	// TODO: check Address
+	ip := net.ParseIP(conf.Ip)
+	if ip == nil {
+		return fmt.Errorf("invalid IP address: %s", conf.Ip)
+	}
+
+	if conf.Port < 1 || conf.Port > 65535 {
+		return fmt.Errorf("Port should be in [1, 65535]")
+	}
 
 	return nil
 }
@@ -121,7 +130,7 @@ func ruleConvert(ruleFile DohRuleFile) (DohRule, error) {
 
 	rule.Cond = cond
 	rule.Net = ruleFile.Net
-	rule.Address = ruleFile.Address
+	rule.Address = fmt.Sprintf("%s:%d", ruleFile.Ip, ruleFile.Port)
 
 	return rule, nil
 }

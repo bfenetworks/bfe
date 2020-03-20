@@ -18,7 +18,7 @@ import (
 	"testing"
 )
 
-func TestDohConfLoadCase1(t *testing.T) {
+func TestDohConfLoadCase(t *testing.T) {
 	staticConf, err := DohConfLoad("./testdata/mod_doh/doh_rule.data")
 	if err != nil {
 		t.Errorf("DohConfLoad() error: %v", err)

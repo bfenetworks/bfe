@@ -15,21 +15,14 @@
 package mod_doh
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net/url"
-	"strconv"
-	"time"
 )
 
 import (
+	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/web-monitor/metrics"
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
-	"github.com/coredns/coredns/plugin/pkg/dnsutil"
-	"github.com/coredns/coredns/plugin/pkg/doh"
-	"github.com/coredns/coredns/plugin/pkg/response"
-	"github.com/miekg/dns"
 )
 
 import (
@@ -47,20 +40,18 @@ var (
 )
 
 type ModuleDohState struct {
-	FileBrowseSize             *metrics.Counter
-	FileBrowseCount            *metrics.Counter
-	FileBrowseNotExist         *metrics.Counter
-	FileBrowseContentTypeError *metrics.Counter
-	FileBrowseFallbackDefault  *metrics.Counter
-	FileCurrentOpened          *metrics.Gauge
+	DohRequest           *metrics.Counter
+	FetchDnsErr          *metrics.Counter
+	ConvertToResponseErr *metrics.Counter
 }
 
 type ModuleDoh struct {
-	name      string
-	state     ModuleDohState
-	metrics   metrics.Metrics
-	conf      *ConfModDoh
-	ruleTable *DohRuleTable
+	name       string
+	state      ModuleDohState
+	metrics    metrics.Metrics
+	conf       *ConfModDoh
+	ruleTable  *DohRuleTable
+	dnsFetcher DnsFetcherIF
 }
 
 func NewModuleDoh() *ModuleDoh {
@@ -68,6 +59,7 @@ func NewModuleDoh() *ModuleDoh {
 	m.name = ModDoh
 	m.metrics.Init(&m.state, ModDoh, 0)
 	m.ruleTable = NewDohRuleTable()
+	m.dnsFetcher = new(DnsFetcher)
 	return m
 }
 
@@ -115,27 +107,6 @@ func (m *ModuleDoh) reloadHandlers() map[string]interface{} {
 	return handlers
 }
 
-func (m *ModuleDoh) fetchDNS(req *bfe_basic.Request, rule *DohRule) (*dns.Msg, error) {
-	httpRequest := req.HttpRequest
-	msg, err := RequestToMsg(httpRequest)
-	if err != nil {
-		return nil, err
-	}
-
-	client := dns.Client{UDPSize: dns.MaxMsgSize}
-	reply, _, err := client.Exchange(msg, rule.Address)
-	return reply, err
-}
-
-func (m *ModuleDoh) createDohResp(req *bfe_basic.Request, data []byte, age time.Duration) *bfe_http.Response {
-	resp := bfe_basic.CreateInternalResp(req, bfe_http.StatusOK)
-	resp.Header.Set("Content-Type", doh.MimeType)
-	resp.Header.Set("Cache-Control", fmt.Sprintf("max-age=%f", age.Seconds()))
-	resp.Header.Set("Content-Length", strconv.Itoa(len(data)))
-	resp.Body = ioutil.NopCloser(bytes.NewReader(data))
-	return resp
-}
-
 func (m *ModuleDoh) dohHandler(req *bfe_basic.Request) (int, *bfe_http.Response) {
 	rules, ok := m.ruleTable.Search(req.Route.Product)
 	if !ok {
@@ -144,25 +115,31 @@ func (m *ModuleDoh) dohHandler(req *bfe_basic.Request) (int, *bfe_http.Response)
 
 	for _, rule := range *rules {
 		if !rule.Cond.Match(req) {
-			fmt.Println("not matched")
 			continue
 		}
 
-		msg, err := m.fetchDNS(req, &rule)
+		m.state.DohRequest.Inc(1)
+		msg, err := m.dnsFetcher.Fetch(req.HttpRequest, rule.Net, rule.Address)
 		if err != nil {
-			fmt.Println("fetchDNS", err)
+			if openDebug {
+				log.Logger.Debug("%s: fetchDNS error: %v", m.name, err)
+			}
+
+			m.state.FetchDnsErr.Inc(1)
 			return bfe_module.BfeHandlerResponse, bfe_basic.CreateInternalResp(req, bfe_http.StatusInternalServerError)
 		}
 
-		data, err := msg.Pack()
+		resp, err := DnsMsgToResponse(req, msg)
 		if err != nil {
-			fmt.Println("Pack", err)
+			if openDebug {
+				log.Logger.Debug("%s: DnsMsgToResponse error: %v", m.name, err)
+			}
+
+			m.state.ConvertToResponseErr.Inc(1)
 			return bfe_module.BfeHandlerResponse, bfe_basic.CreateInternalResp(req, bfe_http.StatusInternalServerError)
 		}
-		mt, _ := response.Typify(msg, time.Now().UTC())
-		age := dnsutil.MinimalTTL(msg, mt)
 
-		return bfe_module.BfeHandlerResponse, m.createDohResp(req, data, age)
+		return bfe_module.BfeHandlerResponse, resp
 	}
 
 	return bfe_module.BfeHandlerGoOn, nil

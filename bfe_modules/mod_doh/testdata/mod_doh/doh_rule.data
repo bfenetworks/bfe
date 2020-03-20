@@ -4,8 +4,9 @@
         "unittest": [
             {
                 "Cond": "default_t()",
-                "Net": "UDP",
-                "Address": "8.8.8.8:53"
+                "Net": "udp",
+                "Ip": "127.0.0.1",
+                "Port": 53
             }
         ]
     }
