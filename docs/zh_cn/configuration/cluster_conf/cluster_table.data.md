@@ -1,31 +1,24 @@
-# 简介
+# 配置简介
 
 cluster_table.data配置文件记录各后端集群包含的子集群及实例
 
-# 配置
+# 配置描述
 
-| 配置项  | 类型   | 描述                                                           |
-| ------- | ------ | -------------------------------------------------------------- |
-| Version | String | 配置版本                                                       |
-| Config  | Map<String, Cluster> | 各集群信息配置。Key代表集群名称，Value代表集群信息 |
+| 配置项  | 描述                                                           |
+| ------- | -------------------------------------------------------------- |
+| Version | String<br>配置文件版本 |
+| Config  | Object<br>各集群信息配置 |
+| Config{k} | String<br>集群名称 |
+| Config{v} | Object<br>集群详细配置信息 |
+| Config{v}.{k} | String<br>子集群名称 |
+| Config{v}.{v} | Object<br>子集群包含的实例信息列表 |
+| Config{v}.{v}[] | Object<br>实例详细信息 |
+| Config{v}.{v}[].Addr | String<br>实例监听地址 |
+| Config{v}.{v}[].Port | Integer<br>实例监听端口 |
+| Config{v}.{v}[].Weight | Integer<br>实例权重 |
+| Config{v}.{v}[].Addr | String<br>实例名称 |
 
-## Cluster
-Cluster记录集群信息，类型为Map<String, Array<Backend>>
-- Key代表子集群名称
-- Value代表子集群包含的实例信息列表
-    
-## Backend
-Backend记录后端实例信息
-
-| 配置项  | 类型   | 描述         |
-| ------- | ------ | ----------- |
-| Addr   | String | 实例监听地址  |
-| Port   | Int    | 实例监听端口  |
-| Weight | Int    | 实例权重     |
-| Name   | String | 实例名称     |
-
-
-# 示例
+# 配置示例
 
 ```
 {
