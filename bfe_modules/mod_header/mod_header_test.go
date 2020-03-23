@@ -156,48 +156,6 @@ func TestDelXsslHeaderNotTrustIPAndHttp(t *testing.T) {
 	})
 }
 
-func TestReqAddCookieExist(t *testing.T) {
-	header := make(bfe_http.Header)
-	header.Add("Cookie", "SECOND=1")
-	testReqHandler(t, "http://www.example.org/second", header, "p1", false, false, "http", func(
-		t *testing.T, m *ModuleHeader, ret int, req *bfe_basic.Request) {
-		if ret != bfe_module.BfeHandlerGoOn {
-			t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
-		}
-
-		cookie, err := req.HttpRequest.Cookie("SECOND")
-		if err != nil {
-			t.Error("request add cookie error")
-			return
-		}
-		if cookie.Value != "1" {
-			t.Errorf("cookie value should be \"1\", not %s", cookie.Value)
-		}
-		if req.HttpRequest.Header["Cookie"][0] != "SECOND=1; SECOND=2" {
-			t.Errorf("cookie header should be \"SECOND=1; SECOND=2\", not %s",
-				req.HttpRequest.Header["Cookie"][0])
-		}
-	})
-}
-
-func TestReqAddCookieNotExist(t *testing.T) {
-	testReqHandler(t, "http://www.example.org/second", nil, "p1", false, false, "http", func(
-		t *testing.T, m *ModuleHeader, ret int, req *bfe_basic.Request) {
-		if ret != bfe_module.BfeHandlerGoOn {
-			t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
-		}
-
-		cookie, err := req.HttpRequest.Cookie("SECOND")
-		if err != nil {
-			t.Error("request add cookie error")
-			return
-		}
-		if cookie.Value != "2" {
-			t.Errorf("cookie value should be \"1\", not %s", cookie.Value)
-		}
-	})
-}
-
 func TestReqSetCookieExist(t *testing.T) {
 	header := make(bfe_http.Header)
 	header.Add("Cookie", "SET=0")
@@ -311,34 +269,6 @@ func TestRspDelCookieNotExist(t *testing.T) {
 			}
 			if cookies[0].Name != "COOKIE" {
 				t.Errorf("response delete cookie error")
-			}
-		})
-}
-
-func TestRspAddCookie(t *testing.T) {
-	cookies := []bfe_http.Cookie{
-		{
-			Name:   "COOKIE",
-			Value:  "1",
-			Path:   "/unittest",
-			Domain: "example.org",
-			MaxAge: 100,
-		},
-	}
-
-	testRspHandler(t, "http://www.example.org/rsp_cookie_add", "p2", cookies,
-		func(t *testing.T, m *ModuleHeader, ret int, req *bfe_basic.Request) {
-			if ret != bfe_module.BfeHandlerGoOn {
-				t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
-			}
-
-			cookies := req.HttpResponse.Cookies()
-			if len(cookies) != 2 {
-				t.Errorf("response cookie length error")
-				return
-			}
-			if cookies[1].Name != "ADD" {
-				t.Errorf("response add cookie error")
 			}
 		})
 }

@@ -3,32 +3,6 @@
     "Config": {
         "p1": [
             {
-                "cond": "req_path_prefix_in(\"/first\", false)",
-                "actions": [
-                    {
-                        "cmd": "REQ_COOKIE_ADD",
-                        "params": [
-                            "FIRST",
-                            "1"
-                        ]
-                    }
-                ],
-                "last": false
-            },
-            {
-                "cond": "req_path_prefix_in(\"/second\", false)",
-                "actions": [
-                    {
-                        "cmd": "REQ_COOKIE_ADD",
-                        "params": [
-                            "SECOND",
-                            "2"
-                        ]
-                    }
-                ],
-                "last": true
-            },
-            {
                 "cond": "req_path_prefix_in(\"/cookie_set\", false)",
                 "actions": [
                     {
@@ -59,7 +33,9 @@
                     {
                         "cmd": "RSP_COOKIE_DEL",
                         "params": [
-                            "FIRST"
+                            "FIRST",
+                            "example.org",
+                            "/unittest"
                         ]
                     }
                 ],
@@ -71,7 +47,9 @@
                     {
                         "cmd": "RSP_COOKIE_DEL",
                         "params": [
-                            "SECOND"
+                            "SECOND",
+                            "example.org",
+                            "/unittest"
                         ]
                     }
                 ],
@@ -80,23 +58,6 @@
         ],
         "p2": [
             {
-                "cond": "req_path_prefix_in(\"/rsp_cookie_add\", false)",
-                "actions": [
-                    {
-                        "cmd": "RSP_COOKIE_ADD",
-                        "params": [
-                            "ADD",
-                            "1",
-                            "Tue, 10 Nov 2009 23:00:00 UTC",
-                            "100",
-                            "true",
-                            "true"
-                        ]
-                    }
-                ],
-                "last": true
-            },
-            {
                 "cond": "req_path_prefix_in(\"/rsp_cookie_set\", false)",
                 "actions": [
                     {
@@ -104,6 +65,8 @@
                         "params": [
                             "SET",
                             "2",
+                            "example.org",
+                            "/unittest",
                             "Tue, 10 Nov 2009 23:00:00 UTC",
                             "100",
                             "true",

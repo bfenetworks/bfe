@@ -104,7 +104,7 @@ func isRspCookieExist(rsp *bfe_http.Response, cookie *bfe_http.Cookie) bool {
 	for _, rspCookie := range cookies {
 		if rspCookie.Name == cookie.Name &&
 			rspCookie.Path == cookie.Path &&
-			rspCookieDomain == cookie.Domain {
+			rspCookie.Domain == cookie.Domain {
 			return true
 		}
 	}
@@ -149,7 +149,13 @@ func buildCookie(req *bfe_basic.Request, action Action) *bfe_http.Cookie {
 		Name: action.Params[0],
 	}
 
-	if action.Cmd == ReqCookieDel || action.Cmd == RspCookieDel {
+	if action.Cmd == ReqCookieDel {
+		return cookie
+	}
+
+	if action.Cmd == RspCookieDel {
+		cookie.Domain = action.Params[1]
+		cookie.Path = action.Params[2]
 		return cookie
 	}
 
@@ -158,10 +164,12 @@ func buildCookie(req *bfe_basic.Request, action Action) *bfe_http.Cookie {
 		return cookie
 	}
 
-	cookie.Expires, _ = time.Parse(time.RFC1123, action.Params[2])
-	cookie.MaxAge, _ = strconv.Atoi(action.Params[3])
-	cookie.HttpOnly, _ = strconv.ParseBool(action.Params[4])
-	cookie.Secure, _ = strconv.ParseBool(action.Params[5])
+	cookie.Domain = action.Params[2]
+	cookie.Path = action.Params[3]
+	cookie.Expires, _ = time.Parse(time.RFC1123, action.Params[4])
+	cookie.MaxAge, _ = strconv.Atoi(action.Params[5])
+	cookie.HttpOnly, _ = strconv.ParseBool(action.Params[6])
+	cookie.Secure, _ = strconv.ParseBool(action.Params[7])
 	return cookie
 }
 

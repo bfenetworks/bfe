@@ -76,26 +76,35 @@ func ActionFileCheck(conf ActionFile) error {
 			return fmt.Errorf("checkHeaderModParams: %s", err.Error())
 		}
 
-	case ReqCookieDel,
-		RspCookieDel:
+	case ReqCookieSet:
+		if len(conf.Params) != 2 {
+			return fmt.Errorf("num of params:[ok:2, now:%d]", len(conf.Params))
+		}
+
+	case ReqCookieDel:
 		if len(conf.Params) != 1 {
 			return fmt.Errorf("num of params:[ok:1, now:%d]", len(conf.Params))
 		}
 
+	case RspCookieDel:
+		if len(conf.Params) != 3 {
+			return fmt.Errorf("num of params:[ok:1, now:%d]", len(conf.Params))
+		}
+
 	case RspCookieSet:
-		if len(conf.Params) != 6 {
+		if len(conf.Params) != 8 {
 			return fmt.Errorf("num of params:[ok:6, now:%d]", len(conf.Params))
 		}
-		if _, err := time.Parse(time.RFC1123, conf.Params[2]); err != nil {
+		if _, err := time.Parse(time.RFC1123, conf.Params[4]); err != nil {
 			return fmt.Errorf("expires format error, should be RFC1123 format")
 		}
-		if _, err := strconv.Atoi(conf.Params[3]); err != nil {
+		if _, err := strconv.Atoi(conf.Params[5]); err != nil {
 			return fmt.Errorf("type of max age should be int")
 		}
-		if _, err := strconv.ParseBool(conf.Params[4]); err != nil {
+		if _, err := strconv.ParseBool(conf.Params[6]); err != nil {
 			return fmt.Errorf("type of http only should be bool")
 		}
-		if _, err := strconv.ParseBool(conf.Params[5]); err != nil {
+		if _, err := strconv.ParseBool(conf.Params[7]); err != nil {
 			return fmt.Errorf("type of secure should be bool")
 		}
 
