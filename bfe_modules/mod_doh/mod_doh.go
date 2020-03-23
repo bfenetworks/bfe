@@ -51,7 +51,7 @@ type ModuleDoh struct {
 	metrics    metrics.Metrics
 	conf       *ConfModDoh
 	ruleTable  *DohRuleTable
-	dnsFetcher DnsFetcherIF
+	dnsFetcher DnsFetcher
 }
 
 func NewModuleDoh() *ModuleDoh {
@@ -59,7 +59,7 @@ func NewModuleDoh() *ModuleDoh {
 	m.name = ModDoh
 	m.metrics.Init(&m.state, ModDoh, 0)
 	m.ruleTable = NewDohRuleTable()
-	m.dnsFetcher = new(DnsFetcher)
+	m.dnsFetcher = new(DnsClient)
 	return m
 }
 

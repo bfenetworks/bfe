@@ -22,13 +22,13 @@ import (
 	"github.com/baidu/bfe/bfe_http"
 )
 
-type DnsFetcherIF interface {
+type DnsFetcher interface {
 	Fetch(req *bfe_http.Request, network string, address string) (*dns.Msg, error)
 }
 
-type DnsFetcher struct{}
+type DnsClient struct{}
 
-func (f *DnsFetcher) Fetch(req *bfe_http.Request, network string, address string) (*dns.Msg, error) {
+func (f *DnsClient) Fetch(req *bfe_http.Request, network string, address string) (*dns.Msg, error) {
 	msg, err := RequestToDnsMsg(req)
 	if err != nil {
 		return nil, err

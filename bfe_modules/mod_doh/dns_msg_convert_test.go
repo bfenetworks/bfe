@@ -88,6 +88,15 @@ func TestRequestToDnsMsgPOST(t *testing.T) {
 	}
 }
 
+func TestRequestToDnsMsgPOSTBodyExceed(t *testing.T) {
+	maxPostMsgLength = 1
+	req := buildDohRequest("POST", t)
+	_, err := RequestToDnsMsg(req)
+	if err == nil || err.Error() != "dns: overflow unpacking uint16" {
+		t.Errorf("RequestToDnsMsg error should be \"dns: overflow unpacking uint16\", not %v", err)
+	}
+}
+
 func TestRequestToDnsMsgGET(t *testing.T) {
 	req := buildDohRequest("GET", t)
 	_, err := RequestToDnsMsg(req)

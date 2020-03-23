@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"strconv"
 )
@@ -31,9 +32,9 @@ import (
 	"github.com/baidu/bfe/bfe_http"
 )
 
-const (
-	DnsMessage = "application/dns-message"
-)
+const DnsMessage = "application/dns-message"
+
+var maxPostMsgLength int64 = 8192
 
 func unpackMsg(buf []byte) (*dns.Msg, error) {
 	m := new(dns.Msg)
@@ -42,7 +43,8 @@ func unpackMsg(buf []byte) (*dns.Msg, error) {
 }
 
 func requestToMsgPost(req *bfe_http.Request) (*dns.Msg, error) {
-	buf, err := ioutil.ReadAll(req.Body)
+	bodyReader := io.LimitedReader{R: req.Body, N: maxPostMsgLength}
+	buf, err := ioutil.ReadAll(&bodyReader)
 	if err != nil {
 		return nil, err
 	}

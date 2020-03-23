@@ -1,0 +1,13 @@
+{
+    "Version": "20190101000000",
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "req_host_in(\"example.org\") && req_path_prefix_in(\"/dns-query\", false)",
+                "Net": "udp",
+                "Ip": "127.0.0.1",
+                "Port": 53
+            }
+        ]
+    }
+}
