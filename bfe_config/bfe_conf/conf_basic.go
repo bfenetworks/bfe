@@ -54,6 +54,7 @@ type ConfigBasic struct {
 	KeepAliveEnabled        bool // if false, client connection is shutdown disregard of http headers
 
 	Modules []string // modules to load
+	Plugins []string // plugins to load
 
 	// location of data files for bfe_route
 	HostRuleConf  string // path of host_rule.data

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -39,6 +40,7 @@ import (
 	"github.com/baidu/bfe/bfe_http"
 	"github.com/baidu/bfe/bfe_http2"
 	"github.com/baidu/bfe/bfe_module"
+	"github.com/baidu/bfe/bfe_plugin"
 	"github.com/baidu/bfe/bfe_route"
 	"github.com/baidu/bfe/bfe_spdy"
 	"github.com/baidu/bfe/bfe_stream"
@@ -76,6 +78,7 @@ type BfeServer struct {
 	// module and callback
 	CallBacks *bfe_module.BfeCallbacks // call back functions
 	Modules   *bfe_module.BfeModules   // bfe modules
+	Plugins   *bfe_plugin.Plugins      // bfe plugins
 
 	// web server for bfe monitor and reload
 	Monitor *BfeMonitor
@@ -124,6 +127,8 @@ func NewBfeServer(cfg bfe_conf.BfeConfig,
 	s.CallBacks = bfe_module.NewBfeCallbacks()
 	// create modules
 	s.Modules = bfe_module.NewBfeModules()
+	// create plugins
+	s.Plugins = bfe_plugin.NewPlugins()
 
 	// initialize balTable
 	s.balTable = bfe_balance.NewBalTable(s.GetCheckConf)
@@ -313,6 +318,31 @@ func (srv *BfeServer) initTLSNextProtoHandler() {
 
 func (srv *BfeServer) InitModules(confRoot string) error {
 	return srv.Modules.Init(srv.CallBacks, srv.Monitor.WebHandlers, confRoot)
+}
+
+func (srv *BfeServer) LoadPlugins(plugins []string) error {
+	if len(plugins) == 0 {
+		return nil
+	}
+
+	for _, pluginPath := range plugins {
+		pluginPath = strings.TrimSpace(pluginPath)
+		if pluginPath == "" {
+			continue
+		}
+
+		if err := srv.Plugins.RegisterPlugin(pluginPath); err != nil {
+			return err
+		}
+
+		log.Logger.Info("RegisterPlugin():pluginPath=%s", pluginPath)
+	}
+
+	return nil
+}
+
+func (srv *BfeServer) InitPlugins(confRoot string) error {
+	return srv.Plugins.Init(srv.CallBacks, srv.Monitor.WebHandlers, confRoot)
 }
 
 func (srv *BfeServer) InitSignalTable() {
