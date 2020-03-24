@@ -25,7 +25,7 @@ func TestConfLoad(t *testing.T) {
 		return
 	}
 
-	if config.Basic.DataPath != "mod_doh/doh_rule.data" {
-		t.Errorf("DataPath should be mod_doh/doh_rule.data, not %s", config.Basic.DataPath)
+	if config.Basic.Cond != "default_t()" {
+		t.Errorf("DataPath should be \"default_t()\", not %s", config.Basic.Cond)
 	}
 }

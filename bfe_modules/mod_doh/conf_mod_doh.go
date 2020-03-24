@@ -15,17 +15,27 @@
 package mod_doh
 
 import (
-	"github.com/baidu/go-lib/log"
+	"fmt"
+	"net"
+)
+
+import (
 	gcfg "gopkg.in/gcfg.v1"
 )
 
 import (
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/baidu/bfe/bfe_basic/condition"
 )
 
 type ConfModDoh struct {
 	Basic struct {
-		DataPath string
+		Cond string
+	}
+
+	Address struct {
+		Net  string
+		Ip   string
+		Port int
 	}
 
 	Log struct {
@@ -42,7 +52,7 @@ func ConfLoad(filePath string, confRoot string) (*ConfModDoh, error) {
 		return nil, err
 	}
 
-	err = cfg.Check(confRoot)
+	err = cfg.Check()
 	if err != nil {
 		return nil, err
 	}
@@ -50,13 +60,24 @@ func ConfLoad(filePath string, confRoot string) (*ConfModDoh, error) {
 	return &cfg, nil
 }
 
-func (cfg *ConfModDoh) Check(confRoot string) error {
-	if cfg.Basic.DataPath == "" {
-		log.Logger.Warn("ModDoh.DataPath not set, use default value")
-		cfg.Basic.DataPath = "mod_doh/doh_rule.data"
+func (cfg *ConfModDoh) Check() error {
+	_, err := condition.Build(cfg.Basic.Cond)
+	if err != nil {
+		return err
 	}
 
-	cfg.Basic.DataPath = bfe_util.ConfPathProc(cfg.Basic.DataPath, confRoot)
+	if cfg.Address.Net != "tcp" && cfg.Address.Net != "udp" {
+		return fmt.Errorf("Address.Net should be \"tcp\" or \"udp\"")
+	}
+
+	ip := net.ParseIP(cfg.Address.Ip)
+	if ip == nil {
+		return fmt.Errorf("Address.IP is invalid IP: %s", cfg.Address.Ip)
+	}
+
+	if cfg.Address.Port < 1 || cfg.Address.Port > 65535 {
+		return fmt.Errorf("Address.Port should be in [1, 65535]")
+	}
 
 	return nil
 }
