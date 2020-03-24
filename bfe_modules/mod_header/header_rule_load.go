@@ -165,36 +165,52 @@ func ruleListConvert(ruleFileList *RuleFileList) (*RuleList, error) {
 	return ruleList, nil
 }
 
-func classifyRules(ruleList *RuleList) []*RuleList {
-	ruleLists := make([]*RuleList, 2)
+func initRuleLists() []*RuleList {
+	ruleLists := make([]*RuleList, TotalType)
 
-	reqRuleList := new(RuleList)
-	rspRuleList := new(RuleList)
-	*reqRuleList = make([]HeaderRule, 0)
-	*rspRuleList = make([]HeaderRule, 0)
-
-	for _, r := range *ruleList {
-		reqRule := new(HeaderRule)
-		rspRule := new(HeaderRule)
-
-		for _, a := range r.Actions {
-			reqRule.Cond = r.Cond
-			reqRule.Last = r.Last
-			rspRule.Cond = r.Cond
-			rspRule.Last = r.Last
-			if strings.HasPrefix(a.Cmd, "REQ_") {
-				reqRule.Actions = append(reqRule.Actions, a)
-			} else if strings.HasPrefix(a.Cmd, "RSP_") {
-				rspRule.Actions = append(rspRule.Actions, a)
-			}
-		}
-
-		*reqRuleList = append(*reqRuleList, *reqRule)
-		*rspRuleList = append(*rspRuleList, *rspRule)
+	for i := 0; i < len(ruleLists); i++ {
+		ruleList := make(RuleList, 0)
+		ruleLists[i] = &ruleList
 	}
 
-	ruleLists[0] = reqRuleList
-	ruleLists[1] = rspRuleList
+	return ruleLists
+}
+
+func getHeaderType(cmd string) int {
+	if strings.HasPrefix(cmd, "REQ_") {
+		return ReqHeader
+	}
+
+	return RspHeader
+}
+
+func classifyRuleByAction(rule HeaderRule) RuleList {
+	ruleList := make(RuleList, TotalType)
+	for i := 0; i < len(ruleList); i++ {
+		ruleList[i].Cond = rule.Cond
+		ruleList[i].Last = rule.Last
+	}
+
+	for _, action := range rule.Actions {
+		headerType := getHeaderType(action.Cmd)
+		ruleList[headerType].Actions = append(ruleList[headerType].Actions, action)
+	}
+
+	return ruleList
+}
+
+func classifyRules(ruleList *RuleList) []*RuleList {
+	ruleLists := initRuleLists()
+
+	for _, rule := range *ruleList {
+		ruleList := classifyRuleByAction(rule)
+
+		for i := 0; i < len(ruleLists); i++ {
+			if len(ruleList[i].Actions) != 0 {
+				*ruleLists[i] = append(*ruleLists[i], ruleList[i])
+			}
+		}
+	}
 
 	return ruleLists
 }
