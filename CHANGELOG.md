@@ -12,7 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unrelease]
 ### Added
+- Add mod_trace for distributed tracing based on zipkin
 - Support TLS protocol with SM related ciphersuites
+- mod_header: add cookie related actions
+- Documents optimization
 
 
 ## [v0.7.0] - 2020-02-26
