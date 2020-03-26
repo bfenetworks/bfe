@@ -20,7 +20,6 @@ import (
 
 import (
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
-	"github.com/miekg/dns"
 )
 
 import (
@@ -31,11 +30,11 @@ import (
 
 type TestDnsFetcher struct{}
 
-func (f *TestDnsFetcher) Fetch(req *bfe_http.Request, network string, address string) (*dns.Msg, error) {
-	return buildDnsMsg(), nil
+func (f *TestDnsFetcher) Fetch(req *bfe_basic.Request) (*bfe_http.Response, error) {
+	return DnsMsgToResponse(req, buildDnsMsg())
 }
 
-func TestDohHandler(t *testing.T) {
+func TestDohHandlerSecure(t *testing.T) {
 	m := NewModuleDoh()
 	cb := bfe_module.NewBfeCallbacks()
 	wh := web_monitor.NewWebHandlers()
@@ -49,7 +48,7 @@ func TestDohHandler(t *testing.T) {
 	req := new(bfe_basic.Request)
 	req.HttpRequest = httpRequest
 	req.Session = new(bfe_basic.Session)
-	req.Route.Product = "unittest"
+	req.Session.IsSecure = true
 
 	ret, resp := m.dohHandler(req)
 	if ret != bfe_module.BfeHandlerResponse {

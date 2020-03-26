@@ -19,7 +19,6 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/web-monitor/metrics"
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
 )
@@ -40,9 +39,9 @@ var (
 )
 
 type ModuleDohState struct {
-	DohRequest           *metrics.Counter
-	FetchDnsErr          *metrics.Counter
-	ConvertToResponseErr *metrics.Counter
+	DohRequest          *metrics.Counter
+	DohRequestNotSecure *metrics.Counter
+	FetchDnsErr         *metrics.Counter
 }
 
 type ModuleDoh struct {
@@ -58,7 +57,6 @@ func NewModuleDoh() *ModuleDoh {
 	m := new(ModuleDoh)
 	m.name = ModDoh
 	m.metrics.Init(&m.state, ModDoh, 0)
-	m.dnsFetcher = new(DnsClient)
 	return m
 }
 
@@ -90,26 +88,15 @@ func (m *ModuleDoh) dohHandler(req *bfe_basic.Request) (int, *bfe_http.Response)
 	}
 
 	m.state.DohRequest.Inc(1)
-	net := m.conf.Address.Net
-	address := fmt.Sprintf("%s:%d", m.conf.Address.Ip, m.conf.Address.Port)
-	msg, err := m.dnsFetcher.Fetch(req.HttpRequest, net, address)
-	if err != nil {
-		if openDebug {
-			log.Logger.Debug("%s: fetchDNS error: %v", m.name, err)
-		}
-
-		m.state.FetchDnsErr.Inc(1)
+	if !req.Session.IsSecure {
+		m.state.DohRequestNotSecure.Inc(1)
 		return bfe_module.BfeHandlerResponse,
-			bfe_basic.CreateInternalResp(req, bfe_http.StatusInternalServerError)
+			bfe_basic.CreateInternalResp(req, bfe_http.StatusForbidden)
 	}
 
-	resp, err := DnsMsgToResponse(req, msg)
+	resp, err := m.dnsFetcher.Fetch(req)
 	if err != nil {
-		if openDebug {
-			log.Logger.Debug("%s: DnsMsgToResponse error: %v", m.name, err)
-		}
-
-		m.state.ConvertToResponseErr.Inc(1)
+		m.state.FetchDnsErr.Inc(1)
 		return bfe_module.BfeHandlerResponse,
 			bfe_basic.CreateInternalResp(req, bfe_http.StatusInternalServerError)
 	}
@@ -128,6 +115,7 @@ func (m *ModuleDoh) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandl
 	}
 	openDebug = cfg.Log.OpenDebug
 	m.conf = cfg
+	m.dnsFetcher = NewDnsClient(cfg.Dns.Address)
 
 	if m.cond, err = condition.Build(cfg.Basic.Cond); err != nil {
 		return fmt.Errorf("%s.Init(): err in condition Build(): %v", m.name, err)

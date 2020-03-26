@@ -15,29 +15,60 @@
 package mod_doh
 
 import (
+	"github.com/baidu/go-lib/log"
 	"github.com/miekg/dns"
 )
 
 import (
+	"github.com/baidu/bfe/bfe_basic"
 	"github.com/baidu/bfe/bfe_http"
 )
 
 type DnsFetcher interface {
-	Fetch(req *bfe_http.Request, network string, address string) (*dns.Msg, error)
+	Fetch(req *bfe_basic.Request) (*bfe_http.Response, error)
 }
 
-type DnsClient struct{}
+type DnsClient struct {
+	address string
+}
 
-func (f *DnsClient) Fetch(req *bfe_http.Request, network string, address string) (*dns.Msg, error) {
-	msg, err := RequestToDnsMsg(req)
+func NewDnsClient(address string) *DnsClient {
+	dnsClient := new(DnsClient)
+	dnsClient.address = address
+	return dnsClient
+}
+
+func (c *DnsClient) Fetch(req *bfe_basic.Request) (*bfe_http.Response, error) {
+	msg, err := RequestToDnsMsg(req.HttpRequest)
 	if err != nil {
+		if openDebug {
+			log.Logger.Debug("dns client: RequestToDnsMsg error: %v", err)
+		}
+
 		return nil, err
 	}
 
 	client := dns.Client{
-		Net:     network,
+		Net:     "udp",
 		UDPSize: dns.MaxMsgSize,
 	}
-	reply, _, err := client.Exchange(msg, address)
-	return reply, err
+	reply, _, err := client.Exchange(msg, c.address)
+	if err != nil {
+		if openDebug {
+			log.Logger.Debug("dns client: Exchange error: %v", err)
+		}
+
+		return nil, err
+	}
+
+	resp, err := DnsMsgToResponse(req, reply)
+	if err != nil {
+		if openDebug {
+			log.Logger.Debug("dns client: DnsMsgToResponse error: %v", err)
+		}
+
+		return nil, err
+	}
+
+	return resp, nil
 }

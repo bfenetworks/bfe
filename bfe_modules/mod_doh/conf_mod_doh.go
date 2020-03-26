@@ -15,7 +15,6 @@
 package mod_doh
 
 import (
-	"fmt"
 	"net"
 )
 
@@ -32,10 +31,8 @@ type ConfModDoh struct {
 		Cond string
 	}
 
-	Address struct {
-		Net  string
-		Ip   string
-		Port int
+	Dns struct {
+		Address string
 	}
 
 	Log struct {
@@ -66,18 +63,6 @@ func (cfg *ConfModDoh) Check() error {
 		return err
 	}
 
-	if cfg.Address.Net != "tcp" && cfg.Address.Net != "udp" {
-		return fmt.Errorf("Address.Net should be \"tcp\" or \"udp\"")
-	}
-
-	ip := net.ParseIP(cfg.Address.Ip)
-	if ip == nil {
-		return fmt.Errorf("Address.IP is invalid IP: %s", cfg.Address.Ip)
-	}
-
-	if cfg.Address.Port < 1 || cfg.Address.Port > 65535 {
-		return fmt.Errorf("Address.Port should be in [1, 65535]")
-	}
-
-	return nil
+	_, err = net.ResolveUDPAddr("udp", cfg.Dns.Address)
+	return err
 }
