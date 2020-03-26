@@ -22,6 +22,7 @@ import (
 	"github.com/baidu/bfe/bfe_modules/mod_auth_basic"
 	"github.com/baidu/bfe/bfe_modules/mod_block"
 	"github.com/baidu/bfe/bfe_modules/mod_compress"
+	"github.com/baidu/bfe/bfe_modules/mod_doh"
 	"github.com/baidu/bfe/bfe_modules/mod_errors"
 	"github.com/baidu/bfe/bfe_modules/mod_geo"
 	"github.com/baidu/bfe/bfe_modules/mod_header"
@@ -71,6 +72,8 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_auth_basic
 	// Requirement: before mod_static
 	mod_auth_basic.NewModuleAuthBasic(),
+
+	mod_doh.NewModuleDoh(),
 
 	// mod_redirect
 	// Requirement: After mod_logid
