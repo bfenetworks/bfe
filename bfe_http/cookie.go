@@ -73,6 +73,13 @@ const (
 	SameSiteNoneMode
 )
 
+// if disableSanitize is true, when read cookie value, no sanitize is performed
+var disableSanitize = false
+
+func SetDisableSanitize(disabled bool) {
+	disableSanitize = disabled
+}
+
 // CookieMapGet parse cookies(slice) to req.Route.CookieMap(map)
 func CookieMapGet(cookies []*Cookie) CookieMap {
 	cookieMap := make(CookieMap, len(cookies))
@@ -406,6 +413,10 @@ func sanitizeCookieName(n string) string {
 //           ; whitespace DQUOTE, comma, semicolon,
 //           ; and backslash
 func sanitizeCookieValue(v string) string {
+	if disableSanitize {
+		return v
+	}
+
 	return sanitizeOrWarn("Cookie.Value", validCookieValueByte, v)
 }
 
@@ -467,6 +478,10 @@ func isCookieExpiresByte(c byte) (ok bool) {
 }
 
 func parseCookieValue(raw string) (string, bool) {
+	if disableSanitize {
+		return raw, true
+	}
+
 	return parseCookieValueUsing(raw, isCookieByte)
 }
 
