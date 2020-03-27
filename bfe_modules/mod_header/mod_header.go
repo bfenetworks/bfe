@@ -32,8 +32,9 @@ import (
 )
 
 const (
-	ReqHeader = 0
-	RspHeader = 1
+	ReqHeader = iota
+	RspHeader
+	TotalType
 )
 
 const (
@@ -106,7 +107,6 @@ func (m *ModuleHeader) applyProductRule(request *bfe_basic.Request, headerType i
 			log.Logger.Debug("%s:before:headers=%s", m.name, *h)
 		}
 
-		// do rewrite to request, according to rules
 		DoHeader(request, headerType, rules[headerType])
 
 		if openDebug {

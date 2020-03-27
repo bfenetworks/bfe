@@ -1,0 +1,11 @@
+{
+    "Version": "20200218210000",
+    "Config": {
+        "example_product": [
+             {
+                 "Cond": "req_host_in(\"example.org\")",
+                 "Enable": false
+             }
+        ]
+    }
+}

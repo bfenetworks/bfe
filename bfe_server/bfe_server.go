@@ -172,6 +172,9 @@ func (srv *BfeServer) InitConfig() {
 }
 
 func (srv *BfeServer) InitHttp() (err error) {
+	// disable cookie value sanitize
+	bfe_http.SetDisableSanitize(true)
+
 	// initialize http next proto handlers
 	httpNextProto := make(map[string]func(*bfe_http.Server, bfe_http.ResponseWriter, *bfe_http.Request))
 	httpNextProto[bfe_websocket.WebSocket] = bfe_websocket.NewProtoHandler(&bfe_websocket.Server{
