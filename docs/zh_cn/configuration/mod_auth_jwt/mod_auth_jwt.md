@@ -2,8 +2,16 @@
 
 mod_auth_jwt支持JWT令牌(JWS和JWE)基础验证、字段验证、嵌套JWT验证。
 
++ 支持通过配置进行验证的字段：
+  + exp (Expiration)
+  + nbf (Not Before)
+  + iss (Issuer)
+  + aud (Audience)
+  + sub (Subject)
+
 + alg和enc的支持情况：
   + alg for JWS：
+    - none - **不推荐**
     - HS256/384/512
     - RS256/384/512
     - ES256/384/512
