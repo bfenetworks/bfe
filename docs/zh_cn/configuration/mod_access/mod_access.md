@@ -1,14 +1,26 @@
-# 简介 
-
+# 模块简介 
 mod_access模块以特定格式记录请求日志和会话日志。
 
-
-# 配置
-
-- 模块配置文件
-
-  conf/mod_access/mod_access.conf
-
+# 基础配置
+## 配置描述
+### 模块日志配置
+| 配置项                | 描述                                        |
+| ---------------------| ------------------------------------------- |
+| LogPrefix            | String<br>日志文件前缀名称 |
+| LogDir | String<br>access日志文件目录 |
+| RotateWhen | String<br>日志切割时间，支持 M/H/D/MIDNIGHT/NEXTHOUR |
+| BackupCount | Integer<br>最大的日志存储数量 |
+### 日志模板配置
+| 配置项                | 描述                                        |
+| --------------------- | ------------------------------------------- |
+| RequestTemplate | String<br>请求日志模板 |
+| SessionTemplate | String<br>会话日志模板 |
+ * 注：
+    * RequestTemplate/SessionTemplate 中 $开头的代表变量, 支持的变量列表详见"日志变量"章节说明
+    * RequestTemplate 还支持以下几种内置模板，如配置 RequestTemplate = COMMON打印CLF日志
+       * COMMON：Common Log Format; 等价于配置 RequestTemplate = $host - - $request_time \\"$request_line\\" $status_code $res_len
+       * COMBINED：Combined Log Format; 等价于配置 RequestTemplate = $host - - $request_time \\"$request_line\\" $status_code $res_len \\"${Referer}req_header\\" \\"${User-Agent}req_header\\"
+## 配置示例
   ```
   [Log]
   # filename prefix for log
@@ -32,14 +44,8 @@ mod_access模块以特定格式记录请求日志和会话日志。
 
   ```
 
- * 注：
-    * RequestTemplate/SessionTemplate 中 $开头的代表变量, 支持的变量列表详见"变量"章节说明
-    * RequestTemplate 还支持以下几种内置模板，如配置 RequestTemplate = COMMON打印CLF日志
-       * COMMON：Common Log Format; 等价于配置 RequestTemplate = $host - - $request_time \\"$request_line\\" $status_code $res_len
-       * COMBINED：Combined Log Format; 等价于配置 RequestTemplate = $host - - $request_time \\"$request_line\\" $status_code $res_len \\"${Referer}req_header\\" \\"${User-Agent}req_header\\"
 
-
-# 变量
+# 日志变量
 
 ## 请求日志变量
 
