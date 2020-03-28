@@ -18,7 +18,7 @@ package jwt
 
 import (
 	"fmt"
-	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwk"
+	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/config"
 	"strings"
 	"time"
 )
@@ -27,25 +27,12 @@ type tokenValidator interface {
 	BasicCheck() error
 }
 
-// universal parameters for module Config and product Config
-type Config struct {
-	Secret              *jwk.JWK
-	SecretPath          string
-	EnabledHeaderClaims bool
-	ValidateNested      bool
-	ValidateClaimExp    bool
-	ValidateClaimNbf    bool
-	ValidateClaimIss    string
-	ValidateClaimSub    string
-	ValidateClaimAud    string
-}
-
 type JWT struct {
 	JWE     *JWE
 	JWS     *JWS
 	Claims  *Claims
 	Nested  *JWT // nested jwt
-	config  *Config
+	config  *config.AuthConfig
 	context tokenValidator // current token context
 }
 
@@ -218,15 +205,18 @@ func (mJWT *JWT) validateSub() (err error) {
 	return mJWT.validateEqual("sub", sub)
 }
 
-func NewJWT(token string, conf *Config) (mJWT *JWT, err error) {
+func NewJWT(token string, conf *config.AuthConfig) (mJWT *JWT, err error) {
 	mJWT, length := &JWT{config: conf}, len(strings.Split(token, "."))
+
 	if length == 3 {
 		err = mJWT.buildJWS(token)
 	} else if length == 5 {
 		err = mJWT.buildJWE(token)
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	return mJWT, nil
 }

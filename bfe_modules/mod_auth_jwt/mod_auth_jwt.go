@@ -20,11 +20,13 @@ import (
 	"github.com/baidu/bfe/bfe_basic"
 	"github.com/baidu/bfe/bfe_http"
 	"github.com/baidu/bfe/bfe_module"
+	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/config"
 	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwt"
 	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/web-monitor/metrics"
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
 	"io/ioutil"
+	"net/url"
 	"strings"
 )
 
@@ -37,7 +39,7 @@ type counters struct {
 type moduleAuthJWT struct {
 	counters *counters
 	metrics  *metrics.Metrics
-	config   *moduleConfigProxy
+	config   *config.Config
 	confPath string
 }
 
@@ -48,7 +50,6 @@ func NewModuleAuthJWT() (module *moduleAuthJWT) {
 	// not initialized yet
 	module.counters = new(counters)
 	module.metrics = new(metrics.Metrics)
-	module.config = new(moduleConfigProxy)
 
 	return module
 }
@@ -59,25 +60,28 @@ func (module *moduleAuthJWT) Name() (name string) {
 
 func (module *moduleAuthJWT) Init(callbacks *bfe_module.BfeCallbacks,
 	handlers *web_monitor.WebHandlers, confRoot string) (err error) {
+
 	module.confPath = bfe_module.ModConfPath(confRoot, module.Name())
 
 	// initialization for module config
-	if err := module.config.Update(module.confPath); err != nil {
-		return NewTypedError(ModuleConfigLoadFailed, err)
+	module.config, err = config.New(module.confPath)
+	if err != nil {
+		return err
 	}
-	debug, _ := module.config.GetWithLock("Log.OpenDebug")
+
+	debug, _ := module.config.Get("Log.OpenDebug")
 	Debug = debug.Bool()
 
 	// initialization for metrics
 	err = module.metrics.Init(module.counters, module.Name(), 0)
 	if err != nil {
-		return NewTypedError(MetricsInitFailed, err)
+		return err
 	}
 
 	// register filter for auth service
 	err = callbacks.AddFilter(bfe_module.HandleFoundProduct, module.authService)
 	if err != nil {
-		return NewTypedError(AuthServiceRegisterFailed, err)
+		return err
 	}
 
 	// register handler for monitor service
@@ -86,38 +90,41 @@ func (module *moduleAuthJWT) Init(callbacks *bfe_module.BfeCallbacks,
 		module.Name() + ".diff": module.getMetricsDiff,
 	})
 	if err != nil {
-		return NewTypedError(MonitorServiceRegisterFailed, err)
+		return err
 	}
 
 	// register handler for hot deployment service
 	err = handlers.RegisterHandler(web_monitor.WebHandleReload, module.Name(), module.reloadService)
 	if err != nil {
-		return NewTypedError(HotDeploymentServiceRegisterFailed, err)
+		return err
 	}
 
 	return nil
 }
 
 func (module *moduleAuthJWT) authService(request *bfe_basic.Request) (flag int, response *bfe_http.Response) {
-	config, ok := module.config.FindProductConfig(request.Route.Product)
-	if !ok || !config.Cond.Match(request) {
+	product := request.Route.Product
+	authConfig, ok := module.config.Search(product)
+	if !ok || !authConfig.Cond.Match(request) {
 		if Debug && ok {
 			log.Logger.Debug("%s found product %s but mismatch with the condition: %s",
-				module.Name(), request.Route.Product, config.Cond)
+				module.Name(), product, authConfig.Cond)
 		}
+
 		return bfe_module.BfeHandlerGoOn, nil
 	}
 
 	if Debug {
-		log.Logger.Debug("%s perform auth service for %+v", module.Name(), request)
+		log.Logger.Debug("%s receive an auth request (product: %s)", module.Name(), product)
 	}
+
 	module.counters.AuthTotal.Inc(1)
 
 	authorization := request.HttpRequest.Header.Get("Authorization")
 	prefix := "Bearer "
 	if !strings.HasPrefix(authorization, prefix) {
 		if Debug {
-			log.Logger.Debug("%s auth failed: bad token type given", module.Name())
+			log.Logger.Debug("%s auth failed: bad token type given (product: %s)", module.Name(), product)
 		}
 
 		module.counters.AuthFailed.Inc(1)
@@ -127,13 +134,14 @@ func (module *moduleAuthJWT) authService(request *bfe_basic.Request) (flag int, 
 	}
 
 	token := authorization[len(prefix):]
+
 	// apply validation for token
-	err := module.validateToken(token, config)
+	err := module.validateToken(token, &authConfig.AuthConfig)
 	if err != nil {
 		if Debug {
-			log.Logger.Debug("%s auth failed: %s", module.Name(), err)
+			log.Logger.Debug("%s auth failed: %s (product: %s)", module.Name(), err, product)
 		} else {
-			// hide error detail for user
+			// hide error detail to user
 			err = errors.New("your access token was rejected")
 		}
 
@@ -143,18 +151,20 @@ func (module *moduleAuthJWT) authService(request *bfe_basic.Request) (flag int, 
 	}
 
 	if Debug {
-		log.Logger.Debug("%s auth success.", module.Name())
+		log.Logger.Debug("%s auth success. (product: %s)", module.Name(), product)
 	}
+
 	module.counters.AuthSuccess.Inc(1)
 
 	return bfe_module.BfeHandlerGoOn, nil
 }
 
-func (module *moduleAuthJWT) validateToken(token string, config *ProductConfigItem) (err error) {
-	mJWT, err := jwt.NewJWT(token, &config.Config)
+func (module *moduleAuthJWT) validateToken(token string, config *config.AuthConfig) (err error) {
+	mJWT, err := jwt.NewJWT(token, config)
 	if err != nil {
 		return err
 	}
+
 	return mJWT.Validate()
 }
 
@@ -162,6 +172,7 @@ func createUnauthorizedResponse(request *bfe_basic.Request, body string) (respon
 	response = bfe_basic.CreateInternalResp(request, bfe_http.StatusUnauthorized)
 	response.Header.Set("WWW-Authenticate", "Bearer")
 	response.Body = ioutil.NopCloser(bytes.NewBufferString(body))
+
 	return response
 }
 
@@ -173,14 +184,11 @@ func (module *moduleAuthJWT) getMetricsDiff(params map[string][]string) ([]byte,
 	return module.metrics.GetDiff().Format(params)
 }
 
-func (module *moduleAuthJWT) reloadService() (err error) {
-	// why not directly do as: return module.config.Update(module.confPath)
-	// for error(*ptr) != nil always be true, thought ptr == nil
-	// to view as a (type, value) tuple:
-	// ((nil, nil) == nil) == true
-	// ((*ptr, nil) == nil) == false
-	if err := module.config.Update(module.confPath); err != nil {
-		return err
+func (module *moduleAuthJWT) reloadService(query url.Values) (err error) {
+	path := query.Get("path")
+	if len(path) == 0 {
+		return module.config.Reload()
 	}
-	return nil
+
+	return module.config.Update(path)
 }

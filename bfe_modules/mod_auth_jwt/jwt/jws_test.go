@@ -25,5 +25,6 @@ func TestNewJWS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Log(mJWS, mJWS.Header.Decoded)
 }

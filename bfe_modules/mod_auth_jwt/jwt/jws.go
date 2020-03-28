@@ -18,79 +18,54 @@ package jwt
 
 import (
 	"fmt"
-	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwa"
-	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwk"
+	"gopkg.in/square/go-jose.v2"
 	"strings"
 )
 
 type JWS struct {
 	Raw       string
-	Header    *Base64URLJson
-	Payload   *Base64URLJson
-	Signature *Base64URL
-	Secret    *jwk.JWK
-}
-
-func (mJWS *JWS) checkSignature(handler jwa.JWSAlg) (err error) {
-	msg := []byte(strings.Join(strings.Split(mJWS.Raw, ".")[:2], "."))
-	_, err = handler.Update(msg)
-	if err != nil {
-		return err
-	}
-
-	if !handler.Verify(mJWS.Signature.Decoded) {
-		return fmt.Errorf("JWT signature check failed")
-	}
-
-	return nil
+	Header    *Base64URLEncodedJSON
+	Payload   *Base64URLEncodedJSON
+	Signature *Base64URLEncoded
+	Secret    *jose.JSONWebKey
 }
 
 func (mJWS *JWS) BasicCheck() (err error) {
-	alg, ok := mJWS.Header.Decoded["alg"]
-	if !ok {
-		return fmt.Errorf("missing header parameter alg")
-	}
-
-	algStr, ok := alg.(string)
-	if !ok {
-		return fmt.Errorf("invalid value for header parameter alg: %+v", alg)
-	}
-
-	// get factory function by alg for calculate signature
-	algFactory, ok := jwa.JWSAlgSet[algStr]
-	if !ok {
-		return fmt.Errorf("unknown alg: %s", algStr)
-	}
-
-	// create handler(signer)
-	context, err := algFactory(mJWS.Secret)
+	sig, err := jose.ParseSigned(mJWS.Raw)
 	if err != nil {
 		return err
 	}
 
-	return mJWS.checkSignature(context)
+	var key = mJWS.Secret.Key
+	if _, ok := key.([]byte); !ok {
+		key = mJWS.Secret.Public()
+	}
+
+	_, err = sig.Verify(key)
+
+	return err
 }
 
-func NewJWS(token string, secret *jwk.JWK) (mJWS *JWS, err error) {
+func NewJWS(token string, secret *jose.JSONWebKey) (mJWS *JWS, err error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
 		return nil, fmt.Errorf("not a JWS token: %s", token)
 	}
 
 	mJWS = &JWS{Raw: token, Secret: secret}
-	mJWS.Header, err = NewBase64URLJson(parts[0], true)
+	mJWS.Header, err = NewBase64URLEncodedJSON(parts[0], true)
 	if err != nil {
 		return nil, err
 	}
 
 	// do not report json error
 	// it may be limited to the header parameter 'cty'
-	mJWS.Payload, err = NewBase64URLJson(parts[1], false)
+	mJWS.Payload, err = NewBase64URLEncodedJSON(parts[1], false)
 	if err != nil {
 		return nil, err
 	}
 
-	mJWS.Signature, err = NewBase64URL(parts[2])
+	mJWS.Signature, err = NewBase64URLEncoded(parts[2])
 	if err != nil {
 		return nil, err
 	}

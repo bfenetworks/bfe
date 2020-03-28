@@ -15,25 +15,37 @@
 package jwt
 
 import (
+	"encoding/base64"
 	"encoding/json"
-	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwk"
 )
 
-type Base64URL = jwk.Base64URL
+// base64url-encoded string
+type Base64URLEncoded struct {
+	Raw     string
+	Decoded []byte
+}
 
-// base64url-encoded json
-type Base64URLJson struct {
+// base64url-encoded json object
+type Base64URLEncodedJSON struct {
 	Raw              string
 	Decoded          map[string]interface{}
 	DecodedBase64URL []byte
 }
 
 var (
-	Base64URLDecode = jwk.Base64URLDecode
-	NewBase64URL    = jwk.NewBase64URL
+	Base64URLDecode = base64.RawURLEncoding.DecodeString
 )
 
-func NewBase64URLJson(raw string, strict bool) (b *Base64URLJson, err error) {
+func NewBase64URLEncoded(raw string) (b *Base64URLEncoded, err error) {
+	decoded, err := Base64URLDecode(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Base64URLEncoded{raw, decoded}, nil
+}
+
+func NewBase64URLEncodedJSON(raw string, strict bool) (b *Base64URLEncodedJSON, err error) {
 	// the parameter 'strict' tells whether json error should be report or not
 
 	bDecoded, err := Base64URLDecode(raw)
@@ -49,5 +61,5 @@ func NewBase64URLJson(raw string, strict bool) (b *Base64URLJson, err error) {
 		jMap = nil // in loose mode
 	}
 
-	return &Base64URLJson{raw, jMap, bDecoded}, nil
+	return &Base64URLEncodedJSON{raw, jMap, bDecoded}, nil
 }

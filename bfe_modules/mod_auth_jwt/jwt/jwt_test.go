@@ -15,29 +15,47 @@
 package jwt
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwa"
-	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/jwk"
+	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/config"
 	"io/ioutil"
 	"testing"
 )
 
-var config Config
+var (
+	conf = new(config.AuthConfig)
+
+	jwsAlgSet = []string{
+		"HS256", "HS384", "HS512", "RS256",
+		"RS384", "RS512", "ES256", "ES384",
+		"ES512", "PS256", "PS384", "PS512",
+	}
+
+	jweAlgSet = []string{
+		"dir", "RSA1_5", "RSA-OAEP", "RSA-OAEP-256",
+		"A128KW", "A192KW", "A256KW", "A128GCMKW",
+		"A192GCMKW", "A256GCMKW", "ECDH-ES",
+		"ECDH-ES+A128KW", "ECDH-ES+A192KW",
+		"ECDH-ES+A256KW", "PBES2-HS256+A128KW",
+		"PBES2-HS384+A192KW", "PBES2-HS512+A256KW",
+	}
+)
 
 func TestJWSValidate(t *testing.T) {
-	for name := range jwa.JWSAlgSet {
+	for _, name := range jwsAlgSet {
 		tokenPath := fmt.Sprintf("./../testdata/mod_auth_jwt/test_jws_%s.txt", name)
-		secretPath := fmt.Sprintf("./../testdata/mod_auth_jwt/secret_test_jws_%s.key", name)
+		conf.SecretPath = fmt.Sprintf("./../testdata/mod_auth_jwt/secret_test_jws_%s.key", name)
+
 		token, _ := ioutil.ReadFile(tokenPath)
-		secret, _ := ioutil.ReadFile(secretPath)
-		keyMap := make(map[string]interface{})
-		_ = json.Unmarshal(secret, &keyMap)
-		config.Secret, _ = jwk.NewJWK(keyMap)
-		mJWT, err := NewJWT(string(token), &config)
+		err := conf.BuildSecret()
+		if err != nil {
+			t.Error(err)
+		}
+
+		mJWT, err := NewJWT(string(token), conf)
 		if err != nil {
 			t.Error(name, err)
 		}
+
 		if err := mJWT.Validate(); err != nil {
 			t.Error(name, err)
 		}
@@ -45,18 +63,21 @@ func TestJWSValidate(t *testing.T) {
 }
 
 func TestJWEValidate(t *testing.T) {
-	for name := range jwa.JWEAlgSet {
+	for _, name := range jweAlgSet {
 		tokenPath := fmt.Sprintf("./../testdata/mod_auth_jwt/test_jwe_%s_A128GCM.txt", name)
-		secretPath := fmt.Sprintf("./../testdata/mod_auth_jwt/secret_test_jwe_%s_A128GCM.key", name)
+		conf.SecretPath = fmt.Sprintf("./../testdata/mod_auth_jwt/secret_test_jwe_%s_A128GCM.key", name)
+
 		token, _ := ioutil.ReadFile(tokenPath)
-		secret, _ := ioutil.ReadFile(secretPath)
-		keyMap := make(map[string]interface{})
-		_ = json.Unmarshal(secret, &keyMap)
-		config.Secret, _ = jwk.NewJWK(keyMap)
-		mJWT, err := NewJWT(string(token), &config)
+		err := conf.BuildSecret()
+		if err != nil {
+			t.Error(err)
+		}
+
+		mJWT, err := NewJWT(string(token), conf)
 		if err != nil {
 			t.Error(name, err)
 		}
+
 		if err := mJWT.Validate(); err != nil {
 			t.Error(name, err)
 		}
