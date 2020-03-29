@@ -23,7 +23,7 @@ Set tags for request based on defined rules.
   | Config Item | Type   | Description                                             |
   | ----------- | ------ | ------------------------------------------------------- |
   | Version     | String | Verson of the config file                                   |
-  | Products    | Map    | key is product name,value is the rule list of product   |
+  | Config    | Map    | key is product name,value is the rule list of product   |
   
   Product rule config:
 
