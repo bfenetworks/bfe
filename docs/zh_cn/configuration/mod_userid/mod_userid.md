@@ -23,9 +23,9 @@
   | 配置项   | 类型   | 描述                                                   |
   | -------- | ------ | ------------------------------------------------------ |
   | Version  | String | 配置文件版本                                           |
-  | Products | Map    | key 是产品线的名字，值是一个数组，每个元素表示一条规则 |
+  | Config   | Map    | key 是产品线的名字，值是一个数组，每个元素表示一条规则 |
   
-  Products[\$product_name].[$index] config:
+  Config[\$product_name].[$index] config:
   
 
   | 配置项        | 描述                   |
@@ -39,7 +39,7 @@
   ```
   {
       "Version": "2019-12-10184356",
-      "Products": {
+      "Config": {
           "example_product": [
               {
                   "Cond": "req_path_prefix_in(\"/abc\", true)",

@@ -30,11 +30,11 @@ import (
 
 var (
 	// file version not change, needn't load the file
-	ERR_NO_NEED_UPDATE = errors.New("Version no change no need update")
+	ErrNoNeedUpdate = errors.New("Version no change no need update")
 	// line num of file larger than maxline configured
-	ERR_MAX_LINE_EXCEED = errors.New("Max line exceed")
+	ErrMaxLineExceed = errors.New("Max line exceed")
 	// wrong meta info
-	ERR_WRONG_META_INFO = errors.New("Wrong meta info")
+	ErrWrongMetaInfo = errors.New("Wrong meta info")
 )
 
 type TxtFileLoader struct {
@@ -131,7 +131,7 @@ func (f TxtFileLoader) CheckAndLoad(curVersion string) (*ipdict.IPItems, error) 
 
 	// check version
 	if newVersion == curVersion && newVersion != "" {
-		return nil, ERR_NO_NEED_UPDATE
+		return nil, ErrNoNeedUpdate
 	}
 
 	// init counter for singleIP & pairIP
@@ -185,7 +185,7 @@ func (f TxtFileLoader) CheckAndLoad(curVersion string) (*ipdict.IPItems, error) 
 			//sort dict
 			ipItems.Sort()
 			ipItems.Version = newVersion
-			return ipItems, ERR_MAX_LINE_EXCEED
+			return ipItems, ErrMaxLineExceed
 		}
 
 		// if ipcounter > max ipnum
@@ -193,7 +193,7 @@ func (f TxtFileLoader) CheckAndLoad(curVersion string) (*ipdict.IPItems, error) 
 			//sort dict
 			ipItems.Sort()
 			ipItems.Version = newVersion
-			return ipItems, ERR_MAX_LINE_EXCEED
+			return ipItems, ErrMaxLineExceed
 		}
 	}
 

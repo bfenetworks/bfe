@@ -15,7 +15,6 @@
 package ipdict
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"testing"
@@ -30,13 +29,13 @@ func checkEqual(src, dst ipPairs) bool {
 		return false
 	}
 	for i := 0; i < len(src); i++ {
-		if !bytes.Equal(src[i].startIP, dst[i].startIP) {
+		if !src[i].startIP.Equal(dst[i].startIP) {
 			fmt.Printf("checkEqual(): start element [%d] and [%d] are not equal!\n",
 				src[i].startIP, dst[i].startIP)
 			return false
 		}
 
-		if !bytes.Equal(src[i].endIP, dst[i].endIP) {
+		if !src[i].endIP.Equal(dst[i].endIP) {
 			fmt.Printf("checkEqual(): end element [%d] and [%d] are not equal!\n",
 				src[i].endIP, dst[i].endIP)
 			return false
@@ -156,11 +155,11 @@ func TestSwap_Case0(t *testing.T) {
 
 	p.Swap(0, 1)
 
-	if !bytes.Equal(ip1, p[1].startIP) || !bytes.Equal(ip1, p[1].endIP) {
+	if !ip1.Equal(p[1].startIP) || !ip1.Equal(p[1].endIP) {
 		t.Errorf("Swap(): %s and %s swap failed!", ipStr1, ipStr2)
 	}
 
-	if !bytes.Equal(ip2, p[0].startIP) || !bytes.Equal(ip2, p[0].endIP) {
+	if !ip2.Equal(p[0].startIP) || !ip2.Equal(p[0].endIP) {
 		t.Errorf("Swap(): %s and %s swap failed!", ipStr1, ipStr2)
 	}
 
@@ -177,11 +176,11 @@ func TestSwap_Case0(t *testing.T) {
 
 	p2.Swap(0, 1)
 
-	if !bytes.Equal(ip1, p2[1].startIP) || !bytes.Equal(ip1, p2[1].endIP) {
+	if !ip1.Equal(p2[1].startIP) || !ip1.Equal(p2[1].endIP) {
 		t.Errorf("Swap(): %s and %s swap failed!", ipStr1, ipStr2)
 	}
 
-	if !bytes.Equal(ip2, p2[0].startIP) || !bytes.Equal(ip2, p2[0].endIP) {
+	if !ip2.Equal(p2[0].startIP) || !ip2.Equal(p2[0].endIP) {
 		t.Errorf("Swap(): %s and %s swap failed!", ipStr1, ipStr2)
 	}
 }

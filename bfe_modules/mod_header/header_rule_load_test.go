@@ -19,9 +19,9 @@ import (
 )
 
 func TestHeaderConfLoad(t *testing.T) {
-	_, err := HeaderConfLoad("./testdata/header.conf")
+	_, err := HeaderConfLoad("./testdata/mod_header/header_rule.data")
 	if err != nil {
-		t.Errorf("HeaderConfLoad() failed for %s", err)
+		t.Errorf("HeaderConfLoad() failed for %v", err)
 	}
 
 	//Negative case: not exist conf file
