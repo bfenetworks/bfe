@@ -127,11 +127,11 @@ func getTTL(msg *dns.Msg) uint32 {
 	var ttl uint32 = 0
 
 	for _, record := range msg.Answer {
-		switch record.(type) {
+		switch r := record.(type) {
 		case *dns.A:
-			ttl = record.(*dns.A).Hdr.Ttl
+			ttl = r.Hdr.Ttl
 		case *dns.AAAA:
-			ttl = record.(*dns.AAAA).Hdr.Ttl
+			ttl = r.Hdr.Ttl
 		}
 	}
 
