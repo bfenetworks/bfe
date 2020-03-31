@@ -15,6 +15,7 @@
 package mod_doh
 
 import (
+	"fmt"
 	"net"
 )
 
@@ -26,15 +27,18 @@ import (
 	"github.com/baidu/bfe/bfe_basic/condition"
 )
 
+type DnsConf struct {
+	Address  string
+	RetryMax int
+	Timeout  int
+}
+
 type ConfModDoh struct {
 	Basic struct {
 		Cond string
 	}
 
-	Dns struct {
-		Address string
-	}
-
+	Dns DnsConf
 	Log struct {
 		OpenDebug bool
 	}
@@ -64,5 +68,17 @@ func (cfg *ConfModDoh) Check() error {
 	}
 
 	_, err = net.ResolveUDPAddr("udp", cfg.Dns.Address)
-	return err
+	if err != nil {
+		return err
+	}
+
+	if cfg.Dns.RetryMax < 1 {
+		return fmt.Errorf("RetryMax should > 0.")
+	}
+
+	if cfg.Dns.Timeout < 0 {
+		return fmt.Errorf("Timeout should >= 0.")
+	}
+
+	return nil
 }

@@ -29,6 +29,7 @@ import (
 import (
 	"github.com/baidu/bfe/bfe_basic"
 	"github.com/baidu/bfe/bfe_http"
+	"github.com/baidu/bfe/bfe_util/net_util"
 )
 
 func buildPostRequest(data []byte, t *testing.T) *bfe_http.Request {
@@ -37,6 +38,7 @@ func buildPostRequest(data []byte, t *testing.T) *bfe_http.Request {
 	if err != nil {
 		t.Fatalf("bfe_http.NewRequest error: %v", err)
 	}
+
 	return req
 }
 
@@ -46,10 +48,11 @@ func buildGetRequest(data []byte, t *testing.T) *bfe_http.Request {
 	if err != nil {
 		t.Fatalf("bfe_http.NewRequest error: %v", err)
 	}
+
 	return req
 }
 
-func buildDohRequest(method string, t *testing.T) *bfe_http.Request {
+func buildDohRequest(method string, t *testing.T) *bfe_basic.Request {
 	msg := dns.Msg{
 		MsgHdr: dns.MsgHdr{
 			Id:               uint16(59713),
@@ -69,15 +72,23 @@ func buildDohRequest(method string, t *testing.T) *bfe_http.Request {
 		t.Fatalf("msg Pack error: %v", err)
 	}
 
+	var httpRequest *bfe_http.Request
 	switch method {
 	case "POST":
-		return buildPostRequest(data, t)
+		httpRequest = buildPostRequest(data, t)
 	case "GET":
-		return buildGetRequest(data, t)
+		httpRequest = buildGetRequest(data, t)
 	default:
 		t.Fatalf("unsupported method %s", method)
 		return nil
 	}
+
+	req := new(bfe_basic.Request)
+	req.HttpRequest = httpRequest
+	req.RemoteAddr = new(net.TCPAddr)
+	req.RemoteAddr.IP = net_util.ParseIPv4("127.0.0.1")
+
+	return req
 }
 
 func TestRequestToDnsMsgPOST(t *testing.T) {

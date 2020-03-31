@@ -15,6 +15,11 @@
 package mod_doh
 
 import (
+	"fmt"
+	"time"
+)
+
+import (
 	"github.com/baidu/go-lib/log"
 	"github.com/miekg/dns"
 )
@@ -24,40 +29,73 @@ import (
 	"github.com/baidu/bfe/bfe_http"
 )
 
+const (
+	ErrBadRequest = "ErrBadRequest"
+)
+
+type DnsFetchErr struct {
+	Code   string
+	Reason string
+}
+
+func (e DnsFetchErr) Error() string {
+	return fmt.Sprintf("%s: %s", e.Code, e.Reason)
+}
+
 type DnsFetcher interface {
 	Fetch(req *bfe_basic.Request) (*bfe_http.Response, error)
 }
 
 type DnsClient struct {
-	address string
+	address  string
+	retryMax int
+	timeout  int
 }
 
-func NewDnsClient(address string) *DnsClient {
+func NewDnsClient(dnsConf *DnsConf) *DnsClient {
 	dnsClient := new(DnsClient)
-	dnsClient.address = address
+	dnsClient.address = dnsConf.Address
+	dnsClient.retryMax = dnsConf.RetryMax
+	dnsClient.timeout = dnsConf.Timeout
 	return dnsClient
 }
 
+func (c *DnsClient) exchangeWithRetry(msg *dns.Msg) (*dns.Msg, error) {
+	var reply *dns.Msg
+	var err error
+
+	for retry := 0; retry < c.retryMax; retry++ {
+		client := dns.Client{
+			Net:     "udp",
+			Timeout: time.Duration(c.timeout) * time.Second,
+			UDPSize: dns.MaxMsgSize,
+		}
+
+		reply, _, err = client.Exchange(msg, c.address)
+		if err == nil {
+			return reply, nil
+		}
+
+		if openDebug {
+			log.Logger.Debug("dns client: Exchange error: %v, retry: %d", err, retry)
+		}
+	}
+
+	return nil, err
+}
+
 func (c *DnsClient) Fetch(req *bfe_basic.Request) (*bfe_http.Response, error) {
-	msg, err := RequestToDnsMsg(req.HttpRequest)
+	msg, err := RequestToDnsMsg(req)
 	if err != nil {
 		if openDebug {
 			log.Logger.Debug("dns client: RequestToDnsMsg error: %v", err)
 		}
 
-		return nil, err
+		return nil, DnsFetchErr{Code: ErrBadRequest, Reason: err.Error()}
 	}
 
-	client := dns.Client{
-		Net:     "udp",
-		UDPSize: dns.MaxMsgSize,
-	}
-	reply, _, err := client.Exchange(msg, c.address)
+	reply, err := c.exchangeWithRetry(msg)
 	if err != nil {
-		if openDebug {
-			log.Logger.Debug("dns client: Exchange error: %v", err)
-		}
-
 		return nil, err
 	}
 

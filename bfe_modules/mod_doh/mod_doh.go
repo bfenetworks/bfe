@@ -41,6 +41,7 @@ var (
 type ModuleDohState struct {
 	DohRequest          *metrics.Counter
 	DohRequestNotSecure *metrics.Counter
+	DohBadRequest       *metrics.Counter
 	FetchDnsErr         *metrics.Counter
 }
 
@@ -96,6 +97,13 @@ func (m *ModuleDoh) dohHandler(req *bfe_basic.Request) (int, *bfe_http.Response)
 
 	resp, err := m.dnsFetcher.Fetch(req)
 	if err != nil {
+		dnsFetchErr, ok := err.(DnsFetchErr)
+		if ok && dnsFetchErr.Code == ErrBadRequest {
+			m.state.DohBadRequest.Inc(1)
+			return bfe_module.BfeHandlerResponse,
+				bfe_basic.CreateInternalResp(req, bfe_http.StatusBadRequest)
+		}
+
 		m.state.FetchDnsErr.Inc(1)
 		return bfe_module.BfeHandlerResponse,
 			bfe_basic.CreateInternalResp(req, bfe_http.StatusInternalServerError)
@@ -115,7 +123,7 @@ func (m *ModuleDoh) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandl
 	}
 	openDebug = cfg.Log.OpenDebug
 	m.conf = cfg
-	m.dnsFetcher = NewDnsClient(cfg.Dns.Address)
+	m.dnsFetcher = NewDnsClient(&cfg.Dns)
 
 	if m.cond, err = condition.Build(cfg.Basic.Cond); err != nil {
 		return fmt.Errorf("%s.Init(): err in condition Build(): %v", m.name, err)

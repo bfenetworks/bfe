@@ -69,15 +69,73 @@ func requestToMsgGet(req *bfe_http.Request) (*dns.Msg, error) {
 	return unpackMsg(buf)
 }
 
-func RequestToDnsMsg(req *bfe_http.Request) (*dns.Msg, error) {
-	switch req.Method {
-	case "GET":
-		return requestToMsgGet(req)
-	case "POST":
-		return requestToMsgPost(req)
-	default:
-		return nil, fmt.Errorf("unsupported method: %s", req.Method)
+func setClientip(req *bfe_basic.Request, dnsMsg *dns.Msg) {
+	if req.RemoteAddr == nil {
+		return
 	}
+
+	cip := req.RemoteAddr.IP
+	if req.ClientAddr != nil {
+		cip = req.ClientAddr.IP
+	}
+
+	var family uint16 = 1
+	var sourceNetmask uint8 = 32
+	if cip.To16() != nil {
+		family = 2
+		sourceNetmask = 128
+	}
+
+	subnet := &dns.EDNS0_SUBNET{
+		Code:          dns.EDNS0SUBNET,
+		Family:        family,
+		SourceNetmask: sourceNetmask,
+		SourceScope:   0,
+		Address:       cip,
+	}
+
+	opt := new(dns.OPT)
+	opt.Hdr.Name = "."
+	opt.Hdr.Rrtype = dns.TypeOPT
+	opt.SetUDPSize(dns.DefaultMsgSize)
+	opt.Option = append(opt.Option, subnet)
+	dnsMsg.Extra = append(dnsMsg.Extra, opt)
+}
+
+func RequestToDnsMsg(req *bfe_basic.Request) (*dns.Msg, error) {
+	var dnsMsg *dns.Msg
+	var err error
+
+	httpRequest := req.HttpRequest
+	switch httpRequest.Method {
+	case "GET":
+		dnsMsg, err = requestToMsgGet(httpRequest)
+	case "POST":
+		dnsMsg, err = requestToMsgPost(httpRequest)
+	default:
+		err = fmt.Errorf("unsupported method: %s", httpRequest.Method)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	setClientip(req, dnsMsg)
+	return dnsMsg, nil
+}
+
+func getTTL(msg *dns.Msg) uint32 {
+	var ttl uint32 = 0
+
+	for _, record := range msg.Answer {
+		switch record.(type) {
+		case *dns.A:
+			ttl = record.(*dns.A).Hdr.Ttl
+		case *dns.AAAA:
+			ttl = record.(*dns.AAAA).Hdr.Ttl
+		}
+	}
+
+	return ttl
 }
 
 func DnsMsgToResponse(req *bfe_basic.Request, msg *dns.Msg) (*bfe_http.Response, error) {
@@ -86,16 +144,9 @@ func DnsMsgToResponse(req *bfe_basic.Request, msg *dns.Msg) (*bfe_http.Response,
 		return nil, err
 	}
 
-	ttl := 0
-	for _, record := range msg.Answer {
-		if t, ok := record.(*dns.A); ok {
-			ttl = int(t.Hdr.Ttl)
-		}
-	}
-
 	resp := bfe_basic.CreateInternalResp(req, bfe_http.StatusOK)
 	resp.Header.Set("Content-Type", DnsMessage)
-	resp.Header.Set("Cache-Control", fmt.Sprintf("max-age=%d", ttl))
+	resp.Header.Set("Cache-Control", fmt.Sprintf("max-age=%d", getTTL(msg)))
 	resp.Header.Set("Content-Length", strconv.Itoa(len(data)))
 	resp.Body = ioutil.NopCloser(bytes.NewReader(data))
 	return resp, nil
