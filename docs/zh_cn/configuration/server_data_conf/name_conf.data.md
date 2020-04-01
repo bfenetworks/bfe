@@ -1,23 +1,21 @@
-# 简介
+# 配置简介
 
 name_conf.data记录了服务名字和服务实例的映射关系。
 
-# 配置
+# 配置描述
 
-| 配置项  | 类型   | 描述                                                         |
-| ------- | ------ | ------------------------------------------------------------ |
-| Version | String | 配置文件版本                                                 |
-| Config  | Map&lt;String, Array&lt;Instance&gt;&gt; | 名字和实例的映射关系，key为集群名称，value为实例信息列表 |
+| 配置项             | 描述                           |
+| ------------------ | ------------------------------ |
+| Version            | String<br>配置文件版本         |
+| Config             | Object<br>名字和实例的映射关系 |
+| Config[k]          | String<br>集群名称             |
+| Config[v]          | Object<br>实例信息列表         |
+| Config[v][]        | Object<br>实例信息             |
+| Config[v][].Host   | String<br>实例地址             |
+| Config[v][].Port   | Integer<br>实例端口            |
+| Config[v][].Weight | Integer<br>实例权重            |
 
-## Instance 
-| 配置项  | 类型   | 描述                                                         |
-| ------- | ------ | ------------------------------------------------------------ |
-| Host | String | 实例地址                                               |
-| Port | Int | 实例端口 |
-| Weight | Int | 实例权重 |
-
-
-# 示例
+# 配置示例
 
 ```
 {
