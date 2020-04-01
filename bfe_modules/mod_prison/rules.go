@@ -14,14 +14,9 @@
 
 package mod_prison
 
-import (
-	"sync"
-)
-
 type prisonRules struct {
 	ruleList []prisonRule           // prison rule list for one product
 	ruleMap  map[string]*prisonRule // name => prison rule
-	lock     sync.Mutex
 }
 
 func newPrisonRules(ruleConfList PrisonRuleConfList) (*prisonRules, error) {

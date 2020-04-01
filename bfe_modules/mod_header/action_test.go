@@ -35,14 +35,11 @@ func (fc fakeConn) LocalAddr() net.Addr {
 	return &net.TCPAddr{IP: net.ParseIP("1.1.1.1"), Port: 22}
 }
 
-func makeBasicRequest() *bfe_basic.Request {
+func makeBasicRequest(requestURL string) *bfe_basic.Request {
 	req := new(bfe_basic.Request)
 	req.Session = new(bfe_basic.Session)
 	req.Connection = fakeConn{}
-	req.HttpRequest = new(bfe_http.Request)
-
-	req.HttpRequest.URL, _ = url.Parse("http://www.example.org")
-	req.HttpRequest.Header = make(bfe_http.Header)
+	req.HttpRequest, _ = bfe_http.NewRequest("GET", requestURL, nil)
 
 	return req
 }
@@ -72,7 +69,7 @@ func makeAbnormalActionFileList() ActionFileList {
 }
 
 func TestHeaderActionsDo_Case1(t *testing.T) {
-	req := makeBasicRequest()
+	req := makeBasicRequest("http://www.example.org")
 
 	cmdMod := "REQ_HEADER_MOD"
 	action := Action{Cmd: cmdMod, Params: []string{"SCHEME_SET", "Referer", "https"}}
@@ -93,7 +90,7 @@ func TestHeaderActionsDo_Case1(t *testing.T) {
 }
 
 func TestHeaderActionsDo_Case2(t *testing.T) {
-	req := makeBasicRequest()
+	req := makeBasicRequest("http://www.example.org")
 
 	cmdMod := "REQ_HEADER_MOD"
 	action := Action{Cmd: cmdMod, Params: []string{"QUERY_ADD", "Referer", "foo", "bar"}}
@@ -118,7 +115,7 @@ func TestHeaderActionsDo_Case2(t *testing.T) {
 }
 
 func TestHeaderActionsDo_Case3(t *testing.T) {
-	req := makeBasicRequest()
+	req := makeBasicRequest("http://www.example.org")
 
 	cmdMod := "REQ_HEADER_MOD"
 	action := Action{Cmd: cmdMod, Params: []string{"QUERY_ADD", "Referer", "foo", "bar"}}
@@ -143,7 +140,7 @@ func TestHeaderActionsDo_Case3(t *testing.T) {
 }
 
 func TestHeaderActionsDo_Case4(t *testing.T) {
-	req := makeBasicRequest()
+	req := makeBasicRequest("http://www.example.org")
 
 	cmdMod := "REQ_HEADER_MOD"
 	action := Action{Cmd: cmdMod, Params: []string{"QUERY_ADD", "Referer", "foo", "bar"}}
@@ -227,7 +224,7 @@ func TestHeaderActionsDo(t *testing.T) {
 		t.Errorf("actionsConvert failed")
 	}
 
-	req := makeBasicRequest()
+	req := makeBasicRequest("http://www.example.org")
 	HeaderActionsDo(req, ReqHeader, actionList)
 
 	if req.HttpRequest.Header.Get("header1") != "value1" {

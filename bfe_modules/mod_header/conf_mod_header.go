@@ -54,10 +54,6 @@ func ConfLoad(filePath string, confRoot string) (*ConfModHeader, error) {
 }
 
 func (cfg *ConfModHeader) Check(confRoot string) error {
-	return ConfModHeaderCheck(cfg, confRoot)
-}
-
-func ConfModHeaderCheck(cfg *ConfModHeader, confRoot string) error {
 	if cfg.Basic.DataPath == "" {
 		log.Logger.Warn("ModHeader.DataPath not set, use default value")
 		cfg.Basic.DataPath = "mod_header/mod_header.data"
