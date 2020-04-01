@@ -96,17 +96,16 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	log.Logger.Info("StartUp():bfeServer.InitModules() OK")
 
 	// load plugins
-	// TODO: plugins path arg. for example: cfg.Server.Plugins = []string{"bfe_plugins/pl_logid.so"}
 	err = bfeServer.LoadPlugins(cfg.Server.Plugins)
 	if err != nil {
-		log.Logger.Error("StartUp(): LoadPlugins():%s", err.Error())
+		log.Logger.Error("StartUp():bfeServer.LoadPlugins():%s", err.Error())
 		return err
 	}
 
 	// initialize plugins
 	err = bfeServer.InitPlugins(confRoot)
 	if err != nil {
-		log.Logger.Error("StartUp(): bfeServer.InitPlugins():%s",
+		log.Logger.Error("StartUp():bfeServer.InitPlugins():%s",
 			err.Error())
 		return err
 	}

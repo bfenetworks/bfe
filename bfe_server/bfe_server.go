@@ -40,13 +40,17 @@ import (
 	"github.com/baidu/bfe/bfe_http"
 	"github.com/baidu/bfe/bfe_http2"
 	"github.com/baidu/bfe/bfe_module"
-	"github.com/baidu/bfe/bfe_plugin"
 	"github.com/baidu/bfe/bfe_route"
 	"github.com/baidu/bfe/bfe_spdy"
 	"github.com/baidu/bfe/bfe_stream"
 	"github.com/baidu/bfe/bfe_tls"
 	"github.com/baidu/bfe/bfe_util/signal_table"
 	"github.com/baidu/bfe/bfe_websocket"
+)
+
+const (
+	// LibrarySuffix defines BFE plugin's file suffix.
+	LibrarySuffix = ".so"
 )
 
 // BfeServer
@@ -78,7 +82,7 @@ type BfeServer struct {
 	// module and callback
 	CallBacks *bfe_module.BfeCallbacks // call back functions
 	Modules   *bfe_module.BfeModules   // bfe modules
-	Plugins   *bfe_plugin.Plugins      // bfe plugins
+	Plugins   *bfe_module.Plugins      // bfe plugins
 
 	// web server for bfe monitor and reload
 	Monitor *BfeMonitor
@@ -128,7 +132,7 @@ func NewBfeServer(cfg bfe_conf.BfeConfig,
 	// create modules
 	s.Modules = bfe_module.NewBfeModules()
 	// create plugins
-	s.Plugins = bfe_plugin.NewPlugins()
+	s.Plugins = bfe_module.NewPlugins()
 
 	// initialize balTable
 	s.balTable = bfe_balance.NewBalTable(s.GetCheckConf)
@@ -329,6 +333,10 @@ func (srv *BfeServer) LoadPlugins(plugins []string) error {
 		pluginPath = strings.TrimSpace(pluginPath)
 		if pluginPath == "" {
 			continue
+		}
+
+		if !strings.HasSuffix(pluginPath, LibrarySuffix) {
+			pluginPath = pluginPath + LibrarySuffix
 		}
 
 		if err := srv.Plugins.RegisterPlugin(pluginPath); err != nil {
