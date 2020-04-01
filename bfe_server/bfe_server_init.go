@@ -95,6 +95,22 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	}
 	log.Logger.Info("StartUp():bfeServer.InitModules() OK")
 
+	// load plugins
+	err = bfeServer.LoadPlugins(cfg.Server.Plugins)
+	if err != nil {
+		log.Logger.Error("StartUp():bfeServer.LoadPlugins():%s", err.Error())
+		return err
+	}
+
+	// initialize plugins
+	err = bfeServer.InitPlugins(confRoot)
+	if err != nil {
+		log.Logger.Error("StartUp():bfeServer.InitPlugins():%s",
+			err.Error())
+		return err
+	}
+	log.Logger.Info("StartUp():bfeServer.InitPlugins() OK")
+
 	// start embedded web server
 	bfeServer.Monitor.Start()
 
