@@ -1,15 +1,18 @@
-# 简介
+# 配置简介
 
 vip_rule.data配置文件记录产品线的VIP列表。
 
-# 配置
+# 配置描述
 
-| 配置项  | 类型   | 描述                                                         |
-| ------- | ------ | ------------------------------------------------------------ |
-| Version | String | 配置文件版本                                                 |
-| Vips    | Map&lt;String, Array&lt;String&gt;&gt; | 产品线的VIP列表，key是产品线名称，value是VIP列表 |
+| 配置项    | 描述                                 |
+| --------- | ------------------------------------ |
+| Version   | String<br>配置文件版本               |
+| Vips      | Object<br>各产品线的VIP列表          |
+| Vips[k]   | String<br>产品线名称                 |
+| Vips[v]   | String<br>VIP列表                    |
+| Vips[v][] | String<br>VIP                        |
 
-# 示例
+# 配置示例
 
 ```
 {
