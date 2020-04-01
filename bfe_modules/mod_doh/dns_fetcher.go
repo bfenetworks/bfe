@@ -67,7 +67,7 @@ func (c *DnsClient) exchangeWithRetry(msg *dns.Msg) (*dns.Msg, error) {
 	for retry := 0; retry < c.retryMax; retry++ {
 		client := dns.Client{
 			Net:     "udp",
-			Timeout: time.Duration(c.timeout) * time.Second,
+			Timeout: time.Duration(c.timeout) * time.Millisecond,
 			UDPSize: dns.MaxMsgSize,
 		}
 

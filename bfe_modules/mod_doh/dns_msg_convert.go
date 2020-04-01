@@ -37,9 +37,9 @@ const DnsMessage = "application/dns-message"
 var maxPostMsgLength int64 = 8192
 
 func unpackMsg(buf []byte) (*dns.Msg, error) {
-	m := new(dns.Msg)
-	err := m.Unpack(buf)
-	return m, err
+	msg := new(dns.Msg)
+	err := msg.Unpack(buf)
+	return msg, err
 }
 
 func requestToMsgPost(req *bfe_http.Request) (*dns.Msg, error) {
@@ -124,14 +124,14 @@ func RequestToDnsMsg(req *bfe_basic.Request) (*dns.Msg, error) {
 }
 
 func getTTL(msg *dns.Msg) uint32 {
-	var ttl uint32 = 0
+	if len(msg.Answer) < 1 {
+		return 0
+	}
 
-	for _, record := range msg.Answer {
-		switch r := record.(type) {
-		case *dns.A:
-			ttl = r.Hdr.Ttl
-		case *dns.AAAA:
-			ttl = r.Hdr.Ttl
+	ttl := msg.Answer[0].Header().Ttl
+	for i := 1; i < len(msg.Answer); i++ {
+		if ttl > msg.Answer[0].Header().Ttl {
+			ttl = msg.Answer[0].Header().Ttl
 		}
 	}
 
