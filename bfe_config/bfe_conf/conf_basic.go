@@ -17,6 +17,7 @@ package bfe_conf
 import (
 	"fmt"
 	"runtime"
+	"strings"
 )
 
 import (
@@ -31,6 +32,11 @@ const (
 	BALANCER_BGW   = "BGW"   // layer4 balancer in baidu
 	BALANCER_PROXY = "PROXY" // layer4 balancer working in PROXY mode (eg. F5, Ctrix, ELB etc)
 	BALANCER_NONE  = "NONE"  // layer4 balancer not used
+)
+
+const (
+	// LibrarySuffix defines BFE plugin's file suffix.
+	LibrarySuffix = ".so"
 )
 
 type ConfigBasic struct {
@@ -214,6 +220,11 @@ func basicConfCheck(cfg *ConfigBasic) error {
 		return fmt.Errorf("MaxHeaderHeaderBytes[%d] should > 0", cfg.MaxHeaderBytes)
 	}
 
+	// check Plugins
+	if err := checkPlugins(cfg); err != nil {
+		return fmt.Errorf("plugins[%v] check failed. err: %s", cfg.Plugins, err.Error())
+	}
+
 	return nil
 }
 
@@ -232,6 +243,24 @@ func checkLayer4LoadBalancer(cfg *ConfigBasic) error {
 	default:
 		return fmt.Errorf("Layer4LoadBalancer[%s] should be BGW/PROXY/NONE", cfg.Layer4LoadBalancer)
 	}
+}
+
+func checkPlugins(cfg *ConfigBasic) error {
+	plugins := []string{}
+	for _, pluginPath := range cfg.Plugins {
+		pluginPath = strings.TrimSpace(pluginPath)
+		if pluginPath == "" {
+			continue
+		}
+
+		if !strings.HasSuffix(pluginPath, LibrarySuffix) {
+			pluginPath = pluginPath + LibrarySuffix
+		}
+		plugins = append(plugins, pluginPath)
+	}
+	cfg.Plugins = plugins
+
+	return nil
 }
 
 func dataFileConfCheck(cfg *ConfigBasic, confRoot string) error {
