@@ -14,6 +14,8 @@ $ tar zxvf bfe.tar.gz
 
 ## 运行
 
+- 基于示例配置运行BFE:
+
 ```
 $ cd bfe/bin
 $ ./bfe -c ../conf -l ../log

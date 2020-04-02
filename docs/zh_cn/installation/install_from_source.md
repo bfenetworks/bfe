@@ -27,7 +27,7 @@ output/bin/bfe: ELF 64-bit LSB executable, ...
 
 ## 运行
 
-- 示例配置文件位于目录conf中, 运行BFE:
+- 基于示例配置运行BFE:
 
 ```
 $ cd output/bin/
