@@ -39,7 +39,7 @@ func NewDnsClient(address string) *DnsClient {
 }
 
 func (c *DnsClient) Fetch(req *bfe_basic.Request) (*bfe_http.Response, error) {
-	msg, err := RequestToDnsMsg(req.HttpRequest)
+	msg, err := RequestToDnsMsg(req)
 	if err != nil {
 		if openDebug {
 			log.Logger.Debug("dns client: RequestToDnsMsg error: %v", err)
