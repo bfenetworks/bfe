@@ -16,7 +16,7 @@ output/bin/bfe: ELF 64-bit LSB executable, ...
 ```
 
 ## 运行
-- 运行BFE
+- 基于示例配置运行BFE:
 
 ```
 $ cd ${GOPATH}/bin/ 
