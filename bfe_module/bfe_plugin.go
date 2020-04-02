@@ -24,20 +24,20 @@ import (
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
 )
 
-type Plugins struct {
+type BfePlugins struct {
 	workPlugins map[string]*PluginInfo // work plugins, configure in bfe conf file
 }
 
 // NewPlugins create new Plugins
-func NewPlugins() *Plugins {
-	pl := new(Plugins)
+func NewBfePlugins() *BfePlugins {
+	pl := new(BfePlugins)
 	pl.workPlugins = make(map[string]*PluginInfo)
 
 	return pl
 }
 
 // RegisterPlugin loads a plugin created with `go build -buildmode=plugin`
-func (p *Plugins) RegisterPlugin(path string) error {
+func (p *BfePlugins) RegisterPlugin(path string) error {
 	plugin, err := goplugin.Open(path)
 	if err != nil {
 		return fmt.Errorf("RegisterPlugin Open plugin path %v err:%v", path, err)
@@ -69,7 +69,7 @@ func (p *Plugins) RegisterPlugin(path string) error {
 //     - cbs: BfeCallbacks
 //     - whs: WebHandlers
 //     - cr : root path for config
-func (p *Plugins) Init(cbs *BfeCallbacks, whs *web_monitor.WebHandlers, cr string) error {
+func (p *BfePlugins) Init(cbs *BfeCallbacks, whs *web_monitor.WebHandlers, cr string) error {
 	for _, pl := range p.workPlugins {
 		if err := pl.Init(cbs, whs, cr); err != nil {
 			log.Logger.Error("Err in plugin.init() for %s [%s]",
