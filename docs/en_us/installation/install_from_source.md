@@ -17,6 +17,12 @@ $ cd bfe
 $ make
 ```
 
+- Execute the following command to run tests:
+
+```
+$ make test
+```
+
 - Executable object file location:
 
 ```
