@@ -76,11 +76,11 @@ func (l *BfeListener) Accept() (net.Conn, error) {
 	}
 
 	switch l.BalancerType {
-	case bfe_conf.BALANCER_BGW:
+	case bfe_conf.BalancerBgw:
 		conn = bfe_util.NewBgwConn(conn.(*net.TCPConn))
 		log.Logger.Debug("BfeListener: accept connection via BGW")
 
-	case bfe_conf.BALANCER_PROXY:
+	case bfe_conf.BalancerProxy:
 		conn = bfe_proxy.NewConn(conn, l.ProxyHeaderTimeout, l.ProxyHeaderLimit)
 		log.Logger.Debug("BfeListener: accept connection via PROXY")
 	}
