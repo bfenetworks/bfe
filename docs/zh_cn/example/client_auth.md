@@ -2,7 +2,7 @@
 
 ## 场景说明
 
-* 假设我们需要使用TLS双向认证机制对客户端进行认证。
+* 服务端使用TLS客户端认证对客户端进行认证。
 
 ## 配置步骤
 
@@ -32,7 +32,11 @@
   openssl x509 -req -in client.csr -out client.crt -signkey client.key -CA root.crt -CAkey root.key  -days 365  -extfile openssl.cnf
   ```
 
-* 配置4层负载均衡服务（客户端认证针对VIP启用，配置4层负载均衡服务是为了获取VIP），这里使用HAproxy作为4层负载均衡服务，使用PROXY协议将VIP传递给BFE。示例中，HAproxy与BFE同机部署。
+* 配置4层负载均衡服务。
+
+  * 客户端认证针对VIP启用，配置4层负载均衡服务是为了获取VIP。
+  
+  * 示例中，使用HAproxy作为4层负载均衡服务，通过PROXY协议将VIP传递给BFE，HAproxy与BFE同机部署。
 
   * 安装HAproxy，下载[www.haproxy.org](http://www.haproxy.org)。Ubuntu系统可通过apt install haproxy安装。
 
