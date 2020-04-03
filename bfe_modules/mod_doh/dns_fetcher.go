@@ -15,6 +15,10 @@
 package mod_doh
 
 import (
+	"time"
+)
+
+import (
 	"github.com/baidu/go-lib/log"
 	"github.com/miekg/dns"
 )
@@ -30,11 +34,13 @@ type DnsFetcher interface {
 
 type DnsClient struct {
 	address string
+	timeout int
 }
 
-func NewDnsClient(address string) *DnsClient {
+func NewDnsClient(dnsConf *DnsConf) *DnsClient {
 	dnsClient := new(DnsClient)
-	dnsClient.address = address
+	dnsClient.address = dnsConf.Address
+	dnsClient.timeout = dnsConf.Timeout
 	return dnsClient
 }
 
@@ -50,6 +56,7 @@ func (c *DnsClient) Fetch(req *bfe_basic.Request) (*bfe_http.Response, error) {
 
 	client := dns.Client{
 		Net:     "udp",
+		Timeout: time.Duration(c.timeout) * time.Millisecond,
 		UDPSize: dns.MaxMsgSize,
 	}
 	reply, _, err := client.Exchange(msg, c.address)
