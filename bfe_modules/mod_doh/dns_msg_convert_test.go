@@ -152,3 +152,30 @@ func TestDnsMsgToResponse(t *testing.T) {
 		t.Errorf("DnsMsgToResponse error: %v", err)
 	}
 }
+
+func TestGetTTL(t *testing.T) {
+	msg := &dns.Msg{
+		Answer: []dns.RR{
+			&dns.A{
+				Hdr: dns.RR_Header{
+					Ttl: 600,
+				},
+			},
+			&dns.AAAA{
+				Hdr: dns.RR_Header{
+					Ttl: 7200,
+				},
+			},
+			&dns.A{
+				Hdr: dns.RR_Header{
+					Ttl: 300,
+				},
+			},
+		},
+	}
+
+	ttl := getTTL(msg)
+	if ttl != 300 {
+		t.Errorf("ttl should be 300, not %d", ttl)
+	}
+}
