@@ -123,22 +123,32 @@ func RequestToDnsMsg(req *bfe_basic.Request) (*dns.Msg, error) {
 	return dnsMsg, nil
 }
 
+func getTTL(msg *dns.Msg) uint32 {
+	if len(msg.Answer) < 1 {
+		return 0
+	}
+
+	// Use the smallest TTL in the Answer section.
+	// See section 5.1 of RFC 8484.
+	ttl := msg.Answer[0].Header().Ttl
+	for i := 1; i < len(msg.Answer); i++ {
+		if ttl > msg.Answer[i].Header().Ttl {
+			ttl = msg.Answer[i].Header().Ttl
+		}
+	}
+
+	return ttl
+}
+
 func DnsMsgToResponse(req *bfe_basic.Request, msg *dns.Msg) (*bfe_http.Response, error) {
 	data, err := msg.Pack()
 	if err != nil {
 		return nil, err
 	}
 
-	ttl := 0
-	for _, record := range msg.Answer {
-		if t, ok := record.(*dns.A); ok {
-			ttl = int(t.Hdr.Ttl)
-		}
-	}
-
 	resp := bfe_basic.CreateInternalResp(req, bfe_http.StatusOK)
 	resp.Header.Set("Content-Type", DnsMessage)
-	resp.Header.Set("Cache-Control", fmt.Sprintf("max-age=%d", ttl))
+	resp.Header.Set("Cache-Control", fmt.Sprintf("max-age=%d", getTTL(msg)))
 	resp.Header.Set("Content-Length", strconv.Itoa(len(data)))
 	resp.Body = ioutil.NopCloser(bytes.NewReader(data))
 	return resp, nil
