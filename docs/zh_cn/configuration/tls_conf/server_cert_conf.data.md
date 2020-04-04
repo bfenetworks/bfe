@@ -25,8 +25,8 @@ server_cert_conf.data用于配置证书和密钥。
         "Default": "example.org",
         "CertConf": {
             "example.org": {
-                "ServerCertFile": "../conf/tls_conf/certs/server.crt",
-                "ServerKeyFile" : "../conf/tls_conf/certs/server.key"
+                "ServerCertFile": "tls_conf/certs/server.crt",
+                "ServerKeyFile" : "tls_conf/certs/server.key"
             }
         }
     }

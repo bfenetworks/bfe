@@ -29,6 +29,7 @@ import (
 
 import (
 	"github.com/baidu/bfe/bfe_tls"
+	"github.com/baidu/bfe/bfe_util"
 )
 
 const (
@@ -54,7 +55,12 @@ type BfeServerCertConf struct {
 }
 
 // ServerCertConfCheck check ServerCertConf config.
-func ServerCertConfCheck(conf ServerCertConf) error {
+func (conf *ServerCertConf) Check(confRoot string) error {
+	// check ServerCertConf
+	if len(conf.ServerCertFile) == 0 {
+		return fmt.Errorf("no ServerCertFile")
+	}
+	conf.ServerCertFile = bfe_util.ConfPathProc(conf.ServerCertFile, confRoot)
 	if _, err := os.Stat(conf.ServerCertFile); os.IsNotExist(err) {
 		return fmt.Errorf("server cert file not exist: %s", conf.ServerCertFile)
 	}
@@ -63,6 +69,7 @@ func ServerCertConfCheck(conf ServerCertConf) error {
 	if len(conf.ServerKeyFile) == 0 {
 		return fmt.Errorf("no ServerKeyFile")
 	}
+	conf.ServerKeyFile = bfe_util.ConfPathProc(conf.ServerKeyFile, confRoot)
 	if _, err := os.Stat(conf.ServerKeyFile); os.IsNotExist(err) {
 		return fmt.Errorf("server key not exist: %s", conf.ServerKeyFile)
 	}
@@ -70,6 +77,7 @@ func ServerCertConfCheck(conf ServerCertConf) error {
 	// check OcspResponseFile
 	// Note: if not specified, it means Ocsp stapling is not enabled
 	if len(conf.OcspResponseFile) > 0 {
+		conf.OcspResponseFile = bfe_util.ConfPathProc(conf.OcspResponseFile, confRoot)
 		if _, err := os.Stat(conf.OcspResponseFile); os.IsNotExist(err) {
 			return fmt.Errorf("ocsp response not exist: %s", conf.OcspResponseFile)
 		}
@@ -79,7 +87,7 @@ func ServerCertConfCheck(conf ServerCertConf) error {
 }
 
 // BfeServerCertConfCheck check integrity of config.
-func BfeServerCertConfCheck(conf BfeServerCertConf) error {
+func (conf *BfeServerCertConf) Check(confRoot string) error {
 	if len(conf.Version) == 0 {
 		return fmt.Errorf("no Version")
 	}
@@ -90,10 +98,11 @@ func BfeServerCertConfCheck(conf BfeServerCertConf) error {
 			return fmt.Errorf("CertName should not be %s", DefaultCert)
 		}
 
-		err := ServerCertConfCheck(certConf)
+		err := certConf.Check(confRoot)
 		if err != nil {
 			return fmt.Errorf("BfeServerCertConf.Config for %s:%s", name, err.Error())
 		}
+		certConfMap[name] = certConf
 	}
 
 	defaultCert := conf.Config.Default
@@ -105,7 +114,7 @@ func BfeServerCertConfCheck(conf BfeServerCertConf) error {
 }
 
 // ServerCertConfLoad loads config of certificate from file.
-func ServerCertConfLoad(filename string) (BfeServerCertConf, error) {
+func ServerCertConfLoad(filename string, confRoot string) (BfeServerCertConf, error) {
 	var config BfeServerCertConf
 
 	// open the file
@@ -123,7 +132,7 @@ func ServerCertConfLoad(filename string) (BfeServerCertConf, error) {
 	}
 
 	// check conf
-	err3 := BfeServerCertConfCheck(config)
+	err3 := config.Check(confRoot)
 	if err3 != nil {
 		return config, err3
 	}

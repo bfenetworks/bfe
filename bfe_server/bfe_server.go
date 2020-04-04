@@ -72,6 +72,7 @@ type BfeServer struct {
 
 	// server config
 	Config bfe_conf.BfeConfig
+	ConfRoot string
 
 	// module and callback
 	CallBacks *bfe_module.BfeCallbacks // call back functions
@@ -98,7 +99,7 @@ type BfeServer struct {
 }
 
 // NewBfeModules create a new instance of BfeServer.
-func NewBfeServer(cfg bfe_conf.BfeConfig,
+func NewBfeServer(cfg bfe_conf.BfeConfig, confRoot string,
 	listenerMap map[string]net.Listener,
 	version string) *BfeServer {
 
@@ -106,6 +107,7 @@ func NewBfeServer(cfg bfe_conf.BfeConfig,
 
 	// bfe config
 	s.Config = cfg
+	s.ConfRoot = confRoot
 	s.InitConfig()
 
 	// set service listener
@@ -317,8 +319,8 @@ func (srv *BfeServer) initTLSNextProtoHandler() {
 	bfe_http2.EnableLargeConnRecvWindow()
 }
 
-func (srv *BfeServer) InitModules(confRoot string) error {
-	return srv.Modules.Init(srv.CallBacks, srv.Monitor.WebHandlers, confRoot)
+func (srv *BfeServer) InitModules() error {
+	return srv.Modules.Init(srv.CallBacks, srv.Monitor.WebHandlers, srv.ConfRoot)
 }
 
 func (srv *BfeServer) LoadPlugins(plugins []string) error {
@@ -337,8 +339,8 @@ func (srv *BfeServer) LoadPlugins(plugins []string) error {
 	return nil
 }
 
-func (srv *BfeServer) InitPlugins(confRoot string) error {
-	return srv.Plugins.Init(srv.CallBacks, srv.Monitor.WebHandlers, confRoot)
+func (srv *BfeServer) InitPlugins() error {
+	return srv.Plugins.Init(srv.CallBacks, srv.Monitor.WebHandlers, srv.ConfRoot)
 }
 
 func (srv *BfeServer) InitSignalTable() {
