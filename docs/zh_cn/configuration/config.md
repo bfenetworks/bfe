@@ -15,4 +15,4 @@
 | 接入协议配置 | conf/tls_conf/ 目录 | 
 | 流量路由配置 | conf/server_data_conf/ 目录 |
 | 负载均衡配置 | conf/cluster_conf/ 目录 |
-| 扩展模块配置 | conf/mod_<name> 目录 |
+| 扩展模块配置 | conf/mod_&#60;name&#62; 目录 |
