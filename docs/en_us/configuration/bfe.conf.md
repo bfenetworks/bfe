@@ -1,69 +1,59 @@
 # Introduction
 
-bfe.conf is the core config file of BFE.
+bfe.conf is the core configuration file of BFE.
 
 # Configuration
 
-## Server Config
+## Server basic config
 
-| Config Item             | Type   | Description                                                  |
-| ----------------------- | ------ | ------------------------------------------------------------ |
-| HttpPort                | Int    | Listen port for HTTP                                         |
-| HttpsPort               | Int    | Listen port for HTTPS                                        |
-| MonitorPort             | Int    | Listen port for monitor                                      |
-| MaxCpus                 | Int    | Max number of CPUs to use (0 to use all CPUs)                |
-| Layer4LoadBalancer      | String | Type of layer-4 load balancer (PROXY/BGW/NONE)               |
-| TlsHandshakeTimeout     | Int    | TLS handshake timeout, in seconds                            |
-| ClientReadTimeout       | Int    | Read timeout of communicating with http client, in seconds   |
-| ClientWriteTimeout      | Int    | Write timeout of communicating with http client, in seconds  |
-| KeepAliveEnabled        | Bool   | If false, HTTP Keep-Alive is disabled                        |
-| GracefulShutdownTimeout | Int    | Timeout for graceful shutdown (maximum 300 sec)              |
-| MaxHeaderBytes          | Int    | Max length of request header, in bytes                       |
-| MaxHeaderUriBytes       | Int    | Max lenght of request URI, in bytes                          |
-| HostRuleConf            | String | Path of host config                                          |
-| VipRuleConf             | String | Path of VIP config                                           |
-| RouteRuleConf           | String | Path of route rule config                                    |
-| ClusterConf             | String | Path of cluster config                                       |
-| ClusterTableConf        | String | Path of cluster table config                                 |
-| GslbConf                | String | Path of gslb config                                          |
-| NameConf                | String | Path of naming config                                        |
-| Modules                 | String | Enabled modules                                              |
-| MonitorInterval         | Int    | Interval for get diff of proxy-state                         |
-| DebugServHttp           | Bool   | Debug flag for ServerHttp                                    |
-| DebugBfeRoute           | Bool   | Debug flag for BfeRoute                                      |
-| DebugBal                | Bool   | Debug flag for Bal                                           |
-| DebugHealthCheck        | Bool   | Debug flag for HealthCheck                                   |
+| Config Item                   | Description                                                  |
+| ----------------------------- | ------------------------------------------------------------ |
+| Basic.HttpPort                | Integer<br>Listen port for HTTP<br>Default 8080 |
+| Basic.HttpsPort               | Integer<br>Listen port for HTTPS<br>Default 8443 |
+| Basic.MonitorPort             | Integer<br>Listen port for monitor<br>Default 8421 |
+| Basic.MaxCpus                 | Integer<br>Max number of CPUs to use (0 to use all CPUs)<br>Default 0 |
+| Basic.Layer4LoadBalancer      | String<br>Type of layer-4 load balancer (PROXY/BGW/NONE)<br>Default NONE |
+| Basic.TlsHandshakeTimeout     | Integer<br>TLS handshake timeout, in seconds<br>Default 30 |
+| Basic.ClientReadTimeout       | Integer<br>Read timeout of communicating with http client, in seconds<br>Default 60 |
+| Basic.ClientWriteTimeout      | Integer<br>Write timeout of communicating with http client, in seconds<br>Default 60 |
+| Basic.KeepAliveEnabled        | Boolean<br>If false, HTTP Keep-Alive is disabled<br>Default True |
+| Basic.GracefulShutdownTimeout | Integer<br>Timeout for graceful shutdown (maximum 300 sec)<br>Default 10 |
+| Basic.MaxHeaderBytes          | Integer<br>Max length of request header, in bytes<br>Default 10485 |
+| Basic.MaxHeaderUriBytes       | Integer<br>Max lenght of request URI, in bytes<br>Default 8192 |
+| Basic.HostRuleConf            | String<br>Path of host config<br>Default server_data_conf/host_rule.data |
+| Basic.VipRuleConf             | String<br>Path of VIP config<br>Default server_data_conf/vip_rule.data |
+| Basic.RouteRuleConf           | String<br>Path of route rule config<br>Default server_data_conf/route_rule.data |
+| Basic.ClusterConf             | String<br>Path of cluster config<br>Default server_data_conf/cluster_conf.data |
+| Basic.ClusterTableConf        | String<br>Path of cluster table config<br>Default cluster_conf/cluster_table.data |
+| Basic.GslbConf                | String<br>Path of gslb config<br>Default cluster_conf/gslb.data |
+| Basic.NameConf                | String<br>Path of naming config<br>Default server_data_conf/name_conf.data |
+| Basic.Modules                 | String<br>Enabled modules<br>Default "" |
+| Basic.MonitorInterval         | Integer<br>Interval for get diff of proxy-state<br>Default 20 |
+| Basic.DebugServHttp           | Boolean<br>Debug flag for ServerHttp<br>Default False |
+| Basic.DebugBfeRoute           | Boolean<br>Debug flag for BfeRoute<br>Default False |
+| Basic.DebugBal                | Boolean<br>Debug flag for Bal<br>Default False |
+| Basic.DebugHealthCheck        | Boolean<br>Debug flag for HealthCheck<br>Default False |
 
-## HttpsBasic Config
+## TLS basic config
 
-| Config Item            | Type   | Description                                                      |
-| ---------------------- | ------ | ---------------------------------------------------------------- |
-| ServerCertConf         | String | Path of cert config                                              |
-| TlsRuleConf            | String | Path of tls rule config                                          |
-| CipherSuites           | String | CipherSuites preference settings                                 |
-| CurvePreferences       | String | Curve perference settings                                        |
-| EnableSslv2ClientHello | Bool   | Enable Sslv2ClientHello for compatible with ancient sslv3 client |
-| ClientCABaseDir        | String | Base directory of client ca certificates <br>Note: filename suffix of ca certificate must be ".crt" |
-
-## SessionCache Config
-
-| Config Item            | Type   | Description                                                 |
-| ---------------------- | ------ | ----------------------------------------------------------- |
-| SessionCacheDisabled   | Bool   | Disable tls session cache or not                            |
-| Servers                | String | Address of cache server                                     |
-| KeyPrefix              | String | Prefix for cache key                                        |
-| ConnectTimeout         | Int    | Connection timeout                                          |
-| ReadTimeout            | Int    | Read timeout of connection with redis server                |
-| WriteTimeout           | Int    | Write timeout of connection with redis server               |
-| MaxIdle                | Int    | Max idle connections in connection pool                     |
-| SessionExpire          | Int    | Expire time for tls session state (second)                  |
-
-## SessionTicket Config
-
-| Config Item            | Type   | Description                                                 |
-| ---------------------- | ------ | ----------------------------------------------------------- |
-| SessionTicketsDisabled | Bool   | Disable tls session ticket or not                           |
-| SessionTicketKeyFile   | String | File path of session ticket key                             |
+| Config Item                       | Description                                                      |
+| --------------------------------- | ---------------------------------------------------------------- |
+| HttpsBasic.ServerCertConf         | String<br>Path of cert config<br>Default tls_conf/server_cert_conf.data |
+| HttpsBasic.TlsRuleConf            | String<br>Path of tls rule config<br>Default tls_conf/tls_rule_conf.data |
+| HttpsBasic.CipherSuites           | String<br>CipherSuites preference settings<br>Default                                   |
+| HttpsBasic.CurvePreferences       | String<br>Curve perference settings<br>Default CurveP256 |
+| HttpsBasic.EnableSslv2ClientHello | Boolean<br>Enable Sslv2ClientHello for compatible with ancient sslv3 client<br>Default True |
+| HttpsBasic.ClientCABaseDir        | String<br>Base directory of client ca certificates <br>Note: filename suffix of ca certificate must be ".crt"<br>Default tls_conf/client_ca |
+| SessioCache.SessionCacheDisabled   | Boolean<br>Disable tls session cache or not<br>Default True |
+| SessioCache.Servers                | String<br>Address of cache server<br>Default "" |
+| SessioCache.KeyPrefix              | String<br>Prefix for cache key<br>Default bfe |
+| SessioCache.ConnectTimeout         | Integer<br>Connection timeout (ms) <br>Default 50 |
+| SessioCache.ReadTimeout            | Integer<br>Read timeout of connection with redis server (ms)<br>Default 50 |
+| SessioCache.WriteTimeout           | Integer<br>Write timeout of connection with redis server (ms)<br>Default 50 |
+| SessioCache.MaxIdle                | Integer<br>Max idle connections in connection pool<br>Default 20 |
+| SessioCache.SessionExpire          | Integer<br>Expire time for tls session state (second)<br>Default 3600 |
+| SessionTicket.SessionTicketsDisabled | Boolean<br>Disable tls session ticket or not<br>Default True |
+| SessionTicket.SessionTicketKeyFile   | String<br>File path of session ticket key<br>Default tls_conf/session_ticket_key.data |
 
 
 # Example

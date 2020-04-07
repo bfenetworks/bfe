@@ -4,10 +4,10 @@ route_rule.data records route rule config for each product.
 
 # Configuration
 
-| Config Item | Type   | Description                                                  |
-| ----------- | ------ | ------------------------------------------------------------ |
-| Version     | String | Time of generating config file                               |
-| ProductRule | Struct | Route rules for each product. Key is product name, Value is a ordered list of route rules. Route rule include: <br>- Cond: condition expression<br>- ClusterName: destination cluster name |
+| Config Item | Description                                                  |
+| ----------- | ------------------------------------------------------------ |
+| Version     | String<br>Time of generating config file                               |
+| ProductRule | Struct<br>Route rules for each product. Key is product name, Value is a ordered list of route rules. Route rule include: <br>- Cond: condition expression<br>- ClusterName: destination cluster name |
 
 # Example
 
