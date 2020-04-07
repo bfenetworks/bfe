@@ -18,7 +18,6 @@
 
 package bfe_http
 
-
 import (
 	"bytes"
 	"fmt"
