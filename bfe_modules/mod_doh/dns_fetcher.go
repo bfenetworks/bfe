@@ -45,6 +45,7 @@ func NewDnsClient(dnsConf *DnsConf) *DnsClient {
 	dnsClient.timeout = dnsConf.Timeout
 	return dnsClient
 }
+
 func (c *DnsClient) exchangeWithRetry(msg *dns.Msg) (*dns.Msg, error) {
 	var reply *dns.Msg
 	var err error
