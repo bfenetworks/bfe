@@ -9,7 +9,7 @@
 - Extract the files to the installation directory:
 
 ```
-$ tar zxvf bfe.tar.gz
+$ tar zxvf bfe_<version>_<os>_<arch>.tar.gz
 ```
 
 ## Run
