@@ -28,8 +28,9 @@ import (
 )
 
 type DnsConf struct {
-	Address string
-	Timeout int // In Millisecond.
+	Address  string
+	RetryMax int
+	Timeout  int // In Millisecond.
 }
 
 type ConfModDoh struct {
@@ -65,6 +66,10 @@ func (cfg *ConfModDoh) Check() error {
 	_, err := condition.Build(cfg.Basic.Cond)
 	if err != nil {
 		return err
+	}
+
+	if cfg.Dns.RetryMax < 0 {
+		return fmt.Errorf("RetryMax should >= 0.")
 	}
 
 	if cfg.Dns.Timeout < 0 {
