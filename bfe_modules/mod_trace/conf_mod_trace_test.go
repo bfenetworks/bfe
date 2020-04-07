@@ -26,7 +26,11 @@ func TestConfLoadCase1(t *testing.T) {
 
 	expectDataPath := "testdata/mod_trace/trace_rule_test.data"
 	if cfg.Basic.DataPath != expectDataPath {
-		t.Fatalf("cfg.Basic.DataPath shoule %s, but it's %s", expectDataPath, cfg.Basic.DataPath)
+		t.Fatalf("cfg.Basic.DataPath should be %s, but it's %s", expectDataPath, cfg.Basic.DataPath)
+	}
+
+	if cfg.Basic.TraceAgent != "jaeger" {
+		t.Fatalf("cfg.Basic.TraceAgent should be jaeger, but it's %s", cfg.Basic.TraceAgent)
 	}
 
 	if cfg.Log.OpenDebug != false {
@@ -44,5 +48,15 @@ func TestConfLoadCase1(t *testing.T) {
 
 	if cfg.Zipkin.ID128Bit != true {
 		t.Fatalf("cfg.Zipkin.ID128Bit should be true")
+	}
+
+	expectSamplingServerURL := "http://127.0.0.1:5778/sampling"
+	if cfg.Jaeger.SamplingServerURL != expectSamplingServerURL {
+		t.Fatalf("cfg.Jaeger.SamplingServerURL should be %s, but it's %s", expectSamplingServerURL, cfg.Jaeger.SamplingServerURL)
+	}
+
+	expectSamplingType := "const"
+	if cfg.Jaeger.SamplingType != expectSamplingType {
+		t.Fatalf("cfg.Jaeger.SamplingType should be %s, but it's %s", expectSamplingType, cfg.Jaeger.SamplingType)
 	}
 }
