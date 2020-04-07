@@ -9,7 +9,7 @@
 - 将文件解压到安装目录:
 
 ```
-$ tar zxvf bfe.tar.gz
+$ tar zxvf bfe_<version>_<os>_<arch>.tar.gz
 ```
 
 ## 运行

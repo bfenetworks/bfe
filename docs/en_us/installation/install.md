@@ -1,50 +1,13 @@
-# Build and Run
+# Installation notes
 
-## Build
+## Installation method
+- [Install from source](install_from_source.md)
+- [Install using binaries](install_using_binaries.md)
+- [Install using "go get"](install_using_go_get.md)
 
-### Prerequisite
-- golang 1.13+
-- git
-
-### Download the source code
-
-- BFE code can be found in following repo:
-
-    [https://github.com/baidu/bfe](https://github.com/baidu/bfe)
-
-- Clone the main BFE repo:
-    ```
-    $ mkdir -p github.com/baidu
-    $ cd github.com/baidu
-    $ git clone https://github.com/baidu/bfe
-    $ cd bfe
-    ```
-
-### Build from source
-
-- Run make in source directory of bfe (github.com/baidu/bfe)：
-    ```
-    $ make
-    ```
-
-- Run the tests:
-    ```
-    $ make test
-    ```
-
-- BFE binary is generated as below:
-    ```
-    $ file output/bin/bfe
-
-    output/bin/bfe: ELF 64-bit LSB executable ...
-    ```
-
-## Run
-
-- Run bfe with the example configurations: conf
-
-    ```
-    $ cd output/bin/
-    $ ./bfe -c ../conf -l ../log
-    ```
-
+## Platform support
+| Operating System | Description |
+| ---------- | ------------------ |
+| Linux OS   | Support<br>*Recommended development and deployment system* |
+| Mac OS     | Support            |
+| Windows OS | Support<br>*Not supported to obtain VIP/CIP when configuring layer 4 load balancing as BGW |
