@@ -42,6 +42,9 @@
 ## Session Primitive
  * ses_sip_range(start_ip, end_ip)
  * ses_vip_range(start_ip, end_ip)
+ * ses_tls_sni_in(patterns)
+ * ses_tls_client_auth()
+ * ses_tls_client_ca_in(patterns)
 
 ## System Primitive
  * bfe_time_range(start_time, end_time)

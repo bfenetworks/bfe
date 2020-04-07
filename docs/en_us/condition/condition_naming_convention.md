@@ -1,15 +1,14 @@
 # Condition Naming Convention
 
 - Name prefix of condition primitive:
-  - Condition primitive about request is used ”**req_**“ prefix
+  - Name prefix of request related primitive is "**req_**"
     - e.g. **req_host_in()**
-  - Condition primitive about response is used ”**res_**“ prefix
+  - Name prefix of response related primitive is "**res_**"
     - e.g. **res_code_in()**
-  - Condition primitive about session is used ”**ses_**“ prefix
+  - Name prefix of session related primitive is "**ses_**"
     - e.g. **ses_vip_in()**
-  - Condition primitive about system is used ”**bfe_**“ prefix
+  - Name prefix of system related primitive is "**bfe_**"
     - e.g. **bfe_time_range**()
-
 
 - Name of compare actions:
   - **match**：exact match
