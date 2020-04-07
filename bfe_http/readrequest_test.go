@@ -342,7 +342,7 @@ func TestReadRequest(t *testing.T) {
 		req, err := ReadRequest(bfe_bufio.NewReader(&braw), 8000)
 		if err != nil {
 			if !strings.Contains(err.Error(), tt.Error) {
-				t.Errorf("#%d: error %q, want error %q", i, err.Error(), tt.Error)
+				t.Errorf("#%d: error %q, want include error %q", i, err.Error(), tt.Error)
 			}
 			continue
 		}

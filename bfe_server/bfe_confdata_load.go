@@ -204,7 +204,7 @@ func (srv *BfeServer) TLSConfReload(query url.Values) error {
 
 func (srv *BfeServer) tlsConfLoad(certConfFile string, tlsRuleFile string) error {
 	// load certificate conf
-	certConf, err := server_cert_conf.ServerCertConfLoad(certConfFile)
+	certConf, err := server_cert_conf.ServerCertConfLoad(certConfFile, srv.ConfRoot)
 	if err != nil {
 		return fmt.Errorf("in ServerCertConfLoad() :%s", err.Error())
 	}

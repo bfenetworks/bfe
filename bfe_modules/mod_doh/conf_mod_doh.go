@@ -15,6 +15,7 @@
 package mod_doh
 
 import (
+	"fmt"
 	"net"
 )
 
@@ -26,14 +27,17 @@ import (
 	"github.com/baidu/bfe/bfe_basic/condition"
 )
 
+type DnsConf struct {
+	Address string
+	Timeout int // In Millisecond.
+}
+
 type ConfModDoh struct {
 	Basic struct {
 		Cond string
 	}
 
-	Dns struct {
-		Address string
-	}
+	Dns DnsConf
 
 	Log struct {
 		OpenDebug bool
@@ -61,6 +65,10 @@ func (cfg *ConfModDoh) Check() error {
 	_, err := condition.Build(cfg.Basic.Cond)
 	if err != nil {
 		return err
+	}
+
+	if cfg.Dns.Timeout < 0 {
+		return fmt.Errorf("Timeout should >= 0.")
 	}
 
 	_, err = net.ResolveUDPAddr("udp", cfg.Dns.Address)
