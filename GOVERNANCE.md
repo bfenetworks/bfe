@@ -1,4 +1,15 @@
-# Process for becoming a maintainer
+# BFE Governance
+
+## Principles
+
+The BFE community adheres to the following principles:
+- Open: BFE is open source. See [Contributor License Agreement](https://cla-assistant.io/baidu/bfe).
+- Welcoming and respectful: See [Code of Conduct](CODE_OF_CONDUCT.md).
+- Transparent and accessible: Work and collaboration are done in public.
+- Merit: Ideas and contributions are accepted according to their technical merit and alignment with project objectives, scope, and design principles.
+
+
+## Process for becoming a maintainer
 
 * Express interest to the project leader that you are interested in becoming a
   maintainer. Becoming a maintainer generally means that you are going to be spending substantial
@@ -14,7 +25,7 @@
   goal.
 
 
-# Maintainer responsibilities
+## Maintainer responsibilities
 
 * Classify GitHub issues and perform pull request reviews for other maintainers and the community.
 
@@ -32,7 +43,7 @@
 * In general continue to be willing to spend at least 20% of your time working on BFE (1 day per week).
 
 
-# When does a maintainer lose maintainer status
+## When does a maintainer lose maintainer status
 
 * If a maintainer is no longer interested or cannot perform the maintainer duties listed above, they
 should volunteer to be moved to emeritus status. 
