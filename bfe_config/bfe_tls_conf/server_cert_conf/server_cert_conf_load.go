@@ -118,23 +118,23 @@ func ServerCertConfLoad(filename string, confRoot string) (BfeServerCertConf, er
 	var config BfeServerCertConf
 
 	// open the file
-	file, err1 := os.Open(filename)
-	if err1 != nil {
-		return config, err1
+	file, err := os.Open(filename)
+	if err != nil {
+		return config, err
 	}
 	defer file.Close()
 
 	// decode the file
 	decoder := json.NewDecoder(file)
-	err2 := decoder.Decode(&config)
-	if err2 != nil {
-		return config, err2
+	err = decoder.Decode(&config)
+	if err != nil {
+		return config, err
 	}
 
 	// check conf
-	err3 := config.Check(confRoot)
-	if err3 != nil {
-		return config, err3
+	err = config.Check(confRoot)
+	if err != nil {
+		return config, err
 	}
 
 	return config, nil
