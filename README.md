@@ -4,6 +4,7 @@
 [![Travis (.com)](https://img.shields.io/travis/com/baidu/bfe)](https://travis-ci.com/baidu/bfe)
 [![Go Report Card](https://goreportcard.com/badge/github.com/baidu/bfe)](https://goreportcard.com/report/github.com/baidu/bfe)
 [![GoDoc](https://godoc.org/github.com/baidu/bfe?status.svg)](https://godoc.org/github.com/baidu/bfe/bfe_module)
+[![Snap Status](https://build.snapcraft.io/badge/baidu/bfe.svg)](https://build.snapcraft.io/user/baidu/bfe)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/3209/badge)](https://bestpractices.coreinfrastructure.org/projects/3209)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fbaidu%2Fbfe.svg?type=shield)](https://app.fossa.io/reports/1bd1bae4-31bf-41bf-8865-320eedbd1f85)
 [![CLA assistant](https://cla-assistant.io/readme/badge/baidu/bfe)](https://cla-assistant.io/baidu/bfe)
