@@ -4,12 +4,13 @@ builds:
   - binary: bfe
     main: ./bfe.go
     ldflags:
-      - -X main.Version={{.Version}}
+      - -X main.version={{.Version}}
     goos:
       - linux
+      - darwin
+      - windows
     goarch:
       - amd64
-      - 386
 
 changelog:
   skip: true
@@ -17,14 +18,17 @@ changelog:
 archives:
   - id: bfe
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    wrap_in_directory: true
     format: tar.gz
     files:
       - LICENSE
+      - README.md
       - CHANGELOG.md
-      - conf/*/*
+      - conf/**/*
 
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  algorithm: sha256
 
 release:
   disable: true

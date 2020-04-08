@@ -19,8 +19,8 @@ server_cert_conf.data records the config for server certificate and private key
         "Default": "example.org",
         "CertConf": {
             "example.org": {
-                "ServerCertFile": "../conf/tls_conf/certs/server.crt",
-                "ServerKeyFile" : "../conf/tls_conf/certs/server.key"
+                "ServerCertFile": "tls_conf/certs/server.crt",
+                "ServerKeyFile" : "tls_conf/certs/server.key"
             }
         }
     }

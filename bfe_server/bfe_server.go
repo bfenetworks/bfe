@@ -72,10 +72,12 @@ type BfeServer struct {
 
 	// server config
 	Config bfe_conf.BfeConfig
+	ConfRoot string
 
 	// module and callback
 	CallBacks *bfe_module.BfeCallbacks // call back functions
 	Modules   *bfe_module.BfeModules   // bfe modules
+	Plugins   *bfe_module.BfePlugins   // bfe plugins
 
 	// web server for bfe monitor and reload
 	Monitor *BfeMonitor
@@ -97,7 +99,7 @@ type BfeServer struct {
 }
 
 // NewBfeModules create a new instance of BfeServer.
-func NewBfeServer(cfg bfe_conf.BfeConfig,
+func NewBfeServer(cfg bfe_conf.BfeConfig, confRoot string,
 	listenerMap map[string]net.Listener,
 	version string) *BfeServer {
 
@@ -105,6 +107,7 @@ func NewBfeServer(cfg bfe_conf.BfeConfig,
 
 	// bfe config
 	s.Config = cfg
+	s.ConfRoot = confRoot
 	s.InitConfig()
 
 	// set service listener
@@ -124,6 +127,8 @@ func NewBfeServer(cfg bfe_conf.BfeConfig,
 	s.CallBacks = bfe_module.NewBfeCallbacks()
 	// create modules
 	s.Modules = bfe_module.NewBfeModules()
+	// create plugins
+	s.Plugins = bfe_module.NewBfePlugins()
 
 	// initialize balTable
 	s.balTable = bfe_balance.NewBalTable(s.GetCheckConf)
@@ -172,6 +177,9 @@ func (srv *BfeServer) InitConfig() {
 }
 
 func (srv *BfeServer) InitHttp() (err error) {
+	// disable cookie value sanitize
+	bfe_http.SetDisableSanitize(true)
+
 	// initialize http next proto handlers
 	httpNextProto := make(map[string]func(*bfe_http.Server, bfe_http.ResponseWriter, *bfe_http.Request))
 	httpNextProto[bfe_websocket.WebSocket] = bfe_websocket.NewProtoHandler(&bfe_websocket.Server{
@@ -311,8 +319,28 @@ func (srv *BfeServer) initTLSNextProtoHandler() {
 	bfe_http2.EnableLargeConnRecvWindow()
 }
 
-func (srv *BfeServer) InitModules(confRoot string) error {
-	return srv.Modules.Init(srv.CallBacks, srv.Monitor.WebHandlers, confRoot)
+func (srv *BfeServer) InitModules() error {
+	return srv.Modules.Init(srv.CallBacks, srv.Monitor.WebHandlers, srv.ConfRoot)
+}
+
+func (srv *BfeServer) LoadPlugins(plugins []string) error {
+	if len(plugins) == 0 {
+		return nil
+	}
+
+	for _, pluginPath := range plugins {
+		if err := srv.Plugins.RegisterPlugin(pluginPath); err != nil {
+			return err
+		}
+
+		log.Logger.Info("RegisterPlugin():pluginPath=%s", pluginPath)
+	}
+
+	return nil
+}
+
+func (srv *BfeServer) InitPlugins() error {
+	return srv.Plugins.Init(srv.CallBacks, srv.Monitor.WebHandlers, srv.ConfRoot)
 }
 
 func (srv *BfeServer) InitSignalTable() {

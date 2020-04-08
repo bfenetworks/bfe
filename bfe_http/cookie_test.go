@@ -366,3 +366,23 @@ func TestCookieSanitizePath(t *testing.T) {
 		}
 	}
 }
+
+func TestDisableSanitize(t *testing.T) {
+	SetDisableSanitize(true)
+	tests := []struct {
+		in, want string
+	}{
+		{"foo", "foo"},
+		{"foo bar", "foo bar"},
+		{"\x00\x7e\x7f\x80", "\x00\x7e\x7f\x80"},
+		{`"withquotes"`, "\"withquotes\""},
+	}
+	for _, tt := range tests {
+		if got, _ := parseCookieValue(tt.in); got != tt.want {
+			t.Errorf("after SetDisableSanitize, parseCookieValue(%q) = %q; want %q", tt.in, got, tt.want)
+		}
+		if got := sanitizeCookieValue(tt.in); got != tt.want {
+			t.Errorf("after SetDisableSanitize, sanitizeCookieValue(%q) = %q; want %q", tt.in, got, tt.want)
+		}
+	}
+}

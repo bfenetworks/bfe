@@ -23,9 +23,9 @@ Add user id to cookie for client identification.
   | Config Item | Type   | Description                                             |
   | ----------- | ------ | ------------------------------------------------------- |
   | Version     | String | Verson of config file                                   |
-  | Products    | Map    | key is product name,value is array, elememt is one rule |
+  | Config      | Map    | key is product name,value is array, elememt is one rule |
   
-  Products[\$product_name].[$index] config:
+  Config[\$product_name].[$index] config:
   
 
   | Config Item   | Description            |
@@ -39,7 +39,7 @@ Add user id to cookie for client identification.
   ```
   {
       "Version": "2019-12-10184356",
-      "Products": {
+      "Config": {
           "example_product": [
               {
                   "Cond": "req_path_prefix_in(\"/abc\", true)",

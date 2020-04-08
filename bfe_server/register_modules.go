@@ -31,7 +31,7 @@ func (srv *BfeServer) RegisterModules(modules []string) error {
 	}
 
 	for _, moduleName := range modules {
-		moduleName = strings.Trim(moduleName, " ")
+		moduleName = strings.TrimSpace(moduleName)
 		if len(moduleName) == 0 {
 			continue
 		}

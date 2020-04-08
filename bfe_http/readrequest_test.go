@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/url"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -161,7 +162,7 @@ var reqTests = []reqTest{
 		nil,
 		noBody,
 		noTrailer,
-		"parse ../../../../etc/passwd: invalid URI for request",
+		"invalid URI for request",
 	},
 
 	// Tests missing URL:
@@ -171,7 +172,7 @@ var reqTests = []reqTest{
 		nil,
 		noBody,
 		noTrailer,
-		"parse : empty url",
+		"empty url",
 	},
 
 	// Tests chunked body with trailer:
@@ -340,8 +341,8 @@ func TestReadRequest(t *testing.T) {
 		braw.WriteString(tt.Raw)
 		req, err := ReadRequest(bfe_bufio.NewReader(&braw), 8000)
 		if err != nil {
-			if err.Error() != tt.Error {
-				t.Errorf("#%d: error %q, want error %q", i, err.Error(), tt.Error)
+			if !strings.Contains(err.Error(), tt.Error) {
+				t.Errorf("#%d: error %q, want include error %q", i, err.Error(), tt.Error)
 			}
 			continue
 		}
