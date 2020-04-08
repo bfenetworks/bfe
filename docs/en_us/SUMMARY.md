@@ -3,8 +3,8 @@
 * Introduction
   * [Overview](overview.md)
   * [Comparsion to similar systems](introduction/comparison.md)
-  * [Glossary](introduction/glossary.md)
   * Design overview
+    * [Terminology](introduction/terminology.md)
     * [Traffic fowarding model](introduction/forward_model.md)
     * [Traffic routing](introduction/route.md)
     * [Traffic balancing](introduction/balance.md)
@@ -18,7 +18,7 @@
     * [Request Redirect](example/redirect.md)
     * [Request Rewrite](example/rewrite.md)
     * [TLS mutual authentication](example/client_auth.md)
-* Installation
+* [Installation](installation/install.md)
   * [Install from source](installation/install_from_source.md)
   * [Install using binaries](installation/install_using_binaries.md)
   * [Install using go get](installation/install_using_go_get.md)

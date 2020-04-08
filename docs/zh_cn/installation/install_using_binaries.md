@@ -2,7 +2,7 @@
 
 ## 下载文件
 
-- 下载地址：[https://github.com/baidu/bfe/releases](https://github.com/baidu/bfe/releases)
+- 从这里[下载BFE](https://github.com/baidu/bfe/releases)在各平台的最新版本
 
 ## 解压安装
 

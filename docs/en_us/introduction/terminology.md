@@ -1,4 +1,4 @@
-# Glossary
+# Terminology
 
 - Product
     - The product equals "tenant" in BFE, which has its own configuration, such as routing policy, permission, etc.

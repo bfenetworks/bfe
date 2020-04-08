@@ -2,8 +2,8 @@
 * 介绍
   * [BFE概览](overview.md)
   * [竞品对比](introduction/comparison.md)
-  * [相关术语](introduction/glossary.md)
   * 设计简介
+    * [相关术语](introduction/terminology.md)
     * [流量接入转发模型](introduction/forward_model.md)
     * [基于内容路由](introduction/route.md)
     * [流量负载均衡](introduction/balance.md)
@@ -16,7 +16,7 @@
     * [黑名单封禁](example/block.md)
     * [重定向](example/redirect.md)
     * [重写](example/rewrite.md)
-* 安装说明
+* [安装说明](installation/install.md)
   * [源码编译安装](installation/install_from_source.md)
   * [二进制文件下载安装](installation/install_using_binaries.md)
   * [go get方式安装](installation/install_using_go_get.md)
