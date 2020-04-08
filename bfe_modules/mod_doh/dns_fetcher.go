@@ -35,14 +35,19 @@ type DnsFetcher interface {
 type DnsClient struct {
 	address  string
 	retryMax int
-	timeout  int
+	client   dns.Client
 }
 
 func NewDnsClient(dnsConf *DnsConf) *DnsClient {
 	dnsClient := new(DnsClient)
 	dnsClient.address = dnsConf.Address
 	dnsClient.retryMax = dnsConf.RetryMax
-	dnsClient.timeout = dnsConf.Timeout
+	dnsClient.client = dns.Client{
+		Net:     "udp",
+		Timeout: time.Duration(dnsConf.Timeout) * time.Millisecond,
+		UDPSize: dns.MaxMsgSize,
+	}
+
 	return dnsClient
 }
 
@@ -50,14 +55,8 @@ func (c *DnsClient) exchangeWithRetry(msg *dns.Msg) (*dns.Msg, error) {
 	var reply *dns.Msg
 	var err error
 
-	client := dns.Client{
-		Net:     "udp",
-		Timeout: time.Duration(c.timeout) * time.Millisecond,
-		UDPSize: dns.MaxMsgSize,
-	}
-
 	for retry := 0; retry < c.retryMax+1; retry++ {
-		reply, _, err = client.Exchange(msg, c.address)
+		reply, _, err = c.client.Exchange(msg, c.address)
 		if err == nil {
 			return reply, nil
 		}
