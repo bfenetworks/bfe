@@ -49,5 +49,5 @@ The BFE community adheres to the following principles:
 should volunteer to be moved to emeritus status. 
 
 * In extreme cases this can also occur by a vote of the maintainers per the voting process. The voting 
-process is a simple majority in which each seniormaintainer receives two votes and each normal maintainer 
+process is a simple majority in which each senior maintainer receives two votes and each normal maintainer 
 receives one vote.
