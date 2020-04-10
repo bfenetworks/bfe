@@ -75,6 +75,7 @@
   * [安装相关](faq/installation.md)
   * [配置相关](faq/configuration.md)
   * [性能相关](faq/performance.md)
+  * [开发相关](faq/development.md)
 * 附录A: 监控
   * 协议 
     * [SSL/TLS](monitor/tls_state.md)

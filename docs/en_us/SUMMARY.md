@@ -77,6 +77,7 @@
   * [Installation](faq/installation.md)
   * [Configuration](faq/configuration.md)
   * [Performance](faq/performance.md)
+  * [Development](faq/development.md)
 * [Appendix A: Monitor](monitor.md)
   * Protocol 
     * [SSL/TLS](monitor/tls_state.md)
