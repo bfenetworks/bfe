@@ -71,7 +71,7 @@ type BfeServer struct {
 	TLSServerRule *TLSServerRuleMap
 
 	// server config
-	Config bfe_conf.BfeConfig
+	Config   bfe_conf.BfeConfig
 	ConfRoot string
 
 	// module and callback
@@ -329,7 +329,7 @@ func (srv *BfeServer) LoadPlugins(plugins []string) error {
 	}
 
 	for _, pluginPath := range plugins {
-		if err := srv.Plugins.RegisterPlugin(pluginPath); err != nil {
+		if err := srv.Plugins.RegisterPlugin(pluginPath, srv.Version); err != nil {
 			return err
 		}
 
