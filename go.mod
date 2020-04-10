@@ -19,8 +19,8 @@ require (
 	github.com/zmap/go-iptree v0.0.0-20170831022036-1948b1097e25
 	golang.org/x/crypto v0.0.0-20200117160349-530e935923ad
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
 	golang.org/x/sys v0.0.0-20200121082415-34d275377bf9
+	golang.org/x/tools v0.0.0-20200409210453-700752c24408 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/warnings.v0 v0.1.2 // indirect
