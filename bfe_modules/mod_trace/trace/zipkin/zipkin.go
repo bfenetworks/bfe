@@ -27,7 +27,6 @@
 package zipkin
 
 import (
-	"fmt"
 	"io"
 	"time"
 )
@@ -56,22 +55,6 @@ func (c *Config) SetDefaults() {
 	c.SameSpan = false
 	c.ID128Bit = true
 	c.SampleRate = 1.0
-}
-
-// Check config is right
-func (c *Config) Check() error {
-	if c == nil {
-		return fmt.Errorf("not set zipkin config")
-	}
-
-	if len(c.HTTPEndpoint) == 0 {
-		return fmt.Errorf("not set zipkin HTTPEndpoint")
-	}
-
-	if c.SampleRate < 0.0001 || c.SampleRate > 1 {
-		return fmt.Errorf("rate should be 0.0 or between 0.0001 and 1: was %f", c.SampleRate)
-	}
-	return nil
 }
 
 // Setup sets up the tracer

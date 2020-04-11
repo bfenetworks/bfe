@@ -2,61 +2,75 @@
 
 Block incoming connection/request based on defined rules.
 
-# Configuration
+# Module Configuration
 
-- Module config file
+## Description
+conf/mod_block/mod_block.conf
 
-  conf/mod_block/mod_block.conf
+| Config Item | Description | 
+| ----------- | ----------- |
+| Basic.ProductRulePath | path of product rule configuration |
+| Basic.IPBlacklistPath | path of ip blacklist file |
 
-  ```
-  [basic]
-  # product rule config file path
-  ProductRulePath = ../conf/mod_block/block_rules.data
-  
-  # global ip blacklist file path
-  IPBlacklistPath = ../conf/mod_block/ip_blacklist.data
-  ```
+## Example
+```
+[basic]
+# product rule config file path
+ProductRulePath = ../conf/mod_block/block_rules.data
 
-- Data config file
+# global ip blacklist file path
+IPBlacklistPath = ../conf/mod_block/ip_blacklist.data
+```
 
-  - ip blacklist file
+Format of IPBlacklistPath file
 
-    conf/mod_block/ip_blacklist.data
+```
+192.168.1.253 192.168.1.254
+192.168.1.250
+```
 
-    ```
-    192.168.1.253 192.168.1.254
-    192.168.1.250
-    ```
+# Rule configuration
 
-  - block rules file
+## Description
 
-    conf/mod_block/block_rules.data
+conf/mod_block/block_rules.data
 
-| Config Item | Type   | Description                                                  |
-| ----------- | ------ | ------------------------------------------------------------ |
-| Version     | String | Verson of config file                                        |
-| Config      | Struct | Block rules for each product. Block rule include: <br>- Cond: "condition" expression <br>- Action: what to do after matched<br>- Name: rule name |
+| Config Item | Description                                                  |
+| ----------- | ------------------------------------------------------------ |
+| Version     | String<br>Verson of config file |
+| Config      | Struct<br>Block rules for each product |
+| Config{k}   | String<br>Product name |
+| Config{v}   | Object<br>a list of rules |
+| Config{v}[] | Object<br>a block rule |
+| Config{v}[].Cond | String<br>Condition expression, See [Condition](../../condition/condition_grammar.md) |
+| Config{v}[].Name | String<br>Name of rule |
+| Config{v}[].Action | Object<br>Action of rule |
+| Config{v}[].Action.Cmd | String<br>Name of action |
+| Config{v}[].Action.Params | Object<br>a list of action parameters |
+| Config{v}[].Action.Params[] | String<br>a action parameter |
+
+## Actions
   
 | Action | Description          |
 | ------ | -------------------- |
 | CLOSE  | Close the connection |
   
-    ```
-    {
-      "Version": "20190101000000",
-      "Config": {
-          "example_product": [
-              {
-                "action": {
-                      "cmd": "CLOSE",
-                      "params": []
-                  },
-                  "name": "example rule",
-                  "cond": "req_path_in(\"/limit\", false)"            
-              }
-          ]
-      }
-    }
-    ```
-  
-  
+## Example
+
+```
+{
+  "Version": "20190101000000",
+  "Config": {
+      "example_product": [
+          {
+            "action": {
+                  "cmd": "CLOSE",
+                  "params": []
+              },
+              "name": "example rule",
+              "cond": "req_path_in(\"/limit\", false)"            
+          }
+      ]
+  }
+}
+```

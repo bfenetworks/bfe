@@ -2,37 +2,48 @@
 
 Check client IP of incoming request against trusted ip dict. If matched, mark request/connection is trusted.
 
-# Configuration
+# Module configuration
 
-- Module config file
+## Description
+conf/mod_trust_clientip/mod_trust_clientip.conf
 
-  conf/mod_trust_clientip/mod_trust_clientip.conf
+| Config Item | Description                             |
+| ----------- | --------------------------------------- |
+| Basic.DataPath | String<br>path of rule configuraiton |
 
-  ```
-  [basic]
-  DataPath = ../conf/mod_trust_clientip/trust_client_ip.data
-  ```
+## Example
+```
+[basic]
+DataPath = ../conf/mod_trust_clientip/trust_client_ip.data
+```
 
-- Trusted IP data file
+# Rule configuraiton
 
+## Description
   conf/mod_trust_clientip/trust_client_ip.data
 
-| Config Item | Type   | Description                                                     |
-| ----------- | ------ | --------------------------------------------------------------- |
-| Version     | String | Verson of config file                                           |
-| Config      | Struct | trusted client ip dict. Key: lable, Value: a list of IP segment |
+| Config Item       | Type   | Description                                                     |
+| ----------------- | ------ | --------------------------------------------------------------- |
+| Version           | String | Verson of config file                                           |
+| Config            | Object | trusted ip config |
+| Config{k}         | Struct | label
+| Config{v}         | String | A list of ip segments |
+| Config{v}[]       | Object | A ip segment |
+| Config{v}[].Begin | String | start ip address |
+| Config{v}[].End   | String | end ip address |
 
-  ```
-  {
-      "Version": "20190101000000",
-      "Config": {
-          "inner-idc": [
-              {
-                  "Begin": "10.0.0.0",
-                  "End": "10.255.255.255"
-              }
-          ]
-      }
-  }
-  ```
+## Example
+```
+{
+    "Version": "20190101000000",
+    "Config": {
+        "inner-idc": [
+            {
+                "Begin": "10.0.0.0",
+                "End": "10.255.255.255"
+            }
+        ]
+    }
+}
+```
 

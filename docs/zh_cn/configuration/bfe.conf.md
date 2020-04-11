@@ -58,16 +58,16 @@ bfe.conf是BFE的核心配置
 # 配置示例
 
 ```
-[server]
+[Server]
 # listen port for http request
-httpPort = 8080
+HttpPort = 8080
 # listen port for https request
-httpsPort = 8443
+HttpsPort = 8443
 # listen port for monitor request
-monitorPort = 8421
+MonitorPort = 8421
 
 # max number of CPUs to use (0 to use all CPUs)
-maxCpus = 0
+MaxCpus = 0
 
 # type of layer-4 load balancer (PROXY/BGW/NONE)
 #
@@ -76,65 +76,65 @@ maxCpus = 0
 #          eg. F5 BigIP/Citrix ADC
 # - BGW: Baidu GateWay
 # - NONE: layer-4 balancer disabled
-layer4LoadBalancer = ""
+Layer4LoadBalancer = ""
 
 # tls handshake timeout, in seconds
-tlsHandshakeTimeout = 30
+TlsHandshakeTimeout = 30
 
 # read timeout, in seconds
-clientReadTimeout = 60
+ClientReadTimeout = 60
 
 # write timeout, in seconds
-clientWriteTimeout = 60
+ClientWriteTimeout = 60
 
 # if false, client connection is shutdown disregard of http headers
-keepAliveEnabled = true
+KeepAliveEnabled = true
 
 # timeout for graceful shutdown (maximum 300 sec)
-gracefulShutdownTimeout = 10
+GracefulShutdownTimeout = 10
 
 # max header length in bytes in request
-maxHeaderBytes = 1048576
+MaxHeaderBytes = 1048576
 
 # max URI(in header) length in bytes in request
-maxHeaderUriBytes = 8192
+MaxHeaderUriBytes = 8192
 
 # routing related conf
-hostRuleConf = server_data_conf/host_rule.data
-vipRuleConf = server_data_conf/vip_rule.data
-routeRuleConf = server_data_conf/route_rule.data
-clusterConf = server_data_conf/cluster_conf.data
+HostRuleConf = server_data_conf/host_rule.data
+VipRuleConf = server_data_conf/vip_rule.data
+RouteRuleConf = server_data_conf/route_rule.data
+ClusterConf = server_data_conf/cluster_conf.data
 
 # load balancing related conf
-gslbConf = cluster_conf/gslb.data
-clusterTableConf = cluster_conf/cluster_table.data
+GslbConf = cluster_conf/gslb.data
+ClusterTableConf = cluster_conf/cluster_table.data
 
 # naming related conf
-nameConf = server_data_conf/name_conf.data
+NameConf = server_data_conf/name_conf.data
 
 # moduels enabled
-modules = mod_trust_clientip
-modules = mod_block
-modules = mod_header
-modules = mod_rewrite
-modules = mod_redirect
-modules = mod_logid
+Modules = mod_trust_clientip
+Modules = mod_block
+Modules = mod_header
+Modules = mod_rewrite
+Modules = mod_redirect
+Modules = mod_logid
 
 # interval for get diff of proxy-state
-monitorInterval = 20
+MonitorInterval = 20
 
 # debug flags
-debugServHttp = false
-debugBfeRoute = false
-debugBal = false
-debugHealthCheck = false
+DebugServHttp = false
+DebugBfeRoute = false
+DebugBal = false
+DebugHealthCheck = false
 
-[httpsBasic]
+[HttpsBasic]
 # tls cert conf
-serverCertConf = tls_conf/server_cert_conf.data
+ServerCertConf = tls_conf/server_cert_conf.data
 
 # tls rule
-tlsRuleConf = tls_conf/tls_rule_conf.data
+TlsRuleConf = tls_conf/tls_rule_conf.data
 
 # supported cipherSuites preference settings
 #
@@ -157,16 +157,16 @@ tlsRuleConf = tls_conf/tls_rule_conf.data
 #
 # Note:
 # -. Equivalent cipher suites (cipher suites with same priority in server side):
-#    cipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
-#    cipherSuites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+#    CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+#    CipherSuites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
 #
-cipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
-cipherSuites=TLS_ECDHE_RSA_WITH_RC4_128_SHA
-cipherSuites=TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
-cipherSuites=TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
-cipherSuites=TLS_RSA_WITH_RC4_128_SHA
-cipherSuites=TLS_RSA_WITH_AES_128_CBC_SHA
-cipherSuites=TLS_RSA_WITH_AES_256_CBC_SHA
+CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+CipherSuites=TLS_ECDHE_RSA_WITH_RC4_128_SHA
+CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+CipherSuites=TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+CipherSuites=TLS_RSA_WITH_RC4_128_SHA
+CipherSuites=TLS_RSA_WITH_AES_128_CBC_SHA
+CipherSuites=TLS_RSA_WITH_AES_256_CBC_SHA
 
 # supported curve perference settings
 #
@@ -178,40 +178,40 @@ cipherSuites=TLS_RSA_WITH_AES_256_CBC_SHA
 # Note:
 # - Do not use CurveP384/CurveP521 which is with poor performance
 #
-curvePreferences=CurveP256
+CurvePreferences=CurveP256
 
 # support Sslv2 ClientHello for compatible with ancient 
 # TLS capable clients (mozilla 5, java 5/6, openssl 0.9.8 etc)
-enableSslv2ClientHello = true
+EnableSslv2ClientHello = true
 
 # base directory of client ca certificates
 # Note: filename suffix of ca certificate file should be ".crt"
-clientCABaseDir = tls_conf/client_ca
+ClientCABaseDir = tls_conf/client_ca
 
-[sessionCache]
+[SessionCache]
 # disable tls session cache or not
-sessionCacheDisabled = true
+SessionCacheDisabled = true
 
 # address of cache server
-servers = "example.redis.cluster"
+Servers = "example.redis.cluster"
 
 # prefix for cache key
-keyPrefix = "bfe"
+KeyPrefix = "bfe"
 
 # connection params (ms)
-connectTimeout = 50
-readTimeout = 50
-writeTimeout = 50
+ConnectTimeout = 50
+ReadTimeout = 50
+WriteTimeout = 50
 
 # max idle connections in connection pool
-maxIdle = 20
+MaxIdle = 20
 
 # expire time for tls session state (second)
-sessionExpire = 3600
+SessionExpire = 3600
 
-[sessionTicket]
+[SessionTicket]
 # disable tls session ticket or not
-sessionTicketsDisabled = true
+SessionTicketsDisabled = true
 # session ticket key
-sessionTicketKeyFile = tls_conf/session_ticket_key.data
+SessionTicketKeyFile = tls_conf/session_ticket_key.data
 ```

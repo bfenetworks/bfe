@@ -1,10 +1,16 @@
-# Method
+# Request method related primitives
 
-- **req_method_in(patterns)**
-  - Judge if request method matches configured patterns
-  - **patterns** represent a set of patterns. The pattern should be GET/POST/PUT/DELETE.
-  - **patterns** format: "pattern1|pattern2".
-  ```
-  # if the method of request is GET or POST
-  req_method_in("GET|POST")
-  ```
+## req_method_in(method_list)
+* Descrption: Judge if request method matches configured patterns
+
+* Parameters
+
+| Parameter | Description |
+| --------- | ----------- |
+| method_list | String<br>a list of methods which are concatenated by &#124;. <br>valid method:GET/POST/PUT/DELETE |
+
+* Example
+
+```
+req_method_in("GET|POST")
+```

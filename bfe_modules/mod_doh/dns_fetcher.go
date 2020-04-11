@@ -33,15 +33,40 @@ type DnsFetcher interface {
 }
 
 type DnsClient struct {
-	address string
-	timeout int
+	address  string
+	retryMax int
+	client   dns.Client
 }
 
 func NewDnsClient(dnsConf *DnsConf) *DnsClient {
 	dnsClient := new(DnsClient)
 	dnsClient.address = dnsConf.Address
-	dnsClient.timeout = dnsConf.Timeout
+	dnsClient.retryMax = dnsConf.RetryMax
+	dnsClient.client = dns.Client{
+		Net:     "udp",
+		Timeout: time.Duration(dnsConf.Timeout) * time.Millisecond,
+		UDPSize: dns.MaxMsgSize,
+	}
+
 	return dnsClient
+}
+
+func (c *DnsClient) exchangeWithRetry(msg *dns.Msg) (*dns.Msg, error) {
+	var reply *dns.Msg
+	var err error
+
+	for retry := 0; retry < c.retryMax+1; retry++ {
+		reply, _, err = c.client.Exchange(msg, c.address)
+		if err == nil {
+			return reply, nil
+		}
+
+		if openDebug {
+			log.Logger.Debug("dns client: Exchange error: %v, retry: %d", err, retry)
+		}
+	}
+
+	return nil, err
 }
 
 func (c *DnsClient) Fetch(req *bfe_basic.Request) (*bfe_http.Response, error) {
@@ -54,17 +79,8 @@ func (c *DnsClient) Fetch(req *bfe_basic.Request) (*bfe_http.Response, error) {
 		return nil, err
 	}
 
-	client := dns.Client{
-		Net:     "udp",
-		Timeout: time.Duration(c.timeout) * time.Millisecond,
-		UDPSize: dns.MaxMsgSize,
-	}
-	reply, _, err := client.Exchange(msg, c.address)
+	reply, err := c.exchangeWithRetry(msg)
 	if err != nil {
-		if openDebug {
-			log.Logger.Debug("dns client: Exchange error: %v", err)
-		}
-
 		return nil, err
 	}
 

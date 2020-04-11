@@ -1,20 +1,28 @@
-# Time
+# Time related primitves
 
-## Condition Primitive
+## bfe_time_range(start_time, end_time)
+* Descrption: Judge if current time is in [start_time, end_time]
 
-- **bfe_time_range(start_time, end_time)**
-  - Judge if current time is in [start_time, end_time]
-  - Time format：yyyymmddhhmmssZ，Z is time zone，detail information is shown in Section "Time Zone Detail"
-  ```
-  # time is in 2019-02-04 20:30～20:45 of Hotel Time Zone
-  bfe_time_range("20190204203000H", "20190204204500H")
-  ```
+* Parameters
 
-## Condition Primitive Test
+| Parameter | Descrption |
+| --------- | ---------- |
+| start_time | String<br>start time |
+| end_time | String<br> end time |
+
+Time format：yyyymmddhhmmssZ，Z is time zone，detail information is shown in Section "Time Zone Detail"
+
+* Example
+
+```
+bfe_time_range("20190204203000H", "20190204204500H")
+```
+
+## Appendix A: Condition Primitive Test
 
 - In order to test time condition primitive,  **X-Bfe-Debug-Time** can be added in header of request to mock system time
 
-## Time Zone Detail
+## Appendix B: Time Zone Detail
 
 | **Time zone name** | **Letter** | **Offset**                                             | **Description**     |
 | :----------------- | :--------- | :----------------------------------------------------- | :------------------ |
