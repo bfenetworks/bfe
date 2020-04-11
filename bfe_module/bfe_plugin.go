@@ -37,7 +37,7 @@ func NewBfePlugins() *BfePlugins {
 }
 
 // RegisterPlugin loads a plugin created with `go build -buildmode=plugin`
-func (p *BfePlugins) RegisterPlugin(path string) error {
+func (p *BfePlugins) RegisterPlugin(path string, BFEVersion string) error {
 	plugin, err := goplugin.Open(path)
 	if err != nil {
 		return fmt.Errorf("RegisterPlugin Open plugin path %v err:%v", path, err)
@@ -48,15 +48,28 @@ func (p *BfePlugins) RegisterPlugin(path string) error {
 		return fmt.Errorf("RegisterPlugin Lookup Name err:%v", err)
 	}
 
+	versionSym, err := plugin.Lookup("Version")
+	if err != nil {
+		return fmt.Errorf("RegisterPlugin Lookup Version err:%v", err)
+	}
+
 	initSym, err := plugin.Lookup("Init")
 	if err != nil {
 		return fmt.Errorf("RegisterPlugin Lookup Init err:%v", err)
 	}
 
+	version := *versionSym.(*string)
+
+	// TODO: check version is cheap. It is recommended to maintain the bfe_module separately
+	if BFEVersion != version {
+		return fmt.Errorf("RegisterPlugin Requires version BFE and Plugin to be the same. BFE version:%s, Plugin version:%s", BFEVersion, version)
+	}
+
 	pluginInfo := &PluginInfo{
-		Name: *nameSym.(*string),
-		Path: path,
-		Init: initSym.(func(cbs *BfeCallbacks, whs *web_monitor.WebHandlers, cr string) error),
+		Name:    *nameSym.(*string),
+		Version: version,
+		Path:    path,
+		Init:    initSym.(func(cbs *BfeCallbacks, whs *web_monitor.WebHandlers, cr string) error),
 	}
 	p.workPlugins[pluginInfo.Name] = pluginInfo
 
@@ -77,7 +90,7 @@ func (p *BfePlugins) Init(cbs *BfeCallbacks, whs *web_monitor.WebHandlers, cr st
 			return err
 		}
 
-		log.Logger.Info("%s:Init() OK", pl.Name)
+		log.Logger.Info("%s:Init() Version:%s OK", pl.Name, pl.Version)
 	}
 
 	return nil

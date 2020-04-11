@@ -22,7 +22,7 @@ type PluginInfo struct {
 	Name        string
 	Version     string
 	Description string
-	Kind        string // TODO plugin kid
+	Kind        string // TODO plugin kind
 	Path        string
 	Init        func(cbs *BfeCallbacks, whs *web_monitor.WebHandlers, cr string) error
 }
