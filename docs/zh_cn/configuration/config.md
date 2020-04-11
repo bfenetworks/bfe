@@ -20,6 +20,6 @@ BFE的核心配置是bfe.conf (conf/bfe.conf)，为便于维护, 配置按功能
 | 扩展模块配置 | conf/mod_&#60;name&#62; 目录 |
 
 ## BFE配置热加载
-详见[配置热加载](operation/reload.md)
+详见[配置热加载](../operation/reload.md)
 
 
