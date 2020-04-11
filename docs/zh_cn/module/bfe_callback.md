@@ -69,7 +69,7 @@ BFE转发过程中的回调点如下图所示。
 - 适用回调点：
   + HandleForward
 - 回调函数形式：
-  + (req *bfe_basic.Request) int 
+  + handler(req *bfe_basic.Request) int 
 
 ### HandlersResponse
 
