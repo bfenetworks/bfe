@@ -9,7 +9,7 @@
 如果可能是安全相关问题，请您单独邮件联系 bfe-security@baidu.com
 
 ## 参与BFE开发
-欢迎您在按[流程](https://github.com/baidu/bfe/blob/develop/CONTRIBUTING.md) 在https://github.com/baidu/bfe 参与贡献代码及文档，也欢迎邮件我们 bfe-osc@baidu.com交流
+欢迎您按[流程](https://github.com/baidu/bfe/blob/develop/CONTRIBUTING.md) 在https://github.com/baidu/bfe 参与贡献代码及文档，也欢迎邮件我们 bfe-osc@baidu.com交流
 
 ## 申请专项合作
 欢迎邮件我们 bfe-osc@baidu.com 洽谈

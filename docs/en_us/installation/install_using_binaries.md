@@ -2,7 +2,7 @@
 
 ## Download binaries
 
-- Download address: [https://github.com/baidu/bfe/releases](https://github.com/baidu/bfe/releases)
+- [Download the latest release](https://github.com/baidu/bfe/releases) of BFE for your platfrom.
 
 ## Extract
 
@@ -13,6 +13,8 @@ $ tar zxvf bfe_<version>_<os>_<arch>.tar.gz
 ```
 
 ## Run
+
+- Run BFE with example configuration files:
 
 ```
 $ cd bfe/bin

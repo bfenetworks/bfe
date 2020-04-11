@@ -4,12 +4,12 @@ host_rule.data records the domain names for each product.
 
 # Configuration
 
-| Config Item    | Type   | Description                                                  |
-| -------------- | ------ | ------------------------------------------------------------ |
-| Version        | String | Verson of config file                                        |
-| DefaultProduct | String | Default product name.                                        |
-| HostTags       | Struct | HostTag list for each product                                |
-| Hosts          | Struct | Host list for each HostTag                                   |
+| Config Item    | Description                                                  |
+| -------------- | ------------------------------------------------------------ |
+| Version        | String<br>Verson of config file                                        |
+| DefaultProduct | String<br>Default product name.                                        |
+| HostTags       | Struct<br>HostTag list for each product                                |
+| Hosts          | Struct<br>Host list for each HostTag                                   |
 
 # Example
 

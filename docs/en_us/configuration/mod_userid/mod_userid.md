@@ -2,68 +2,69 @@
 
 Add user id to cookie for client identification.
 
-# Configuration
+# Module configuration
 
-- Module config file
+## Description
+conf/mod_userid/mod_userid.conf
 
-  conf/mod_userid/mod_userid.conf
+| Config Item | Description                             |
+| ----------- | --------------------------------------- |
+| Basic.DataPath | String<br>path of rule configuraiton |
+| Log.OpenDebug | Boolean<br>debug flag of module |
 
-  ```
-  [basic]
-  DataPath = mod_userid/userid_rule.data
+## Example
+```
+[basic]
+DataPath = mod_userid/userid_rule.data
 
-  [Log]
-  OpenDebug = true
-  ```
+[Log]
+OpenDebug = true
+```
 
-- Rule config file
+# Rule configuration
 
-  conf/mod_userid/userid_rule.data
+## Description
+conf/mod_userid/userid_rule.data
 
-  | Config Item | Type   | Description                                             |
-  | ----------- | ------ | ------------------------------------------------------- |
-  | Version     | String | Verson of config file                                   |
-  | Config      | Map    | key is product name,value is array, elememt is one rule |
-  
-  Config[\$product_name].[$index] config:
-  
+| Config Item | Description                                             |
+| ----------- | ------------------------------------------------------- |
+| Version     | String<br>Verson of config file |
+| Config | Object<br>rules for each product |
+| Config{k} | String<br>Product name |
+| Config{v} | Object<br>A list of rules |
+| Config{v}[] | Object<br>A rule |
+| Config{v}[].Cond          | String<br>Condition expression, See [Condition](../../condition/condition_grammar.md) |
+| Config{v}[].Params.Name   | String<br>the cookie name        |
+| Config{v}[].Params.Domain | String<br>the cookie domain      |
+| Config{v}[].Params.Path   | String<br>the cookie path        |
+| Config{v}[].Params.MaxAge | Integer<br>the cookie max age     |
 
-  | Config Item   | Description            |
-  | ------------- | ---------------------- |
-  | Cond          | "condition" expression |
-  | Params.Name   | the cookie name        |
-  | Params.Domain | the cookie domain      |
-  | Params.Path   | the cookie path        |
-  | Params.MaxAge | the cookie max age     |
-
-  ```
-  {
-      "Version": "2019-12-10184356",
-      "Config": {
-          "example_product": [
-              {
-                  "Cond": "req_path_prefix_in(\"/abc\", true)",
-                  "Params": {
-                       "Name": "bfe_userid_abc",
-                       "Domain": "",
-                       "Path": "/abc",
-                       "MaxAge": 3153600
-                   },
-                   "Generator": "default"
-              }, 
-              {
-                  "Cond": "default_t()",
-                  "Params": {
-                       "Name": "bfe_userid",
-                       "Domain": "",
-                       "Path": "/",
-                       "MaxAge": 3153600
-                   }
-              }
-          ]
-      }
-  }
-  ```
-
-  
-
+## Example
+```
+{
+    "Version": "2019-12-10184356",
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "req_path_prefix_in(\"/abc\", true)",
+                "Params": {
+                     "Name": "bfe_userid_abc",
+                     "Domain": "",
+                     "Path": "/abc",
+                     "MaxAge": 3153600
+                 },
+                 "Generator": "default"
+            }, 
+            {
+                "Cond": "default_t()",
+                "Params": {
+                     "Name": "bfe_userid",
+                     "Domain": "",
+                     "Path": "/",
+                     "MaxAge": 3153600
+                 }
+            }
+        ]
+    }
+}
+```

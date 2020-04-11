@@ -1,8 +1,19 @@
-# Tag
+# Request tag related primtives
 
-- **req_tag_match(tagName, tagValue)**
-  - Judge if request tag matches configured value
-  ```
-  # if clientIP tag is blacklist
-  req_tag_match("clientIP", "blacklist")
-  ```
+## req_tag_match(tagName, tagValue)
+* Description: Judge if request tag matches configured value
+
+
+* Parameters
+
+| Parameter | Description |
+| --------- | ----------- |
+| tagName | String<br>tag name |
+| tagValue | String<br>tag value |
+
+
+* Example
+
+```
+req_tag_match("clientIP", "blacklist")
+```
