@@ -22,4 +22,4 @@ we split it into a set of feature-specific files stored in the conf/&#60;feature
 
 ## Reloading Configuration
 
-See [Reloading configuration](operation/reload.md)
+See [Reloading configuration](../operation/reload.md)
