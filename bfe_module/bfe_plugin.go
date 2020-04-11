@@ -24,6 +24,10 @@ import (
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
 )
 
+import (
+	"github.com/baidu/bfe/bfe_util/semver"
+)
+
 type BfePlugins struct {
 	workPlugins map[string]*PluginInfo // work plugins, configure in bfe conf file
 }
@@ -60,8 +64,18 @@ func (p *BfePlugins) RegisterPlugin(path string, BFEVersion string) error {
 
 	version := *versionSym.(*string)
 
-	// TODO: check version is cheap. It is recommended to maintain the bfe_module separately
-	if BFEVersion != version {
+	// Compare versions bfe major version and plugin major version
+	bfeVersion, err := semver.New(BFEVersion)
+	if err != nil {
+		return fmt.Errorf("RegisterPlugin bfe version err:%v", err)
+	}
+
+	pluginVersion, err := semver.New(version)
+	if err != nil {
+		return fmt.Errorf("RegisterPlugin plugin version err:%v", err)
+	}
+
+	if bfeVersion.CompareMajor(pluginVersion) != 0 {
 		return fmt.Errorf("RegisterPlugin Requires version BFE and Plugin to be the same. BFE version:%s, Plugin version:%s", BFEVersion, version)
 	}
 
