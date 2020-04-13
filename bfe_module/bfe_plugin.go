@@ -41,7 +41,7 @@ func NewBfePlugins() *BfePlugins {
 }
 
 // RegisterPlugin loads a plugin created with `go build -buildmode=plugin`
-func (p *BfePlugins) RegisterPlugin(path string, BFEVersion string) error {
+func (p *BfePlugins) RegisterPlugin(path string, bfeVersion string) error {
 	plugin, err := goplugin.Open(path)
 	if err != nil {
 		return fmt.Errorf("RegisterPlugin Open plugin path %v err:%v", path, err)
@@ -65,18 +65,16 @@ func (p *BfePlugins) RegisterPlugin(path string, BFEVersion string) error {
 	version := *versionSym.(*string)
 
 	// Compare versions bfe major version and plugin major version
-	bfeVersion, err := semver.New(BFEVersion)
+	bfeVer, err := semver.New(bfeVersion)
 	if err != nil {
 		return fmt.Errorf("RegisterPlugin bfe version err:%v", err)
 	}
-
-	pluginVersion, err := semver.New(version)
+	pluginVer, err := semver.New(version)
 	if err != nil {
 		return fmt.Errorf("RegisterPlugin plugin version err:%v", err)
 	}
-
-	if bfeVersion.CompareMajor(pluginVersion) != 0 {
-		return fmt.Errorf("RegisterPlugin Requires version BFE and Plugin to be the same. BFE version:%s, Plugin version:%s", BFEVersion, version)
+	if bfeVer.CompareMajor(pluginVer) != 0 {
+		return fmt.Errorf("RegisterPlugin Major version not match, bfe:%s, plugin:%s", bfeVersion, version)
 	}
 
 	pluginInfo := &PluginInfo{
