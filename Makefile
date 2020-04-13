@@ -27,7 +27,14 @@ GOTEST       := $(GO) test
 GOVET        := $(GO) vet
 GOGET        := $(GO) get
 GOGEN        := $(GO) generate
+GOFLAGS      := -race
 STATICCHECK  := staticcheck
+
+# init arch
+ARCH := $(shell getconf LONG_BIT)
+ifeq ($(ARCH),64)
+	GOTEST += $(GOFLAGS)
+endif
 
 # init bfe version
 BFE_VERSION ?= $(shell cat VERSION)
@@ -60,7 +67,7 @@ vet-case:
 # make coverage for codecov
 coverage:
 	echo -n > coverage.txt
-	for pkg in $(BFE_PKGS) ; do $(GOTEST) -race -coverprofile=profile.out -covermode=atomic $${pkg} && cat profile.out >> coverage.txt; done
+	for pkg in $(BFE_PKGS) ; do $(GOTEST) -coverprofile=profile.out -covermode=atomic $${pkg} && cat profile.out >> coverage.txt; done
 
 # make package
 package:
