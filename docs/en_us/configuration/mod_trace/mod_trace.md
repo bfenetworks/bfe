@@ -6,6 +6,8 @@ Enable trace for requests based on defined rules.
 
 ## Description
  conf/mod_trace/mod_trace.conf
+ 
+### Basic configuration
 
 | Config Item                   | Description                     |
 | ------------------------------| --------------------------------|
@@ -13,10 +15,20 @@ Enable trace for requests based on defined rules.
 | Basic.ServiceName             | String<br>service name |
 | Basic.TraceAgent              | String<br>which trace agent to use (jaeger/zipkin) | 
 | Log.OpenDebug                 | Boolean<br>debug flag of module |
+
+### Configuration about Zipkin
+
+| Config Item                   | Description                     |
+| ------------------------------| --------------------------------|
 | Zipkin.HTTPEndpoint           | String<br>http endpoint to report traces to |
 | Zipkin.SameSpan               | String<br>whether to use Zipkin SameSpan RPC style traces |
 | Zipkin.ID128Bit               | String<br>whether to use 128 bit root span IDs |
 | Zipkin.SampleRate             | Float<br>the rate between 0.0001 and 1.0 of requests to trace |
+
+### Configuration about Jaeger
+
+| Config Item                   | Description                     |
+| ------------------------------| --------------------------------|
 | Jaeger.SamplingServerURL      | String<br>the address of jaeger-agent's HTTP sampling server |
 | Jaeger.SamplingType           | String<br>the type of the sampler: const, probabilistic, rateLimiting, or remote |
 | Jaeger.SamplingParam          | Float<br>param passed to the sampler |
@@ -28,20 +40,19 @@ Enable trace for requests based on defined rules.
 | Jaeger.CollectorUser          | String<br>basic http authentication when sending spans to jaeger-collector |
 | Jaeger.CollectorPassword      | String<br>basic http authentication when sending spans to jaeger-collector |
 
-
-
 ## Example
+
+### Example for Zipkin
 ```
 [Basic]
 DataPath = mod_trace/trace_rule.data
 ServiceName = bfe
 
 # Which trace agent to use (zipkin, jaeger)
-TraceAgent = jaeger
+TraceAgent = zipkin
 
 [Log]
 OpenDebug = false
-
 
 [Zipkin]
 # Zipkin, only useful when the TraceAgent is zipkin
@@ -57,7 +68,20 @@ ID128Bit = true
 
 # The rate between 0.0001 and 1.0 of requests to trace
 SampleRate = 1.0
+```
 
+### Example for Jaeger
+
+```
+[Basic]
+DataPath = mod_trace/trace_rule.data
+ServiceName = bfe
+
+# Which trace agent to use (zipkin, jaeger)
+TraceAgent = zipkin
+
+[Log]
+OpenDebug = false
 
 [Jaeger]
 # Jaeger, only useful when the TraceAgent is jaeger
