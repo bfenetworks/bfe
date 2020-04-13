@@ -433,13 +433,13 @@ func ClusterConfCheck(conf *ClusterConf) error {
 }
 
 // ClusterToConfCheck check ClusterToConf.
-func ClusterToConfCheck(conf *ClusterToConf) error {
-	for clusterName, clusterConf := range *conf {
+func ClusterToConfCheck(conf ClusterToConf) error {
+	for clusterName, clusterConf := range conf {
 		err := ClusterConfCheck(&clusterConf)
-
 		if err != nil {
 			return fmt.Errorf("conf for %s:%s", clusterName, err.Error())
 		}
+		conf[clusterName] = clusterConf
 	}
 	return nil
 }
@@ -457,7 +457,7 @@ func BfeClusterConfCheck(conf *BfeClusterConf) error {
 		return errors.New("no Config")
 	}
 
-	err := ClusterToConfCheck(conf.Config)
+	err := ClusterToConfCheck(*conf.Config)
 	if err != nil {
 		return fmt.Errorf("BfeClusterConf.Config:%s", err.Error())
 	}

@@ -1,58 +1,96 @@
-# 请求Header相关
+# 请求头部相关条件原语
 
-## 通用原语参数
+## req_header_key_in(key_list)
+* 含义： 判断请求头部中key是否为key_list之一
+    * 注：Header名称使用HTTP协议规范形式
+* 参数  
 
-- header_name：字符串，请求header中的key
-- patterns：字符串，表示多个可匹配的pattern，用‘|’连接
-- case_insensitive：bool类型，是否忽略大小写
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| key_list | String<br>key列表, 多个之间使用‘&#124;’连接 |  
 
-## 请求Header原语
-
-- **req_header_key_in(patterns)**
-  - 判断请求头部中key是否为patterns之一
-  - **注意：Header名称使用HTTP协议规范形式**
-  ```
-  # 正确：
-  req_header_key_in(“Header-Test”)
+* 示例
+```
+# 正确：
+req_header_key_in("Header-Test")
   
-  #错误：
-  req_header_key_in(“Header-test”)
-  req_header_key_in(“header-test”)
-  req_header_key_in(“header-Test”)
-  ```
-  
-- **req_header_value_in(header_name, patterns, case_insensitive)**
-  - 判断http消息头部字段是否为patterns之一
-  ```
-  # header中Host值为XXX.com的请求
-  req_header_value_in("Host", "XXX.com", true)
-  ```
+#错误：
+req_header_key_in("Header-test")
+req_header_key_in("header-test")
+req_header_key_in("header-Test")
+```
 
-- **req_header_value_prefix_in(header_name, patterns, case_insensitive)**
-  - 判断http消息头部字段值是否前缀匹配patterns之一
-  ```
-  # header中Host值前缀为XXX的请求
-  req_header_prefix_value_in("Host", "XXX", true)
-  ```
+## req_header_value_in(header_name, value_list, case_insensitive)
+* 含义： 判断http消息头部字段是否为value_list之一
+* 参数  
 
-- **req_header_value_suffix_in(header_name, patterns, case_insensitive)**
-  - 判断http消息头部字段值是否后缀匹配patterns之一
-  ```
-  # header中Host值后缀为XXX的请求
-  req_header_suffix_value_in("Host", "XXX", true)
-  ```
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| header_name | String<br>请求header中的key |
+| value_list | String<br>value列表，多个之间使用‘&#124;’连接 |  
+| case_insensitive | Boolean<br>是否忽略大小写 |  
 
-- **req_header_value_hash_in(header_name, patterns, case_insensitive)**
-  - 对http消息头部字段值哈希取模，判断是否匹配patterns之一（模值0～9999）
-  ```
-  # header中Host值hash取模后，值为100-200或400的请求
-  req_header_value_hash_in("Host", "100-200|400", true)
-  ```
+* 示例
+```
+req_header_value_in("Host", "xxx.com", true)
+```
 
-- **req_header_value_contain(key, patterns, case_insensitive)**
-  - 判断http消息头部字段值是否包含patterns之一
-  ```
-  # header中Host值包含XXX的请求
-  req_header_value_contain(“Host”, “XXX”, true)
-  ```
+## req_header_value_prefix_in(header_name, prefix_list, case_insensitive)
+* 含义： 判断http消息头部字段值是否前缀匹配prefix_list之一
+* 参数  
 
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| header_name | String<br>请求header中的key |
+| prefix_list | String<br>prefix列表，多个之间使用‘&#124;’连接 |  
+| case_insensitive | Boolean<br>是否忽略大小写 |  
+
+* 示例
+```
+req_header_value_prefix_in("Host", "xxx", true)
+```
+
+## req_header_value_suffix_in(header_name, suffix_list, case_insensitive)
+* 含义： 判断http消息头部字段值是否后缀匹配suffix_list之一
+* 参数  
+
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| header_name | String<br>请求header中的key |
+| suffix_list | String<br>suffix列表，多个之间使用‘&#124;’连接 |  
+| case_insensitive | Boolean<br>是否忽略大小写 |  
+
+* 示例
+```
+req_header_value_suffix_in("Host", "xxx", true)
+```
+
+## req_header_value_hash_in(header_name, hash_value_list, case_insensitive)
+* 含义： 对http消息头部字段值哈希取模，判断是否匹配hash_value_list之一（模值0～9999）
+* 参数  
+
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| header_name | String<br>请求header中的key |
+| hash_value_list | String<br>hash value列表，多个之间使用‘&#124;’连接 |  
+| case_insensitive | Boolean<br>是否忽略大小写 |  
+
+* 示例
+```
+req_header_value_hash_in("Host", "100-200|400", true)
+```
+
+## req_header_value_contain(header_name, value_list, case_insensitive)
+* 含义： 判断http消息头部字段值是否包含value_list之一
+* 参数  
+
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| header_name | String<br>请求header中的key |
+| value_list | String<br>value列表，多个之间使用‘&#124;’连接 |
+| case_insensitive | Boolean<br>是否忽略大小写 |  
+
+* 示例
+```
+req_header_value_contain("Host", "xxx", true)
+```

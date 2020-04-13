@@ -10,6 +10,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unrelease] 
+### Added
+- Support loading dynamic modules that may be written and complied by thirdparty vendors
+- mod_trace: support distributed tracing based on jaeger
+- mod_doh: support timeout for DNS requests
+- mod_doh: support edns-client-subnet (ECS)
+- mod_doh: optimize max-age for DoH response
+
+### Changed
+- Change base directory of ServerCertFile/ServerKeyFile to ConfRoot
+
+### Fixed
+- Fix failed unit tests about parsing request line under go1.14 environment
+
+
 ## [v0.8.0] - 2020-03-27
 ### Added
 - Add mod_trace for distributed tracing based on zipkin
@@ -128,6 +143,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
+[Unrelease]: https://github.com/baidu/bfe/compare/v0.8.0...HEAD
 [v0.8.0]: https://github.com/baidu/bfe/compare/v0.7.0...v0.8.0
 [v0.7.0]: https://github.com/baidu/bfe/compare/v0.6.0...v0.7.0
 [v0.6.0]: https://github.com/baidu/bfe/compare/v0.5.0...v0.6.0

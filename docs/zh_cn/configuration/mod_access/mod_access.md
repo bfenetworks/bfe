@@ -3,47 +3,44 @@ mod_access模块以特定格式记录请求日志和会话日志。
 
 # 基础配置
 ## 配置描述
-### 模块日志配置
+模块配置文件: conf/mod_redirect/mod_redirect.conf
+
 | 配置项                | 描述                                        |
 | ---------------------| ------------------------------------------- |
-| LogPrefix            | String<br>日志文件前缀名称 |
-| LogDir | String<br>access日志文件目录 |
-| RotateWhen | String<br>日志切割时间，支持 M/H/D/MIDNIGHT/NEXTHOUR |
-| BackupCount | Integer<br>最大的日志存储数量 |
-### 日志模板配置
-| 配置项                | 描述                                        |
-| --------------------- | ------------------------------------------- |
-| RequestTemplate | String<br>请求日志模板 |
-| SessionTemplate | String<br>会话日志模板 |
- * 注：
-    * RequestTemplate/SessionTemplate 中 $开头的代表变量, 支持的变量列表详见"日志变量"章节说明
-    * RequestTemplate 还支持以下几种内置模板，如配置 RequestTemplate = COMMON打印CLF日志
-       * COMMON：Common Log Format; 等价于配置 RequestTemplate = $host - - $request_time \\"$request_line\\" $status_code $res_len
-       * COMBINED：Combined Log Format; 等价于配置 RequestTemplate = $host - - $request_time \\"$request_line\\" $status_code $res_len \\"${Referer}req_header\\" \\"${User-Agent}req_header\\"
+| Log.LogPrefix            | String<br>日志文件前缀名称 |
+| Log.LogDir | String<br>access日志文件目录 |
+| Log.RotateWhen | String<br>日志切割时间，支持 M/H/D/MIDNIGHT/NEXTHOUR |
+| Log.BackupCount | Integer<br>最大的日志存储数量 |
+| Template.RequestTemplate | String<br>请求日志模板 |
+| Template.SessionTemplate | String<br>会话日志模板 |
+
+* RequestTemplate/SessionTemplate 中 $开头的代表变量, 支持的变量列表详见"日志变量"章节说明
+* RequestTemplate 还支持以下几种内置模板，如配置 RequestTemplate = COMMON打印CLF日志
+  * COMMON：Common Log Format; 等价于配置 RequestTemplate = $host - - $request_time \\"$request_line\\" $status_code $res_len
+  * COMBINED：Combined Log Format; 等价于配置 RequestTemplate = $host - - $request_time \\"$request_line\\" $status_code $res_len \\"${Referer}req_header\\" \\"${User-Agent}req_header\\"
+
 ## 配置示例
-  ```
-  [Log]
-  # filename prefix for log
-  LogPrefix = access
+```
+[Log]
+# filename prefix for log
+LogPrefix = access
 
-  # access log directory
-  LogDir =  ./
+# access log directory
+LogDir =  ./
 
-  # log rotate interval: M/H/D/MIDNIGHT/NEXTHOUR
-  RotateWhen = NEXTHOUR
+# log rotate interval: M/H/D/MIDNIGHT/NEXTHOUR
+RotateWhen = NEXTHOUR
 
-  # max number of rotated log files
-  BackupCount = 2
+# max number of rotated log files
+BackupCount = 2
 
-  [Template]
-  # template of request log
-  RequestTemplate = "REQUEST_LOG $time clientip: $remote_addr serverip: $server_addr host: $host product: $product user_agent: ${User-Agent}req_header status: $status_code error: $error"
-  
-  # template of session log
-  SessionTemplate = "SESSION_LOG  $time clientip: $ses_clientip start_time: $ses_start_time end_time: $ses_end_time overhead: $ses_overhead read_total: $ses_read_total write_total: $ses_write_total keepalive_num: $ses_keepalive_num error: $ses_error"
+[Template]
+# template of request log
+RequestTemplate = "REQUEST_LOG $time clientip: $remote_addr serverip: $server_addr host: $host product: $product user_agent: ${User-Agent}req_header status: $status_code error: $error"
 
-  ```
-
+# template of session log
+SessionTemplate = "SESSION_LOG  $time clientip: $ses_clientip start_time: $ses_start_time end_time: $ses_end_time overhead: $ses_overhead read_total: $ses_read_total write_total: $ses_write_total keepalive_num: $ses_keepalive_num error: $ses_error"
+```
 
 # 日志变量
 

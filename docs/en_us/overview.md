@@ -8,10 +8,10 @@
 
 - Multiple protocols supported, including HTTP,HTTPS, SPDY, HTTP2, WebSocket, TLS, etc.
 
-- Content based routing, support user-defined routing rule in advanced domain-specific language.
+- Content based routing. Advanced domain-specific language is provided for describing user-defined routing rule.
 
-- Support multiple load balancing policies.
+- Multiple load balancing policies supported.
 
-- Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly.
+- Flexible plugin framework to extend functionality. Developer can add new features rapidly by writing plugins.
 
-- Detailed built-in metrics available for service status monitor.
+- Detailed built-in metrics available for monitoring service status.

@@ -1,15 +1,15 @@
-# 简介
+# 配置简介
 
 session_ticket_key.data配置记录了session ticket key信息。
 
-# 配置
+# 配置描述
 
-| 配置项           | 类型   | 描述                                                   |
-| ---------------- | ------ | ------------------------------------------------------ |
-| Version          | String | 配置文件版本                                           |
-| SessionTicketKey | String | Session Ticket密钥，仅包含字符a-z0-9且长度48的字符串   |
+| 配置项           | 描述                                                           |
+| ---------------- | -------------------------------------------------------------- |
+| Version          | String<br>配置文件版本                                         |
+| SessionTicketKey | String<br>Session Ticket密钥，仅包含字符a-z0-9且长度48的字符串 |
 
-# 示例
+# 配置示例
 
 ```
 {

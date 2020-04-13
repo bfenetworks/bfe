@@ -29,6 +29,7 @@ import (
 import (
 	"github.com/baidu/bfe/bfe_basic"
 	"github.com/baidu/bfe/bfe_http"
+	"github.com/baidu/bfe/bfe_util/net_util"
 )
 
 func buildPostRequest(data []byte, t *testing.T) *bfe_http.Request {
@@ -49,7 +50,7 @@ func buildGetRequest(data []byte, t *testing.T) *bfe_http.Request {
 	return req
 }
 
-func buildDohRequest(method string, t *testing.T) *bfe_http.Request {
+func buildDohRequest(method string, t *testing.T) *bfe_basic.Request {
 	msg := dns.Msg{
 		MsgHdr: dns.MsgHdr{
 			Id:               uint16(59713),
@@ -69,15 +70,23 @@ func buildDohRequest(method string, t *testing.T) *bfe_http.Request {
 		t.Fatalf("msg Pack error: %v", err)
 	}
 
+	var httpRequest *bfe_http.Request
 	switch method {
 	case "POST":
-		return buildPostRequest(data, t)
+		httpRequest = buildPostRequest(data, t)
 	case "GET":
-		return buildGetRequest(data, t)
+		httpRequest = buildGetRequest(data, t)
 	default:
 		t.Fatalf("unsupported method %s", method)
 		return nil
 	}
+
+	req := new(bfe_basic.Request)
+	req.HttpRequest = httpRequest
+	req.RemoteAddr = new(net.TCPAddr)
+	req.RemoteAddr.IP = net_util.ParseIPv4("127.0.0.1")
+
+	return req
 }
 
 func TestRequestToDnsMsgPOST(t *testing.T) {
@@ -141,5 +150,32 @@ func TestDnsMsgToResponse(t *testing.T) {
 	_, err := DnsMsgToResponse(req, msg)
 	if err != nil {
 		t.Errorf("DnsMsgToResponse error: %v", err)
+	}
+}
+
+func TestGetTTL(t *testing.T) {
+	msg := &dns.Msg{
+		Answer: []dns.RR{
+			&dns.A{
+				Hdr: dns.RR_Header{
+					Ttl: 600,
+				},
+			},
+			&dns.AAAA{
+				Hdr: dns.RR_Header{
+					Ttl: 7200,
+				},
+			},
+			&dns.A{
+				Hdr: dns.RR_Header{
+					Ttl: 300,
+				},
+			},
+		},
+	}
+
+	ttl := getTTL(msg)
+	if ttl != 300 {
+		t.Errorf("ttl should be 300, not %d", ttl)
 	}
 }

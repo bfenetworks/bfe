@@ -1,4 +1,4 @@
-# Protocol
+# Protocol related primitives
 
-- **req_proto_secure()**
-  - Judge if request is over secure protocol(https/spdy/http2)
+## req_proto_secure()
+* Description: Judge if request is over TLS protocol(ie. HTTPS/SPDY/HTTP2)
