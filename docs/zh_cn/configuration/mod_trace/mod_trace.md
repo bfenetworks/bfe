@@ -7,16 +7,28 @@
 ## 配置描述
 模块配置文件: conf/mod_trace/mod_trace.conf
 
+## 基础配置项
+
 | 配置项                         | 描述                     |
 | ------------------------------| -------------------------|
 | Basic.DataPath                | String<br>规则配置文件路径 |
 | Basic.ServiceName             | String<br>服务名 |
 | Basic.TraceAgent              | String<br>设置trace组件，可选值：jaeger和zipkin | 
 | Log.OpenDebug                 | Boolean<br>是否启用模块调试日志开关 |
+
+## Zipkin配置项
+
+| 配置项                         | 描述                     |
+| ------------------------------| -------------------------|
 | Zipkin.HTTPEndpoint           | String<br>设置接收trace信息的接口 |
 | Zipkin.SameSpan               | String<br>客户端与服务端是否使用相同的span |
 | Zipkin.ID128Bit               | String<br>是否使用128位span ID |
 | Zipkin.SampleRate             | Float<br>设置请求抽样比例 |
+
+# Jaeger配置项
+
+| 配置项                         | 描述                     |
+| ------------------------------| -------------------------|
 | Jaeger.SamplingServerURL      | String<br>设置抽样服务地址 |
 | Jaeger.SamplingType           | String<br>设置抽样类型，可选值：const, probabilistic, rateLimiting, remote |
 | Jaeger.SamplingParam          | Float<br>设置抽样参数 |
@@ -28,20 +40,20 @@
 | Jaeger.CollectorUser          | String<br>设置jaeger-collector认证用户名 |
 | Jaeger.CollectorPassword      | String<br>设置jaeger-collector认证密码 |
 
-
-
 ## 配置示例
+
+### 基于Zipkin示例
+
 ```
 [Basic]
 DataPath = mod_trace/trace_rule.data
 ServiceName = bfe
 
 # Which trace agent to use (zipkin, jaeger)
-TraceAgent = jaeger
+TraceAgent = zipkin
 
 [Log]
 OpenDebug = false
-
 
 [Zipkin]
 # Zipkin, only useful when the TraceAgent is zipkin
@@ -57,7 +69,19 @@ ID128Bit = true
 
 # The rate between 0.0001 and 1.0 of requests to trace
 SampleRate = 1.0
+```
 
+### 基于Jaeger示例
+```
+[Basic]
+DataPath = mod_trace/trace_rule.data
+ServiceName = bfe
+
+# Which trace agent to use (zipkin, jaeger)
+TraceAgent = jaeger
+
+[Log]
+OpenDebug = false
 
 [Jaeger]
 # Jaeger, only useful when the TraceAgent is jaeger
