@@ -14,7 +14,7 @@ The mod_access module writes request logs and session logs in the specified form
 LogPrefix = access
 
 # access log directory
-LogDir =  ./
+LogDir =  ../log
 
 # log rotate interval: M/H/D/MIDNIGHT/NEXTHOUR
 RotateWhen = NEXTHOUR

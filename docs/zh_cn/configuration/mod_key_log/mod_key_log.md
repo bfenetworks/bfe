@@ -23,7 +23,7 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
 LogPrefix = key
 
 # log directory 
-LogDir = ./log
+LogDir = ../log
 
 # interval to rotate logs: M/H/D/MIDNIGHT/NEXTHOUR
 RotateWhen = H 
