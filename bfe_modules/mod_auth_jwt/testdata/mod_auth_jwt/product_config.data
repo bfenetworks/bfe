@@ -1,0 +1,27 @@
+{
+    "Version": "1.0.0",
+    "Config": {
+        "test": {
+            "Cond": "req_host_in(\"www.example.org\")",
+            "ValidateClaimNbf": false,
+            "ValidateClaimExp": true,
+            "ValidateClaimIss": "issuer"
+        },
+        "test_jwe_valid_1": {
+            "Cond": "req_host_in(\"www.example.org\")",
+            "SecretPath": "./secret_jwe_valid_1.key"
+        },
+        "test_jws_valid_1": {
+            "Cond": "req_host_in(\"www.example.org\")",
+            "SecretPath": "./secret_jws_valid_1.key"
+        },
+        "test_jws_invalid_1": {
+            "Cond": "req_host_in(\"www.example.org\")",
+            "SecretPath": "./secret_jws_valid_1.key"
+        },
+        "test_jwe_invalid_1": {
+            "Cond": "req_host_in(\"www.example.org\")",
+            "SecretPath": "./secret_jwe_invalid_1.key"
+        }
+    }
+}

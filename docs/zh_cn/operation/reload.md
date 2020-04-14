@@ -35,6 +35,7 @@ monitorPort = 8421
 | 功能名称                 | 默认配置文件                | 热加载接口          |
 | ----------------------- | ---------------------------- | ----------------- |
 | mod_auth_basic     | mod_auth_basic/auth_basic_rule.data | /reload/mod_auth_basic|
+| mod_auth_jwt | mod_auth_jwt/mod_auth_jwt.conf | /reload/mod_auth_jwt |
 | mod_block | mod_block/block_rules.data<br>mod_block/ip_blacklist.data | /reload/mod_block.product_rule_table<br>/reload/mod_block.global_ip_table |
 | mod_compress       | mod_compress/compress_rule.data | /reload/mod_compress |
 | mod_errors         | mod_errors/errors_rule.data | /reload/mod_errors |
