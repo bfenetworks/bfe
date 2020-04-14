@@ -72,7 +72,7 @@ func (m *ModuleAccess) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	var conf *ConfModAccess
 
 	confPath := bfe_module.ModConfPath(cr, m.name)
-	if conf, err = ConfLoad(confPath); err != nil {
+	if conf, err = ConfLoad(confPath, cr); err != nil {
 		return fmt.Errorf("%s: cond load err %s", m.name, err.Error())
 	}
 
