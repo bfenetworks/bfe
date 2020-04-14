@@ -25,7 +25,7 @@ conf/mod_key_log/mod_key_log.conf
 LogPrefix = key
 
 # log directory 
-LogDir = ./log
+LogDir = ../log
 
 # interval to rotate logs: M/H/D
 # - M: minute

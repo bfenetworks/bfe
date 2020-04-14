@@ -3,7 +3,7 @@ mod_access模块以特定格式记录请求日志和会话日志。
 
 # 基础配置
 ## 配置描述
-模块配置文件: conf/mod_redirect/mod_redirect.conf
+模块配置文件: conf/mod_access/mod_access.conf
 
 | 配置项                | 描述                                        |
 | ---------------------| ------------------------------------------- |
@@ -26,7 +26,7 @@ mod_access模块以特定格式记录请求日志和会话日志。
 LogPrefix = access
 
 # access log directory
-LogDir =  ./
+LogDir =  ../log
 
 # log rotate interval: M/H/D/MIDNIGHT/NEXTHOUR
 RotateWhen = NEXTHOUR
