@@ -1,6 +1,6 @@
 # Install from source code
 
-## Prerequisite
+## Prerequisites
 - golang 1.13+
 - git
 
