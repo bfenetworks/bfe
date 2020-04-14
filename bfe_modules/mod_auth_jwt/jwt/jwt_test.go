@@ -16,9 +16,12 @@ package jwt
 
 import (
 	"fmt"
-	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/config"
 	"io/ioutil"
 	"testing"
+)
+
+import (
+	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/config"
 )
 
 var (

@@ -15,8 +15,11 @@
 package config
 
 import (
-	"github.com/baidu/bfe/bfe_util"
 	"testing"
+)
+
+import (
+	"github.com/baidu/bfe/bfe_util"
 )
 
 func TestNewProductConfig_1(t *testing.T) {

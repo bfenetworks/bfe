@@ -17,11 +17,14 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/baidu/bfe/bfe_basic/condition"
-	"github.com/baidu/bfe/bfe_util"
 	"os"
 	"path/filepath"
 	"reflect"
+)
+
+import (
+	"github.com/baidu/bfe/bfe_basic/condition"
+	"github.com/baidu/bfe/bfe_util"
 )
 
 // auth rule (config for each product)

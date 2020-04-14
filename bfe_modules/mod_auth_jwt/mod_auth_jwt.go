@@ -17,6 +17,12 @@ package mod_auth_jwt
 import (
 	"bytes"
 	"errors"
+	"io/ioutil"
+	"net/url"
+	"strings"
+)
+
+import (
 	"github.com/baidu/bfe/bfe_basic"
 	"github.com/baidu/bfe/bfe_http"
 	"github.com/baidu/bfe/bfe_module"
@@ -25,9 +31,6 @@ import (
 	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/web-monitor/metrics"
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
-	"io/ioutil"
-	"net/url"
-	"strings"
 )
 
 type counters struct {
@@ -36,7 +39,7 @@ type counters struct {
 	AuthFailed  *metrics.Counter
 }
 
-type moduleAuthJWT struct {
+type ModuleAuthJWT struct {
 	counters *counters
 	metrics  *metrics.Metrics
 	config   *config.Config
@@ -45,8 +48,8 @@ type moduleAuthJWT struct {
 
 var Debug bool
 
-func NewModuleAuthJWT() (module *moduleAuthJWT) {
-	module = new(moduleAuthJWT)
+func NewModuleAuthJWT() (module *ModuleAuthJWT) {
+	module = new(ModuleAuthJWT)
 	// not initialized yet
 	module.counters = new(counters)
 	module.metrics = new(metrics.Metrics)
@@ -54,11 +57,11 @@ func NewModuleAuthJWT() (module *moduleAuthJWT) {
 	return module
 }
 
-func (module *moduleAuthJWT) Name() (name string) {
+func (module *ModuleAuthJWT) Name() (name string) {
 	return "mod_auth_jwt"
 }
 
-func (module *moduleAuthJWT) Init(callbacks *bfe_module.BfeCallbacks,
+func (module *ModuleAuthJWT) Init(callbacks *bfe_module.BfeCallbacks,
 	handlers *web_monitor.WebHandlers, confRoot string) (err error) {
 
 	module.confPath = bfe_module.ModConfPath(confRoot, module.Name())
@@ -102,7 +105,7 @@ func (module *moduleAuthJWT) Init(callbacks *bfe_module.BfeCallbacks,
 	return nil
 }
 
-func (module *moduleAuthJWT) authService(request *bfe_basic.Request) (flag int, response *bfe_http.Response) {
+func (module *ModuleAuthJWT) authService(request *bfe_basic.Request) (flag int, response *bfe_http.Response) {
 	product := request.Route.Product
 	authConfig, ok := module.config.Search(product)
 	if !ok || !authConfig.Cond.Match(request) {
@@ -159,7 +162,7 @@ func (module *moduleAuthJWT) authService(request *bfe_basic.Request) (flag int, 
 	return bfe_module.BfeHandlerGoOn, nil
 }
 
-func (module *moduleAuthJWT) validateToken(token string, config *config.AuthConfig) (err error) {
+func (module *ModuleAuthJWT) validateToken(token string, config *config.AuthConfig) (err error) {
 	mJWT, err := jwt.NewJWT(token, config)
 	if err != nil {
 		return err
@@ -176,15 +179,15 @@ func createUnauthorizedResponse(request *bfe_basic.Request, body string) (respon
 	return response
 }
 
-func (module *moduleAuthJWT) getMetrics(params map[string][]string) ([]byte, error) {
+func (module *ModuleAuthJWT) getMetrics(params map[string][]string) ([]byte, error) {
 	return module.metrics.GetAll().Format(params)
 }
 
-func (module *moduleAuthJWT) getMetricsDiff(params map[string][]string) ([]byte, error) {
+func (module *ModuleAuthJWT) getMetricsDiff(params map[string][]string) ([]byte, error) {
 	return module.metrics.GetDiff().Format(params)
 }
 
-func (module *moduleAuthJWT) reloadService(query url.Values) (err error) {
+func (module *ModuleAuthJWT) reloadService(query url.Values) (err error) {
 	path := query.Get("path")
 	if len(path) == 0 {
 		return module.config.Reload()

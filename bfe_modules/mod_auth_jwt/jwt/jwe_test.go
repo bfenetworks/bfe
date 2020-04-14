@@ -15,9 +15,12 @@
 package jwt
 
 import (
-	"gopkg.in/square/go-jose.v2"
 	"io/ioutil"
 	"testing"
+)
+
+import (
+	"gopkg.in/square/go-jose.v2"
 )
 
 func TestNewJWE(t *testing.T) {
