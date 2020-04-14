@@ -166,7 +166,7 @@ func TestDialTimeout(t *testing.T) {
 		t.Fatal("DialWithTimeout completed successfully")
 	}
 
-	if err, ok := err.(net.Error); !ok || !err.Timeout() {
+	if netErr, ok := err.(net.Error); !ok || !netErr.Timeout() {
 		t.Errorf("resulting error not a timeout: %s", err)
 	}
 }
