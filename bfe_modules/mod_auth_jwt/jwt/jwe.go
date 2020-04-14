@@ -18,8 +18,11 @@ package jwt
 
 import (
 	"fmt"
-	"gopkg.in/square/go-jose.v2"
 	"strings"
+)
+
+import (
+	"gopkg.in/square/go-jose.v2"
 )
 
 type JWE struct {

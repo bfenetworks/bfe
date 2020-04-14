@@ -16,13 +16,16 @@ package mod_auth_jwt
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"testing"
+)
+
+import (
 	"github.com/baidu/bfe/bfe_basic"
 	"github.com/baidu/bfe/bfe_http"
 	"github.com/baidu/bfe/bfe_module"
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
-	"io/ioutil"
-	"os"
-	"testing"
 )
 
 var (

@@ -16,9 +16,15 @@ package config
 
 import (
 	"fmt"
-	"github.com/baidu/bfe/bfe_util"
-	"gopkg.in/gcfg.v1"
 	"path/filepath"
+)
+
+import (
+	"gopkg.in/gcfg.v1"
+)
+
+import (
+	"github.com/baidu/bfe/bfe_util"
 )
 
 // module config

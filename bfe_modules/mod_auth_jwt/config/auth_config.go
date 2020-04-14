@@ -15,8 +15,11 @@
 package config
 
 import (
-	"gopkg.in/square/go-jose.v2"
 	"io/ioutil"
+)
+
+import (
+	"gopkg.in/square/go-jose.v2"
 )
 
 // auth config (common in module config & product config)

@@ -18,9 +18,12 @@ package jwt
 
 import (
 	"fmt"
-	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/config"
 	"strings"
 	"time"
+)
+
+import (
+	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt/config"
 )
 
 type tokenValidator interface {

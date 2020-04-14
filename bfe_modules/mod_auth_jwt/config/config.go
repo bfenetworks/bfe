@@ -52,7 +52,7 @@ func New(path string) (config *Config, err error) {
 	return config, nil
 }
 
-// init initialize for the config
+// initialize for the config
 func (config *Config) init() (err error) {
 	config.moduleConfig = reflect.Indirect(reflect.ValueOf(config.ModuleConfig))
 	config.ProductConfig.Merge(config.ModuleConfig)

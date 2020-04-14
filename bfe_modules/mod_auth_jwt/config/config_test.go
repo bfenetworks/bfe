@@ -15,8 +15,11 @@
 package config
 
 import (
-	"github.com/baidu/bfe/bfe_util"
 	"testing"
+)
+
+import (
+	"github.com/baidu/bfe/bfe_util"
 )
 
 const (

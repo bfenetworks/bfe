@@ -74,6 +74,9 @@ var moduleList = []bfe_module.BfeModule{
 	// Requirement: before mod_static
 	mod_auth_basic.NewModuleAuthBasic(),
 
+	// mod_auth_jwt
+	mod_auth_jwt.NewModuleAuthJWT(),
+
 	mod_doh.NewModuleDoh(),
 
 	// mod_redirect
@@ -103,9 +106,6 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_access
 	mod_access.NewModuleAccess(),
-
-	// mod_auth_jwt
-	mod_auth_jwt.NewModuleAuthJWT(),
 }
 
 // init modules list
