@@ -13,10 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unrelease] 
 ### Added
 - Support loading dynamic modules that may be written and complied by thirdparty vendors
+- Add mod_auth_jwt for JWT authentication
 - mod_trace: support distributed tracing based on jaeger
 - mod_doh: support timeout for DNS requests
 - mod_doh: support edns-client-subnet (ECS)
 - mod_doh: optimize max-age for DoH response
+- Optimize textproto reader cache
+- Documents optimization
 
 ### Changed
 - Change base directory of ServerCertFile/ServerKeyFile to ConfRoot
