@@ -1,4 +1,4 @@
 #!/bin/sh -e
 
-# Copy configuration files to $SNAP_DATA directory.
-[ ! -d "$SNAP_DATA/conf" ] && cp -rf $SNAP/conf $SNAP_DATA
+# Copy configuration files to $SNAP_COMMON directory.
+[ ! -d "$SNAP_COMMON/conf" ] && cp -rf $SNAP/conf $SNAP_COMMON
