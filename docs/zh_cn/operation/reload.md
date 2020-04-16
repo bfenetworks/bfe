@@ -16,7 +16,7 @@ monitorPort = 8421
 * reload接口仅允许使用localhost访问（127.0.0.1/::1）
 * reload接口支持GET请求
   * 示例：curl http://localhost:8421/reload/server_data_conf 将重新加载分流转发配置
-* 完整的reload接口列表可访问http://localhost:8421/reload查看
+* 完整的reload接口列表可访问http://localhost:8421/reload 查看
 
 ## 接口说明
 
@@ -24,11 +24,11 @@ monitorPort = 8421
 
 | 功能名称                 | 默认配置文件                | 热加载接口          |
 | ----------------------- | ---------------------------- | ----------------- |
-| 分流转发                 | server_data_conf/host_rule.data<br>server_data_conf/vip_rule.data<br>server_data_conf/route_rule.data<br>server_data_conf/cluster_conf.data | /reload/server_data_conf |
-| 子集群内负载均衡           | cluster_conf/cluster_table.data<br>cluster_conf/gslb.data | /reload/gslb_data_conf |
+| 内容路由                 | server_data_conf/host_rule.data<br>server_data_conf/vip_rule.data<br>server_data_conf/route_rule.data<br>server_data_conf/cluster_conf.data | /reload/server_data_conf |
+| 负载均衡                 | cluster_conf/cluster_table.data<br>cluster_conf/gslb.data | /reload/gslb_data_conf |
 | 名字解析                 | server_data_conf/name_conf.data | /reload/name_conf |
 | TLS规则                 | tls_conf/server_cert_conf.data<br>tls_conf/tls_rule_conf.data | /reload/tls_conf |
-| TLS session ticket key | tls_conf/session_ticket_key.data | /reload/tls_session_ticket_key |
+| TLS session ticket key  | tls_conf/session_ticket_key.data | /reload/tls_session_ticket_key |
 
 ### 扩展模块
 
