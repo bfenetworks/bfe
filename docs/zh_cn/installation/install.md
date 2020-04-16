@@ -4,6 +4,7 @@
 - [源码编译安装](install_from_source.md)
 - [二进制文件下载安装](install_using_binaries.md)
 - [go get方式安装](install_using_go_get.md)
+- [snap安装](install_using_snap.md)
 
 ## 平台支持
 | 操作系统   | 支持说明                                           |
