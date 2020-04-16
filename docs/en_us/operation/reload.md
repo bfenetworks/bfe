@@ -22,12 +22,12 @@ monitorPort = 8421
 
 ### basic function
 
-| function     | default config file | reload interface |
-| ----------------------- | ---------------------------- | ----------------- |
-| route            | server_data_conf/host_rule.data<br>server_data_conf/vip_rule.data<br>server_data_conf/route_rule.data<br>server_data_conf/cluster_conf.data | /reload/server_data_conf |
-| gslb       | cluster_conf/cluster_table.data<br>cluster_conf/gslb.data | /reload/gslb_data_conf |
-| name conf | server_data_conf/name_conf.data | /reload/name_conf |
-| TLS rule             | tls_conf/server_cert_conf.data<br>tls_conf/tls_rule_conf.data | /reload/tls_conf |
+| function               | default config file          | reload interface  |
+| ---------------------- | ---------------------------- | ----------------- |
+| routing                | server_data_conf/host_rule.data<br>server_data_conf/vip_rule.data<br>server_data_conf/route_rule.data<br>server_data_conf/cluster_conf.data | /reload/server_data_conf |
+| balancing              | cluster_conf/cluster_table.data<br>cluster_conf/gslb.data | /reload/gslb_data_conf |
+| name conf              | server_data_conf/name_conf.data | /reload/name_conf |
+| TLS rule               | tls_conf/server_cert_conf.data<br>tls_conf/tls_rule_conf.data | /reload/tls_conf |
 | TLS session ticket key | tls_conf/session_ticket_key.data | /reload/tls_session_ticket_key |
 
 ### extension module
