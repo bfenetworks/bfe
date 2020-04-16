@@ -23,6 +23,7 @@ import (
 
 import (
 	"github.com/baidu/go-lib/log"
+	"github.com/baidu/go-lib/web-monitor/metrics"
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
 	"github.com/opentracing/opentracing-go"
 )
@@ -32,7 +33,6 @@ import (
 	"github.com/baidu/bfe/bfe_http"
 	"github.com/baidu/bfe/bfe_module"
 	"github.com/baidu/bfe/bfe_modules/mod_trace/trace"
-	"github.com/baidu/go-lib/web-monitor/metrics"
 )
 
 const (
@@ -196,7 +196,7 @@ func (m *ModuleTrace) reloadHandlers() map[string]interface{} {
 func (m *ModuleTrace) init(conf *ConfModTrace, cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers) error {
 	var err error
 
-	globalTrace, err = trace.NewTrace(conf.Basic.ServiceName, &conf.Zipkin)
+	globalTrace, err = trace.NewTrace(conf.Basic.ServiceName, conf.GetTraceConfig())
 	if err != nil {
 		return err
 	}

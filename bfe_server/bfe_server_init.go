@@ -42,7 +42,7 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	bfe_modules.SetModules()
 
 	// create bfe server
-	bfeServer := NewBfeServer(cfg, lnMap, version)
+	bfeServer := NewBfeServer(cfg, confRoot, lnMap, version)
 
 	// initial http
 	err = bfeServer.InitHttp()
@@ -87,13 +87,29 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	}
 
 	// initialize modules
-	err = bfeServer.InitModules(confRoot)
+	err = bfeServer.InitModules()
 	if err != nil {
 		log.Logger.Error("StartUp(): bfeServer.InitModules():%s",
 			err.Error())
 		return err
 	}
 	log.Logger.Info("StartUp():bfeServer.InitModules() OK")
+
+	// load plugins
+	err = bfeServer.LoadPlugins(cfg.Server.Plugins)
+	if err != nil {
+		log.Logger.Error("StartUp():bfeServer.LoadPlugins():%s", err.Error())
+		return err
+	}
+
+	// initialize plugins
+	err = bfeServer.InitPlugins()
+	if err != nil {
+		log.Logger.Error("StartUp():bfeServer.InitPlugins():%s",
+			err.Error())
+		return err
+	}
+	log.Logger.Info("StartUp():bfeServer.InitPlugins() OK")
 
 	// start embedded web server
 	bfeServer.Monitor.Start()

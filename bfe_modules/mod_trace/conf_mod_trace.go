@@ -24,6 +24,8 @@ import (
 )
 
 import (
+	"github.com/baidu/bfe/bfe_modules/mod_trace/trace"
+	"github.com/baidu/bfe/bfe_modules/mod_trace/trace/jaeger"
 	"github.com/baidu/bfe/bfe_modules/mod_trace/trace/zipkin"
 	"github.com/baidu/bfe/bfe_util"
 )
@@ -36,13 +38,15 @@ type ConfModTrace struct {
 	Basic struct {
 		DataPath    string // The path of rule data
 		ServiceName string // The name of this service
+		TraceAgent  string // The type of trace agent: zipkin/jaeger
 	}
 
 	Log struct {
 		OpenDebug bool
 	}
 
-	Zipkin zipkin.Config
+	Zipkin zipkin.Config // Settings for zipkin, only useful when TraceAgent is zipkin
+	Jaeger jaeger.Config // Settings for jaeger, only useful when TraceAgent is jaeger
 }
 
 func ConfLoad(filePath string, confRoot string) (*ConfModTrace, error) {
@@ -69,10 +73,20 @@ func (cfg *ConfModTrace) Check(confRoot string) error {
 	}
 	cfg.Basic.DataPath = bfe_util.ConfPathProc(cfg.Basic.DataPath, confRoot)
 
-	err := cfg.Zipkin.Check()
-	if err != nil {
-		return fmt.Errorf("ModTrace.Zipkin %v", err)
+	if cfg.Basic.TraceAgent != jaeger.Name && cfg.Basic.TraceAgent != zipkin.Name {
+		return fmt.Errorf("ModTrace.TraceAgent must be %s or %s", jaeger.Name, zipkin.Name)
 	}
 
-	return err
+	return nil
+}
+
+func (cfg *ConfModTrace) GetTraceConfig() trace.TraceAgent {
+	switch cfg.Basic.TraceAgent {
+	case jaeger.Name:
+		return &cfg.Jaeger
+	case zipkin.Name:
+		return &cfg.Zipkin
+	default:
+		return &cfg.Jaeger
+	}
 }

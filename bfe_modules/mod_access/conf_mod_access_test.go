@@ -19,7 +19,7 @@ import (
 )
 
 func TestConfLoad(t *testing.T) {
-	config, err := ConfLoad("./testdata/mod_access/mod_access.conf")
+	config, err := ConfLoad("./testdata/mod_access/mod_access.conf", "")
 	if err != nil {
 		t.Errorf("BfeConfigLoad error: %v", err)
 		return

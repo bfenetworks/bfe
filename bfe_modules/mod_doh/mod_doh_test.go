@@ -44,9 +44,7 @@ func TestDohHandlerSecure(t *testing.T) {
 	}
 	m.dnsFetcher = new(TestDnsFetcher)
 
-	httpRequest := buildDohRequest("GET", t)
-	req := new(bfe_basic.Request)
-	req.HttpRequest = httpRequest
+	req := buildDohRequest("GET", t)
 	req.Session = new(bfe_basic.Session)
 	req.Session.IsSecure = true
 

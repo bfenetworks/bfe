@@ -1,0 +1,9 @@
+{
+    "Version": "1.0.0",
+    "Config": {
+        "test": {
+            "Cond": "req_host_in(\"www.example.org\")",
+            "ValidateClaimExp": "invalid"
+        }
+    }
+}

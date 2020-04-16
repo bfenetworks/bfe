@@ -27,8 +27,8 @@ import (
 
 // ConfigData the config for this module
 type ConfigData struct {
-	Version  string
-	Products map[string][]ProductRuleData
+	Version string
+	Config  map[string][]ProductRuleData
 }
 
 // ProductRuleData config for one product line
@@ -48,7 +48,7 @@ func (cd *ConfigData) toConfig() (*Config, error) {
 		Products: map[string][]ProductRule{},
 	}
 
-	for name, rules := range cd.Products {
+	for name, rules := range cd.Config {
 		if len(rules) == 0 {
 			return nil, fmt.Errorf("mod_user: product %s is nil", name)
 		}

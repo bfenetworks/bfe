@@ -6,30 +6,24 @@
 
   - Basic conditional judgment unit, which defines the primitive of comparison
 
-  - e.g.
-
     ``` 
-    req_host_in(“www.bfe-networks.com|bfe-networks.com”)  # host is one of the configured domains
+    req_host_in("www.bfe-networks.com|bfe-networks.com")  # host is one of the configured domains
     ```
 
 - **Condition Expression**
 
   - Expression using "and/or/not" to connect condition primitive
 
-  - e.g.
-
     ```
-    req_host_in(“bfe-networks.com”) && req_method_in(“GET”) # domain is bfe-networks.com and HTTP method is "GET"
+    req_host_in("bfe-networks.com") && req_method_in("GET") # domain is bfe-networks.com and HTTP method is "GET"
     ```
 
 - **Condition Variable**
 
   - Variable that is defined by **Condition Expression**
 
-  - e.g.
-
     ```
-    bfe_host = req_host_in(“bfe-networks.com”)  # variable bfe_host is defined by condition expression 
+    bfe_host = req_host_in("bfe-networks.com")  # variable bfe_host is defined by condition expression 
     ```
 
 - **Advanced Condition Expression**
@@ -38,8 +32,6 @@
 
   - In advanced condition expression, condition variable is identified by  **"$" prefix**
 
-  - e.g.
-  
     ```
     $news_host && req_method_in("GET") # match condition variable and HTTP method is "GET"
     ```

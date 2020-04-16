@@ -22,5 +22,5 @@
 
   apps:
     bfe:
-      command: bin/bfe -c $SNAP/conf -l $SNAP_DATA/log
+      command: bin/bfe -c $SNAP_COMMON/conf -l $SNAP_COMMON/log
       plugs: [network-bind]

@@ -4,10 +4,10 @@ name_conf.data records the mapping between service name and service instances.
 
 # Configuration
 
-| Config Item | Type   | Description                                                  |
-| ----------- | ------ | ------------------------------------------------------------ |
-| Version     | String | Version of config file                                       |
-| Config      | Struct | Mapping between name and instances. Key: service name. Value:  a list of instances. Instance:<br>- Host: instance address <br>- Port: instance port<br>- Weight: instance weight |
+| Config Item | Description                                                  |
+| ----------- | ------------------------------------------------------------ |
+| Version     | String<br>Version of config file                                       |
+| Config      | Struct<br>Mapping between name and instances. Key: service name. Value:  a list of instances. Instance:<br>- Host: instance address <br>- Port: instance port<br>- Weight: instance weight |
 
 # Example
 

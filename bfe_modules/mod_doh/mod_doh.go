@@ -115,7 +115,7 @@ func (m *ModuleDoh) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandl
 	}
 	openDebug = cfg.Log.OpenDebug
 	m.conf = cfg
-	m.dnsFetcher = NewDnsClient(cfg.Dns.Address)
+	m.dnsFetcher = NewDnsClient(&cfg.Dns)
 
 	if m.cond, err = condition.Build(cfg.Basic.Cond); err != nil {
 		return fmt.Errorf("%s.Init(): err in condition Build(): %v", m.name, err)

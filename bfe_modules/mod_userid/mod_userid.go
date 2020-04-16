@@ -155,7 +155,7 @@ func (m *ModuleUserID) reqSetUid(request *bfe_basic.Request) (int, *bfe_http.Res
 }
 
 func genUid() string {
-	id := fmt.Sprintf("%d_%d", time.Now().UnixNano(), rand.Intn(2<<30))
+	id := fmt.Sprintf("%d_%d", time.Now().UnixNano(), rand.Intn(1<<31-1))
 	return hex.EncodeToString([]byte(id))
 }
 

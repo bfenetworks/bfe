@@ -4,13 +4,25 @@ cluster_table.data records the load balancing config among instances.
 
 # Configuration
 
-| Config Item | Type   | Description                                                  |
-| ----------- | ------ | ------------------------------------------------------------ |
-| Version     | String | Verson of config file                                        |
-| Config      | Struct | Instance config of sub-cluster in cluster. <br>cluster => sub-cluster => instance address and wight |
+## Basic configuration
+| Config Item           | Description                     |
+| --------------------- | ------------------------------- |
+| Version               | String<br>Verson of config file |
+| Config                | Object<br>config of all clusters |
+| Config{k}             | String<br>name of cluster |
+| Config{v}             | Object<br>config of cluster |
+| Config{v}{k}          | String<br>name of subcluster |
+| Config{v}{v}          | Object<br>config of subcluster(a list of instance) |
+
+## Instance configuraton
+| Config Item           | Description                     |
+| --------------------- | ------------------------------- |
+| Addr                  | String<br>ip address of instance |
+| Name                  | String<br>name of instance |
+| Port                  | String<br>port of instance |
+| Weight                | String<br>weight of instance |
 
 # Example
-
 ```
 {
     "Config": {
