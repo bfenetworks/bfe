@@ -54,7 +54,7 @@ func SessionTicketKeyConfCheck(conf SessionTicketKeyConf) error {
 	return nil
 }
 
-// rawSessionTicketKeyLoad loades session ticket key from file in raw format (48 bytes binary file).
+// rawSessionTicketKeyLoad loads session ticket key from file in raw format (48 bytes binary file).
 func rawSessionTicketKeyLoad(filename string) (SessionTicketKeyConf, error) {
 	var config SessionTicketKeyConf
 
@@ -67,7 +67,7 @@ func rawSessionTicketKeyLoad(filename string) (SessionTicketKeyConf, error) {
 		return config, fmt.Errorf("invalid session ticket key(%d)", len(data))
 	}
 
-	config.Version = fmt.Sprintf("%s", time.Now())
+	config.Version = time.Now().String()
 	config.SessionTicketKey = fmt.Sprintf("%x", data)
 	return config, nil
 }

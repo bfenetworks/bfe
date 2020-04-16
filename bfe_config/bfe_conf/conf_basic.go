@@ -17,6 +17,7 @@ package bfe_conf
 import (
 	"fmt"
 	"runtime"
+	"strings"
 )
 
 import (
@@ -28,9 +29,14 @@ import (
 )
 
 const (
-	BALANCER_BGW   = "BGW"   // layer4 balancer in baidu
-	BALANCER_PROXY = "PROXY" // layer4 balancer working in PROXY mode (eg. F5, Ctrix, ELB etc)
-	BALANCER_NONE  = "NONE"  // layer4 balancer not used
+	BalancerBgw   = "BGW"   // layer4 balancer in baidu
+	BalancerProxy = "PROXY" // layer4 balancer working in PROXY mode (eg. F5, Ctrix, ELB etc)
+	BalancerNone  = "NONE"  // layer4 balancer not used
+)
+
+const (
+	// LibrarySuffix defines BFE plugin's file suffix.
+	LibrarySuffix = ".so"
 )
 
 type ConfigBasic struct {
@@ -38,6 +44,7 @@ type ConfigBasic struct {
 	HttpsPort   int // listen port for https
 	MonitorPort int // web server port for monitor
 	MaxCpus     int // number of max cpus to use
+	AcceptNum   int // number of accept groutine for each listenr, default 1
 
 	// settings of layer-4 load balancer
 	Layer4LoadBalancer string
@@ -53,6 +60,7 @@ type ConfigBasic struct {
 	KeepAliveEnabled        bool // if false, client connection is shutdown disregard of http headers
 
 	Modules []string // modules to load
+	Plugins []string // plugins to load
 
 	// location of data files for bfe_route
 	HostRuleConf  string // path of host_rule.data
@@ -154,6 +162,13 @@ func basicConfCheck(cfg *ConfigBasic) error {
 		return err
 	}
 
+	// check AcceptNum
+	if cfg.AcceptNum < 0 {
+		return fmt.Errorf("AcceptNum[%d] is too small", cfg.AcceptNum)
+	} else if cfg.AcceptNum == 0 {
+		cfg.AcceptNum = 1
+	}
+
 	// check TlsHandshakeTimeout
 	if cfg.TlsHandshakeTimeout <= 0 {
 		return fmt.Errorf("TlsHandshakeTimeout[%d] should > 0", cfg.TlsHandshakeTimeout)
@@ -205,24 +220,47 @@ func basicConfCheck(cfg *ConfigBasic) error {
 		return fmt.Errorf("MaxHeaderHeaderBytes[%d] should > 0", cfg.MaxHeaderBytes)
 	}
 
+	// check Plugins
+	if err := checkPlugins(cfg); err != nil {
+		return fmt.Errorf("plugins[%v] check failed. err: %s", cfg.Plugins, err.Error())
+	}
+
 	return nil
 }
 
 func checkLayer4LoadBalancer(cfg *ConfigBasic) error {
 	if len(cfg.Layer4LoadBalancer) == 0 {
-		cfg.Layer4LoadBalancer = BALANCER_BGW // default BGW
+		cfg.Layer4LoadBalancer = BalancerNone // default NONE
 	}
 
 	switch cfg.Layer4LoadBalancer {
-	case BALANCER_BGW:
+	case BalancerBgw:
 		return nil
-	case BALANCER_PROXY:
+	case BalancerProxy:
 		return nil
-	case BALANCER_NONE:
+	case BalancerNone:
 		return nil
 	default:
 		return fmt.Errorf("Layer4LoadBalancer[%s] should be BGW/PROXY/NONE", cfg.Layer4LoadBalancer)
 	}
+}
+
+func checkPlugins(cfg *ConfigBasic) error {
+	plugins := []string{}
+	for _, pluginPath := range cfg.Plugins {
+		pluginPath = strings.TrimSpace(pluginPath)
+		if pluginPath == "" {
+			continue
+		}
+
+		if !strings.HasSuffix(pluginPath, LibrarySuffix) {
+			pluginPath = pluginPath + LibrarySuffix
+		}
+		plugins = append(plugins, pluginPath)
+	}
+	cfg.Plugins = plugins
+
+	return nil
 }
 
 func dataFileConfCheck(cfg *ConfigBasic, confRoot string) error {

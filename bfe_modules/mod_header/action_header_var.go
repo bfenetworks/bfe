@@ -26,6 +26,7 @@ import (
 
 import (
 	"github.com/baidu/bfe/bfe_basic"
+	"github.com/baidu/bfe/bfe_modules/mod_geo"
 	"github.com/baidu/bfe/bfe_tls"
 	"github.com/baidu/bfe/bfe_util"
 )
@@ -58,12 +59,21 @@ var VariableHandlers = map[string]HeaderValueHandler{
 	"bfe_backend_info": getBfeBackendInfo,
 
 	// for tls
-	"bfe_ssl_resume":            getBfeSslResume,
-	"bfe_ssl_cipher":            getBfeSslCipher,
-	"bfe_ssl_version":           getBfeSslVersion,
-	"bfe_protocol":              getBfeProtocol,
-	"client_cert_serial_number": getClientCertSerialNumber,
-	"client_cert_subject_title": getClientCertSubjectTitle,
+	"bfe_ssl_resume":                   getBfeSslResume,
+	"bfe_ssl_cipher":                   getBfeSslCipher,
+	"bfe_ssl_version":                  getBfeSslVersion,
+	"bfe_protocol":                     getBfeProtocol,
+	"client_cert_serial_number":        getClientCertSerialNumber,
+	"client_cert_subject_title":        getClientCertSubjectTitle,
+	"client_cert_subject_common_name":  getClientCertSubjectCommonName,
+	"client_cert_subject_organization": getClientCertSubjectOrganization,
+
+	// for geo
+	"bfe_client_geo_country_iso_code":     getClientGeoCountryIsoCode,
+	"bfe_client_geo_subdivision_iso_code": getClientGeoSubdivisionIsoCode,
+	"bfe_client_geo_city_name":            getClientGeoCityName,
+	"bfe_client_geo_latitude":             getClientGeoLatitude,
+	"bfe_client_geo_longitude":            getClientGeoLongitude,
 }
 
 func uint16ToStr(u16 uint16) string {
@@ -229,6 +239,27 @@ func getClientCertSubjectTitle(req *bfe_basic.Request) string {
 	return ""
 }
 
+func getClientCertSubjectCommonName(req *bfe_basic.Request) string {
+	clientCert := getClientCert(req)
+	if clientCert == nil {
+		return ""
+	}
+
+	return clientCert.Subject.CommonName
+}
+
+func getClientCertSubjectOrganization(req *bfe_basic.Request) string {
+	clientCert := getClientCert(req)
+	if clientCert == nil {
+		return ""
+	}
+
+	if len(clientCert.Subject.Organization) > 0 {
+		return clientCert.Subject.Organization[0]
+	}
+	return ""
+}
+
 func getClientCertExtVal(req *bfe_basic.Request, oid asn1.ObjectIdentifier) string {
 	clientCert := getClientCert(req)
 	if clientCert == nil {
@@ -315,4 +346,49 @@ func getSessionId(req *bfe_basic.Request) string {
 
 func getLogId(req *bfe_basic.Request) string {
 	return req.LogId
+}
+
+func getClientGeoCountryIsoCode(req *bfe_basic.Request) string {
+	countryIsoCode := req.GetContext(mod_geo.CtxCountryIsoCode)
+	if countryIsoCode == nil {
+		return ""
+	}
+
+	return countryIsoCode.(string)
+}
+
+func getClientGeoSubdivisionIsoCode(req *bfe_basic.Request) string {
+	subdivisionIsoCode := req.GetContext(mod_geo.CtxSubdivisionIsoCode)
+	if subdivisionIsoCode == nil {
+		return ""
+	}
+
+	return subdivisionIsoCode.(string)
+}
+
+func getClientGeoCityName(req *bfe_basic.Request) string {
+	cityName := req.GetContext(mod_geo.CtxCityName)
+	if cityName == nil {
+		return ""
+	}
+
+	return cityName.(string)
+}
+
+func getClientGeoLatitude(req *bfe_basic.Request) string {
+	latitude := req.GetContext(mod_geo.CtxLatitude)
+	if latitude == nil {
+		return ""
+	}
+
+	return latitude.(string)
+}
+
+func getClientGeoLongitude(req *bfe_basic.Request) string {
+	longitude := req.GetContext(mod_geo.CtxLongitude)
+	if longitude == nil {
+		return ""
+	}
+
+	return longitude.(string)
 }

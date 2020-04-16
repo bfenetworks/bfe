@@ -62,6 +62,22 @@ var writeSetCookiesTests = []struct {
 		&Cookie{Name: "cookie-8", Value: "eight", Domain: "::1"},
 		"cookie-8=eight",
 	},
+	{
+		&Cookie{Name: "cookie-12", Value: "samesite-default", SameSite: SameSiteDefaultMode},
+		"cookie-12=samesite-default; SameSite",
+	},
+	{
+		&Cookie{Name: "cookie-13", Value: "samesite-lax", SameSite: SameSiteLaxMode},
+		"cookie-13=samesite-lax; SameSite=Lax",
+	},
+	{
+		&Cookie{Name: "cookie-14", Value: "samesite-strict", SameSite: SameSiteStrictMode},
+		"cookie-14=samesite-strict; SameSite=Strict",
+	},
+	{
+		&Cookie{Name: "cookie-15", Value: "samesite-none", SameSite: SameSiteNoneMode},
+		"cookie-15=samesite-none; SameSite=None",
+	},
 }
 
 func TestWriteSetCookies(t *testing.T) {
@@ -180,7 +196,70 @@ var readSetCookiesTests = []struct {
 			Raw:      "ASP.NET_SessionId=foo; path=/; HttpOnly",
 		}},
 	},
-
+	{
+		Header{"Set-Cookie": {"samesitedefault=foo; SameSite"}},
+		[]*Cookie{{
+			Name:     "samesitedefault",
+			Value:    "foo",
+			SameSite: SameSiteDefaultMode,
+			Raw:      "samesitedefault=foo; SameSite",
+		}},
+	},
+	{
+		Header{"Set-Cookie": {"samesitelax=foo; SameSite=Lax"}},
+		[]*Cookie{{
+			Name:     "samesitelax",
+			Value:    "foo",
+			SameSite: SameSiteLaxMode,
+			Raw:      "samesitelax=foo; SameSite=Lax",
+		}},
+	},
+	{
+		Header{"Set-Cookie": {"samesitestrict=foo; SameSite=Strict"}},
+		[]*Cookie{{
+			Name:     "samesitestrict",
+			Value:    "foo",
+			SameSite: SameSiteStrictMode,
+			Raw:      "samesitestrict=foo; SameSite=Strict",
+		}},
+	},
+	{
+		Header{"Set-Cookie": {"samesitenone=foo; SameSite=None"}},
+		[]*Cookie{{
+			Name:     "samesitenone",
+			Value:    "foo",
+			SameSite: SameSiteNoneMode,
+			Raw:      "samesitenone=foo; SameSite=None",
+		}},
+	},
+	{
+		Header{"Set-Cookie": {"SID=XXX; expires=Thu, 18-Feb-21 06:59:27 GMT; max-age=31536000; path=/; domain=.test.com; version=1"}},
+		[]*Cookie{{
+			Name:       "SID",
+			Value:      "XXX",
+			Expires:    time.Date(2021, time.February, 18, 6, 59, 27, 0, time.UTC),
+			RawExpires: "Thu, 18-Feb-21 06:59:27 GMT",
+			MaxAge:     31536000,
+			Path:       "/",
+			Domain:     ".test.com",
+			Unparsed:   []string{"version=1"},
+			Raw:        "SID=XXX; expires=Thu, 18-Feb-21 06:59:27 GMT; max-age=31536000; path=/; domain=.test.com; version=1",
+		}},
+	},
+	{
+		Header{"Set-Cookie": {"STOKEN=xxx; expires=Tue, 25-Apr-2028 08:07:15 GMT; path=/; domain=test2.com; secure; httponly"}},
+		[]*Cookie{{
+			Name:       "STOKEN",
+			Value:      "xxx",
+			Expires:    time.Date(2028, time.April, 25, 8, 7, 15, 0, time.UTC),
+			RawExpires: "Tue, 25-Apr-2028 08:07:15 GMT",
+			Path:       "/",
+			Domain:     "test2.com",
+			HttpOnly:   true,
+			Secure:     true,
+			Raw:        "STOKEN=xxx; expires=Tue, 25-Apr-2028 08:07:15 GMT; path=/; domain=test2.com; secure; httponly",
+		}},
+	},
 	// TODO(bradfitz): users have reported seeing this in the
 	// wild, but do browsers handle it? RFC 6265 just says "don't
 	// do that" (section 3) and then never mentions header folding
@@ -284,6 +363,26 @@ func TestCookieSanitizePath(t *testing.T) {
 	for _, tt := range tests {
 		if got := sanitizeCookiePath(tt.in); got != tt.want {
 			t.Errorf("sanitizeCookiePath(%q) = %q; want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestDisableSanitize(t *testing.T) {
+	SetDisableSanitize(true)
+	tests := []struct {
+		in, want string
+	}{
+		{"foo", "foo"},
+		{"foo bar", "foo bar"},
+		{"\x00\x7e\x7f\x80", "\x00\x7e\x7f\x80"},
+		{`"withquotes"`, "\"withquotes\""},
+	}
+	for _, tt := range tests {
+		if got, _ := parseCookieValue(tt.in); got != tt.want {
+			t.Errorf("after SetDisableSanitize, parseCookieValue(%q) = %q; want %q", tt.in, got, tt.want)
+		}
+		if got := sanitizeCookieValue(tt.in); got != tt.want {
+			t.Errorf("after SetDisableSanitize, sanitizeCookieValue(%q) = %q; want %q", tt.in, got, tt.want)
 		}
 	}
 }

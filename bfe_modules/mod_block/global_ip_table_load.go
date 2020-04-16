@@ -23,7 +23,7 @@ import (
 	"github.com/baidu/bfe/bfe_util/ipdict/txt_load"
 )
 
-// GlobalIPTableLoad loades global ip table.
+// GlobalIPTableLoad loads global ip table.
 func GlobalIPTableLoad(path string) (*ipdict.IPItems, error) {
 	var items *ipdict.IPItems
 	var err error

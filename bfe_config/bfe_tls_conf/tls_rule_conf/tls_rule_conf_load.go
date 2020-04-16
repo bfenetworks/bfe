@@ -137,9 +137,11 @@ func TlsRuleConfCheck(conf *TlsRuleConf) error {
 	}
 
 	for i, vip := range conf.VipConf {
-		if net.ParseIP(vip) == nil {
+		vaddr := net.ParseIP(vip)
+		if vaddr == nil {
 			return fmt.Errorf("invalid vip (%d) %s", i, vip)
 		}
+		conf.VipConf[i] = vaddr.String()
 	}
 
 	return nil

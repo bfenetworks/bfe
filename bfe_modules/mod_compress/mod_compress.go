@@ -15,6 +15,7 @@
 package mod_compress
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 )
@@ -32,9 +33,9 @@ import (
 )
 
 const (
-	EncodeGzip       = "gzip"
-	ModCompress      = "mod_compress"
-	ReqCtxEncodeInfo = "mod_compress.encode_info"
+	EncodeGzip     = "gzip"
+	EncodeIdentity = "identity"
+	ModCompress    = "mod_compress"
 )
 
 var (
@@ -46,11 +47,6 @@ type ModuleCompressState struct {
 	ReqSupportCompress   *metrics.Counter
 	ReqMatchCompressRule *metrics.Counter
 	ResEncodeCompress    *metrics.Counter
-}
-
-type EncodeInfo struct {
-	Quality   int
-	FlushSize int
 }
 
 type ModuleCompress struct {
@@ -94,23 +90,18 @@ func checkSupportCompress(req *bfe_basic.Request) bool {
 	return bfe_http.HasToken(acceptEncoding, EncodeGzip)
 }
 
-func (m *ModuleCompress) checkHandler(req *bfe_basic.Request) (int, *bfe_http.Response) {
+func (m *ModuleCompress) getCompressRule(req *bfe_basic.Request) (*compressRule, error) {
 	if openDebug {
 		log.Logger.Debug("%s check request", m.name)
 	}
 	m.state.ReqTotal.Inc(1)
-
-	if !checkSupportCompress(req) {
-		return bfe_module.BfeHandlerGoOn, nil
-	}
-	m.state.ReqSupportCompress.Inc(1)
 
 	rules, ok := m.ruleTable.Search(req.Route.Product)
 	if !ok {
 		if openDebug {
 			log.Logger.Debug("%s product %s not found, just pass", m.name, req.Route.Product)
 		}
-		return bfe_module.BfeHandlerGoOn, nil
+		return nil, errors.New("no compress rule")
 	}
 
 	for _, rule := range *rules {
@@ -120,37 +111,30 @@ func (m *ModuleCompress) checkHandler(req *bfe_basic.Request) (int, *bfe_http.Re
 
 		if rule.Cond.Match(req) {
 			m.state.ReqMatchCompressRule.Inc(1)
-
-			req.SetContext(ReqCtxEncodeInfo, &EncodeInfo{rule.Action.Quality, rule.Action.FlushSize})
-			break
+			return &rule, nil
 		}
 	}
 
-	return bfe_module.BfeHandlerGoOn, nil
+	return nil, errors.New("no matched rule")
 }
 
 func (m *ModuleCompress) compressHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
-	var err error
+	if !checkSupportCompress(req) {
+		return bfe_module.BfeHandlerGoOn
+	}
+	m.state.ReqSupportCompress.Inc(1)
 
-	val := req.GetContext(ReqCtxEncodeInfo)
-	if val == nil {
+	contentEncoding := res.Header.GetDirect("Content-Encoding")
+	if len(contentEncoding) != 0 && contentEncoding != EncodeIdentity {
 		return bfe_module.BfeHandlerGoOn
 	}
 
-	encodeInfo, ok := val.(*EncodeInfo)
-	if !ok {
+	rule, err := m.getCompressRule(req)
+	if err != nil {
 		return bfe_module.BfeHandlerGoOn
 	}
 
-	if res.StatusCode != 200 {
-		return bfe_module.BfeHandlerGoOn
-	}
-
-	if len(res.Header.GetDirect("Content-Encoding")) != 0 {
-		return bfe_module.BfeHandlerGoOn
-	}
-
-	res.Body, err = NewGzipFilter(res.Body, encodeInfo.Quality, encodeInfo.FlushSize)
+	res.Body, err = NewGzipFilter(res.Body, rule.Action.Quality, rule.Action.FlushSize)
 	if err != nil {
 		return bfe_module.BfeHandlerGoOn
 	}
@@ -199,11 +183,6 @@ func (m *ModuleCompress) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.Web
 
 	if err = m.loadProductRuleConf(nil); err != nil {
 		return fmt.Errorf("%s: loadProductRuleConf() err %v", m.name, err)
-	}
-
-	err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.checkHandler)
-	if err != nil {
-		return fmt.Errorf("%s.Init(): AddFilter(m.checkHandler): %v", m.name, err)
 	}
 
 	err = cbs.AddFilter(bfe_module.HandleReadResponse, m.compressHandler)

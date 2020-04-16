@@ -163,18 +163,18 @@ func TestTlsRuleConfLoad6(t *testing.T) {
 	confExpect.Config["pb"] = &TlsRuleConf{
 		CertName:   "*.example.com",
 		NextProtos: []string{"spdy/3.1", "http/1.1"},
-		VipConf:    []string{"FF02::1"},
+		VipConf:    []string{"ff02::1"},
 		Grade:      "A",
 	}
 	confExpect.Config["pn"] = &TlsRuleConf{
 		CertName: "*.example.com",
-		VipConf:  []string{"FC00:1:A000:B00::527:127:AB"},
+		VipConf:  []string{"fc00:1:a000:b00:0:527:127:ab"},
 		Grade:    "B",
 	}
 	confExpect.Config["pz"] = &TlsRuleConf{
 		CertName:   "*.example.com",
 		NextProtos: []string{"spdy/3.1;rate=50", "http/1.1"},
-		VipConf:    []string{"2001:0:1111:A:B0::9000:200"},
+		VipConf:    []string{"2001:0:1111:a:b0:0:9000:200"},
 		Grade:      "B",
 	}
 	confExpect.Config["pw"] = &TlsRuleConf{

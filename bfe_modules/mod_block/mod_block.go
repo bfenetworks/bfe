@@ -88,7 +88,7 @@ func (m *ModuleBlock) Name() string {
 	return m.name
 }
 
-// loadGlobalIPTable loades global ip blacklist.
+// loadGlobalIPTable loads global ip blacklist.
 func (m *ModuleBlock) loadGlobalIPTable(query url.Values) error {
 	// get reload file path
 	path := query.Get("path")

@@ -21,13 +21,20 @@ export PATH        := $(shell go env GOPATH)/bin:$(PATH)
 export GO111MODULE := on
 
 # init command params
-GO      := go
-GOBUILD := $(GO) build
-GOTEST  := $(GO) test
-GOVET   := $(GO) vet
-GOGET   := $(GO) get
-GOGEN   := $(GO) generate
-GOCLEAN := $(GO) clean
+GO           := go
+GOBUILD      := $(GO) build
+GOTEST       := $(GO) test
+GOVET        := $(GO) vet
+GOGET        := $(GO) get
+GOGEN        := $(GO) generate
+GOFLAGS      := -race
+STATICCHECK  := staticcheck
+
+# init arch
+ARCH := $(shell getconf LONG_BIT)
+ifeq ($(ARCH),64)
+	GOTEST += $(GOFLAGS)
+endif
 
 # init bfe version
 BFE_VERSION ?= $(shell cat VERSION)
@@ -53,20 +60,25 @@ build:
 # make test, test your code
 test: test-case vet-case
 test-case:
-	$(GOTEST) -race -cover ./...
+	$(GOTEST) -cover ./...
 vet-case:
 	${GOVET} ./...
 
 # make coverage for codecov
 coverage:
 	echo -n > coverage.txt
-	for pkg in $(BFE_PKGS) ; do $(GOTEST) -race -coverprofile=profile.out -covermode=atomic $${pkg} && cat profile.out >> coverage.txt; done
+	for pkg in $(BFE_PKGS) ; do $(GOTEST) -coverprofile=profile.out -covermode=atomic $${pkg} && cat profile.out >> coverage.txt; done
 
 # make package
 package:
 	mkdir -p $(OUTDIR)/bin
 	mv bfe  $(OUTDIR)/bin
 	cp -r conf $(OUTDIR)
+
+# make check
+check:
+	$(GO) get honnef.co/go/tools/cmd/staticcheck
+	$(STATICCHECK) ./...
 
 # make docker
 docker:

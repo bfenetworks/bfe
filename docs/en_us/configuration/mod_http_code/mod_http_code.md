@@ -2,6 +2,6 @@
 
 Count HTTP status codes. 
 
-# Configuration
+# Module Configuration
 
-- Can be enabled in bfe.conf. No other configuration required.
+Not required

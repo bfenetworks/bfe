@@ -151,7 +151,7 @@ func (m *ModuleRedirect) init(cfg *ConfModRedirect, cbs *bfe_module.BfeCallbacks
 	}
 
 	// register handler
-	err := cbs.AddFilter(bfe_module.HandleAfterLocation, m.redirectHandler)
+	err := cbs.AddFilter(bfe_module.HandleFoundProduct, m.redirectHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.redirectHandler): %s", m.name, err.Error())
 	}

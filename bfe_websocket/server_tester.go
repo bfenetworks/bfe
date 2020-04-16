@@ -111,8 +111,6 @@ func (st *ServerTester) handleWebsocketConn(conn net.Conn) {
 		st.hl(st.mp.Config, rw, req)
 		return
 	}
-
-	return
 }
 
 // WebSocketHandshake starts websocket handshake (client perspective)

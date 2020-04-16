@@ -57,6 +57,7 @@ type ReverseProxy struct {
 	// If no transport from clustername->transport map, create one.
 	tsMu       sync.RWMutex
 	transports RoundTripperMap
+	bufferPool *bfe_util.FixedPool
 
 	server     *BfeServer  // link to bfe server
 	proxyState *ProxyState // state of proxy
@@ -68,6 +69,7 @@ func NewReverseProxy(server *BfeServer, state *ProxyState) *ReverseProxy {
 	rp.transports = make(RoundTripperMap)
 	rp.server = server
 	rp.proxyState = state
+	rp.bufferPool = bfe_util.NewFixedPool(32 * 1024)
 	return rp
 }
 
@@ -761,7 +763,10 @@ func (p *ReverseProxy) copyResponse(dst io.Writer, src io.ReadCloser,
 		}
 	}
 
-	_, err := io.Copy(dst, src)
+	buf := p.bufferPool.GetBlock()
+	defer p.bufferPool.PutBlock(buf)
+
+	_, err := io.CopyBuffer(dst, src, buf)
 	return err
 }
 

@@ -154,7 +154,7 @@ func ruleListConvert(ruleFileList *RuleFileList) (*RuleList, error) {
 	return ruleList, nil
 }
 
-// ReWriteConfLoad loades config of rewrite from file.
+// ReWriteConfLoad loads config of rewrite from file.
 func ReWriteConfLoad(filename string) (ReWriteConf, error) {
 	var conf ReWriteConf
 	var err error

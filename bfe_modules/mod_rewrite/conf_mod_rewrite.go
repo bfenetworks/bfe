@@ -33,7 +33,7 @@ type ConfModReWrite struct {
 	}
 }
 
-// ConfLoad loades config from config file
+// ConfLoad loads config from config file
 func ConfLoad(filePath string, confRoot string) (*ConfModReWrite, error) {
 	var err error
 	var cfg ConfModReWrite

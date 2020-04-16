@@ -1,5 +1,4 @@
-# 协议相关
+# 请求协议相关条件原语
 
-- **req_proto_secure()**
-  - 判断请求是否基于安全传输协议，包括https/spdy/http2 
-  - 如果请求基于http, 返回false；如果请求基于https/spdy/http2，返回true
+## req_proto_secure()
+* 语义: 判断请求是否基于TLS安全传输协议，包括HTTPS/SPDY/HTTP2 

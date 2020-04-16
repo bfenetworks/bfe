@@ -46,7 +46,7 @@ func newServerDataConf() *ServerDataConf {
 	return c
 }
 
-// LoadServerDataConf loades ServerDataConf config.
+// LoadServerDataConf loads ServerDataConf config.
 func LoadServerDataConf(hostFile, vipFile, routeFile, clusterConfFile string) (*ServerDataConf, error) {
 	s := newServerDataConf()
 
@@ -68,7 +68,7 @@ func LoadServerDataConf(hostFile, vipFile, routeFile, clusterConfFile string) (*
 	return s, nil
 }
 
-// hostTableLoad loades all data for host table from file.
+// hostTableLoad loads all data for host table from file.
 func (s *ServerDataConf) hostTableLoad(hostFile, vipFile, routeFile string) error {
 	// load host rule from file
 	hostConf, err := host_rule_conf.HostRuleConfLoad(hostFile)

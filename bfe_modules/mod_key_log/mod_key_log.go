@@ -51,16 +51,6 @@ func (m *ModuleKeyLog) Name() string {
 	return m.name
 }
 
-func (m *ModuleKeyLog) loadConf(confPath string) error {
-	conf, err := ConfLoad(confPath)
-	if err != nil {
-		return fmt.Errorf("%s: conf load err %s", m.name, err.Error())
-	}
-
-	m.conf = conf
-	return nil
-}
-
 func (m *ModuleKeyLog) logTlsKey(session *bfe_basic.Session) int {
 	tlsState := session.TlsState
 	if tlsState == nil {
@@ -78,12 +68,15 @@ func (m *ModuleKeyLog) logTlsKey(session *bfe_basic.Session) int {
 
 func (m *ModuleKeyLog) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers,
 	cr string) error {
+	var conf *ConfModKeyLog
 	var err error
 
 	// load config
-	if err = m.loadConf(bfe_module.ModConfPath(cr, m.name)); err != nil {
-		return err
+	confPath := bfe_module.ModConfPath(cr, m.name)
+	if conf, err = ConfLoad(confPath, cr); err != nil {
+		return fmt.Errorf("%s: conf load err %s", m.name, err.Error())
 	}
+	m.conf = conf
 
 	// init logger
 	m.logger, err = access_log.LoggerInit(m.conf.Log.LogPrefix, m.conf.Log.LogDir,

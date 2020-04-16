@@ -2,26 +2,43 @@
 
 Modify URI of HTTP request based on defined rules.
 
-# Configuration
+# Module configuration
 
-- Module config file
+## Description
+conf/mod_rewrite/mod_rewrite.conf
 
-  conf/mod_rewrite/mod_rewrite.conf
+| Config Item | Description                             |
+| ----------- | --------------------------------------- |
+| Basic.DataPath | String<br>path of rule configuraiton |
 
-  ```
-  [basic]
-  DataPath = ../conf/mod_rewrite/rewrite.data
-  ```
+## Example
 
-- Rule config file
+```
+[basic]
+DataPath = ../conf/mod_rewrite/rewrite.data
+```
 
-  conf/mod_rewrite/rewrite.data
+# Rule configuration
 
-| Config Item | Type   | Description                                                  |
-| ----------- | ------ | ------------------------------------------------------------ |
-| Version     | String | Verson of config file                                        |
-| Config      | Struct | Rewrite rules for each product. Rewrite rule include: <br>- Cond: "condition" expression <br>- Actions: what to do after matched<br>- Last: if true, stop to check the remaining rules |
-  
+## Description
+conf/mod_rewrite/rewrite.data
+
+| Config Item | Description                                                  |
+| ----------- | ------------------------------------------------------------ |
+| Version     | String<br>Verson of config file |
+| Config      | Struct<br>Rewrite rules for each product |
+| Config{k}   | String<br>Product name |
+| Config{v}   | Object<br>A ordered list of rewrite rules |
+| Config{v}[] | Object<br>A rewrite rule |
+| Config{v}[].Cond | String<br>Condition expression, See [Condition](../../condition/condition_grammar.md) |
+| Config{v}[].Actions | Object<br>A ordered list of rewrite actions |
+| Config{v}[].Actions[] | Object<br>A rewrite action |
+| Config{v}[].Actions[].Cmd | Object<br>Name of rewrite action |
+| Config{v}[].Actions[].Params | Object<br>Parameters of rewrite action |
+| Config{v}[].Last | Integer<br>If true, stop to check the remaining rules |
+
+
+## Actions
 | Action                    | Description                              |
 | ------------------------- | ---------------------------------------- |
 | HOST_SET                  | Set host to specified value              |
@@ -34,25 +51,27 @@ Modify URI of HTTP request based on defined rules.
 | QUERY_DEL_ALL_EXCEPT      | Del all queries except specified queries |
 | QUERY_RENAME              | Rename query                             |
   
-  ```
-  {
-      "Version": "20190101000000",
-      "Config": {
-          "example_product": [
-              {
-                  "Cond": "req_path_prefix_in(\"/rewrite\", false)",
-                  "Actions": [
-                      {
-                          "Cmd": "PATH_PREFIX_ADD",
-                          "Params": [
-                              "/bfe/"
-                          ]
-                      }
-                  ],
-                  "Last": true
-              }
-          ]
-      }
-  }
-  ```
+## Example
+
+```
+{
+    "Version": "20190101000000",
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "req_path_prefix_in(\"/rewrite\", false)",
+                "Actions": [
+                    {
+                        "Cmd": "PATH_PREFIX_ADD",
+                        "Params": [
+                            "/bfe/"
+                        ]
+                    }
+                ],
+                "Last": true
+            }
+        ]
+    }
+}
+```
   

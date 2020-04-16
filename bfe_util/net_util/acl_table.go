@@ -50,10 +50,7 @@ func (t *AclTable) GetAclName(ip string) string {
 	t.mutex.RUnlock()
 
 	val, found, err := curTree.GetByString(ip)
-	if err != nil {
-		return ACL_NOT_FOUND
-	}
-	if !found {
+	if err != nil || !found {
 		return ACL_NOT_FOUND
 	}
 
