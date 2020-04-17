@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/abbot/go-http-auth v0.4.1-0.20181019201920-860ed7f246ff
+	github.com/andybalholm/brotli v1.0.0
 	github.com/asergeyev/nradix v0.0.0-20170505151046-3872ab85bb56 // indirect
 	github.com/baidu/go-lib v0.0.0-20191217050907-c1bbbad6b030
 	github.com/gomodule/redigo v2.0.0+incompatible
@@ -24,7 +25,7 @@ require (
 	golang.org/x/crypto v0.0.0-20200117160349-530e935923ad
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/sys v0.0.0-20200121082415-34d275377bf9
-	golang.org/x/tools v0.0.0-20200413015812-1f08ef6002a8 // indirect
+	golang.org/x/tools v0.0.0-20200416061724-5744cfde56ed // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/square/go-jose.v2 v2.4.1
