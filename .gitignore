@@ -8,3 +8,4 @@ output
 /**/*.log
 profile.out
 coverage.txt
+.idea/
