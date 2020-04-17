@@ -53,7 +53,7 @@ func NewBfeCluster(name string) *BfeCluster {
 	return cluster
 }
 
-func (cluster *BfeCluster) BasicInit(clusterConf cluster_conf.ClusterConf) {
+func (cluster *BfeCluster) BasicInit(clusterConf *cluster_conf.ClusterConf) {
 	// set backendConf and checkConf
 	cluster.backendConf = clusterConf.BackendConf
 	cluster.CheckConf = clusterConf.CheckConf

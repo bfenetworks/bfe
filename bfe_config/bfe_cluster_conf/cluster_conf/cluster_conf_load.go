@@ -119,7 +119,7 @@ type ClusterConf struct {
 	ClusterBasic *ClusterBasicConf // basic conf for cluster
 }
 
-type ClusterToConf map[string]ClusterConf
+type ClusterToConf map[string]*ClusterConf
 
 // BfeClusterConf is conf of all bfe cluster.
 type BfeClusterConf struct {
@@ -392,7 +392,6 @@ func ClusterBasicConfCheck(conf *ClusterBasicConf) error {
 // ClusterConfCheck check ClusterConf.
 func ClusterConfCheck(conf *ClusterConf) error {
 	var err error
-
 	// check BackendConf
 	if conf.BackendConf == nil {
 		conf.BackendConf = &BackendBasic{}
@@ -435,12 +434,13 @@ func ClusterConfCheck(conf *ClusterConf) error {
 // ClusterToConfCheck check ClusterToConf.
 func ClusterToConfCheck(conf *ClusterToConf) error {
 	for clusterName, clusterConf := range *conf {
-		err := ClusterConfCheck(&clusterConf)
+		err := ClusterConfCheck(clusterConf)
 
 		if err != nil {
 			return fmt.Errorf("conf for %s:%s", clusterName, err.Error())
 		}
 	}
+
 	return nil
 }
 
