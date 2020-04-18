@@ -7,6 +7,15 @@ The mod_access module writes request logs and session logs in the specified form
 ## Description
   conf/mod_access/mod_access.conf
 
+| Config Item | Description                             |
+| ----------- | --------------------------------------- |
+| Log.LogPrefix | String<br>filename prefix for log |
+| Log.LogDir | String<br>directory of log files |
+| Log.RotateWhen | String<br>inteval to rotate log file |
+| Log.BackupCount | Integer<br>max number of rotated log files |
+| Template.RequestTemplate | String<br>template of request log |
+| Template.SessionTemplate | String<br>template of session log |
+
 ## Example
 ```
 [Log]
