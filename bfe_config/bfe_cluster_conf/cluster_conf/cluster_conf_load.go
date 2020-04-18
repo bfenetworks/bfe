@@ -435,7 +435,6 @@ func ClusterConfCheck(conf *ClusterConf) error {
 func ClusterToConfCheck(conf *ClusterToConf) error {
 	for clusterName, clusterConf := range *conf {
 		err := ClusterConfCheck(clusterConf)
-
 		if err != nil {
 			return fmt.Errorf("conf for %s:%s", clusterName, err.Error())
 		}
