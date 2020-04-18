@@ -37,7 +37,9 @@ ifeq ($(ARCH),64)
 endif
 
 # init bfe version
-BFE_VERSION ?= $(shell cat VERSION)
+BFE_BRANCH = $(shell git branch --show-current)
+BFE_COMMIT_ID = $(shell git rev-parse --short HEAD)
+BFE_VERSION = $(BFE_BRANCH)-$(BFE_COMMIT_ID)
 
 # init bfe packages
 BFE_PKGS := $(shell go list ./...)
@@ -55,7 +57,7 @@ prepare-gen:
 # make compile, go build
 compile: test build
 build:
-	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION)" 
+	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION)"
 
 # make test, test your code
 test: test-case vet-case
@@ -94,5 +96,5 @@ clean:
 	rm -rf $(WORKROOT)/bfe
 	rm -rf $(GOPATH)/pkg/linux_amd64
 
-# avoid filename conflict and speed up build 
+# avoid filename conflict and speed up build
 .PHONY: all prepare compile test package clean build
