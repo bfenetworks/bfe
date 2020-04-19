@@ -15,7 +15,7 @@ conf/mod_redirect/mod_redirect.conf
 
 ```
 [basic]
-DataPath = ../conf/mod_redirect/redirect.data
+DataPath = mod_redirect/redirect.data
 ```
 
 # Rule configuration

@@ -14,7 +14,7 @@ conf/mod_compress/mod_compress.conf
 ## Example
 ```
 [basic]
-DataPath = ../conf/mod_compress/compress_rule.data
+DataPath = mod_compress/compress_rule.data
 
 [log]
 OpenDebug = false
