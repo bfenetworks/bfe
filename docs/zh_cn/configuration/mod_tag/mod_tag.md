@@ -15,7 +15,7 @@
 ## 配置示例
 ```
 [Basic]
-DataPath = ../conf/mod_tag/tag_rule.data
+DataPath = mod_tag/tag_rule.data
 
 [Log]
 OpenDebug = false

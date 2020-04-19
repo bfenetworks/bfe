@@ -14,7 +14,7 @@
 ## 配置示例
 ```
 [basic]
-DataPath = ../conf/mod_rewrite/rewrite.data
+DataPath = mod_rewrite/rewrite.data
 ```
 
 # 规则配置

@@ -14,7 +14,7 @@
 ## 配置示例
 ```
 [basic]
-DataPath = ../conf/mod_trust_clientip/trust_client_ip.data
+DataPath = mod_trust_clientip/trust_client_ip.data
 ```
 
 # 字典配置

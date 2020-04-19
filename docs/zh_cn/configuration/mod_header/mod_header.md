@@ -14,7 +14,7 @@
 ## 配置示例
 ```
 [basic]
-DataPath = ../conf/mod_header/header_rule.data
+DataPath = mod_header/header_rule.data
 ```
 
 # 规则配置

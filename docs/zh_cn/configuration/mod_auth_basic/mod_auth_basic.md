@@ -15,7 +15,7 @@ mod_auth_basic支持HTTP基本认证。
 
 ```
 [basic]
-DataPath = ../conf/mod_auth_basic/auth_basic_rule.data
+DataPath = mod_auth_basic/auth_basic_rule.data
 
 [log]
 OpenDebug = false
