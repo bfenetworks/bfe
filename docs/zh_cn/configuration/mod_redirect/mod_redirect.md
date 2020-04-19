@@ -14,7 +14,7 @@
 ## 配置示例
 ```
 [basic]
-DataPath = ../conf/mod_redirect/redirect.data
+DataPath = mod_redirect/redirect.data
 ```
 
 # 规则配置

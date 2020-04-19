@@ -15,7 +15,7 @@ mod_compress支持响应压缩，如：GZIP压缩。
 - 模块配置文件
 ```
 [basic]
-DataPath = ../conf/mod_compress/compress_rule.data
+DataPath = mod_compress/compress_rule.data
 
 [log]
 OpenDebug = false

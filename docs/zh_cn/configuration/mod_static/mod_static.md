@@ -15,7 +15,7 @@ mod_static支持返回静态文件作为响应。
 ## 配置示例
 ```
 [basic]
-DataPath = .mod_static/static_rule.data
+DataPath = mod_static/static_rule.data
 MimeTypePath = mod_static/mime_type.data
 
 ```
