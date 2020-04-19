@@ -15,7 +15,7 @@ conf/mod_rewrite/mod_rewrite.conf
 
 ```
 [basic]
-DataPath = ../conf/mod_rewrite/rewrite.data
+DataPath = mod_rewrite/rewrite.data
 ```
 
 # Rule configuration

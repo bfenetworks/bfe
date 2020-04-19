@@ -15,7 +15,7 @@ conf/mod_header/mod_header.conf
 
 ```
 [basic]
-DataPath = ../conf/mod_header/header_rule.data
+DataPath = mod_header/header_rule.data
 ```
 
 # Rule Configuration

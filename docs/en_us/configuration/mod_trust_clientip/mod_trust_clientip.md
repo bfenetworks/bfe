@@ -14,7 +14,7 @@ conf/mod_trust_clientip/mod_trust_clientip.conf
 ## Example
 ```
 [basic]
-DataPath = ../conf/mod_trust_clientip/trust_client_ip.data
+DataPath = mod_trust_clientip/trust_client_ip.data
 ```
 
 # Rule configuraiton

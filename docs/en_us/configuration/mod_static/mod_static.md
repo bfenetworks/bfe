@@ -14,7 +14,7 @@ conf/mod_static/mod_static.conf
 ## Example
 ```
 [basic]
-DataPath = ../conf/mod_static/static_rule.data
+DataPath = mod_static/static_rule.data
 ```
 
 # Rule configuration

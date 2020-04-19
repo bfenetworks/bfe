@@ -15,7 +15,7 @@ conf/mod_auth_basic/mod_auth_basic.conf
 
 ```
 [basic]
-DataPath = ../conf/mod_auth_basic/auth_basic_rule.data
+DataPath = mod_auth_basic/auth_basic_rule.data
 
 [log]
 OpenDebug = false
