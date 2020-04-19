@@ -16,10 +16,10 @@ conf/mod_block/mod_block.conf
 ```
 [basic]
 # product rule config file path
-ProductRulePath = ../conf/mod_block/block_rules.data
+ProductRulePath = mod_block/block_rules.data
 
 # global ip blacklist file path
-IPBlacklistPath = ../conf/mod_block/ip_blacklist.data
+IPBlacklistPath = mod_block/ip_blacklist.data
 ```
 
 Format of IPBlacklistPath file
