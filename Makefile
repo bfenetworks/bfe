@@ -39,7 +39,7 @@ endif
 # init bfe version
 BFE_BRANCH = $(shell git branch --show-current)
 BFE_COMMIT_ID = $(shell git rev-parse --short HEAD)
-BFE_VERSION = $(BFE_BRANCH)-$(BFE_COMMIT_ID)
+BFE_VERSION = $(BFE_BRANCH)
 
 # init bfe packages
 BFE_PKGS := $(shell go list ./...)
@@ -57,7 +57,7 @@ prepare-gen:
 # make compile, go build
 compile: test build
 build:
-	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION)"
+	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) main.commitID=$(BFE_COMMIT_ID)"
 
 # make test, test your code
 test: test-case vet-case

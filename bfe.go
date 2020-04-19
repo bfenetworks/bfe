@@ -44,6 +44,7 @@ var (
 )
 
 var version string
+var commitID string
 
 func main() {
 	var err error
@@ -57,6 +58,7 @@ func main() {
 	}
 	if *showVer {
 		fmt.Printf("bfe: version %s\n", version)
+		fmt.Printf("commit id %s\n", commitID)
 		return
 	}
 
