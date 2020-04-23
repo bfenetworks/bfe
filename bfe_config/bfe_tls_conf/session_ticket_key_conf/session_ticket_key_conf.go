@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	RAW_SESSION_TICKET_KEY_SIZE = 48 // bytes
+	RawSessionTicketKeySize = 48 // bytes
 )
 
 // SessionTicketKeyConf is session ticket key config.
