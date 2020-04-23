@@ -30,6 +30,7 @@ var funcProtos = map[string][]Token{
 	"req_proto_secure":           nil,
 	"req_host_in":                {STRING},
 	"req_host_regmatch":          {STRING},
+	"req_host_tag_in":            {STRING},
 	"req_path_in":                {STRING, BOOL},
 	"req_path_prefix_in":         {STRING, BOOL},
 	"req_path_suffix_in":         {STRING, BOOL},

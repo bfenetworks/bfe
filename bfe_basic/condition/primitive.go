@@ -90,6 +90,15 @@ func (hf *HostFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
 	return host, nil
 }
 
+type HostTagFetcher struct{}
+
+func (hf *HostTagFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
+	if req == nil {
+		return nil, fmt.Errorf("fetcher: nil pointer")
+	}
+	return req.Route.HostTag, nil
+}
+
 type ProtoFetcher struct{}
 
 func (pf *ProtoFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
