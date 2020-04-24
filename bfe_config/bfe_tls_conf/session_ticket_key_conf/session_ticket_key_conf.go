@@ -47,7 +47,7 @@ func SessionTicketKeyConfCheck(conf SessionTicketKeyConf) error {
 	if err != nil {
 		return fmt.Errorf("session ticket key %s(%s)", err.Error(), conf.SessionTicketKey)
 	}
-	if len(key) != RAW_SESSION_TICKET_KEY_SIZE {
+	if len(key) != RawSessionTicketKeySize {
 		return fmt.Errorf("session ticket key should be 96 bytes hex string (%s)", conf.SessionTicketKey)
 	}
 
