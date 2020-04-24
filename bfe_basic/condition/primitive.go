@@ -536,10 +536,6 @@ func suffixIn(v string, patterns []string) bool {
 	return false
 }
 
-func contains(v, pattern string) bool {
-	return strings.Contains(v, pattern)
-}
-
 type UAFetcher struct{}
 
 func (uaf *UAFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
