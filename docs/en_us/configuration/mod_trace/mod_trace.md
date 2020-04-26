@@ -40,6 +40,14 @@ Enable trace for requests based on defined rules.
 | Jaeger.CollectorUser          | String<br>basic http authentication when sending spans to jaeger-collector |
 | Jaeger.CollectorPassword      | String<br>basic http authentication when sending spans to jaeger-collector |
 
+### Configuration about Elastic
+
+| Config Item                   | Description                     |
+| ------------------------------| --------------------------------|
+| Elastic.ServerURL             | String<br>Set the URL of the Elastic APM server |
+| Elastic.SecretToken           | String<br>Set the token used to connect to Elastic APM Server |
+
+
 ## Example
 
 ### Example for Zipkin
@@ -48,7 +56,7 @@ Enable trace for requests based on defined rules.
 DataPath = mod_trace/trace_rule.data
 ServiceName = bfe
 
-# Which trace agent to use (zipkin, jaeger)
+# Which trace agent to use (zipkin, jaeger, elastic)
 TraceAgent = zipkin
 
 [Log]
@@ -71,14 +79,13 @@ SampleRate = 1.0
 ```
 
 ### Example for Jaeger
-
 ```
 [Basic]
 DataPath = mod_trace/trace_rule.data
 ServiceName = bfe
 
-# Which trace agent to use (zipkin, jaeger)
-TraceAgent = zipkin
+# Which trace agent to use (zipkin, jaeger, elastic)
+TraceAgent = jaeger
 
 [Log]
 OpenDebug = false
@@ -122,6 +129,28 @@ CollectorUser = ""
 
 # CollectorPassword for basic http authentication when sending spans to jaeger-collector
 CollectorPassword = ""
+```
+
+### Example for Elastic
+```
+[Basic]
+DataPath = mod_trace/trace_rule.data
+ServiceName = bfe
+
+# Which trace agent to use (zipkin, jaeger, elastic)
+TraceAgent = elastic
+
+[Log]
+OpenDebug = false
+
+[Elastic]
+# Elastic, only useful when TraceAgent is elastic
+
+# Set the URL of the Elastic APM server
+ServerURL = http://127.0.0.1:8200
+
+# Set the token used to connect to Elastic APM Server
+SecretToken = ""
 ```
 
 # Rule configuration

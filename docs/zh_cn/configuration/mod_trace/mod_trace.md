@@ -40,6 +40,13 @@
 | Jaeger.CollectorUser          | String<br>设置jaeger-collector认证用户名 |
 | Jaeger.CollectorPassword      | String<br>设置jaeger-collector认证密码 |
 
+### Elastic配置项
+
+| 配置项                         | 描述                                      |
+| ------------------------------| -----------------------------------------|
+| Elastic.ServerURL             | String<br>设置Elastic APM server          |
+| Elastic.SecretToken           | String<br>设置Elastic APM server认证token |
+
 ## 配置示例
 
 ### 基于Zipkin示例
@@ -49,7 +56,7 @@
 DataPath = mod_trace/trace_rule.data
 ServiceName = bfe
 
-# Which trace agent to use (zipkin, jaeger)
+# Which trace agent to use (zipkin, jaeger, elastic)
 TraceAgent = zipkin
 
 [Log]
@@ -77,7 +84,7 @@ SampleRate = 1.0
 DataPath = mod_trace/trace_rule.data
 ServiceName = bfe
 
-# Which trace agent to use (zipkin, jaeger)
+# Which trace agent to use (zipkin, jaeger, elastic)
 TraceAgent = jaeger
 
 [Log]
@@ -122,6 +129,28 @@ CollectorUser = ""
 
 # CollectorPassword for basic http authentication when sending spans to jaeger-collector
 CollectorPassword = ""
+```
+
+### 基于Elastic示例
+```
+[Basic]
+DataPath = mod_trace/trace_rule.data
+ServiceName = bfe
+
+# Which trace agent to use (zipkin, jaeger, elastic)
+TraceAgent = elastic
+
+[Log]
+OpenDebug = false
+
+[Elastic]
+# Elastic, only useful when TraceAgent is elastic
+
+# Set the URL of the Elastic APM server
+ServerURL = http://127.0.0.1:8200
+
+# Set the token used to connect to Elastic APM Server
+SecretToken = ""
 ```
 
 # 规则配置
