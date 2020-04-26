@@ -11,4 +11,4 @@
 | ---------- | ------------------ |
 | Linux OS   | Support<br>*Recommended development and deployment system* |
 | Mac OS     | Support            |
-| Windows OS | Support<br>*Not supported to obtain VIP/CIP when configuring layer 4 load balancing as BGW |
+| Windows OS | Support<br>        |
