@@ -63,7 +63,7 @@ func rawSessionTicketKeyLoad(filename string) (SessionTicketKeyConf, error) {
 		return config, err
 	}
 
-	if len(data) != RAW_SESSION_TICKET_KEY_SIZE {
+	if len(data) != RawSessionTicketKeySize {
 		return config, fmt.Errorf("invalid session ticket key(%d)", len(data))
 	}
 
