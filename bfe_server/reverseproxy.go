@@ -245,10 +245,10 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 		}
 		request.SetRequestTransport(clusterBackend, clusterTransport)
 
-		log.Logger.Debug("ReverseProxy.Invoke(): before HANDLE_FORWARD backend %s:%d",
+		log.Logger.Debug("ReverseProxy.Invoke(): before HandleForward backend %s:%d",
 			request.Trans.Backend.Addr, request.Trans.Backend.Port)
 
-		// Callback for HANDLE_FORWARD
+		// Callback for HandleForward
 		hl := srv.CallBacks.GetHandlerList(bfe_module.HandleForward)
 		if hl != nil {
 			retVal := hl.FilterForward(request)
@@ -260,7 +260,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 			}
 		}
 
-		log.Logger.Debug("ReverseProxy.Invoke(): after HANDLE_FORWARD backend %s:%d",
+		log.Logger.Debug("ReverseProxy.Invoke(): after HandleForward backend %s:%d",
 			request.Trans.Backend.Addr, request.Trans.Backend.Port)
 
 		// set backend addr to out request
@@ -426,7 +426,7 @@ func (p *ReverseProxy) FinishReq(rw bfe_http.ResponseWriter, request *bfe_basic.
 		}
 	}()
 
-	// Callback for HANDLE_REQUEST_FINISH
+	// Callback for HandleRequestFinish
 	hl := srv.CallBacks.GetHandlerList(bfe_module.HandleRequestFinish)
 	if hl != nil {
 		retVal := hl.FilterResponse(request, request.HttpResponse)
@@ -509,7 +509,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	// set clientip of original user for request
 	setClientAddr(basicReq)
 
-	// Callback for HANDLE_BEFORE_LOCATION
+	// Callback for HandleBeforeLocation
 	hl = srv.CallBacks.GetHandlerList(bfe_module.HandleBeforeLocation)
 	if hl != nil {
 		retVal, res = hl.FilterRequest(basicReq)
