@@ -15,5 +15,6 @@
 - [mod_rewrite](configuration/mod_rewrite/mod_rewrite.md)
 - [mod_static](configuration/mod_static/mod_static.md)
 - [mod_tag](configuration/mod_tag/mod_tag.md)
+- [mod_trace](configuration/mod_trace/mod_trace.md)
 - [mod_trust_clientip](configuration/mod_trust_clientip/mod_trust_clientip.md)
 - [mod_userid](configuration/mod_userid/mod_userid.md)
