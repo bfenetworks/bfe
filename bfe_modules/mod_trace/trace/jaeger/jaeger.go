@@ -121,7 +121,5 @@ func (c *Config) Setup(componentName string) (opentracing.Tracer, io.Closer, err
 		log.Logger.Error("Could not initialize jaeger tracer: %s", err.Error())
 		return nil, nil, err
 	}
-	log.Logger.Debug("Jaeger tracer configured")
-
 	return opentracing.GlobalTracer(), closer, nil
 }
