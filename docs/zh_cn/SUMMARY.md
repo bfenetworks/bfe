@@ -1,4 +1,6 @@
 # Summary
+
+* [关于](README.md)
 * 介绍
   * [BFE概览](overview.md)
   * [竞品对比](introduction/comparison.md)
@@ -20,6 +22,7 @@
   * [源码编译安装](installation/install_from_source.md)
   * [二进制文件下载安装](installation/install_using_binaries.md)
   * [go get方式安装](installation/install_using_go_get.md)
+  * [snap方式安装](installation/install_using_snap.md)
 * 配置说明
   * [配置概述](configuration/config.md)
   * [核心配置](configuration/bfe.conf.md)

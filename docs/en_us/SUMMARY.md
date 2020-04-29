@@ -1,5 +1,6 @@
 # Summary
 
+* [About](README.md)
 * Introduction
   * [Overview](overview.md)
   * [Comparsion to similar systems](introduction/comparison.md)
@@ -22,6 +23,7 @@
   * [Install from source](installation/install_from_source.md)
   * [Install using binaries](installation/install_using_binaries.md)
   * [Install using go get](installation/install_using_go_get.md)
+  * [Install using snap](installation/install_using_snap.md)
 * Configuration
   * [Overview](configuration/config.md)
   * [Core](configuration/bfe.conf.md)

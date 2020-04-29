@@ -76,7 +76,12 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_auth_jwt
 	mod_auth_jwt.NewModuleAuthJWT(),
+<<<<<<< HEAD
     // mod_doh
+=======
+
+	// mod_doh
+>>>>>>> 8452fab04ba095384788abefeec7db9e193526cb
 	mod_doh.NewModuleDoh(),
 
 	// mod_redirect
