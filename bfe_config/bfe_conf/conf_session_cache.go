@@ -26,7 +26,7 @@ type ConfigSessionCache struct {
 	// address for redis servers
 	Servers string
 
-	// perfix for cache key
+	// prefix for cache key
 	KeyPrefix string
 
 	// config for connection (ms)
