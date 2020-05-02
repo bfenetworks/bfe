@@ -62,6 +62,7 @@
   * [System signals](operation/signal.md)
   * [Configuration reload](operation/reload.md)
   * [System metrics](operation/monitor.md)
+  * [Log Rotation](operation/log_rotation.md)
   * [Traffic tapping](operation/capture_packet.md)
   * [Performance](operation/performance.md)
 * How to Contribute

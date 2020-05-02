@@ -63,6 +63,7 @@
   * [系统信号说明](operation/signal.md)
   * [配置热加载](operation/reload.md)
   * [监控指标获取](operation/monitor.md)
+  * [日志切割备份](operation/log_rotation.md)
   * [流量抓包分析](operation/capture_packet.md)
   * [性能数据采集](operation/performance.md)
 * 参与贡献
