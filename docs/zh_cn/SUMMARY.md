@@ -18,6 +18,7 @@
     * [黑名单封禁](example/block.md)
     * [重定向](example/redirect.md)
     * [重写](example/rewrite.md)
+    * [TLS客户端认证](client_auth.md)
 * [安装说明](installation/install.md)
   * [源码编译安装](installation/install_from_source.md)
   * [二进制文件下载安装](installation/install_using_binaries.md)
