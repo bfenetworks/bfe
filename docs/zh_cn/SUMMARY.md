@@ -13,8 +13,8 @@
   * [发布历史](https://github.com/baidu/bfe/blob/master/CHANGELOG.md)
 * 快速开始
   * [安装及运行](installation/install_from_source.md)
-  * [简单转发配置](example/route.md)
-  * 使用示例配置
+  * [使用示例](example/guide.md)
+    * [流量转发](example/route.md)
     * [黑名单封禁](example/block.md)
     * [重定向](example/redirect.md)
     * [重写](example/rewrite.md)

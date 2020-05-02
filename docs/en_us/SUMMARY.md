@@ -13,11 +13,11 @@
   * [Version History](https://github.com/baidu/bfe/blob/master/CHANGELOG.md)
 * Quick Start
   * [Install](installation/install_from_source.md)
-  * [Traffic forwarding Example](example/route.md)
-  * User Guides
-    * [Connection/Request Block](example/block.md)
-    * [Request Redirect](example/redirect.md)
-    * [Request Rewrite](example/rewrite.md)
+  * [User Guides](example/guide.md)
+    * [Traffic forwarding](example/route.md)
+    * [Traffic blocking](example/block.md)
+    * [Request redirect](example/redirect.md)
+    * [Request rewrite](example/rewrite.md)
     * [TLS mutual authentication](example/client_auth.md)
 * [Installation](installation/install.md)
   * [Install from source](installation/install_from_source.md)
