@@ -1,7 +1,7 @@
-# SNAP安装
+# SNAP方式安装
 
 ## 环境准备
-- [snap](https://snapcraft.io/docs/installing-snapd)
+在Linux环境可以使用snap工具安装bfe。如果您的系统还未安装snap工具，参见[安装snap](https://snapcraft.io/docs/installing-snapd)
 
 ## 安装BFE
 - 执行如下命令:
@@ -16,7 +16,7 @@ $ sudo snap install --edge bfe
 /var/snap/bfe/common/conf/
 ```
 
-- 日志位于:
+- 日志文件位于:
 
 ```
 /var/snap/bfe/common/log
