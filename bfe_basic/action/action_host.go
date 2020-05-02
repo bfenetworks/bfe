@@ -51,17 +51,13 @@ func ReqHostSetFromFirstPathSegment(req *bfe_basic.Request) {
 	req.HttpRequest.URL.Path = "/" + segs[2]
 }
 
-// ReqHostSuffixReplace set hostname replaced suffix.
-//
-// example:
-// if uri host pattern x.baidu.com, original suffix is .com, alter suffix is .net
-//     set host x.baidu.net
-// if do not match this pattern, do noting
+// ReqHostSuffixReplace replaces suffix of hostname.
 func ReqHostSuffixReplace(req *bfe_basic.Request, originSuffix, newSuffix string) {
 	hostname := req.HttpRequest.URL.Host
-	if strings.HasSuffix(hostname, originSuffix) {
-		hostname = strings.TrimSuffix(hostname, originSuffix) + newSuffix
+	if !strings.HasSuffix(hostname, originSuffix) {
+		return
 	}
-	httpReq := req.HttpRequest
-	httpReq.Host = hostname
+	
+	hostname = strings.TrimSuffix(hostname, originSuffix) + newSuffix
+	req.HttpRequest.Host = hostname
 }
