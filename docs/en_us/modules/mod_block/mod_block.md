@@ -29,7 +29,7 @@ Format of IPBlacklistPath file
 192.168.1.250
 ```
 
-# Rule configuration
+# Rule Configuration
 
 ## Description
 

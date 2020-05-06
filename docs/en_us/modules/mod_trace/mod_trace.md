@@ -2,12 +2,12 @@
 
 Enable trace for requests based on defined rules.
 
-# Module configuration
+# Module Configuration
 
 ## Description
  conf/mod_trace/mod_trace.conf
  
-### Basic configuration
+### Basic Configuration
 
 | Config Item                   | Description                     |
 | ------------------------------| --------------------------------|
@@ -153,7 +153,7 @@ ServerURL = http://127.0.0.1:8200
 SecretToken = ""
 ```
 
-# Rule configuration
+# Rule Configuration
 
 ## Description
 conf/mod_trace/trace_rule.data

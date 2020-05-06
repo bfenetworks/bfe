@@ -2,7 +2,7 @@
 
 Set tags for request based on defined rules.
 
-# Module configuration
+# Module Configuration
 
 ## Description
 conf/mod_tag/mod_tag.conf
@@ -21,7 +21,7 @@ DataPath = mod_tag/tag_rule.data
 OpenDebug = true
 ```
 
-# Rule configuration
+# Rule Configuration
 
 ## Description
 conf/mod_tag/tag_rule.data

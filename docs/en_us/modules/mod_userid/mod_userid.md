@@ -2,7 +2,7 @@
 
 Add user id to cookie for client identification.
 
-# Module configuration
+# Module Configuration
 
 ## Description
 conf/mod_userid/mod_userid.conf
@@ -21,7 +21,7 @@ DataPath = mod_userid/userid_rule.data
 OpenDebug = true
 ```
 
-# Rule configuration
+# Rule Configuration
 
 ## Description
 conf/mod_userid/userid_rule.data

@@ -2,7 +2,7 @@
 
 Check client IP of incoming request against trusted ip dict. If matched, mark request/connection is trusted.
 
-# Module configuration
+# Module Configuration
 
 ## Description
 conf/mod_trust_clientip/mod_trust_clientip.conf
@@ -17,7 +17,7 @@ conf/mod_trust_clientip/mod_trust_clientip.conf
 DataPath = mod_trust_clientip/trust_client_ip.data
 ```
 
-# Rule configuraiton
+# Rule Configuraiton
 
 ## Description
   conf/mod_trust_clientip/trust_client_ip.data

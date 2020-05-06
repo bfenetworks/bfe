@@ -2,7 +2,7 @@
 
 Redirect HTTP request based on defined rules.
 
-# Module configuration
+# Module Configuration
 
 ## Description
 conf/mod_redirect/mod_redirect.conf
@@ -18,7 +18,7 @@ conf/mod_redirect/mod_redirect.conf
 DataPath = mod_redirect/redirect.data
 ```
 
-# Rule configuration
+# Rule Configuration
 
 ## Description
 conf/mod_redirect/redirect.data

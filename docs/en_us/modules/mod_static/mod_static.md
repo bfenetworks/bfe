@@ -2,7 +2,7 @@
 
 mod_static serves static files.
 
-# Module configuration
+# Module Configuration
 
 ## Description
 conf/mod_static/mod_static.conf
@@ -17,7 +17,7 @@ conf/mod_static/mod_static.conf
 DataPath = mod_static/static_rule.data
 ```
 
-# Rule configuration
+# Rule Configuration
 
 ## Description
 conf/mod_static/static_rule.data

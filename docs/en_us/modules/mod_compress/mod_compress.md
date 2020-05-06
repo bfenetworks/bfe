@@ -2,7 +2,7 @@
 
 mod_compress compresses responses using specified method.
 
-# Module configuration
+# Module Configuration
 ## Description
 conf/mod_compress/mod_compress.conf
 
@@ -20,7 +20,7 @@ DataPath = mod_compress/compress_rule.data
 OpenDebug = false
 ```
 
-# Rule configuration
+# Rule Configuration
 ## Description
 | Config Item | Description                                                |
 | ----------- | -------------------------------------------------------------- |

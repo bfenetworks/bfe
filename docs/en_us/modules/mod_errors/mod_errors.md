@@ -2,7 +2,7 @@
 
 mod_errors replaces error responses by specified rules.
 
-# Module configuration
+# Module Configuration
 ## Description
 conf/mod_errors/mod_errors.conf
 
@@ -17,7 +17,7 @@ conf/mod_errors/mod_errors.conf
 DataPath = mod_errors/errors_rule.data
 ```
 
-# Rule configuration
+# Rule Configuration
 ## Description 
 
 | Config Item | Description                                                |
@@ -33,7 +33,7 @@ DataPath = mod_errors/errors_rule.data
 | Config{v}[].Actions.Params | Object<br>Parameters of Action |
 | Config{v}[].Actions.Params[] | String<br>A Parameter |
 
-## Module actions
+## Module Actions
 | Action   | Description            |
 | -------- | ---------------------- |
 | RETURN   | Return response generated from specified static html |

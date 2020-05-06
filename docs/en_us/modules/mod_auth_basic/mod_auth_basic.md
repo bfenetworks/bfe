@@ -2,7 +2,7 @@
 
 mod_auth_basic implements the HTTP basic authentication.
 
-# Module configuration
+# Module Configuration
 ## Description
 conf/mod_auth_basic/mod_auth_basic.conf
 
@@ -21,7 +21,7 @@ DataPath = mod_auth_basic/auth_basic_rule.data
 OpenDebug = false
 ```
 
-# Rule configuration
+# Rule Configuration
 ## Description
 | Config Item          | Description                                 |
 | ---------------------| ------------------------------------------- |

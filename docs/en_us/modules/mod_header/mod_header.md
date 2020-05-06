@@ -2,7 +2,7 @@
 
 Modify header of HTTP request/response based on defined rules.
 
-# Module configuration
+# Module Configuration
 ## Description
 conf/mod_header/mod_header.conf
 

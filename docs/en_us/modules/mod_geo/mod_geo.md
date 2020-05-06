@@ -2,7 +2,7 @@
 
 mod_geo creates [variables](../mod_header/mod_header.md) with values depending on the client IP address, using the GEO databases.
 
-# Module configuration
+# Module Configuration
 
 ## Description
 conf/mod_geo/mod_geo.conf

@@ -2,7 +2,7 @@
 
 Modify URI of HTTP request based on defined rules.
 
-# Module configuration
+# Module Configuration
 
 ## Description
 conf/mod_rewrite/mod_rewrite.conf
@@ -18,7 +18,7 @@ conf/mod_rewrite/mod_rewrite.conf
 DataPath = mod_rewrite/rewrite.data
 ```
 
-# Rule configuration
+# Rule Configuration
 
 ## Description
 conf/mod_rewrite/rewrite.data
