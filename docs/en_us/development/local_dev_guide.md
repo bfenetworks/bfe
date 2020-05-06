@@ -26,7 +26,7 @@ $ cd bfe
 
 ## Create local branch
 
-At present [Git stream branch model](http://nvie.com/posts/a-successful-git-branching-model/)  is applied to BFE to undergo task of development,test,release and maintenance.Please refer to [branch regulation of BFE](../development/releasing_process.md) about details。
+At present [Git stream branch model](http://nvie.com/posts/a-successful-git-branching-model/)  is applied to BFE to undergo task of development,test,release and maintenance.Please refer to [branch regulation of BFE](release_regulation.md) about details。
 
 All development tasks of feature and bug fix should be finished in a new branch which is extended from `develop` branch.
 
@@ -75,7 +75,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
 ## Build and test
 
-Please refer to [Build and Run](../install.md) about construction and test.
+Please refer to [Build and Run](../installation/install_from_source.md) about construction and test.
 
 ## Commit
 

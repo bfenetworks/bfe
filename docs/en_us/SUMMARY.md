@@ -86,7 +86,7 @@
   * [Configuration](faq/configuration.md)
   * [Performance](faq/performance.md)
   * [Development](faq/development.md)
-* [Appendix A: Monitor](monitor.md)
+* Appendix A: Monitor
   * Protocol 
     * [SSL/TLS](monitor/tls_state.md)
     * [HTTP](monitor/http_state.md)

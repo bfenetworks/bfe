@@ -4,4 +4,4 @@
 - 具体见[TLS客户端认证示例](https://github.com/baidu/bfe/blob/develop/docs/zh_cn/example/client_auth.md)
 
 ## 如何启用HTTP2协议
-- 参考[conf/tls_conf/tls_rule_conf.data](configuration/tls_conf/tls_rule_conf.data.md)配置说明
+- 参考[conf/tls_conf/tls_rule_conf.data](../configuration/tls_conf/tls_rule_conf.data.md)配置说明

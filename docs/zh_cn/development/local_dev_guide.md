@@ -24,7 +24,7 @@ $ cd bfe
 
 ## 创建本地分支
 
-BFE目前使用[Git流分支模型](http://nvie.com/posts/a-successful-git-branching-model/)进行开发、测试、发行和维护，具体请参考 [BFE分支规范](../development/releasing_process.md)。
+BFE目前使用[Git流分支模型](http://nvie.com/posts/a-successful-git-branching-model/)进行开发、测试、发行和维护，具体请参考 [BFE分支规范](release_regulation.md)。
 
 所有的 feature 和 bug fix 的开发工作都应该在一个新的分支上完成，一般从 `develop` 分支上创建新分支。
 
@@ -74,7 +74,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
 ## 构建和测试
 
-从源码编译BFE及测试，请参见[编译及安装BFE](../install.md)
+从源码编译BFE及测试，请参见[编译及安装BFE](../installation/install_from_source.md)
 
 ## 提交（commit）
 

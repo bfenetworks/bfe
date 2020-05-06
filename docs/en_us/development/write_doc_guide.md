@@ -87,4 +87,4 @@ The steps to submit changes and PR can refer to [How to contribute code](../deve
 
 ## Help improve preview tool
 
-We encourage your contributions to all aspects of the platform and supportive contents. You can Fork or Clone repository, ask questions and feedback, or submit bugs on issues. For details, please refer to the [Development Guide](../../../README.md).
+We encourage your contributions to all aspects of the platform and supportive contents. You can Fork or Clone repository, ask questions and feedback, or submit bugs on issues. For details, please refer to the [Development Guide](https://github.com/baidu/bfe/blob/develop/README.md).
