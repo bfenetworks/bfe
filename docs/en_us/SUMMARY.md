@@ -35,6 +35,7 @@
     * [Host rule](configuration/server_data_conf/host_rule.data.md)
     * [Vip rule](configuration/server_data_conf/vip_rule.data.md)
     * [Route rule](configuration/server_data_conf/route_rule.data.md)
+  * [Backend Cluster](server_data_conf/cluster_conf.data.md)
   * Load Balancing
     * [Sub-clusters balancing](configuration/cluster_conf/gslb.data.md)
     * [Instances balancing](configuration/cluster_conf/cluster_table.data.md)

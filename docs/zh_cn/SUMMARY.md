@@ -35,6 +35,7 @@
     * [域名规则](configuration/server_data_conf/host_rule.data.md)
     * [VIP规则](configuration/server_data_conf/vip_rule.data.md)
     * [路由规则](configuration/server_data_conf/route_rule.data.md)
+  * [后端集群](configuration/server_data_conf/cluster_conf.data.md)
   * 负载均衡
     * [子集群负载均衡](configuration/cluster_conf/gslb.data.md)
     * [实例负载均衡](configuration/cluster_conf/cluster_table.data.md)

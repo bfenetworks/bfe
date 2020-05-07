@@ -26,4 +26,3 @@ GeoDBPath = mod_geo/geo.db
 | ----------------------- | --------------------------------- |
 | ERR_GET_GEO_INFO | 通过地理信息字典查询用户地理位置信息时，失败的次数 |
 | ERR_RELOAD_GEO_DATABASE | Reload 地理信息字典失败的次数 |
-~                                                               

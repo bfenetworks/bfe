@@ -20,14 +20,14 @@ bfe.conf是BFE的核心配置
 | Server.KeepAliveEnabled        | Boolean<br>与用户端连接是否启用HTTP KeepAlive<br>默认值True |
 | Server.MaxHeaderBytes          | Integer<br>请求头部的最大长度，单位为Byte<br>默认值1048576 |
 | Server.MaxHeaderUriBytes       | Integer<br>请求头部URI的最大长度，单位为Byte<br>默认值8192 |
-| Server.HostRuleConf            | String<br>租户域名表配置文件路径<br>默认值server_data_conf/host_rule.data |
-| Server.VipRuleConf             | String<br>租户VIP表配置文件路径<br>默认值server_data_conf/vip_rule.data |
-| Server.RouteRuleConf           | String<br>转发规则配置文件路径<br>默认值server_data_conf/route_rule.data |
-| Server.ClusterConf             | String<br>后端集群相关配置文件路径<br>默认值server_data_conf/cluster_conf.data |
-| Server.GslbConf                | String<br>子集群级别负载均衡配置文件(GSLB)路径<br>默认值cluster_conf/gslb.data |
-| Server.ClusterTableConf        | String<br>实例级别负载均衡配置文件路径<br>默认值cluster_conf/cluster_table.data |
-| Server.NameConf                | String<br>名字与实例映射表配置文件<br>默认值server_data_conf/name_conf.data |
-| Server.Modules                 | String<br>启用的模块列表; 启用多个模块请增加多行Modules配置，详见示例<br>默认值空 |
+| Server.HostRuleConf            | String<br>[租户域名表配置](server_data_conf/host_rule.data.md)文件路径<br>默认值server_data_conf/host_rule.data |
+| Server.VipRuleConf             | String<br>[租户VIP表配置](server_data_conf/vip_rule.data.md)文件路径<br>默认值server_data_conf/vip_rule.data |
+| Server.RouteRuleConf           | String<br>[转发规则配置](server_data_conf/route_rule.data.md)文件路径<br>默认值server_data_conf/route_rule.data |
+| Server.ClusterConf             | String<br>[后端集群相关配置](server_data_conf/cluster_conf.data.md)文件路径<br>默认值server_data_conf/cluster_conf.data |
+| Server.GslbConf                | String<br>[子集群级别负载均衡配置](cluster_conf/gslb.data.md)文件(GSLB)路径<br>默认值cluster_conf/gslb.data |
+| Server.ClusterTableConf        | String<br>[实例级别负载均衡配置](cluster_conf/cluster_table.data.md)文件路径<br>默认值cluster_conf/cluster_table.data |
+| Server.NameConf                | String<br>[名字与实例映射表配置](server_data_conf/name_conf.data.md)文件路径<br>默认值server_data_conf/name_conf.data |
+| Server.Modules                 | String<br>启用的模块列表; 启用多个模块请增加多行Modules配置，参见配置示例<br>默认值空 |
 | Server.MonitorInterval         | Integer<br>Monitor数据统计周期，单位为秒<br>默认值20 |
 | Server.DebugServHttp           | Boolean<br>是否开启反向代理模块调试日志<br>默认值False |
 | Server.DebugBfeRoute           | Boolean<br>是否开启流量路由模块调试日志<br>默认值False |
@@ -38,8 +38,8 @@ bfe.conf是BFE的核心配置
 
 | 配置项                            | 描述                                                         |
 | --------------------------------- | ------------------------------------------------------------ |
-| HttpsBasic.ServerCertConf         | String<br>服务端证书与密钥的配置文件路径<br>默认值tls_conf/server_cert_conf.data |
-| HttpsBasic.TlsRuleConf            | String<br>TLS协议参数配置文件路径<br>默认值tls_conf/tls_rule_conf.data |
+| HttpsBasic.ServerCertConf         | String<br>[服务端证书与密钥的配置](tls_conf/server_cert_conf.data.md)文件路径<br>默认值tls_conf/server_cert_conf.data |
+| HttpsBasic.TlsRuleConf            | String<br>[TLS协议参数配置](tls_conf/tls_rule_conf.data.md)文件路径<br>默认值tls_conf/tls_rule_conf.data |
 | HttpsBasic.CipherSuites           | String<br>启用的加密套件列表; 启用多个套件请增加多行cipherSuites配置，详见示例<br>默认值TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256&#124;TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256&#124;TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256&#124;TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_RC4_128_SHA<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_RC4_128_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA |
 | HttpsBasic.CurvePreferences       | String<br>启用的ECC椭圆曲线，详见示例<br> 默认值CurveP256 |
 | HttpsBasic.EnableSslv2ClientHello | Boolean<br>针对SSLv3协议，启用对SSLv2格式ClientHello的兼容<br>默认值True |
@@ -53,7 +53,7 @@ bfe.conf是BFE的核心配置
 | SessionCache.MaxIdle              | Integer<br>与Cache服务的最大空闲长连接数<br>默认值20 |
 | SessionCache.SessionExpire        | Integer<br>存储在Cache服务中会话信息的过期时间, 单位秒<br>默认值3600 |
 | SessionTicket.SessionTicketsDisabled | Boolean<br>是否禁用TLS Session Ticket<br>默认值True|
-| SessionTicket.SessionTicketKeyFile   | String<br>Session Ticket Key文件路径<br>默认值tls_conf/session_ticket_key.data |
+| SessionTicket.SessionTicketKeyFile   | String<br>[Session Ticket Key配置](tls_conf/session_ticket_key.data.md)文件路径<br>默认值tls_conf/session_ticket_key.data |
 
 # 配置示例
 
