@@ -31,5 +31,5 @@ $ sudo /snap/bin/bfe
 ```
 
 ## 下一步
-了解[基本功能配置使用](example/guide.md)
+了解[基本功能配置使用](../example/guide.md)
                                            

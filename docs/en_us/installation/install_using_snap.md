@@ -32,5 +32,5 @@ $ sudo /snap/bin/bfe
 
 ## Further reading
 
-- Get started with [Beginner's Guide](example/guide.md)
+- Get started with [Beginner's Guide](../example/guide.md)
 

@@ -42,5 +42,5 @@ $ ./bfe -c ../conf -l ../log
 
 ## Further reading
 
-- Get started with [Beginner's Guide](example/guide.md)
+- Get started with [Beginner's Guide](../example/guide.md)
                                            
