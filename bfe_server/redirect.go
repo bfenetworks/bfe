@@ -33,7 +33,7 @@ import (
 
 // Redirect replies to the request with a redirect to url,
 // which may be a path relative to the request path.
-func RedirectWithHeader(w bfe_http.ResponseWriter, r *bfe_http.Request, urlStr string, code int, extraHeader bfe_http.Header) {
+func Redirect(w bfe_http.ResponseWriter, r *bfe_http.Request, urlStr string, code int, extraHeader bfe_http.Header) {
 	if u, err := url.Parse(urlStr); err == nil {
 		// If url was relative, make absolute by
 		// combining with request path.
@@ -79,7 +79,6 @@ func RedirectWithHeader(w bfe_http.ResponseWriter, r *bfe_http.Request, urlStr s
 	}
 
 	header := w.Header()
-	// Add extra headers
 	for key, values := range extraHeader {
 		for _, value := range values {
 			header.Add(key, value)
