@@ -1,8 +1,0 @@
-{
-    "Version": "init version",
-    "Vips": {
-        "example_product": [
-            "111.111.111.111"
-        ] 
-    }
-}
