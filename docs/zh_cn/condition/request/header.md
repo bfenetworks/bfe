@@ -32,7 +32,7 @@ req_header_key_in("header-Test")
 
 * 示例
 ```
-req_header_value_in("Host", "xxx.com", true)
+req_header_value_in("Referer", "https://example.org/login", true)
 ```
 
 ## req_header_value_prefix_in(header_name, prefix_list, case_insensitive)
@@ -47,7 +47,7 @@ req_header_value_in("Host", "xxx.com", true)
 
 * 示例
 ```
-req_header_value_prefix_in("Host", "xxx", true)
+req_header_value_prefix_in("Referer", "https://example.org", true)
 ```
 
 ## req_header_value_suffix_in(header_name, suffix_list, case_insensitive)
@@ -62,7 +62,7 @@ req_header_value_prefix_in("Host", "xxx", true)
 
 * 示例
 ```
-req_header_value_suffix_in("Host", "xxx", true)
+req_header_value_suffix_in("User-Agent", "2.0.4", true)
 ```
 
 ## req_header_value_hash_in(header_name, hash_value_list, case_insensitive)
@@ -77,7 +77,7 @@ req_header_value_suffix_in("Host", "xxx", true)
 
 * 示例
 ```
-req_header_value_hash_in("Host", "100-200|400", true)
+req_header_value_hash_in("X-Device-Id", "100-200|400", true)
 ```
 
 ## req_header_value_contain(header_name, value_list, case_insensitive)
@@ -92,5 +92,5 @@ req_header_value_hash_in("Host", "100-200|400", true)
 
 * 示例
 ```
-req_header_value_contain("Host", "xxx", true)
+req_header_value_contain("User-Agent", "Firefox|Chrome", true)
 ```

@@ -34,7 +34,7 @@ req_host_in("www.bfe-networks.com | bfe-networks.com")
 * Example
 
 ```
-req_path_in("/abc", true)
+req_path_in("/api/search|/api/list", true)
 ```
 
 ## req_path_prefix_in(prefix_list, case_insensitive)
@@ -50,7 +50,7 @@ req_path_in("/abc", true)
 * Example
 
 ```
-req_path_prefix_in("/x/y", false)
+req_path_prefix_in("/api/report|/api/analytics", false)
 ```
     
 ## req_path_suffix_in(suffix_list, case_insensitive)
@@ -66,7 +66,7 @@ req_path_prefix_in("/x/y", false)
 * Example
 
 ```
-req_path_suffix_in("/x/y", false)
+req_path_suffix_in(".php|.jsp", false)
 ```
 
 **Note:**
@@ -84,7 +84,7 @@ req_path_suffix_in("/x/y", false)
 * Example
 
 ```
-req_query_key_exist("abc")
+req_query_key_exist("word|wd")
 ```
 
 ## req_query_key_prefix_in(prefix_list)
@@ -100,7 +100,7 @@ req_query_key_exist("abc")
 * Example
 
 ```
-req_query_key_prefix_in("abc")
+req_query_key_prefix_in("rid")
 ```
 
 ## req_query_value_in(key, value_list, case_insensitive)
@@ -117,7 +117,7 @@ req_query_key_prefix_in("abc")
 * Example
 
 ```
-req_query_value_in("abc", "XXX", true)
+req_query_value_in("uid", "x|y|z", true)
 ```
 
 ## req_query_value_prefix_in(key, prefix_list, case_insensitive)
@@ -134,7 +134,7 @@ req_query_value_in("abc", "XXX", true)
 * Example
 
 ```
-req_query_value_prefix_in("abc", "XXX", true)
+req_query_value_prefix_in("uid", "100|200", true)
 ```
 
 ## req_query_value_suffix_in(key, suffix_list, case_insensitive)
@@ -151,7 +151,7 @@ req_query_value_prefix_in("abc", "XXX", true)
 * Example
 
 ```
-req_query_value_suffix_in("abc", "XXX", true)
+req_query_value_suffix_in("uid", "1|2|3", true)
 ```
 
 ## req_query_value_hash_in(key, value_list, case_insensitive)
@@ -168,7 +168,7 @@ req_query_value_suffix_in("abc", "XXX", true)
 * Example
 
 ```
-req_query_value_hash_in("abc", "100", true)
+req_query_value_hash_in("cid", "100", true)
 ```
 
 ## req_port_in(port_list)

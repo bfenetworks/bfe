@@ -39,7 +39,7 @@ req_header_key_in("header-Test")
 * Example
 
 ```
-req_header_value_in("Host", "XXX.com", true)
+req_header_value_in("Referer", "https://example.org/login", true)
 ```
 
 ## req_header_value_prefix_in(header_name, value_prefix_list, case_insensitive)
@@ -56,7 +56,7 @@ req_header_value_in("Host", "XXX.com", true)
 * Example
 
 ```
-req_header_prefix_value_in("Host", "XXX", true)
+req_header_prefix_value_in("Refer", "https://example.org", true)
 ```
 
 ## req_header_value_suffix_in(header_name, value_suffix_list, case_insensitive)
@@ -73,7 +73,7 @@ req_header_prefix_value_in("Host", "XXX", true)
 * Example
 
 ```
-req_header_suffix_value_in("Host", "XXX", true)
+req_header_suffix_value_in("User-Agent", "2.0.4", true)
 ```
 
 ## req_header_value_hash_in(header_name, value_list, case_insensitive)
@@ -90,7 +90,7 @@ req_header_suffix_value_in("Host", "XXX", true)
 * Example
 
 ```
-req_header_value_hash_in("Host", "100-200|400", true)
+req_header_value_hash_in("X-Device-Id", "100-200|400", true)
 ```
 
 ## req_header_value_contain(header_name, value_list, case_insensitive)
@@ -107,5 +107,5 @@ req_header_value_hash_in("Host", "100-200|400", true)
 * Example
 
 ```
-req_header_value_contain("Host", "XXX.com", true)
+req_header_value_contain("User-Agent", "Firefox|Chrome", true)
 ```

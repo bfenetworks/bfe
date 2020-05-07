@@ -10,7 +10,7 @@
 
 * 示例
 ```
-req_cookie_key_in("uid1|uid2|uid3")
+req_cookie_key_in("uid|cid|uss")
 ```
 
 ## req_cookie_value_in(key, value_list, case_insensitive)
@@ -25,7 +25,7 @@ req_cookie_key_in("uid1|uid2|uid3")
 
 * 示例
 ```
-req_cookie_value_in("uid", "xxx", true)
+req_cookie_value_in("deviceid", "testid", true)
 ```
 
 ## req_cookie_value_prefix_in(key, prefix_list, case_insensitive)
@@ -40,7 +40,7 @@ req_cookie_value_in("uid", "xxx", true)
 
 * 示例
 ```
-req_cookie_value_prefix_in("uid", "xxx", true)
+req_cookie_value_prefix_in("deviceid", "x", true)
 ```
 
 ## req_cookie_value_suffix_in(key, suffix_list, case_insensitive)
@@ -55,7 +55,7 @@ req_cookie_value_prefix_in("uid", "xxx", true)
 
 * 示例
 ```
-req_cookie_value_suffix_in("uid", "xxx", true)
+req_cookie_value_suffix_in("deviceid", "1", true)
 ```
 
 ## req_cookie_value_hash_in(key, hash_value_list, case_insensitive)
@@ -85,6 +85,6 @@ req_cookie_value_hash_in("uid", "100", true)
 
 * 示例
 ```
-req_cookie_value_contain("uid", "xxx", true)
+req_cookie_value_contain("deviceid", "test", true)
 ```
 

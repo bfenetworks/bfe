@@ -25,7 +25,7 @@ req_host_in("www.bfe-networks.com|bfe-networks.com")
 
 * 示例
 ```
-req_path_in("/abc", true)
+req_path_in("/api/search|/api/list", true)
 ```
 
 ## req_path_prefix_in(prefix_list, case_insensitive)
@@ -40,7 +40,7 @@ req_path_in("/abc", true)
 
 * 示例
 ```
-req_path_prefix_in("/x/y", false)
+req_path_prefix_in("/api/report|/api/analytics", false)
 ```
 
 ## req_path_suffix_in(suffix_list, case_insensitive)
@@ -54,7 +54,7 @@ req_path_prefix_in("/x/y", false)
 
 * 示例
 ```
-req_path_suffix_in("/x/y", false)
+req_path_suffix_in(".php|.jsp", false)
 ```
 
 ## req_query_key_in(key_list)
@@ -67,7 +67,7 @@ req_path_suffix_in("/x/y", false)
 
 * 示例
 ```
-req_query_key_in("abc")
+req_query_key_in("word|wd")
 ```
 
 ## req_query_key_prefix_in(prefix_list)
@@ -80,7 +80,7 @@ req_query_key_in("abc")
 
 * 示例
 ```
-req_query_key_prefix_in("abc")
+req_query_key_prefix_in("rid")
 ```
 
 ## req_query_value_in(key, value_list, case_insensitive)
@@ -95,7 +95,7 @@ req_query_key_prefix_in("abc")
 
 * 示例
 ```
-req_query_value_in("abc", "xxx", true)
+req_query_value_in("uid", "x|y|z", true)
 ```
 
 ## req_query_value_prefix_in(key, prefix_list, case_insensitive)
@@ -110,7 +110,7 @@ req_query_value_in("abc", "xxx", true)
 
 * 示例
 ```
-req_query_value_prefix_in("abc", "xxx", true)
+req_query_value_prefix_in("uid", "100|200", true)
 ```
 
 ## req_query_value_suffix_in(key, suffix_list, case_insensitive)
@@ -125,7 +125,7 @@ req_query_value_prefix_in("abc", "xxx", true)
  
 * 示例
 ```
-req_query_value_suffix_in("abc", "xxx", true)
+req_query_value_suffix_in("uid", "1|2|3", true)
 ```
 
 ## req_query_value_hash_in(key, hash_value_list, case_insensitive)
@@ -140,7 +140,7 @@ req_query_value_suffix_in("abc", "xxx", true)
  
 * 示例
 ```
-req_query_value_hash_in("abc", "100", true)
+req_query_value_hash_in("cid", "100", true)
 ```
 
 ## req_port_in(port_list)
