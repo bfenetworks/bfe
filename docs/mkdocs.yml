@@ -10,6 +10,7 @@ theme:
   name: material
   language: en
 
+copyright: "Copyright &copy; 2019-2020 BFE Authors"
 
 markdown_extensions:
   - codehilite
@@ -21,47 +22,47 @@ plugins:
   - search
 
 nav:
-    - 'About': 'README.md'
+    - 'Welcome': 'README.md'
     - 'Introduction':
         - 'Overview': 'introduction/overview.md'
-        - 'Comparsion to similar systems': 'introduction/comparison.md'
-        - 'Design overview':
+        - 'Comparsion to Similar Systems': 'introduction/comparison.md'
+        - 'Design Overview':
             - 'Terminology': 'introduction/terminology.md'
-            - 'Traffic fowarding model': 'introduction/forward_model.md'
-            - 'Traffic routing': 'introduction/route.md'
-            - 'Traffic balancing': 'introduction/balance.md'
-        - 'Getting help': 'introduction/getting_help.md'
+            - 'Traffic Fowarding Model': 'introduction/forward_model.md'
+            - 'Traffic Routing': 'introduction/route.md'
+            - 'Traffic Balancing': 'introduction/balance.md'
+        - 'Getting Help': 'introduction/getting_help.md'
         - 'Version History': 'https://github.com/baidu/bfe/blob/master/CHANGELOG.md'
     - 'Quick Start':
         - 'Install': 'installation/install_from_source.md'
         - 'User Guides': 
             - 'Overview': 'example/guide.md'
-            - 'Traffic forwarding': 'example/route.md'
-            - 'Traffic blocking': 'example/block.md'
-            - 'Request redirect': 'example/redirect.md'
-            - 'Request rewrite': 'example/rewrite.md'
-            - 'TLS mutual authentication': 'example/client_auth.md'
+            - 'Traffic Forwarding': 'example/route.md'
+            - 'Traffic Blocking': 'example/block.md'
+            - 'Request Redirect': 'example/redirect.md'
+            - 'Request Rewrite': 'example/rewrite.md'
+            - 'TLS Mutual Authentication': 'example/client_auth.md'
     - 'Installation': 
         - 'Overview': 'installation/install.md'
-        - 'Install from source': 'installation/install_from_source.md'
-        - 'Install using binaries': 'installation/install_using_binaries.md'
-        - 'Install using go get': 'installation/install_using_go_get.md'
-        - 'Install using snap': 'installation/install_using_snap.md'
+        - 'Install from Source': 'installation/install_from_source.md'
+        - 'Install using Binaries': 'installation/install_using_binaries.md'
+        - 'Install using Go Get': 'installation/install_using_go_get.md'
+        - 'Install using Snap': 'installation/install_using_snap.md'
     - 'Configuration':
         - 'Overview': 'configuration/config.md'
         - 'Core': 'configuration/bfe.conf.md'
         - 'Protocol':
             - 'SSL/TLS': 'configuration/tls_conf/tls_rule_conf.data.md'
             - 'Certificate': 'configuration/tls_conf/server_cert_conf.data.md'
-            - 'Session ticket key': 'configuration/tls_conf/session_ticket_key.data.md'
+            - 'Session Ticket Key': 'configuration/tls_conf/session_ticket_key.data.md'
         - 'Routing':
-            - 'Host rule': 'configuration/server_data_conf/host_rule.data.md'
-            - 'Vip rule': 'configuration/server_data_conf/vip_rule.data.md'
-            - 'Route rule': 'configuration/server_data_conf/route_rule.data.md'
+            - 'Host Rule': 'configuration/server_data_conf/host_rule.data.md'
+            - 'Vip Rule': 'configuration/server_data_conf/vip_rule.data.md'
+            - 'Route Rule': 'configuration/server_data_conf/route_rule.data.md'
         - 'Backend Cluster': 'configuration/server_data_conf/cluster_conf.data.md'
         - 'Load Balancing':
-            - 'Sub-clusters balancing': 'configuration/cluster_conf/gslb.data.md'
-            - 'Instances balancing': 'configuration/cluster_conf/cluster_table.data.md'
+            - 'Sub-clusters Balancing': 'configuration/cluster_conf/gslb.data.md'
+            - 'Instances Balancing': 'configuration/cluster_conf/cluster_table.data.md'
         - 'Name Service':
             - 'Naming': 'configuration/server_data_conf/name_conf.data.md'
     - 'Modules':
@@ -86,32 +87,32 @@ nav:
         - 'mod_trust_clientip': 'modules/mod_trust_clientip/mod_trust_clientip.md'
         - 'mod_userid': 'modules/mod_userid/mod_userid.md'
     - 'Operation':
-        - 'Command line options': 'operation/command.md'
-        - 'Environment argruments': 'operation/env_var.md'
-        - 'System signals': 'operation/signal.md'
-        - 'Configuration reload': 'operation/reload.md'
-        - 'System metrics': 'operation/monitor.md'
+        - 'Command Line Options': 'operation/command.md'
+        - 'Environment Argruments': 'operation/env_var.md'
+        - 'System Signals': 'operation/signal.md'
+        - 'Configuration Reload': 'operation/reload.md'
+        - 'System Metrics': 'operation/monitor.md'
         - 'Log Rotation': 'operation/log_rotation.md'
-        - 'Traffic tapping': 'operation/capture_packet.md'
+        - 'Traffic Tapping': 'operation/capture_packet.md'
         - 'Performance': 'operation/performance.md'
     - 'How to Contribute':
-        - 'Contribute codes':
-           - 'Local development': 'development/local_dev_guide.md'
+        - 'Contribute Codes':
+           - 'Local Development': 'development/local_dev_guide.md'
            - 'Sumbit PR': 'development/submit_pr_guide.md'
-        - 'Contribute documents': 'development/write_doc_guide.md'
-        - 'Releasing process': 'development/release_regulation.md'
-        - 'Development guides':
-           - 'Source code layout': 'development/source_code_layout.md'
-        - 'BFE module development': 
+        - 'Contribute Documents': 'development/write_doc_guide.md'
+        - 'Releasing Process': 'development/release_regulation.md'
+        - 'Development Guides':
+           - 'Source Code Layout': 'development/source_code_layout.md'
+        - 'BFE Module Development': 
            - 'Overview': 'development/module/overview.md'
-           - 'BFE callback introduction': 'development/module/bfe_callback.md'
-           - 'How to write a module': 'development/module/how_to_write_module.md'
+           - 'BFE Callback Introduction': 'development/module/bfe_callback.md'
+           - 'How to Write a Module': 'development/module/how_to_write_module.md'
     - 'FAQ':
         - 'Installation': 'faq/installation.md'
         - 'Configuration': 'faq/configuration.md'
         - 'Performance': 'faq/performance.md'
         - 'Development': 'faq/development.md'
-    - 'Appendix A: Monitor':
+    - 'Monitor Reference':
         - 'Protocol':
             - 'SSL/TLS': 'monitor/tls_state.md'
             - 'HTTP': 'monitor/http_state.md'
@@ -120,20 +121,20 @@ nav:
             - 'WebSocket': 'monitor/websocket_state.md'
             - 'Stream': 'monitor/stream_state.md'
         - 'Routing':
-           - 'Host table': 'monitor/host_table_status.md'
+           - 'Host Table': 'monitor/host_table_status.md'
         - 'Load Balancing':
-           - 'Balance details': 'monitor/bal_table_status.md'
-           - 'Balance error': 'monitor/bal_state.md'
+           - 'Balance Details': 'monitor/bal_table_status.md'
+           - 'Balance Error': 'monitor/bal_state.md'
         - 'Proxy':
-           - 'Proxy state': 'monitor/proxy_state.md'
+           - 'Proxy State': 'monitor/proxy_state.md'
         - 'Modules': 'monitor/module_status.md'
         - 'Lentency':
-           - 'Lentency histogram': 'monitor/proxy_XXX_delay.md'
-    - 'Appendix B: Condition':
-        - 'Condition Concept and Grammar': 'condition/condition_grammar.md'
-        - 'Condition Naming Convention': 'condition/condition_naming_convention.md'
-        - 'Condition Primitives Index': 'condition/condition_primitive_index.md'
-        - 'Request related Condition Primitives':
+           - 'Lentency Histogram': 'monitor/proxy_XXX_delay.md'
+    - 'Condition Reference':
+        - 'Concept and Grammar': 'condition/condition_grammar.md'
+        - 'Naming Convention': 'condition/condition_naming_convention.md'
+        - 'Primitives Index': 'condition/condition_primitive_index.md'
+        - 'Request related Primitives':
             - 'Method': 'condition/request/method.md'
             - 'URI': 'condition/request/uri.md'
             - 'Protocol': 'condition/request/protocol.md'
@@ -141,12 +142,12 @@ nav:
             - 'Cookie': 'condition/request/cookie.md'
             - 'Tag': 'condition/request/tag.md'
             - 'IP': 'condition/request/ip.md'
-        - 'Response related Condition Primitives':
+        - 'Response related Primitives':
             - 'Code': 'condition/response/code.md'
             - 'Header': 'condition/response/header.md'
-        - 'Session related Condition Primitives':
+        - 'Session related Primitives':
             - 'IP': 'condition/session/ip.md'
             - 'TLS': 'condition/session/tls.md'
-        - 'System related Condition Primitives':
+        - 'System related Primitives':
             - 'Time': 'condition/system/time.md'
 
