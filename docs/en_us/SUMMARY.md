@@ -2,7 +2,7 @@
 
 * [About](README.md)
 * Introduction
-  * [Overview](overview.md)
+  * [Overview](introduction/overview.md)
   * [Comparsion to similar systems](introduction/comparison.md)
   * Design overview
     * [Terminology](introduction/terminology.md)

@@ -2,7 +2,7 @@
 
 * [关于](README.md)
 * 介绍
-  * [BFE概览](overview.md)
+  * [BFE概览](introduction/overview.md)
   * [竞品对比](introduction/comparison.md)
   * 设计简介
     * [相关术语](introduction/terminology.md)
