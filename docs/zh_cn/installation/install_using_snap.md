@@ -29,3 +29,7 @@ $ sudo snap install --edge bfe
 ```
 $ sudo /snap/bin/bfe 
 ```
+
+## 下一步
+了解[基本功能配置使用](example/guide.md)
+                                           

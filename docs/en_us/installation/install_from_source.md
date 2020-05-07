@@ -39,3 +39,8 @@ output/bin/bfe: ELF 64-bit LSB executable, ...
 $ cd output/bin/
 $ ./bfe -c ../conf -l ../log
 ```
+
+## Further reading
+
+- Get started with [Beginner's Guide](example/guide.md)
+                                           

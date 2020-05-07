@@ -22,3 +22,7 @@ output/bin/bfe: ELF 64-bit LSB executable, ...
 $ cd ${GOPATH}/bin/ 
 $ ./bfe -c ${GOPATH}/src/github.com/baidu/bfe/conf/
 ```
+
+## 下一步
+了解[基本功能配置使用](example/guide.md)
+                                           

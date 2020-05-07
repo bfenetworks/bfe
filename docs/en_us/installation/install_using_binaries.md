@@ -20,3 +20,8 @@ $ tar zxvf bfe_<version>_<os>_<arch>.tar.gz
 $ cd bfe/bin
 $ ./bfe -c ../conf -l ../log
 ```
+
+## Further reading
+
+- Get started with [Beginner's Guide](example/guide.md)
+

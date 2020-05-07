@@ -21,3 +21,5 @@ $ cd bfe/bin
 $ ./bfe -c ../conf -l ../log
 ```
 
+## 下一步
+了解[基本功能配置使用](example/guide.md)
