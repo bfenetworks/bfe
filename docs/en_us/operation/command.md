@@ -14,11 +14,11 @@ The root directory of log files, default directory is ./log
 
 * -s
 
-Prints logs to stdout. By default, this flag is set false.
+Print logs to stdout. By default, this flag is set false.
 
 * -d
 
-Prints debug logs. By default, this flag is set false.
+Print debug logs. By default, this flag is set false.
 
 * -v
 
