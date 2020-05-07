@@ -1,13 +1,15 @@
-# 模块简介 
+# mod_trace
+
+## 模块简介 
 
 根据自定义的条件，为请求开启trace。
 
-# 基础配置
+## 基础配置
 
-## 配置描述
+### 配置描述
 模块配置文件: conf/mod_trace/mod_trace.conf
 
-### 基础配置项
+#### 基础配置项
 
 | 配置项                         | 描述                     |
 | ------------------------------| -------------------------|
@@ -16,7 +18,7 @@
 | Basic.TraceAgent              | String<br>设置trace组件，可选值：jaeger和zipkin | 
 | Log.OpenDebug                 | Boolean<br>是否启用模块调试日志开关 |
 
-### Zipkin配置项
+#### Zipkin配置项
 
 | 配置项                         | 描述                     |
 | ------------------------------| -------------------------|
@@ -25,7 +27,7 @@
 | Zipkin.ID128Bit               | String<br>是否使用128位span ID |
 | Zipkin.SampleRate             | Float<br>设置请求抽样比例 |
 
-### Jaeger配置项
+#### Jaeger配置项
 
 | 配置项                         | 描述                     |
 | ------------------------------| -------------------------|
@@ -40,16 +42,16 @@
 | Jaeger.CollectorUser          | String<br>设置jaeger-collector认证用户名 |
 | Jaeger.CollectorPassword      | String<br>设置jaeger-collector认证密码 |
 
-### Elastic配置项
+#### Elastic配置项
 
 | 配置项                         | 描述                                      |
 | ------------------------------| -----------------------------------------|
 | Elastic.ServerURL             | String<br>设置Elastic APM server          |
 | Elastic.SecretToken           | String<br>设置Elastic APM server认证token |
 
-## 配置示例
+### 配置示例
 
-### 基于Zipkin示例
+#### 基于Zipkin示例
 
 ```
 [Basic]
@@ -78,7 +80,7 @@ ID128Bit = true
 SampleRate = 1.0
 ```
 
-### 基于Jaeger示例
+#### 基于Jaeger示例
 ```
 [Basic]
 DataPath = mod_trace/trace_rule.data
@@ -131,7 +133,7 @@ CollectorUser = ""
 CollectorPassword = ""
 ```
 
-### 基于Elastic示例
+#### 基于Elastic示例
 ```
 [Basic]
 DataPath = mod_trace/trace_rule.data
@@ -153,9 +155,9 @@ ServerURL = http://127.0.0.1:8200
 SecretToken = ""
 ```
 
-# 规则配置
+## 规则配置
 
-## 配置描述
+### 配置描述
 规则配置文件: conf/mod_trace/trace_rule.data
 
 | 配置项                      | 描述                                         |
@@ -168,7 +170,7 @@ SecretToken = ""
 | Config[v][].Cond           | String<br>规则的匹配条件, 语法详见[Condition](../../condition/condition_grammar.md) |
 | Config[v][].Enable         | Boolean<br>是否开启trace                      |
   
-## 配置示例
+### 配置示例
 ```
 {
   "Version": "20200218210000",

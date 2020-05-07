@@ -4,7 +4,7 @@
 
 - [Download the latest release](https://github.com/baidu/bfe/releases) of BFE for your platfrom.
 
-## Extract
+## Installation
 
 - Extract the files to the installation directory:
 

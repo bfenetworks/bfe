@@ -3,7 +3,7 @@
 ## 安装方式
 - [源码编译安装](install_from_source.md)
 - [二进制文件下载安装](install_using_binaries.md)
-- [go get方式安装](install_using_go_get.md)
+- [go方式安装](install_using_go.md)
 - [snap方式安装](install_using_snap.md)
 
 ## 平台支持

@@ -1,9 +1,12 @@
-# Introductionn
+# mod_compress
+
+## Introductionn
 
 mod_compress compresses responses using specified method.
 
-# Module Configuration
-## Description
+## Module Configuration
+
+### Description
 conf/mod_compress/mod_compress.conf
 
 | Config Item          | Description                                 |
@@ -11,7 +14,8 @@ conf/mod_compress/mod_compress.conf
 | Basic.DataPath       | String<br>Path of rule configuration |
 | Log.OpenDebug        | Boolean<br>Whether enable debug logs<br>Default False |
 
-## Example
+### Example
+
 ```
 [basic]
 DataPath = mod_compress/compress_rule.data
@@ -20,8 +24,9 @@ DataPath = mod_compress/compress_rule.data
 OpenDebug = false
 ```
 
-# Rule Configuration
-## Description
+## Rule Configuration
+
+### Description
 | Config Item | Description                                                |
 | ----------- | -------------------------------------------------------------- |
 | Version | String<br>Vesion of config file |
@@ -35,14 +40,14 @@ OpenDebug = false
 | Config{v}[].Action.Quality | Integer<br>Compression level |
 | Config{v}[].Action.FlushSize | Integer<br>Flush size |
 
-## Module Actions
+### Module Actions
 
 | Action                  | Descrition                          |
 | ------------------------| ------------------------------------|
 | GZIP                    | Compress response using gzip method |
 | BROTLI                    | Compress response using brotli method |
 
-## Example
+### Example
 ```
 {
     "Config": {

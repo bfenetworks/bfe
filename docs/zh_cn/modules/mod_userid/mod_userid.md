@@ -1,10 +1,12 @@
-# 模块简介
+# mod_userid
+
+## 模块简介
 
 mod_userid为新用户自动在Cookie中添加用户标识。
 
-# 基础配置
+## 基础配置
 
-## 配置描述
+### 配置描述
 模块基础配置文件: conf/mod_userid/mod_userid.conf
 
 | 配置项         | 描述                     |
@@ -12,7 +14,7 @@ mod_userid为新用户自动在Cookie中添加用户标识。
 | Basic.DataPath | 规则配置文件路径         |
 | Log.OpenDebug  | 是否启用模块调试日志开关 |
 
-## 配置示例
+### 配置示例
 ```
 [basic]
 DataPath = mod_userid/userid_rule.data
@@ -21,9 +23,9 @@ DataPath = mod_userid/userid_rule.data
 OpenDebug = true
 ```
 
-# 规则配置
+## 规则配置
 
-## 配置描述
+### 配置描述
 模块规则配置文件：conf/mod_userid/userid_rule.data
 
 | 配置项      | 描述                   |
@@ -38,7 +40,7 @@ OpenDebug = true
 | Config[v][].Params.Path   | Cookie的Path属性 |
 | Config[v][].Params.MaxAge | Cookie的MaxAge属性 |
 
-## 配置示例
+### 配置示例
 ```
 {
     "Version": "2019-12-10184356",

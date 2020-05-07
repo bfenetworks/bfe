@@ -1,9 +1,11 @@
-# 模块简介 
+# mod_errors
+
+## 模块简介 
 
 根据自定义的条件，将响应内容替换为/重定向至指定错误页。
 
-# 基础配置
-## 配置描述
+## 基础配置
+### 配置描述
 模块配置文件: conf/mod_errors/mod_errors.conf
 
 | 配置项                | 描述                                        |
@@ -11,14 +13,14 @@
 | Basic.DataPath            | String<br>规则配置的的文件路径 |
 | Log.OpenDebug           | Boolean<br>是否开启 debug 日志<br>默认值False |
 
-## 配置示例
+### 配置示例
 ```
 [basic]
 DataPath = mod_errors/errors_rule.data
 ```
 
-# 规则配置
-## 配置描述
+## 规则配置
+### 配置描述
 
 | 配置项  | 描述                                                           |
 | ------- | -------------------------------------------------------------- |
@@ -33,13 +35,13 @@ DataPath = mod_errors/errors_rule.data
 | Config{v}[].Actions.Params | Object<br>执行指令的相关参数列表 |
 | Config{v}[].Actions.Params[] | String<br>参数信息 |
 
-## 模块动作
+### 模块动作
 | 动作     | 含义                 |
 | -------- | ---------------------- |
 | RETURN   | 响应返回指定错误页     |
 | REDIRECT | 响应重定向至指定错误页 |
 
-## 配置示例
+### 配置示例
 ```
 {
     "Version": "20190101000000",

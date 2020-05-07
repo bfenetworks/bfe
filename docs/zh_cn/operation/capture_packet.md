@@ -7,7 +7,7 @@
 使用tcpdump抓取示例：
 
 ```
-tcpdump tcp port 8443 -i any -s -w test.pcap
+# tcpdump tcp port 8443 -i any -s -w test.pcap
 ```
 
 ## 流量分析
@@ -24,7 +24,7 @@ tcpdump tcp port 8443 -i any -s -w test.pcap
   * 注：修改bfe.conf文件，增加启用mod_key_log模块, 模块配置详见[mod_key_log](../modules/mod_key_log/mod_key_log.md)
 
 ```
-[server]
+[Server]
 Modules = mod_key_log
 ```
 

@@ -1,8 +1,10 @@
-# Introduction
+# HTTP2
+
+## Introduction
 
 http2_state monitor state of HTTP2.
 
-# Monitor Item
+## Monitor Item
 
 | Monitor Item                | Description                                             |
 | --------------------------- | ------------------------------------------------------- |

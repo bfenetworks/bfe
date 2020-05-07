@@ -1,9 +1,12 @@
-# Introduction
+# mod_auth_basic
+
+## Introduction
 
 mod_auth_basic implements the HTTP basic authentication.
 
-# Module Configuration
-## Description
+## Module Configuration
+
+### Description
 conf/mod_auth_basic/mod_auth_basic.conf
 
 | Config Item         | Description                                 |
@@ -11,7 +14,7 @@ conf/mod_auth_basic/mod_auth_basic.conf
 | Basic.DataPath      | String<br>path of rule configuration |
 | Log.OpenDebug       | Boolean<br>whether enable debug log<br>Default False |
 
-## Example
+### Example
 
 ```
 [basic]
@@ -21,8 +24,9 @@ DataPath = mod_auth_basic/auth_basic_rule.data
 OpenDebug = false
 ```
 
-# Rule Configuration
-## Description
+## Rule Configuration
+
+### Description
 | Config Item          | Description                                 |
 | ---------------------| ------------------------------------------- |
 | Version | String<br>Version of config file |
@@ -47,7 +51,7 @@ user1:$apr1$mI7SilJz$CWwYJyYKbhVDNl26sdUSh/
 user2:{SHA}fEqNCco3Yq9h5ZUglD3CZJT4lBs=:user2, 123456
 ```
 
-## Example
+### Example
 ```
 {
     "Config": {

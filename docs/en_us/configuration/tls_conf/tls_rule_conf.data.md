@@ -1,8 +1,10 @@
-# Introduction
+# Configration about TLS
+
+## Introduction
 
 tls_rule_conf.data records the tls protocol config
 
-# Configuration
+## Configuration
 
 | Config Item             | Description                                                                    |
 | ----------------------- | ------------------------------------------------------------------------------ |
@@ -23,7 +25,7 @@ tls_rule_conf.data records the tls protocol config
 | DefaultNextProtos       | Object<br>Default(Supported) application layer protocols over TLS              |
 | DefaultNextProtos[]     | String<br>TLS application layer protocol<br>- Contains h2, spdy/3.1, http/1.1  |
 
-# Example
+## Example
 
 ```
 {
@@ -47,24 +49,24 @@ tls_rule_conf.data records the tls protocol config
 }
 ```
 
-# Security Grade
+## Security Grade
 
 BFE supports multiple security grades(A+/A/B/C) for ease of TLS configuration. Security grades vary depending on the protocols and the cipher suites supported.
 
-## Grade A+
+### Grade A+
 
 | Supported Protocols | Supported Cipher Suites |
 | ------------------- | ----------------------- |
 | TLS1.2              | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_OLD_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA |
 
 
-## Grade A
+### Grade A
 
 | Supported Protocols | Supported Cipher Suites |
 | ------------------- | ----------------------- |
 | TLS1.2<br>TLS1.1<br>TLS1.0 | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_OLD_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA |
 
-## Grade B
+### Grade B
 
 | Supported Protocols | Supported Cipher Suites |
 | ------------------- | ----------------------- |
@@ -72,7 +74,7 @@ BFE supports multiple security grades(A+/A/B/C) for ease of TLS configuration. S
 | SSLv3 | TLS_ECDHE_RSA_WITH_RC4_128_SHA<br>TLS_RSA_WITH_RC4_128_SHA |
 
 
-## Grade C
+### Grade C
 
 | Supported Protocols | Supported Cipher Suites |
 | ------------------- | ----------------------- |

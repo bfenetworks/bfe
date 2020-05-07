@@ -1,25 +1,27 @@
-# Introduction 
+# mod_static
+
+## Introduction 
 
 mod_static serves static files.
 
-# Module Configuration
+## Module Configuration
 
-## Description
+### Description
 conf/mod_static/mod_static.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
 | Basic.DataPath | String<br>path of rule configuraiton |
 
-## Example
+### Example
 ```
 [basic]
 DataPath = mod_static/static_rule.data
 ```
 
-# Rule Configuration
+## Rule Configuration
 
-## Description
+### Description
 conf/mod_static/static_rule.data
 
 | Config Item | Description                                                  |
@@ -34,12 +36,12 @@ conf/mod_static/static_rule.data
 | Config{v}[].Action.Cmd | String<br>Name of static action |
 | Config{v}[].Action.Params | Object<br>Parameters of static action |
 
-## Actions
+### Actions
 | Action                    | Description                        |
 | ------------------------- | ---------------------------------- |
 | BROWSE                    | Serve static files. <br>The first parameter is the location of root directory.<br> The second parameter is the name of default file.|
 
-## Example
+### Example
 ```
 {
     "Config": {
@@ -60,7 +62,7 @@ conf/mod_static/static_rule.data
 }
 ```
 
-# Metrics
+## Metrics
 
 | Metric                  | Description                            |
 | ----------------------- |----------------------------------------|

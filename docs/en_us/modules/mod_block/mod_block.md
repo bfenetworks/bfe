@@ -1,10 +1,12 @@
-# Introduction 
+# mod_block
+
+## Introduction 
 
 Block incoming connection/request based on defined rules.
 
-# Module Configuration
+## Module Configuration
 
-## Description
+### Description
 conf/mod_block/mod_block.conf
 
 | Config Item | Description | 
@@ -12,7 +14,7 @@ conf/mod_block/mod_block.conf
 | Basic.ProductRulePath | path of product rule configuration |
 | Basic.IPBlacklistPath | path of ip blacklist file |
 
-## Example
+### Example
 ```
 [basic]
 # product rule config file path
@@ -29,9 +31,9 @@ Format of IPBlacklistPath file
 192.168.1.250
 ```
 
-# Rule Configuration
+## Rule Configuration
 
-## Description
+### Description
 
 conf/mod_block/block_rules.data
 
@@ -49,13 +51,13 @@ conf/mod_block/block_rules.data
 | Config{v}[].Action.Params | Object<br>a list of action parameters |
 | Config{v}[].Action.Params[] | String<br>a action parameter |
 
-## Actions
+### Actions
   
 | Action | Description          |
 | ------ | -------------------- |
 | CLOSE  | Close the connection |
   
-## Example
+### Example
 
 ```
 {
@@ -75,7 +77,7 @@ conf/mod_block/block_rules.data
 }
 ```
 
-# Metrics
+## Metrics
 
 | Metric        | Description                                                  |
 | ------------- | ------------------------------------------------------------ |

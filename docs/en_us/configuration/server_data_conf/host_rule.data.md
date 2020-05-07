@@ -1,8 +1,10 @@
-# Introduction
+# Host Rule Configuration
+
+## Introduction
 
 host_rule.data records the domain names for each product. 
 
-# Configuration
+## Configuration
 
 | Config Item    | Description                                                  |
 | -------------- | ------------------------------------------------------------ |
@@ -15,7 +17,7 @@ host_rule.data records the domain names for each product.
 | HostTags{k}    | Struct<br>Product name                                                 |
 | HostTags{v}    | Struct<br>HostTag list for product                                     |
 
-# Example
+## Example
 
 ```
 {

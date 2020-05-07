@@ -11,7 +11,7 @@
     * [Traffic balancing](introduction/balance.md)
   * [Getting help](introduction/getting_help.md)
   * [Version History](https://github.com/baidu/bfe/blob/master/CHANGELOG.md)
-* Quick Start
+* Getting Started 
   * [Install](installation/install_from_source.md)
   * [User Guides](example/guide.md)
     * [Traffic forwarding](example/route.md)
@@ -22,7 +22,7 @@
 * [Installation](installation/install.md)
   * [Install from source](installation/install_from_source.md)
   * [Install using binaries](installation/install_using_binaries.md)
-  * [Install using go get](installation/install_using_go_get.md)
+  * [Install using go](installation/install_using_go.md)
   * [Install using snap](installation/install_using_snap.md)
 * Configuration
   * [Overview](configuration/config.md)
@@ -62,7 +62,7 @@
   * [mod_trace](modules/mod_trace/mod_trace.md)
   * [mod_trust_clientip](modules/mod_trust_clientip/mod_trust_clientip.md)
   * [mod_userid](modules/mod_userid/mod_userid.md)
-* Operation
+* Operations
   * [Command line options](operation/command.md)
   * [Environment argruments](operation/env_var.md)
   * [System signals](operation/signal.md)

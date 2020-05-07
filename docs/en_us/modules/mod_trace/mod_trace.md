@@ -1,13 +1,15 @@
-# Introduction 
+# mod_trace
+
+## Introduction 
 
 Enable trace for requests based on defined rules.
 
-# Module Configuration
+## Module Configuration
 
-## Description
+### Description
  conf/mod_trace/mod_trace.conf
  
-### Basic Configuration
+#### Basic Configuration
 
 | Config Item                   | Description                     |
 | ------------------------------| --------------------------------|
@@ -16,7 +18,7 @@ Enable trace for requests based on defined rules.
 | Basic.TraceAgent              | String<br>which trace agent to use (jaeger/zipkin) | 
 | Log.OpenDebug                 | Boolean<br>debug flag of module |
 
-### Configuration about Zipkin
+#### Configuration about Zipkin
 
 | Config Item                   | Description                     |
 | ------------------------------| --------------------------------|
@@ -25,7 +27,7 @@ Enable trace for requests based on defined rules.
 | Zipkin.ID128Bit               | String<br>whether to use 128 bit root span IDs |
 | Zipkin.SampleRate             | Float<br>the rate between 0.0001 and 1.0 of requests to trace |
 
-### Configuration about Jaeger
+#### Configuration about Jaeger
 
 | Config Item                   | Description                     |
 | ------------------------------| --------------------------------|
@@ -40,7 +42,7 @@ Enable trace for requests based on defined rules.
 | Jaeger.CollectorUser          | String<br>basic http authentication when sending spans to jaeger-collector |
 | Jaeger.CollectorPassword      | String<br>basic http authentication when sending spans to jaeger-collector |
 
-### Configuration about Elastic
+#### Configuration about Elastic
 
 | Config Item                   | Description                     |
 | ------------------------------| --------------------------------|
@@ -48,9 +50,10 @@ Enable trace for requests based on defined rules.
 | Elastic.SecretToken           | String<br>Set the token used to connect to Elastic APM Server |
 
 
-## Example
+### Example
 
-### Example for Zipkin
+#### Example for Zipkin
+
 ```
 [Basic]
 DataPath = mod_trace/trace_rule.data
@@ -78,7 +81,8 @@ ID128Bit = true
 SampleRate = 1.0
 ```
 
-### Example for Jaeger
+#### Example for Jaeger
+
 ```
 [Basic]
 DataPath = mod_trace/trace_rule.data
@@ -131,7 +135,8 @@ CollectorUser = ""
 CollectorPassword = ""
 ```
 
-### Example for Elastic
+#### Example for Elastic
+
 ```
 [Basic]
 DataPath = mod_trace/trace_rule.data
@@ -153,9 +158,9 @@ ServerURL = http://127.0.0.1:8200
 SecretToken = ""
 ```
 
-# Rule Configuration
+## Rule Configuration
 
-## Description
+### Description
 conf/mod_trace/trace_rule.data
 
 | Config Item                | Description                                  |
@@ -168,7 +173,8 @@ conf/mod_trace/trace_rule.data
 | Config[v][].Cond           | String<br>Condition expression, See [Condition](../../condition/condition_grammar.md) |
 | Config[v][].Enable         | Boolean<br>Enable trace                       |
   
-## Example
+### Example
+
 ```
 {
   "Version": "20200218210000",

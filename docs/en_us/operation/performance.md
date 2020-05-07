@@ -15,7 +15,7 @@ monitorPort = 8421
 * FlameGragh
 
 ```
-git clone https://github.com/brendangregg/FlameGraph
+$ git clone https://github.com/brendangregg/FlameGraph
 ```
 
 Which contains stackcollpase-go.pl and flamegraph.pl tools
@@ -24,15 +24,15 @@ Which contains stackcollpase-go.pl and flamegraph.pl tools
 
 * Get performance sampling data
 ```
-go tool pprof -seconds=60 -raw -output=bfe.pprof  http://<addr>:<port>/debug/pprof/profile
+$ go tool pprof -seconds=60 -raw -output=bfe.pprof  http://<addr>:<port>/debug/pprof/profile
 ```
 Note: seconds=60 means capturing 60 seconds of stack samples
 
 * Transform and draw FlameGraph
 
 ```
-./stackcollpase-go.pl bfe.pporf > bfe.flame
-./flamegraph.pl bfe.flame > bfe.svg
+$ ./stackcollpase-go.pl bfe.pporf > bfe.flame
+$ ./flamegraph.pl bfe.flame > bfe.svg
 ```
 
 * Open bfe.svg in browser

@@ -1,13 +1,15 @@
-# 简介
+# mod_auth_jwt
+
+## 模块简介
 
 mod_auth_jwt支持JWT认证。
   
-# 配置说明
+## 配置说明
 
-## 配置描述
+### 配置描述
 模块配置文件：conf/mod_auth_jwt/mod_auth_jwt.conf
 
-## 配置示例
+### 配置示例
 
 ```
 [basic]
@@ -55,8 +57,8 @@ ValidateClaimNbf = true
 OpenDebug = true
 ```
 
-# 规则配置
-## 配置示例
+## 规则配置
+### 配置示例
 ```
 {
 	"Version": "Version",
@@ -88,11 +90,10 @@ JWT(包括嵌套JWT)必须使用压缩序列格式(Compact Serialization)，不�
   * 默认的，进行字段验证时仅在JWS的Payload部分或JWE的plaintext部分查找相关字段，可以通过配置启用EnabledHeaderClaims配置项达到当默认位置不存在相应字段时，则到Header部分中查找相关字段的目的。JWS的签名验证机制天然地可以保证Header和Payload的数据完整性；JWE虽然没有签名验证机制，但由于其解密AAD与Header相关，Header被篡改会导致AAD不正确，无法正确解密出明文，间接保证了JWE的Header的数据完整性。因此，启用该配置选项不必担心数据完整性问题，无论是对于JWS或是JWE。
   * 由于[JWE](https://tools.ietf.org/html/rfc7516)的RFC文档中并未规定plaintext的具体格式；而[JWT](https://tools.ietf.org/html/rfc7519#section-3)的RFC文档说明了在JWE中，声明字段应为JWE的plaintext部分。故约定，对于JWE，在需要承载声明字段的情况下，将进行了base64URL编码后的声明字段JSON字符串作为JWE的plaintext，则ciphertext为：base64URLEncode(Encrypt(Claim Set))。在plaintext无法应用该规则进行解码、且未启用EnabledHeaderClaims的情况下，对JWE的字段验证会被跳过(默认成功)。
 
-# 监控项
+## 监控项
 
 | 监控项                   | 描述                                |
 | ------------------------ | ---------------------------------- |
 | AUTH_TOTAL               | 命中认证规则的请求数                  |
 | AUTH_SUCCESS             | 认证成功的请求数                      |
 | AUTH_FAILED              | 认证失败的请求数                      |
-~                                                                            

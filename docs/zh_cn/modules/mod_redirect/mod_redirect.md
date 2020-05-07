@@ -1,25 +1,27 @@
-# 模块简介
+# mod_redirect
+
+## 模块简介
 
 根据自定义的条件，对请求进行重定向。
 
-# 基础配置
+## 基础配置
 
-## 配置描述
+### 配置描述
 模块配置文件: conf/mod_redirect/mod_redirect.conf
 
 | 配置项         | 描述                               |
 | -------------- | ---------------------------------- |
 | Basic.DataPath | String<br>规则配置文件路径         |
 
-## 配置示例
+### 配置示例
 ```
 [basic]
 DataPath = mod_redirect/redirect.data
 ```
 
-# 规则配置
+## 规则配置
 
-## 配置描述
+### 配置描述
 规则配置文件: conf/mod_redirect/redirect.data
 
 | 配置项                     | 描述                           |
@@ -35,7 +37,7 @@ DataPath = mod_redirect/redirect.data
 | Config{v}[].Actions.Params | Object<br>规则动作参数         |
 | Config{v}[].Status         | Integer<br>HTTP状态码          |
 
-## 模块动作
+### 模块动作
 | 动作           | 描述                                              |
 | -------------- | ------------------------------------------------- |
 | URL_SET        | 设置重定向URL为指定值                             |
@@ -43,7 +45,7 @@ DataPath = mod_redirect/redirect.data
 | URL_PREFIX_ADD | 设置重定向URL为原始URL增加指定前缀                |
 | SCHEME_SET     | 设置重定向URL为原始URL并修改协议(支持HTTP和HTTPS) |
 
-## 配置示例
+### 配置示例
 ```
 {
     "Version": "20190101000000",

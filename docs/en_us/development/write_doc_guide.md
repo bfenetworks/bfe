@@ -17,7 +17,7 @@ Once the document is written, you can use the preview tool to check how the docu
 
 ## How to use the preview tool
 
-### 1. Install its dependencies
+### Install its dependencies
 
 Before doing this, please make sure your operating system has gitbook installed.
 
@@ -29,7 +29,7 @@ sudo npm install -g gitbook-cli
 ```
 
 
-### 2. Clone related repository:
+### Clone related repository:
 
 First download the full repository:
 
@@ -37,7 +37,7 @@ First download the full repository:
 git clone https://github.com/baidu/bfe
 ```
 
-### 3. Run document site locally
+### Run document site locally
 
 Change to base directory of documents which you want to load and build(docs/LANG), run:
 
@@ -58,12 +58,12 @@ Then: open your browser and navigate to http://localhost:8000.
 All content should be written in [Markdown](https://guides.github.com/features/mastering-markdown/) (GitHub style).
 
 
-### 1. Contribute new documents
+### Contribute new documents
 
 - Create a new `.md` file or modify an existing article in the repository you are currently working on
 - Add the new document name to the corresponding index file (SUMMARY.md)
 
-### 2. Run the preview tool
+### Run the preview tool
 
 - Run the preview tool in base directory of documents (docs/LANG)
 
@@ -73,7 +73,7 @@ All content should be written in [Markdown](https://guides.github.com/features/m
   gitbook serve --port 8000
   ```
 
-### 3. Preview modification
+### Preview modification
 
 Open your browser and navigate to http://localhost:8000 .
 

@@ -1,8 +1,10 @@
-# Introduction
+# Host table
+
+## Introduction
 
 host_table_status monitor status of host table.
 
-# Monitor Item
+## Monitor Item
 
 | Monitor Item          | Description                 |
 | --------------------- | --------------------------- |

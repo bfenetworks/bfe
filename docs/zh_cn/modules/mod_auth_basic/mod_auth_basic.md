@@ -1,9 +1,11 @@
-# 模块简介 
+# mod_auth_basic
+
+## 模块简介 
 
 mod_auth_basic支持HTTP基本认证。
 
-# 基础配置
-## 配置描述
+## 基础配置
+### 配置描述
 模块配置文件: conf/mod_auth_basic/mod_auth_basic.conf
 
 | 配置项              | 描述                                        |
@@ -11,7 +13,7 @@ mod_auth_basic支持HTTP基本认证。
 | Basic.DataPath      | String<br>规则配置的的文件路径 |
 | Log.OpenDebug       | Boolean<br>是否开启 debug 日志<br>默认值False |
 
-## 配置示例
+### 配置示例
 
 ```
 [basic]
@@ -21,8 +23,8 @@ DataPath = mod_auth_basic/auth_basic_rule.data
 OpenDebug = false
 ```
 
-# 规则配置
-## 配置描述
+## 规则配置
+### 配置描述
 | 配置项                | 描述                                        |
 | ---------------------| ------------------------------------------- |
 | Version | String<br>配置文件版本 |
@@ -47,7 +49,7 @@ user1:$apr1$mI7SilJz$CWwYJyYKbhVDNl26sdUSh/
 user2:{SHA}fEqNCco3Yq9h5ZUglD3CZJT4lBs=:user2, 123456
 ```
 
-## 配置示例
+### 配置示例
 ```
 {
     "Config": {
@@ -63,7 +65,7 @@ user2:{SHA}fEqNCco3Yq9h5ZUglD3CZJT4lBs=:user2, 123456
 }
 ```
 
-# 监控项
+## 监控项
 
 | 监控项                   | 描述                                |
 | ----------------------- | ---------------------------------- |

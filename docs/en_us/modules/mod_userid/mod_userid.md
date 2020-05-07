@@ -1,10 +1,12 @@
-# Introduction 
+# mod_userid
+
+## Introduction 
 
 Add user id to cookie for client identification.
 
-# Module Configuration
+## Module Configuration
 
-## Description
+### Description
 conf/mod_userid/mod_userid.conf
 
 | Config Item | Description                             |
@@ -12,7 +14,7 @@ conf/mod_userid/mod_userid.conf
 | Basic.DataPath | String<br>path of rule configuraiton |
 | Log.OpenDebug | Boolean<br>debug flag of module |
 
-## Example
+### Example
 ```
 [basic]
 DataPath = mod_userid/userid_rule.data
@@ -21,9 +23,9 @@ DataPath = mod_userid/userid_rule.data
 OpenDebug = true
 ```
 
-# Rule Configuration
+## Rule Configuration
 
-## Description
+### Description
 conf/mod_userid/userid_rule.data
 
 | Config Item | Description                                             |
@@ -39,7 +41,7 @@ conf/mod_userid/userid_rule.data
 | Config{v}[].Params.Path   | String<br>the cookie path        |
 | Config{v}[].Params.MaxAge | Integer<br>the cookie max age     |
 
-## Example
+### Example
 ```
 {
     "Version": "2019-12-10184356",

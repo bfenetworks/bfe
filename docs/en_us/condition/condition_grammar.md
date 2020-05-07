@@ -2,40 +2,39 @@
 
 ## Basic Concepts
 
-- **Condition Primitive**
+### Condition Primitive
 
-  - Basic conditional judgment unit, which defines the primitive of comparison
+- Basic conditional judgment unit, which defines the primitive of comparison
 
-    ``` 
-    req_host_in("www.bfe-networks.com|bfe-networks.com")  # host is one of the configured domains
-    ```
+``` 
+req_host_in("www.bfe-networks.com|bfe-networks.com")
+```
 
-- **Condition Expression**
+### Condition Expression
 
-  - Expression using "and/or/not" to connect condition primitive
+- Expression using "and/or/not" to connect condition primitive
 
-    ```
-    req_host_in("bfe-networks.com") && req_method_in("GET") # domain is bfe-networks.com and HTTP method is "GET"
-    ```
+```
+req_host_in("bfe-networks.com") && req_method_in("GET")
+```
 
-- **Condition Variable**
+### Condition Variable
 
-  - Variable that is defined by **Condition Expression**
+### Variable that is defined by **Condition Expression**
 
-    ```
-    bfe_host = req_host_in("bfe-networks.com")  # variable bfe_host is defined by condition expression 
-    ```
+```
+bfe_host = req_host_in("bfe-networks.com")
+```
 
-- **Advanced Condition Expression**
+### Advanced Condition Expression
 
-  - Expression using "and/or/not" to connect condition primitive and condition variable
+- Expression using "and/or/not" to connect condition primitive and condition variable
 
-  - In advanced condition expression, condition variable is identified by  **"$" prefix**
+- In advanced condition expression, condition variable is identified by  **"$" prefix**
 
-    ```
-    $news_host && req_method_in("GET") # match condition variable and HTTP method is "GET"
-    ```
-
+```
+$news_host && req_method_in("GET")
+```
 
 ## Condition Primitive Grammar
 
@@ -56,16 +55,14 @@ Condition Expression grammar is defined as follows:
 
 - Expression description
 
-  ```
-  Condition Expression(CE) -> 
-                     CE && CE
-                   | CE || CE
-                   | ( CE )
-                   | ! CE
-                   | Condition Primitive
-  ```
-  
-  
+```
+Condition Expression(CE) -> 
+                   CE && CE
+                 | CE || CE
+                 | ( CE )
+                 | ! CE
+                 | Condition Primitive
+```
 
 ## Advanced Condition Expression Grammar
 
@@ -75,14 +72,12 @@ Advanced Condition Expression grammar is defined as follows:
 
 - Expression description
 
-  ```
-  Advanced Condition Expression(ACE) -> 
-                     ACE && ACE
-                   | ACE || ACE
-                   | ( ACE)
-                   | ! ACE
-                   | Condition Primitive
-                   | Condition Variable
-  ```
-  
-  
+```
+Advanced Condition Expression(ACE) -> 
+                   ACE && ACE
+                 | ACE || ACE
+                 | ( ACE)
+                 | ! ACE
+                 | Condition Primitive
+                 | Condition Variable
+```

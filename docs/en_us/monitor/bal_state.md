@@ -1,8 +1,10 @@
-# Introduction
+# Balancing Error
+
+## Introduction
 
 bal_state monitor the subcluster level load balance state using gslb.
 
-# Monitor Item
+## Monitor Item
 
 | Monitor Item                | Description                            |
 | --------------------------- | -------------------------------------- |

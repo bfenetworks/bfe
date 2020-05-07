@@ -1,8 +1,10 @@
-# Introduction
+# SPDY
+
+## Introduction
 
 spdy_state monitor state of SPDY.
 
-# Monitor Item
+## Monitor Item
 
 | Monitor Item                   | Description                                             |
 | ------------------------------ | ------------------------------------------------------- |

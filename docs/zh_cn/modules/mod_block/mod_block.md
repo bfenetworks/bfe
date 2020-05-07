@@ -1,9 +1,11 @@
-# 模块简介 
+# mod_block
+
+## 模块简介 
 
 基于预定义的规则，对连接或请求进行封禁。
 
-# 基础配置
-## 配置描述
+## 基础配置
+### 配置描述
 模块配置文件: conf/mod_block/mod_block.conf
 
 | 配置项  | 描述                                                           |
@@ -20,7 +22,7 @@
 192.168.1.250
 ```
 
-## 配置示例
+### 配置示例
 ```
 [basic]
 # product rule config file path
@@ -30,8 +32,8 @@ ProductRulePath = mod_block/block_rules.data
 IPBlacklistPath = mod_block/ip_blacklist.data
 ```
 
-# 规则配置
-## 配置描述
+## 规则配置
+### 配置描述
 | 配置项  | 描述                                                           |
 | ------- | -------------------------------------------------------------- |
 | Version | String<br>配置文件版本 |
@@ -46,12 +48,12 @@ IPBlacklistPath = mod_block/ip_blacklist.data
 | Config{v}[].Action.Params | Object<br>执行指令的相关参数列表 |
 | Config{v}[].Action.Params[] | String<br>参数信息 |
 
-## 模块动作
+### 模块动作
 | 动作  | 含义     |
 | ----- | -------- |
 | CLOSE | 关闭连接 |
 
-## 配置示例
+### 配置示例
 ```
 {
     "Version": "20190101000000",
@@ -71,7 +73,7 @@ IPBlacklistPath = mod_block/ip_blacklist.data
 ```
 
 
-# 监控项
+## 监控项
 
 | 监控项        | 描述                         |
 | ------------- | ---------------------------- |

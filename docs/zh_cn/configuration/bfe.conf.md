@@ -1,10 +1,12 @@
-# 配置简介
+# 核心配置
+
+## 配置简介
 
 bfe.conf是BFE的核心配置
 
-# 配置描述
+## 配置描述
 
-## 服务基础配置
+### 服务基础配置
 
 | 配置项                         | 描述                              |
 | ------------------------------ | --------------------------------- |
@@ -34,7 +36,7 @@ bfe.conf是BFE的核心配置
 | Server.DebugBal                | Boolean<br>是否开启负载均衡模块调试日志<br>默认值False |
 | Server.DebugHealthCheck        | Boolean<br>是否开启健康检查模块调试日志<br>默认值False |
 
-## TLS基础配置
+### TLS基础配置
 
 | 配置项                            | 描述                                                         |
 | --------------------------------- | ------------------------------------------------------------ |
@@ -55,7 +57,7 @@ bfe.conf是BFE的核心配置
 | SessionTicket.SessionTicketsDisabled | Boolean<br>是否禁用TLS Session Ticket<br>默认值True|
 | SessionTicket.SessionTicketKeyFile   | String<br>[Session Ticket Key配置](tls_conf/session_ticket_key.data.md)文件路径<br>默认值tls_conf/session_ticket_key.data |
 
-# 配置示例
+## 配置示例
 
 ```
 [Server]

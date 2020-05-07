@@ -1,26 +1,28 @@
-# Introduction 
+# mod_rewrite
+
+## Introduction 
 
 Modify URI of HTTP request based on defined rules.
 
-# Module Configuration
+## Module Configuration
 
-## Description
+### Description
 conf/mod_rewrite/mod_rewrite.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
 | Basic.DataPath | String<br>path of rule configuraiton |
 
-## Example
+### Example
 
 ```
 [basic]
 DataPath = mod_rewrite/rewrite.data
 ```
 
-# Rule Configuration
+## Rule Configuration
 
-## Description
+### Description
 conf/mod_rewrite/rewrite.data
 
 | Config Item | Description                                                  |
@@ -38,7 +40,7 @@ conf/mod_rewrite/rewrite.data
 | Config{v}[].Last | Integer<br>If true, stop to check the remaining rules |
 
 
-## Actions
+### Actions
 | Action                    | Description                              |
 | ------------------------- | ---------------------------------------- |
 | HOST_SET                  | Set host to specified value              |
@@ -51,7 +53,7 @@ conf/mod_rewrite/rewrite.data
 | QUERY_DEL_ALL_EXCEPT      | Del all queries except specified queries |
 | QUERY_RENAME              | Rename query                             |
   
-## Example
+### Example
 
 ```
 {

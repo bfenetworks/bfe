@@ -6,10 +6,10 @@
 
 ## Download source code
 ```
-git clone https://github.com/baidu/bfe
+$ git clone https://github.com/baidu/bfe
 ```
 
-## Compile
+## Build
 - Execute the following command to build bfe:
 
 ```
@@ -27,7 +27,6 @@ $ make test
 
 ```
 $ file output/bin/bfe
-
 output/bin/bfe: ELF 64-bit LSB executable, ...
 ```
 

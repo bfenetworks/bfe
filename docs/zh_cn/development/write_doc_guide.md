@@ -17,7 +17,7 @@ BFE的文档主要分为以下几个类别：
 
 ## 如何使用预览工具
 
-### 1. 安装依赖项
+### 安装依赖项
 
 在此之前，请确认您的操作系统安装了gitbook及依赖项
 
@@ -28,7 +28,7 @@ $ sudo apt-get update && apt-get install -y npm
 $ sudo npm install -g gitbook-cli
 ```
 
-### 2. Clone仓库
+### Clone仓库
 
 下载完整的BFE仓库：
 
@@ -36,7 +36,7 @@ $ sudo npm install -g gitbook-cli
 $ git clone https://github.com/baidu/bfe
 ```
 
-### 3. 在本地运行文档站点
+### 在本地运行文档站点
 
 进入您希望加载和构建内容的目录列表（docs/LANG）, 运行：
 
@@ -57,13 +57,13 @@ Serving book on http://localhost:8000
 所有内容都应该以[Markdown](https://guides.github.com/features/mastering-markdown/) (GitHub风格)的形式编写。
 
 
-### 1. 贡献编写文档
+### 贡献编写文档
 
 - 创建一个新的` .md` 文件或在您当前操作的仓库中修改已存在的文章
 - 如果是新增文档，需将新增的文档名，添加到对应的index文件中(SUMMARY.md)
 
 
-### 2. 运行预览工具
+### 运行预览工具
 
 - 在文档基目录(docs/LANG)启动预览工具
 
@@ -72,7 +72,7 @@ $ cd docs/zh_cn/
 $ gitbook serve --port 8000
 ```
 
-### 3. 预览修改
+### 预览修改
 
 打开浏览器并导航到http://localhost:8000。
 

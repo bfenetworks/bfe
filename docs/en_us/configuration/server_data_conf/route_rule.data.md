@@ -1,8 +1,10 @@
-# Introduction
+# Route Rule Configuration
+
+## Introduction
 
 route_rule.data records route rule config for each product. 
 
-# Configuration
+## Configuration
 
 | Config Item | Description                                                  |
 | ----------- | ------------------------------------------------------------ |
@@ -13,7 +15,7 @@ route_rule.data records route rule config for each product.
 | ProductRule{v}[].Cond | String<br>Condition expression                               |
 | ProductRule{v}[].ClusterName | String<br>Destination cluster name                    |
 
-# Example
+## Example
 
 ```
 {

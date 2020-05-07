@@ -1,9 +1,12 @@
-# Introduction 
+# mod_header
+
+## Introduction 
 
 Modify header of HTTP request/response based on defined rules.
 
-# Module Configuration
-## Description
+## Module Configuration
+
+### Description
 conf/mod_header/mod_header.conf
 
 | Config Item | Description                             |
@@ -11,16 +14,16 @@ conf/mod_header/mod_header.conf
 | Basic.DataPath | String<br>path of rule configuraiton |
 | Log.OpenDebug | Boolean<br>debug flag of module |
 
-## Example
+### Example
 
 ```
 [basic]
 DataPath = mod_header/header_rule.data
 ```
 
-# Rule Configuration
+## Rule Configuration
 
-## Description
+### Description
 conf/mod_header/header_rule.data
 
 | Config Item | Description                                                  |
@@ -37,7 +40,7 @@ conf/mod_header/header_rule.data
 | Config{v}[].Actions.Params | Object<br>A list of parameters for action |
 | Config{v}[].Actions.Params[] | String<br>A parameter |
 
-## Actions
+### Actions
 | Action         | Description            |
 | -------------- | ---------------------- |
 | REQ_HEADER_SET | Set request header     |
@@ -49,7 +52,7 @@ conf/mod_header/header_rule.data
 | REQ_HEADER_MOD | Modify request header  |
 | RSP_HEADER_MOD | Modify response header |
 
-## Example
+### Example
 
 ```
 {

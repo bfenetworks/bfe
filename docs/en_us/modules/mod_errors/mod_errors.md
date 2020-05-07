@@ -1,9 +1,12 @@
-# Introduction
+# mod_erros
+
+## Introduction
 
 mod_errors replaces error responses by specified rules.
 
-# Module Configuration
-## Description
+## Module Configuration
+
+### Description
 conf/mod_errors/mod_errors.conf
 
 | Config Item          | Description                                 |
@@ -11,14 +14,14 @@ conf/mod_errors/mod_errors.conf
 | Basic.DataPath       | String<br>Path fo rule configuration |
 | Log.OpenDebug        | Boolean<br>Whether enable debug logs<br>Default False |
 
-## Example
+### Example
 ```
 [basic]
 DataPath = mod_errors/errors_rule.data
 ```
 
-# Rule Configuration
-## Description 
+## Rule Configuration
+### Description 
 
 | Config Item | Description                                                |
 | ----------- | ---------------------------------------------------------- |
@@ -33,13 +36,13 @@ DataPath = mod_errors/errors_rule.data
 | Config{v}[].Actions.Params | Object<br>Parameters of Action |
 | Config{v}[].Actions.Params[] | String<br>A Parameter |
 
-## Module Actions
+### Module Actions
 | Action   | Description            |
 | -------- | ---------------------- |
 | RETURN   | Return response generated from specified static html |
 | REDIRECT | Redirect to specified location |
 
-## Example
+### Example
 ```
 {
     "Version": "20190101000000",

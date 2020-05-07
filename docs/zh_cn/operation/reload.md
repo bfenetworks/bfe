@@ -2,20 +2,23 @@
 
 BFE内置reload接口以支持配置热加载，通过发送reload请求能够加载新的配置文件
 
-## 配置
+## 配置管理端口
 
-使用和监控项采集相同的端口
+在BFE核心配置文件(conf/bfe.conf)中, 配置MonitorPort
 
 ```
-[server]
-monitorPort = 8421
+[Server]
+MonitorPort = 8421
 ```
 
 ## 使用方式
 
-* reload接口仅允许使用localhost访问（127.0.0.1/::1）
-* reload接口支持GET请求
-  * 示例：curl http://localhost:8421/reload/server_data_conf 将重新加载分流转发配置
+* reload接口仅允许使用localhost访问（127.0.0.1/::1）, 仅支持GET请求, 示例:
+```
+# 重加载分流转发配置
+$ curl http://localhost:8421/reload/server_data_conf 
+```
+
 * 完整的reload接口列表可访问http://localhost:8421/reload 查看
 
 ## 接口说明

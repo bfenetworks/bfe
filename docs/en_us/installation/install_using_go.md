@@ -1,4 +1,7 @@
-# Install using "go get"
+# Install using go
+
+## Prerequisites
+- golang 1.13+
 
 ## Installation 
 - Get the source code and install
@@ -7,13 +10,7 @@
 $ go get github.com/baidu/bfe
 ```
 
-- Executable object file location
-
-```
-$ file ${GOPATH}/bin/bfe
-
-output/bin/bfe: ELF 64-bit LSB executable, ...
-```
+Executable object file location is ${GOPATH}/bin/bfe
 
 ## Run
 - Run BFE with example configuration files:

@@ -1,15 +1,17 @@
-# Introduction
+# Configuration about TLS Session Ticket Key
+
+## Introduction
 
 session_ticket_key.data records the session ticket key.
 
-# Configuration
+## Configuration
 
 | Config Item      | Description                                                     |
 | ---------------- | --------------------------------------------------------------- |
 | Version          | String<br>Version of config file                                          |
 | SessionTicketKey | String<br>The session ticket key. length is 48 and contains only [a-z0-9] |
 
-# Example
+## Example
 ```
 {
     "Version": "20190101000000",

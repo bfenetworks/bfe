@@ -1,10 +1,12 @@
-# 模块简介 
+# mod_static
+
+## 模块简介 
 
 mod_static支持返回静态文件作为响应。
 
-# 基础配置
+## 基础配置
 
-## 配置描述
+### 配置描述
 模块配置文件: conf/mod_static/mod_static.conf
 
 | 配置项         | 描述                               |
@@ -12,7 +14,7 @@ mod_static支持返回静态文件作为响应。
 | Basic.DataPath | String<br>规则配置文件路径         |
 | Basic.MimeTypePath | String<br>MIME配置文件路径     |
 
-## 配置示例
+### 配置示例
 ```
 [basic]
 DataPath = mod_static/static_rule.data
@@ -20,9 +22,9 @@ MimeTypePath = mod_static/mime_type.data
 
 ```
 
-# 规则配置
+## 规则配置
 
-## 配置描述
+### 配置描述
 规则配置文件: conf/mod_static/static_rule.data
 
 | 配置项                      | 描述                                         |
@@ -39,7 +41,7 @@ MimeTypePath = mod_static/mime_type.data
 | Config[v][].Action.Param[0] | String<br>第一个参数为根目录位置             |
 | Config[v][].Action.Param[1] | String<br>第二个参数为默认静态文件名         |
 
-## 配置示例
+### 配置示例
 ```
 {
     "Config": {
@@ -60,8 +62,8 @@ MimeTypePath = mod_static/mime_type.data
 }
 ```
 
-# MIME配置
-## 配置描述
+## MIME配置
+### 配置描述
 MIME配置文件: conf/mod_static/mime_type.data
 
 | 配置项                      | 描述                                  |
@@ -71,7 +73,7 @@ MIME配置文件: conf/mod_static/mime_type.data
 | Config[k]                   | String<br>文件扩展名                  |
 | Config[v]                   | String<br>MIME类型                    |
 
-## 配置示例
+### 配置示例
 ```
 {
     "Config": {
@@ -82,7 +84,7 @@ MIME配置文件: conf/mod_static/mime_type.data
 }
 ```
 
-# 监控项
+## 监控项
 
 | 监控项                   | 描述                              |
 | ----------------------- | --------------------------------- |

@@ -7,7 +7,7 @@ Use packet capture and analysis tools to locate and analyze complex network prob
 tcpdump example：
 
 ```
-tcpdump tcp port 8443 -i any -s -w test.pcap
+# tcpdump tcp port 8443 -i any -s -w test.pcap
 ```
 
 ## Traffic analysis

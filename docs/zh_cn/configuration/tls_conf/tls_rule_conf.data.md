@@ -1,8 +1,10 @@
-# 配置简介
+# TLS协议配置
+
+## 配置简介
 
 tls_rule_conf.data配置TLS协议参数。
 
-# 配置描述
+## 配置描述
 
 | 配置项                 | 描述                                                          |
 | ---------------------- | ------------------------------------------------------------- |
@@ -23,7 +25,7 @@ tls_rule_conf.data配置TLS协议参数。
 | DefaultNextProtos      | Object<br>支持的TLS应用层协议列表                             |
 | DefaultNextProtos[]    | String<br>TLS应用层协议, 合法值包括h2, spdy/3.1, http/1.1     |
 
-# 配置示例
+## 配置示例
 
 ```
 {
@@ -47,24 +49,24 @@ tls_rule_conf.data配置TLS协议参数。
 }
 ```
 
-# 安全等级说明
+## 安全等级说明
 
 BFE支持多种安全等级（A+/A/B/C）。各安全等级差异在于支持的协议版本及加密套件。A+等级安全性最高、连通性最低；C等级安全性最低、连通性最高。
 
-## 安全等级A+
+### 安全等级A+
 
 | 支持协议 | 支持加密套件 |
 | -------- | ------------ |
 | TLS1.2  | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_OLD_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA |
 
 
-## 安全等级A
+### 安全等级A
 
 | 支持协议 | 支持加密套件 |
 | -------- | ------------ |
 | TLS1.2<br>TLS1.1<br>TLS1.0 | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_OLD_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA |
 
-## 安全等级B
+### 安全等级B
 
 | 支持协议 | 支持加密套件 |
 | -------- | ------------ |
@@ -72,7 +74,7 @@ BFE支持多种安全等级（A+/A/B/C）。各安全等级差异在于支持的
 | SSLv3 | TLS_ECDHE_RSA_WITH_RC4_128_SHA<br>TLS_RSA_WITH_RC4_128_SHA |
 
 
-## 安全等级C
+### 安全等级C
 
 | 支持协议 | 支持加密套件 |
 | -------- | ------------ |

@@ -1,12 +1,14 @@
-# Introduction 
+# mod_http_code
+
+## Introduction 
 
 Count HTTP status codes. 
 
-# Module Configuration
+## Module Configuration
 
 Not required
 
-# Metrics
+## Metrics
 
 | Metric               | Description           |
 | -------------------- | --------------------- |

@@ -1,6 +1,6 @@
 # Overview
 
-## What is BFE?
+## What is BFE
 
 - BFE is an open-source layer 7 load balancer derived from proprietary Baidu Front End. 
 

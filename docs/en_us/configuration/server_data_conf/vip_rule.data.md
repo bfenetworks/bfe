@@ -1,8 +1,10 @@
-# Introduction
+# VIP Rule Configuration
+
+## Introduction
 
 vip_rule.data records vip lists for each product. 
 
-# Configuration
+## Configuration
 
 | Config Item | Description                                                  |
 | ----------- | ------------------------------------------------------------ |
@@ -11,7 +13,7 @@ vip_rule.data records vip lists for each product.
 | Vips{k}     | String<br>Product name                                                 |
 | Vips{v}     | Struct<br>Vip list for product                                         |
 
-# Example
+## Example
 
 ```
 {

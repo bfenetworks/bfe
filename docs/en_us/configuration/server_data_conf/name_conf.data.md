@@ -1,8 +1,10 @@
-# Introduction
+# Naming Configurationn
+
+## Introduction
 
 name_conf.data records the mapping between service name and service instances. 
 
-# Configuration
+## Configuration
 
 | Config Item | Description                                                  |
 | ----------- | ------------------------------------------------------------ |
@@ -14,7 +16,7 @@ name_conf.data records the mapping between service name and service instances.
 | Config{v}[].Port    | Integer<br>Instance port                                       |
 | Config{v}[].Weight  | Integer<br>Instance weight                                     |
 
-# Example
+## Example
 
 ```
 {

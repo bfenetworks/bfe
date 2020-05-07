@@ -1,25 +1,27 @@
-# 模块简介 
+# mod_rewrite
+
+## 模块简介 
 
 根据自定义的条件，修改请求的URI。
 
-# 基础配置
+## 基础配置
 
-## 配置描述
+### 配置描述
 模块配置文件: conf/mod_rewrite/mod_rewrite.conf
 
 | 配置项         | 描述                               |
 | -------------- | ---------------------------------- |
 | Basic.DataPath | String<br>规则配置文件路径         |
 
-## 配置示例
+### 配置示例
 ```
 [basic]
 DataPath = mod_rewrite/rewrite.data
 ```
 
-# 规则配置
+## 规则配置
 
-## 配置描述
+### 配置描述
 规则配置文件: conf/mod_rewrite/rewrite.data
 
 | 配置项                   | 描述                                                    |
@@ -35,8 +37,8 @@ DataPath = mod_rewrite/rewrite.data
 | Config{v}[].Action.Param | Object<br>规则动作参数列表                              | 
 | Config{v}[].Last         | Boolean<br>当该项为true时，命中某条规则后，不再向后匹配 |
 
-## 模块动作
-| 动作                      | `描述`                             |
+### 模块动作
+| 动作                      | 描述                               |
 | ------------------------- | ---------------------------------- |
 | HOST_SET_FROM_PATH_PREFIX | 根据path前缀设置host               |
 | HOST_SET                  | 设置host                           |
@@ -48,7 +50,7 @@ DataPath = mod_rewrite/rewrite.data
 | QUERY_RENAME              | 重命名query                        |
 | QUERY_DEL_ALL_EXCEPT      | 删除除指定key外的所有query         |
 
-## 配置示例
+### 配置示例
 ```
 {
   "Version": "20190101000000",

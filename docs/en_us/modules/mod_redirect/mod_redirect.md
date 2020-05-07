@@ -1,26 +1,28 @@
-# Introduction 
+# mod_redirect
+
+## Introduction 
 
 Redirect HTTP request based on defined rules.
 
-# Module Configuration
+## Module Configuration
 
-## Description
+### Description
 conf/mod_redirect/mod_redirect.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
 | Basic.DataPath | String<br>path of rule configuraiton |
 
-## Example
+### Example
 
 ```
 [basic]
 DataPath = mod_redirect/redirect.data
 ```
 
-# Rule Configuration
+## Rule Configuration
 
-## Description
+### Description
 conf/mod_redirect/redirect.data
 
 | Config Item | Description                                                  |
@@ -37,7 +39,7 @@ conf/mod_redirect/redirect.data
 | Config{v}[].Actions[].Params | Object<br>Parameters of redirect action |
 | Config{v}[].Status | Integer<br>Status code |
 
-## Actions
+### Actions
 | Action         | Description                                                                         |
 | -------------- | ----------------------------------------------------------------------------------- |
 | URL_SET        | redirect to specified URL                                                           |
@@ -45,7 +47,7 @@ conf/mod_redirect/redirect.data
 | URL_PREFIX_ADD | redirect to URL concatenated by specified prefix and the original URL               |
 | SCHEME_SET     | redirect to the original URL but with scheme changed. supported scheme: http\|https |
   
-## Example
+### Example
 
 ```
 {

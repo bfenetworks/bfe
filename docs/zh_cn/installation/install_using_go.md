@@ -1,4 +1,7 @@
-# go get方式安装
+# go方式安装
+
+## 环境准备
+* golang 1.13+
 
 ## 安装 
 - 获取并安装
@@ -7,13 +10,7 @@
 $ go get github.com/baidu/bfe
 ```
 
-- 可执行目标文件位置
-
-```
-$ file ${GOPATH}/bin/bfe
-
-output/bin/bfe: ELF 64-bit LSB executable, ...
-```
+可执行目标文件位置: ${GOPATH}/bin/bfe
 
 ## 运行
 - 基于示例配置运行BFE:

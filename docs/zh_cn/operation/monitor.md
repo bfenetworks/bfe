@@ -2,12 +2,13 @@
 
 BFE内置丰富的监控指标，支持多种格式，可以通过BFE实例的监控接口获得。
 
-## 配置
-在BFE的核心配置文件(conf/bfe.conf)中，设置监控端口：
+## 配置管理端口
+
+在BFE核心配置文件(conf/bfe.conf)中, 配置MonitorPort
 
 ```
-[server]
-monitorPort = 8421
+[Server]
+MonitorPort = 8421
 ```
 
 ## 获取指标类别列表

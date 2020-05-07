@@ -1,10 +1,12 @@
-# Introduction 
+# mod_tag
+
+## Introduction 
 
 Set tags for request based on defined rules.
 
-# Module Configuration
+## Module Configuration
 
-## Description
+### Description
 conf/mod_tag/mod_tag.conf
 
 | Config Item | Description                             |
@@ -12,7 +14,7 @@ conf/mod_tag/mod_tag.conf
 | Basic.DataPath | String<br>path of rule configuraiton |
 | Log.OpenDebug | Boolean<br>debug flag of module |
 
-## Example
+### Example
 ```
 [Basic]
 DataPath = mod_tag/tag_rule.data
@@ -21,9 +23,9 @@ DataPath = mod_tag/tag_rule.data
 OpenDebug = true
 ```
 
-# Rule Configuration
+## Rule Configuration
 
-## Description
+### Description
 conf/mod_tag/tag_rule.data
 
 | Config Item | Description                                             |
@@ -38,7 +40,7 @@ conf/mod_tag/tag_rule.data
 | Config{v}[].Param.TagValue | String<br>tag value                                  |
 | Config{v}[].Last           | Boolean<br>if true, stop to check the remaining rules |
 
-## Example
+### Example
 
 ```
 {

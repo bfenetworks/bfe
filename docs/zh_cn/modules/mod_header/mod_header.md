@@ -1,9 +1,11 @@
-# 模块简介 
+# mod_header
+
+## 模块简介 
 
 根据自定义条件，修改请求或响应的头部。
 
-# 基础配置
-## 配置描述
+## 基础配置
+### 配置描述
 模块配置文件: conf/mod_header/mod_header.conf
 
 | 配置项                | 描述                                        |
@@ -11,14 +13,14 @@
 | Basic.DataPath            | String<br>规则配置的的文件路径 |
 | Log.OpenDebug           | Boolean<br>是否开启 debug 日志<br>默认值False |
 
-## 配置示例
+### 配置示例
 ```
 [basic]
 DataPath = mod_header/header_rule.data
 ```
 
-# 规则配置
-## 配置描述
+## 规则配置
+### 配置描述
 | 配置项  | 描述                                                           |
 | ------- | -------------------------------------------------------------- |
 | Version | String<br>配置文件版本 |
@@ -33,7 +35,7 @@ DataPath = mod_header/header_rule.data
 | Config{v}[].Actions.Params | Object<br>执行指令的相关参数列表 |
 | Config{v}[].Actions.Params[] | String<br>参数信息 |
 
-## 模块动作
+### 模块动作
 
 | 动作名称        | 含义       | 参数列表说明 |
 | -------------- | ---------- | --------- |
@@ -44,7 +46,7 @@ DataPath = mod_header/header_rule.data
 | RSP_HEADER_ADD | 添加响应头 | HeaderName, HeaderValue |
 | RSP_HEADER_DEL | 删除响应头 | HeaderName |
 
-## 配置示例
+### 配置示例
 ```
 {
     "Version": "20190101000000",
@@ -82,7 +84,7 @@ DataPath = mod_header/header_rule.data
 }
 ```
   
-# 内置变量说明
+## 内置变量说明
 可以通过 %variable 使用变量，参见下文示例  
 
 | 变量名         | 含义       |

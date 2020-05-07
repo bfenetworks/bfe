@@ -1,10 +1,12 @@
-# 模块简介 
+# mod_tag
+
+## 模块简介 
 
 根据自定义的条件，为请求设置Tag标识。
 
-# 基础配置
+## 基础配置
 
-## 配置描述
+### 配置描述
 模块配置文件: conf/mod_tag/mod_tag.conf
 
 | 配置项         | 描述                               |
@@ -12,7 +14,7 @@
 | Basic.DataPath | String<br>规则配置文件路径         |
 | Log.OpenDebug  | String<br>是否启用模块调试日志开关 |
 
-## 配置示例
+### 配置示例
 ```
 [Basic]
 DataPath = mod_tag/tag_rule.data
@@ -21,9 +23,9 @@ DataPath = mod_tag/tag_rule.data
 OpenDebug = false
 ```
 
-# 规则配置
+## 规则配置
 
-## 配置描述
+### 配置描述
 规则配置文件: conf/mod_tag/tag_rule.data
 
 | 配置项                     | 描述                                         |
@@ -38,7 +40,7 @@ OpenDebug = false
 | Config[v][].Param.TagValue | String<br>标签取值                           |
 | Config[v][].Last           | Boolean<br>设置为true时，命中当前规则后停止处理后续规则 |
   
-## 配置示例
+### 配置示例
 ```
 {
   "Version": "20200218210000",

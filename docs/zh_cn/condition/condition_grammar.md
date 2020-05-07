@@ -3,35 +3,41 @@
 
 ## 基本概念: 原语、表达式和变量
 
-- **条件原语**（Condition Primitive）
+### 条件原语（Condition Primitive）
 
-  - 最基本的条件判断单元，定义了比较的原语
+- 最基本的条件判断单元，定义了比较的原语
 
-  ``` 
-  req_host_in("www.bfe-networks.com|bfe-networks.com") # host是两个域名之一
-  ```
+``` 
+# host是两个域名之一
+req_host_in("www.bfe-networks.com|bfe-networks.com") 
+```
   
-- **条件表达式**（Condition Expression）：基于条件原语的“与/或/非组合”
+### 条件表达式（Condition Expression）
+- 基于条件原语的“与/或/非组合”
 
-  ```
-  req_host_in("bfe-networks.com") && req_method_in("GET") # 域名是bfe-networks.com且方法是GET
-  ```
+```
+# 域名是bfe-networks.com且方法是GET
+req_host_in("bfe-networks.com") && req_method_in("GET") 
+```
   
-- **条件变量**（Condition Variable）
+### 条件变量（Condition Variable）
 
-  - 可以将**条件表达式**赋值给一个变量，这个变量被定义为条件变量
+- 可以将**条件表达式**赋值给一个变量，这个变量被定义为条件变量
 
-  ```
-  bfe_host = req_host_in("bfe-networks.com") # 将条件表达式赋值给变量bfe_host
-  ```
+```
+# 将条件表达式赋值给变量bfe_host
+bfe_host = req_host_in("bfe-networks.com") 
+```
   
-- **高级条件表达式**（Advanced Condition Expression）：基于条件原语和条件变量的“与/或/非组合”
+### 高级条件表达式（Advanced Condition Expression）
+- 基于条件原语和条件变量的“与/或/非组合”
 
-  - 在高级条件表达式中，条件变量以$前缀作为标示
+- 在高级条件表达式中，条件变量以$前缀作为标示
 
-  ```
-  $news_host && req_method_in("GET") # 符合变量news_host且方法是GET
-  ```
+```
+# 符合变量news_host且方法是GET
+$news_host && req_method_in("GET") 
+```
 
 
 ## 条件原语的语法
@@ -54,15 +60,14 @@
 
 - 语法描述
 
-  ```
-  Condition Expression(CE) -> 
-                     CE && CE
-                   | CE || CE
-                   | ( CE )
-                   | ! CE
-                   | Condition Primitive
-  ```
-  
+```
+Condition Expression(CE) -> 
+                   CE && CE
+                 | CE || CE
+                 | ( CE )
+                 | ! CE
+                 | Condition Primitive
+```
 
 ## 高级条件表达式的语法
 
@@ -72,13 +77,13 @@
 
 - 语法描述
 
-  ```
-  Advanced Condition Expression(ACE) -> 
-                     ACE && ACE
-                   | ACE || ACE
-                   | ( ACE)
-                   | ! ACE
-                   | Condition Primitive
-                   | Condition Variable
-  ```
+```
+Advanced Condition Expression(ACE) -> 
+                   ACE && ACE
+                 | ACE || ACE
+                 | ( ACE)
+                 | ! ACE
+                 | Condition Primitive
+                 | Condition Variable
+```
   

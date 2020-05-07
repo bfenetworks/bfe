@@ -1,10 +1,12 @@
-# Introduction
+# Core Configuration
+
+## Introduction
 
 bfe.conf is the core configuration file of BFE.
 
-# Configuration
+## Configuration
 
-## Server basic config
+### Server basic config
 
 | Config Item                   | Description                                                  |
 | ----------------------------- | ------------------------------------------------------------ |
@@ -34,7 +36,7 @@ bfe.conf is the core configuration file of BFE.
 | Basic.DebugBal                | Boolean<br>Debug flag for Bal<br>Default False |
 | Basic.DebugHealthCheck        | Boolean<br>Debug flag for HealthCheck<br>Default False |
 
-## TLS basic config
+### TLS basic config
 
 | Config Item                       | Description                                                      |
 | --------------------------------- | ---------------------------------------------------------------- |
@@ -56,7 +58,7 @@ bfe.conf is the core configuration file of BFE.
 | SessionTicket.SessionTicketKeyFile   | String<br>Path of [session ticket key config](tls_conf/session_ticket_key.data.md)<br>Default tls_conf/session_ticket_key.data |
 
 
-# Example
+## Example
 
 ```
 [Server]
