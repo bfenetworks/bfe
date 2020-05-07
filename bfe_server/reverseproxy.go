@@ -526,7 +526,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 			return
 		case bfe_module.BfeHandlerRedirect:
 			// make redirect
-			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code)
+			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)
 			isRedirect = true
 			basicReq.BfeStatusCode = basicReq.Redirect.Code
 			goto send_response
@@ -566,7 +566,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 			return
 		case bfe_module.BfeHandlerRedirect:
 			// make redirect
-			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code)
+			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)
 			isRedirect = true
 			basicReq.BfeStatusCode = basicReq.Redirect.Code
 			goto send_response
@@ -626,7 +626,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 			return
 		case bfe_module.BfeHandlerRedirect:
 			// make redirect
-			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code)
+			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)
 
 			isRedirect = true
 
@@ -695,7 +695,7 @@ response_got:
 			return
 		case bfe_module.BfeHandlerRedirect:
 			// make redirect
-			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code)
+			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)
 			isRedirect = true
 			basicReq.BfeStatusCode = basicReq.Redirect.Code
 			goto send_response
