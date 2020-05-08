@@ -45,6 +45,7 @@ conf/mod_rewrite/rewrite.data
 | ------------------------- | ---------------------------------------- |
 | HOST_SET                  | Set host to specified value              |
 | HOST_SET_FROM_PATH_PREFIX | Set host to specified path prefix        |
+| HOST_SUFFIX_REPLACE       | Replace suffix of host                   |
 | PATH_SET                  | Set path to specified value              |
 | PATH_PREFIX_ADD           | Add prefix to orignal path               |
 | PATH_PREFIX_TRIM          | Trim prefix from orignal path            |
