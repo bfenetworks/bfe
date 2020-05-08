@@ -42,6 +42,7 @@ DataPath = mod_rewrite/rewrite.data
 | ------------------------- | ---------------------------------- |
 | HOST_SET_FROM_PATH_PREFIX | 根据path前缀设置host               |
 | HOST_SET                  | 设置host                           |
+| HOST_SUFFIX_REPLACE       | 替换域名后缀                           |
 | PATH_SET                  | 设置path                           |
 | PATH_PREFIX_ADD           | 增加path前缀                       |
 | PATH_PREFIX_TRIM          | 删除path前缀                       |
