@@ -1,4 +1,4 @@
-# Request URI related primitives
+# Request URI Related Primitives
 
 URI format：http://host[:port]/path/?query
 

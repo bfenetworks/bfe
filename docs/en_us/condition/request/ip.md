@@ -1,4 +1,4 @@
-# IP related primitives
+# IP Related Primitives
 
 ## req_cip_range(start_ip, end_ip)
 * Description: Judge if client IP is in [start_ip, end_ip]
