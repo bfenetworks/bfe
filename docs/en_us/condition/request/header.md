@@ -56,7 +56,7 @@ req_header_value_in("Referer", "https://example.org/login", true)
 * Example
 
 ```
-req_header_prefix_value_in("Refer", "https://example.org", true)
+req_header_prefix_value_in("Referer", "https://example.org", true)
 ```
 
 ## req_header_value_suffix_in(header_name, value_suffix_list, case_insensitive)
