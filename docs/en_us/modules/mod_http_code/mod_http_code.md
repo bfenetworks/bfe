@@ -2,7 +2,7 @@
 
 ## Introduction 
 
-Count HTTP status codes. 
+mod_http_code reports statistics of HTTP response codes.
 
 ## Module Configuration
 

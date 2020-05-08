@@ -2,7 +2,7 @@
 
 ## Introduction 
 
-Block incoming connection/request based on defined rules.
+mod_block blocks incoming connections/requests based on defined rules.
 
 ## Module Configuration
 

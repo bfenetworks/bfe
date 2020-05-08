@@ -2,7 +2,7 @@
 
 ## Introduction 
 
-Generate log id. 
+mod_logid generates log ids for sessions/requests. 
 
 ## Module Configuration
 

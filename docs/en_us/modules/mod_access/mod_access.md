@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The mod_access module writes request logs and session logs in the specified format.
+mod_access writes request logs and session logs in the specified format.
 
 ## Module Configuration
 

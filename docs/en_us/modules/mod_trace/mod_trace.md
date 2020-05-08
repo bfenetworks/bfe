@@ -2,7 +2,7 @@
 
 ## Introduction 
 
-Enable trace for requests based on defined rules.
+mod_trace enables tracing for requests based on defined rules.
 
 ## Module Configuration
 

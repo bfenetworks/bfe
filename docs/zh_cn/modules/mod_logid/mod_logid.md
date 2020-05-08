@@ -2,7 +2,7 @@
 
 ## 模块简介
 
-用来生成logid。
+mod_logid用来生成logid。
 
 ## 基础配置
 

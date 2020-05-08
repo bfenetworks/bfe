@@ -2,7 +2,7 @@
 
 ## Introduction 
 
-Modify URI of HTTP request based on defined rules.
+mod_rewrite modifies the URI of HTTP request based on defined rules.
 
 ## Module Configuration
 

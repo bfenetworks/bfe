@@ -2,7 +2,7 @@
 
 ## Introduction
 
-mod_errors replaces error responses by specified rules.
+mod_errors replaces error responses based on specified rules.
 
 ## Module Configuration
 

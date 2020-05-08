@@ -1,4 +1,4 @@
-# Log file rotation
+# Log rotation
 
 ## Introdution
 

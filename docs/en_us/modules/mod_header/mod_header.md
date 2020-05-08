@@ -2,7 +2,7 @@
 
 ## Introduction 
 
-Modify header of HTTP request/response based on defined rules.
+mod_header modifies header of HTTP request/response based on defined rules.
 
 ## Module Configuration
 

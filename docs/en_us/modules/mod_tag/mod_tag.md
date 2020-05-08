@@ -2,7 +2,7 @@
 
 ## Introduction 
 
-Set tags for request based on defined rules.
+mod_tag sets tags for requests based on defined rules.
 
 ## Module Configuration
 

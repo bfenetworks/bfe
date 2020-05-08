@@ -2,7 +2,7 @@
 
 ## Introduction 
 
-ModuleKeyLog writes tls key logs in NSS key log format so that external
+mod_key_log writes tls key logs in NSS key log format so that external
 programs(eg. wireshark) can decrypt TLS connections for trouble shooting.
 
 For more information about NSS key log format, see:

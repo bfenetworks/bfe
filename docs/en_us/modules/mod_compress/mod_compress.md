@@ -2,7 +2,7 @@
 
 ## Introductionn
 
-mod_compress compresses responses using specified method.
+mod_compress compresses responses based on specified rules.
 
 ## Module Configuration
 

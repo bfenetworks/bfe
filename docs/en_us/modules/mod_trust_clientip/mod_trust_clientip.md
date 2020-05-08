@@ -2,7 +2,7 @@
 
 ## Introduction 
 
-Check client IP of incoming request against trusted ip dict. If matched, mark request/connection is trusted.
+mod_trust_clientip checkes the client IP of incoming request/connnection against trusted ip dictionary. If matched, the request/connection is marked as trusted.
 
 ## Module Configuration
 

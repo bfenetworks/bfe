@@ -2,7 +2,7 @@
 
 ## Introduction 
 
-Redirect HTTP request based on defined rules.
+mod_redirect redirects HTTP requests based on defined rules.
 
 ## Module Configuration
 

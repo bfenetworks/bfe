@@ -2,7 +2,7 @@
 
 ## 模块简介 
 
-mod_compress支持响应压缩，如：GZIP压缩。
+mod_compress支持对响应主体压缩。
 
 ## 基础配置
 ### 配置描述
