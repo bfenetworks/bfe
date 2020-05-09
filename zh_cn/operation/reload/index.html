@@ -2375,7 +2375,7 @@
                 
                 
                 <h1 id="_1">热加载配置</h1>
-<p>BFE内置reload接口以支持配置热加载，通过发送reload请求能够加载新的配置文件</p>
+<p>BFE内置配置热加载功能，通过请求Reload HTTP API能够加载新的配置文件。</p>
 <h2 id="_2">配置管理端口</h2>
 <p>在BFE核心配置文件(conf/bfe.conf)中, 配置MonitorPort</p>
 <div class="codehilite"><pre><span></span><code><span class="k">[Server]</span>
@@ -2385,7 +2385,7 @@
 
 <h2 id="_3">使用方式</h2>
 <ul>
-<li>reload接口仅允许使用localhost访问（127.0.0.1/::1）, 仅支持GET请求, 示例:</li>
+<li>Reload API仅允许localhost访问（127.0.0.1/::1）, 仅支持GET请求, 示例:</li>
 </ul>
 <div class="codehilite"><pre><span></span><code><span class="err"># 重加载分流转发配置</span>
 <span class="err">$ curl http://localhost:8421/reload/server_data_conf </span>
@@ -2393,7 +2393,7 @@
 
 
 <ul>
-<li>完整的reload接口列表可访问http://localhost:8421/reload 查看</li>
+<li>完整的Reload API列表可访问http://localhost:8421/reload查看。详见下文说明</li>
 </ul>
 <h2 id="_4">接口说明</h2>
 <h3 id="_5">基础功能</h3>
@@ -2402,7 +2402,7 @@
 <tr>
 <th>功能名称</th>
 <th>默认配置文件</th>
-<th>热加载接口</th>
+<th>热加载API</th>
 </tr>
 </thead>
 <tbody>
@@ -2439,7 +2439,7 @@
 <tr>
 <th>功能名称</th>
 <th>默认配置文件</th>
-<th>热加载接口</th>
+<th>热加载API</th>
 </tr>
 </thead>
 <tbody>
