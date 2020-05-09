@@ -1,4 +1,4 @@
-# Request cookie related primitive
+# Request Cookie Related Primitives
 
 ## req_cookie_key_in(key_list)
 * Description: Judge if cookie key matches configured patterns
