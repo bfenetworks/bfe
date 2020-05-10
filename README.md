@@ -39,11 +39,10 @@ BFE is an open-source layer 7 load balancer derived from proprietary Baidu Front
 - Owners: [MAINTAINERS](MAINTAINERS.md)
 - Contributors: [CONTRIBUTORS](CONTRIBUTORS.md)
 
-## Discussion
+## Communication
 - Issue: https://github.com/baidu/bfe/issues
-
-## Contact
-- Email：bfe-osc@baidu.com
+- Slack: Join the [BFE community on Slack](https://join.slack.com/t/bfe-networks/shared_invite/zt-cn04xsqr-j7LDFmPkCuCZ39OLcHlMBA) - Sign up and join channels on topics that interest you.
+- WeiChat: If you want to join our WeChat developer group, send a request [mail](mailto:bfe-osc@baidu.com) with information that includes the following: WeChat ID, a contribution you've made to BFE(such as a PR/Issue). We will invite you right away.
 
 ## License
 BFE is under the Apache 2.0 license. See the [LICENSE](LICENSE) file for details.
