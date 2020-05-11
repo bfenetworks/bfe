@@ -39,7 +39,7 @@ NOTE: Envoy supports global and distributed load balancing.
 
 ### Forwarding Rules
 
-+ BFE provides [Condition Expression](./condition).
++ BFE provides [Condition Expression](../condition).
 + Nginx uses regular expression.
 + Traefik supports traffic classification based on request content. But it can't support flexible AND or OR logic.
 + Envoy supports rules based on Domain, Path and Header.
@@ -70,7 +70,7 @@ While Nginx and Envoy can do nothing with wrong memory usage. Debugging such a b
 
 ### Observability
 
-+ BFE provides [rich internal status](./monitor) for external observation. 
++ BFE provides [rich internal status](../monitor) for external observation. 
 + Nginx and Traefik provide less internal status.
 + Envoy also provides quite a lot internal status.
 
