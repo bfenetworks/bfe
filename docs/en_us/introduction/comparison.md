@@ -7,6 +7,7 @@ NOTE: Most of the projects below are under active development. Thus some of the 
 ## Briefs of BFE and similar systems
 
 The brief decriptions of several systems are as follows:
+
 + BFE: BFE is an open-source layer 7 load balancer.
 + [Nginx](http://nginx.org/en/): nginx is an HTTP and reverse proxy server, a mail proxy server, and a generic TCP/UDP proxy server.
 + [Traefik](https://github.com/containous/traefik): Traefik is a modern HTTP reverse proxy and load balancer.

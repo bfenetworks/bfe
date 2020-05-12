@@ -7,6 +7,7 @@
 ## BFE及相关系统的定位
 
 在各开源系统的官网上，几个相关系统的定位描述如下：
+
 + BFE: BFE是一个开源的七层负载均衡系统。
 + [Nginx](http://nginx.org/en/): Nginx是HTTP服务、反向代理服务、邮件代理服务、通用TCP/UDP代理服务。
 + [Traefik](https://github.com/containous/traefik): Traefik是先进的HTTP反向代理和负载均衡。
