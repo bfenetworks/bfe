@@ -2,7 +2,7 @@
 
 ## Introduction 
 
-Add user id to cookie for client identification.
+mod_userid generates user id for client identification.
 
 ## Module Configuration
 

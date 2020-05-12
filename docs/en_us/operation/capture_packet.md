@@ -24,7 +24,7 @@ For TLS-based encrypted traffic, you can use mod_key_log and wireshark for analy
   * Note：modify bfe.conf and enable mod_key_log,  See module configuration [mod_key_log](../modules/mod_key_log/mod_key_log.md) for details
 
 ```
-[server]
+[Server]
 Modules = mod_key_log
 ```
 

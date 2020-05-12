@@ -64,7 +64,7 @@
   * [mod_userid](modules/mod_userid/mod_userid.md)
 * Operations
   * [Command line options](operation/command.md)
-  * [Environment argruments](operation/env_var.md)
+  * [Environment variables](operation/env_var.md)
   * [System signals](operation/signal.md)
   * [Configuration reload](operation/reload.md)
   * [System metrics](operation/monitor.md)

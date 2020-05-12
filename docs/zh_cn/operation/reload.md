@@ -1,6 +1,6 @@
 # 热加载配置
 
-BFE内置reload接口以支持配置热加载，通过发送reload请求能够加载新的配置文件
+BFE内置配置热加载功能，通过请求Reload HTTP API能够加载新的配置文件。
 
 ## 配置管理端口
 
@@ -19,7 +19,7 @@ MonitorPort = 8421
 $ curl http://localhost:8421/reload/server_data_conf 
 ```
 
-* 完整的reload接口列表可访问http://localhost:8421/reload 查看
+* 完整的Reload API列表可访问http://localhost:8421/reload查看。详见下文说明。
 
 ## 接口说明
 

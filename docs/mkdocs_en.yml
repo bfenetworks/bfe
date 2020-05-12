@@ -4,13 +4,13 @@ dev_addr: 0.0.0.0:8000
 repo_name: 'Github'
 repo_url: https://github.com/baidu/bfe
 docs_dir: 'en_us'
-edit_uri: edit/master/docs/en_us/
+edit_uri: edit/develop/docs/en_us/
 
 theme:
   name: material
   language: en
 
-copyright: "Copyright &copy; 2019-2020 BFE Authors"
+copyright: 'Copyright &copy; 2019-2020 BFE <a href=/zh_cn>中文</a> | <a href=/en_us>English</a>'
 
 markdown_extensions:
   - codehilite
@@ -18,49 +18,60 @@ markdown_extensions:
 plugins:
   - search
 
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/baidu/bfe
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/BaiduResearch
+    - icon: fontawesome/brands/slack
+      link: https://join.slack.com/t/bfe-networks/shared_invite/zt-cn04xsqr-j7LDFmPkCuCZ39OLcHlMBA
+    - icon: fontawesome/brands/envelop
+      link: mailto:bfe-osc@baidu.com
+
 nav:
   - 'About': 'README.md'
   - 'Introduction':
     - 'Overview': 'introduction/overview.md'
-    - 'Comparsion to Similar Systems': 'introduction/comparison.md'
-    - 'Design Overview':
+    - 'Comparsion to similar systems': 'introduction/comparison.md'
+    - 'Design overview':
       - 'Terminology': 'introduction/terminology.md'
-      - 'Traffic Fowarding Model': 'introduction/forward_model.md'
-      - 'Traffic Routing': 'introduction/route.md'
-      - 'Traffic Balancing': 'introduction/balance.md'
-    - 'Getting Help': 'introduction/getting_help.md'
-    - 'Version History': 'https://github.com/baidu/bfe/blob/master/CHANGELOG.md'
-  - 'Getting Started':
+      - 'Traffic fowarding model': 'introduction/forward_model.md'
+      - 'Traffic routing': 'introduction/route.md'
+      - 'Traffic balancing': 'introduction/balance.md'
+    - 'Getting help': 'introduction/getting_help.md'
+    - 'Version history': 'https://github.com/baidu/bfe/blob/master/CHANGELOG.md'
+  - 'Getting started':
     - 'Install BFE': 'installation/install_from_source.md'
-    - 'User Guides': 
+    - 'User guides': 
       - 'Overview': 'example/guide.md'
-      - 'Traffic Forwarding': 'example/route.md'
-      - 'Traffic Blocking': 'example/block.md'
-      - 'Request Redirect': 'example/redirect.md'
-      - 'Request Rewrite': 'example/rewrite.md'
-      - 'TLS Mutual Authentication': 'example/client_auth.md'
+      - 'Traffic forwarding': 'example/route.md'
+      - 'Traffic blocking': 'example/block.md'
+      - 'Request redirect': 'example/redirect.md'
+      - 'Request rewrite': 'example/rewrite.md'
+      - 'TLS mutual authentication': 'example/client_auth.md'
   - 'Installation': 
     - 'Overview': 'installation/install.md'
-    - 'Install from Source': 'installation/install_from_source.md'
-    - 'Install using Binaries': 'installation/install_using_binaries.md'
-    - 'Install using Go': 'installation/install_using_go.md'
-    - 'Install using Snap': 'installation/install_using_snap.md'
+    - 'Install from source': 'installation/install_from_source.md'
+    - 'Install using binaries': 'installation/install_using_binaries.md'
+    - 'Install using go': 'installation/install_using_go.md'
+    - 'Install using snap': 'installation/install_using_snap.md'
   - 'Configuration':
     - 'Overview': 'configuration/config.md'
     - 'Core': 'configuration/bfe.conf.md'
     - 'Protocol':
       - 'SSL/TLS': 'configuration/tls_conf/tls_rule_conf.data.md'
       - 'Certificate': 'configuration/tls_conf/server_cert_conf.data.md'
-      - 'Session Ticket Key': 'configuration/tls_conf/session_ticket_key.data.md'
+      - 'Session ticket key': 'configuration/tls_conf/session_ticket_key.data.md'
     - 'Routing':
-      - 'Host Rule': 'configuration/server_data_conf/host_rule.data.md'
-      - 'Vip Rule': 'configuration/server_data_conf/vip_rule.data.md'
-      - 'Route Rule': 'configuration/server_data_conf/route_rule.data.md'
-    - 'Backend Cluster': 'configuration/server_data_conf/cluster_conf.data.md'
-    - 'Load Balancing':
-      - 'Sub-clusters Balancing': 'configuration/cluster_conf/gslb.data.md'
-      - 'Instances Balancing': 'configuration/cluster_conf/cluster_table.data.md'
-    - 'Name Service':
+      - 'Host rule': 'configuration/server_data_conf/host_rule.data.md'
+      - 'VIP rule': 'configuration/server_data_conf/vip_rule.data.md'
+      - 'Route rule': 'configuration/server_data_conf/route_rule.data.md'
+    - 'Backend cluster': 'configuration/server_data_conf/cluster_conf.data.md'
+    - 'Load balancing':
+      - 'Sub-clusters balancing': 'configuration/cluster_conf/gslb.data.md'
+      - 'Instances balancing': 'configuration/cluster_conf/cluster_table.data.md'
+    - 'Name service':
       - 'Naming': 'configuration/server_data_conf/name_conf.data.md'
   - 'Modules':
     - 'mod_access': 'modules/mod_access/mod_access.md'
@@ -84,32 +95,32 @@ nav:
     - 'mod_trust_clientip': 'modules/mod_trust_clientip/mod_trust_clientip.md'
     - 'mod_userid': 'modules/mod_userid/mod_userid.md'
   - 'Operations':
-    - 'Command Line Options': 'operation/command.md'
-    - 'Environment Argruments': 'operation/env_var.md'
-    - 'System Signals': 'operation/signal.md'
-    - 'Configuration Reload': 'operation/reload.md'
-    - 'System Metrics': 'operation/monitor.md'
-    - 'Log Rotation': 'operation/log_rotation.md'
-    - 'Traffic Tapping': 'operation/capture_packet.md'
+    - 'Command line pptions': 'operation/command.md'
+    - 'Environment variables': 'operation/env_var.md'
+    - 'System signals': 'operation/signal.md'
+    - 'Configuration reload': 'operation/reload.md'
+    - 'System metrics': 'operation/monitor.md'
+    - 'Log rotation': 'operation/log_rotation.md'
+    - 'Traffic tapping': 'operation/capture_packet.md'
     - 'Performance': 'operation/performance.md'
-  - 'How to Contribute':
-    - 'Contribute Codes':
-      - 'Local Development': 'development/local_dev_guide.md'
+  - 'How to contribute':
+    - 'Contribute codes':
+      - 'Local development': 'development/local_dev_guide.md'
       - 'Sumbit PR': 'development/submit_pr_guide.md'
-    - 'Contribute Documents': 'development/write_doc_guide.md'
-    - 'Releasing Process': 'development/release_regulation.md'
-    - 'Development Guides':
-      - 'Source Code Layout': 'development/source_code_layout.md'
-    - 'BFE Module Development': 
+    - 'Contribute documents': 'development/write_doc_guide.md'
+    - 'Releasing process': 'development/release_regulation.md'
+    - 'Development guides':
+      - 'Source code layout': 'development/source_code_layout.md'
+    - 'BFE module development': 
       - 'Overview': 'development/module/overview.md'
-      - 'BFE Callback Introduction': 'development/module/bfe_callback.md'
-      - 'How to Write a Module': 'development/module/how_to_write_module.md'
+      - 'BFE callback introduction': 'development/module/bfe_callback.md'
+      - 'How to write a module': 'development/module/how_to_write_module.md'
   - 'FAQ':
     - 'Installation': 'faq/installation.md'
     - 'Configuration': 'faq/configuration.md'
     - 'Performance': 'faq/performance.md'
     - 'Development': 'faq/development.md'
-  - 'Monitor Reference':
+  - 'Monitor reference':
     - 'Protocol':
       - 'SSL/TLS': 'monitor/tls_state.md'
       - 'HTTP': 'monitor/http_state.md'
@@ -118,20 +129,20 @@ nav:
       - 'WebSocket': 'monitor/websocket_state.md'
       - 'Stream': 'monitor/stream_state.md'
     - 'Routing':
-      - 'Host Table': 'monitor/host_table_status.md'
-    - 'Load Balancing':
-      - 'Balance Details': 'monitor/bal_table_status.md'
-      - 'Balance Error': 'monitor/bal_state.md'
+      - 'Host table': 'monitor/host_table_status.md'
+    - 'Load balancing':
+      - 'Balance details': 'monitor/bal_table_status.md'
+      - 'Balance error': 'monitor/bal_state.md'
     - 'Proxy':
-      - 'Proxy State': 'monitor/proxy_state.md'
+      - 'Proxy state': 'monitor/proxy_state.md'
     - 'Modules': 'monitor/module_status.md'
     - 'Lentency':
-      - 'Lentency Histogram': 'monitor/proxy_XXX_delay.md'
-  - 'Condition Reference':
-    - 'Concept and Grammar': 'condition/condition_grammar.md'
-    - 'Naming Convention': 'condition/condition_naming_convention.md'
-    - 'Primitives Index': 'condition/condition_primitive_index.md'
-    - 'Request related Primitives':
+      - 'Lentency histogram': 'monitor/proxy_XXX_delay.md'
+  - 'Condition reference':
+    - 'Concept and grammar': 'condition/condition_grammar.md'
+    - 'Naming convention': 'condition/condition_naming_convention.md'
+    - 'Primitives index': 'condition/condition_primitive_index.md'
+    - 'Request related primitives':
       - 'Method': 'condition/request/method.md'
       - 'URI': 'condition/request/uri.md'
       - 'Protocol': 'condition/request/protocol.md'
@@ -139,12 +150,12 @@ nav:
       - 'Cookie': 'condition/request/cookie.md'
       - 'Tag': 'condition/request/tag.md'
       - 'IP': 'condition/request/ip.md'
-    - 'Response related Primitives':
+    - 'Response related primitives':
       - 'Code': 'condition/response/code.md'
       - 'Header': 'condition/response/header.md'
-    - 'Session related Primitives':
+    - 'Session related primitives':
       - 'IP': 'condition/session/ip.md'
       - 'TLS': 'condition/session/tls.md'
-    - 'System related Primitives':
+    - 'System related primitives':
       - 'Time': 'condition/system/time.md'
 

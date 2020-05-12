@@ -4,7 +4,7 @@ The BFE documentation is composed of a few major sections:
 
 * **Introduction**: This section covers a general overview of what BFE is, an architecture overview, etc.
 
-* **Quic Start**: Quickly get started with BFE.
+* **Getting started**: Quickly get started with BFE.
 
 * **Installation**: How to build/install BFE.
 
