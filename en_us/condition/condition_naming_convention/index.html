@@ -1933,9 +1933,49 @@
       
     
     
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        Naming convention
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 9h14V7H3v2m0 4h14v-2H3v2m0 4h14v-2H3v2m16 0h2v-2h-2v2m0-10v2h2V7h-2m0 6h2v-2h-2v2z"/></svg>
+        </span>
+      </label>
+    
     <a href="./" title="Naming convention" class="md-nav__link md-nav__link--active">
       Naming convention
     </a>
+    
+      
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#name-prefix-of-condition-primitive" class="md-nav__link">
+    Name prefix of condition primitive:
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#name-of-compare-actions" class="md-nav__link">
+    Name of compare actions:
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
     
   </li>
 
@@ -2238,6 +2278,30 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#name-prefix-of-condition-primitive" class="md-nav__link">
+    Name prefix of condition primitive:
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#name-of-compare-actions" class="md-nav__link">
+    Name of compare actions:
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -2257,74 +2321,42 @@
                 
                 
                 <h1 id="condition-naming-convention">Condition Naming Convention</h1>
+<h2 id="name-prefix-of-condition-primitive">Name prefix of condition primitive:</h2>
 <ul>
-<li>Name prefix of condition primitive:</li>
-<li>Name prefix of request related primitive is "<strong>req_</strong>"<ul>
+<li>Name prefix of request related primitive is "<strong>req_</strong>"</li>
 <li>e.g. <strong>req_host_in()</strong></li>
-</ul>
-</li>
-<li>Name prefix of response related primitive is "<strong>res_</strong>"<ul>
+<li>Name prefix of response related primitive is "<strong>res_</strong>"</li>
 <li>e.g. <strong>res_code_in()</strong></li>
-</ul>
-</li>
-<li>Name prefix of session related primitive is "<strong>ses_</strong>"<ul>
+<li>Name prefix of session related primitive is "<strong>ses_</strong>"</li>
 <li>e.g. <strong>ses_vip_in()</strong></li>
-</ul>
-</li>
-<li>
-<p>Name prefix of system related primitive is "<strong>bfe_</strong>"</p>
-<ul>
+<li>Name prefix of system related primitive is "<strong>bfe_</strong>"</li>
 <li>e.g. <strong>bfe_time_range</strong>()</li>
 </ul>
-</li>
-<li>
-<p>Name of compare actions:</p>
-</li>
-<li><strong>match</strong>：exact match<ul>
+<h2 id="name-of-compare-actions">Name of compare actions:</h2>
+<ul>
+<li><strong>match</strong>：exact match</li>
 <li>In this situation, the only one parameter is given</li>
 <li>eg. <strong>req_tag_match()</strong></li>
-</ul>
-</li>
-<li><strong>in</strong>：if the value is in the configured set<ul>
+<li><strong>in</strong>：if the value is in the configured set</li>
 <li>eg. <strong>req_host_in()</strong></li>
-</ul>
-</li>
-<li><strong>prefix_in</strong>：if the value prefix is in the configured set<ul>
+<li><strong>prefix_in</strong>：if the value prefix is in the configured set</li>
 <li>eg. <strong>req_path_prefix_in()</strong></li>
-</ul>
-</li>
-<li><strong>suffix_in</strong>：if the value suffix is in the configured set<ul>
+<li><strong>suffix_in</strong>：if the value suffix is in the configured set</li>
 <li>eg. <strong>req_path_suffix_in()</strong></li>
-</ul>
-</li>
-<li><strong>key_exist</strong>：if the key exists<ul>
+<li><strong>key_exist</strong>：if the key exists</li>
 <li>eg. <strong>req_query_key_exist()</strong></li>
-</ul>
-</li>
-<li><strong>value_in</strong>：for the configured key, judge if the value is in the configured value set<ul>
+<li><strong>value_in</strong>：for the configured key, judge if the value is in the configured value set</li>
 <li>eg. <strong>req_query_key_exist()</strong></li>
-</ul>
-</li>
-<li><strong>value_prefix_in</strong>：for the configured key, judge if the value prefix is in the configured set<ul>
+<li><strong>value_prefix_in</strong>：for the configured key, judge if the value prefix is in the configured set</li>
 <li>eg. <strong>req_header_value_prefix_in()</strong></li>
-</ul>
-</li>
-<li><strong>value_suffix_in</strong>：for the configured key, judge if the value suffix is in the configured set<ul>
+<li><strong>value_suffix_in</strong>：for the configured key, judge if the value suffix is in the configured set</li>
 <li>eg. <strong>req_header_value_suffix_in()</strong></li>
-</ul>
-</li>
-<li><strong>range</strong>: range match<ul>
+<li><strong>range</strong>: range match</li>
 <li>eg. <strong>req_cip_range()</strong></li>
-</ul>
-</li>
-<li><strong>regmatch</strong>：regular match<ul>
+<li><strong>regmatch</strong>：regular match</li>
 <li>eg. <strong>req_url_regmatch()</strong></li>
-</ul>
-</li>
-<li><strong>contain</strong>: string match<ul>
+<li><strong>contain</strong>: string match</li>
 <li>eg. <strong>req_cookie_value_contain()</strong></li>
-</ul>
-</li>
 </ul>
                 
               

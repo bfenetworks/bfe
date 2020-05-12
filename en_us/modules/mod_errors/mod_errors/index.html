@@ -2530,35 +2530,35 @@
 </tbody>
 </table>
 <h3 id="example_1">Example</h3>
-<div class="codehilite"><pre><span></span><code><span class="err">{</span>
-<span class="err">    &quot;Version&quot;: &quot;20190101000000&quot;,</span>
-<span class="err">    &quot;Config&quot;: {</span>
-<span class="err">        &quot;example_product&quot;: [</span>
-<span class="err">            {</span>
-<span class="err">                &quot;Cond&quot;: &quot;res_code_in(\&quot;404\&quot;)&quot;,</span>
-<span class="err">                &quot;Actions&quot;: [</span>
-<span class="err">                    {</span>
-<span class="err">                        &quot;Cmd&quot;: &quot;RETURN&quot;,</span>
-<span class="err">                        &quot;Params&quot;: [</span>
-<span class="err">                            &quot;200&quot;, &quot;text/html&quot;, &quot;../conf/mod_errors/404.html&quot;</span>
-<span class="err">                        ]</span>
-<span class="err">                    }</span>
-<span class="err">                ]</span>
-<span class="err">            },</span>
-<span class="err">            {</span>
-<span class="err">                &quot;Cond&quot;: &quot;res_code_in(\&quot;500\&quot;)&quot;,</span>
-<span class="err">                &quot;Actions&quot;: [</span>
-<span class="err">                    {</span>
-<span class="err">                        &quot;Cmd&quot;: &quot;REDIRECT&quot;,</span>
-<span class="err">                        &quot;Params&quot;: [</span>
-<span class="err">                            &quot;http://example.org/error.html&quot;</span>
-<span class="err">                        ]</span>
-<span class="err">                    }</span>
-<span class="err">                ]</span>
-<span class="err">            }</span>
-<span class="err">        ]</span>
-<span class="err">    }</span>
-<span class="err">}</span>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;res_code_in(\&quot;404\&quot;)&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Actions&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="p">{</span>
+                        <span class="nt">&quot;Cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;RETURN&quot;</span><span class="p">,</span>
+                        <span class="nt">&quot;Params&quot;</span><span class="p">:</span> <span class="p">[</span>
+                            <span class="s2">&quot;200&quot;</span><span class="p">,</span> <span class="s2">&quot;text/html&quot;</span><span class="p">,</span> <span class="s2">&quot;../conf/mod_errors/404.html&quot;</span>
+                        <span class="p">]</span>
+                    <span class="p">}</span>
+                <span class="p">]</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;res_code_in(\&quot;500\&quot;)&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Actions&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="p">{</span>
+                        <span class="nt">&quot;Cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;REDIRECT&quot;</span><span class="p">,</span>
+                        <span class="nt">&quot;Params&quot;</span><span class="p">:</span> <span class="p">[</span>
+                            <span class="s2">&quot;http://example.org/error.html&quot;</span>
+                        <span class="p">]</span>
+                    <span class="p">}</span>
+                <span class="p">]</span>
+            <span class="p">}</span>
+        <span class="p">]</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </code></pre></div>
                 
               

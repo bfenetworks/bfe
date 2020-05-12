@@ -1933,9 +1933,49 @@
       
     
     
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        条件原语命名规范
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 9h14V7H3v2m0 4h14v-2H3v2m0 4h14v-2H3v2m16 0h2v-2h-2v2m0-10v2h2V7h-2m0 6h2v-2h-2v2z"/></svg>
+        </span>
+      </label>
+    
     <a href="./" title="条件原语命名规范" class="md-nav__link md-nav__link--active">
       条件原语命名规范
     </a>
+    
+      
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    条件原语前缀:
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    条件原语中比较的“动作”名称:
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
     
   </li>
 
@@ -2238,6 +2278,30 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    条件原语前缀:
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    条件原语中比较的“动作”名称:
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -2258,75 +2322,43 @@
                 
                 <h1 id="_1">条件原语名称的规范</h1>
 <p>条件原语名称会使用以下规范：</p>
+<h2 id="_2">条件原语前缀:</h2>
 <ul>
-<li>条件原语前缀:</li>
-<li>针对Request的原语，会以”<strong>req_</strong>“开头<ul>
+<li>针对Request的原语，会以”<strong>req_</strong>“开头</li>
 <li>如：<strong>req_host_in()</strong></li>
-</ul>
-</li>
-<li>针对Response的原语，会以”<strong>res_</strong>“开头<ul>
+<li>针对Response的原语，会以”<strong>res_</strong>“开头</li>
 <li>如：<strong>res_code_in()</strong></li>
-</ul>
-</li>
-<li>针对Session的原语，会以"<strong>ses_</strong>"开头<ul>
+<li>针对Session的原语，会以"<strong>ses_</strong>"开头</li>
 <li>如：<strong>ses_vip_in()</strong></li>
-</ul>
-</li>
-<li>
-<p>针对系统原语，会以“<strong>bfe_</strong>" 开头</p>
-<ul>
+<li>针对系统原语，会以“<strong>bfe_</strong>" 开头</li>
 <li>如：<strong>bfe_time_range</strong>()</li>
 </ul>
-</li>
-<li>
-<p>条件原语中比较的“动作”名称:</p>
-</li>
-<li><strong>match</strong>：精确匹配<ul>
+<h2 id="_3">条件原语中比较的“动作”名称:</h2>
+<ul>
+<li><strong>match</strong>：精确匹配</li>
 <li>这种情况下，参数中会提供唯一的一个值供比较</li>
 <li>如：<strong>req_tag_match()</strong></li>
-</ul>
-</li>
-<li><strong>in</strong>：值是否在某个集合中<ul>
+<li><strong>in</strong>：值是否在某个集合中</li>
 <li>如：<strong>req_host_in()</strong></li>
-</ul>
-</li>
-<li><strong>prefix_in</strong>：值的前缀是否在某个集合中<ul>
+<li><strong>prefix_in</strong>：值的前缀是否在某个集合中</li>
 <li>如：<strong>req_path_prefix_in()</strong></li>
-</ul>
-</li>
-<li><strong>suffix_in</strong>：值的后缀是否在某个集合中<ul>
+<li><strong>suffix_in</strong>：值的后缀是否在某个集合中</li>
 <li>如：<strong>req_path_suffix_in()</strong></li>
-</ul>
-</li>
-<li><strong>key_exist</strong>：是否存在指定的key<ul>
+<li><strong>key_exist</strong>：是否存在指定的key</li>
 <li>如：<strong>req_query_key_exist()</strong></li>
-</ul>
-</li>
-<li><strong>value_in</strong>：对给定的key，其value是否落在某个集合中<ul>
+<li><strong>value_in</strong>：对给定的key，其value是否落在某个集合中</li>
 <li>如：<strong>req_query_key_exist()</strong></li>
-</ul>
-</li>
-<li><strong>value_prefix_in</strong>：对给定的key，其value的前缀是否在某个集合中<ul>
+<li><strong>value_prefix_in</strong>：对给定的key，其value的前缀是否在某个集合中</li>
 <li>如：<strong>req_header_value_prefix_in()</strong></li>
-</ul>
-</li>
-<li><strong>value_suffix_in</strong>：对给定的key，其value的后缀是否在某个集合中<ul>
+<li><strong>value_suffix_in</strong>：对给定的key，其value的后缀是否在某个集合中</li>
 <li>如：<strong>req_header_value_suffix_in()</strong></li>
-</ul>
-</li>
-<li><strong>range</strong>:范围匹配<ul>
+<li><strong>range</strong>:范围匹配</li>
 <li>如：<strong>req_cip_range()</strong></li>
-</ul>
-</li>
-<li><strong>regmatch</strong>：正则匹配<ul>
+<li><strong>regmatch</strong>：正则匹配</li>
 <li>如：<strong>req_url_regmatch()</strong></li>
 <li>注：这类条件原语不合理使用将明显影响性能，谨慎使用</li>
-</ul>
-</li>
-<li><strong>contain</strong>: 字符串包含匹配<ul>
+<li><strong>contain</strong>: 字符串包含匹配</li>
 <li>如：<strong>req_cookie_value_contain()</strong></li>
-</ul>
-</li>
 </ul>
                 
               

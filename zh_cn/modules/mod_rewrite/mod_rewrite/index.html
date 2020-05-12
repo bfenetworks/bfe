@@ -2559,25 +2559,25 @@
 </tbody>
 </table>
 <h3 id="_8">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="err">{</span>
-<span class="err">  &quot;Version&quot;: &quot;20190101000000&quot;,</span>
-<span class="err">  &quot;Config&quot;: {</span>
-<span class="err">      &quot;example_product&quot;: [</span>
-<span class="err">          {</span>
-<span class="err">              &quot;Cond&quot;: &quot;req_path_prefix_in(\&quot;/rewrite\&quot;, false)&quot;,</span>
-<span class="err">              &quot;Actions&quot;: [</span>
-<span class="err">                  {</span>
-<span class="err">                      &quot;Cmd&quot;: &quot;PATH_PREFIX_ADD&quot;,</span>
-<span class="err">                      &quot;Params&quot;: [</span>
-<span class="err">                          &quot;/bfe/&quot;</span>
-<span class="err">                      ]</span>
-<span class="err">                  }</span>
-<span class="err">              ],</span>
-<span class="err">              &quot;Last&quot;: true</span>
-<span class="err">          }</span>
-<span class="err">      ]</span>
-<span class="err">  }</span>
-<span class="err">}</span>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+  <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+      <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
+          <span class="p">{</span>
+              <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_path_prefix_in(\&quot;/rewrite\&quot;, false)&quot;</span><span class="p">,</span>
+              <span class="nt">&quot;Actions&quot;</span><span class="p">:</span> <span class="p">[</span>
+                  <span class="p">{</span>
+                      <span class="nt">&quot;Cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;PATH_PREFIX_ADD&quot;</span><span class="p">,</span>
+                      <span class="nt">&quot;Params&quot;</span><span class="p">:</span> <span class="p">[</span>
+                          <span class="s2">&quot;/bfe/&quot;</span>
+                      <span class="p">]</span>
+                  <span class="p">}</span>
+              <span class="p">],</span>
+              <span class="nt">&quot;Last&quot;</span><span class="p">:</span> <span class="kc">true</span>
+          <span class="p">}</span>
+      <span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
 </code></pre></div>
                 
               

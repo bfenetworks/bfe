@@ -2592,45 +2592,45 @@
 </tbody>
 </table>
 <h2 id="example">Example</h2>
-<div class="codehilite"><pre><span></span><code><span class="err">{</span>
-<span class="err">    &quot;Version&quot;: &quot;20190101000000&quot;,</span>
-<span class="err">    &quot;Config&quot;: {</span>
-<span class="err">        &quot;cluster_example&quot;: {</span>
-<span class="err">            &quot;BackendConf&quot;: {</span>
-<span class="err">                &quot;TimeoutConnSrv&quot;: 2000,</span>
-<span class="err">                &quot;TimeoutResponseHeader&quot;: 50000,</span>
-<span class="err">                &quot;MaxIdleConnsPerHost&quot;: 0,</span>
-<span class="err">                &quot;RetryLevel&quot;: 0</span>
-<span class="err">            },</span>
-<span class="err">            &quot;CheckConf&quot;: {</span>
-<span class="err">                &quot;Schem&quot;: &quot;http&quot;,</span>
-<span class="err">                &quot;Uri&quot;: &quot;/healthcheck&quot;,</span>
-<span class="err">                &quot;Host&quot;: &quot;example.org&quot;,</span>
-<span class="err">                &quot;StatusCode&quot;: 200,</span>
-<span class="err">                &quot;FailNum&quot;: 10,</span>
-<span class="err">                &quot;CheckInterval&quot;: 1000</span>
-<span class="err">            },</span>
-<span class="err">            &quot;GslbBasic&quot;: {</span>
-<span class="err">                &quot;CrossRetry&quot;: 0,</span>
-<span class="err">                &quot;RetryMax&quot;: 2,</span>
-<span class="err">                &quot;HashConf&quot;: {</span>
-<span class="err">                    &quot;HashStrategy&quot;: 0,</span>
-<span class="err">                    &quot;HashHeader&quot;: &quot;Cookie:UID&quot;,</span>
-<span class="err">                    &quot;SessionSticky&quot;: false</span>
-<span class="err">                }</span>
-<span class="err">            },</span>
-<span class="err">            &quot;ClusterBasic&quot;: {</span>
-<span class="err">                &quot;TimeoutReadClient&quot;: 30000,</span>
-<span class="err">                &quot;TimeoutWriteClient&quot;: 60000,</span>
-<span class="err">                &quot;TimeoutReadClientAgain&quot;: 30000,</span>
-<span class="err">                &quot;ReqWriteBufferSize&quot;: 512,</span>
-<span class="err">                &quot;ReqFlushInterval&quot;: 0,</span>
-<span class="err">                &quot;ResFlushInterval&quot;: -1,</span>
-<span class="err">                &quot;CancelOnClientClose&quot;: false</span>
-<span class="err">            }</span>
-<span class="err">        }</span>
-<span class="err">    }</span>
-<span class="err">}</span>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;cluster_example&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="nt">&quot;BackendConf&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="nt">&quot;TimeoutConnSrv&quot;</span><span class="p">:</span> <span class="mi">2000</span><span class="p">,</span>
+                <span class="nt">&quot;TimeoutResponseHeader&quot;</span><span class="p">:</span> <span class="mi">50000</span><span class="p">,</span>
+                <span class="nt">&quot;MaxIdleConnsPerHost&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="nt">&quot;RetryLevel&quot;</span><span class="p">:</span> <span class="mi">0</span>
+            <span class="p">},</span>
+            <span class="nt">&quot;CheckConf&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="nt">&quot;Schem&quot;</span><span class="p">:</span> <span class="s2">&quot;http&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Uri&quot;</span><span class="p">:</span> <span class="s2">&quot;/healthcheck&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Host&quot;</span><span class="p">:</span> <span class="s2">&quot;example.org&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;StatusCode&quot;</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span>
+                <span class="nt">&quot;FailNum&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+                <span class="nt">&quot;CheckInterval&quot;</span><span class="p">:</span> <span class="mi">1000</span>
+            <span class="p">},</span>
+            <span class="nt">&quot;GslbBasic&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="nt">&quot;CrossRetry&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="nt">&quot;RetryMax&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+                <span class="nt">&quot;HashConf&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="nt">&quot;HashStrategy&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                    <span class="nt">&quot;HashHeader&quot;</span><span class="p">:</span> <span class="s2">&quot;Cookie:UID&quot;</span><span class="p">,</span>
+                    <span class="nt">&quot;SessionSticky&quot;</span><span class="p">:</span> <span class="kc">false</span>
+                <span class="p">}</span>
+            <span class="p">},</span>
+            <span class="nt">&quot;ClusterBasic&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="nt">&quot;TimeoutReadClient&quot;</span><span class="p">:</span> <span class="mi">30000</span><span class="p">,</span>
+                <span class="nt">&quot;TimeoutWriteClient&quot;</span><span class="p">:</span> <span class="mi">60000</span><span class="p">,</span>
+                <span class="nt">&quot;TimeoutReadClientAgain&quot;</span><span class="p">:</span> <span class="mi">30000</span><span class="p">,</span>
+                <span class="nt">&quot;ReqWriteBufferSize&quot;</span><span class="p">:</span> <span class="mi">512</span><span class="p">,</span>
+                <span class="nt">&quot;ReqFlushInterval&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="nt">&quot;ResFlushInterval&quot;</span><span class="p">:</span> <span class="mi">-1</span><span class="p">,</span>
+                <span class="nt">&quot;CancelOnClientClose&quot;</span><span class="p">:</span> <span class="kc">false</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </code></pre></div>
                 
               

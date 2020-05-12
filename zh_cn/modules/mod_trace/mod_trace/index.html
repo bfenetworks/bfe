@@ -2668,30 +2668,30 @@
 </table>
 <h3 id="_5">配置示例</h3>
 <h4 id="zipkin_1">基于Zipkin示例</h4>
-<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
-<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_trace/trace_rule.data</span>
-<span class="na">ServiceName</span> <span class="o">=</span> <span class="s">bfe</span>
+<div class="codehilite"><pre><span></span><code><span class="p">[</span><span class="err">Basic</span><span class="p">]</span>
+<span class="err">DataPath</span> <span class="err">=</span> <span class="err">mod_trace/trace_rule.data</span>
+<span class="err">ServiceName</span> <span class="err">=</span> <span class="err">bfe</span>
 
-<span class="c1"># Which trace agent to use (zipkin, jaeger, elastic)</span>
-<span class="na">TraceAgent</span> <span class="o">=</span> <span class="s">zipkin</span>
+<span class="err">#</span> <span class="err">Which</span> <span class="err">trace</span> <span class="err">agent</span> <span class="err">to</span> <span class="err">use</span> <span class="err">(zipkin,</span> <span class="err">jaeger,</span> <span class="err">elastic)</span>
+<span class="err">TraceAgent</span> <span class="err">=</span> <span class="err">zipkin</span>
 
-<span class="k">[Log]</span>
-<span class="na">OpenDebug</span> <span class="o">=</span> <span class="s">false</span>
+<span class="p">[</span><span class="err">Log</span><span class="p">]</span>
+<span class="err">OpenDebug</span> <span class="err">=</span> <span class="kc">false</span>
 
-<span class="k">[Zipkin]</span>
-<span class="c1"># Zipkin, only useful when the TraceAgent is zipkin</span>
+<span class="p">[</span><span class="err">Zipkin</span><span class="p">]</span>
+<span class="err">#</span> <span class="err">Zipkin,</span> <span class="err">only</span> <span class="err">useful</span> <span class="err">when</span> <span class="err">the</span> <span class="err">TraceAgent</span> <span class="err">is</span> <span class="err">zipkin</span>
 
-<span class="c1"># HTTP Endpoint to report traces to</span>
-<span class="na">HTTPEndpoint</span> <span class="o">=</span> <span class="s">http://127.0.0.1:9411/api/v2/spans</span>
+<span class="err">#</span> <span class="err">HTTP</span> <span class="err">Endpoint</span> <span class="err">to</span> <span class="err">report</span> <span class="err">traces</span> <span class="err">to</span>
+<span class="err">HTTPEndpoint</span> <span class="err">=</span> <span class="err">http://</span><span class="mf">127.0</span><span class="err">.</span><span class="mf">0.1</span><span class="err">:</span><span class="mi">9411</span><span class="err">/api/v</span><span class="mi">2</span><span class="err">/spans</span>
 
-<span class="c1"># Use Zipkin SameSpan RPC style traces</span>
-<span class="na">SameSpan</span> <span class="o">=</span> <span class="s">false</span>
+<span class="err">#</span> <span class="err">Use</span> <span class="err">Zipkin</span> <span class="err">SameSpan</span> <span class="err">RPC</span> <span class="err">style</span> <span class="err">traces</span>
+<span class="err">SameSpan</span> <span class="err">=</span> <span class="kc">false</span>
 
-<span class="c1"># Use Zipkin 128 bit root span IDs</span>
-<span class="na">ID128Bit</span> <span class="o">=</span> <span class="s">true</span>
+<span class="err">#</span> <span class="err">Use</span> <span class="err">Zipkin</span> <span class="mi">128</span> <span class="err">bit</span> <span class="err">root</span> <span class="err">span</span> <span class="err">IDs</span>
+<span class="err">ID</span><span class="mi">128</span><span class="err">Bit</span> <span class="err">=</span> <span class="kc">true</span>
 
-<span class="c1"># The rate between 0.0001 and 1.0 of requests to trace</span>
-<span class="na">SampleRate</span> <span class="o">=</span> <span class="s">1.0</span>
+<span class="err">#</span> <span class="err">The</span> <span class="err">rate</span> <span class="err">between</span> <span class="mf">0.0001</span> <span class="err">and</span> <span class="mf">1.0</span> <span class="err">of</span> <span class="err">requests</span> <span class="err">to</span> <span class="err">trace</span>
+<span class="err">SampleRate</span> <span class="err">=</span> <span class="mf">1.0</span>
 </code></pre></div>
 
 
@@ -2812,17 +2812,17 @@
 </tbody>
 </table>
 <h3 id="_8">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="err">{</span>
-<span class="err">  &quot;Version&quot;: &quot;20200218210000&quot;,</span>
-<span class="err">  &quot;Config&quot;: {</span>
-<span class="err">    &quot;example_product&quot;: [</span>
-<span class="err">       {</span>
-<span class="err">         &quot;Cond&quot;: &quot;req_host_in(\&quot;example.org\&quot;)&quot;,</span>
-<span class="err">         &quot;Enable&quot;: true</span>
-<span class="err">       }</span>
-<span class="err">    ]</span>
-<span class="err">  }</span>
-<span class="err">}</span>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+  <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20200218210000&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
+       <span class="p">{</span>
+         <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_host_in(\&quot;example.org\&quot;)&quot;</span><span class="p">,</span>
+         <span class="nt">&quot;Enable&quot;</span><span class="p">:</span> <span class="kc">true</span>
+       <span class="p">}</span>
+    <span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
 </code></pre></div>
                 
               
