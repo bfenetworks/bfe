@@ -42,7 +42,7 @@ For dynamic configurations, it is required to register callback function on dedi
 
 Example: In the init function of mod_block, there is some logic as follows, used to register callback function for configuration reload([mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))
 
-```
+```golang
     // register web handler for reload
     err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
     if err != nil {
@@ -59,7 +59,8 @@ Write callback functions for appropriate callback point.
 Note that for different callback points, definition of callback functions may be different. Definition of callback points and  callback functions in BFE can be found in [bfe_callback](./bfe_callback.md).
 
 Example: there are two callback functions defined in mod_block([mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))
-```
+
+```golang
 func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {
     ...
 }
@@ -76,7 +77,7 @@ Callback functions should be registered when the module is initialized.
 
 Example: registration of callback functions in mod_block is as follows([mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))
 
-```
+```golang
 func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers, cr string) error {
     ...
     // register handler
@@ -108,7 +109,7 @@ Firstly, design statistical metrics and define them as member variables.
 
 Example: define ModuleBlockState in mod_block ([mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))
 
-```
+```golang
 type ModuleBlockState struct {
     ConnTotal    *metrics.Counter // all connnetion checked
     ConnAccept   *metrics.Counter // connection passed
@@ -122,7 +123,8 @@ type ModuleBlockState struct {
 ```
 
 Secondly, define a member variable of type ModuleBlockState in ModuleBlock. Also define a member variable of type Metrics for related calculations.
-```
+
+```golang
 type ModuleBlock struct {
     ...
     state   ModuleBlockState // module state
@@ -131,7 +133,8 @@ type ModuleBlock struct {
 ```
 
 Thirdly, do initialization in constructor function.
-```
+
+```golang
 func NewModuleBlock() *ModuleBlock {
     m := new(ModuleBlock)
     m.name = ModBlock
@@ -146,7 +149,7 @@ In order to expose internal status, callback function should be implemented.
 
 Example: In mod_block, there is logic as follows,  where monitorHandlers () is the callback function([mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))
 
-```
+```golang
 func (m *ModuleBlock) getState(params map[string][]string) ([]byte, error) {
     s := m.metrics.GetAll()
     return s.Format(params)
@@ -168,7 +171,7 @@ func (m *ModuleBlock) monitorHandlers() map[string]interface{} {
 
 Then register callback function during module initialization.
 
-```
+```golang
     // register web handler for monitor
     err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())
     if err != nil {
@@ -182,7 +185,7 @@ Insert some code for doing statistic.
 
 Example: [mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go)
 
-```
+```golang
 func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {
     ...
     m.state.ConnTotal.Inc(1)

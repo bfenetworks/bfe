@@ -65,7 +65,7 @@ ClusterBasic is basic config for cluster.
 | CancelOnClientClose    | Bool<br>Cancel blocking operation on server if client connection disconnected |
 
 ## Example
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

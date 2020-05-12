@@ -35,7 +35,7 @@ DataPath = mod_trust_clientip/trust_client_ip.data
 | Config{v}[].End   | String | end ip address |
 
 ### Example
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

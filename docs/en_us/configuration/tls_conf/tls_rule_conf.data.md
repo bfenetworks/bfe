@@ -27,7 +27,7 @@ tls_rule_conf.data records the tls protocol config
 
 ## Example
 
-```
+```json
 {
     "Version": "20190101000000",
     "DefaultNextProtos": ["h2", "http/1.1"],

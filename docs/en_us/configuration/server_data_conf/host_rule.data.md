@@ -19,7 +19,7 @@ host_rule.data records the domain names for each product.
 
 ## Example
 
-```
+```json
 {
     "Version": "20190101000000",
     "DefaultProduct": null,

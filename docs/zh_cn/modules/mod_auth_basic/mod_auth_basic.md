@@ -50,7 +50,7 @@ user2:{SHA}fEqNCco3Yq9h5ZUglD3CZJT4lBs=:user2, 123456
 ```
 
 ### 配置示例
-```
+```json
 {
     "Config": {
         "example_product": [

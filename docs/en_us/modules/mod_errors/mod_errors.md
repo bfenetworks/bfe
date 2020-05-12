@@ -43,7 +43,7 @@ DataPath = mod_errors/errors_rule.data
 | REDIRECT | Redirect to specified location |
 
 ### Example
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

@@ -15,7 +15,7 @@ vip_rule.data records vip lists for each product.
 
 ## Example
 
-```
+```json
 {
     "Version": "20190101000000",
     "Vips": {

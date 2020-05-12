@@ -18,7 +18,7 @@ name_conf.data records the mapping between service name and service instances.
 
 ## Example
 
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

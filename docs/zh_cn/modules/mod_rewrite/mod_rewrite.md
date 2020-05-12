@@ -52,7 +52,7 @@ DataPath = mod_rewrite/rewrite.data
 | QUERY_DEL_ALL_EXCEPT      | 删除除指定key外的所有query         |
 
 ### 配置示例
-```
+```json
 {
   "Version": "20190101000000",
   "Config": {

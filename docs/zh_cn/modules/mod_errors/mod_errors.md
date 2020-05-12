@@ -42,7 +42,7 @@ DataPath = mod_errors/errors_rule.data
 | REDIRECT | 响应重定向至指定错误页 |
 
 ### 配置示例
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

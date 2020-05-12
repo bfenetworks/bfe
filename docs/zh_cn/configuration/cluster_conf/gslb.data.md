@@ -18,7 +18,7 @@ gslb.data配置文件记录各集群内的多个子集群之间分流比例(GSLB
 
 ## 配置示例
 
-```
+```json
 {
     "Clusters": {
         "cluster_example": {

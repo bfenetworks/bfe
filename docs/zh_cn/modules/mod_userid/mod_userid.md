@@ -41,7 +41,7 @@ OpenDebug = true
 | Config[v][].Params.MaxAge | Cookie的MaxAge属性 |
 
 ### 配置示例
-```
+```json
 {
     "Version": "2019-12-10184356",
     "Config": {

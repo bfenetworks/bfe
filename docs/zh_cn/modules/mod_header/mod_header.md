@@ -47,7 +47,7 @@ DataPath = mod_header/header_rule.data
 | RSP_HEADER_DEL | 删除响应头 | HeaderName |
 
 ### 配置示例
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

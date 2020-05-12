@@ -42,7 +42,7 @@ MimeTypePath = mod_static/mime_type.data
 | Config[v][].Action.Param[1] | String<br>第二个参数为默认静态文件名         |
 
 ### 配置示例
-```
+```json
 {
     "Config": {
         "example_product": [
@@ -74,7 +74,7 @@ MIME配置文件: conf/mod_static/mime_type.data
 | Config[v]                   | String<br>MIME类型                    |
 
 ### 配置示例
-```
+```json
 {
     "Config": {
         ".avi": "video/x-msvideo",

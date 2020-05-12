@@ -54,7 +54,7 @@ IPBlacklistPath = mod_block/ip_blacklist.data
 | CLOSE | 关闭连接 |
 
 ### 配置示例
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

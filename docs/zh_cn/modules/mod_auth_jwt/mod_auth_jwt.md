@@ -59,7 +59,7 @@ OpenDebug = true
 
 ## 规则配置
 ### 配置示例
-```
+```json
 {
 	"Version": "Version",
 	"Config": {

@@ -20,7 +20,7 @@ server_cert_conf.data用于配置证书和密钥。
 
 ## 配置示例
 
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

@@ -49,7 +49,7 @@ conf/mod_redirect/redirect.data
   
 ### Example
 
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

@@ -41,7 +41,7 @@ OpenDebug = false
 | Config[v][].Last           | Boolean<br>设置为true时，命中当前规则后停止处理后续规则 |
   
 ### 配置示例
-```
+```json
 {
   "Version": "20200218210000",
   "Config": {

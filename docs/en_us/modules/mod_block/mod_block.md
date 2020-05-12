@@ -59,7 +59,7 @@ conf/mod_block/block_rules.data
   
 ### Example
 
-```
+```json
 {
   "Version": "20190101000000",
   "Config": {

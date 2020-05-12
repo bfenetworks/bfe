@@ -46,7 +46,7 @@ DataPath = mod_redirect/redirect.data
 | SCHEME_SET     | 设置重定向URL为原始URL并修改协议(支持HTTP和HTTPS) |
 
 ### 配置示例
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

@@ -13,7 +13,7 @@ session_ticket_key.data配置记录了session ticket key信息。
 
 ## 配置示例
 
-```
+```json
 {
     "Version": "20190101000000",
     "SessionTicketKey": "08a0d852ef494143af613ef32d3c39314758885f7108e9ab021d55f422a454f7c9cd5a53978f48fa1063eadcdc06878f"

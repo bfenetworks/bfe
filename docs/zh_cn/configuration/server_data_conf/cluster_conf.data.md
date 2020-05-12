@@ -63,7 +63,7 @@ cluster_conf.data为集群转发配置文件。
 
 ## 配置示例
 
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

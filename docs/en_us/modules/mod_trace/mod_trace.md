@@ -175,7 +175,7 @@ conf/mod_trace/trace_rule.data
   
 ### Example
 
-```
+```json
 {
   "Version": "20200218210000",
   "Config": {

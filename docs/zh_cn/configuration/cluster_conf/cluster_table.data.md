@@ -28,7 +28,7 @@ cluster_table.data配置文件记录各后端集群包含的子集群及实例
 
 ## 配置示例
 
-```
+```json
 {
     "Config": {
         "cluster_example": {

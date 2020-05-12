@@ -48,7 +48,7 @@ OpenDebug = false
 | BROTLI                    | Compress response using brotli method |
 
 ### Example
-```
+```json
 {
     "Config": {
         "example_product": [

@@ -54,7 +54,7 @@ conf/mod_header/header_rule.data
 
 ### Example
 
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

@@ -42,7 +42,7 @@ conf/mod_userid/userid_rule.data
 | Config{v}[].Params.MaxAge | Integer<br>the cookie max age     |
 
 ### Example
-```
+```json
 {
     "Version": "2019-12-10184356",
     "Config": {

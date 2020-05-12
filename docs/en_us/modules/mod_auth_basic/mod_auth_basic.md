@@ -16,7 +16,7 @@ conf/mod_auth_basic/mod_auth_basic.conf
 
 ### Example
 
-```
+```json
 [basic]
 DataPath = mod_auth_basic/auth_basic_rule.data
 
@@ -52,7 +52,7 @@ user2:{SHA}fEqNCco3Yq9h5ZUglD3CZJT4lBs=:user2, 123456
 ```
 
 ### Example
-```
+```json
 {
     "Config": {
         "example_product": [

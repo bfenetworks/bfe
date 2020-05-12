@@ -46,7 +46,7 @@ OpenDebug = false
 | BROTLI                    | brotli压缩                 |
 
 ### 配置示例
-```
+```json
 {
     "Config": {
         "example_product": [

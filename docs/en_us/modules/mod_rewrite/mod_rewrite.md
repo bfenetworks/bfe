@@ -56,7 +56,7 @@ conf/mod_rewrite/rewrite.data
   
 ### Example
 
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

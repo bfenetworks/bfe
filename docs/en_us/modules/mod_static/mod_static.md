@@ -42,7 +42,7 @@ conf/mod_static/static_rule.data
 | BROWSE                    | Serve static files. <br>The first parameter is the location of root directory.<br> The second parameter is the name of default file.|
 
 ### Example
-```
+```json
 {
     "Config": {
         "example_product": [

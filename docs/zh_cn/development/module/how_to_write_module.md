@@ -45,7 +45,7 @@ mod_block的代码位于[/bfe_modules/mod_block](https://github.com/baidu/bfe/tr
 
 例如，在mod_block的初始化函数中，可以看到类似下面的逻辑，就是在注册配置加载的回调(详见[mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go)):
 
-```
+```golang
     // register web handler for reload
     err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
     if err != nil {
@@ -62,7 +62,8 @@ mod_block的代码位于[/bfe_modules/mod_block](https://github.com/baidu/bfe/tr
 注意，对于不同的回调点，回调函数的形式可能不同。BFE所提供的回调点和回调函数的形式，可参考[BFE的回调机制](./bfe_callback.md)
 
 例如，在mod_block中，编写了以下两个回调函数(详见[mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))：
-```
+
+```golang
 func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {
     ...
 }
@@ -79,7 +80,7 @@ func (m *ModuleBlock) productBlockHandler(request *bfe_basic.Request) (int, *bfe
 
 例如，在mod_block中，回调函数的注册逻辑如下(详见[mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))：
 
-```
+```golang
 func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers, cr string) error {
     ...
     // register handler
@@ -111,7 +112,7 @@ func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 
 如，在mod_block中，有如下定义(详见[mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))：
 
-```
+```golang
 type ModuleBlockState struct {
     ConnTotal    *metrics.Counter // all connnetion checked
     ConnAccept   *metrics.Counter // connection passed
@@ -125,7 +126,8 @@ type ModuleBlockState struct {
 ```
 
 然后，要在ModuleBlock中定义一个类型为ModuleBlockState的成员变量，还需要定义一个Metrics类型的成员变量，用于相关的计算。
-```
+
+```golang
 type ModuleBlock struct {
     ...
     state   ModuleBlockState // module state
@@ -134,7 +136,8 @@ type ModuleBlock struct {
 ```
 
 然后，需要在构造函数中做初始化的操作
-```
+
+```golang
 func NewModuleBlock() *ModuleBlock {
     m := new(ModuleBlock)
     m.name = ModBlock
@@ -149,7 +152,7 @@ func NewModuleBlock() *ModuleBlock {
 
 如，在mod_block中，有如下逻辑(详见[mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))，其中monitorHandlers()是回调函数：
 
-```
+```golang
 func (m *ModuleBlock) getState(params map[string][]string) ([]byte, error) {
     s := m.metrics.GetAll()
     return s.Format(params)
@@ -171,7 +174,7 @@ func (m *ModuleBlock) monitorHandlers() map[string]interface{} {
 
 然后，在模块的初始化时，需要注册这个回调函数
 
-```
+```golang
     // register web handler for monitor
     err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())
     if err != nil {
@@ -185,7 +188,7 @@ func (m *ModuleBlock) monitorHandlers() map[string]interface{} {
 
 如，在mod_block中，可以看到如下代码(详见[mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))：
 
-```
+```golang
 func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {
     ...
     m.state.ConnTotal.Inc(1)

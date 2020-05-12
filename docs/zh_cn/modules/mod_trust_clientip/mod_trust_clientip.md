@@ -35,7 +35,7 @@ DataPath = mod_trust_clientip/trust_client_ip.data
 | Config[v][].End   | String<br>IP段结束地址          |
 
 ### 配置示例
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

@@ -53,7 +53,7 @@ mod_trace根据自定义的条件，为请求开启分布式跟踪。
 
 #### 基于Zipkin示例
 
-```
+```json
 [Basic]
 DataPath = mod_trace/trace_rule.data
 ServiceName = bfe
@@ -171,7 +171,7 @@ SecretToken = ""
 | Config[v][].Enable         | Boolean<br>是否开启trace                      |
   
 ### 配置示例
-```
+```json
 {
   "Version": "20200218210000",
   "Config": {

@@ -25,7 +25,7 @@ cluster_table.data records the load balancing config among instances.
 | Weight                | String<br>weight of instance |
 
 ## Example
-```
+```json
 {
     "Config": {
         "cluster_example": {
