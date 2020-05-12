@@ -26,7 +26,7 @@ extra:
       link: https://twitter.com/BaiduResearch
     - icon: fontawesome/brands/slack
       link: https://join.slack.com/t/bfe-networks/shared_invite/zt-cn04xsqr-j7LDFmPkCuCZ39OLcHlMBA
-    - icon: fontawesome/brands/envelop
+    - icon: fontawesome/solid/envelope
       link: mailto:bfe-osc@baidu.com
 
 nav:
