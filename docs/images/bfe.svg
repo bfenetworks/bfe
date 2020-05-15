@@ -1,0 +1,1408 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="390" onload="init(evt)" viewBox="0 0 1200 390" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs>
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
+	#search, #ignorecase { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show, #ignorecase:hover, #ignorecase.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching, currentSearchTerm, ignorecase, ignorecaseBtn;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		ignorecaseBtn = document.getElementById("ignorecase");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+		currentSearchTerm = null;
+	}
+
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom();
+			zoom(target);
+		}
+		else if (e.target.id == "unzoom") unzoom();
+		else if (e.target.id == "search") search_prompt();
+		else if (e.target.id == "ignorecase") toggle_ignorecase();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	}, false)
+
+	// ctrl-I to toggle case-sensitive search
+	window.addEventListener("keydown",function (e) {
+		if (e.ctrlKey && e.keyCode === 73) {
+			e.preventDefault();
+			toggle_ignorecase();
+		}
+	}, false)
+
+	// functions
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+		return;
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x = txt.length - 2; x > 0; x--) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+		search();
+	}
+	function unzoom() {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+		search();
+	}
+
+	// search
+	function toggle_ignorecase() {
+		ignorecase = !ignorecase;
+		if (ignorecase) {
+			ignorecaseBtn.classList.add("show");
+		} else {
+			ignorecaseBtn.classList.remove("show");
+		}
+		reset_search();
+		search();
+	}
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)"
+			    + (ignorecase ? ", ignoring case" : "")
+			    + "\nPress Ctrl-i to toggle case sensitivity", "");
+			if (term != null) {
+				currentSearchTerm = term;
+				search();
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			currentSearchTerm = null;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		if (currentSearchTerm === null) return;
+		var term = currentSearchTerm;
+
+		var re = new RegExp(term, ignorecase ? 'i' : '');
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1200.0" height="390.0" fill="url(#background)"  />
+<text id="title" x="600.00" y="24" >Flame Graph</text>
+<text id="details" x="10.00" y="373" > </text>
+<text id="unzoom" x="10.00" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1090.00" y="24" >Search</text>
+<text id="ignorecase" x="1174.00" y="24" >ic</text>
+<text id="matched" x="1090.00" y="373" > </text>
+<g id="frames">
+<g >
+<title>runtime.memmove (2 samples, 1.85%)</title><rect x="479.8" y="229" width="21.9" height="15.0" fill="rgb(237,185,1)" rx="2" ry="2" />
+<text  x="482.81" y="239.5" >r..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*ReverseProxy).ServeHTTP (10 samples, 9.26%)</title><rect x="337.8" y="293" width="109.2" height="15.0" fill="rgb(221,174,25)" rx="2" ry="2" />
+<text  x="340.78" y="303.5" >github.com/ba..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*ReverseProxy).clusterInvoke.func1 (1 samples, 0.93%)</title><rect x="337.8" y="261" width="10.9" height="15.0" fill="rgb(210,33,46)" rx="2" ry="2" />
+<text  x="340.78" y="271.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_bufio.(*Writer).flush (3 samples, 2.78%)</title><rect x="173.9" y="277" width="32.8" height="15.0" fill="rgb(254,226,24)" rx="2" ry="2" />
+<text  x="176.89" y="287.5" >gi..</text>
+</g>
+<g >
+<title>internal/poll.(*FD).destroy (1 samples, 0.93%)</title><rect x="403.3" y="69" width="11.0" height="15.0" fill="rgb(237,120,24)" rx="2" ry="2" />
+<text  x="406.33" y="79.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_http.(*persistConn).close (1 samples, 0.93%)</title><rect x="403.3" y="165" width="11.0" height="15.0" fill="rgb(231,79,6)" rx="2" ry="2" />
+<text  x="406.33" y="175.5" ></text>
+</g>
+<g >
+<title>syscall.syscall (1 samples, 0.93%)</title><rect x="305.0" y="181" width="10.9" height="15.0" fill="rgb(228,13,23)" rx="2" ry="2" />
+<text  x="308.00" y="191.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_bufio.(*Writer).Flush (2 samples, 1.85%)</title><rect x="425.2" y="149" width="21.8" height="15.0" fill="rgb(240,210,25)" rx="2" ry="2" />
+<text  x="428.19" y="159.5" >g..</text>
+</g>
+<g >
+<title>io.(*LimitedReader).Read (7 samples, 6.48%)</title><rect x="217.6" y="197" width="76.5" height="15.0" fill="rgb(232,102,4)" rx="2" ry="2" />
+<text  x="220.59" y="207.5" >io.(*Lim..</text>
+</g>
+<g >
+<title>time.Time.String (1 samples, 0.93%)</title><rect x="315.9" y="213" width="11.0" height="15.0" fill="rgb(252,63,1)" rx="2" ry="2" />
+<text  x="318.93" y="223.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.StartUp.func1 (2 samples, 1.85%)</title><rect x="447.0" y="325" width="21.9" height="15.0" fill="rgb(243,187,16)" rx="2" ry="2" />
+<text  x="450.04" y="335.5" >g..</text>
+</g>
+<g >
+<title>runtime.chansend (1 samples, 0.93%)</title><rect x="414.3" y="165" width="10.9" height="15.0" fill="rgb(206,126,7)" rx="2" ry="2" />
+<text  x="417.26" y="175.5" ></text>
+</g>
+<g >
+<title>net.(*conn).Write (2 samples, 1.85%)</title><rect x="425.2" y="117" width="21.8" height="15.0" fill="rgb(242,124,7)" rx="2" ry="2" />
+<text  x="428.19" y="127.5" >n..</text>
+</g>
+<g >
+<title>runtime.systemstack (15 samples, 13.89%)</title><rect x="1026.1" y="309" width="163.9" height="15.0" fill="rgb(239,175,20)" rx="2" ry="2" />
+<text  x="1029.11" y="319.5" >runtime.systemstack</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_module.(*HandlerList).FilterResponse (1 samples, 0.93%)</title><rect x="326.9" y="277" width="10.9" height="15.0" fill="rgb(253,224,33)" rx="2" ry="2" />
+<text  x="329.85" y="287.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_bufio.(*Writer).Flush (3 samples, 2.78%)</title><rect x="173.9" y="293" width="32.8" height="15.0" fill="rgb(244,183,23)" rx="2" ry="2" />
+<text  x="176.89" y="303.5" >gi..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_http.(*bodyEOFSignal).condfn (2 samples, 1.85%)</title><rect x="403.3" y="213" width="21.9" height="15.0" fill="rgb(208,55,2)" rx="2" ry="2" />
+<text  x="406.33" y="223.5" >g..</text>
+</g>
+<g >
+<title>runtime.sysUsed (1 samples, 0.93%)</title><rect x="1026.1" y="245" width="10.9" height="15.0" fill="rgb(233,26,33)" rx="2" ry="2" />
+<text  x="1029.11" y="255.5" ></text>
+</g>
+<g >
+<title>net.(*conn).Write (2 samples, 1.85%)</title><rect x="184.8" y="261" width="21.9" height="15.0" fill="rgb(208,22,7)" rx="2" ry="2" />
+<text  x="187.81" y="271.5" >n..</text>
+</g>
+<g >
+<title>net.(*TCPListener).accept (2 samples, 1.85%)</title><rect x="447.0" y="245" width="21.9" height="15.0" fill="rgb(212,114,12)" rx="2" ry="2" />
+<text  x="450.04" y="255.5" >n..</text>
+</g>
+<g >
+<title>internal/poll.(*FD).Write (2 samples, 1.85%)</title><rect x="184.8" y="229" width="21.9" height="15.0" fill="rgb(209,137,4)" rx="2" ry="2" />
+<text  x="187.81" y="239.5" >i..</text>
+</g>
+<g >
+<title>net.sysSocket (6 samples, 5.56%)</title><rect x="53.7" y="117" width="65.6" height="15.0" fill="rgb(211,207,45)" rx="2" ry="2" />
+<text  x="56.70" y="127.5" >net.sys..</text>
+</g>
+<g >
+<title>net.(*netFD).Close (1 samples, 0.93%)</title><rect x="403.3" y="117" width="11.0" height="15.0" fill="rgb(245,84,25)" rx="2" ry="2" />
+<text  x="406.33" y="127.5" ></text>
+</g>
+<g >
+<title>runtime.notewakeup (1 samples, 0.93%)</title><rect x="818.5" y="229" width="10.9" height="15.0" fill="rgb(206,141,13)" rx="2" ry="2" />
+<text  x="821.52" y="239.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*BfeServer).ServeHttp (2 samples, 1.85%)</title><rect x="447.0" y="309" width="21.9" height="15.0" fill="rgb(212,184,50)" rx="2" ry="2" />
+<text  x="450.04" y="319.5" >g..</text>
+</g>
+<g >
+<title>syscall.syscall (2 samples, 1.85%)</title><rect x="425.2" y="37" width="21.8" height="15.0" fill="rgb(243,154,9)" rx="2" ry="2" />
+<text  x="428.19" y="47.5" >s..</text>
+</g>
+<g >
+<title>syscall.rawSyscall (2 samples, 1.85%)</title><rect x="97.4" y="69" width="21.9" height="15.0" fill="rgb(216,11,38)" rx="2" ry="2" />
+<text  x="100.41" y="79.5" >s..</text>
+</g>
+<g >
+<title>internal/poll.(*FD).Write (2 samples, 1.85%)</title><rect x="425.2" y="85" width="21.8" height="15.0" fill="rgb(205,163,14)" rx="2" ry="2" />
+<text  x="428.19" y="95.5" >i..</text>
+</g>
+<g >
+<title>runtime.chansend1 (1 samples, 0.93%)</title><rect x="414.3" y="181" width="10.9" height="15.0" fill="rgb(252,205,1)" rx="2" ry="2" />
+<text  x="417.26" y="191.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*response).Flush (5 samples, 4.63%)</title><rect x="348.7" y="245" width="54.6" height="15.0" fill="rgb(230,88,18)" rx="2" ry="2" />
+<text  x="351.70" y="255.5" >githu..</text>
+</g>
+<g >
+<title>syscall.Read (1 samples, 0.93%)</title><rect x="141.1" y="229" width="10.9" height="15.0" fill="rgb(226,18,35)" rx="2" ry="2" />
+<text  x="144.11" y="239.5" ></text>
+</g>
+<g >
+<title>syscall.read (1 samples, 0.93%)</title><rect x="141.1" y="213" width="10.9" height="15.0" fill="rgb(220,150,44)" rx="2" ry="2" />
+<text  x="144.11" y="223.5" ></text>
+</g>
+<g >
+<title>runtime.(*gcWork).balance (2 samples, 1.85%)</title><rect x="479.8" y="261" width="21.9" height="15.0" fill="rgb(209,192,54)" rx="2" ry="2" />
+<text  x="482.81" y="271.5" >r..</text>
+</g>
+<g >
+<title>runtime.startm (6 samples, 5.56%)</title><rect x="1124.4" y="245" width="65.6" height="15.0" fill="rgb(233,196,16)" rx="2" ry="2" />
+<text  x="1127.44" y="255.5" >runtime..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_http.ReadRequest (7 samples, 6.48%)</title><rect x="217.6" y="293" width="76.5" height="15.0" fill="rgb(222,154,38)" rx="2" ry="2" />
+<text  x="220.59" y="303.5" >github.c..</text>
+</g>
+<g >
+<title>net.(*conn).Close (1 samples, 0.93%)</title><rect x="305.0" y="277" width="10.9" height="15.0" fill="rgb(251,170,31)" rx="2" ry="2" />
+<text  x="308.00" y="287.5" ></text>
+</g>
+<g >
+<title>runtime.semasleep (11 samples, 10.19%)</title><rect x="698.3" y="229" width="120.2" height="15.0" fill="rgb(242,183,23)" rx="2" ry="2" />
+<text  x="701.33" y="239.5" >runtime.semasl..</text>
+</g>
+<g >
+<title>runtime.tracebackdefers (1 samples, 0.93%)</title><rect x="206.7" y="213" width="10.9" height="15.0" fill="rgb(252,153,19)" rx="2" ry="2" />
+<text  x="209.67" y="223.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_bufio.(*Reader).Peek (2 samples, 1.85%)</title><rect x="130.2" y="309" width="21.8" height="15.0" fill="rgb(247,221,50)" rx="2" ry="2" />
+<text  x="133.19" y="319.5" >g..</text>
+</g>
+<g >
+<title>runtime.systemstack (3 samples, 2.78%)</title><rect x="479.8" y="309" width="32.8" height="15.0" fill="rgb(220,124,34)" rx="2" ry="2" />
+<text  x="482.81" y="319.5" >ru..</text>
+</g>
+<g >
+<title>syscall.connect (2 samples, 1.85%)</title><rect x="10.0" y="69" width="21.9" height="15.0" fill="rgb(250,115,39)" rx="2" ry="2" />
+<text  x="13.00" y="79.5" >s..</text>
+</g>
+<g >
+<title>syscall.syscall (1 samples, 0.93%)</title><rect x="458.0" y="149" width="10.9" height="15.0" fill="rgb(227,222,14)" rx="2" ry="2" />
+<text  x="460.96" y="159.5" ></text>
+</g>
+<g >
+<title>syscall.Socket (2 samples, 1.85%)</title><rect x="97.4" y="101" width="21.9" height="15.0" fill="rgb(249,227,41)" rx="2" ry="2" />
+<text  x="100.41" y="111.5" >s..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_bufio.(*Writer).Flush (2 samples, 1.85%)</title><rect x="425.2" y="213" width="21.8" height="15.0" fill="rgb(221,82,32)" rx="2" ry="2" />
+<text  x="428.19" y="223.5" >g..</text>
+</g>
+<g >
+<title>syscall.Connect (2 samples, 1.85%)</title><rect x="10.0" y="85" width="21.9" height="15.0" fill="rgb(254,47,8)" rx="2" ry="2" />
+<text  x="13.00" y="95.5" >s..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_bufio.(*Reader).fill (7 samples, 6.48%)</title><rect x="217.6" y="213" width="76.5" height="15.0" fill="rgb(248,226,12)" rx="2" ry="2" />
+<text  x="220.59" y="223.5" >github.c..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.createTransport.func1 (11 samples, 10.19%)</title><rect x="10.0" y="277" width="120.2" height="15.0" fill="rgb(241,210,27)" rx="2" ry="2" />
+<text  x="13.00" y="287.5" >github.com/bai..</text>
+</g>
+<g >
+<title>net.(*Dialer).Dial (11 samples, 10.19%)</title><rect x="10.0" y="245" width="120.2" height="15.0" fill="rgb(234,110,12)" rx="2" ry="2" />
+<text  x="13.00" y="255.5" >net.(*Dialer)...</text>
+</g>
+<g >
+<title>runtime.pthread_mutex_unlock (1 samples, 0.93%)</title><rect x="589.1" y="197" width="10.9" height="15.0" fill="rgb(252,47,51)" rx="2" ry="2" />
+<text  x="592.07" y="207.5" ></text>
+</g>
+<g >
+<title>runtime.newstack (1 samples, 0.93%)</title><rect x="206.7" y="261" width="10.9" height="15.0" fill="rgb(205,211,46)" rx="2" ry="2" />
+<text  x="209.67" y="271.5" ></text>
+</g>
+<g >
+<title>syscall.syscall (2 samples, 1.85%)</title><rect x="184.8" y="181" width="21.9" height="15.0" fill="rgb(231,137,13)" rx="2" ry="2" />
+<text  x="187.81" y="191.5" >s..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*conn).serve (22 samples, 20.37%)</title><rect x="206.7" y="325" width="240.3" height="15.0" fill="rgb(225,220,10)" rx="2" ry="2" />
+<text  x="209.67" y="335.5" >github.com/baidu/bfe/bfe_server..</text>
+</g>
+<g >
+<title>runtime.nanotime (1 samples, 0.93%)</title><rect x="512.6" y="261" width="10.9" height="15.0" fill="rgb(230,202,44)" rx="2" ry="2" />
+<text  x="515.59" y="271.5" ></text>
+</g>
+<g >
+<title>net.(*conn).Write (5 samples, 4.63%)</title><rect x="348.7" y="181" width="54.6" height="15.0" fill="rgb(229,143,15)" rx="2" ry="2" />
+<text  x="351.70" y="191.5" >net.(..</text>
+</g>
+<g >
+<title>runtime.semawakeup (1 samples, 0.93%)</title><rect x="589.1" y="213" width="10.9" height="15.0" fill="rgb(251,82,19)" rx="2" ry="2" />
+<text  x="592.07" y="223.5" ></text>
+</g>
+<g >
+<title>runtime.notewakeup (1 samples, 0.93%)</title><rect x="589.1" y="229" width="10.9" height="15.0" fill="rgb(210,26,39)" rx="2" ry="2" />
+<text  x="592.07" y="239.5" ></text>
+</g>
+<g >
+<title>runtime.assertE2I2 (1 samples, 0.93%)</title><rect x="206.7" y="293" width="10.9" height="15.0" fill="rgb(216,104,52)" rx="2" ry="2" />
+<text  x="209.67" y="303.5" ></text>
+</g>
+<g >
+<title>runtime.adjustdefers (1 samples, 0.93%)</title><rect x="206.7" y="229" width="10.9" height="15.0" fill="rgb(208,98,49)" rx="2" ry="2" />
+<text  x="209.67" y="239.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*conn).finish (1 samples, 0.93%)</title><rect x="315.9" y="293" width="11.0" height="15.0" fill="rgb(210,219,4)" rx="2" ry="2" />
+<text  x="318.93" y="303.5" ></text>
+</g>
+<g >
+<title>net.(*sysDialer).dialTCP (10 samples, 9.26%)</title><rect x="10.0" y="181" width="109.3" height="15.0" fill="rgb(245,49,4)" rx="2" ry="2" />
+<text  x="13.00" y="191.5" >net.(*sysDial..</text>
+</g>
+<g >
+<title>runtime.notesleep (2 samples, 1.85%)</title><rect x="567.2" y="245" width="21.9" height="15.0" fill="rgb(236,97,10)" rx="2" ry="2" />
+<text  x="570.22" y="255.5" >r..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_module.(*HandlerList).FilterAccept (1 samples, 0.93%)</title><rect x="206.7" y="309" width="10.9" height="15.0" fill="rgb(225,32,48)" rx="2" ry="2" />
+<text  x="209.67" y="319.5" ></text>
+</g>
+<g >
+<title>runtime.mstart1 (18 samples, 16.67%)</title><rect x="829.4" y="309" width="196.7" height="15.0" fill="rgb(251,181,23)" rx="2" ry="2" />
+<text  x="832.44" y="319.5" >runtime.mstart1</text>
+</g>
+<g >
+<title>syscall.getsockname (1 samples, 0.93%)</title><rect x="42.8" y="85" width="10.9" height="15.0" fill="rgb(224,229,49)" rx="2" ry="2" />
+<text  x="45.78" y="95.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*ReverseProxy).FinishReq (1 samples, 0.93%)</title><rect x="326.9" y="293" width="10.9" height="15.0" fill="rgb(225,46,40)" rx="2" ry="2" />
+<text  x="329.85" y="303.5" ></text>
+</g>
+<g >
+<title>runtime.pthread_cond_signal (1 samples, 0.93%)</title><rect x="818.5" y="197" width="10.9" height="15.0" fill="rgb(212,8,19)" rx="2" ry="2" />
+<text  x="821.52" y="207.5" ></text>
+</g>
+<g >
+<title>syscall.setsockopt (1 samples, 0.93%)</title><rect x="119.3" y="165" width="10.9" height="15.0" fill="rgb(244,228,47)" rx="2" ry="2" />
+<text  x="122.26" y="175.5" ></text>
+</g>
+<g >
+<title>syscall.fcntl (4 samples, 3.70%)</title><rect x="53.7" y="85" width="43.7" height="15.0" fill="rgb(239,158,33)" rx="2" ry="2" />
+<text  x="56.70" y="95.5" >sysc..</text>
+</g>
+<g >
+<title>runtime.findObject (1 samples, 0.93%)</title><rect x="501.7" y="245" width="10.9" height="15.0" fill="rgb(206,158,43)" rx="2" ry="2" />
+<text  x="504.67" y="255.5" ></text>
+</g>
+<g >
+<title>internal/poll.(*FD).Read (7 samples, 6.48%)</title><rect x="217.6" y="133" width="76.5" height="15.0" fill="rgb(219,220,38)" rx="2" ry="2" />
+<text  x="220.59" y="143.5" >internal..</text>
+</g>
+<g >
+<title>net.(*netFD).Write (2 samples, 1.85%)</title><rect x="425.2" y="101" width="21.8" height="15.0" fill="rgb(254,6,20)" rx="2" ry="2" />
+<text  x="428.19" y="111.5" >n..</text>
+</g>
+<g >
+<title>net.(*netFD).Close (1 samples, 0.93%)</title><rect x="305.0" y="261" width="10.9" height="15.0" fill="rgb(249,41,15)" rx="2" ry="2" />
+<text  x="308.00" y="271.5" ></text>
+</g>
+<g >
+<title>runtime.notesleep (11 samples, 10.19%)</title><rect x="698.3" y="245" width="120.2" height="15.0" fill="rgb(220,47,51)" rx="2" ry="2" />
+<text  x="701.33" y="255.5" >runtime.notesl..</text>
+</g>
+<g >
+<title>runtime.notetsleep (3 samples, 2.78%)</title><rect x="905.9" y="277" width="32.8" height="15.0" fill="rgb(248,119,40)" rx="2" ry="2" />
+<text  x="908.93" y="287.5" >ru..</text>
+</g>
+<g >
+<title>syscall.syscall (2 samples, 1.85%)</title><rect x="10.0" y="53" width="21.9" height="15.0" fill="rgb(238,136,36)" rx="2" ry="2" />
+<text  x="13.00" y="63.5" >s..</text>
+</g>
+<g >
+<title>runtime.pthread_cond_wait (11 samples, 10.19%)</title><rect x="698.3" y="213" width="120.2" height="15.0" fill="rgb(215,7,52)" rx="2" ry="2" />
+<text  x="701.33" y="223.5" >runtime.pthrea..</text>
+</g>
+<g >
+<title>github.com/baidu/go-lib/log/log4go.NewTimeFileLogWriter.func1 (1 samples, 0.93%)</title><rect x="468.9" y="325" width="10.9" height="15.0" fill="rgb(250,123,32)" rx="2" ry="2" />
+<text  x="471.89" y="335.5" ></text>
+</g>
+<g >
+<title>runtime.adjustpointers (1 samples, 0.93%)</title><rect x="206.7" y="181" width="10.9" height="15.0" fill="rgb(235,138,28)" rx="2" ry="2" />
+<text  x="209.67" y="191.5" ></text>
+</g>
+<g >
+<title>runtime.wakep (1 samples, 0.93%)</title><rect x="818.5" y="261" width="10.9" height="15.0" fill="rgb(236,210,51)" rx="2" ry="2" />
+<text  x="821.52" y="271.5" ></text>
+</g>
+<g >
+<title>runtime.(*mheap).alloc_m (1 samples, 0.93%)</title><rect x="1026.1" y="277" width="10.9" height="15.0" fill="rgb(207,47,29)" rx="2" ry="2" />
+<text  x="1029.11" y="287.5" ></text>
+</g>
+<g >
+<title>runtime.startm (6 samples, 5.56%)</title><rect x="1058.9" y="245" width="65.5" height="15.0" fill="rgb(231,226,50)" rx="2" ry="2" />
+<text  x="1061.89" y="255.5" >runtime..</text>
+</g>
+<g >
+<title>runtime.copystack (1 samples, 0.93%)</title><rect x="206.7" y="245" width="10.9" height="15.0" fill="rgb(228,111,16)" rx="2" ry="2" />
+<text  x="209.67" y="255.5" ></text>
+</g>
+<g >
+<title>runtime.pthread_cond_signal (6 samples, 5.56%)</title><rect x="1058.9" y="197" width="65.5" height="15.0" fill="rgb(248,141,1)" rx="2" ry="2" />
+<text  x="1061.89" y="207.5" >runtime..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_bufio.(*Reader).ReadSlice (7 samples, 6.48%)</title><rect x="217.6" y="229" width="76.5" height="15.0" fill="rgb(218,67,37)" rx="2" ry="2" />
+<text  x="220.59" y="239.5" >github.c..</text>
+</g>
+<g >
+<title>runtime.usleep (8 samples, 7.41%)</title><rect x="938.7" y="277" width="87.4" height="15.0" fill="rgb(214,109,21)" rx="2" ry="2" />
+<text  x="941.70" y="287.5" >runtime.us..</text>
+</g>
+<g >
+<title>net.setKeepAlivePeriod (1 samples, 0.93%)</title><rect x="119.3" y="213" width="10.9" height="15.0" fill="rgb(207,218,15)" rx="2" ry="2" />
+<text  x="122.26" y="223.5" ></text>
+</g>
+<g >
+<title>runtime.adjustframe (1 samples, 0.93%)</title><rect x="206.7" y="197" width="10.9" height="15.0" fill="rgb(237,217,43)" rx="2" ry="2" />
+<text  x="209.67" y="207.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_bufio.(*Writer).flush (2 samples, 1.85%)</title><rect x="425.2" y="197" width="21.8" height="15.0" fill="rgb(209,220,20)" rx="2" ry="2" />
+<text  x="428.19" y="207.5" >g..</text>
+</g>
+<g >
+<title>runtime.park_m (21 samples, 19.44%)</title><rect x="600.0" y="309" width="229.4" height="15.0" fill="rgb(244,145,40)" rx="2" ry="2" />
+<text  x="603.00" y="319.5" >runtime.park_m</text>
+</g>
+<g >
+<title>runtime.notewakeup (6 samples, 5.56%)</title><rect x="1124.4" y="229" width="65.6" height="15.0" fill="rgb(223,213,47)" rx="2" ry="2" />
+<text  x="1127.44" y="239.5" >runtime..</text>
+</g>
+<g >
+<title>internal/poll.(*FD).Read (1 samples, 0.93%)</title><rect x="141.1" y="245" width="10.9" height="15.0" fill="rgb(222,44,4)" rx="2" ry="2" />
+<text  x="144.11" y="255.5" ></text>
+</g>
+<g >
+<title>runtime.stopm (11 samples, 10.19%)</title><rect x="698.3" y="261" width="120.2" height="15.0" fill="rgb(244,131,39)" rx="2" ry="2" />
+<text  x="701.33" y="271.5" >runtime.stopm</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_http.(*Transport).dial (11 samples, 10.19%)</title><rect x="10.0" y="293" width="120.2" height="15.0" fill="rgb(246,60,15)" rx="2" ry="2" />
+<text  x="13.00" y="303.5" >github.com/bai..</text>
+</g>
+<g >
+<title>runtime.kevent (3 samples, 2.78%)</title><rect x="654.6" y="245" width="32.8" height="15.0" fill="rgb(230,174,22)" rx="2" ry="2" />
+<text  x="657.63" y="255.5" >ru..</text>
+</g>
+<g >
+<title>runtime.nanotime (7 samples, 6.48%)</title><rect x="829.4" y="277" width="76.5" height="15.0" fill="rgb(222,82,50)" rx="2" ry="2" />
+<text  x="832.44" y="287.5" >runtime...</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_bufio.(*Reader).fill (2 samples, 1.85%)</title><rect x="130.2" y="293" width="21.8" height="15.0" fill="rgb(243,78,9)" rx="2" ry="2" />
+<text  x="133.19" y="303.5" >g..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*BfeListener).Accept (2 samples, 1.85%)</title><rect x="447.0" y="277" width="21.9" height="15.0" fill="rgb(243,64,50)" rx="2" ry="2" />
+<text  x="450.04" y="287.5" >g..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*response).Flush (2 samples, 1.85%)</title><rect x="425.2" y="229" width="21.8" height="15.0" fill="rgb(215,1,17)" rx="2" ry="2" />
+<text  x="428.19" y="239.5" >g..</text>
+</g>
+<g >
+<title>runtime.goexit0 (8 samples, 7.41%)</title><rect x="512.6" y="309" width="87.4" height="15.0" fill="rgb(251,14,32)" rx="2" ry="2" />
+<text  x="515.59" y="319.5" >runtime.go..</text>
+</g>
+<g >
+<title>os.(*File).write (1 samples, 0.93%)</title><rect x="468.9" y="293" width="10.9" height="15.0" fill="rgb(231,186,37)" rx="2" ry="2" />
+<text  x="471.89" y="303.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_net/textproto.(*Reader).ReadLine (7 samples, 6.48%)</title><rect x="217.6" y="277" width="76.5" height="15.0" fill="rgb(247,147,5)" rx="2" ry="2" />
+<text  x="220.59" y="287.5" >github.c..</text>
+</g>
+<g >
+<title>runtime.(*mheap).alloc.func1 (1 samples, 0.93%)</title><rect x="1026.1" y="293" width="10.9" height="15.0" fill="rgb(225,4,10)" rx="2" ry="2" />
+<text  x="1029.11" y="303.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*conn).readRequest (7 samples, 6.48%)</title><rect x="217.6" y="309" width="76.5" height="15.0" fill="rgb(238,1,28)" rx="2" ry="2" />
+<text  x="220.59" y="319.5" >github.c..</text>
+</g>
+<g >
+<title>runtime.findrunnable (20 samples, 18.52%)</title><rect x="600.0" y="277" width="218.5" height="15.0" fill="rgb(228,130,12)" rx="2" ry="2" />
+<text  x="603.00" y="287.5" >runtime.findrunnable</text>
+</g>
+<g >
+<title>net.(*sysDialer).dialSingle (10 samples, 9.26%)</title><rect x="10.0" y="197" width="109.3" height="15.0" fill="rgb(240,213,1)" rx="2" ry="2" />
+<text  x="13.00" y="207.5" >net.(*sysDial..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_module.(*HandlerList).FilterFinish (1 samples, 0.93%)</title><rect x="315.9" y="277" width="11.0" height="15.0" fill="rgb(210,72,15)" rx="2" ry="2" />
+<text  x="318.93" y="287.5" ></text>
+</g>
+<g >
+<title>runtime.pthread_cond_wait (2 samples, 1.85%)</title><rect x="567.2" y="213" width="21.9" height="15.0" fill="rgb(218,132,20)" rx="2" ry="2" />
+<text  x="570.22" y="223.5" >r..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_net/textproto.(*Reader).readLineSlice (7 samples, 6.48%)</title><rect x="217.6" y="261" width="76.5" height="15.0" fill="rgb(242,191,48)" rx="2" ry="2" />
+<text  x="220.59" y="271.5" >github.c..</text>
+</g>
+<g >
+<title>runtime.kevent (2 samples, 1.85%)</title><rect x="545.4" y="245" width="21.8" height="15.0" fill="rgb(211,59,37)" rx="2" ry="2" />
+<text  x="548.37" y="255.5" >r..</text>
+</g>
+<g >
+<title>runtime.notetsleep_internal (1 samples, 0.93%)</title><rect x="927.8" y="261" width="10.9" height="15.0" fill="rgb(229,218,30)" rx="2" ry="2" />
+<text  x="930.78" y="271.5" ></text>
+</g>
+<g >
+<title>runtime.mapdelete_fast64 (1 samples, 0.93%)</title><rect x="152.0" y="293" width="11.0" height="15.0" fill="rgb(239,53,26)" rx="2" ry="2" />
+<text  x="155.04" y="303.5" ></text>
+</g>
+<g >
+<title>runtime.(*waitq).dequeue (1 samples, 0.93%)</title><rect x="414.3" y="149" width="10.9" height="15.0" fill="rgb(223,13,3)" rx="2" ry="2" />
+<text  x="417.26" y="159.5" ></text>
+</g>
+<g >
+<title>syscall.fcntl (1 samples, 0.93%)</title><rect x="458.0" y="165" width="10.9" height="15.0" fill="rgb(254,114,27)" rx="2" ry="2" />
+<text  x="460.96" y="175.5" ></text>
+</g>
+<g >
+<title>syscall.Write (2 samples, 1.85%)</title><rect x="425.2" y="69" width="21.8" height="15.0" fill="rgb(213,154,9)" rx="2" ry="2" />
+<text  x="428.19" y="79.5" >s..</text>
+</g>
+<g >
+<title>runtime.schedule (21 samples, 19.44%)</title><rect x="600.0" y="293" width="229.4" height="15.0" fill="rgb(220,31,16)" rx="2" ry="2" />
+<text  x="603.00" y="303.5" >runtime.schedule</text>
+</g>
+<g >
+<title>runtime.semasleep (2 samples, 1.85%)</title><rect x="567.2" y="229" width="21.9" height="15.0" fill="rgb(218,20,6)" rx="2" ry="2" />
+<text  x="570.22" y="239.5" >r..</text>
+</g>
+<g >
+<title>runtime.gcBgMarkWorker (3 samples, 2.78%)</title><rect x="479.8" y="325" width="32.8" height="15.0" fill="rgb(219,111,25)" rx="2" ry="2" />
+<text  x="482.81" y="335.5" >ru..</text>
+</g>
+<g >
+<title>syscall.socket (2 samples, 1.85%)</title><rect x="97.4" y="85" width="21.9" height="15.0" fill="rgb(247,161,15)" rx="2" ry="2" />
+<text  x="100.41" y="95.5" >s..</text>
+</g>
+<g >
+<title>net.(*sysDialer).doDialTCP (10 samples, 9.26%)</title><rect x="10.0" y="165" width="109.3" height="15.0" fill="rgb(218,167,47)" rx="2" ry="2" />
+<text  x="13.00" y="175.5" >net.(*sysDial..</text>
+</g>
+<g >
+<title>internal/poll.(*FD).Close (1 samples, 0.93%)</title><rect x="305.0" y="245" width="10.9" height="15.0" fill="rgb(252,115,44)" rx="2" ry="2" />
+<text  x="308.00" y="255.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_modules/mod_access.onLogFmtSesEndTime (1 samples, 0.93%)</title><rect x="315.9" y="229" width="11.0" height="15.0" fill="rgb(239,69,3)" rx="2" ry="2" />
+<text  x="318.93" y="239.5" ></text>
+</g>
+<g >
+<title>syscall.Read (7 samples, 6.48%)</title><rect x="217.6" y="117" width="76.5" height="15.0" fill="rgb(238,172,40)" rx="2" ry="2" />
+<text  x="220.59" y="127.5" >syscall...</text>
+</g>
+<g >
+<title>runtime.scanobject (1 samples, 0.93%)</title><rect x="501.7" y="261" width="10.9" height="15.0" fill="rgb(252,124,53)" rx="2" ry="2" />
+<text  x="504.67" y="271.5" ></text>
+</g>
+<g >
+<title>internal/poll.(*FD).Write (5 samples, 4.63%)</title><rect x="348.7" y="149" width="54.6" height="15.0" fill="rgb(225,131,48)" rx="2" ry="2" />
+<text  x="351.70" y="159.5" >inter..</text>
+</g>
+<g >
+<title>syscall.rawSyscall (1 samples, 0.93%)</title><rect x="42.8" y="69" width="10.9" height="15.0" fill="rgb(207,14,42)" rx="2" ry="2" />
+<text  x="45.78" y="79.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*chunkWriter).flush (2 samples, 1.85%)</title><rect x="425.2" y="165" width="21.8" height="15.0" fill="rgb(251,94,19)" rx="2" ry="2" />
+<text  x="428.19" y="175.5" >g..</text>
+</g>
+<g >
+<title>runtime.handoff (2 samples, 1.85%)</title><rect x="479.8" y="245" width="21.9" height="15.0" fill="rgb(229,39,15)" rx="2" ry="2" />
+<text  x="482.81" y="255.5" >r..</text>
+</g>
+<g >
+<title>runtime.madvise (1 samples, 0.93%)</title><rect x="1026.1" y="229" width="10.9" height="15.0" fill="rgb(210,96,10)" rx="2" ry="2" />
+<text  x="1029.11" y="239.5" ></text>
+</g>
+<g >
+<title>runtime.wakep (6 samples, 5.56%)</title><rect x="1124.4" y="261" width="65.6" height="15.0" fill="rgb(221,139,43)" rx="2" ry="2" />
+<text  x="1127.44" y="271.5" >runtime..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_modules/mod_access.(*ModuleAccess).requestLogHandler (1 samples, 0.93%)</title><rect x="326.9" y="245" width="10.9" height="15.0" fill="rgb(213,140,25)" rx="2" ry="2" />
+<text  x="329.85" y="255.5" ></text>
+</g>
+<g >
+<title>runtime.(*mheap).allocSpanLocked (1 samples, 0.93%)</title><rect x="1026.1" y="261" width="10.9" height="15.0" fill="rgb(225,193,25)" rx="2" ry="2" />
+<text  x="1029.11" y="271.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/go-lib/log/log4go.Logger.Info (1 samples, 0.93%)</title><rect x="326.9" y="229" width="10.9" height="15.0" fill="rgb(232,62,32)" rx="2" ry="2" />
+<text  x="329.85" y="239.5" ></text>
+</g>
+<g >
+<title>time.Time.AppendFormat (1 samples, 0.93%)</title><rect x="315.9" y="181" width="11.0" height="15.0" fill="rgb(241,150,46)" rx="2" ry="2" />
+<text  x="318.93" y="191.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_http.(*persistConn).closeLocked (1 samples, 0.93%)</title><rect x="403.3" y="149" width="11.0" height="15.0" fill="rgb(254,149,5)" rx="2" ry="2" />
+<text  x="406.33" y="159.5" ></text>
+</g>
+<g >
+<title>syscall.GetsockoptInt (1 samples, 0.93%)</title><rect x="31.9" y="85" width="10.9" height="15.0" fill="rgb(229,31,45)" rx="2" ry="2" />
+<text  x="34.85" y="95.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_module.(*genericFinishFilter).FilterFinish (1 samples, 0.93%)</title><rect x="315.9" y="261" width="11.0" height="15.0" fill="rgb(221,201,41)" rx="2" ry="2" />
+<text  x="318.93" y="271.5" ></text>
+</g>
+<g >
+<title>runtime.runqsteal (1 samples, 0.93%)</title><rect x="687.4" y="261" width="10.9" height="15.0" fill="rgb(238,198,10)" rx="2" ry="2" />
+<text  x="690.41" y="271.5" ></text>
+</g>
+<g >
+<title>runtime.startm (1 samples, 0.93%)</title><rect x="589.1" y="245" width="10.9" height="15.0" fill="rgb(219,192,10)" rx="2" ry="2" />
+<text  x="592.07" y="255.5" ></text>
+</g>
+<g >
+<title>runtime.wakep (6 samples, 5.56%)</title><rect x="1058.9" y="261" width="65.5" height="15.0" fill="rgb(248,198,15)" rx="2" ry="2" />
+<text  x="1061.89" y="271.5" >runtime..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_http.(*Transport).setReqConn (1 samples, 0.93%)</title><rect x="152.0" y="309" width="11.0" height="15.0" fill="rgb(205,89,17)" rx="2" ry="2" />
+<text  x="155.04" y="319.5" ></text>
+</g>
+<g >
+<title>os.(*File).Write (1 samples, 0.93%)</title><rect x="468.9" y="309" width="10.9" height="15.0" fill="rgb(248,12,12)" rx="2" ry="2" />
+<text  x="471.89" y="319.5" ></text>
+</g>
+<g >
+<title>runtime.semawakeup (1 samples, 0.93%)</title><rect x="818.5" y="213" width="10.9" height="15.0" fill="rgb(223,23,16)" rx="2" ry="2" />
+<text  x="821.52" y="223.5" ></text>
+</g>
+<g >
+<title>net.(*netFD).connect (3 samples, 2.78%)</title><rect x="10.0" y="101" width="32.8" height="15.0" fill="rgb(254,135,5)" rx="2" ry="2" />
+<text  x="13.00" y="111.5" >ne..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*conn).serve.func1 (1 samples, 0.93%)</title><rect x="294.1" y="309" width="10.9" height="15.0" fill="rgb(234,127,9)" rx="2" ry="2" />
+<text  x="297.07" y="319.5" ></text>
+</g>
+<g >
+<title>time.Time.Format (1 samples, 0.93%)</title><rect x="315.9" y="197" width="11.0" height="15.0" fill="rgb(225,229,14)" rx="2" ry="2" />
+<text  x="318.93" y="207.5" ></text>
+</g>
+<g >
+<title>runtime.semawakeup (6 samples, 5.56%)</title><rect x="1124.4" y="213" width="65.6" height="15.0" fill="rgb(236,199,25)" rx="2" ry="2" />
+<text  x="1127.44" y="223.5" >runtime..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*conn).serve.func2 (2 samples, 1.85%)</title><rect x="305.0" y="309" width="21.9" height="15.0" fill="rgb(230,169,42)" rx="2" ry="2" />
+<text  x="308.00" y="319.5" >g..</text>
+</g>
+<g >
+<title>syscall.accept (1 samples, 0.93%)</title><rect x="447.0" y="165" width="11.0" height="15.0" fill="rgb(246,12,37)" rx="2" ry="2" />
+<text  x="450.04" y="175.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_http.(*Transport).dialConn (11 samples, 10.19%)</title><rect x="10.0" y="309" width="120.2" height="15.0" fill="rgb(216,68,29)" rx="2" ry="2" />
+<text  x="13.00" y="319.5" >github.com/bai..</text>
+</g>
+<g >
+<title>runtime.walltime (1 samples, 0.93%)</title><rect x="337.8" y="213" width="10.9" height="15.0" fill="rgb(220,200,47)" rx="2" ry="2" />
+<text  x="340.78" y="223.5" ></text>
+</g>
+<g >
+<title>net.(*TCPListener).Accept (2 samples, 1.85%)</title><rect x="447.0" y="261" width="21.9" height="15.0" fill="rgb(214,181,23)" rx="2" ry="2" />
+<text  x="450.04" y="271.5" >n..</text>
+</g>
+<g >
+<title>runtime.pthread_cond_signal (6 samples, 5.56%)</title><rect x="1124.4" y="197" width="65.6" height="15.0" fill="rgb(229,54,28)" rx="2" ry="2" />
+<text  x="1127.44" y="207.5" >runtime..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*chunkWriter).Write (2 samples, 1.85%)</title><rect x="425.2" y="181" width="21.8" height="15.0" fill="rgb(227,127,27)" rx="2" ry="2" />
+<text  x="428.19" y="191.5" >g..</text>
+</g>
+<g >
+<title>net.(*netFD).Write (2 samples, 1.85%)</title><rect x="184.8" y="245" width="21.9" height="15.0" fill="rgb(212,206,2)" rx="2" ry="2" />
+<text  x="187.81" y="255.5" >n..</text>
+</g>
+<g >
+<title>runtime.notewakeup (2 samples, 1.85%)</title><rect x="1037.0" y="277" width="21.9" height="15.0" fill="rgb(250,47,21)" rx="2" ry="2" />
+<text  x="1040.04" y="287.5" >r..</text>
+</g>
+<g >
+<title>syscall.Getsockname (1 samples, 0.93%)</title><rect x="42.8" y="101" width="10.9" height="15.0" fill="rgb(241,184,40)" rx="2" ry="2" />
+<text  x="45.78" y="111.5" ></text>
+</g>
+<g >
+<title>syscall.syscall6 (1 samples, 0.93%)</title><rect x="119.3" y="149" width="10.9" height="15.0" fill="rgb(230,28,43)" rx="2" ry="2" />
+<text  x="122.26" y="159.5" ></text>
+</g>
+<g >
+<title>runtime.aeshash64 (1 samples, 0.93%)</title><rect x="152.0" y="277" width="11.0" height="15.0" fill="rgb(239,180,35)" rx="2" ry="2" />
+<text  x="155.04" y="287.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*BfeServer).Serve (2 samples, 1.85%)</title><rect x="447.0" y="293" width="21.9" height="15.0" fill="rgb(244,69,41)" rx="2" ry="2" />
+<text  x="450.04" y="303.5" >g..</text>
+</g>
+<g >
+<title>syscall.SetsockoptInt (1 samples, 0.93%)</title><rect x="119.3" y="181" width="10.9" height="15.0" fill="rgb(224,5,41)" rx="2" ry="2" />
+<text  x="122.26" y="191.5" ></text>
+</g>
+<g >
+<title>syscall.syscall (1 samples, 0.93%)</title><rect x="141.1" y="197" width="10.9" height="15.0" fill="rgb(217,170,35)" rx="2" ry="2" />
+<text  x="144.11" y="207.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_bufio.(*Writer).Flush (5 samples, 4.63%)</title><rect x="348.7" y="213" width="54.6" height="15.0" fill="rgb(247,198,17)" rx="2" ry="2" />
+<text  x="351.70" y="223.5" >githu..</text>
+</g>
+<g >
+<title>syscall.Write (5 samples, 4.63%)</title><rect x="348.7" y="133" width="54.6" height="15.0" fill="rgb(250,131,9)" rx="2" ry="2" />
+<text  x="351.70" y="143.5" >sysca..</text>
+</g>
+<g >
+<title>runtime.stopm (2 samples, 1.85%)</title><rect x="567.2" y="261" width="21.9" height="15.0" fill="rgb(246,76,8)" rx="2" ry="2" />
+<text  x="570.22" y="271.5" >r..</text>
+</g>
+<g >
+<title>runtime.netpoll (4 samples, 3.70%)</title><rect x="523.5" y="261" width="43.7" height="15.0" fill="rgb(214,39,29)" rx="2" ry="2" />
+<text  x="526.52" y="271.5" >runt..</text>
+</g>
+<g >
+<title>all (108 samples, 100%)</title><rect x="10.0" y="341" width="1180.0" height="15.0" fill="rgb(211,192,25)" rx="2" ry="2" />
+<text  x="13.00" y="351.5" ></text>
+</g>
+<g >
+<title>syscall.SetNonblock (1 samples, 0.93%)</title><rect x="458.0" y="181" width="10.9" height="15.0" fill="rgb(252,49,17)" rx="2" ry="2" />
+<text  x="460.96" y="191.5" ></text>
+</g>
+<g >
+<title>net.(*netFD).accept (2 samples, 1.85%)</title><rect x="447.0" y="229" width="21.9" height="15.0" fill="rgb(216,69,15)" rx="2" ry="2" />
+<text  x="450.04" y="239.5" >n..</text>
+</g>
+<g >
+<title>net.(*Dialer).DialContext (11 samples, 10.19%)</title><rect x="10.0" y="229" width="120.2" height="15.0" fill="rgb(236,39,23)" rx="2" ry="2" />
+<text  x="13.00" y="239.5" >net.(*Dialer)...</text>
+</g>
+<g >
+<title>runtime.startm (1 samples, 0.93%)</title><rect x="818.5" y="245" width="10.9" height="15.0" fill="rgb(205,208,40)" rx="2" ry="2" />
+<text  x="821.52" y="255.5" ></text>
+</g>
+<g >
+<title>runtime.resetspinning (1 samples, 0.93%)</title><rect x="589.1" y="277" width="10.9" height="15.0" fill="rgb(248,131,41)" rx="2" ry="2" />
+<text  x="592.07" y="287.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_bufio.(*Writer).flush (2 samples, 1.85%)</title><rect x="425.2" y="133" width="21.8" height="15.0" fill="rgb(240,46,33)" rx="2" ry="2" />
+<text  x="428.19" y="143.5" >g..</text>
+</g>
+<g >
+<title>runtime.newproc1 (6 samples, 5.56%)</title><rect x="1124.4" y="277" width="65.6" height="15.0" fill="rgb(242,194,4)" rx="2" ry="2" />
+<text  x="1127.44" y="287.5" >runtime..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_util.CopyWithoutBuffer (4 samples, 3.70%)</title><rect x="403.3" y="245" width="43.7" height="15.0" fill="rgb(248,16,35)" rx="2" ry="2" />
+<text  x="406.33" y="255.5" >gith..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*ReverseProxy).sendResponse (9 samples, 8.33%)</title><rect x="348.7" y="277" width="98.3" height="15.0" fill="rgb(250,100,41)" rx="2" ry="2" />
+<text  x="351.70" y="287.5" >github.com/..</text>
+</g>
+<g >
+<title>runtime.gcBgMarkWorker.func2 (3 samples, 2.78%)</title><rect x="479.8" y="293" width="32.8" height="15.0" fill="rgb(228,51,7)" rx="2" ry="2" />
+<text  x="482.81" y="303.5" >ru..</text>
+</g>
+<g >
+<title>runtime.mcall (29 samples, 26.85%)</title><rect x="512.6" y="325" width="316.8" height="15.0" fill="rgb(240,216,24)" rx="2" ry="2" />
+<text  x="515.59" y="335.5" >runtime.mcall</text>
+</g>
+<g >
+<title>net.(*conn).Close (1 samples, 0.93%)</title><rect x="403.3" y="133" width="11.0" height="15.0" fill="rgb(216,47,12)" rx="2" ry="2" />
+<text  x="406.33" y="143.5" ></text>
+</g>
+<g >
+<title>syscall.syscall (1 samples, 0.93%)</title><rect x="468.9" y="229" width="10.9" height="15.0" fill="rgb(251,109,34)" rx="2" ry="2" />
+<text  x="471.89" y="239.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*liveSwitchReader).Read (7 samples, 6.48%)</title><rect x="217.6" y="181" width="76.5" height="15.0" fill="rgb(225,35,22)" rx="2" ry="2" />
+<text  x="220.59" y="191.5" >github.c..</text>
+</g>
+<g >
+<title>syscall.syscall6 (1 samples, 0.93%)</title><rect x="31.9" y="53" width="10.9" height="15.0" fill="rgb(212,52,27)" rx="2" ry="2" />
+<text  x="34.85" y="63.5" ></text>
+</g>
+<g >
+<title>internal/poll.(*FD).Write (1 samples, 0.93%)</title><rect x="468.9" y="277" width="10.9" height="15.0" fill="rgb(215,38,52)" rx="2" ry="2" />
+<text  x="471.89" y="287.5" ></text>
+</g>
+<g >
+<title>runtime.semasleep (1 samples, 0.93%)</title><rect x="927.8" y="245" width="10.9" height="15.0" fill="rgb(208,80,7)" rx="2" ry="2" />
+<text  x="930.78" y="255.5" ></text>
+</g>
+<g >
+<title>net.(*sysDialer).dialSerial (10 samples, 9.26%)</title><rect x="10.0" y="213" width="109.3" height="15.0" fill="rgb(231,219,34)" rx="2" ry="2" />
+<text  x="13.00" y="223.5" >net.(*sysDial..</text>
+</g>
+<g >
+<title>runtime.ready (6 samples, 5.56%)</title><rect x="1058.9" y="277" width="65.5" height="15.0" fill="rgb(209,173,37)" rx="2" ry="2" />
+<text  x="1061.89" y="287.5" >runtime..</text>
+</g>
+<g >
+<title>syscall.syscall (4 samples, 3.70%)</title><rect x="53.7" y="69" width="43.7" height="15.0" fill="rgb(207,210,11)" rx="2" ry="2" />
+<text  x="56.70" y="79.5" >sysc..</text>
+</g>
+<g >
+<title>syscall.write (5 samples, 4.63%)</title><rect x="348.7" y="117" width="54.6" height="15.0" fill="rgb(251,16,39)" rx="2" ry="2" />
+<text  x="351.70" y="127.5" >sysca..</text>
+</g>
+<g >
+<title>time.now (1 samples, 0.93%)</title><rect x="337.8" y="229" width="10.9" height="15.0" fill="rgb(239,129,5)" rx="2" ry="2" />
+<text  x="340.78" y="239.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_bufio.(*Reader).ReadLine (7 samples, 6.48%)</title><rect x="217.6" y="245" width="76.5" height="15.0" fill="rgb(236,88,12)" rx="2" ry="2" />
+<text  x="220.59" y="255.5" >github.c..</text>
+</g>
+<g >
+<title>syscall.syscall (7 samples, 6.48%)</title><rect x="217.6" y="85" width="76.5" height="15.0" fill="rgb(233,68,21)" rx="2" ry="2" />
+<text  x="220.59" y="95.5" >syscall...</text>
+</g>
+<g >
+<title>syscall.getsockopt (1 samples, 0.93%)</title><rect x="31.9" y="69" width="10.9" height="15.0" fill="rgb(232,184,14)" rx="2" ry="2" />
+<text  x="34.85" y="79.5" ></text>
+</g>
+<g >
+<title>syscall.write (2 samples, 1.85%)</title><rect x="184.8" y="197" width="21.9" height="15.0" fill="rgb(233,92,46)" rx="2" ry="2" />
+<text  x="187.81" y="207.5" >s..</text>
+</g>
+<g >
+<title>net.(*netFD).Read (1 samples, 0.93%)</title><rect x="141.1" y="261" width="10.9" height="15.0" fill="rgb(228,20,46)" rx="2" ry="2" />
+<text  x="144.11" y="271.5" ></text>
+</g>
+<g >
+<title>syscall.write (2 samples, 1.85%)</title><rect x="425.2" y="53" width="21.8" height="15.0" fill="rgb(254,183,25)" rx="2" ry="2" />
+<text  x="428.19" y="63.5" >s..</text>
+</g>
+<g >
+<title>internal/poll.(*FD).decref (1 samples, 0.93%)</title><rect x="305.0" y="229" width="10.9" height="15.0" fill="rgb(238,25,1)" rx="2" ry="2" />
+<text  x="308.00" y="239.5" ></text>
+</g>
+<g >
+<title>runtime.newproc.func1 (6 samples, 5.56%)</title><rect x="1124.4" y="293" width="65.6" height="15.0" fill="rgb(249,18,45)" rx="2" ry="2" />
+<text  x="1127.44" y="303.5" >runtime..</text>
+</g>
+<g >
+<title>runtime.runqgrab (1 samples, 0.93%)</title><rect x="687.4" y="245" width="10.9" height="15.0" fill="rgb(229,81,51)" rx="2" ry="2" />
+<text  x="690.41" y="255.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_http.(*Request).write (3 samples, 2.78%)</title><rect x="173.9" y="309" width="32.8" height="15.0" fill="rgb(216,3,6)" rx="2" ry="2" />
+<text  x="176.89" y="319.5" >gi..</text>
+</g>
+<g >
+<title>internal/poll.(*FD).SetsockoptInt (1 samples, 0.93%)</title><rect x="119.3" y="197" width="10.9" height="15.0" fill="rgb(236,158,17)" rx="2" ry="2" />
+<text  x="122.26" y="207.5" ></text>
+</g>
+<g >
+<title>net.DialTimeout (11 samples, 10.19%)</title><rect x="10.0" y="261" width="120.2" height="15.0" fill="rgb(252,51,10)" rx="2" ry="2" />
+<text  x="13.00" y="271.5" >net.DialTimeout</text>
+</g>
+<g >
+<title>internal/poll.(*FD).destroy (1 samples, 0.93%)</title><rect x="305.0" y="213" width="10.9" height="15.0" fill="rgb(249,225,30)" rx="2" ry="2" />
+<text  x="308.00" y="223.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_modules/mod_access.(*ModuleAccess).sessionLogHandler (1 samples, 0.93%)</title><rect x="315.9" y="245" width="11.0" height="15.0" fill="rgb(254,33,31)" rx="2" ry="2" />
+<text  x="318.93" y="255.5" ></text>
+</g>
+<g >
+<title>internal/poll.(*FD).decref (1 samples, 0.93%)</title><rect x="403.3" y="85" width="11.0" height="15.0" fill="rgb(246,35,25)" rx="2" ry="2" />
+<text  x="406.33" y="95.5" ></text>
+</g>
+<g >
+<title>runtime.pthread_cond_timedwait_relative_np (1 samples, 0.93%)</title><rect x="927.8" y="229" width="10.9" height="15.0" fill="rgb(224,69,45)" rx="2" ry="2" />
+<text  x="930.78" y="239.5" ></text>
+</g>
+<g >
+<title>runtime.gcDrain (3 samples, 2.78%)</title><rect x="479.8" y="277" width="32.8" height="15.0" fill="rgb(211,85,12)" rx="2" ry="2" />
+<text  x="482.81" y="287.5" >ru..</text>
+</g>
+<g >
+<title>runtime.usleep (1 samples, 0.93%)</title><rect x="687.4" y="229" width="10.9" height="15.0" fill="rgb(253,102,42)" rx="2" ry="2" />
+<text  x="690.41" y="239.5" ></text>
+</g>
+<g >
+<title>runtime.semawakeup (2 samples, 1.85%)</title><rect x="1037.0" y="261" width="21.9" height="15.0" fill="rgb(214,21,17)" rx="2" ry="2" />
+<text  x="1040.04" y="271.5" >r..</text>
+</g>
+<g >
+<title>runtime.sysmon (18 samples, 16.67%)</title><rect x="829.4" y="293" width="196.7" height="15.0" fill="rgb(219,29,42)" rx="2" ry="2" />
+<text  x="832.44" y="303.5" >runtime.sysmon</text>
+</g>
+<g >
+<title>syscall.Close (1 samples, 0.93%)</title><rect x="305.0" y="197" width="10.9" height="15.0" fill="rgb(205,148,49)" rx="2" ry="2" />
+<text  x="308.00" y="207.5" ></text>
+</g>
+<g >
+<title>runtime.goready.func1 (6 samples, 5.56%)</title><rect x="1058.9" y="293" width="65.5" height="15.0" fill="rgb(252,113,26)" rx="2" ry="2" />
+<text  x="1061.89" y="303.5" >runtime..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*conn).close (1 samples, 0.93%)</title><rect x="305.0" y="293" width="10.9" height="15.0" fill="rgb(224,127,30)" rx="2" ry="2" />
+<text  x="308.00" y="303.5" ></text>
+</g>
+<g >
+<title>syscall.Write (1 samples, 0.93%)</title><rect x="468.9" y="261" width="10.9" height="15.0" fill="rgb(220,80,16)" rx="2" ry="2" />
+<text  x="471.89" y="271.5" ></text>
+</g>
+<g >
+<title>internal/poll.(*FD).Accept (2 samples, 1.85%)</title><rect x="447.0" y="213" width="21.9" height="15.0" fill="rgb(237,82,11)" rx="2" ry="2" />
+<text  x="450.04" y="223.5" >i..</text>
+</g>
+<g >
+<title>runtime.findrunnable (7 samples, 6.48%)</title><rect x="512.6" y="277" width="76.5" height="15.0" fill="rgb(228,84,15)" rx="2" ry="2" />
+<text  x="515.59" y="287.5" >runtime...</text>
+</g>
+<g >
+<title>net.(*conn).Read (1 samples, 0.93%)</title><rect x="141.1" y="277" width="10.9" height="15.0" fill="rgb(250,44,23)" rx="2" ry="2" />
+<text  x="144.11" y="287.5" ></text>
+</g>
+<g >
+<title>syscall.write (1 samples, 0.93%)</title><rect x="468.9" y="245" width="10.9" height="15.0" fill="rgb(249,57,43)" rx="2" ry="2" />
+<text  x="471.89" y="255.5" ></text>
+</g>
+<g >
+<title>runtime.nanotime (2 samples, 1.85%)</title><rect x="600.0" y="261" width="21.9" height="15.0" fill="rgb(213,61,29)" rx="2" ry="2" />
+<text  x="603.00" y="271.5" >r..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_http.(*bodyEOFSignal).Read (2 samples, 1.85%)</title><rect x="403.3" y="229" width="21.9" height="15.0" fill="rgb(240,17,51)" rx="2" ry="2" />
+<text  x="406.33" y="239.5" >g..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_http.(*persistConn).writeLoop (4 samples, 3.70%)</title><rect x="163.0" y="325" width="43.7" height="15.0" fill="rgb(217,144,30)" rx="2" ry="2" />
+<text  x="165.96" y="335.5" >gith..</text>
+</g>
+<g >
+<title>net.internetSocket (10 samples, 9.26%)</title><rect x="10.0" y="149" width="109.3" height="15.0" fill="rgb(233,161,40)" rx="2" ry="2" />
+<text  x="13.00" y="159.5" >net.internetS..</text>
+</g>
+<g >
+<title>internal/poll.(*FD).Close (1 samples, 0.93%)</title><rect x="403.3" y="101" width="11.0" height="15.0" fill="rgb(211,111,24)" rx="2" ry="2" />
+<text  x="406.33" y="111.5" ></text>
+</g>
+<g >
+<title>net.(*conn).Read (7 samples, 6.48%)</title><rect x="217.6" y="165" width="76.5" height="15.0" fill="rgb(209,116,40)" rx="2" ry="2" />
+<text  x="220.59" y="175.5" >net.(*co..</text>
+</g>
+<g >
+<title>time.appendInt (1 samples, 0.93%)</title><rect x="315.9" y="165" width="11.0" height="15.0" fill="rgb(247,138,11)" rx="2" ry="2" />
+<text  x="318.93" y="175.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_http.(*persistConn).readLoop (3 samples, 2.78%)</title><rect x="130.2" y="325" width="32.8" height="15.0" fill="rgb(231,60,39)" rx="2" ry="2" />
+<text  x="133.19" y="335.5" >gi..</text>
+</g>
+<g >
+<title>runtime.pthread_cond_signal (2 samples, 1.85%)</title><rect x="1037.0" y="245" width="21.9" height="15.0" fill="rgb(238,53,15)" rx="2" ry="2" />
+<text  x="1040.04" y="255.5" >r..</text>
+</g>
+<g >
+<title>syscall.Write (2 samples, 1.85%)</title><rect x="184.8" y="213" width="21.9" height="15.0" fill="rgb(226,178,18)" rx="2" ry="2" />
+<text  x="187.81" y="223.5" >s..</text>
+</g>
+<g >
+<title>syscall.syscall (1 samples, 0.93%)</title><rect x="447.0" y="149" width="11.0" height="15.0" fill="rgb(210,193,10)" rx="2" ry="2" />
+<text  x="450.04" y="159.5" ></text>
+</g>
+<g >
+<title>runtime.getitab (1 samples, 0.93%)</title><rect x="206.7" y="277" width="10.9" height="15.0" fill="rgb(227,119,17)" rx="2" ry="2" />
+<text  x="209.67" y="287.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*ReverseProxy).clusterInvoke (1 samples, 0.93%)</title><rect x="337.8" y="277" width="10.9" height="15.0" fill="rgb(225,77,22)" rx="2" ry="2" />
+<text  x="340.78" y="287.5" ></text>
+</g>
+<g >
+<title>net.(*netFD).Read (7 samples, 6.48%)</title><rect x="217.6" y="149" width="76.5" height="15.0" fill="rgb(205,202,12)" rx="2" ry="2" />
+<text  x="220.59" y="159.5" >net.(*ne..</text>
+</g>
+<g >
+<title>net.(*netFD).Write (5 samples, 4.63%)</title><rect x="348.7" y="165" width="54.6" height="15.0" fill="rgb(254,63,1)" rx="2" ry="2" />
+<text  x="351.70" y="175.5" >net.(..</text>
+</g>
+<g >
+<title>runtime.semawakeup (6 samples, 5.56%)</title><rect x="1058.9" y="213" width="65.5" height="15.0" fill="rgb(219,81,35)" rx="2" ry="2" />
+<text  x="1061.89" y="223.5" >runtime..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_bufio.(*Writer).flush (5 samples, 4.63%)</title><rect x="348.7" y="197" width="54.6" height="15.0" fill="rgb(241,172,49)" rx="2" ry="2" />
+<text  x="351.70" y="207.5" >githu..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_module.(*genericResponseFilter).FilterResponse (1 samples, 0.93%)</title><rect x="326.9" y="261" width="10.9" height="15.0" fill="rgb(206,38,2)" rx="2" ry="2" />
+<text  x="329.85" y="271.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_http.(*persistConn).readLoop.func3 (2 samples, 1.85%)</title><rect x="403.3" y="197" width="21.9" height="15.0" fill="rgb(219,4,18)" rx="2" ry="2" />
+<text  x="406.33" y="207.5" >g..</text>
+</g>
+<g >
+<title>runtime.wakep (1 samples, 0.93%)</title><rect x="589.1" y="261" width="10.9" height="15.0" fill="rgb(234,156,46)" rx="2" ry="2" />
+<text  x="592.07" y="271.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*chunkWriter).flush (5 samples, 4.63%)</title><rect x="348.7" y="229" width="54.6" height="15.0" fill="rgb(231,128,22)" rx="2" ry="2" />
+<text  x="351.70" y="239.5" >githu..</text>
+</g>
+<g >
+<title>net.(*netFD).dial (4 samples, 3.70%)</title><rect x="10.0" y="117" width="43.7" height="15.0" fill="rgb(230,218,9)" rx="2" ry="2" />
+<text  x="13.00" y="127.5" >net...</text>
+</g>
+<g >
+<title>syscall.read (7 samples, 6.48%)</title><rect x="217.6" y="101" width="76.5" height="15.0" fill="rgb(226,71,33)" rx="2" ry="2" />
+<text  x="220.59" y="111.5" >syscall...</text>
+</g>
+<g >
+<title>syscall.CloseOnExec (4 samples, 3.70%)</title><rect x="53.7" y="101" width="43.7" height="15.0" fill="rgb(224,177,34)" rx="2" ry="2" />
+<text  x="56.70" y="111.5" >sysc..</text>
+</g>
+<g >
+<title>runtime.netpoll (6 samples, 5.56%)</title><rect x="621.9" y="261" width="65.5" height="15.0" fill="rgb(212,38,11)" rx="2" ry="2" />
+<text  x="624.85" y="271.5" >runtime..</text>
+</g>
+<g >
+<title>runtime.mstart (33 samples, 30.56%)</title><rect x="829.4" y="325" width="360.6" height="15.0" fill="rgb(229,47,4)" rx="2" ry="2" />
+<text  x="832.44" y="335.5" >runtime.mstart</text>
+</g>
+<g >
+<title>net.socket (10 samples, 9.26%)</title><rect x="10.0" y="133" width="109.3" height="15.0" fill="rgb(234,85,16)" rx="2" ry="2" />
+<text  x="13.00" y="143.5" >net.socket</text>
+</g>
+<g >
+<title>runtime.notewakeup (6 samples, 5.56%)</title><rect x="1058.9" y="229" width="65.5" height="15.0" fill="rgb(250,92,12)" rx="2" ry="2" />
+<text  x="1061.89" y="239.5" >runtime..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*ReverseProxy).copyResponse (9 samples, 8.33%)</title><rect x="348.7" y="261" width="98.3" height="15.0" fill="rgb(238,7,45)" rx="2" ry="2" />
+<text  x="351.70" y="271.5" >github.com/..</text>
+</g>
+<g >
+<title>runtime.entersyscall_sysmon (2 samples, 1.85%)</title><rect x="1037.0" y="293" width="21.9" height="15.0" fill="rgb(215,225,2)" rx="2" ry="2" />
+<text  x="1040.04" y="303.5" >r..</text>
+</g>
+<g >
+<title>syscall.syscall (5 samples, 4.63%)</title><rect x="348.7" y="101" width="54.6" height="15.0" fill="rgb(218,76,49)" rx="2" ry="2" />
+<text  x="351.70" y="111.5" >sysca..</text>
+</g>
+<g >
+<title>syscall.Close (1 samples, 0.93%)</title><rect x="403.3" y="53" width="11.0" height="15.0" fill="rgb(213,171,40)" rx="2" ry="2" />
+<text  x="406.33" y="63.5" ></text>
+</g>
+<g >
+<title>time.Now (1 samples, 0.93%)</title><rect x="337.8" y="245" width="10.9" height="15.0" fill="rgb(248,77,36)" rx="2" ry="2" />
+<text  x="340.78" y="255.5" ></text>
+</g>
+<g >
+<title>internal/poll.accept (2 samples, 1.85%)</title><rect x="447.0" y="197" width="21.9" height="15.0" fill="rgb(234,3,27)" rx="2" ry="2" />
+<text  x="450.04" y="207.5" >i..</text>
+</g>
+<g >
+<title>runtime.gorecover (1 samples, 0.93%)</title><rect x="294.1" y="293" width="10.9" height="15.0" fill="rgb(223,38,38)" rx="2" ry="2" />
+<text  x="297.07" y="303.5" ></text>
+</g>
+<g >
+<title>syscall.syscall (1 samples, 0.93%)</title><rect x="403.3" y="37" width="11.0" height="15.0" fill="rgb(253,223,10)" rx="2" ry="2" />
+<text  x="406.33" y="47.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_server.(*conn).serveRequest (11 samples, 10.19%)</title><rect x="326.9" y="309" width="120.1" height="15.0" fill="rgb(240,74,52)" rx="2" ry="2" />
+<text  x="329.85" y="319.5" >github.com/bai..</text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_http.(*Transport).putIdleConn (1 samples, 0.93%)</title><rect x="403.3" y="181" width="11.0" height="15.0" fill="rgb(251,52,51)" rx="2" ry="2" />
+<text  x="406.33" y="191.5" ></text>
+</g>
+<g >
+<title>syscall.Accept (1 samples, 0.93%)</title><rect x="447.0" y="181" width="11.0" height="15.0" fill="rgb(230,128,53)" rx="2" ry="2" />
+<text  x="450.04" y="191.5" ></text>
+</g>
+<g >
+<title>github.com/baidu/bfe/bfe_http.(*Transport).getConn.func1 (11 samples, 10.19%)</title><rect x="10.0" y="325" width="120.2" height="15.0" fill="rgb(246,220,9)" rx="2" ry="2" />
+<text  x="13.00" y="335.5" >github.com/bai..</text>
+</g>
+<g >
+<title>runtime.resetspinning (1 samples, 0.93%)</title><rect x="818.5" y="277" width="10.9" height="15.0" fill="rgb(206,54,15)" rx="2" ry="2" />
+<text  x="821.52" y="287.5" ></text>
+</g>
+<g >
+<title>runtime.schedule (8 samples, 7.41%)</title><rect x="512.6" y="293" width="87.4" height="15.0" fill="rgb(239,135,3)" rx="2" ry="2" />
+<text  x="515.59" y="303.5" >runtime.sc..</text>
+</g>
+</g>
+</svg>
