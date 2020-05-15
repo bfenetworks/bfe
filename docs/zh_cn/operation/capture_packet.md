@@ -32,3 +32,4 @@ Modules = mod_key_log
   * 注：配置路径Edit→Preferences→Protocols→SSL→(Pre)-Master-Secret log filename
 
 * Step3: 使用wireshark打开并解密抓包数据
+![WireShark解密https](../../images/wireShark_decrypt_https.png)
