@@ -37,3 +37,4 @@ $ ./flamegraph.pl bfe.flame > bfe.svg
 ```
 
 * 在浏览器中打开bfe.svg查看
+![火焰图示例](../../images/bfe.svg)
