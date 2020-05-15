@@ -2,12 +2,13 @@
 
 BFE has built-in CPU profile interfaces, which can be used in conjunction with the FlameGraph tool to locate and analyze performance problems.
 
-## Configs
+## Configure monitor port
 
-Use the same port as the monitor
+Set monitor port in the BFE core configuration file (conf/bfe.conf).
+
 ```
-[server]
-monitorPort = 8421
+[Server]
+MonitorPort = 8421
 ```
 
 ## Tools

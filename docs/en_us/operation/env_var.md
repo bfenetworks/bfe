@@ -1,4 +1,4 @@
-# Environment arguments
+# Environment variables
 
 ## GODEBUG
 

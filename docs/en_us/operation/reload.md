@@ -1,6 +1,6 @@
-# Configuration Reload
+# Configuration reload
 
-BFE has built-in feature of configuration hot-reload. A new configuration file can be reload by sending a reload request.
+BFE has a built-in feature of configuration hot-reload. A new configuration file can be reload by sending a reload request.
 
 ## Configure monitor port
 
