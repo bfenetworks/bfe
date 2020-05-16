@@ -6,7 +6,7 @@ BFE内置配置热加载功能，通过请求Reload HTTP API能够加载新的�
 
 在BFE核心配置文件(conf/bfe.conf)中, 配置MonitorPort
 
-```
+```ini
 [Server]
 MonitorPort = 8421
 ```
@@ -14,7 +14,7 @@ MonitorPort = 8421
 ## 使用方式
 
 * reload接口仅允许使用localhost访问（127.0.0.1/::1）, 仅支持GET请求, 示例:
-```
+```bash
 # 重加载分流转发配置
 $ curl http://localhost:8421/reload/server_data_conf 
 ```

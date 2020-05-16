@@ -15,7 +15,7 @@ conf/mod_tag/mod_tag.conf
 | Log.OpenDebug | Boolean<br>debug flag of module |
 
 ### Example
-```
+```ini
 [Basic]
 DataPath = mod_tag/tag_rule.data
 

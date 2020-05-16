@@ -15,8 +15,8 @@ mod_userid为新用户自动在Cookie中添加用户标识。
 | Log.OpenDebug  | 是否启用模块调试日志开关 |
 
 ### 配置示例
-```
-[basic]
+```ini
+[Basic]
 DataPath = mod_userid/userid_rule.data
 
 [Log]

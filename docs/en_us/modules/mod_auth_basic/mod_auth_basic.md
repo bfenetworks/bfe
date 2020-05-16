@@ -16,11 +16,11 @@ conf/mod_auth_basic/mod_auth_basic.conf
 
 ### Example
 
-```json
-[basic]
+```ini
+[Basic]
 DataPath = mod_auth_basic/auth_basic_rule.data
 
-[log]
+[Log]
 OpenDebug = false
 ```
 

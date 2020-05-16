@@ -6,7 +6,7 @@ Use packet capture and analysis tools to locate and analyze complex network prob
 
 tcpdump example：
 
-```
+```bash
 # tcpdump tcp port 8443 -i any -s -w test.pcap
 ```
 
@@ -23,7 +23,7 @@ For TLS-based encrypted traffic, you can use mod_key_log and wireshark for analy
 * Step1: Enable mod_key_log module and save the TLS session key to key.log file
   * Note：modify bfe.conf and enable mod_key_log,  See module configuration [mod_key_log](../modules/mod_key_log/mod_key_log.md) for details
 
-```
+```ini
 [Server]
 Modules = mod_key_log
 ```

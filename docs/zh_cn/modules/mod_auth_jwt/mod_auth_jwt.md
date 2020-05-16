@@ -11,8 +11,8 @@ mod_auth_jwt支持JWT认证。
 
 ### 配置示例
 
-```
-[basic]
+```ini
+[Basic]
 # The path of the JWK file 
 # For more details, see https://tools.ietf.org/html/rfc7517
 SecretPath = mod_auth_jwt/secret.jwk
@@ -53,7 +53,7 @@ ValidateClaimNbf = true
 # Enable validation for Audience claim
 # ValidateClaimAud = audience
 
-[log]
+[Log]
 OpenDebug = true
 ```
 

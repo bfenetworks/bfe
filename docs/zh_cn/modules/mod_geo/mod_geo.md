@@ -17,8 +17,8 @@ mod_geo基于地理信息字典，通过用户IP获取相关的地理信息。
 字典文件说明：当前仅支持 MaxMind 地理信息字典, 可在 https://dev.maxmind.com/geoip/geoip2/geolite2/ 下载
 
 ### 配置示例
-```
-[basic]
+```ini
+[Basic]
 GeoDBPath = mod_geo/geo.db
 ```
 

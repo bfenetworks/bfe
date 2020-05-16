@@ -14,8 +14,8 @@ mod_rewrite根据自定义的条件，修改请求的URI。
 | Basic.DataPath | String<br>规则配置文件路径         |
 
 ### 配置示例
-```
-[basic]
+```ini
+[Basic]
 DataPath = mod_rewrite/rewrite.data
 ```
 

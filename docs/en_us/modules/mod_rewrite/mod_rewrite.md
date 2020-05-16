@@ -15,8 +15,8 @@ conf/mod_rewrite/mod_rewrite.conf
 
 ### Example
 
-```
-[basic]
+```ini
+[Basic]
 DataPath = mod_rewrite/rewrite.data
 ```
 

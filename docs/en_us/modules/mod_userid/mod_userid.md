@@ -15,8 +15,8 @@ conf/mod_userid/mod_userid.conf
 | Log.OpenDebug | Boolean<br>debug flag of module |
 
 ### Example
-```
-[basic]
+```ini
+[Basic]
 DataPath = mod_userid/userid_rule.data
 
 [Log]

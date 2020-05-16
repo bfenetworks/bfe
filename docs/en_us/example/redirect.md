@@ -10,20 +10,20 @@ Modify the example configurations (conf/) as the following steps:
 
 * Step 1. modify conf/bfe.conf and enable mod_redirect
 
-```
+```ini
 Modules = mod_redirect
 ```
 
 * Step 2. modify mod_redirect basic configuration (conf/mod_redirect/mod_redirect.conf)
   
-```
+```ini
 [basic]
 DataPath = mod_redirect/redirect.data
 ```
   
 * Step 3. modify redirect rule configuration (conf/mod_redirect/redirect.data), and add following rules.
   
-```
+```json
 {
     "Version": "init version",
     "Config": {
@@ -43,7 +43,7 @@ DataPath = mod_redirect/redirect.data
   
 * Step 4. Verify configured rules
 
-```
+```bash
 curl -H "host: example.org" "http://127.1:8080/test"  
 ```
 

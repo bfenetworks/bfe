@@ -19,7 +19,7 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
 | Log.BackupCount | Integer<br>最大的日志存储数量 |
 
 ### 配置示例
-```
+```ini
 [Log]
 # filename prefix for log 
 LogPrefix = key

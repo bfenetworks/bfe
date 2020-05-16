@@ -6,7 +6,7 @@ BFE has a built-in feature of configuration hot-reload. A new configuration file
 
 Set MonitorPort in BFE core configuration file(conf/bfe.conf)
 
-```
+```ini
 [Server]
 MonitorPort = 8421
 ```
@@ -15,7 +15,7 @@ MonitorPort = 8421
 
 * Reload APIs only allows to be accessed using localhost（127.0.0.1/::1）and only supports GET requests
 
-```
+```bash
 # reload routing configurations
 $ curl http://localhost:8421/reload/server_data_conf  
 ```

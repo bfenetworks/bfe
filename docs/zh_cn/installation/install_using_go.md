@@ -6,7 +6,7 @@
 ## 安装 
 - 获取并安装
 
-```
+```bash
 $ go get github.com/baidu/bfe
 ```
 
@@ -15,7 +15,7 @@ $ go get github.com/baidu/bfe
 ## 运行
 - 基于示例配置运行BFE:
 
-```
+```bash
 $ cd ${GOPATH}/bin/ 
 $ ./bfe -c ${GOPATH}/src/github.com/baidu/bfe/conf/
 ```

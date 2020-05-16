@@ -6,7 +6,7 @@
 ## 安装
 - 执行如下命令:
 
-```
+```bash
 $ sudo snap install --edge bfe
 ```
 
@@ -18,7 +18,7 @@ $ sudo snap install --edge bfe
 
 - 执行如下命令:
 
-```
+```bash
 $ sudo /snap/bin/bfe 
 ```
 

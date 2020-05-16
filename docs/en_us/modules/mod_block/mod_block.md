@@ -15,8 +15,8 @@ conf/mod_block/mod_block.conf
 | Basic.IPBlacklistPath | path of ip blacklist file |
 
 ### Example
-```
-[basic]
+```ini
+[Basic]
 # product rule config file path
 ProductRulePath = mod_block/block_rules.data
 

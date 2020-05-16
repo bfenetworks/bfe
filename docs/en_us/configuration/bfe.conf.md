@@ -60,7 +60,7 @@ bfe.conf is the core configuration file of BFE.
 
 ## Example
 
-```
+```ini
 [Server]
 # listen port for http request
 HttpPort = 8080
