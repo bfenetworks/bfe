@@ -1,4 +1,4 @@
 ---
-template: overrides/home_en.html
+template: overrides/home_zh.html
 title: Material for MkDocs
 ---

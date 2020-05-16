@@ -1,6 +1,6 @@
 # Summary
 
-* [关于](README.md)
+* [关于](ABOUT.md)
 * 介绍
   * [BFE概览](introduction/overview.md)
   * [竞品对比](introduction/comparison.md)

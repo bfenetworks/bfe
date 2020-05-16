@@ -44,8 +44,9 @@ extra:
       link: mailto:bfe-osc@baidu.com
 
 nav:
-  - 'Home': 'index.md'
-  - 'doc':
+  - 'HOME': 'index.md'
+  - 'DOCS':
+    - 'About': 'ABOUT.md'
     - 'Introduction':
       - 'Overview': 'introduction/overview.md'
       - 'Comparsion to similar systems': 'introduction/comparison.md'
@@ -110,7 +111,7 @@ nav:
       - 'mod_trust_clientip': 'modules/mod_trust_clientip/mod_trust_clientip.md'
       - 'mod_userid': 'modules/mod_userid/mod_userid.md'
     - 'Operations':
-      - 'Command line pptions': 'operation/command.md'
+      - 'Command line options': 'operation/command.md'
       - 'Environment variables': 'operation/env_var.md'
       - 'System signals': 'operation/signal.md'
       - 'Configuration reload': 'operation/reload.md'
@@ -173,4 +174,7 @@ nav:
         - 'TLS': 'condition/session/tls.md'
       - 'System related primitives':
         - 'Time': 'condition/system/time.md'
-
+  - 'DOWNLOAD':
+    - 'DOWNLOAD': 'DOWNLOAD.md' 
+  - 'COMMUNITY':
+    - 'COMMUNITY': 'COMMUNITY.md' 

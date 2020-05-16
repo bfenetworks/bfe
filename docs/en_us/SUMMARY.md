@@ -1,6 +1,6 @@
 # Summary
 
-* [About](README.md)
+* [About](ABOUT.md)
 * Introduction
   * [Overview](introduction/overview.md)
   * [Comparsion to similar systems](introduction/comparison.md)

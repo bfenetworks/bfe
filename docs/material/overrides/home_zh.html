@@ -9,13 +9,13 @@
     <div class="md-grid md-typeset">
       <div class="tx-hero">
         <div class="tx-hero__content">
-          <h1>BFE</h1>
+          <h1>BFE开源版</h1>
           <p>{{ config.site_description }}</p>
           <a href="{{ page.next_page.url | url }}" title="{{ page.next_page.title | striptags }}" class="md-button md-button--primary">
-            Get started
+            快速开始
           </a>
           <a href="{{ config.repo_url }}" title="{{ lang.t('source.link.title') }}" class="md-button">
-            Go to GitHub
+            前往GitHub
           </a>
         </div>
       </div>
@@ -26,38 +26,38 @@
   <div class="container">
         <div class="top-hr">
             <div class="feature-item">
-                <h2>Flexible plugin framework</h2>
-                <p>BFE has a builtin plugin framework that makes it possible to develop new features rapidly by writing plugins.</p>
+                <h2>灵活的模块框架</h2>
+                <p>内置灵活的模块框架，支持高效率定制开发第三方扩展模块</p>
             </div>
             <div class="feature-item">
-                <h2>Multi-tenancy architecture</h2>
-                <p>BFE is designed to provide every tenant a dedicated share of the instance. Each tenant’s configuration is isolated and remains invisible to other tenants.</p>
+                <h2>面向多租户架构</h2>
+                <p>基于多租户架构设计，租户之间配置相互隔离</p>
             </div>
             <div class="feature-item">
-                <h2>Multiple protocols</h2>
-                <p>BFE supports HTTP, HTTPS, SPDY, HTTP2, WebSocket, TLS, etc. Future support is planned for gRPC and HTTP/3.</p>
+                <h2>支持丰富的接入协议</h2>
+                <p>支持HTTP，HTTPS，SPDY，HTTP/2，WebSocket，TLS等。未来计划支持gRPC, HTTP/3</p>
             </div>
             <div class="feature-item">
-                <h2>Content based routing</h2>
-                <p>BFE provides an [advanced domain-specific language](../condition/condition_grammar.md) to describe routing rules which are easy to understand and maintain.</p>
+                <h2>基于请求内容路由</h2>
+                <p>支持高级条件表达式定制转发规则，转发规则易于理解及维护</p>
             </div>
         </div>
         <div class="top-hr">
             <div class="feature-item">
-                <h2>Advanced load balancing</h2>
-                <p>BFE supports global load balancing and distributed load balancing for zone aware balancing, zone level failure resilience, overload protection etc.</p>
+                <h2>高级负载均衡</h2>
+                <p>支持全局/分布式负载均衡，实现就近访问、跨可用区容灾及过载保护等</p>
             </div>
             <div class="feature-item">
-                <h2>Many builtin plugins</h2>
-                <p>BFE provides a rich set of plugins for traffic management, security, observability, etc.</p>
+                <h2>丰富的扩展模块</h2>
+                <p>提供丰富的流量管理、安全防攻击、可见性等相关扩展模块</p>
             </div>
             <div class="feature-item">
-                <h2>Best-in-class observability</h2>
-                <p>BFE includes detailed built-in metrics for all subsystems. BFE writes various logs(server log/access log/TLS key log) for trouble shooting, data analysis and visualization. BFE also supports distributed tracing.</p>
+                <h2>一流的可见性</h2>
+                <p>提供丰富详尽的监控指标；提供各类日志供问题诊断、数据分析及可视化；BFE还支持请求分布式Tracing</p>
             </div>
             <div class="feature-item">
-                <h2>Easily integrated</h2>
-                <p>BFE is easily integrated with mainstream layer 4 load balancing solution, and other ecosystem projects(e.g. Kubernetes、Prometheus、Jaeger、Fluentd etc).</p>
+                <h2>兼容适配主流生态项目</h2>
+                <p>兼容适配主流四层负载均衡方案，及其它生态项目如Kubernetes、Prometheus、Jaeger、Fluentd等</p>
             </div>
         </div>
       </div>
