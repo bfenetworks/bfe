@@ -61,14 +61,14 @@ DataPath = mod_header/header_rule.data
                             "X-Bfe-Log-Id",
                             "%bfe_log_id"
                         ]
-                    }，
+                    },
                     {
                         "cmd": "REQ_HEADER_SET",
                         "params": [
                             "X-Bfe-Vip",
                             "%bfe_vip"
                         ]
-                    }，
+                    },
                     {
                         "cmd": "RSP_HEADER_SET",
                         "params": [
