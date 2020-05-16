@@ -14,8 +14,8 @@ mod_errors根据自定义的条件，将响应内容替换为/重定向至指定
 | Log.OpenDebug           | Boolean<br>是否开启 debug 日志<br>默认值False |
 
 ### 配置示例
-```
-[basic]
+```ini
+[Basic]
 DataPath = mod_errors/errors_rule.data
 ```
 

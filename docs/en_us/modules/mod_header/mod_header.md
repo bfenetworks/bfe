@@ -16,8 +16,8 @@ conf/mod_header/mod_header.conf
 
 ### Example
 
-```
-[basic]
+```ini
+[Basic]
 DataPath = mod_header/header_rule.data
 ```
 

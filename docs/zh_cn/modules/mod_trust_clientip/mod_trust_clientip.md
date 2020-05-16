@@ -14,8 +14,8 @@ mod_trust_clientip基于配置信任IP列表，检查并标识访问用户真实
 | Basic.DataPath | String<br>IP字典文件路径，包含了所有信任IP |
 
 ### 配置示例
-```
-[basic]
+```ini
+[Basic]
 DataPath = mod_trust_clientip/trust_client_ip.data
 ```
 

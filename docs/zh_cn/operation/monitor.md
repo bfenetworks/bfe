@@ -6,7 +6,7 @@ BFE内置丰富的监控指标，支持多种格式，可以通过BFE实例的�
 
 在BFE核心配置文件(conf/bfe.conf)中, 配置MonitorPort
 
-```
+```ini
 [Server]
 MonitorPort = 8421
 ```

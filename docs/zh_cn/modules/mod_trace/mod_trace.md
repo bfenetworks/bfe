@@ -53,7 +53,7 @@ mod_trace根据自定义的条件，为请求开启分布式跟踪。
 
 #### 基于Zipkin示例
 
-```json
+```ini
 [Basic]
 DataPath = mod_trace/trace_rule.data
 ServiceName = bfe
@@ -81,7 +81,7 @@ SampleRate = 1.0
 ```
 
 #### 基于Jaeger示例
-```
+```ini
 [Basic]
 DataPath = mod_trace/trace_rule.data
 ServiceName = bfe
@@ -134,7 +134,7 @@ CollectorPassword = ""
 ```
 
 #### 基于Elastic示例
-```
+```ini
 [Basic]
 DataPath = mod_trace/trace_rule.data
 ServiceName = bfe

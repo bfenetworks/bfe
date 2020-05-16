@@ -54,7 +54,7 @@ mod_trace enables tracing for requests based on defined rules.
 
 #### Example for Zipkin
 
-```
+```ini
 [Basic]
 DataPath = mod_trace/trace_rule.data
 ServiceName = bfe
@@ -83,7 +83,7 @@ SampleRate = 1.0
 
 #### Example for Jaeger
 
-```
+```ini
 [Basic]
 DataPath = mod_trace/trace_rule.data
 ServiceName = bfe
@@ -137,7 +137,7 @@ CollectorPassword = ""
 
 #### Example for Elastic
 
-```
+```ini
 [Basic]
 DataPath = mod_trace/trace_rule.data
 ServiceName = bfe

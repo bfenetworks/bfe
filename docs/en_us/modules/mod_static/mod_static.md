@@ -14,8 +14,8 @@ conf/mod_static/mod_static.conf
 | Basic.DataPath | String<br>path of rule configuraiton |
 
 ### Example
-```
-[basic]
+```ini
+[Basic]
 DataPath = mod_static/static_rule.data
 ```
 

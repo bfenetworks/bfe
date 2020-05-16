@@ -6,7 +6,7 @@
 ## Installation 
 - Get the source code and install
 
-```
+```bash
 $ go get github.com/baidu/bfe
 ```
 
@@ -15,7 +15,7 @@ Executable object file location is ${GOPATH}/bin/bfe
 ## Run
 - Run BFE with example configuration files:
 
-```
+```bash
 $ cd ${GOPATH}/bin/ 
 $ ./bfe -c ${GOPATH}/src/github.com/baidu/bfe/conf/
 ```

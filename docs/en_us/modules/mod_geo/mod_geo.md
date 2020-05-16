@@ -18,7 +18,7 @@ mod_geo supports GeoDB in MaxMind format which can be downloaded from
 https://dev.maxmind.com/geoip/geoip2/geolite2/
 
 ### Example
-```
-[basic]
+```ini
+[Basic]
 GeoDBPath = mod_geo/geo.db
 ```

@@ -20,7 +20,7 @@ mod_access writes request logs and session logs in the specified format.
 
 ### Example
 
-```
+```ini
 [Log]
 # filename prefix for log
 LogPrefix = access

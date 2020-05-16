@@ -14,8 +14,8 @@ mod_rediect根据自定义的条件，对请求进行重定向。
 | Basic.DataPath | String<br>规则配置文件路径         |
 
 ### 配置示例
-```
-[basic]
+```ini
+[Basic]
 DataPath = mod_redirect/redirect.data
 ```
 

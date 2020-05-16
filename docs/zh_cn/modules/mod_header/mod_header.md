@@ -14,8 +14,8 @@ mod_header根据自定义条件，修改请求或响应的头部。
 | Log.OpenDebug           | Boolean<br>是否开启 debug 日志<br>默认值False |
 
 ### 配置示例
-```
-[basic]
+```ini
+[Basic]
 DataPath = mod_header/header_rule.data
 ```
 

@@ -8,7 +8,7 @@
 
 - 将文件解压到安装目录:
 
-```
+```bash
 $ tar zxvf bfe_<version>_<os>_<arch>.tar.gz
 ```
 
@@ -16,7 +16,7 @@ $ tar zxvf bfe_<version>_<os>_<arch>.tar.gz
 
 - 基于示例配置运行BFE:
 
-```
+```bash
 $ cd bfe/bin
 $ ./bfe -c ../conf -l ../log
 ```

@@ -15,11 +15,11 @@ mod_compress支持对响应主体压缩。
 
 ### 配置示例
 - 模块配置文件
-```
-[basic]
+```ini
+[Basic]
 DataPath = mod_compress/compress_rule.data
 
-[log]
+[Log]
 OpenDebug = false
 ```
 

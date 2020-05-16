@@ -23,7 +23,7 @@ BFE的文档主要分为以下几个类别：
 
 以ubuntu系统为例，运行：
 
-```
+```bash
 $ sudo apt-get update && apt-get install -y npm
 $ sudo npm install -g gitbook-cli
 ```
@@ -32,7 +32,7 @@ $ sudo npm install -g gitbook-cli
 
 下载完整的BFE仓库：
 
-```
+```bash
 $ git clone https://github.com/baidu/bfe
 ```
 
@@ -40,7 +40,7 @@ $ git clone https://github.com/baidu/bfe
 
 进入您希望加载和构建内容的目录列表（docs/LANG）, 运行：
 
-```
+```bash
 $ cd docs/zh_cn/
 $ gitbook serve --port 8000
 ...
@@ -67,7 +67,7 @@ Serving book on http://localhost:8000
 
 - 在文档基目录(docs/LANG)启动预览工具
 
-```
+```bash
 $ cd docs/zh_cn/
 $ gitbook serve --port 8000
 ```

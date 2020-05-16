@@ -15,7 +15,7 @@ mod_tag根据自定义的条件，为请求设置Tag标识。
 | Log.OpenDebug  | String<br>是否启用模块调试日志开关 |
 
 ### 配置示例
-```
+```ini
 [Basic]
 DataPath = mod_tag/tag_rule.data
 

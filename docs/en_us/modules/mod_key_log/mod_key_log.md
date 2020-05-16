@@ -21,7 +21,7 @@ conf/mod_key_log/mod_key_log.conf
 | Log.BackupCount | Integer<br>max number of rotated log files |
 
 ### Example
-```
+```ini
 [Log]
 # filename prefix for log 
 LogPrefix = key

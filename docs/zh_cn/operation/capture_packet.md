@@ -6,7 +6,7 @@
 
 使用tcpdump抓取示例：
 
-```
+```bash
 # tcpdump tcp port 8443 -i any -s -w test.pcap
 ```
 
@@ -23,7 +23,7 @@
 * Step1: 在bfe开启mod_key_log模块，保存TLS会话密钥到key.log日志文件中
   * 注：修改bfe.conf文件，增加启用mod_key_log模块, 模块配置详见[mod_key_log](../modules/mod_key_log/mod_key_log.md)
 
-```
+```ini
 [Server]
 Modules = mod_key_log
 ```
