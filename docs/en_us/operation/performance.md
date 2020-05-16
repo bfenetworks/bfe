@@ -8,7 +8,7 @@ Set monitor port in the BFE core configuration file (conf/bfe.conf).
 
 ```ini
 [Server]
-monitorPort = 8421
+MonitorPort = 8421
 ```
 
 ## Tools
