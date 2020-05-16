@@ -23,7 +23,7 @@ mod_block基于自定义的规则，对连接或请求进行封禁。
 ```
 
 ### 配置示例
-```
+```ini
 [basic]
 # product rule config file path
 ProductRulePath = mod_block/block_rules.data

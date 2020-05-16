@@ -6,7 +6,7 @@
 ## Installation
 - Execute the following command to install bfe:
 
-```
+```bash
 $ sudo snap install --edge bfe
 ```
 
@@ -18,7 +18,7 @@ Log files location: /var/snap/bfe/common/log
 
 - Execute the following command to run bfe:
 
-```
+```bash
 $ sudo /snap/bin/bfe 
 ```
 

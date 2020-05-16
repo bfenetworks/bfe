@@ -8,7 +8,7 @@
 
 * Step 1. Generate root certificate
 
-```
+```bash
 openssl genrsa -out root.key 2048
 
 openssl req -new -x509 -days 365 -key root.key -out root.crt
@@ -16,7 +16,7 @@ openssl req -new -x509 -days 365 -key root.key -out root.crt
 
 * Step 2. Create a client certificate signing request
 
-```
+```bash
 openssl genrsa -out client.key 2048
 
 openssl req -new -out client.csr -key client.key  
@@ -24,7 +24,7 @@ openssl req -new -out client.csr -key client.key
 
 * Step 3. Generate client certificate
 
-```
+```bash
 echo "extendedKeyUsage = clientAuth" > openssl.cnf
 
 openssl x509 -req -in client.csr -out client.crt -signkey client.key -CA root.crt -CAkey root.key  -days 365  -extfile openssl.cnf
@@ -63,14 +63,14 @@ backend bk_server_https
 
 Run HAproxy
 
-```
+```bash
 haproxy -f haproxy.cfg
 ```
 
 * Step 5. Configure BFE.
 Copy root.crt to tls_conf/client_ca directory(note: the suffix of root certificate should be ".crt").
 
-```
+```ini
 [server]
 ...
 Layer4LoadBalancer = "PROXY"
@@ -84,7 +84,7 @@ clientCABaseDir = tls_conf/client_ca
   
 Modify conf/tls_conf_rule.data and set "ClientAuth" to true and "ClientCAName" to name of the root certificate.
   
-```
+```json
 {
     "Version": "12",
     "DefaultNextProtos": [
@@ -110,12 +110,12 @@ Modify conf/tls_conf_rule.data and set "ClientAuth" to true and "ClientCAName" t
 ```
 
 Run BFE.
-```
+```bash
 ./bfe -c ../conf
 ```
 
 * Step 6. Verify configuration
 
-```
+```bash
 openssl s_client -connect 127.0.0.1:7443 -cert client.crt -key client.key -state -quiet
 ```

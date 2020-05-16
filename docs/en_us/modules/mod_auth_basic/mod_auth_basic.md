@@ -16,7 +16,7 @@ conf/mod_auth_basic/mod_auth_basic.conf
 
 ### Example
 
-```json
+```ini
 [basic]
 DataPath = mod_auth_basic/auth_basic_rule.data
 

@@ -22,7 +22,7 @@ mod_access以指定格式记录请求日志和会话日志。
   * COMBINED：Combined Log Format; 等价于配置 RequestTemplate = $host - - $request_time \\"$request_line\\" $status_code $res_len \\"${Referer}req_header\\" \\"${User-Agent}req_header\\"
 
 ### 配置示例
-```
+```ini
 [Log]
 # filename prefix for log
 LogPrefix = access

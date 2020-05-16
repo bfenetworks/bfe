@@ -23,7 +23,7 @@ Before doing this, please make sure your operating system has gitbook installed.
 
 Take the ubuntu system as an example, run:
 
-```
+```bash
 $ sudo apt-get update && apt-get install -y npm
 $ sudo npm install -g gitbook-cli
 ```
@@ -33,7 +33,7 @@ $ sudo npm install -g gitbook-cli
 
 First download the full repository:
 
-```
+```bash
 $ git clone https://github.com/baidu/bfe
 ```
 
@@ -41,7 +41,7 @@ $ git clone https://github.com/baidu/bfe
 
 Change to base directory of documents which you want to load and build(docs/LANG), run:
 
-```
+```bash
 $ cd docs/en_us/
 $ gitbook serve --port 8000
 ...
@@ -67,7 +67,7 @@ All content should be written in [Markdown](https://guides.github.com/features/m
 
 - Run the preview tool in base directory of documents (docs/LANG)
 
-```
+```bash
 $ cd docs/en_us/
 $ gitbook serve --port 8000
 ```

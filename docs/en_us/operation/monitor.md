@@ -5,7 +5,7 @@ BFE has a variety of built-in metrics which can be exposed in various formats.
 ## Configure monitor port
 Set monitor port in the BFE core configuration file (conf/bfe.conf).
 
-```
+```ini
 [Server]
 MonitorPort = 8421
 ```

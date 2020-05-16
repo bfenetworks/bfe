@@ -11,7 +11,7 @@ mod_auth_jwt支持JWT认证。
 
 ### 配置示例
 
-```
+```ini
 [basic]
 # The path of the JWK file 
 # For more details, see https://tools.ietf.org/html/rfc7517

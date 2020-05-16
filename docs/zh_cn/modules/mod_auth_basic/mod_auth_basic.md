@@ -15,7 +15,7 @@ mod_auth_basic支持HTTP基本认证。
 
 ### 配置示例
 
-```
+```ini
 [basic]
 DataPath = mod_auth_basic/auth_basic_rule.data
 

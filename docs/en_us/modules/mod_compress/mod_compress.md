@@ -16,7 +16,7 @@ conf/mod_compress/mod_compress.conf
 
 ### Example
 
-```
+```ini
 [basic]
 DataPath = mod_compress/compress_rule.data
 

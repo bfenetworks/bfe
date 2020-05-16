@@ -59,7 +59,7 @@ bfe.conf是BFE的核心配置
 
 ## 配置示例
 
-```
+```ini
 [Server]
 # listen port for http request
 HttpPort = 8080

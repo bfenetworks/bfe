@@ -8,7 +8,7 @@
 
 * Step 1. 生成根证书
 
-```
+```bash
 openssl genrsa -out root.key 2048
 
 openssl req -new -x509 -days 365 -key root.key -out root.crt
@@ -16,7 +16,7 @@ openssl req -new -x509 -days 365 -key root.key -out root.crt
 
 * Step 2. 创建客户端证书签名申请
 
-```
+```bash
 openssl genrsa -out client.key 2048
 
 openssl req -new -out client.csr -key client.key  
@@ -24,7 +24,7 @@ openssl req -new -out client.csr -key client.key
 
 * Step 3. 生成客户端证书
 
-```
+```bash
 echo "extendedKeyUsage = clientAuth" > openssl.cnf
 
 openssl x509 -req -in client.csr -out client.crt -signkey client.key -CA root.crt -CAkey root.key  -days 365  -extfile openssl.cnf
@@ -66,14 +66,14 @@ openssl x509 -req -in client.csr -out client.crt -signkey client.key -CA root.cr
 
 启动HAproxy
 
-```
+```bash
 haproxy -f haproxy.cfg
 ```
 
 * Step 5. 配置BFE客户端证书文件存储路径(conf/bfe.conf)，将root.crt复制到tls_conf/client_ca目录
 注：根证书文件后缀名必须为.crt
 
-```
+```ini
 [server]
 ...
 Layer4LoadBalancer = "PROXY"
@@ -87,7 +87,7 @@ clientCABaseDir = tls_conf/client_ca
   
 修改 conf/tls_conf_rule.data，将ClientAuth置为true，ClientCAName填写根证书文件名。
   
-```
+```json
   {
       "Version": "12",
       "DefaultNextProtos": [
@@ -113,12 +113,12 @@ clientCABaseDir = tls_conf/client_ca
 ```
 
 启动BFE
-```
+```bash
 ./bfe -c ../conf
 ```
 
 * Step 6. 验证配置
 
-```
+```bash
 openssl s_client -connect 127.0.0.1:7443 -cert client.crt -key client.key -state -quiet
 ```

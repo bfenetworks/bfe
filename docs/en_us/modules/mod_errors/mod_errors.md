@@ -15,7 +15,7 @@ conf/mod_errors/mod_errors.conf
 | Log.OpenDebug        | Boolean<br>Whether enable debug logs<br>Default False |
 
 ### Example
-```
+```ini
 [basic]
 DataPath = mod_errors/errors_rule.data
 ```

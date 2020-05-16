@@ -15,7 +15,7 @@ conf/mod_redirect/mod_redirect.conf
 
 ### Example
 
-```
+```ini
 [basic]
 DataPath = mod_redirect/redirect.data
 ```

@@ -14,7 +14,7 @@ conf/mod_trust_clientip/mod_trust_clientip.conf
 | Basic.DataPath | String<br>path of rule configuraiton |
 
 ### Example
-```
+```ini
 [basic]
 DataPath = mod_trust_clientip/trust_client_ip.data
 ```
