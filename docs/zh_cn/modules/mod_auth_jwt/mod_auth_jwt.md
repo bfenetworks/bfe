@@ -63,8 +63,8 @@ OpenDebug = true
 {
 	"Version": "Version",
 	"Config": {
-                "example_product": [
-                        "Cond": "req_host_in(\"www.example.org\")",
+                "example_product": {
+                        "Cond": "req_host_in(\"www.example.org\")"
 		}
 	}
 }
