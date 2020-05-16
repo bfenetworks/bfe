@@ -2,25 +2,33 @@
 
 
 <!doctype html>
-<html lang="zh" class="no-js">
+<html lang="en" class="no-js">
   <head>
     
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
+        <meta name="description" content="An modern layer 7 load balancer derived from proprietary Baidu Front End.">
       
       
-      <link rel="shortcut icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.5">
+      
+      <link rel="shortcut icon" href="../../assets/favicon.png">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
-        <title>提交PR注意事项 - BFE</title>
+        <title>Sumbit PR - BFE</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.df84b5fe.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.127eade9.min.css">
       
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.c929de0b.min.css">
+      
+      
+        
+        
+        <meta name="theme-color" content="#3f51b5">
       
     
     
@@ -40,7 +48,9 @@
   </head>
   
   
-    <body dir="">
+    
+    
+    <body dir="ltr" data-md-color-primary="indigo" data-md-color-accent="indigo">
   
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
@@ -48,8 +58,8 @@
     <div data-md-component="skip">
       
         
-        <a href="#pr" class="md-skip">
-          跳转至
+        <a href="#guide-of-submitting-pr-to-github" class="md-skip">
+          Skip to content
         </a>
       
     </div>
@@ -58,11 +68,11 @@
     </div>
     
       <header class="md-header" data-md-component="header">
-  <nav class="md-header-nav md-grid" aria-label="">
+  <nav class="md-header-nav md-grid" aria-label="Header">
     <a href="../.." title="BFE" class="md-header-nav__button md-logo" aria-label="BFE">
       
   
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 003-3 3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54z"/></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 89 89"><path d="M3.136 17.387v42.932l42.932 21.467L3.136 17.387z"/><path d="M21.91 8l42.933 64.398-18.775 9.388L3.136 17.387 21.91 8z" fill-opacity=".5"/><path d="M67.535 17.387L40.273 35.543l21.878 32.818 5.384 2.691V17.387z"/><path d="M67.535 17.387v53.666l18.774-9.388V8l-18.774 9.387z" fill-opacity=".25"/></svg>
 
     </a>
     <label class="md-header-nav__button md-icon" for="__drawer">
@@ -76,7 +86,7 @@
           </span>
           <span class="md-header-nav__topic md-ellipsis">
             
-              提交PR注意事项
+              Sumbit PR
             
           </span>
         </div>
@@ -91,12 +101,12 @@
   <label class="md-search__overlay" for="__search"></label>
   <div class="md-search__inner" role="search">
     <form class="md-search__form" name="search">
-      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" data-md-state="active">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" data-md-state="active">
       <label class="md-search__icon md-icon" for="__search">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0116 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 019.5 16 6.5 6.5 0 013 9.5 6.5 6.5 0 019.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
       </label>
-      <button type="reset" class="md-search__icon md-icon" aria-label="" data-md-component="search-reset" tabindex="-1">
+      <button type="reset" class="md-search__icon md-icon" aria-label="Clear" data-md-component="search-reset" tabindex="-1">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>
       </button>
     </form>
@@ -104,7 +114,7 @@
       <div class="md-search__scrollwrap" data-md-scrollfix>
         <div class="md-search-result" data-md-component="search-result">
           <div class="md-search-result__meta">
-            
+            Initializing search
           </div>
           <ol class="md-search-result__list"></ol>
         </div>
@@ -116,7 +126,7 @@
     
       <div class="md-header-nav__source">
         
-<a href="https://github.com/baidu/bfe/" title="前往 GitHub 仓库" class="md-source">
+<a href="https://github.com/baidu/bfe/" title="Go to repository" class="md-source">
   <div class="md-source__icon md-icon">
     
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M439.55 236.05L244 40.45a28.87 28.87 0 00-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 01-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 000 40.81l195.61 195.6a28.86 28.86 0 0040.8 0l194.69-194.69a28.86 28.86 0 000-40.81z"/></svg>
@@ -136,6 +146,67 @@
       
       
         
+          
+
+  
+
+<nav class="md-tabs md-tabs--active" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  <li class="md-tabs__item">
+    
+      <a href="../.." class="md-tabs__link">
+        HOME
+      </a>
+    
+  </li>
+
+      
+        
+  
+  
+    <li class="md-tabs__item">
+      
+        <a href="../../ABOUT/" class="md-tabs__link md-tabs__link--active">
+          DOCS
+        </a>
+      
+    </li>
+  
+
+      
+        
+  
+  
+    <li class="md-tabs__item">
+      
+        <a href="../../DOWNLOAD/" class="md-tabs__link">
+          DOWNLOAD
+        </a>
+      
+    </li>
+  
+
+      
+        
+  
+  
+    <li class="md-tabs__item">
+      
+        <a href="../../COMMUNITY/" class="md-tabs__link">
+          COMMUNITY
+        </a>
+      
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+        
       
       <main class="md-main" data-md-component="main">
         <div class="md-main__inner md-grid">
@@ -144,12 +215,12 @@
               <div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
                 <div class="md-sidebar__scrollwrap">
                   <div class="md-sidebar__inner">
-                    <nav class="md-nav md-nav--primary" aria-label="" data-md-level="0">
+                    <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="BFE" class="md-nav__button md-logo" aria-label="BFE">
       
   
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 003-3 3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54z"/></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 89 89"><path d="M3.136 17.387v42.932l42.932 21.467L3.136 17.387z"/><path d="M21.91 8l42.933 64.398-18.775 9.388L3.136 17.387 21.91 8z" fill-opacity=".5"/><path d="M67.535 17.387L40.273 35.543l21.878 32.818 5.384 2.691V17.387z"/><path d="M67.535 17.387v53.666l18.774-9.388V8l-18.774 9.387z" fill-opacity=".25"/></svg>
 
     </a>
     BFE
@@ -157,7 +228,7 @@
   
     <div class="md-nav__source">
       
-<a href="https://github.com/baidu/bfe/" title="前往 GitHub 仓库" class="md-source">
+<a href="https://github.com/baidu/bfe/" title="Go to repository" class="md-source">
   <div class="md-source__icon md-icon">
     
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M439.55 236.05L244 40.45a28.87 28.87 0 00-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 01-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 000 40.81l195.61 195.6a28.86 28.86 0 0040.8 0l194.69-194.69a28.86 28.86 0 000-40.81z"/></svg>
@@ -176,8 +247,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../.." title="关于" class="md-nav__link">
-      关于
+    <a href="../.." title="HOME" class="md-nav__link">
+      HOME
     </a>
   </li>
 
@@ -186,23 +257,25 @@
       
       
 
+  
 
-  <li class="md-nav__item md-nav__item--nested">
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2" checked>
     
     <label class="md-nav__link" for="nav-2">
-      介绍
+      DOCS
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="介绍" data-md-level="1">
+    <nav class="md-nav" aria-label="DOCS" data-md-level="1">
       <label class="md-nav__title" for="nav-2">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        介绍
+        DOCS
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -213,8 +286,45 @@
 
 
   <li class="md-nav__item">
-    <a href="../../introduction/overview/" title="BFE概览" class="md-nav__link">
-      BFE概览
+    <a href="../../ABOUT/" title="About" class="md-nav__link">
+      About
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-2" type="checkbox" id="nav-2-2">
+    
+    <label class="md-nav__link" for="nav-2-2">
+      Introduction
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="Introduction" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-2">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        Introduction
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../introduction/overview/" title="Overview" class="md-nav__link">
+      Overview
     </a>
   </li>
 
@@ -225,9 +335,116 @@
 
 
   <li class="md-nav__item">
-    <a href="../../introduction/comparison/" title="竞品对比" class="md-nav__link">
-      竞品对比
+    <a href="../../introduction/comparison/" title="Comparsion to similar systems" class="md-nav__link">
+      Comparsion to similar systems
     </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-2-3" type="checkbox" id="nav-2-2-3">
+    
+    <label class="md-nav__link" for="nav-2-2-3">
+      Design overview
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="Design overview" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-2-3">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        Design overview
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../introduction/terminology/" title="Terminology" class="md-nav__link">
+      Terminology
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../introduction/forward_model/" title="Traffic fowarding model" class="md-nav__link">
+      Traffic fowarding model
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../introduction/route/" title="Traffic routing" class="md-nav__link">
+      Traffic routing
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../introduction/balance/" title="Traffic balancing" class="md-nav__link">
+      Traffic balancing
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../introduction/getting_help/" title="Getting help" class="md-nav__link">
+      Getting help
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="https://github.com/baidu/bfe/blob/master/CHANGELOG.md" title="Version history" class="md-nav__link">
+      Version history
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
   </li>
 
         
@@ -241,17 +458,17 @@
       <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-3" type="checkbox" id="nav-2-3">
     
     <label class="md-nav__link" for="nav-2-3">
-      设计简介
+      Getting started
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="设计简介" data-md-level="2">
+    <nav class="md-nav" aria-label="Getting started" data-md-level="2">
       <label class="md-nav__title" for="nav-2-3">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        设计简介
+        Getting started
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -262,8 +479,45 @@
 
 
   <li class="md-nav__item">
-    <a href="../../introduction/terminology/" title="相关术语" class="md-nav__link">
-      相关术语
+    <a href="../../installation/install_from_source/" title="Install BFE" class="md-nav__link">
+      Install BFE
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-3-2" type="checkbox" id="nav-2-3-2">
+    
+    <label class="md-nav__link" for="nav-2-3-2">
+      User guides
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="User guides" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-3-2">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        User guides
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../example/guide/" title="Overview" class="md-nav__link">
+      Overview
     </a>
   </li>
 
@@ -274,8 +528,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../introduction/forward_model/" title="流量接入转发模型" class="md-nav__link">
-      流量接入转发模型
+    <a href="../../example/route/" title="Traffic forwarding" class="md-nav__link">
+      Traffic forwarding
     </a>
   </li>
 
@@ -286,8 +540,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../introduction/route/" title="基于内容路由" class="md-nav__link">
-      基于内容路由
+    <a href="../../example/block/" title="Traffic blocking" class="md-nav__link">
+      Traffic blocking
     </a>
   </li>
 
@@ -298,8 +552,127 @@
 
 
   <li class="md-nav__item">
-    <a href="../../introduction/balance/" title="流量负载均衡" class="md-nav__link">
-      流量负载均衡
+    <a href="../../example/redirect/" title="Request redirect" class="md-nav__link">
+      Request redirect
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../example/rewrite/" title="Request rewrite" class="md-nav__link">
+      Request rewrite
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../example/client_auth/" title="TLS mutual authentication" class="md-nav__link">
+      TLS mutual authentication
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-4" type="checkbox" id="nav-2-4">
+    
+    <label class="md-nav__link" for="nav-2-4">
+      Installation
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="Installation" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-4">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        Installation
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../installation/install/" title="Overview" class="md-nav__link">
+      Overview
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../installation/install_from_source/" title="Install from source" class="md-nav__link">
+      Install from source
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../installation/install_using_binaries/" title="Install using binaries" class="md-nav__link">
+      Install using binaries
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../installation/install_using_go/" title="Install using go" class="md-nav__link">
+      Install using go
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../installation/install_using_snap/" title="Install using snap" class="md-nav__link">
+      Install using snap
     </a>
   </li>
 
@@ -314,51 +687,22 @@
           
 
 
-  <li class="md-nav__item">
-    <a href="../../introduction/getting_help/" title="获取帮助" class="md-nav__link">
-      获取帮助
-    </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="https://github.com/baidu/bfe/blob/master/CHANGELOG.md" title="发布历史" class="md-nav__link">
-      发布历史
-    </a>
-  </li>
-
-        
-      </ul>
-    </nav>
-  </li>
-
-    
-      
-      
-      
-
-
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-3" type="checkbox" id="nav-3">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-5" type="checkbox" id="nav-2-5">
     
-    <label class="md-nav__link" for="nav-3">
-      快速开始
+    <label class="md-nav__link" for="nav-2-5">
+      Configuration
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="快速开始" data-md-level="1">
-      <label class="md-nav__title" for="nav-3">
+    <nav class="md-nav" aria-label="Configuration" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-5">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        快速开始
+        Configuration
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -369,8 +713,20 @@
 
 
   <li class="md-nav__item">
-    <a href="../../installation/install_from_source/" title="安装及运行" class="md-nav__link">
-      安装及运行
+    <a href="../../configuration/config/" title="Overview" class="md-nav__link">
+      Overview
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../configuration/bfe.conf/" title="Core" class="md-nav__link">
+      Core
     </a>
   </li>
 
@@ -382,266 +738,20 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-3-2" type="checkbox" id="nav-3-2">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-5-3" type="checkbox" id="nav-2-5-3">
     
-    <label class="md-nav__link" for="nav-3-2">
-      使用示例
+    <label class="md-nav__link" for="nav-2-5-3">
+      Protocol
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="使用示例" data-md-level="2">
-      <label class="md-nav__title" for="nav-3-2">
+    <nav class="md-nav" aria-label="Protocol" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-5-3">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        使用示例
-      </label>
-      <ul class="md-nav__list" data-md-scrollfix>
-        
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../../example/guide/" title="使用示例" class="md-nav__link">
-      使用示例
-    </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../../example/route/" title="流量转发" class="md-nav__link">
-      流量转发
-    </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../../example/block/" title="黑名单封禁" class="md-nav__link">
-      黑名单封禁
-    </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../../example/redirect/" title="重定向" class="md-nav__link">
-      重定向
-    </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../../example/rewrite/" title="重写" class="md-nav__link">
-      重写
-    </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../../example/client_auth/" title="TLS客户端认证" class="md-nav__link">
-      TLS客户端认证
-    </a>
-  </li>
-
-        
-      </ul>
-    </nav>
-  </li>
-
-        
-      </ul>
-    </nav>
-  </li>
-
-    
-      
-      
-      
-
-
-  <li class="md-nav__item md-nav__item--nested">
-    
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-4" type="checkbox" id="nav-4">
-    
-    <label class="md-nav__link" for="nav-4">
-      安装说明
-      <span class="md-nav__icon md-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
-      </span>
-    </label>
-    <nav class="md-nav" aria-label="安装说明" data-md-level="1">
-      <label class="md-nav__title" for="nav-4">
-        <span class="md-nav__icon md-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
-        </span>
-        安装说明
-      </label>
-      <ul class="md-nav__list" data-md-scrollfix>
-        
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../../installation/install/" title="安装概述" class="md-nav__link">
-      安装概述
-    </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../../installation/install_from_source/" title="源码编译安装" class="md-nav__link">
-      源码编译安装
-    </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../../installation/install_using_binaries/" title="二进制文件下载安装" class="md-nav__link">
-      二进制文件下载安装
-    </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../../installation/install_using_go/" title="go方式安装" class="md-nav__link">
-      go方式安装
-    </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../../installation/install_using_snap/" title="snap方式安装" class="md-nav__link">
-      snap方式安装
-    </a>
-  </li>
-
-        
-      </ul>
-    </nav>
-  </li>
-
-    
-      
-      
-      
-
-
-  <li class="md-nav__item md-nav__item--nested">
-    
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-5" type="checkbox" id="nav-5">
-    
-    <label class="md-nav__link" for="nav-5">
-      配置说明
-      <span class="md-nav__icon md-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
-      </span>
-    </label>
-    <nav class="md-nav" aria-label="配置说明" data-md-level="1">
-      <label class="md-nav__title" for="nav-5">
-        <span class="md-nav__icon md-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
-        </span>
-        配置说明
-      </label>
-      <ul class="md-nav__list" data-md-scrollfix>
-        
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../../configuration/config/" title="配置概述" class="md-nav__link">
-      配置概述
-    </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item">
-    <a href="../../configuration/bfe.conf/" title="核心配置" class="md-nav__link">
-      核心配置
-    </a>
-  </li>
-
-        
-          
-          
-          
-
-
-  <li class="md-nav__item md-nav__item--nested">
-    
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-5-3" type="checkbox" id="nav-5-3">
-    
-    <label class="md-nav__link" for="nav-5-3">
-      协议
-      <span class="md-nav__icon md-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
-      </span>
-    </label>
-    <nav class="md-nav" aria-label="协议" data-md-level="2">
-      <label class="md-nav__title" for="nav-5-3">
-        <span class="md-nav__icon md-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
-        </span>
-        协议
+        Protocol
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -664,8 +774,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../configuration/tls_conf/server_cert_conf.data/" title="证书" class="md-nav__link">
-      证书
+    <a href="../../configuration/tls_conf/server_cert_conf.data/" title="Certificate" class="md-nav__link">
+      Certificate
     </a>
   </li>
 
@@ -694,20 +804,20 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-5-4" type="checkbox" id="nav-5-4">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-5-4" type="checkbox" id="nav-2-5-4">
     
-    <label class="md-nav__link" for="nav-5-4">
-      路由
+    <label class="md-nav__link" for="nav-2-5-4">
+      Routing
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="路由" data-md-level="2">
-      <label class="md-nav__title" for="nav-5-4">
+    <nav class="md-nav" aria-label="Routing" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-5-4">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        路由
+        Routing
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -718,8 +828,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../configuration/server_data_conf/host_rule.data/" title="域名规则" class="md-nav__link">
-      域名规则
+    <a href="../../configuration/server_data_conf/host_rule.data/" title="Host rule" class="md-nav__link">
+      Host rule
     </a>
   </li>
 
@@ -730,8 +840,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../configuration/server_data_conf/vip_rule.data/" title="VIP规则" class="md-nav__link">
-      VIP规则
+    <a href="../../configuration/server_data_conf/vip_rule.data/" title="VIP rule" class="md-nav__link">
+      VIP rule
     </a>
   </li>
 
@@ -742,8 +852,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../configuration/server_data_conf/route_rule.data/" title="路由规则" class="md-nav__link">
-      路由规则
+    <a href="../../configuration/server_data_conf/route_rule.data/" title="Route rule" class="md-nav__link">
+      Route rule
     </a>
   </li>
 
@@ -759,8 +869,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../configuration/server_data_conf/cluster_conf.data/" title="后端集群" class="md-nav__link">
-      后端集群
+    <a href="../../configuration/server_data_conf/cluster_conf.data/" title="Backend cluster" class="md-nav__link">
+      Backend cluster
     </a>
   </li>
 
@@ -772,20 +882,20 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-5-6" type="checkbox" id="nav-5-6">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-5-6" type="checkbox" id="nav-2-5-6">
     
-    <label class="md-nav__link" for="nav-5-6">
-      负载均衡
+    <label class="md-nav__link" for="nav-2-5-6">
+      Load balancing
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="负载均衡" data-md-level="2">
-      <label class="md-nav__title" for="nav-5-6">
+    <nav class="md-nav" aria-label="Load balancing" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-5-6">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        负载均衡
+        Load balancing
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -796,8 +906,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../configuration/cluster_conf/gslb.data/" title="子集群负载均衡" class="md-nav__link">
-      子集群负载均衡
+    <a href="../../configuration/cluster_conf/gslb.data/" title="Sub-clusters balancing" class="md-nav__link">
+      Sub-clusters balancing
     </a>
   </li>
 
@@ -808,8 +918,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../configuration/cluster_conf/cluster_table.data/" title="实例负载均衡" class="md-nav__link">
-      实例负载均衡
+    <a href="../../configuration/cluster_conf/cluster_table.data/" title="Instances balancing" class="md-nav__link">
+      Instances balancing
     </a>
   </li>
 
@@ -826,20 +936,20 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-5-7" type="checkbox" id="nav-5-7">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-5-7" type="checkbox" id="nav-2-5-7">
     
-    <label class="md-nav__link" for="nav-5-7">
-      名字服务
+    <label class="md-nav__link" for="nav-2-5-7">
+      Name service
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="名字服务" data-md-level="2">
-      <label class="md-nav__title" for="nav-5-7">
+    <nav class="md-nav" aria-label="Name service" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-5-7">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        名字服务
+        Name service
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -850,8 +960,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../configuration/server_data_conf/name_conf.data/" title="名字规则" class="md-nav__link">
-      名字规则
+    <a href="../../configuration/server_data_conf/name_conf.data/" title="Naming" class="md-nav__link">
+      Naming
     </a>
   </li>
 
@@ -865,28 +975,28 @@
     </nav>
   </li>
 
-    
-      
-      
-      
+        
+          
+          
+          
 
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-6" type="checkbox" id="nav-6">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-6" type="checkbox" id="nav-2-6">
     
-    <label class="md-nav__link" for="nav-6">
-      扩展模块
+    <label class="md-nav__link" for="nav-2-6">
+      Modules
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="扩展模块" data-md-level="1">
-      <label class="md-nav__title" for="nav-6">
+    <nav class="md-nav" aria-label="Modules" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-6">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        扩展模块
+        Modules
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -1135,28 +1245,28 @@
     </nav>
   </li>
 
-    
-      
-      
-      
+        
+          
+          
+          
 
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-7" type="checkbox" id="nav-7">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-7" type="checkbox" id="nav-2-7">
     
-    <label class="md-nav__link" for="nav-7">
-      运维管理
+    <label class="md-nav__link" for="nav-2-7">
+      Operations
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="运维管理" data-md-level="1">
-      <label class="md-nav__title" for="nav-7">
+    <nav class="md-nav" aria-label="Operations" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-7">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        运维管理
+        Operations
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -1167,8 +1277,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../operation/command/" title="命令行工具及参数" class="md-nav__link">
-      命令行工具及参数
+    <a href="../../operation/command/" title="Command line options" class="md-nav__link">
+      Command line options
     </a>
   </li>
 
@@ -1179,8 +1289,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../operation/env_var/" title="环境变量说明" class="md-nav__link">
-      环境变量说明
+    <a href="../../operation/env_var/" title="Environment variables" class="md-nav__link">
+      Environment variables
     </a>
   </li>
 
@@ -1191,8 +1301,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../operation/signal/" title="系统信号说明" class="md-nav__link">
-      系统信号说明
+    <a href="../../operation/signal/" title="System signals" class="md-nav__link">
+      System signals
     </a>
   </li>
 
@@ -1203,8 +1313,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../operation/reload/" title="配置热加载" class="md-nav__link">
-      配置热加载
+    <a href="../../operation/reload/" title="Configuration reload" class="md-nav__link">
+      Configuration reload
     </a>
   </li>
 
@@ -1215,8 +1325,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../operation/monitor/" title="监控指标获取" class="md-nav__link">
-      监控指标获取
+    <a href="../../operation/monitor/" title="System metrics" class="md-nav__link">
+      System metrics
     </a>
   </li>
 
@@ -1227,8 +1337,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../operation/log_rotation/" title="日志切割备份" class="md-nav__link">
-      日志切割备份
+    <a href="../../operation/log_rotation/" title="Log rotation" class="md-nav__link">
+      Log rotation
     </a>
   </li>
 
@@ -1239,8 +1349,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../operation/capture_packet/" title="流量抓包分析" class="md-nav__link">
-      流量抓包分析
+    <a href="../../operation/capture_packet/" title="Traffic tapping" class="md-nav__link">
+      Traffic tapping
     </a>
   </li>
 
@@ -1251,8 +1361,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../operation/performance/" title="性能数据采集" class="md-nav__link">
-      性能数据采集
+    <a href="../../operation/performance/" title="Performance" class="md-nav__link">
+      Performance
     </a>
   </li>
 
@@ -1261,30 +1371,30 @@
     </nav>
   </li>
 
-    
-      
-      
-      
+        
+          
+          
+          
 
   
 
 
   <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-8" type="checkbox" id="nav-8" checked>
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-8" type="checkbox" id="nav-2-8" checked>
     
-    <label class="md-nav__link" for="nav-8">
-      参与贡献
+    <label class="md-nav__link" for="nav-2-8">
+      How to contribute
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="参与贡献" data-md-level="1">
-      <label class="md-nav__title" for="nav-8">
+    <nav class="md-nav" aria-label="How to contribute" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-8">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        参与贡献
+        How to contribute
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -1298,20 +1408,20 @@
 
   <li class="md-nav__item md-nav__item--active md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-8-1" type="checkbox" id="nav-8-1" checked>
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-8-1" type="checkbox" id="nav-2-8-1" checked>
     
-    <label class="md-nav__link" for="nav-8-1">
-      如何贡献代码
+    <label class="md-nav__link" for="nav-2-8-1">
+      Contribute codes
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="如何贡献代码" data-md-level="2">
-      <label class="md-nav__title" for="nav-8-1">
+    <nav class="md-nav" aria-label="Contribute codes" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-8-1">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        如何贡献代码
+        Contribute codes
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -1322,8 +1432,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../local_dev_guide/" title="本地开发指南" class="md-nav__link">
-      本地开发指南
+    <a href="../local_dev_guide/" title="Local development" class="md-nav__link">
+      Local development
     </a>
   </li>
 
@@ -1343,18 +1453,18 @@
     
     
       <label class="md-nav__link md-nav__link--active" for="__toc">
-        提交PR注意事项
+        Sumbit PR
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 9h14V7H3v2m0 4h14v-2H3v2m0 4h14v-2H3v2m16 0h2v-2h-2v2m0-10v2h2V7h-2m0 6h2v-2h-2v2z"/></svg>
         </span>
       </label>
     
-    <a href="./" title="提交PR注意事项" class="md-nav__link md-nav__link--active">
-      提交PR注意事项
+    <a href="./" title="Sumbit PR" class="md-nav__link md-nav__link--active">
+      Sumbit PR
     </a>
     
       
-<nav class="md-nav md-nav--secondary" aria-label="目录">
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
   
   
     
@@ -1364,41 +1474,41 @@
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
       </span>
-      目录
+      Table of contents
     </label>
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#issue-pull-request" class="md-nav__link">
-    建立 Issue 并完成 Pull Request
+  <a href="#create-an-issue-and-finish-pull-request" class="md-nav__link">
+    Create an Issue and finish Pull Request
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#_1" class="md-nav__link">
-    通过单元测试
+  <a href="#pass-unit-tests" class="md-nav__link">
+    Pass unit tests
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#_2" class="md-nav__link">
-    删除远程分支
+  <a href="#delete-remote-branch" class="md-nav__link">
+    Delete remote branch
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#_3" class="md-nav__link">
-    删除本地分支
+  <a href="#delete-local-branch" class="md-nav__link">
+    Delete local branch
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#_4" class="md-nav__link">
-    提交代码的一些约定
+  <a href="#certain-regulations-about-submitting-code" class="md-nav__link">
+    Certain regulations about submitting code
   </a>
   
 </li>
@@ -1421,8 +1531,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../write_doc_guide/" title="如何贡献文档" class="md-nav__link">
-      如何贡献文档
+    <a href="../write_doc_guide/" title="Contribute documents" class="md-nav__link">
+      Contribute documents
     </a>
   </li>
 
@@ -1433,8 +1543,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../release_regulation/" title="版本发布说明" class="md-nav__link">
-      版本发布说明
+    <a href="../release_regulation/" title="Releasing process" class="md-nav__link">
+      Releasing process
     </a>
   </li>
 
@@ -1446,20 +1556,20 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-8-4" type="checkbox" id="nav-8-4">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-8-4" type="checkbox" id="nav-2-8-4">
     
-    <label class="md-nav__link" for="nav-8-4">
-      开发参考文档
+    <label class="md-nav__link" for="nav-2-8-4">
+      Development guides
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="开发参考文档" data-md-level="2">
-      <label class="md-nav__title" for="nav-8-4">
+    <nav class="md-nav" aria-label="Development guides" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-8-4">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        开发参考文档
+        Development guides
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -1470,8 +1580,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../source_code_layout/" title="代码结构说明" class="md-nav__link">
-      代码结构说明
+    <a href="../source_code_layout/" title="Source code layout" class="md-nav__link">
+      Source code layout
     </a>
   </li>
 
@@ -1488,20 +1598,20 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-8-5" type="checkbox" id="nav-8-5">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-8-5" type="checkbox" id="nav-2-8-5">
     
-    <label class="md-nav__link" for="nav-8-5">
-      模块开发介绍
+    <label class="md-nav__link" for="nav-2-8-5">
+      BFE module development
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="模块开发介绍" data-md-level="2">
-      <label class="md-nav__title" for="nav-8-5">
+    <nav class="md-nav" aria-label="BFE module development" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-8-5">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        模块开发介绍
+        BFE module development
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -1512,8 +1622,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../module/overview/" title="模块开发介绍" class="md-nav__link">
-      模块开发介绍
+    <a href="../module/overview/" title="Overview" class="md-nav__link">
+      Overview
     </a>
   </li>
 
@@ -1524,8 +1634,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../module/bfe_callback/" title="BFE回调机制说明" class="md-nav__link">
-      BFE回调机制说明
+    <a href="../module/bfe_callback/" title="BFE callback introduction" class="md-nav__link">
+      BFE callback introduction
     </a>
   </li>
 
@@ -1536,8 +1646,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../module/how_to_write_module/" title="如何开发模块" class="md-nav__link">
-      如何开发模块
+    <a href="../module/how_to_write_module/" title="How to write a module" class="md-nav__link">
+      How to write a module
     </a>
   </li>
 
@@ -1551,28 +1661,28 @@
     </nav>
   </li>
 
-    
-      
-      
-      
+        
+          
+          
+          
 
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-9" type="checkbox" id="nav-9">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-9" type="checkbox" id="nav-2-9">
     
-    <label class="md-nav__link" for="nav-9">
-      常见问题
+    <label class="md-nav__link" for="nav-2-9">
+      FAQ
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="常见问题" data-md-level="1">
-      <label class="md-nav__title" for="nav-9">
+    <nav class="md-nav" aria-label="FAQ" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-9">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        常见问题
+        FAQ
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -1583,8 +1693,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../faq/installation/" title="安装相关" class="md-nav__link">
-      安装相关
+    <a href="../../faq/installation/" title="Installation" class="md-nav__link">
+      Installation
     </a>
   </li>
 
@@ -1595,8 +1705,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../faq/configuration/" title="配置相关" class="md-nav__link">
-      配置相关
+    <a href="../../faq/configuration/" title="Configuration" class="md-nav__link">
+      Configuration
     </a>
   </li>
 
@@ -1607,8 +1717,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../faq/performance/" title="性能相关" class="md-nav__link">
-      性能相关
+    <a href="../../faq/performance/" title="Performance" class="md-nav__link">
+      Performance
     </a>
   </li>
 
@@ -1619,8 +1729,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../faq/development/" title="开发相关" class="md-nav__link">
-      开发相关
+    <a href="../../faq/development/" title="Development" class="md-nav__link">
+      Development
     </a>
   </li>
 
@@ -1629,28 +1739,28 @@
     </nav>
   </li>
 
-    
-      
-      
-      
+        
+          
+          
+          
 
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-10" type="checkbox" id="nav-10">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-10" type="checkbox" id="nav-2-10">
     
-    <label class="md-nav__link" for="nav-10">
-      监控指标
+    <label class="md-nav__link" for="nav-2-10">
+      Monitor reference
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="监控指标" data-md-level="1">
-      <label class="md-nav__title" for="nav-10">
+    <nav class="md-nav" aria-label="Monitor reference" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-10">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        监控指标
+        Monitor reference
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -1662,20 +1772,20 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-10-1" type="checkbox" id="nav-10-1">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-10-1" type="checkbox" id="nav-2-10-1">
     
-    <label class="md-nav__link" for="nav-10-1">
-      协议
+    <label class="md-nav__link" for="nav-2-10-1">
+      Protocol
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="协议" data-md-level="2">
-      <label class="md-nav__title" for="nav-10-1">
+    <nav class="md-nav" aria-label="Protocol" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-10-1">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        协议
+        Protocol
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -1764,20 +1874,20 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-10-2" type="checkbox" id="nav-10-2">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-10-2" type="checkbox" id="nav-2-10-2">
     
-    <label class="md-nav__link" for="nav-10-2">
-      路由
+    <label class="md-nav__link" for="nav-2-10-2">
+      Routing
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="路由" data-md-level="2">
-      <label class="md-nav__title" for="nav-10-2">
+    <nav class="md-nav" aria-label="Routing" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-10-2">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        路由
+        Routing
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -1788,8 +1898,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../monitor/host_table_status/" title="域名表" class="md-nav__link">
-      域名表
+    <a href="../../monitor/host_table_status/" title="Host table" class="md-nav__link">
+      Host table
     </a>
   </li>
 
@@ -1806,20 +1916,20 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-10-3" type="checkbox" id="nav-10-3">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-10-3" type="checkbox" id="nav-2-10-3">
     
-    <label class="md-nav__link" for="nav-10-3">
-      负载均衡
+    <label class="md-nav__link" for="nav-2-10-3">
+      Load balancing
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="负载均衡" data-md-level="2">
-      <label class="md-nav__title" for="nav-10-3">
+    <nav class="md-nav" aria-label="Load balancing" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-10-3">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        负载均衡
+        Load balancing
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -1830,8 +1940,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../monitor/bal_table_status/" title="均衡详情" class="md-nav__link">
-      均衡详情
+    <a href="../../monitor/bal_table_status/" title="Balance details" class="md-nav__link">
+      Balance details
     </a>
   </li>
 
@@ -1842,8 +1952,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../monitor/bal_state/" title="均衡错误" class="md-nav__link">
-      均衡错误
+    <a href="../../monitor/bal_state/" title="Balance error" class="md-nav__link">
+      Balance error
     </a>
   </li>
 
@@ -1860,20 +1970,20 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-10-4" type="checkbox" id="nav-10-4">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-10-4" type="checkbox" id="nav-2-10-4">
     
-    <label class="md-nav__link" for="nav-10-4">
-      反向代理
+    <label class="md-nav__link" for="nav-2-10-4">
+      Proxy
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="反向代理" data-md-level="2">
-      <label class="md-nav__title" for="nav-10-4">
+    <nav class="md-nav" aria-label="Proxy" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-10-4">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        反向代理
+        Proxy
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -1884,8 +1994,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../monitor/proxy_state/" title="转发状态" class="md-nav__link">
-      转发状态
+    <a href="../../monitor/proxy_state/" title="Proxy state" class="md-nav__link">
+      Proxy state
     </a>
   </li>
 
@@ -1901,8 +2011,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../monitor/module_status/" title="扩展模块" class="md-nav__link">
-      扩展模块
+    <a href="../../monitor/module_status/" title="Modules" class="md-nav__link">
+      Modules
     </a>
   </li>
 
@@ -1914,20 +2024,20 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-10-6" type="checkbox" id="nav-10-6">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-10-6" type="checkbox" id="nav-2-10-6">
     
-    <label class="md-nav__link" for="nav-10-6">
-      延迟
+    <label class="md-nav__link" for="nav-2-10-6">
+      Lentency
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="延迟" data-md-level="2">
-      <label class="md-nav__title" for="nav-10-6">
+    <nav class="md-nav" aria-label="Lentency" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-10-6">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        延迟
+        Lentency
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -1938,8 +2048,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../monitor/proxy_XXX_delay/" title="延迟分布" class="md-nav__link">
-      延迟分布
+    <a href="../../monitor/proxy_XXX_delay/" title="Lentency histogram" class="md-nav__link">
+      Lentency histogram
     </a>
   </li>
 
@@ -1953,28 +2063,28 @@
     </nav>
   </li>
 
-    
-      
-      
-      
+        
+          
+          
+          
 
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-11" type="checkbox" id="nav-11">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-11" type="checkbox" id="nav-2-11">
     
-    <label class="md-nav__link" for="nav-11">
-      条件原语
+    <label class="md-nav__link" for="nav-2-11">
+      Condition reference
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="条件原语" data-md-level="1">
-      <label class="md-nav__title" for="nav-11">
+    <nav class="md-nav" aria-label="Condition reference" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-11">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        条件原语
+        Condition reference
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -1985,8 +2095,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../condition/condition_grammar/" title="条件的概念及语法" class="md-nav__link">
-      条件的概念及语法
+    <a href="../../condition/condition_grammar/" title="Concept and grammar" class="md-nav__link">
+      Concept and grammar
     </a>
   </li>
 
@@ -1997,8 +2107,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../condition/condition_naming_convention/" title="条件原语命名规范" class="md-nav__link">
-      条件原语命名规范
+    <a href="../../condition/condition_naming_convention/" title="Naming convention" class="md-nav__link">
+      Naming convention
     </a>
   </li>
 
@@ -2009,8 +2119,8 @@
 
 
   <li class="md-nav__item">
-    <a href="../../condition/condition_primitive_index/" title="条件原语索引" class="md-nav__link">
-      条件原语索引
+    <a href="../../condition/condition_primitive_index/" title="Primitives index" class="md-nav__link">
+      Primitives index
     </a>
   </li>
 
@@ -2022,20 +2132,20 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-11-4" type="checkbox" id="nav-11-4">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-11-4" type="checkbox" id="nav-2-11-4">
     
-    <label class="md-nav__link" for="nav-11-4">
-      请求相关条件原语
+    <label class="md-nav__link" for="nav-2-11-4">
+      Request related primitives
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="请求相关条件原语" data-md-level="2">
-      <label class="md-nav__title" for="nav-11-4">
+    <nav class="md-nav" aria-label="Request related primitives" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-11-4">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        请求相关条件原语
+        Request related primitives
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -2136,20 +2246,20 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-11-5" type="checkbox" id="nav-11-5">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-11-5" type="checkbox" id="nav-2-11-5">
     
-    <label class="md-nav__link" for="nav-11-5">
-      响应相关条件原语
+    <label class="md-nav__link" for="nav-2-11-5">
+      Response related primitives
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="响应相关条件原语" data-md-level="2">
-      <label class="md-nav__title" for="nav-11-5">
+    <nav class="md-nav" aria-label="Response related primitives" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-11-5">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        响应相关条件原语
+        Response related primitives
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -2190,20 +2300,20 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-11-6" type="checkbox" id="nav-11-6">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-11-6" type="checkbox" id="nav-2-11-6">
     
-    <label class="md-nav__link" for="nav-11-6">
-      会话相关条件原语
+    <label class="md-nav__link" for="nav-2-11-6">
+      Session related primitives
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="会话相关条件原语" data-md-level="2">
-      <label class="md-nav__title" for="nav-11-6">
+    <nav class="md-nav" aria-label="Session related primitives" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-11-6">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        会话相关条件原语
+        Session related primitives
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -2244,20 +2354,20 @@
 
   <li class="md-nav__item md-nav__item--nested">
     
-      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-11-7" type="checkbox" id="nav-11-7">
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-11-7" type="checkbox" id="nav-2-11-7">
     
-    <label class="md-nav__link" for="nav-11-7">
-      系统相关条件原语
+    <label class="md-nav__link" for="nav-2-11-7">
+      System related primitives
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
       </span>
     </label>
-    <nav class="md-nav" aria-label="系统相关条件原语" data-md-level="2">
-      <label class="md-nav__title" for="nav-11-7">
+    <nav class="md-nav" aria-label="System related primitives" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-11-7">
         <span class="md-nav__icon md-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
         </span>
-        系统相关条件原语
+        System related primitives
       </label>
       <ul class="md-nav__list" data-md-scrollfix>
         
@@ -2283,6 +2393,95 @@
     </nav>
   </li>
 
+        
+      </ul>
+    </nav>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-3" type="checkbox" id="nav-3">
+    
+    <label class="md-nav__link" for="nav-3">
+      DOWNLOAD
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="DOWNLOAD" data-md-level="1">
+      <label class="md-nav__title" for="nav-3">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        DOWNLOAD
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../DOWNLOAD/" title="DOWNLOAD" class="md-nav__link">
+      DOWNLOAD
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-4" type="checkbox" id="nav-4">
+    
+    <label class="md-nav__link" for="nav-4">
+      COMMUNITY
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="COMMUNITY" data-md-level="1">
+      <label class="md-nav__title" for="nav-4">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        COMMUNITY
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../COMMUNITY/" title="COMMUNITY" class="md-nav__link">
+      COMMUNITY
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
     
   </ul>
 </nav>
@@ -2295,7 +2494,7 @@
                 <div class="md-sidebar__scrollwrap">
                   <div class="md-sidebar__inner">
                     
-<nav class="md-nav md-nav--secondary" aria-label="目录">
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
   
   
     
@@ -2305,41 +2504,41 @@
       <span class="md-nav__icon md-icon">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
       </span>
-      目录
+      Table of contents
     </label>
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#issue-pull-request" class="md-nav__link">
-    建立 Issue 并完成 Pull Request
+  <a href="#create-an-issue-and-finish-pull-request" class="md-nav__link">
+    Create an Issue and finish Pull Request
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#_1" class="md-nav__link">
-    通过单元测试
+  <a href="#pass-unit-tests" class="md-nav__link">
+    Pass unit tests
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#_2" class="md-nav__link">
-    删除远程分支
+  <a href="#delete-remote-branch" class="md-nav__link">
+    Delete remote branch
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#_3" class="md-nav__link">
-    删除本地分支
+  <a href="#delete-local-branch" class="md-nav__link">
+    Delete local branch
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#_4" class="md-nav__link">
-    提交代码的一些约定
+  <a href="#certain-regulations-about-submitting-code" class="md-nav__link">
+    Certain regulations about submitting code
   </a>
   
 </li>
@@ -2356,7 +2555,7 @@
             <article class="md-content__inner md-typeset">
               
                 
-                  <a href="https://github.com/baidu/bfe/edit/develop/docs/zh_cn/development/submit_pr_guide.md" title="编辑此页" class="md-content__button md-icon">
+                  <a href="https://github.com/baidu/bfe/edit/develop/docs/en_us/development/submit_pr_guide.md" title="Edit this page" class="md-content__button md-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"/></svg>
                   </a>
                 
@@ -2364,71 +2563,63 @@
                   
                 
                 
-                <h1 id="pr">提交PR注意事项</h1>
-<h2 id="issue-pull-request">建立 Issue 并完成 Pull Request</h2>
-<p>建立一个 Issue 描述问题，并记录它的编号。</p>
-<p>切换到所建分支，然后点击 <code>New pull request</code>。</p>
-<p>选择目标分支,在 PR 的描述说明中，填写 <code>resolve #Issue编号</code> 可以在这个 PR 被 merge 后，自动关闭对应的 Issue，具体请见<a href="https://help.github.com/articles/closing-issues-via-commit-messages/">这里</a>。</p>
-<p>接下来等待 review，如果有需要修改的地方，参照上述步骤更新 origin 中的对应分支即可。</p>
-<h2 id="_1">通过单元测试</h2>
-<p>您在Pull Request中每提交一次新的commit后，会触发CI单元测试，请确认您的commit message中已加入必要的说明，请见<a href="../local_dev_guide/">提交（commit）</a></p>
-<p>请您关注您Pull Request中的CI单元测试进程，它将会在几个小时内完成</p>
-<p>您仅需要关注和自己提交的分支相关的CI项目，例如您向develop分支提交代码，则无需关注release/1.1一栏是否通过测试</p>
-<p>当所需的测试后都出现了绿色的对勾，表示您本次commit通过了各项单元测试</p>
-<p>如果所需的测试后出现了红色叉号，代表您本次的commit未通过某项单元测试，在这种情况下，请您点击detail查看报错详情，并将报错原因截图，以评论的方式添加在您的Pull Request中，我们的工作人员将帮您查看</p>
-<h2 id="_2">删除远程分支</h2>
-<p>在 PR 被 merge 进主仓库后，我们可以在 PR 的页面删除远程仓库的分支。</p>
-<p>也可以使用 <code>git push origin :分支名</code> 删除远程分支，如：</p>
+                <h1 id="guide-of-submitting-pr-to-github">Guide of submitting PR to Github</h1>
+<h2 id="create-an-issue-and-finish-pull-request">Create an Issue and finish Pull Request</h2>
+<p>Create an Issue to describe your problem and keep its number.</p>
+<p>Switch to the branch you have created and click <code>New pull request</code>.</p>
+<p>Switch to targeted branch. A note of <code>resolve #Issue number</code> in PR description results in automatic close of corresponding Issue after the merge of PR. More details can be viewed <a href="https://help.github.com/articles/closing-issues-via-commit-messages/">here</a>.</p>
+<p>Then please wait for review. If there is any need to make a modification, you can update corresponding branch in origin following the steps above.</p>
+<h2 id="pass-unit-tests">Pass unit tests</h2>
+<p>Every new commit in your Pull Request will trigger CI unit tests, so please make sure that necessary comments have been included in your commit message. Please refer to <a href="../local_dev_guide/">commit</a></p>
+<p>Please note the procedure of CI unit tests in your Pull Request which will be finished in several hours.</p>
+<p>You only need to focus on CI projects associated with your submitted branch. For example, there is no need to check whether release/1.1 pass test or not if you submit code to develop branch.</p>
+<p>Green ticks after all tests means that your commit has passed all unit tests.</p>
+<p>Red cross after the tests means your commit hasn't passed certain unit test. Please click detail to view bug details and make a screenshot of bug, then add it as a comment in your Pull Request. Our stuff will help you check it.</p>
+<h2 id="delete-remote-branch">Delete remote branch</h2>
+<p>We can delete branches of remote repository in PR page after your PR is successfully merged into master repository.</p>
+<p>We can also delete the branch of remote repository with <code>git push origin :the_branch_name</code>, such as:</p>
 <div class="codehilite"><pre><span></span><code>$ git push origin :my-cool-stuff
 </code></pre></div>
 
 
-<h2 id="_3">删除本地分支</h2>
-<p>最后，删除本地分支。</p>
-<div class="codehilite"><pre><span></span><code>$ git checkout develop <span class="c1"># 切换到 develop 分支</span>
-$ git branch -D my-cool-stuff <span class="c1"># 删除 my-cool-stuff 分支</span>
+<h2 id="delete-local-branch">Delete local branch</h2>
+<p>Finally,we delete local branch</p>
+<div class="codehilite"><pre><span></span><code>$ git checkout develop <span class="c1"># switch to develop branch</span>
+$ git branch -D my-cool-stuff <span class="c1"># delete my-cool-stuff branch</span>
 </code></pre></div>
 
 
-<p>至此，我们就完成了一次代码贡献的过程。</p>
-<h2 id="_4">提交代码的一些约定</h2>
-<p>为了使评审人在评审代码时更好地专注于代码本身，请您每次提交代码时，遵守以下约定：</p>
-<p>1）请保证Travis-CI 中单元测试能顺利通过。如果没过，说明提交的代码存在问题，评审人一般不做评审。</p>
-<p>2）提交Pull Request前：</p>
+<p>And now we finish a full process of code contribution</p>
+<h2 id="certain-regulations-about-submitting-code">Certain regulations about submitting code</h2>
+<p>In order that reviewers focus on code in the code review, please follow these rules every time you submit your code:</p>
+<p>1）Make sure that unit tests in Travis-CI pass through successfully.If it fails,it means problems have been found in submitted code which will not be reviewed by reviewer.</p>
+<p>2）Before the submit of PUll Request:</p>
+<ul>
+<li>Please note the number of commit:</li>
+</ul>
+<p>Reason：It will bother reviewers a lot if a dozen of commits are submitted after modification of only one file and only a few modifications are updated in every commit. Reviewers have to check commit one by one to figure out the modification. And sometimes it needs to take the overlap among commits into consideration.</p>
+<p>Suggestion：Keep commit concise as much as possible at every submit. You can make a supplyment to the previous commit with <code>git commit --amend</code>. About several commits having been pushed to remote repository, you can refer to <a href="http://stackoverflow.com/questions/5667884/how-to-squash-commits-in-git-after-they-have-been-pushed">squash commits after push</a>。</p>
+<ul>
+<li>Pay attention to the name of every commit: It would be better to abstract the content of present commit and be not too arbitrary.</li>
+</ul>
+<p>3）If you have tackled with problems of an Issue, please add <code>fix #issue_number</code> to the <em>first</em> comment area of PULL Request.Then the corresponding Issue will be closed automatically after the merge of PULL Request. Keywords are including:close, closes, closed, fix, fixes, fixed, resolve, resolves, resolved. Please select appropriate word. Please refer to <a href="https://help.github.com/articles/closing-issues-via-commit-messages">Closing issues via commit messages</a> for more details.</p>
+<p>In addition, please follow the following regulations in response to the suggestion of reviewers:</p>
+<p>1）A reply to every comment of reviewers（It's a fundamental complimentary conduct in open source community.An expression of appreciation is a need for help from others):</p>
 <ul>
 <li>
-<p>请注意commit的数量</p>
+<p>If you adopt the suggestion of reviewer and make a modification accordingly, it's courteous to reply with a simple <code>Done</code> .</p>
 </li>
 <li>
-<p>原因：如果仅仅修改一个文件但提交了十几个commit，每个commit只做了少量的修改，这会给评审人带来很大困扰。评审人需要逐一查看每个commit才能知道做了哪些修改，且不排除commit之间的修改存在相互覆盖的情况。</p>
-</li>
-<li>
-<p>建议：每次提交时，保持尽量少的commit，可以通过<code>git commit --amend</code>补充上次的commit。对已经Push到远程仓库的多个commit，可以参考<a href="http://stackoverflow.com/questions/5667884/how-to-squash-commits-in-git-after-they-have-been-pushed">squash commits after push</a>。</p>
-</li>
-<li>
-<p>请注意每个commit的名称：应能反映当前commit的内容，不能太随意。</p>
+<p>Please clarify your reason to the disagreenment</p>
 </li>
 </ul>
-<p>3）如果解决了某个Issue的问题，请在该Pull Request的<strong>第一个</strong>评论框中加上：<code>fix #issue_number</code>，这样当该PUll Request被合并后，会自动关闭对应的Issue。
-- 关键词包括：close, closes, closed, fix, fixes, fixed, resolve, resolves, resolved，请选择合适的词汇。
-- 详细可参考<a href="https://help.github.com/articles/closing-issues-via-commit-messages">Closing issues via commit messages</a>。</p>
-<p>此外，在回复评审人意见时，请您遵守以下约定：</p>
-<p>1）评审人的每个意见都必须回复（这是开源社区的基本礼貌，别人帮了忙，应该说谢谢）：</p>
+<p>2）If there are many suggestions</p>
 <ul>
 <li>
-<p>对评审意见同意且按其修改完的，给个简单的<code>Done</code>即可；</p>
+<p>Please show general modification</p>
 </li>
 <li>
-<p>对评审意见不同意的，请给出您自己的反驳理由。</p>
-</li>
-</ul>
-<p>2）如果评审意见比较多：</p>
-<ul>
-<li>
-<p>请给出总体的修改情况。</p>
-</li>
-<li>
-<p>请采用<a href="https://help.github.com/articles/reviewing-proposed-changes-in-a-pull-request/">start a review</a>进行回复，而非直接回复的方式。原因是每个回复都会发送一封邮件，会造成邮件灾难。</p>
+<p>Please follow <a href="https://help.github.com/articles/reviewing-proposed-changes-in-a-pull-request/">start a review</a> to give your reply,instead of directly replying for that every comment will result in sending an email causing email disaster.</p>
 </li>
 </ul>
                 
@@ -2447,30 +2638,30 @@ $ git branch -D my-cool-stuff <span class="c1"># 删除 my-cool-stuff 分支</sp
 <footer class="md-footer">
   
     <div class="md-footer-nav">
-      <nav class="md-footer-nav__inner md-grid" aria-label="">
+      <nav class="md-footer-nav__inner md-grid" aria-label="Footer">
         
-          <a href="../local_dev_guide/" title="本地开发指南" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+          <a href="../local_dev_guide/" title="Local development" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
             <div class="md-footer-nav__button md-icon">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
             </div>
             <div class="md-footer-nav__title">
               <div class="md-ellipsis">
                 <span class="md-footer-nav__direction">
-                  上一页
+                  Previous
                 </span>
-                本地开发指南
+                Local development
               </div>
             </div>
           </a>
         
         
-          <a href="../write_doc_guide/" title="如何贡献文档" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
+          <a href="../write_doc_guide/" title="Contribute documents" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
             <div class="md-footer-nav__title">
               <div class="md-ellipsis">
                 <span class="md-footer-nav__direction">
-                  下一页
+                  Next
                 </span>
-                如何贡献文档
+                Contribute documents
               </div>
             </div>
             <div class="md-footer-nav__button md-icon">
@@ -2538,18 +2729,20 @@ $ git branch -D my-cool-stuff <span class="c1"># 删除 my-cool-stuff 分支</sp
       
     </div>
     
-      <script src="../../assets/javascripts/vendor.83fe6e3c.min.js"></script>
-      <script src="../../assets/javascripts/bundle.7e1cb91c.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
+      <script src="../../assets/javascripts/vendor.809e24aa.min.js"></script>
+      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({
           base: "../..",
-          features: [],
+          features: ["tabs"],
           search: Object.assign({
-            worker: "../../assets/javascripts/worker/search.37585f48.min.js"
+            worker: "../../assets/javascripts/worker/search.f6ebf1dc.min.js"
           }, typeof search !== "undefined" && search)
         })
       </script>
+      
+        <script src="../../search/main.js"></script>
       
     
   </body>
