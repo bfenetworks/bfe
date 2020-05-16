@@ -71,7 +71,7 @@ haproxy -f haproxy.cfg
 Copy root.crt to tls_conf/client_ca directory(note: the suffix of root certificate should be ".crt").
 
 ```ini
-[server]
+[Server]
 ...
 Layer4LoadBalancer = "PROXY"
 ...
