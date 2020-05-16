@@ -7,7 +7,7 @@ BFE has built-in CPU profile interfaces, which can be used in conjunction with t
 Set monitor port in the BFE core configuration file (conf/bfe.conf).
 
 ```ini
-[server]
+[Server]
 monitorPort = 8421
 ```
 
