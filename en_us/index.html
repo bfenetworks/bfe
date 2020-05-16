@@ -8,7 +8,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="An modern layer 7 load balancer derived from proprietary Baidu Front End.">
+        <meta name="description" content="A modern layer 7 load balancer derived from proprietary Baidu Front End.">
       
       
       
@@ -50,7 +50,7 @@
   
   <meta property="og:type" content="website">
   <meta property="og:title" content="BFE">
-  <meta property="og:description" content="An modern layer 7 load balancer derived from proprietary Baidu Front End.">
+  <meta property="og:description" content="A modern layer 7 load balancer derived from proprietary Baidu Front End.">
   <meta property="og:url" content="None">
   <meta property="og:image" content="assets/images/banner.png">
   <meta property="og:image:type" content="image/png">
@@ -60,7 +60,7 @@
   <meta name="twitter:site" content="@squidfunk">
   <meta name="twitter:creator" content="@squidfunk">
   <meta name="twitter:title" content="BFE">
-  <meta name="twitter:description" content="An modern layer 7 load balancer derived from proprietary Baidu Front End.">
+  <meta name="twitter:description" content="A modern layer 7 load balancer derived from proprietary Baidu Front End.">
   <meta name="twitter:image" content="assets/images/banner.png">
 
   </head>
@@ -220,7 +220,7 @@
 </nav>
         
       
-  <style>.md-header{position:initial}.md-main__inner{margin:0}.md-content{display:none}.tx-container{padding-top:1rem;background:linear-gradient(to bottom,var(--md-primary-fg-color),hsla(280deg,67%,55%,1) 99%,#fff 99%)}.tx-hero{margin:0 .8rem;color:var(--md-primary-bg-color)}.tx-hero h1{margin-bottom:1rem;color:currentColor;font-weight:700}.tx-hero__content{padding-bottom:6rem;margin:0 auto;}.tx-hero .md-button{margin-top:.5rem;margin-right:.5rem;color:var(--md-primary-bg-color)}.tx-hero .md-button--primary{background-color:var(--md-primary-bg-color);color:hsla(280deg,37%,48%,1);border-color:var(--md-primary-bg-color)}.tx-hero .md-button:focus,.tx-hero .md-button:hover{background-color:var(--md-accent-fg-color);color:var(--md-default-bg-color);border-color:var(--md-accent-fg-color)}@media screen and (max-width:30em){.tx-hero h1{font-size:1.4rem}}@media screen and (min-width:60em){.md-sidebar--secondary{display:none}.tx-hero{display:flex;align-items:stretch}.tx-hero__content{max-width:19rem;margin-top:3.5rem;margin:0 auto;}}@media screen and (min-width:76.25em){.md-sidebar--primary{display:none}.container{width:80%;margin:0 auto}.top-hr{margin-top:30px;width:100%}.feature-item{font-family:'Lato',sans-serif;font-weight:300;width:25%;float:left;box-sizing:border-box;padding:0 15px;word-break:break-all}.feature-item:hover{background-color:#fad9d1;border-radius:3px}.feature-item h2{color:#333;font-weight:300;font-size:25px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:normal;margin-top:20px;margin-bottom:10px;font-family:inherit}.feature-item p{font-size:16px;line-height:1.8em;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;color:#111;margin:0 0 10px;display:block} .row {margin-right: -15px; margin-left: -15px;}</style>
+  <style>.md-header{position:initial}.md-main__inner{margin:0}.md-content{display:none}.tx-container{padding-top:1rem;background:linear-gradient(to bottom,var(--md-primary-fg-color),hsla(280deg,67%,55%,1) 99%,#fff 99%)}.tx-hero{margin:0 .8rem;color:var(--md-primary-bg-color)}.tx-hero h1{margin-bottom:1rem;color:currentColor;font-weight:700}.tx-hero__content{padding-bottom:6rem;margin:0 auto;}.tx-hero .md-button{margin-top:.5rem;margin-right:.5rem;color:var(--md-primary-bg-color)}.tx-hero .md-button--primary{background-color:var(--md-primary-bg-color);color:hsla(280deg,37%,48%,1);border-color:var(--md-primary-bg-color)}.tx-hero .md-button:focus,.tx-hero .md-button:hover{background-color:var(--md-accent-fg-color);color:var(--md-default-bg-color);border-color:var(--md-accent-fg-color)}@media screen and (max-width:30em){.tx-hero h1{font-size:1.4rem}}@media screen and (min-width:60em){.md-sidebar--secondary{display:none}.tx-hero{display:flex;align-items:stretch}.tx-hero__content{max-width:19rem;margin-top:3.5rem;margin:0 auto;}}@media screen and (min-width:76.25em){.md-sidebar--primary{display:none}.container{width:80%;margin:0 auto}.top-hr{margin-top:30px;width:100%}.feature-item{font-family:'Lato',sans-serif;font-weight:300;width:25%;float:left;box-sizing:border-box;padding:0 15px;word-break:break-all}.feature-item:hover{background-color:#fad9d1;border-radius:3px}.feature-item h2{color:#333;font-weight:300;font-size:25px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:normal;margin-top:20px;margin-bottom:10px;font-family:inherit}.feature-item p{font-size:16px;line-height:1.8em;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;color:#111;margin:0 0 10px;display:block}</style>
   <section class="tx-container">
     <div class="md-grid md-typeset">
       <div class="tx-hero">
@@ -240,13 +240,15 @@
 
   </section>
   <div class="container">
-        <div class="row top-hr">
-          <div class="row">
+        <div class="top-hr">
             <div class="feature-item">
                 <h2>Plugin framework</h2>
                 <p>BFE has a builtin plugin framework that makes it possible to develop new features rapidly by writing plugins.</p>
             </div>
-            
+            <div class="feature-item">
+                <h2>Multi-tenancy</h2>
+                <p>BFE is designed to provide every tenant a dedicated share of the instance. Each tenant is isolated and remains invisible to other tenants.</p>
+            </div>
             <div class="feature-item">
                 <h2>Multiple protocols</h2>
                 <p>BFE supports HTTP, HTTPS, SPDY, HTTP2, WebSocket, TLS, etc. Future support is planned for gRPC and HTTP/3.</p>
@@ -255,14 +257,8 @@
                 <h2>Content based routing</h2>
                 <p>BFE provides an advanced domain-specific language to describe routing rules which are easy to understand and maintain.</p>
             </div>
-            <div class="feature-item">
-                <h2>Multi-tenancy</h2>
-                <p>BFE is designed to provide every tenant a dedicated share of the instance. Each tenant’s configuration is isolated and remains invisible to other tenants.</p>
-            </div>
-          </div>
         </div>
-        <div class="row top-hr">
-          <div class="row">
+        <div class="top-hr">
             <div class="feature-item">
                 <h2>Advanced load balancing</h2>
                 <p>BFE supports global load balancing and distributed load balancing for zone aware balancing, zone level failure resilience, overload protection etc.</p>
@@ -279,7 +275,6 @@
                 <h2>Easily integrated</h2>
                 <p>BFE is easily integrated with mainstream layer 4 load balancing solution, and other ecosystem projects(e.g. Kubernetes、Prometheus、Jaeger、Fluentd etc).</p>
             </div>
-          </div>
         </div>
       </div>
 
