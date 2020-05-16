@@ -6,7 +6,7 @@ repo_url: https://github.com/baidu/bfe
 docs_dir: 'en_us'
 edit_uri: edit/develop/docs/en_us/
 site_description: >-
-  An modern layer 7 load balancer derived from proprietary Baidu Front End.
+  A modern layer 7 load balancer derived from proprietary Baidu Front End.
 
 theme:
   name: null
