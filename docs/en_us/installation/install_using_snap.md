@@ -10,9 +10,9 @@
 $ sudo snap install --edge bfe
 ```
 
-Configuration files location: /var/snap/bfe/common/conf/
-
-Log files location: /var/snap/bfe/common/log
+!!! tip
+    Configuration files location: /var/snap/bfe/common/conf/ <br>
+    Log files location: /var/snap/bfe/common/log/
 
 ## Run
 

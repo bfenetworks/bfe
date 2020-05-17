@@ -7,6 +7,7 @@ BFE转发过程中的回调点如下图所示。
 
 ## 回调点列表
 在BFE中，设置了以下9个回调点：
+
 - HandleAccept: 位于和客户端的TCP连接建立后
 - HandleHandshake：位于和客户端的SSL或TLS握手完成后
 - HandleBeforeLocation：位于查找产品线之前
@@ -24,6 +25,7 @@ BFE转发过程中的回调点如下图所示。
 在回调点执行由模块注册的回调函数，回调函数会返回特定的返回值。BFE根据回调函数的返回值，执行后续的操作。
 
 回调函数的返回值，定义如下：
+
 - BfeHandlerFinish：在发送响应后，关闭连接
 - BfeHandlerGoOn：继续执行下一个回调函数
 - BfeHandlerRedirect：执行重定向（Redirect）
@@ -35,6 +37,7 @@ BFE转发过程中的回调点如下图所示。
 ## 回调函数的形式
 
 在不同的回调点，回调函数的形式也是不同的。在BFE中，定义了以下5种类型的回调函数
+
 - HandlersAccept：用于处理连接建立的相关场景
 - HandlersRequest：用于处理和请求有关的场景
 - HandlersForward：用于处理和转发有关的场景
@@ -50,38 +53,38 @@ BFE转发过程中的回调点如下图所示。
 ### HandlersAccept
 
 - 适用回调点：
-  + HandleAccept
-  + HandleHandshake
+    + HandleAccept
+    + HandleHandshake
 - 回调函数形式：
-  + handler(session *bfe_basic.Session) int
+    + handler(session *bfe_basic.Session) int
 
 ### HandlersRequest
 
 - 适用回调点：
-  + HandleBeforeLocation
-  + HandleFoundProduct
-  + HandleAfterLocation
+    + HandleBeforeLocation
+    + HandleFoundProduct
+    + HandleAfterLocation
 - 回调函数形式：
-  + handler(req *bfe_basic.Request) (int, *bfe_http.Response) 
+    + handler(req *bfe_basic.Request) (int, *bfe_http.Response) 
 
 ### HandlersForward
 
 - 适用回调点：
-  + HandleForward
+    + HandleForward
 - 回调函数形式：
-  + handler(req *bfe_basic.Request) int 
+    + handler(req *bfe_basic.Request) int 
 
 ### HandlersResponse
 
 - 适用回调点：
-  + HandleReadResponse
-  + HandleRequestFinish
+    + HandleReadResponse
+    + HandleRequestFinish
 - 回调函数形式：
-  + handler(req *bfe_basic.Request, res *bfe_http.Response) int 
+    + handler(req *bfe_basic.Request, res *bfe_http.Response) int 
 
 ### HandlersFinish
 
 - 适用回调点：
-  + HandleFinish
+    + HandleFinish
 - 回调函数形式：
-  + handler(session *bfe_basic.Session) int 
+    + handler(session *bfe_basic.Session) int 

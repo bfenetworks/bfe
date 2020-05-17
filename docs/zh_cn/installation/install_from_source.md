@@ -17,6 +17,9 @@ $ cd bfe
 $ make
 ```
 
+!!! tip
+    如果遇到超时错误"https fetch: Get ... connect: connection timed out", 请设置代理后重试，详见[安装常见问题](../faq/installation.md)
+
 - 执行如下命令运行测试:
 
 ```bash

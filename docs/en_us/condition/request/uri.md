@@ -1,7 +1,5 @@
 # Request URI Related Primitives
 
-URI format：http://host[:port]/path/?query
-
 ## req_host_in(host_list)
 * Description: Judge if host matches configured patterns
 

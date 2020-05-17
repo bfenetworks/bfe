@@ -44,12 +44,14 @@ $news_host && req_method_in("GET")
 
 - **条件原语**是最基本的条件判断单元，形式为：
 
-​           **func_name( params )**
+```
+func_name(params)
+```
 
 - 条件原语类似于函数定义: func_name是条件原语名称; params是参数，可能是1个或多个
 - 条件原语的返回值都是bool类型
 - BFE支持一系列预定义的内置[条件原语](condition_primitive_index.md)
-  - 例: req_method_in("GET|POST") ，表示判断http请求的方法是不是GET或POST
+    - 例: req_method_in("GET|POST") ，表示判断http请求的方法是不是GET或POST
 
 
 ## 条件表达式的语法

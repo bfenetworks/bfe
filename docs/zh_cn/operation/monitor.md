@@ -26,10 +26,11 @@ http://<addr>:8421/monitor/<category>
 
 ## 输出格式
 
-当前支持监控数据格式如下
- * [prometheus](https://prometheus.io/)
- * kv
- * json (默认格式)
+当前支持监控数据格式如下:
+
+* [prometheus](https://prometheus.io/)
+* kv
+* json (默认格式)
 
 使用format参数指定输出的格式, 示例：
 

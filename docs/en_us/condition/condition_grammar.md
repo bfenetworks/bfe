@@ -40,11 +40,13 @@ $news_host && req_method_in("GET")
 
 - Basic conditional judgment unit, format is shown as follows:
 
-​           **FuncName( params )**
+```
+FuncName(params)
+```
 
 - Condition primitive like function definition: FuncName is name of condition primitive; params are input parameters
 - Return value type of Condition Primitive is bool
-- Note: All builtin [condition primitives](condition_primitive_index.md)
+- BFE provides a set of builtin [condition primitives](condition_primitive_index.md)
 
 
 ## Condition Expression Grammar

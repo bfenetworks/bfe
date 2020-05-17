@@ -26,6 +26,7 @@ http://<addr>:8421/monitor/<category>
 ## Fetch metric data in specified format
 
 Currently supported formats: 
+
 * [prometheus](https://prometheus.io/)
 * kv
 * json (default)

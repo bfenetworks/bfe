@@ -28,6 +28,7 @@ copyright: 'Copyright &copy; 2019-2020 BFE <a href=/zh_cn>中文</a> | <a href=/
 
 markdown_extensions:
   - codehilite
+  - admonition
 
 plugins:
   - search
@@ -37,7 +38,7 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/baidu/bfe
     - icon: fontawesome/brands/twitter
-      link: https://twitter.com/BaiduResearch
+      link: https://twitter.com/BfeNetworks
     - icon: fontawesome/brands/slack
       link: https://join.slack.com/t/bfe-networks/shared_invite/zt-cn04xsqr-j7LDFmPkCuCZ39OLcHlMBA
     - icon: fontawesome/solid/envelope

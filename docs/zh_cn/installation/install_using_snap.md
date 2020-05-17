@@ -10,9 +10,9 @@
 $ sudo snap install --edge bfe
 ```
 
-配置文件位于: /var/snap/bfe/common/conf/
-
-日志文件位于: /var/snap/bfe/common/log
+!!! tip
+    配置文件位于/var/snap/bfe/common/conf/ <br>
+    日志文件位于/var/snap/bfe/common/log/
 
 ## 运行
 

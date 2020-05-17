@@ -17,6 +17,9 @@ $ cd bfe
 $ make
 ```
 
+!!! tip
+    If you encounter an error such as "https fetch: Get ... connect: connection timed out", please set the GOPROXY and try again. See [Installation FAQ](../faq/installation.md)
+
 - Execute the following command to run tests:
 
 ```bash

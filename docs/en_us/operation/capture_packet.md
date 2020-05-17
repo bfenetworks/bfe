@@ -32,4 +32,5 @@ Modules = mod_key_log
   * Note：Edit→Preferences→Protocols→SSL→(Pre)-Master-Secret log filename
 
 * Step3: Use wireshark to open and decrypt the captured data
+
 ![WireShark decrypt https](../../images/wireShark_decrypt_https.png)

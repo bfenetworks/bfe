@@ -3,6 +3,7 @@
 ## 概述
 
 在为BFE编写一个新的模块时，需要考虑以下方面：
+
 - 配置的加载
 - 回调函数的编写
 - 模块状态的展示
@@ -16,14 +17,16 @@ mod_block的代码位于[/bfe_modules/mod_block](https://github.com/baidu/bfe/tr
 ### 配置的分类
 
 对于一个模块，包括两种配置：
+
 - 静态加载的配置：在BFE程序启动的时候加载
-  + 对每个模块有一个这样的配置文件
-  + 配置文件的名字和模块名字一致，并以.conf结尾
-  + 如：mod_block.conf
+    + 对每个模块有一个这样的配置文件
+    + 配置文件的名字和模块名字一致，并以.conf结尾
+    + 如：mod_block.conf
+
 - 可动态加载的配置：在BFE程序启动的时候加载，在BFE运行过程中也可以动态加载
-  + 对每个模块可以有一个或多个这样的配置文件
-  + 配置文件的名字一般以.data结尾
-  + 如：在mod_block下有 block_rules.data 和 ip_blacklist.data
+    + 对每个模块可以有一个或多个这样的配置文件
+    + 配置文件的名字一般以.data结尾
+    + 如：在mod_block下有 block_rules.data 和 ip_blacklist.data
 
 对于每一个配置文件，应编写独立的加载逻辑。
 
@@ -36,6 +39,7 @@ mod_block的代码位于[/bfe_modules/mod_block](https://github.com/baidu/bfe/tr
 ### 配置加载的检查
 
 无论对于静态加载的配置，还是对于可动态加载的配置，为了保证程序正常的运行，在配置加载的时候，都需要对于配置文件的正确性进行检查。
+
 - 在BFE程序启动阶段，如果模块的配置文件加载失败，则BFE无法启动
 - 在BFE程序启动后，如果模块的可动态加载配置文件加载失败，BFE仍然会继续运行
 
@@ -102,6 +106,7 @@ func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 对于每个BFE的模块，强烈推荐通过BFE规定的机制，向外暴露足够的内部状态信息。
 
 在模块对外暴露内部状态，需要做以下3步：
+
 - 定义状态变量
 - 注册显示内部状态的回调函数
 - 在代码中插入状态设置逻辑

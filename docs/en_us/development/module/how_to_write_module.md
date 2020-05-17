@@ -15,14 +15,16 @@ mod_block is used as an example for ease of understanding.（[/bfe_modules/mod_b
 ### Types of configuration
 
 For a given module, there are 2 types of configuration: 
+
 - Static configuration: be loaded when BFE starts
-  + There is only one such configuration file for each module
-  + The name of the configuration file is the same as the module name. It is suffixed with .conf
-  + Example: mod_block.conf
+    + There is only one such configuration file for each module
+    + The name of the configuration file is the same as the module name. It is suffixed with .conf
+    + Example: mod_block.conf
+
 - Dynamic configuration: be loaded when BFE starts. It can also be hot-reloaded without restarting BFE.
-  + There can be one or more such configuration files for each module
-  + The name of the configuration file usually ends with .data
-  + Example: block_rules.data and ip_blacklist.data in mod_block
+    + There can be one or more such configuration files for each module
+    + The name of the configuration file usually ends with .data
+    + Example: block_rules.data and ip_blacklist.data in mod_block
 
 ### Placement of configuration files
 
@@ -33,6 +35,7 @@ For a given module, there are 2 types of configuration:
 ### Verification of configuration
 
 Configuration files are verified whenever they are loaded, regardless of static or dynamic configuration.
+
 - BFE fails to start if the configuration files fails to be loaded.
 - BFE will continue to run if dynamic configuration fails to be hot-reloaded.
 
@@ -99,6 +102,7 @@ func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 For each BFE module, it is strongly recommended to expose enough internal states.
 
 To expose internal states of a module, do the following 3 steps: 
+
 - Define state variables
 - Register callback function for exposing internal states
 - Insert code for doing statistic
