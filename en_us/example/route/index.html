@@ -2534,32 +2534,32 @@
 <ul>
 <li>Step 1. Config path of forward rules in conf/bfe.conf</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="n">hostRuleConf</span> <span class="o">=</span> <span class="n">server_data_conf</span><span class="o">/</span><span class="n">host_rule</span><span class="p">.</span><span class="k">data</span>
-<span class="n">routeRuleConf</span> <span class="o">=</span> <span class="n">server_data_conf</span><span class="o">/</span><span class="n">route_rule</span><span class="p">.</span><span class="k">data</span>
-<span class="n">clusterConf</span> <span class="o">=</span> <span class="n">server_data_conf</span><span class="o">/</span><span class="n">cluster_conf</span><span class="p">.</span><span class="k">data</span>
+<div class="codehilite"><pre><span></span><code><span class="na">hostRuleConf</span> <span class="o">=</span> <span class="s">server_data_conf/host_rule.data</span>
+<span class="na">routeRuleConf</span> <span class="o">=</span> <span class="s">server_data_conf/route_rule.data</span>
+<span class="na">clusterConf</span> <span class="o">=</span> <span class="s">server_data_conf/cluster_conf.data</span>
 
-<span class="n">clusterTableConf</span> <span class="o">=</span> <span class="n">cluster_conf</span><span class="o">/</span><span class="n">cluster_table</span><span class="p">.</span><span class="k">data</span>
-<span class="n">gslbConf</span> <span class="o">=</span> <span class="n">cluster_conf</span><span class="o">/</span><span class="n">gslb</span><span class="p">.</span><span class="k">data</span>  
+<span class="na">clusterTableConf</span> <span class="o">=</span> <span class="s">cluster_conf/cluster_table.data</span>
+<span class="na">gslbConf</span> <span class="o">=</span> <span class="s">cluster_conf/gslb.data  </span>
 </code></pre></div>
 
 
 <ul>
 <li>Step 2. Config host rules (conf/server_data_conf/host_rule.data)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">{</span>
-<span class="err">    &quot;Version&quot;: &quot;init version&quot;,</span>
-<span class="err">    &quot;DefaultProduct&quot;: null,</span>
-<span class="err">    &quot;Hosts&quot;: {</span>
-<span class="err">        &quot;exampleTag&quot;:[</span>
-<span class="err">            &quot;example.org&quot; // host name: example.org=&gt;host tag: exampleTag</span>
-<span class="err">        ]</span>
-<span class="err">    },</span>
-<span class="err">    &quot;HostTags&quot;: {</span>
-<span class="err">        &quot;example_product&quot;:[</span>
-<span class="err">            &quot;exampleTag&quot; // host tag: exampleTag=&gt;product name: example_product</span>
-<span class="err">        ]</span>
-<span class="err">    }</span>
-<span class="err">}</span>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;DefaultProduct&quot;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
+    <span class="nt">&quot;Hosts&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;exampleTag&quot;</span><span class="p">:[</span>
+            <span class="s2">&quot;example.org&quot;</span> <span class="err">//</span> <span class="err">host</span> <span class="err">name:</span> <span class="err">example.org=&gt;host</span> <span class="err">tag:</span> <span class="err">exampleTag</span>
+        <span class="p">]</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;HostTags&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;example_product&quot;</span><span class="p">:[</span>
+            <span class="s2">&quot;exampleTag&quot;</span> <span class="err">//</span> <span class="err">host</span> <span class="err">tag:</span> <span class="err">exampleTag=&gt;product</span> <span class="err">name:</span> <span class="err">example_product</span>
+        <span class="p">]</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </code></pre></div>
 
 
@@ -2567,106 +2567,106 @@
 <li>Step 3. Config cluster configuration (conf/server_data_conf/cluster_conf.data)
 Note: Set health check params and use default value for other params</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">{</span>
-<span class="err">    &quot;Version&quot;: &quot;init version&quot;,</span>
-<span class="err">    &quot;Config&quot;: {</span>
-<span class="err">        &quot;cluster_demo_static&quot;: {</span>
-<span class="err">            &quot;CheckConf&quot;: {                          // health check config</span>
-<span class="err">                &quot;Schem&quot;: &quot;http&quot;,</span>
-<span class="err">                &quot;Uri&quot;: &quot;/health_check&quot;,</span>
-<span class="err">                &quot;Host&quot;: &quot;example.org&quot;,</span>
-<span class="err">                &quot;StatusCode&quot;: 200</span>
-<span class="err">            }</span>
-<span class="err">        },</span>
-<span class="err">        &quot;cluster_demo_dynamic&quot;: {</span>
-<span class="err">            &quot;CheckConf&quot;: {                          // health check config</span>
-<span class="err">                &quot;Schem&quot;: &quot;http&quot;,</span>
-<span class="err">                &quot;Uri&quot;: &quot;/health_check&quot;,</span>
-<span class="err">                &quot;Host&quot;: &quot;example.org&quot;,</span>
-<span class="err">                &quot;StatusCode&quot;: 200</span>
-<span class="err">            }</span>
-<span class="err">        }</span>
-<span class="err">    }</span>
-<span class="err">}</span>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;cluster_demo_static&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="nt">&quot;CheckConf&quot;</span><span class="p">:</span> <span class="p">{</span>                          <span class="err">//</span> <span class="err">health</span> <span class="err">check</span> <span class="err">config</span>
+                <span class="nt">&quot;Schem&quot;</span><span class="p">:</span> <span class="s2">&quot;http&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Uri&quot;</span><span class="p">:</span> <span class="s2">&quot;/health_check&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Host&quot;</span><span class="p">:</span> <span class="s2">&quot;example.org&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;StatusCode&quot;</span><span class="p">:</span> <span class="mi">200</span>
+            <span class="p">}</span>
+        <span class="p">},</span>
+        <span class="nt">&quot;cluster_demo_dynamic&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="nt">&quot;CheckConf&quot;</span><span class="p">:</span> <span class="p">{</span>                          <span class="err">//</span> <span class="err">health</span> <span class="err">check</span> <span class="err">config</span>
+                <span class="nt">&quot;Schem&quot;</span><span class="p">:</span> <span class="s2">&quot;http&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Uri&quot;</span><span class="p">:</span> <span class="s2">&quot;/health_check&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Host&quot;</span><span class="p">:</span> <span class="s2">&quot;example.org&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;StatusCode&quot;</span><span class="p">:</span> <span class="mi">200</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </code></pre></div>
 
 
 <ul>
 <li>Step 4. Config instances of cluster (conf/cluster_conf/cluster_table.data)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">{</span>
-<span class="err">    &quot;Version&quot;: &quot;init version&quot;,</span>
-<span class="err">    &quot;Config&quot;: {</span>
-<span class="err">        &quot;cluster_demo_static&quot;: {         // cluster =&gt; sub_cluster =&gt; instance list</span>
-<span class="err">            &quot;demo_static.all&quot;: [{        // subcluster: demo_static.all</span>
-<span class="err">                &quot;Addr&quot;: &quot;10.0.0.1&quot;,</span>
-<span class="err">                &quot;Name&quot;: &quot;static.A&quot;,</span>
-<span class="err">                &quot;Port&quot;: 8001,</span>
-<span class="err">                &quot;Weight&quot;: 1</span>
-<span class="err">            }]</span>
-<span class="err">        },</span>
-<span class="err">        &quot;cluster_demo_dynamic&quot;: {</span>
-<span class="err">            &quot;demo_dynamic.all&quot;: [{</span>
-<span class="err">                &quot;Addr&quot;: &quot;10.0.0.1&quot;,</span>
-<span class="err">                &quot;Name&quot;: &quot;dynamic.A&quot;,</span>
-<span class="err">                &quot;Port&quot;: 8002,</span>
-<span class="err">                &quot;Weight&quot;: 1</span>
-<span class="err">            }]</span>
-<span class="err">        }</span>
-<span class="err">    }</span>
-<span class="err">}</span>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;cluster_demo_static&quot;</span><span class="p">:</span> <span class="p">{</span>         <span class="err">//</span> <span class="err">cluster</span> <span class="err">=&gt;</span> <span class="err">sub_cluster</span> <span class="err">=&gt;</span> <span class="err">instance</span> <span class="err">list</span>
+            <span class="nt">&quot;demo_static.all&quot;</span><span class="p">:</span> <span class="p">[{</span>        <span class="err">//</span> <span class="err">subcluster:</span> <span class="err">demo_static.all</span>
+                <span class="nt">&quot;Addr&quot;</span><span class="p">:</span> <span class="s2">&quot;10.0.0.1&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Name&quot;</span><span class="p">:</span> <span class="s2">&quot;static.A&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Port&quot;</span><span class="p">:</span> <span class="mi">8001</span><span class="p">,</span>
+                <span class="nt">&quot;Weight&quot;</span><span class="p">:</span> <span class="mi">1</span>
+            <span class="p">}]</span>
+        <span class="p">},</span>
+        <span class="nt">&quot;cluster_demo_dynamic&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="nt">&quot;demo_dynamic.all&quot;</span><span class="p">:</span> <span class="p">[{</span>
+                <span class="nt">&quot;Addr&quot;</span><span class="p">:</span> <span class="s2">&quot;10.0.0.1&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Name&quot;</span><span class="p">:</span> <span class="s2">&quot;dynamic.A&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Port&quot;</span><span class="p">:</span> <span class="mi">8002</span><span class="p">,</span>
+                <span class="nt">&quot;Weight&quot;</span><span class="p">:</span> <span class="mi">1</span>
+            <span class="p">}]</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </code></pre></div>
 
 
 <ul>
 <li>Step 5. Config gslb configuration (conf/cluster_conf/gslb.data)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">{</span>
-<span class="err">    &quot;Hostname&quot;: &quot;&quot;,</span>
-<span class="err">    &quot;Ts&quot;: &quot;0&quot;,</span>
-<span class="err">    &quot;Clusters&quot;: {</span>
-<span class="err">        &quot;cluster_demo_static&quot;: {   // cluster =&gt; weight of subcluster</span>
-<span class="err">            &quot;GSLB_BLACKHOLE&quot;: 0,   // GSLB_BLACKHOLE == 0 means do not discard traffic</span>
-<span class="err">            &quot;demo_static.all&quot;: 100 // weight 100 means all traffic routes to demo_static.all</span>
-<span class="err">        },</span>
-<span class="err">        &quot;cluster_demo_dynamic&quot;: {</span>
-<span class="err">            &quot;GSLB_BLACKHOLE&quot;: 0,</span>
-<span class="err">            &quot;demo_dynamic.all&quot;: 100</span>
-<span class="err">        }</span>
-<span class="err">    }</span>
-<span class="err">}</span>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+    <span class="nt">&quot;Hostname&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;Ts&quot;</span><span class="p">:</span> <span class="s2">&quot;0&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;Clusters&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;cluster_demo_static&quot;</span><span class="p">:</span> <span class="p">{</span>   <span class="err">//</span> <span class="err">cluster</span> <span class="err">=&gt;</span> <span class="err">weight</span> <span class="err">of</span> <span class="err">subcluster</span>
+            <span class="nt">&quot;GSLB_BLACKHOLE&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>   <span class="err">//</span> <span class="err">GSLB_BLACKHOLE</span> <span class="err">==</span> <span class="err">0</span> <span class="err">means</span> <span class="err">do</span> <span class="err">not</span> <span class="err">discard</span> <span class="err">traffic</span>
+            <span class="nt">&quot;demo_static.all&quot;</span><span class="p">:</span> <span class="mi">100</span> <span class="err">//</span> <span class="err">weight</span> <span class="mi">100</span> <span class="err">means</span> <span class="err">all</span> <span class="err">traffic</span> <span class="err">routes</span> <span class="err">to</span> <span class="err">demo_static.all</span>
+        <span class="p">},</span>
+        <span class="nt">&quot;cluster_demo_dynamic&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="nt">&quot;GSLB_BLACKHOLE&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="nt">&quot;demo_dynamic.all&quot;</span><span class="p">:</span> <span class="mi">100</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </code></pre></div>
 
 
 <ul>
 <li>Step 6. Config route rules (conf/server_data_conf/route_rule.data)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">{</span>
-<span class="err">    &quot;Version&quot;: &quot;init version&quot;,</span>
-<span class="err">    &quot;ProductRule&quot;: {</span>
-<span class="err">        &quot;example_product&quot;: [    // product =&gt; route rules</span>
-<span class="err">            {</span>
-<span class="err">                &quot;Cond&quot;: &quot;req_path_prefix_in(\&quot;/static\&quot;, false)&quot;,  </span>
-<span class="err">                &quot;ClusterName&quot;: &quot;cluster_demo_static&quot;</span>
-<span class="err">            },</span>
-<span class="err">            {</span>
-<span class="err">                &quot;Cond&quot;: &quot;default_t()&quot;,</span>
-<span class="err">                &quot;ClusterName&quot;: &quot;cluster_demo_dynamic&quot;</span>
-<span class="err">            }</span>
-<span class="err">        ]</span>
-<span class="err">    }</span>
-<span class="err">}</span>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;ProductRule&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>    <span class="err">//</span> <span class="err">product</span> <span class="err">=&gt;</span> <span class="err">route</span> <span class="err">rules</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_path_prefix_in(\&quot;/static\&quot;, false)&quot;</span><span class="p">,</span>  
+                <span class="nt">&quot;ClusterName&quot;</span><span class="p">:</span> <span class="s2">&quot;cluster_demo_static&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;default_t()&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;ClusterName&quot;</span><span class="p">:</span> <span class="s2">&quot;cluster_demo_dynamic&quot;</span>
+            <span class="p">}</span>
+        <span class="p">]</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </code></pre></div>
 
 
 <ul>
 <li>Step 7. Verify configured rules</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="n">curl</span> <span class="o">-</span><span class="n">H</span> <span class="ss">&quot;host: example.org&quot;</span> <span class="ss">&quot;http://127.1:8080/static/test.html&quot;</span>  
-<span class="o">#</span> <span class="n">request</span> <span class="n">will</span> <span class="n">route</span> <span class="k">to</span> <span class="mi">10</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">1</span><span class="p">:</span><span class="mi">8001</span>
+<div class="codehilite"><pre><span></span><code>curl -H <span class="s2">&quot;host: example.org&quot;</span> <span class="s2">&quot;http://127.1:8080/static/test.html&quot;</span>  
+<span class="c1"># request will route to 10.0.0.1:8001</span>
 
-<span class="n">curl</span> <span class="o">-</span><span class="n">H</span> <span class="ss">&quot;host: example.org&quot;</span> <span class="ss">&quot;http://127.1:8080/api/test&quot;</span>  
-<span class="o">#</span> <span class="n">request</span> <span class="n">will</span> <span class="n">route</span> <span class="k">to</span> <span class="mi">10</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">1</span><span class="p">:</span><span class="mi">8002</span>
+curl -H <span class="s2">&quot;host: example.org&quot;</span> <span class="s2">&quot;http://127.1:8080/api/test&quot;</span>  
+<span class="c1"># request will route to 10.0.0.1:8002</span>
 </code></pre></div>
                 
               
@@ -2748,7 +2748,7 @@ Note: Set health check params and use default value for other params</li>
         
         
       
-      <a href="https://twitter.com/BaiduResearch" target="_blank" rel="noopener" title="twitter.com" class="md-footer-social__link">
+      <a href="https://twitter.com/BfeNetworks" target="_blank" rel="noopener" title="twitter.com" class="md-footer-social__link">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z"/></svg>
       </a>
     

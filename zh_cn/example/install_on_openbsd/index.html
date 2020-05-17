@@ -2471,14 +2471,14 @@
 <li>设置OpenBSD 6.6软件源安装路径并安装相关软件包：</li>
 </ul>
 <p>amd64</p>
-<div class="codehilite"><pre><span></span><code><span class="err"># export PKG_PATH=&quot;https://mirrors.tuna.tsinghua.edu.cn/OpenBSD/6.6/packages/amd64/&quot;</span>
-<span class="err"># pkg_add wget go</span>
+<div class="codehilite"><pre><span></span><code><span class="c1"># export PKG_PATH=&quot;https://mirrors.tuna.tsinghua.edu.cn/OpenBSD/6.6/packages/amd64/&quot;</span>
+<span class="c1"># pkg_add wget go</span>
 </code></pre></div>
 
 
 <p>i386</p>
-<div class="codehilite"><pre><span></span><code><span class="err"># export PKG_PATH=&quot;https://mirrors.tuna.tsinghua.edu.cn/OpenBSD/6.6/packages/i386/&quot;</span>
-<span class="err"># pkg_add llvm wget go</span>
+<div class="codehilite"><pre><span></span><code><span class="c1"># export PKG_PATH=&quot;https://mirrors.tuna.tsinghua.edu.cn/OpenBSD/6.6/packages/i386/&quot;</span>
+<span class="c1"># pkg_add llvm wget go</span>
 </code></pre></div>
 
 
@@ -2486,25 +2486,25 @@
 <li>由于OpenBSD 6.6自带的make 无法编译BFE，因此需要安装gnu make</li>
 </ul>
 <p>amd64</p>
-<div class="codehilite"><pre><span></span><code><span class="err"># wget http://ftp.gnu.org/gnu/make/make-4.2.tar.bz2</span>
-<span class="err"># tar -xvjf make-4.2.tar.bz2</span>
-<span class="err"># cd make-4.2</span>
-<span class="err"># ./configure</span>
-<span class="err"># make -j8</span>
-<span class="err"># make install</span>
+<div class="codehilite"><pre><span></span><code><span class="c1"># wget http://ftp.gnu.org/gnu/make/make-4.2.tar.bz2</span>
+<span class="c1"># tar -xvjf make-4.2.tar.bz2</span>
+<span class="c1"># cd make-4.2</span>
+<span class="c1"># ./configure</span>
+<span class="c1"># make -j8</span>
+<span class="c1"># make install</span>
 </code></pre></div>
 
 
 <p>i386</p>
-<div class="codehilite"><pre><span></span><code><span class="err"># cd /usr/bin</span>
-<span class="err"># ln -s clang gcc</span>
-<span class="err">#</span>
-<span class="err"># wget http://ftp.gnu.org/gnu/make/make-4.2.tar.bz2</span>
-<span class="err"># tar -xvjf make-4.2.tar.bz2</span>
-<span class="err"># cd make-4.2</span>
-<span class="err"># ./configure</span>
-<span class="err"># make -j8 </span>
-<span class="err"># make install</span>
+<div class="codehilite"><pre><span></span><code><span class="c1"># cd /usr/bin</span>
+<span class="c1"># ln -s clang gcc</span>
+<span class="c1">#</span>
+<span class="c1"># wget http://ftp.gnu.org/gnu/make/make-4.2.tar.bz2</span>
+<span class="c1"># tar -xvjf make-4.2.tar.bz2</span>
+<span class="c1"># cd make-4.2</span>
+<span class="c1"># ./configure</span>
+<span class="c1"># make -j8 </span>
+<span class="c1"># make install</span>
 </code></pre></div>
 
 
@@ -2512,44 +2512,44 @@
 <ul>
 <li>下载bfe 0.4.0 并编译安装</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err"># wget https://github.com/baidu/bfe/archive/v0.4.0.tar.gz</span>
-<span class="err"># tar -xvzf v0.4.0.tar.gz</span>
-<span class="err"># cd bfe-0.4.0/</span>
-<span class="err"># export GOPROXY=https://goproxy.io</span>
-<span class="err"># /usr/local/bin/make -j8   </span>
-<span class="err">#</span>
-<span class="err"># mkdir -p /usr/local/baidu_bfe/bin</span>
-<span class="err"># cp bfe /usr/local/baidu_bfe/bin</span>
-<span class="err"># cp -fr conf/ /usr/local/baidu_bfe</span>
+<div class="codehilite"><pre><span></span><code><span class="c1"># wget https://github.com/baidu/bfe/archive/v0.4.0.tar.gz</span>
+<span class="c1"># tar -xvzf v0.4.0.tar.gz</span>
+<span class="c1"># cd bfe-0.4.0/</span>
+<span class="c1"># export GOPROXY=https://goproxy.io</span>
+<span class="c1"># /usr/local/bin/make -j8   </span>
+<span class="c1">#</span>
+<span class="c1"># mkdir -p /usr/local/baidu_bfe/bin</span>
+<span class="c1"># cp bfe /usr/local/baidu_bfe/bin</span>
+<span class="c1"># cp -fr conf/ /usr/local/baidu_bfe</span>
 </code></pre></div>
 
 
 <ul>
 <li>修改配置文件</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err"># cd /usr/local/baidu_bfe/conf/mod_access/</span>
-<span class="err"># vi mod_access.conf</span>
-<span class="err">LogDir =  ../log</span>
-<span class="err">:wq ## 保存退出</span>
+<div class="codehilite"><pre><span></span><code><span class="c1"># cd /usr/local/baidu_bfe/conf/mod_access/</span>
+<span class="c1"># vi mod_access.conf</span>
+<span class="nv">LogDir</span> <span class="o">=</span>  ../log
+:wq <span class="c1">## 保存退出</span>
 </code></pre></div>
 
 
 <ul>
 <li>创建启动脚本及运行</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="o">#</span> <span class="n">mkdir</span> <span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="n">run_bfe</span>
-<span class="o">#</span> <span class="n">cd</span> <span class="o">/</span><span class="n">root</span><span class="o">/</span><span class="n">run_bfe</span>
-<span class="o">#</span> <span class="n">vi</span> <span class="n">run_bfe</span><span class="p">.</span><span class="n">sh</span>
-<span class="o">#!/</span><span class="n">usr</span><span class="o">/</span><span class="k">local</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="n">bash</span>
-<span class="n">cd</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="k">local</span><span class="o">/</span><span class="n">baidu_bfe</span><span class="o">/</span><span class="n">bin</span>
-<span class="p">.</span><span class="o">/</span><span class="n">bfe</span> <span class="o">-</span><span class="k">c</span> <span class="p">..</span><span class="o">/</span><span class="n">conf</span> <span class="o">-</span><span class="n">l</span> <span class="p">..</span><span class="o">/</span><span class="n">log</span> <span class="o">&amp;</span>
-<span class="p">:</span><span class="n">wq</span> <span class="o">##</span> <span class="err">保存退出</span>
+<div class="codehilite"><pre><span></span><code><span class="c1"># mkdir /root/run_bfe</span>
+<span class="c1"># cd /root/run_bfe</span>
+<span class="c1"># vi run_bfe.sh</span>
+<span class="c1">#!/usr/local/bin/bash</span>
+<span class="nb">cd</span> /usr/local/baidu_bfe/bin
+./bfe -c ../conf -l ../log <span class="p">&amp;</span>
+:wq <span class="c1">## 保存退出</span>
 
-<span class="o">#</span> <span class="n">chmod</span> <span class="mi">755</span> <span class="n">run_bfe</span><span class="p">.</span><span class="n">sh</span>
-<span class="o">#</span> <span class="n">sh</span> <span class="n">run_bfe</span><span class="p">.</span><span class="n">sh</span>
-<span class="o">#</span> <span class="n">ps</span> <span class="o">|</span><span class="n">grep</span> <span class="n">bfe</span>
-<span class="mi">25625</span> <span class="n">p0</span>  <span class="n">I</span>        <span class="mi">6</span><span class="p">:</span><span class="mi">08</span><span class="p">.</span><span class="mi">02</span> <span class="p">.</span><span class="o">/</span><span class="n">bfe</span> <span class="o">-</span><span class="k">c</span> <span class="p">..</span><span class="o">/</span><span class="n">conf</span> <span class="o">-</span><span class="n">l</span> <span class="p">..</span><span class="o">/</span><span class="n">log</span>
-<span class="mi">79047</span> <span class="n">p0</span>  <span class="n">R</span><span class="o">+/</span><span class="mi">2</span>     <span class="mi">0</span><span class="p">:</span><span class="mi">00</span><span class="p">.</span><span class="mi">00</span> <span class="n">grep</span> <span class="n">bfe</span>
+<span class="c1"># chmod 755 run_bfe.sh</span>
+<span class="c1"># sh run_bfe.sh</span>
+<span class="c1"># ps |grep bfe</span>
+<span class="m">25625</span> p0  I        <span class="m">6</span>:08.02 ./bfe -c ../conf -l ../log
+<span class="m">79047</span> p0  R+/2     <span class="m">0</span>:00.00 grep bfe
 </code></pre></div>
                 
               
@@ -2596,7 +2596,7 @@
         
         
       
-      <a href="https://twitter.com/BaiduResearch" target="_blank" rel="noopener" title="twitter.com" class="md-footer-social__link">
+      <a href="https://twitter.com/BfeNetworks" target="_blank" rel="noopener" title="twitter.com" class="md-footer-social__link">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z"/></svg>
       </a>
     

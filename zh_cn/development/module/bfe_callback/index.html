@@ -2636,74 +2636,100 @@
 <p>BFE转发过程中的回调点如下图所示。
 <img alt="BFE转发过程中的回调点" src="../../../images/bfe_callback.png" /></p>
 <h2 id="_1">回调点列表</h2>
-<p>在BFE中，设置了以下9个回调点：
-- HandleAccept: 位于和客户端的TCP连接建立后
-- HandleHandshake：位于和客户端的SSL或TLS握手完成后
-- HandleBeforeLocation：位于查找产品线之前
-- HandleFoundProduct：位于完成查找产品线之后
-- HandleAfterLocation：位于完成查找集群之后
-- HandleForward：位于完成查找子集群和后端实例之后，位于转发请求之前
-- HandleReadResponse：位于读取到后端响应之后
-- HandleRequestFinish：位于后端响应处理完毕后
-- HandleFinish：位于和客户端的TCP连接关闭后</p>
+<p>在BFE中，设置了以下9个回调点：</p>
+<ul>
+<li>HandleAccept: 位于和客户端的TCP连接建立后</li>
+<li>HandleHandshake：位于和客户端的SSL或TLS握手完成后</li>
+<li>HandleBeforeLocation：位于查找产品线之前</li>
+<li>HandleFoundProduct：位于完成查找产品线之后</li>
+<li>HandleAfterLocation：位于完成查找集群之后</li>
+<li>HandleForward：位于完成查找子集群和后端实例之后，位于转发请求之前</li>
+<li>HandleReadResponse：位于读取到后端响应之后</li>
+<li>HandleRequestFinish：位于后端响应处理完毕后</li>
+<li>HandleFinish：位于和客户端的TCP连接关闭后</li>
+</ul>
 <p>回调点的定义，可以查看<a href="https://github.com/baidu/bfe/tree/master/bfe_module/bfe_callback.go">/bfe_module/bfe_callback.go</a></p>
 <h2 id="_2">回调函数的返回值</h2>
 <p>在回调点执行由模块注册的回调函数，回调函数会返回特定的返回值。BFE根据回调函数的返回值，执行后续的操作。</p>
-<p>回调函数的返回值，定义如下：
-- BfeHandlerFinish：在发送响应后，关闭连接
-- BfeHandlerGoOn：继续执行下一个回调函数
-- BfeHandlerRedirect：执行重定向（Redirect）
-- BfeHandlerResponse：发送响应
-- BfeHandlerClose：直接关闭连接，不发送任何数据</p>
+<p>回调函数的返回值，定义如下：</p>
+<ul>
+<li>BfeHandlerFinish：在发送响应后，关闭连接</li>
+<li>BfeHandlerGoOn：继续执行下一个回调函数</li>
+<li>BfeHandlerRedirect：执行重定向（Redirect）</li>
+<li>BfeHandlerResponse：发送响应</li>
+<li>BfeHandlerClose：直接关闭连接，不发送任何数据</li>
+</ul>
 <p>回调函数返回值的定义，可以查看<a href="https://github.com/baidu/bfe/tree/master/bfe_module/bfe_handler_list.go">/bfe_module/bfe_handler_list.go</a></p>
 <h2 id="_3">回调函数的形式</h2>
-<p>在不同的回调点，回调函数的形式也是不同的。在BFE中，定义了以下5种类型的回调函数
-- HandlersAccept：用于处理连接建立的相关场景
-- HandlersRequest：用于处理和请求有关的场景
-- HandlersForward：用于处理和转发有关的场景
-- HandlersResponse：用于处理和响应有关的场景
-- HandlersFinish：用于处理连接关闭的相关场景</p>
+<p>在不同的回调点，回调函数的形式也是不同的。在BFE中，定义了以下5种类型的回调函数</p>
+<ul>
+<li>HandlersAccept：用于处理连接建立的相关场景</li>
+<li>HandlersRequest：用于处理和请求有关的场景</li>
+<li>HandlersForward：用于处理和转发有关的场景</li>
+<li>HandlersResponse：用于处理和响应有关的场景</li>
+<li>HandlersFinish：用于处理连接关闭的相关场景</li>
+</ul>
 <p>回调函数类型的定义，可以查看<a href="https://github.com/baidu/bfe/tree/master/bfe_module/bfe_handler_list.go">/bfe_module/bfe_handler_list.go</a></p>
 <p>下面对这几种回调函数做详细的说明。</p>
 <p>注：下面回调函数中int类型的返回值，参见上述“回调函数的返回值”中的说明。</p>
 <h3 id="handlersaccept">HandlersAccept</h3>
 <ul>
-<li>适用回调点：</li>
+<li>适用回调点：<ul>
 <li>HandleAccept</li>
 <li>HandleHandshake</li>
-<li>回调函数形式：</li>
+</ul>
+</li>
+<li>回调函数形式：<ul>
 <li>handler(session *bfe_basic.Session) int</li>
+</ul>
+</li>
 </ul>
 <h3 id="handlersrequest">HandlersRequest</h3>
 <ul>
-<li>适用回调点：</li>
+<li>适用回调点：<ul>
 <li>HandleBeforeLocation</li>
 <li>HandleFoundProduct</li>
 <li>HandleAfterLocation</li>
-<li>回调函数形式：</li>
+</ul>
+</li>
+<li>回调函数形式：<ul>
 <li>handler(req <em>bfe_basic.Request) (int, </em>bfe_http.Response) </li>
+</ul>
+</li>
 </ul>
 <h3 id="handlersforward">HandlersForward</h3>
 <ul>
-<li>适用回调点：</li>
+<li>适用回调点：<ul>
 <li>HandleForward</li>
-<li>回调函数形式：</li>
+</ul>
+</li>
+<li>回调函数形式：<ul>
 <li>handler(req *bfe_basic.Request) int </li>
+</ul>
+</li>
 </ul>
 <h3 id="handlersresponse">HandlersResponse</h3>
 <ul>
-<li>适用回调点：</li>
+<li>适用回调点：<ul>
 <li>HandleReadResponse</li>
 <li>HandleRequestFinish</li>
-<li>回调函数形式：</li>
+</ul>
+</li>
+<li>回调函数形式：<ul>
 <li>handler(req <em>bfe_basic.Request, res </em>bfe_http.Response) int </li>
+</ul>
+</li>
 </ul>
 <h3 id="handlersfinish">HandlersFinish</h3>
 <ul>
-<li>适用回调点：</li>
+<li>适用回调点：<ul>
 <li>HandleFinish</li>
-<li>回调函数形式：</li>
+</ul>
+</li>
+<li>回调函数形式：<ul>
 <li>handler(session *bfe_basic.Session) int </li>
+</ul>
+</li>
 </ul>
                 
               
@@ -2785,7 +2811,7 @@
         
         
       
-      <a href="https://twitter.com/BaiduResearch" target="_blank" rel="noopener" title="twitter.com" class="md-footer-social__link">
+      <a href="https://twitter.com/BfeNetworks" target="_blank" rel="noopener" title="twitter.com" class="md-footer-social__link">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z"/></svg>
       </a>
     

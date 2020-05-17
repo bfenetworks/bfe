@@ -2722,24 +2722,36 @@
 <p>mod_block is used as an example for ease of understanding.（<a href="https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block">/bfe_modules/mod_block</a>）</p>
 <h2 id="load-configuration">Load Configuration</h2>
 <h3 id="types-of-configuration">Types of configuration</h3>
-<p>For a given module, there are 2 types of configuration: 
-- Static configuration: be loaded when BFE starts
-  + There is only one such configuration file for each module
-  + The name of the configuration file is the same as the module name. It is suffixed with .conf
-  + Example: mod_block.conf
-- Dynamic configuration: be loaded when BFE starts. It can also be hot-reloaded without restarting BFE.
-  + There can be one or more such configuration files for each module
-  + The name of the configuration file usually ends with .data
-  + Example: block_rules.data and ip_blacklist.data in mod_block</p>
+<p>For a given module, there are 2 types of configuration: </p>
+<ul>
+<li>
+<p>Static configuration: be loaded when BFE starts</p>
+<ul>
+<li>There is only one such configuration file for each module</li>
+<li>The name of the configuration file is the same as the module name. It is suffixed with .conf</li>
+<li>Example: mod_block.conf</li>
+</ul>
+</li>
+<li>
+<p>Dynamic configuration: be loaded when BFE starts. It can also be hot-reloaded without restarting BFE.</p>
+<ul>
+<li>There can be one or more such configuration files for each module</li>
+<li>The name of the configuration file usually ends with .data</li>
+<li>Example: block_rules.data and ip_blacklist.data in mod_block</li>
+</ul>
+</li>
+</ul>
 <h3 id="placement-of-configuration-files">Placement of configuration files</h3>
 <ul>
 <li>The configuration files of the modules should be placed in <a href="https://github.com/baidu/bfe/tree/master/conf">/conf/{module_name}</a></li>
 <li>Example: Configuration files of mod_block are located in <a href="https://github.com/baidu/bfe/tree/master/conf/mod_block">/conf/mod_block</a></li>
 </ul>
 <h3 id="verification-of-configuration">Verification of configuration</h3>
-<p>Configuration files are verified whenever they are loaded, regardless of static or dynamic configuration.
-- BFE fails to start if the configuration files fails to be loaded.
-- BFE will continue to run if dynamic configuration fails to be hot-reloaded.</p>
+<p>Configuration files are verified whenever they are loaded, regardless of static or dynamic configuration.</p>
+<ul>
+<li>BFE fails to start if the configuration files fails to be loaded.</li>
+<li>BFE will continue to run if dynamic configuration fails to be hot-reloaded.</li>
+</ul>
 <h3 id="hot-reload-of-dynamic-configuration">Hot-reload of dynamic configuration</h3>
 <p>For dynamic configurations, it is required to register callback function on dedicated web server. Hot-reload of dynamic configuration can be triggered by accessing specified URL.</p>
 <p>Example: In the init function of mod_block, there is some logic as follows, used to register callback function for configuration reload(<a href="https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go">mod_block.go</a>)</p>
@@ -2788,10 +2800,12 @@
 
 <h2 id="expose-module-internal-states">Expose module internal states</h2>
 <p>For each BFE module, it is strongly recommended to expose enough internal states.</p>
-<p>To expose internal states of a module, do the following 3 steps: 
-- Define state variables
-- Register callback function for exposing internal states
-- Insert code for doing statistic</p>
+<p>To expose internal states of a module, do the following 3 steps: </p>
+<ul>
+<li>Define state variables</li>
+<li>Register callback function for exposing internal states</li>
+<li>Insert code for doing statistic</li>
+</ul>
 <h3 id="define-state-variables">Define state variables</h3>
 <p>Firstly, design statistical metrics and define them as member variables.</p>
 <p>Example: define ModuleBlockState in mod_block (<a href="https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go">mod_block.go</a>)</p>
@@ -2948,7 +2962,7 @@
         
         
       
-      <a href="https://twitter.com/BaiduResearch" target="_blank" rel="noopener" title="twitter.com" class="md-footer-social__link">
+      <a href="https://twitter.com/BfeNetworks" target="_blank" rel="noopener" title="twitter.com" class="md-footer-social__link">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z"/></svg>
       </a>
     
