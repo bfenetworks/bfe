@@ -2634,7 +2634,7 @@
                 <h1 id="bfe-callbacks">BFE Callbacks</h1>
 <h2 id="callback-points-in-forwarding-process">Callback Points in forwarding process</h2>
 <p>The Callback Points in the forwarding process are shown below.
-<img alt="BFECallbacks" src="../../../images/bfe_callback.png" /></p>
+<img alt="BFECallbacks" src="../../../images/bfe-callback.png" /></p>
 <h2 id="list-of-callback-points">List of Callback Points</h2>
 <p>There are 9 callback points in BFE:</p>
 <ul>
@@ -2662,53 +2662,75 @@ The return values and the actions are defined as follows:</p>
 <p>The definition of return values is in <a href="https://github.com/baidu/bfe/tree/master/bfe_module/bfe_handler_list.go">/bfe_module/bfe_handler_list.go</a></p>
 <h2 id="types-of-callback-functions">Types of Callback Functions</h2>
 <p>The format of callback functions may be different for different callback points.
-There are 5 types of callback functions.
-- HandlersAccept: Handler for processing connection estalishment
-- HandlersRequest: Handler for processing request received
-- HandlersForward: Handler for request forwarding process
-- HandlersResponse: Handler for processing response received
-- HandlersFinish: Handler for processing connection close</p>
+There are 5 types of callback functions.</p>
+<ul>
+<li>HandlersAccept: Handler for processing connection estalishment</li>
+<li>HandlersRequest: Handler for processing request received</li>
+<li>HandlersForward: Handler for request forwarding process</li>
+<li>HandlersResponse: Handler for processing response received</li>
+<li>HandlersFinish: Handler for processing connection close</li>
+</ul>
 <p>The types of callback function are defined in <a href="https://github.com/baidu/bfe/tree/master/bfe_module/bfe_handler_list.go">/bfe_module/bfe_handler_list.go</a></p>
 <p>The following describes each type of callback functions in detail</p>
 <p>Note: For the meaning of type int in the return value below, please refer to "Return Value of Callback Function" section above.</p>
 <h3 id="handlersaccept">HandlersAccept</h3>
 <ul>
-<li>Applicable callback points: </li>
+<li>Applicable callback points: <ul>
 <li>HandleAccept</li>
 <li>HandleHandshake</li>
-<li>Function prototype:</li>
+</ul>
+</li>
+<li>Function prototype:<ul>
 <li>handler(session *bfe_basic.Session) int</li>
+</ul>
+</li>
 </ul>
 <h3 id="handlersrequest">HandlersRequest</h3>
 <ul>
-<li>Applicable callback point: </li>
+<li>Applicable callback point: <ul>
 <li>HandleBeforeLocation</li>
 <li>HandleFoundProduct</li>
 <li>HandleAfterLocation</li>
-<li>Function prototype:</li>
+</ul>
+</li>
+<li>Function prototype:<ul>
 <li>handler(req <em>bfe_basic.Request) (int, </em>bfe_http.Response) </li>
+</ul>
+</li>
 </ul>
 <h3 id="handlersforward">HandlersForward</h3>
 <ul>
-<li>Applicable callback point: </li>
+<li>Applicable callback point: <ul>
 <li>HandleForward</li>
-<li>Function prototype:</li>
+</ul>
+</li>
+<li>Function prototype:<ul>
 <li>handler(req *bfe_basic.Request) int </li>
+</ul>
+</li>
 </ul>
 <h3 id="handlersresponse">HandlersResponse</h3>
 <ul>
-<li>Applicable callback point: </li>
+<li>Applicable callback point: <ul>
 <li>HandleReadResponse</li>
 <li>HandleRequestFinish</li>
-<li>Function prototype:</li>
+</ul>
+</li>
+<li>Function prototype:<ul>
 <li>handler(req <em>bfe_basic.Request, res </em>bfe_http.Response) int </li>
+</ul>
+</li>
 </ul>
 <h3 id="handlersfinish">HandlersFinish</h3>
 <ul>
-<li>Applicable callback point: </li>
+<li>Applicable callback point: <ul>
 <li>HandleFinish</li>
-<li>Function prototype:</li>
+</ul>
+</li>
+<li>Function prototype:<ul>
 <li>handler(session *bfe_basic.Session) int </li>
+</ul>
+</li>
 </ul>
                 
               
