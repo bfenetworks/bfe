@@ -3,64 +3,259 @@
 -#}
 {% extends "overrides/main.html" %}
 {% block tabs %}
-  {{ super() }}
-  <style>.md-header{position:initial}.md-main__inner{margin:0}.md-content{display:none}.tx-container{padding-top:1rem;background:linear-gradient(to bottom,var(--md-primary-fg-color),hsla(280deg,67%,55%,1) 99%,#fff 99%)}.tx-hero{margin:0 .8rem;color:var(--md-primary-bg-color)}.tx-hero h1{margin-bottom:1rem;color:currentColor;font-weight:700}.tx-hero__content{padding-bottom:6rem;margin:0 auto;}.tx-hero .md-button{margin-top:.5rem;margin-right:.5rem;color:var(--md-primary-bg-color)}.tx-hero .md-button--primary{background-color:var(--md-primary-bg-color);color:hsla(280deg,37%,48%,1);border-color:var(--md-primary-bg-color)}.tx-hero .md-button:focus,.tx-hero .md-button:hover{background-color:var(--md-accent-fg-color);color:var(--md-default-bg-color);border-color:var(--md-accent-fg-color)}@media screen and (max-width:30em){.tx-hero h1{font-size:1.4rem}}@media screen and (min-width:60em){.md-sidebar--secondary{display:none}.tx-hero{display:flex;align-items:stretch}.tx-hero__content{max-width:19rem;margin-top:3.5rem;margin:0 auto;}}@media screen and (min-width:76.25em){.md-sidebar--primary{display:none}.container{width:80%;margin:0 auto}.top-hr{margin-top:30px;width:100%}.feature-item{font-family:'Lato',sans-serif;font-weight:300;width:25%;float:left;box-sizing:border-box;padding:0 15px;word-break:break-all}.feature-item:hover{background-color:#fad9d1;border-radius:3px}.feature-item h2{color:#333;font-weight:300;font-size:25px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:normal;margin-top:20px;margin-bottom:10px;font-family:inherit}.feature-item p{font-size:16px;line-height:1.8em;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;color:#111;margin:0 0 10px;display:block}</style>
-  <section class="tx-container">
+{{ super() }}
+<style>
+    .md-header {
+        position: initial
+    }
+
+    .md-main__inner {
+        margin: 0
+    }
+
+    .md-content {
+        display: none
+    }
+
+    .tx-container {
+        padding-top: 1rem;
+        background: linear-gradient(to bottom, var(--md-primary-fg-color), hsla(280deg, 67%, 55%, 1) 99%, #fff 99%)
+    }
+
+    .tx-hero {
+        margin: 0 .8rem;
+        color: var(--md-primary-bg-color)
+    }
+
+    .tx-hero h1 {
+        margin-bottom: 1rem;
+        color: currentColor;
+        font-weight: 700
+    }
+
+    .tx-hero__content {
+        padding-bottom: 6rem;
+        margin: 0 auto;
+    }
+
+    .tx-hero .md-button {
+        margin-top: .5rem;
+        margin-right: .5rem;
+        color: var(--md-primary-bg-color)
+    }
+
+    .tx-hero .md-button--primary {
+        background-color: var(--md-primary-bg-color);
+        color: hsla(280deg, 37%, 48%, 1);
+        border-color: var(--md-primary-bg-color)
+    }
+
+    .tx-hero .md-button:focus,
+    .tx-hero .md-button:hover {
+        background-color: var(--md-accent-fg-color);
+        color: var(--md-default-bg-color);
+        border-color: var(--md-accent-fg-color)
+    }
+
+    .feature-item h2 svg {
+        height: 30px;
+        float: left;
+        margin-right: 10px;
+        transform: translateY(10%);
+    }
+
+    .top-hr {
+        margin-top: 30px;
+    }
+
+    .feature-item {
+        font-family: 'Lato', sans-serif;
+        font-weight: 300;
+        box-sizing: border-box;
+        padding: 0 15px;
+        word-break: break-all
+    }
+
+    .feature-item h2 {
+        color: #333;
+        font-weight: 300;
+        font-size: 25px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: normal;
+        margin-top: 20px;
+        margin-bottom: 10px;
+        font-family: inherit;
+    }
+
+    .feature-item p {
+        font-size: 16px;
+        line-height: 1.8em;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        color: #111;
+        margin: 0 0 10px;
+        display: block;
+    }
+
+    @media screen and (max-width:30em) {
+        .tx-hero h1 {
+            font-size: 1.4rem
+        }
+    }
+
+    @media screen and (min-width:60em) {
+        .md-sidebar--secondary {
+            display: none
+        }
+
+        .tx-hero {
+            display: flex;
+            align-items: stretch
+        }
+
+        .tx-hero__content {
+            max-width: 19rem;
+            margin-top: 3.5rem;
+            margin: 0 auto;
+        }
+    }
+
+    @media screen and (min-width:76.25em) {
+        .md-sidebar--primary {
+            display: none
+        }
+
+        .top-hr {
+            width: 100%;
+            display: flex;
+            max-width: 61rem;
+            margin-right: auto;
+            margin-left: auto;
+            padding: 0 .2rem;
+        }
+
+        .bottom-hr {
+            margin-top: 10px;
+            width: 100%;
+            display: flex;
+            max-width: 61rem;
+            margin-right: auto;
+            margin-left: auto;
+            padding: 0 .2rem;
+        }
+
+        .feature-item {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .feature-item:hover {
+            background-color: #526cfe47;
+            border-radius: 3px;
+        }
+    }
+</style>
+<section class="tx-container">
     <div class="md-grid md-typeset">
-      <div class="tx-hero">
-        <div class="tx-hero__content">
-          <h1>BFE</h1>
-          <p>{{ config.site_description }}</p>
-          <a href="/en_us/installation/install_from_source/" title="Getting started with BFE" class="md-button md-button--primary">
-            Get started
-          </a>
-          <a href="{{ config.repo_url }}" title="{{ lang.t('source.link.title') }}" class="md-button">
-            Go to GitHub
-          </a>
+        <div class="tx-hero">
+            <div class="tx-hero__content">
+                <h1>BFE</h1>
+                <p>{{ config.site_description }}</p>
+                <a href="{{ page.next_page.url | url }}" title="{{ page.next_page.title | striptags }}"
+                    class="md-button md-button--primary">
+                    Get started
+                </a>
+                <a href="{{ config.repo_url }}" title="{{ lang.t('source.link.title') }}" class="md-button">
+                    Go to GitHub
+                </a>
+            </div>
         </div>
-      </div>
     </div>
 
 
-  </section>
-  <div class="container">
-        <div class="top-hr">
-            <div class="feature-item">
-                <h2>Plugin framework</h2>
-                <p>BFE has a builtin plugin framework that makes it possible to develop new features rapidly by writing plugins.</p>
-            </div>
-            <div class="feature-item">
-                <h2>Multi-tenancy</h2>
-                <p>BFE is designed to provide every tenant a dedicated share of the instance. Each tenant is isolated and remains invisible to other tenants.</p>
-            </div>
-            <div class="feature-item">
-                <h2>Multiple protocols</h2>
-                <p>BFE supports HTTP, HTTPS, SPDY, HTTP2, WebSocket, TLS, etc. Future support is planned for gRPC and HTTP/3.</p>
-            </div>
-            <div class="feature-item">
-                <h2>Content based routing</h2>
-                <p>BFE provides an advanced domain-specific language to describe routing rules which are easy to understand and maintain.</p>
-            </div>
-        </div>
-        <div class="top-hr">
-            <div class="feature-item">
-                <h2>Load balancing</h2>
-                <p>BFE supports global load balancing and distributed load balancing for zone aware balancing, zone level failure resilience, overload protection etc.</p>
-            </div>
-            <div class="feature-item">
-                <h2>Many plugins</h2>
-                <p>BFE provides a rich set of plugins for traffic management, security, observability, etc.</p>
-            </div>
-            <div class="feature-item">
-                <h2>Observability</h2>
-                <p>BFE includes detailed built-in metrics for all subsystems. BFE writes various logs for trouble shooting, data analysis and visualization. BFE also supports distributed tracing.</p>
-            </div>
-            <div class="feature-item">
-                <h2>Easily integrated</h2>
-                <p>BFE is easily integrated with mainstream layer 4 load balancing solution, and other ecosystem projects(e.g. Kubernetes、Prometheus、Jaeger、Fluentd etc).</p>
-            </div>
-        </div>
-      </div>
+</section>
+<div class="top-hr">
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M15 17v-3h3v-2l4 3.5-4 3.5v-2h-3m2 1v3h-3v2l-4-3.5 4-3.5v2h3M12 8c-2.21 0-4 1.8-4 4 0 1.91 1.35 3.54 3.21 3.92L16 11.86A3.997 3.997 0 0012 8m0 6c-1.1 0-2-.89-2-2s.9-2 2-2 2 .9 2 2-.89 2-2 2m9.66-5.27l-2-3.46c-.12-.22-.38-.31-.61-.22l-2.49 1c-.51-.41-1.06-.74-1.69-1l-.37-2.63A.506.506 0 0014 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.26-1.17.59-1.69 1L5 5.05c-.23-.09-.5 0-.61.22l-2 3.46c-.13.21-.08.49.11.64L4.57 11l-.07 1 .07 1-2.11 1.63c-.2.15-.25.43-.12.64l2 3.46c.11.27.4.38.66.27l2.5-1c.24.19.5.37.76.53l1.65-1.4c-.77-.33-1.45-.82-2-1.45l-2.41 1-.77-1.3L6.8 13.8a5.55 5.55 0 010-3.6L4.69 8.65l.75-1.3 2.41 1c.78-.9 1.83-1.53 3-1.78l.4-2.57h1.5l.37 2.62c1.17.24 2.22.88 3 1.77l2.41-1 .75 1.3-2.08 1.51c.09.26.16.53.2.8h2l2.1-1.63a.48.48 0 00.16-.64M12 8c-2.21 0-4 1.8-4 4 0 1.91 1.35 3.54 3.21 3.92L16 11.86A3.997 3.997 0 0012 8m0 6c-1.1 0-2-.89-2-2s.9-2 2-2 2 .9 2 2-.89 2-2 2m0-6c-2.21 0-4 1.8-4 4 0 1.91 1.35 3.54 3.21 3.92L16 11.86A3.997 3.997 0 0012 8m0 6c-1.1 0-2-.89-2-2s.9-2 2-2 2 .9 2 2-.89 2-2 2z" />
+            </svg>
+            Plugin framework
+        </h2>
+        <p>BFE has a builtin plugin framework that makes it possible to develop new features rapidly by writing
+            plugins.</p>
+    </div>
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M16 17v2H2v-2s0-4 7-4 7 4 7 4m-3.5-9.5A3.5 3.5 0 109 11a3.5 3.5 0 003.5-3.5m3.44 5.5A5.32 5.32 0 0118 17v2h4v-2s0-3.63-6.06-4M15 4a3.39 3.39 0 00-1.93.59 5 5 0 010 5.82A3.39 3.39 0 0015 11a3.5 3.5 0 000-7z" />
+            </svg>Multi-tenancy
+        </h2>
+        <p>BFE is designed to provide every tenant a dedicated share of the instance. Each tenant’s
+            configuration is isolated and remains invisible to other tenants.</p>
+    </div>
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M6 20a6 6 0 01-6-6c0-3.09 2.34-5.64 5.35-5.96A7.496 7.496 0 0112 4a7.5 7.5 0 017.35 6A5.02 5.02 0 0124 15a5 5 0 01-5 5H6M9.09 8.4L4.5 13l4.59 4.6 1.41-1.42L7.32 13l3.18-3.18L9.09 8.4m5.82 0L13.5 9.82 16.68 13l-3.18 3.18 1.41 1.42L19.5 13l-4.59-4.6z" />
+            </svg>Multiple protocols
+        </h2>
+        <p>BFE supports HTTP, HTTPS, SPDY, HTTP2, WebSocket, TLS, etc. Future support is planned for gRPC and
+            HTTP/3.</p>
+    </div>
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M20 3H5a2 2 0 00-2 2v6h4V9l4 3-4 3v-2H3v6a2 2 0 002 2h15a2 2 0 002-2V5a2 2 0 00-2-2m-3 14h-4v-2h4v2m3-4h-7v-2h7v2m0-4h-7V7h7v2M3 13H0v-2h3v2z" />
+            </svg>Content based routing</h2>
+        <p>BFE provides an advanced domain-specific language to describe routing rules which are easy to
+            understand and maintain.</p>
+    </div>
+</div>
+<div class="bottom-hr">
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M19 15v-3c-.5 0-4.5.16-4.95 4.2 1.56.55 2.38 2.27 1.83 3.83a3.006 3.006 0 01-3.83 1.83c-1.55-.56-2.38-2.27-1.83-3.83.28-.86.98-1.53 1.83-1.83A6.748 6.748 0 0119 10V7l4 4-4 4m-5 4a1 1 0 00-1-1 1 1 0 00-1 1 1 1 0 001 1 1 1 0 001-1m-2-7.88c.58-.66 1.25-1.23 2-1.69V5h3l-4-4-4 4h3v6.12M7.2 6h-2L2 15h1.9l.7-2h3.2l.7 2h1.9L7.2 6m-2.15 5.65L6.2 8l1.15 3.65h-2.3z" />
+            </svg>Advanced load balancing</h2>
+        <p>BFE supports global load balancing and distributed load balancing for zone aware balancing, zone
+            level failure resilience, overload protection etc.</p>
+    </div>
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M15.9 18.45c1.35 0 2.45-1.1 2.45-2.45s-1.1-2.45-2.45-2.45c-1.36 0-2.45 1.1-2.45 2.45s1.09 2.45 2.45 2.45m5.2-1.77l1.48 1.16c.13.11.17.29.08.45l-1.4 2.42a.35.35 0 01-.43.15l-1.74-.7c-.36.28-.76.51-1.18.69l-.27 1.85c-.02.17-.17.3-.34.3h-2.8c-.18 0-.32-.13-.35-.3l-.26-1.85c-.43-.18-.82-.41-1.18-.69l-1.75.7c-.15.06-.34 0-.42-.15l-1.4-2.42a.351.351 0 01.08-.45l1.48-1.16-.05-.68.05-.69-1.48-1.15a.353.353 0 01-.08-.45l1.4-2.42c.08-.16.27-.22.42-.16l1.75.71c.36-.28.75-.52 1.18-.69l.26-1.86c.03-.16.17-.29.35-.29h2.8c.17 0 .32.13.34.29l.27 1.86c.42.17.82.41 1.18.69l1.74-.71c.17-.06.34 0 .43.16l1.4 2.42c.09.15.05.34-.08.45l-1.48 1.15.05.69-.05.68M6.69 8.07c.87 0 1.57-.7 1.57-1.57 0-.87-.7-1.58-1.57-1.58A1.58 1.58 0 005.11 6.5c0 .87.71 1.57 1.58 1.57m3.34-1.13l.97.74c.07.07.09.19.03.29l-.9 1.56c-.05.1-.17.14-.27.1l-1.12-.45-.74.44-.19 1.19c-.02.11-.11.19-.22.19h-1.8c-.12 0-.21-.08-.23-.19L5.4 9.62l-.76-.44-1.14.45c-.09.04-.2 0-.26-.1l-.9-1.56c-.06-.1-.03-.22.05-.29l.95-.74-.03-.44.03-.44-.95-.74a.229.229 0 01-.05-.29l.9-1.56c.06-.1.17-.14.26-.1l1.13.45.77-.44.16-1.19c.02-.11.11-.19.23-.19h1.8c.11 0 .2.08.22.19L8 3.38l.74.44 1.12-.45c.1-.04.22 0 .27.1l.9 1.56c.06.1.04.22-.03.29l-.97.74.03.44-.03.44z" />
+            </svg>Many builtin plugins</h2>
+        <p>BFE provides a rich set of plugins for traffic management, security, observability, etc.</p>
+    </div>
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M15.5 12c2.5 0 4.5 2 4.5 4.5 0 .88-.25 1.71-.69 2.4l3.08 3.1L21 23.39l-3.12-3.07c-.69.43-1.51.68-2.38.68-2.5 0-4.5-2-4.5-4.5s2-4.5 4.5-4.5m0 2a2.5 2.5 0 00-2.5 2.5 2.5 2.5 0 002.5 2.5 2.5 2.5 0 002.5-2.5 2.5 2.5 0 00-2.5-2.5m6.5-1a3 3 0 00-3-3h-1.5v-.5A5.5 5.5 0 0012 4C9.5 4 7.37 5.69 6.71 8H6a4 4 0 00-4 4 4 4 0 004 4h3v.5c0 .5.06 1 .17 1.5H6a6 6 0 01-6-6c0-3.1 2.34-5.64 5.35-5.96A7.496 7.496 0 0112 2c3.64 0 6.67 2.59 7.36 6.04C21.95 8.22 24 10.36 24 13c0 1.65-.79 3.1-2 4v-.5c0-.73-.12-1.44-.35-2.1.22-.4.35-.9.35-1.4z" />
+            </svg>Observability</h2>
+        <p>BFE includes detailed built-in metrics for all subsystems. BFE writes various logs(server log/access
+            log/TLS key log) for trouble shooting, data analysis and visualization. BFE also supports
+            distributed tracing.</p>
+    </div>
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M13 11h5l-1.5-1.5 1.42-1.42L21.84 12l-3.92 3.92-1.42-1.42L18 13h-5v5l1.5-1.5 1.42 1.42L12 21.84l-3.92-3.92L9.5 16.5 11 18v-5H6l1.5 1.5-1.42 1.42L2.16 12l3.92-3.92L7.5 9.5 6 11h5V6L9.5 7.5 8.08 6.08 12 2.16l3.92 3.92L14.5 7.5 13 6v5z" />
+            </svg>Easily integrated</h2>
+        <p>BFE is easily integrated with mainstream layer 4 load balancing solution, and other ecosystem
+            projects(e.g. Kubernetes、Prometheus、Jaeger、Fluentd etc).</p>
+    </div>
+</div>
 {% endblock %}
 {% block content %}{% endblock %}
 {% block footer %}{% endblock %}
