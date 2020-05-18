@@ -37,4 +37,5 @@ $ ./flamegraph.pl bfe.flame > bfe.svg
 ```
 
 * Open bfe.svg in browser
+
 ![flame graph example](../../images/bfe.svg)

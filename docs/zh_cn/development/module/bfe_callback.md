@@ -3,7 +3,7 @@
 ## BFE的转发过程和回调点
 
 BFE转发过程中的回调点如下图所示。
-![BFE转发过程中的回调点](../../../images/bfe_callback.png)
+![BFE转发过程中的回调点](../../../images/bfe-callback.png)
 
 ## 回调点列表
 在BFE中，设置了以下9个回调点：
