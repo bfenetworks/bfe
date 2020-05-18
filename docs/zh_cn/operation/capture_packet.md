@@ -33,4 +33,4 @@ Modules = mod_key_log
 
 * Step3: 使用wireshark打开并解密抓包数据
 
-![WireShark解密https](../../images/wireShark_decrypt_https.png)
+![WireShark解密https](../../images/wireshark-https.png)

@@ -12,6 +12,10 @@ $ go get github.com/baidu/bfe
 
 可执行目标文件位置: ${GOPATH}/bin/bfe
 
+!!! tip
+    如果遇到超时错误"https fetch: Get ... connect: connection timed out", 请设置代理后重试，详见[安装常见问题](../faq/installation.md)
+
+
 ## 运行
 - 基于示例配置运行BFE:
 

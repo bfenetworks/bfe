@@ -33,4 +33,4 @@ Modules = mod_key_log
 
 * Step3: Use wireshark to open and decrypt the captured data
 
-![WireShark decrypt https](../../images/wireShark_decrypt_https.png)
+![WireShark decrypt https](../../images/wireshark-https.png)

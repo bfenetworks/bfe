@@ -176,6 +176,6 @@ nav:
       - 'System related primitives':
         - 'Time': 'condition/system/time.md'
   - 'DOWNLOAD':
-    - 'DOWNLOAD': 'DOWNLOAD.md' 
+    - 'Download binaries': 'DOWNLOAD.md' 
   - 'COMMUNITY':
-    - 'COMMUNITY': 'COMMUNITY.md' 
+    - 'Get Involved': 'COMMUNITY.md' 

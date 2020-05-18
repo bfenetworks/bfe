@@ -12,6 +12,10 @@ $ go get github.com/baidu/bfe
 
 Executable object file location is ${GOPATH}/bin/bfe
 
+!!! tip
+    If you encounter an error such as "https fetch: Get ... connect: connection timed out", please set the GOPROXY and try again. See [Installation FAQ](../faq/installation.md)
+
+
 ## Run
 - Run BFE with example configuration files:
 
