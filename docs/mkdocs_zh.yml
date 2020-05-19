@@ -6,7 +6,7 @@ repo_url: https://github.com/baidu/bfe
 docs_dir: 'zh_cn'
 edit_uri: edit/develop/docs/zh_cn/
 site_description: >-
-  基于百度统一接入前端开源的现代化的七层负载均衡系统
+  现代化的七层负载均衡系统
 
 theme:
   name: null
