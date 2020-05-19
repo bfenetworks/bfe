@@ -2688,9 +2688,11 @@
 </tr>
 </tbody>
 </table>
-<p>JWK配置文件说明
-* 配置文件必须遵守<a href="https://tools.ietf.org/html/rfc7517">JSON Web Key规范</a>
-* 生成示例Key：</p>
+<p>JWK配置文件说明</p>
+<ul>
+<li>配置文件必须遵守<a href="https://tools.ietf.org/html/rfc7517">JSON Web Key规范</a></li>
+<li>生成示例Key：</li>
+</ul>
 <div class="codehilite"><pre><span></span><code><span class="err">echo -n jwt_example | base64 | tr &#39;+/&#39; &#39;-_&#39; | tr -d &#39;=&#39;</span>
 </code></pre></div>
 
