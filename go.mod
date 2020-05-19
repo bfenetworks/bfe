@@ -7,6 +7,7 @@ require (
 	github.com/andybalholm/brotli v1.0.0
 	github.com/asergeyev/nradix v0.0.0-20170505151046-3872ab85bb56 // indirect
 	github.com/baidu/go-lib v0.0.0-20191217050907-c1bbbad6b030
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/miekg/dns v1.1.29
 	github.com/opentracing/opentracing-go v1.1.0

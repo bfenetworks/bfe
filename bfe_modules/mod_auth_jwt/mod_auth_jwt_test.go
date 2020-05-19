@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//     bfe_http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,77 +16,94 @@ package mod_auth_jwt
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"testing"
+)
+
+import (
+	"github.com/baidu/go-lib/web-monitor/web_monitor"
 )
 
 import (
 	"github.com/baidu/bfe/bfe_basic"
 	"github.com/baidu/bfe/bfe_http"
 	"github.com/baidu/bfe/bfe_module"
-	"github.com/baidu/go-lib/web-monitor/web_monitor"
 )
 
-var (
-	request = new(bfe_basic.Request)
-	module  = NewModuleAuthJWT()
-)
-
-func init() {
-	httpRequest, err := bfe_http.NewRequest("GET", "http://www.example.org", nil)
-	if err != nil {
-		panic(err)
-	}
-	request.HttpRequest = httpRequest
-	request.Session = new(bfe_basic.Session)
-	callbacks := bfe_module.NewBfeCallbacks()
-	handlers := web_monitor.NewWebHandlers()
-	confRoot := "./testdata"
-	err = module.Init(callbacks, handlers, confRoot)
-	if err != nil {
-		panic(err)
-	}
+func TestAuthJWTFileHandlerRuleNotMatched(t *testing.T) {
+	testModAuthJWT(t, "example.org", "", func(
+		t *testing.T, m *ModuleAuthJWT, ret int, resp *bfe_http.Response) {
+		if ret != bfe_module.BfeHandlerGoOn {
+			t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
+		}
+	})
 }
 
-func TestAuthService_valid(t *testing.T) {
-	products := []string{"jwe_valid_1", "jws_valid_1"}
-	for _, product := range products {
-		request.Route.Product = fmt.Sprintf("test_%s", product)
-		file, err := os.Open(fmt.Sprintf("./testdata/mod_auth_jwt/%s.txt", product))
-		if err != nil {
-			t.Fatal(err)
-		}
-		token, _ := ioutil.ReadAll(file)
-		_ = file.Close()
-		t.Logf("%s", token)
-		request.HttpRequest.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-		flag, response := module.authService(request)
-		if flag != bfe_module.BfeHandlerGoOn {
-			t.Logf("%+v", response)
-			t.Errorf("Expected flag code %d, got %d", bfe_module.BfeHandlerGoOn, flag)
+func TestAuthJWTFileHandlerNoAuthorization(t *testing.T) {
+	testModAuthJWT(t, "www.example.org", "", func(
+		t *testing.T, m *ModuleAuthJWT, ret int, resp *bfe_http.Response) {
+		if ret != bfe_module.BfeHandlerResponse {
+			t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerResponse, ret)
 			return
 		}
-	}
+		if resp.StatusCode != bfe_http.StatusUnauthorized {
+			t.Errorf("status code should be %d, not %d", bfe_http.StatusUnauthorized, resp.StatusCode)
+			return
+		}
+	})
 }
 
-func TestAuthService_invalid(t *testing.T) {
-	products := []string{"jwe_invalid_1", "jws_invalid_1"}
-	for _, product := range products {
-		request.Route.Product = fmt.Sprintf("test_%s", product)
-		file, err := os.Open(fmt.Sprintf("./testdata/mod_auth_jwt/%s.txt", product))
-		if err != nil {
-			t.Fatal(err)
-		}
-		token, _ := ioutil.ReadAll(file)
-		_ = file.Close()
-		t.Logf("%s", token)
-		request.HttpRequest.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-		flag, response := module.authService(request)
-		if flag != bfe_module.BfeHandlerResponse {
-			t.Errorf("Expected flag code %d, got %d", bfe_module.BfeHandlerResponse, flag)
+func TestAuthJWTFileHandlerTokenInvalid(t *testing.T) {
+	testModAuthJWT(t, "www.example.org", "INVALID", func(
+		t *testing.T, m *ModuleAuthJWT, ret int, resp *bfe_http.Response) {
+		if ret != bfe_module.BfeHandlerResponse {
+			t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerResponse, ret)
 			return
 		}
-		t.Logf("%+v", response)
+		if resp.StatusCode != bfe_http.StatusUnauthorized {
+			t.Errorf("status code should be %d, not %d", bfe_http.StatusUnauthorized, resp.StatusCode)
+			return
+		}
+	})
+}
+
+func TestAuthJWTFileHandlerCorrect(t *testing.T) {
+	header := "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiIsImtpZCI6IjAwMDEifQ"
+	payload := "eyJuYW1lIjoiVW5pdHRlc3QiLCJzdWIiOiJVbml0dGVzdCIsImlzcyI6IkJGRSBHYXRld2F5In0"
+	signature := "NZcVkR0hcJLFrmtFZGlrMUye5wFB2twCKDDRHwn4QQ4"
+	token := fmt.Sprintf("%s.%s.%s", header, payload, signature)
+
+	testModAuthJWT(t, "www.example.org", token, func(
+		t *testing.T, m *ModuleAuthJWT, ret int, resp *bfe_http.Response) {
+		if ret != bfe_module.BfeHandlerGoOn {
+			t.Errorf("ret should be %d, not %d", bfe_module.BfeHandlerGoOn, ret)
+		}
+	})
+}
+
+func testModAuthJWT(t *testing.T, host string, token string,
+	check func(*testing.T, *ModuleAuthJWT, int, *bfe_http.Response)) {
+	// prepare module
+	m := NewModuleAuthJWT()
+	cb := bfe_module.NewBfeCallbacks()
+	wh := web_monitor.NewWebHandlers()
+	err := m.Init(cb, wh, "./testdata")
+	if err != nil {
+		t.Fatalf("Init() error: %v", err)
+	}
+
+	// prepare request
+	req := new(bfe_basic.Request)
+	req.Session = new(bfe_basic.Session)
+	req.Route.Product = "unittest"
+	req.HttpRequest, _ = bfe_http.NewRequest("GET", fmt.Sprintf("http://%s", host), nil)
+	if token != "" {
+		req.HttpRequest.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	}
+
+	// process request and check
+	ret, resp := m.authJWTHandler(req)
+	check(t, m, ret, resp)
+	if resp != nil {
+		resp.Body.Close()
 	}
 }
