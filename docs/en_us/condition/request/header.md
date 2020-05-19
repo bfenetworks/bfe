@@ -1,24 +1,21 @@
 # Request Header Related Primitives
 
 ## req_header_key_in(key_list)
-* Description:
-  - Judge if header key in matches configured patterns
-  - **Note: each word in header key need to be capitalized**
-
+* Description: Judge if header key in matches configured patterns
 
 * Parameters
 
 | Parameter | Descrption |
 | --------- | ---------- |
-| key_list | String<br>a list of header keys which are concatenated using &#124; |
+| key_list | String<br>a list of header keys which are concatenated using &#124;<br>The header key should be in canonical form |
 
 * Example
 
-```
-# right：
+```go
+// right：
 req_header_key_in("Header-Test")
 
-# wrong：
+// wrong：
 req_header_key_in("Header-test")
 req_header_key_in("header-test")
 req_header_key_in("header-Test")
@@ -38,7 +35,7 @@ req_header_key_in("header-Test")
 
 * Example
 
-```
+```go
 req_header_value_in("Referer", "https://example.org/login", true)
 ```
 
@@ -55,7 +52,7 @@ req_header_value_in("Referer", "https://example.org/login", true)
 
 * Example
 
-```
+```go
 req_header_prefix_value_in("Referer", "https://example.org", true)
 ```
 
@@ -72,7 +69,7 @@ req_header_prefix_value_in("Referer", "https://example.org", true)
 
 * Example
 
-```
+```go
 req_header_suffix_value_in("User-Agent", "2.0.4", true)
 ```
 
@@ -89,7 +86,7 @@ req_header_suffix_value_in("User-Agent", "2.0.4", true)
 
 * Example
 
-```
+```go
 req_header_value_hash_in("X-Device-Id", "100-200|400", true)
 ```
 
@@ -106,6 +103,6 @@ req_header_value_hash_in("X-Device-Id", "100-200|400", true)
 
 * Example
 
-```
+```go
 req_header_value_contain("User-Agent", "Firefox|Chrome", true)
 ```

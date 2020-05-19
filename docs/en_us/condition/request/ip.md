@@ -12,7 +12,7 @@
 
 * Example
 
-```
+```go
 req_cip_range("10.0.0.1", "10.0.0.10")
 ```
 
@@ -31,7 +31,7 @@ req_cip_range("10.0.0.1", "10.0.0.10")
 
 * Example
 
-```
+```go
 req_cip_hash_in("100")
 req_cip_hash_in("100-200")
 req_cip_hash_in("100-200|1000-1000")
@@ -48,7 +48,7 @@ req_cip_hash_in("100-200|1000-1000")
 
 * Example
 
-```
+```go
 req_vip_in("10.0.0.1|10.0.0.2")
 ```
 
@@ -64,6 +64,6 @@ req_vip_in("10.0.0.1|10.0.0.2")
 
 * Example
 
-```
+```go
 req_vip_range("10.0.0.1", "10.0.0.10")
 ```

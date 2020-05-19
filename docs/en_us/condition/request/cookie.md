@@ -12,7 +12,7 @@
 
 * Example
 
-```
+```go
 req_cookie_key_in("uid|cid|uss")
 ```
 
@@ -29,7 +29,7 @@ req_cookie_key_in("uid|cid|uss")
 
 * Example
 
-```
+```go
 req_cookie_value_in("deviceid", "testid", true)
 ```
 
@@ -46,7 +46,7 @@ req_cookie_value_in("deviceid", "testid", true)
 
 * Example
 
-```
+```go
 req_cookie_value_prefix_in("deviceid", "x", true)
 ```
 
@@ -63,7 +63,7 @@ req_cookie_value_prefix_in("deviceid", "x", true)
 
 * Example
 
-```
+```go
 req_cookie_value_suffix_in("deviceid", "1", true)
 ```
 
@@ -80,7 +80,7 @@ req_cookie_value_suffix_in("deviceid", "1", true)
 
 * Example
 
-```
+```go
 req_cookie_value_hash_in("uid", "100", true)
 ```
 
@@ -98,6 +98,6 @@ req_cookie_value_hash_in("uid", "100", true)
 
 * Example
 
-```
+```go
 req_cookie_value_contain("deviceid", "test", true)
 ```

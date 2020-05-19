@@ -20,5 +20,5 @@ BFE是独立的开源项目，BFE项目遵循如下[管理办法](https://github
 为了构建一个受欢迎且无骚扰的社区，BFE社区应遵循如下[行为准则](https://github.com/baidu/bfe/blob/develop/CODE_OF_CONDUCT.md)。
 
 ## 申请专项合作
-欢迎邮件我们 bfe-osc@baidu.com 洽谈。
+欢迎[邮件](mailto:bfe-osc@baidu.com)我们洽谈。
 

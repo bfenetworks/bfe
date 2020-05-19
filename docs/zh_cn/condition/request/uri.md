@@ -9,37 +9,37 @@
 | host_list | String<br>host列表，host之间使用‘&#124;’连接 |  
 
 * 示例
-```
+```go
 req_host_in("www.bfe-networks.com|bfe-networks.com")
 ```
 
 ## req_path_in(path_list, case_insensitive)
 * 含义： 判断http的path是否为path_list之一
-     * 注：需要包含开头的/
+
 * 参数  
 
 | 参数     | 描述                   |
 | -------- | ---------------------- |
-| path_list | String<br>path列表，多个path之间使用‘&#124;’连接 |  
+| path_list | String<br>path列表，多个path之间使用‘&#124;’连接 <br>每个path应以"/"开头 |
 | case_insensitive | Boolean<br>是否忽略大小写 |  
 
 * 示例
-```
+```go
 req_path_in("/api/search|/api/list", true)
 ```
 
 ## req_path_prefix_in(prefix_list, case_insensitive)
 * 含义： 判断http的path是否前缀匹配prefix_list之一
-     * 注：需要包含开头的/
+
 * 参数  
 
 | 参数     | 描述                   |
 | -------- | ---------------------- |
-| prefix_list | String<br>path prefix列表, 多个之间使用‘&#124;’连接 |  
+| prefix_list | String<br>path prefix列表, 多个之间使用‘&#124;’连接 <br>每个path prefix应以"/"开头 |  
 | case_insensitive | Boolean<br>是否忽略大小写 |  
 
 * 示例
-```
+```go
 req_path_prefix_in("/api/report|/api/analytics", false)
 ```
 
@@ -53,7 +53,7 @@ req_path_prefix_in("/api/report|/api/analytics", false)
 | case_insensitive | Boolean<br>是否忽略大小写 |  
 
 * 示例
-```
+```go
 req_path_suffix_in(".php|.jsp", false)
 ```
 
@@ -66,7 +66,7 @@ req_path_suffix_in(".php|.jsp", false)
 | key_list | String<br>query key列表, 多个之间使用‘&#124;’连接 |  
 
 * 示例
-```
+```go
 req_query_key_in("word|wd")
 ```
 
@@ -79,7 +79,7 @@ req_query_key_in("word|wd")
 | prefix_list | String<br>key prefix列表, 多个之间使用‘&#124;’连接 |  
 
 * 示例
-```
+```go
 req_query_key_prefix_in("rid")
 ```
 
@@ -94,7 +94,7 @@ req_query_key_prefix_in("rid")
 | case_insensitive | Boolean<br>是否忽略大小写 | 
 
 * 示例
-```
+```go
 req_query_value_in("uid", "x|y|z", true)
 ```
 
@@ -109,7 +109,7 @@ req_query_value_in("uid", "x|y|z", true)
 | case_insensitive | Boolean<br>是否忽略大小写 | 
 
 * 示例
-```
+```go
 req_query_value_prefix_in("uid", "100|200", true)
 ```
 
@@ -124,7 +124,7 @@ req_query_value_prefix_in("uid", "100|200", true)
 | case_insensitive | Boolean<br>是否忽略大小写 | 
  
 * 示例
-```
+```go
 req_query_value_suffix_in("uid", "1|2|3", true)
 ```
 
@@ -139,7 +139,7 @@ req_query_value_suffix_in("uid", "1|2|3", true)
 | case_insensitive | Boolean<br>是否忽略大小写 | 
  
 * 示例
-```
+```go
 req_query_value_hash_in("cid", "100", true)
 ```
 
@@ -152,7 +152,7 @@ req_query_value_hash_in("cid", "100", true)
 | port_list | String<br>port列表，多个port之间使用‘&#124;’连接 |  
  
 * 示例
-```
+```go
 req_port_in("80|8080")
 ```
 
@@ -166,6 +166,6 @@ req_port_in("80|8080")
 | reg_exp | String<br>表示正则表达式 |  
  
 * 示例
-```
+```go
 req_url_regmatch(`/s\?word=123`)
 ```

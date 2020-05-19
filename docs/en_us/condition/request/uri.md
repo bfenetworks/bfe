@@ -11,11 +11,11 @@
 
 * Example
 
-```
-# right：
+```go
+// right：
 req_host_in("www.bfe-networks.com|bfe-networks.com")
 
-# wrong：
+// wrong：
 req_host_in("www.bfe-networks.com | bfe-networks.com")
 ```
 
@@ -26,12 +26,12 @@ req_host_in("www.bfe-networks.com | bfe-networks.com")
 
 | Parameter | Descrption |
 | --------- | ---------- |
-| path_list | String<br>a list of paths which are concatenated using &#124; |
+| path_list | String<br>a list of paths which are concatenated using &#124; <br>Each path should start with '/' |
 | case_insensitive | Boolean<br>case insensitive |
 
 * Example
 
-```
+```go
 req_path_in("/api/search|/api/list", true)
 ```
 
@@ -42,12 +42,12 @@ req_path_in("/api/search|/api/list", true)
 
 | Parameter | Descrption |
 | --------- | ---------- |
-| prefix_list | String<br>a list of path prefixs which are concatenated using &#124; |
+| prefix_list | String<br>a list of path prefixs which are concatenated using &#124; <br>Each path prefix should start with '/' |
 | case_insensitive | Boolean<br>case insensitive |
 
 * Example
 
-```
+```go
 req_path_prefix_in("/api/report|/api/analytics", false)
 ```
     
@@ -63,12 +63,9 @@ req_path_prefix_in("/api/report|/api/analytics", false)
 
 * Example
 
-```
+```go
 req_path_suffix_in(".php|.jsp", false)
 ```
-
-**Note:**
-**The patterns of req_path_in and req_path_prefix_in need to be included "/"**
 
 ## req_query_key_in(key_list)
 * Description: Judge if query key matches configured patterns
@@ -81,7 +78,7 @@ req_path_suffix_in(".php|.jsp", false)
 
 * Example
 
-```
+```go
 req_query_key_exist("word|wd")
 ```
 
@@ -97,7 +94,7 @@ req_query_key_exist("word|wd")
 
 * Example
 
-```
+```go
 req_query_key_prefix_in("rid")
 ```
 
@@ -114,7 +111,7 @@ req_query_key_prefix_in("rid")
 
 * Example
 
-```
+```go
 req_query_value_in("uid", "x|y|z", true)
 ```
 
@@ -131,7 +128,7 @@ req_query_value_in("uid", "x|y|z", true)
 
 * Example
 
-```
+```go
 req_query_value_prefix_in("uid", "100|200", true)
 ```
 
@@ -148,7 +145,7 @@ req_query_value_prefix_in("uid", "100|200", true)
 
 * Example
 
-```
+```go
 req_query_value_suffix_in("uid", "1|2|3", true)
 ```
 
@@ -165,7 +162,7 @@ req_query_value_suffix_in("uid", "1|2|3", true)
 
 * Example
 
-```
+```go
 req_query_value_hash_in("cid", "100", true)
 ```
 
@@ -181,7 +178,7 @@ req_query_value_hash_in("cid", "100", true)
 
 * Example
 
-```
+```go
 req_port_in("80|8080")
 ```
 
@@ -196,6 +193,6 @@ req_port_in("80|8080")
 
 * Example
 
-```
+```go
 req_url_regmatch(`/s\?word=123`)
 ```

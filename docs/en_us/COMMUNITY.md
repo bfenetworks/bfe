@@ -26,6 +26,6 @@ To make BFE a welcoming and harassment-free experience for everyone, we follow t
 
 ## APPLICATION FOR SPECIAL COOPERATION
 
-Welcome to email us at bfe-osc@baidu.com
+Welcome to [email us](mailto: bfe-osc@baidu.com).
 
 

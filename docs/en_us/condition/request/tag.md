@@ -14,6 +14,6 @@
 
 * Example
 
-```
+```go
 req_tag_match("clientIP", "blacklist")
 ```
