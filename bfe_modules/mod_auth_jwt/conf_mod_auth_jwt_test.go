@@ -12,36 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mod_static
+package mod_auth_jwt
 
 import (
-	"sync"
+	"testing"
 )
 
-type MimeTypeTable struct {
-	lock     sync.RWMutex
-	version  string
-	mimeType MimeType
-}
+func TestConfLoad(t *testing.T) {
+	config, err := ConfLoad("./testdata/mod_auth_jwt/mod_auth_jwt.conf", "")
+	if err != nil {
+		t.Errorf("ConfLoad() error: %v", err)
+		return
+	}
 
-func NewMimeTypeTable() *MimeTypeTable {
-	t := new(MimeTypeTable)
-	t.mimeType = make(MimeType)
-	return t
-}
-
-func (t *MimeTypeTable) Update(conf MimeTypeConf) {
-	t.lock.Lock()
-	t.version = conf.Version
-	t.mimeType = conf.Config
-	t.lock.Unlock()
-}
-
-func (t *MimeTypeTable) Search(key string) (string, bool) {
-	t.lock.RLock()
-	mimeType := t.mimeType
-	t.lock.RUnlock()
-
-	value, ok := mimeType[key]
-	return value, ok
+	if config.Basic.DataPath != "mod_auth_jwt/auth_jwt_rule.data" {
+		t.Errorf("DataPath should be mod_auth_jwt/auth_jwt_rule.data, not %s", config.Basic.DataPath)
+	}
 }

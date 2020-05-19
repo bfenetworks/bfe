@@ -34,7 +34,7 @@ OpenDebug = false
 | Config{v}[] | Object<br> HTTP基本认证规则 |
 | Config{v}[].Cond | String<br>匹配条件, 语法详见[Condition](../../condition/condition_grammar.md) |
 | Config{v}[].UserFile | String<br>用户密码文件路径 |
-| Config{v}[].Realm | String<br>认证规则生效范围<br>默认值"Restricted" |
+| Config{v}[].Realm | String<br>安全域名称<br>默认值"Restricted" |
 
 用户密码文件说明：
 * 密码使用MD5、SHA1 或 BCrypt 进行哈希编码, 可使用 htpasswd、openssl 生成 userfile 文件

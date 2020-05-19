@@ -12,36 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mod_static
+package mod_auth_jwt
 
 import (
 	"sync"
 )
 
-type MimeTypeTable struct {
-	lock     sync.RWMutex
-	version  string
-	mimeType MimeType
+type AuthJWTRuleTable struct {
+	lock         sync.RWMutex
+	version      string
+	productRules ProductRules
 }
 
-func NewMimeTypeTable() *MimeTypeTable {
-	t := new(MimeTypeTable)
-	t.mimeType = make(MimeType)
+func NewAuthJWTRuleTable() *AuthJWTRuleTable {
+	t := new(AuthJWTRuleTable)
+	t.productRules = make(ProductRules)
 	return t
 }
 
-func (t *MimeTypeTable) Update(conf MimeTypeConf) {
+func (t *AuthJWTRuleTable) Update(conf AuthJWTConf) {
 	t.lock.Lock()
 	t.version = conf.Version
-	t.mimeType = conf.Config
+	t.productRules = conf.Config
 	t.lock.Unlock()
 }
 
-func (t *MimeTypeTable) Search(key string) (string, bool) {
+func (t *AuthJWTRuleTable) Search(product string) (*RuleList, bool) {
 	t.lock.RLock()
-	mimeType := t.mimeType
+	productRules := t.productRules
 	t.lock.RUnlock()
 
-	value, ok := mimeType[key]
-	return value, ok
+	rules, ok := productRules[product]
+	return rules, ok
 }
