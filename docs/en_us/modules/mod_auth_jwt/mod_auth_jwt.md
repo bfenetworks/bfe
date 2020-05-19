@@ -16,7 +16,7 @@ conf/mod_auth_jwt/mod_auth_jwt.conf
 
 ### Example
 
-```
+```ini
 [Basic]
 DataPath = mod_auth_jwt/auth_jwt_rule.data
 ```
@@ -45,7 +45,7 @@ echo -n jwt_example | base64 | tr '+/' '-_' | tr -d '='
 ```
 
 * key file configuration example
-```
+```json
 [
     {
         "k": "and0X2V4YW1wbGU",
