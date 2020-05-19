@@ -8,7 +8,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="A modern layer 7 load balancer derived from proprietary Baidu Front End.">
+        <meta name="description" content="A modern layer 7 load balancer">
       
       
       
@@ -1041,9 +1041,96 @@
       
     
     
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        mod_auth_jwt
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 9h14V7H3v2m0 4h14v-2H3v2m0 4h14v-2H3v2m16 0h2v-2h-2v2m0-10v2h2V7h-2m0 6h2v-2h-2v2z"/></svg>
+        </span>
+      </label>
+    
     <a href="./" title="mod_auth_jwt" class="md-nav__link md-nav__link--active">
       mod_auth_jwt
     </a>
+    
+      
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    Introduction
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-configuration" class="md-nav__link">
+    Module Configuration
+  </a>
+  
+    <nav class="md-nav" aria-label="Module Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#description" class="md-nav__link">
+    Description
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    Example
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rule-configuration" class="md-nav__link">
+    Rule Configuration
+  </a>
+  
+    <nav class="md-nav" aria-label="Rule Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#description_1" class="md-nav__link">
+    Description
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example_1" class="md-nav__link">
+    Example
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
     
   </li>
 
@@ -2437,6 +2524,77 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    Introduction
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-configuration" class="md-nav__link">
+    Module Configuration
+  </a>
+  
+    <nav class="md-nav" aria-label="Module Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#description" class="md-nav__link">
+    Description
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    Example
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rule-configuration" class="md-nav__link">
+    Rule Configuration
+  </a>
+  
+    <nav class="md-nav" aria-label="Rule Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#description_1" class="md-nav__link">
+    Description
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example_1" class="md-nav__link">
+    Example
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -2456,7 +2614,114 @@
                 
                 
                 <h1 id="mod_auth_jwt">mod_auth_jwt</h1>
-<p>Note: This documentation is working in process. Please help improve it by <a href="https://github.com/baidu/bfe/issues/new/choose">filing issues</a> or <a href="../../../development/submit_pr_guide/">pull requests</a>.</p>
+<h2 id="introduction">Introduction</h2>
+<p>mod_auth_jwt implements JWT(<a href="https://tools.ietf.org/html/rfc7519">JSON Web Token</a>).</p>
+<h2 id="module-configuration">Module Configuration</h2>
+<h3 id="description">Description</h3>
+<p>conf/mod_auth_jwt/mod_auth_jwt.conf</p>
+<table>
+<thead>
+<tr>
+<th>Config Item</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Basic.DataPath</td>
+<td>String<br>path of rule configuraiton</td>
+</tr>
+<tr>
+<td>Log.OpenDebug</td>
+<td>Boolean<br>debug flag of module</td>
+</tr>
+</tbody>
+</table>
+<h3 id="example">Example</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
+<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_auth_jwt/auth_jwt_rule.data</span>
+</code></pre></div>
+
+
+<h2 id="rule-configuration">Rule Configuration</h2>
+<h3 id="description_1">Description</h3>
+<p>conf/mod_auth_jwt/auth_jwt_rule.data</p>
+<table>
+<thead>
+<tr>
+<th>Config Item</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Version</td>
+<td>String<br>Verson of config file</td>
+</tr>
+<tr>
+<td>Config</td>
+<td>Struct<br>JWT rules for each product</td>
+</tr>
+<tr>
+<td>Config{k}</td>
+<td>String<br>Product name</td>
+</tr>
+<tr>
+<td>Config{v}</td>
+<td>Object<br>A ordered list of rules</td>
+</tr>
+<tr>
+<td>Config{v}[]</td>
+<td>Object<br>A rule</td>
+</tr>
+<tr>
+<td>Config{v}[].Cond</td>
+<td>String<br>Condition expression, See <a href="../../../condition/condition_grammar/">Condition</a></td>
+</tr>
+<tr>
+<td>Config{v}[].KeyFile</td>
+<td>String<br>Path of JWK configuration</td>
+</tr>
+<tr>
+<td>Config{v}[].Realm</td>
+<td>String<br>Realm, ie. protection space<br>Default "Restricted"</td>
+</tr>
+</tbody>
+</table>
+<p>Description about JWK configuration
+* Key file must follow the format described by the <a href="https://tools.ietf.org/html/rfc7517">JSON Web Key Specification</a>
+* Generate key:</p>
+<div class="codehilite"><pre><span></span><code><span class="err">echo -n jwt_example | base64 | tr &#39;+/&#39; &#39;-_&#39; | tr -d &#39;=&#39;</span>
+</code></pre></div>
+
+
+<ul>
+<li>key file configuration example</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="p">[</span>
+    <span class="p">{</span>
+        <span class="nt">&quot;k&quot;</span><span class="p">:</span> <span class="s2">&quot;and0X2V4YW1wbGU&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;kty&quot;</span><span class="p">:</span> <span class="s2">&quot;oct&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;kid&quot;</span><span class="p">:</span> <span class="s2">&quot;0001&quot;</span>
+    <span class="p">}</span>
+<span class="p">]</span>
+</code></pre></div>
+
+
+<h3 id="example_1">Example</h3>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_host_in(\&quot;www.example.org\&quot;)&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;KeyFile&quot;</span><span class="p">:</span> <span class="s2">&quot;mod_auth_jwt/key_file&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Realm&quot;</span><span class="p">:</span> <span class="s2">&quot;Restricted&quot;</span>
+            <span class="p">}</span>
+        <span class="p">]</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
                 
               
               
