@@ -16,7 +16,7 @@ mod_auth_jwt支持JWT([JSON Web Token](https://tools.ietf.org/html/rfc7519))认�
 
 ### 配置示例
 
-```
+```ini
 [Basic]
 DataPath = mod_auth_jwt/auth_jwt_rule.data
 ```
@@ -45,7 +45,7 @@ echo -n jwt_example | base64 | tr '+/' '-_' | tr -d '='
 ```
 
 * JWK配置文件示例：
-```
+```json
 [
     {
         "k": "and0X2V4YW1wbGU",
