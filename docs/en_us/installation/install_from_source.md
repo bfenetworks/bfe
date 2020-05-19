@@ -2,7 +2,7 @@
 
 ## Prerequisites
 - golang 1.13+
-- git
+- git 2.0+
 
 ## Download source code
 ```bash

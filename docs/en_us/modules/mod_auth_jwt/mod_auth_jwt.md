@@ -38,13 +38,16 @@ conf/mod_auth_jwt/auth_jwt_rule.data
 | Config{v}[].Realm | String<br>Realm, ie. protection space<br>Default "Restricted" |
 
 Description about JWK configuration
+
 * Key file must follow the format described by the [JSON Web Key Specification](https://tools.ietf.org/html/rfc7517)
 * Generate key:
+
 ```
 echo -n jwt_example | base64 | tr '+/' '-_' | tr -d '='
 ```
 
 * key file configuration example
+
 ```json
 [
     {

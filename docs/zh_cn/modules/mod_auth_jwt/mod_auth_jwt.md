@@ -38,13 +38,16 @@ conf/mod_auth_jwt/auth_jwt_rule.data
 | Config{v}[].Realm | String<br>安全域名称<br>默认值"Restricted" |
 
 JWK配置文件说明
+
 * 配置文件必须遵守[JSON Web Key规范](https://tools.ietf.org/html/rfc7517)
 * 生成示例Key：
+
 ```
 echo -n jwt_example | base64 | tr '+/' '-_' | tr -d '='
 ```
 
 * JWK配置文件示例：
+
 ```json
 [
     {
