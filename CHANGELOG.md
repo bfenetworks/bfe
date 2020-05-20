@@ -14,7 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - mod_trace: support tracing based on Elastic APM
 - mod_compress: support brotli algorithm
-- Add condition primitive: req_host_tag_in
+- mod_rewrite: add HostSuffixReplace action
+- Add condition primitive: req_host_tag_in/req_host_suffix_in
+- Add static content of website based on mkdocs
+- Documents optimization
+
+### Changed
+- Refactor and simplify mod_auth_jwt
+
+### Removed
+- Remove legacy type of Layer4LoadBalancer 
 
 
 ## [v0.9.0] - 2020-04-16
