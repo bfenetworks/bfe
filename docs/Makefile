@@ -20,9 +20,9 @@ all: build
 # build content for website
 build:
 	mkdocs build -f mkdocs_en.yml -d $(OUTDIR)/en_us
-	cp images $(OUTDIR)/en_us -r
+	cp -R images $(OUTDIR)/en_us 
 	mkdocs build -f mkdocs_zh.yml -d $(OUTDIR)/zh_cn
-	cp images $(OUTDIR)/zh_cn -r
+	cp -R images $(OUTDIR)/zh_cn
 
 clean:
 	rm -rf $(OUTDIR)
