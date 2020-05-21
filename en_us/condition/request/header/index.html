@@ -2580,10 +2580,8 @@
                 <h1 id="request-header-related-primitives">Request Header Related Primitives</h1>
 <h2 id="req_header_key_inkey_list">req_header_key_in(key_list)</h2>
 <ul>
-<li>Description:</li>
-<li>Judge if header key in matches configured patterns</li>
 <li>
-<p><strong>Note: each word in header key need to be capitalized</strong></p>
+<p>Description: Judge if header key in matches configured patterns</p>
 </li>
 <li>
 <p>Parameters</p>
@@ -2599,20 +2597,20 @@
 <tbody>
 <tr>
 <td>key_list</td>
-<td>String<br>a list of header keys which are concatenated using &#124;</td>
+<td>String<br>a list of header keys which are concatenated using &#124;<br>The header key should be in canonical form</td>
 </tr>
 </tbody>
 </table>
 <ul>
 <li>Example</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="o">#</span> <span class="k">right</span><span class="err">：</span>
-<span class="n">req_header_key_in</span><span class="p">(</span><span class="ss">&quot;Header-Test&quot;</span><span class="p">)</span>
+<div class="codehilite"><pre><span></span><code><span class="c1">// right：</span>
+<span class="nx">req_header_key_in</span><span class="p">(</span><span class="s">&quot;Header-Test&quot;</span><span class="p">)</span>
 
-<span class="o">#</span> <span class="n">wrong</span><span class="err">：</span>
-<span class="n">req_header_key_in</span><span class="p">(</span><span class="ss">&quot;Header-test&quot;</span><span class="p">)</span>
-<span class="n">req_header_key_in</span><span class="p">(</span><span class="ss">&quot;header-test&quot;</span><span class="p">)</span>
-<span class="n">req_header_key_in</span><span class="p">(</span><span class="ss">&quot;header-Test&quot;</span><span class="p">)</span>
+<span class="c1">// wrong：</span>
+<span class="nx">req_header_key_in</span><span class="p">(</span><span class="s">&quot;Header-test&quot;</span><span class="p">)</span>
+<span class="nx">req_header_key_in</span><span class="p">(</span><span class="s">&quot;header-test&quot;</span><span class="p">)</span>
+<span class="nx">req_header_key_in</span><span class="p">(</span><span class="s">&quot;header-Test&quot;</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -2651,7 +2649,7 @@
 <ul>
 <li>Example</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_header_value_in(&quot;Referer&quot;, &quot;https://example.org/login&quot;, true)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_header_value_in</span><span class="p">(</span><span class="s">&quot;Referer&quot;</span><span class="p">,</span> <span class="s">&quot;https://example.org/login&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -2689,7 +2687,7 @@
 <ul>
 <li>Example</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_header_prefix_value_in(&quot;Referer&quot;, &quot;https://example.org&quot;, true)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_header_prefix_value_in</span><span class="p">(</span><span class="s">&quot;Referer&quot;</span><span class="p">,</span> <span class="s">&quot;https://example.org&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -2727,7 +2725,7 @@
 <ul>
 <li>Example</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_header_suffix_value_in(&quot;User-Agent&quot;, &quot;2.0.4&quot;, true)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_header_suffix_value_in</span><span class="p">(</span><span class="s">&quot;User-Agent&quot;</span><span class="p">,</span> <span class="s">&quot;2.0.4&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -2765,7 +2763,7 @@
 <ul>
 <li>Example</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_header_value_hash_in(&quot;X-Device-Id&quot;, &quot;100-200|400&quot;, true)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_header_value_hash_in</span><span class="p">(</span><span class="s">&quot;X-Device-Id&quot;</span><span class="p">,</span> <span class="s">&quot;100-200|400&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -2803,7 +2801,7 @@
 <ul>
 <li>Example</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_header_value_contain(&quot;User-Agent&quot;, &quot;Firefox|Chrome&quot;, true)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_header_value_contain</span><span class="p">(</span><span class="s">&quot;User-Agent&quot;</span><span class="p">,</span> <span class="s">&quot;Firefox|Chrome&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
 </code></pre></div>
                 
               

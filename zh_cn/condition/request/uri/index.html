@@ -2687,17 +2687,18 @@
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_host_in(&quot;www.bfe-networks.com|bfe-networks.com&quot;)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_host_in</span><span class="p">(</span><span class="s">&quot;www.bfe-networks.com|bfe-networks.com&quot;</span><span class="p">)</span>
 </code></pre></div>
 
 
 <h2 id="req_path_inpath_list-case_insensitive">req_path_in(path_list, case_insensitive)</h2>
 <ul>
-<li>含义： 判断http的path是否为path_list之一<ul>
-<li>注：需要包含开头的/</li>
-</ul>
+<li>
+<p>含义： 判断http的path是否为path_list之一</p>
 </li>
-<li>参数  </li>
+<li>
+<p>参数  </p>
+</li>
 </ul>
 <table>
 <thead>
@@ -2709,7 +2710,7 @@
 <tbody>
 <tr>
 <td>path_list</td>
-<td>String<br>path列表，多个path之间使用‘&#124;’连接</td>
+<td>String<br>path列表，多个path之间使用‘&#124;’连接 <br>每个path应以"/"开头</td>
 </tr>
 <tr>
 <td>case_insensitive</td>
@@ -2720,17 +2721,18 @@
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_path_in(&quot;/api/search|/api/list&quot;, true)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_path_in</span><span class="p">(</span><span class="s">&quot;/api/search|/api/list&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
 </code></pre></div>
 
 
 <h2 id="req_path_prefix_inprefix_list-case_insensitive">req_path_prefix_in(prefix_list, case_insensitive)</h2>
 <ul>
-<li>含义： 判断http的path是否前缀匹配prefix_list之一<ul>
-<li>注：需要包含开头的/</li>
-</ul>
+<li>
+<p>含义： 判断http的path是否前缀匹配prefix_list之一</p>
 </li>
-<li>参数  </li>
+<li>
+<p>参数  </p>
+</li>
 </ul>
 <table>
 <thead>
@@ -2742,7 +2744,7 @@
 <tbody>
 <tr>
 <td>prefix_list</td>
-<td>String<br>path prefix列表, 多个之间使用‘&#124;’连接</td>
+<td>String<br>path prefix列表, 多个之间使用‘&#124;’连接 <br>每个path prefix应以"/"开头</td>
 </tr>
 <tr>
 <td>case_insensitive</td>
@@ -2753,7 +2755,7 @@
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_path_prefix_in(&quot;/api/report|/api/analytics&quot;, false)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_path_prefix_in</span><span class="p">(</span><span class="s">&quot;/api/report|/api/analytics&quot;</span><span class="p">,</span> <span class="kc">false</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -2783,7 +2785,7 @@
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_path_suffix_in(&quot;.php|.jsp&quot;, false)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_path_suffix_in</span><span class="p">(</span><span class="s">&quot;.php|.jsp&quot;</span><span class="p">,</span> <span class="kc">false</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -2809,7 +2811,7 @@
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_query_key_in(&quot;word|wd&quot;)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_query_key_in</span><span class="p">(</span><span class="s">&quot;word|wd&quot;</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -2835,7 +2837,7 @@
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_query_key_prefix_in(&quot;rid&quot;)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_query_key_prefix_in</span><span class="p">(</span><span class="s">&quot;rid&quot;</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -2869,7 +2871,7 @@
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_query_value_in(&quot;uid&quot;, &quot;x|y|z&quot;, true)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_query_value_in</span><span class="p">(</span><span class="s">&quot;uid&quot;</span><span class="p">,</span> <span class="s">&quot;x|y|z&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -2903,7 +2905,7 @@
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_query_value_prefix_in(&quot;uid&quot;, &quot;100|200&quot;, true)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_query_value_prefix_in</span><span class="p">(</span><span class="s">&quot;uid&quot;</span><span class="p">,</span> <span class="s">&quot;100|200&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -2937,7 +2939,7 @@
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_query_value_suffix_in(&quot;uid&quot;, &quot;1|2|3&quot;, true)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_query_value_suffix_in</span><span class="p">(</span><span class="s">&quot;uid&quot;</span><span class="p">,</span> <span class="s">&quot;1|2|3&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -2971,7 +2973,7 @@
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_query_value_hash_in(&quot;cid&quot;, &quot;100&quot;, true)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_query_value_hash_in</span><span class="p">(</span><span class="s">&quot;cid&quot;</span><span class="p">,</span> <span class="s">&quot;100&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -2997,7 +2999,7 @@
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_port_in(&quot;80|8080&quot;)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_port_in</span><span class="p">(</span><span class="s">&quot;80|8080&quot;</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -3026,7 +3028,7 @@
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">req_url_regmatch(`/s\?word=123`)</span>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_url_regmatch</span><span class="p">(</span><span class="s">`/s\?word=123`</span><span class="p">)</span>
 </code></pre></div>
                 
               

@@ -58,7 +58,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#condition-naming-convention" class="md-skip">
+        <a href="#naming-convention-of-condition-primitives" class="md-skip">
           Skip to content
         </a>
       
@@ -2070,15 +2070,15 @@
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#name-prefix-of-condition-primitive" class="md-nav__link">
-    Name prefix of condition primitive
+  <a href="#name-prefix-of-condition-primitives" class="md-nav__link">
+    Name prefix of condition primitives
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#name-of-compare-actions" class="md-nav__link">
-    Name of compare actions
+  <a href="#name-of-comparison-operations" class="md-nav__link">
+    Name of comparison operations
   </a>
   
 </li>
@@ -2486,15 +2486,15 @@
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#name-prefix-of-condition-primitive" class="md-nav__link">
-    Name prefix of condition primitive
+  <a href="#name-prefix-of-condition-primitives" class="md-nav__link">
+    Name prefix of condition primitives
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#name-of-compare-actions" class="md-nav__link">
-    Name of compare actions
+  <a href="#name-of-comparison-operations" class="md-nav__link">
+    Name of comparison operations
   </a>
   
 </li>
@@ -2519,101 +2519,102 @@
                   
                 
                 
-                <h1 id="condition-naming-convention">Condition Naming Convention</h1>
-<h2 id="name-prefix-of-condition-primitive">Name prefix of condition primitive</h2>
+                <h1 id="naming-convention-of-condition-primitives">Naming convention of condition primitives</h1>
+<p>BFE adopts the following naming convention for condition primitives.</p>
+<h2 id="name-prefix-of-condition-primitives">Name prefix of condition primitives</h2>
 <ul>
 <li>
-<p>Name prefix of request related primitive is "<strong>req_</strong>"</p>
+<p>Name prefix of the request primitive is "<strong>req_</strong>"</p>
 <ul>
-<li>e.g. <strong>req_host_in()</strong></li>
+<li>e.g. req_host_in()</li>
 </ul>
 </li>
 <li>
-<p>Name prefix of response related primitive is "<strong>res_</strong>"</p>
+<p>Name prefix of the response primitive is "<strong>res_</strong>"</p>
 <ul>
-<li>e.g. <strong>res_code_in()</strong></li>
+<li>e.g. res_code_in()</li>
 </ul>
 </li>
 <li>
-<p>Name prefix of session related primitive is "<strong>ses_</strong>"</p>
+<p>Name prefix of the session primitive is "<strong>ses_</strong>"</p>
 <ul>
-<li>e.g. <strong>ses_vip_in()</strong></li>
+<li>e.g. ses_vip_in()</li>
 </ul>
 </li>
 <li>
-<p>Name prefix of system related primitive is "<strong>bfe_</strong>"</p>
+<p>Name prefix of the system primitive is "<strong>bfe_</strong>"</p>
 <ul>
-<li>e.g. <strong>bfe_time_range</strong>()</li>
+<li>e.g. bfe_time_range()</li>
 </ul>
 </li>
 </ul>
-<h2 id="name-of-compare-actions">Name of compare actions</h2>
+<h2 id="name-of-comparison-operations">Name of comparison operations</h2>
 <ul>
 <li>
-<p><strong>match</strong>：exact match</p>
+<p><strong>match</strong>: exact match</p>
 <ul>
-<li>In this situation, the only one parameter is given</li>
-<li>eg. <strong>req_tag_match()</strong></li>
+<li>eg. req_tag_match()</li>
 </ul>
 </li>
 <li>
-<p><strong>in</strong>：if the value is in the configured set</p>
+<p><strong>in</strong>: whether an element exists in a set or not</p>
 <ul>
-<li>eg. <strong>req_host_in()</strong></li>
+<li>eg. req_host_in()</li>
 </ul>
 </li>
 <li>
-<p><strong>prefix_in</strong>：if the value prefix is in the configured set</p>
+<p><strong>prefix_in</strong>: whether the prefix exists in a set or not</p>
 <ul>
-<li>eg. <strong>req_path_prefix_in()</strong></li>
+<li>eg. req_path_prefix_in()</li>
 </ul>
 </li>
 <li>
-<p><strong>suffix_in</strong>：if the value suffix is in the configured set</p>
+<p><strong>suffix_in</strong>: whether the suffix exists in a set or not</p>
 <ul>
-<li>eg. <strong>req_path_suffix_in()</strong></li>
+<li>eg. req_path_suffix_in()</li>
 </ul>
 </li>
 <li>
-<p><strong>key_exist</strong>：if the key exists</p>
+<p><strong>key_exist</strong>: whether the specified key exists or not</p>
 <ul>
-<li>eg. <strong>req_query_key_exist()</strong></li>
+<li>eg. req_query_key_exist()</li>
 </ul>
 </li>
 <li>
-<p><strong>value_in</strong>：for the configured key, judge if the value is in the configured value set</p>
+<p><strong>value_in</strong>: whether the value exists in a set or not</p>
 <ul>
-<li>eg. <strong>req_query_key_exist()</strong></li>
+<li>eg. req_query_key_exist()</li>
 </ul>
 </li>
 <li>
-<p><strong>value_prefix_in</strong>：for the configured key, judge if the value prefix is in the configured set</p>
+<p><strong>value_prefix_in</strong>: whether the value prefix exists in a set or not</p>
 <ul>
-<li>eg. <strong>req_header_value_prefix_in()</strong></li>
+<li>eg. req_header_value_prefix_in()</li>
 </ul>
 </li>
 <li>
-<p><strong>value_suffix_in</strong>：for the configured key, judge if the value suffix is in the configured set</p>
+<p><strong>value_suffix_in</strong>: whether the value suffix exists in a set or not</p>
 <ul>
-<li>eg. <strong>req_header_value_suffix_in()</strong></li>
+<li>eg. req_header_value_suffix_in()</li>
 </ul>
 </li>
 <li>
 <p><strong>range</strong>: range match</p>
 <ul>
-<li>eg. <strong>req_cip_range()</strong></li>
+<li>eg. req_cip_range()</li>
 </ul>
 </li>
 <li>
-<p><strong>regmatch</strong>：regular match</p>
+<p><strong>regmatch</strong>: use regular expression to match </p>
 <ul>
-<li>eg. <strong>req_url_regmatch()</strong></li>
+<li>eg. req_url_regmatch()</li>
+<li>Warning:  Inappropriate use can significantly affect performance</li>
 </ul>
 </li>
 <li>
 <p><strong>contain</strong>: string match</p>
 <ul>
-<li>eg. <strong>req_cookie_value_contain()</strong></li>
+<li>eg. req_cookie_value_contain()</li>
 </ul>
 </li>
 </ul>

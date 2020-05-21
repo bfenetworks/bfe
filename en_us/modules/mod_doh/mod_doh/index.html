@@ -1077,9 +1077,69 @@
       
     
     
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        mod_doh
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 9h14V7H3v2m0 4h14v-2H3v2m0 4h14v-2H3v2m16 0h2v-2h-2v2m0-10v2h2V7h-2m0 6h2v-2h-2v2z"/></svg>
+        </span>
+      </label>
+    
     <a href="./" title="mod_doh" class="md-nav__link md-nav__link--active">
       mod_doh
     </a>
+    
+      
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    Introduction
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-configuration" class="md-nav__link">
+    Module configuration
+  </a>
+  
+    <nav class="md-nav" aria-label="Module configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#description" class="md-nav__link">
+    Description
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    Example
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
     
   </li>
 
@@ -2437,6 +2497,50 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    Introduction
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-configuration" class="md-nav__link">
+    Module configuration
+  </a>
+  
+    <nav class="md-nav" aria-label="Module configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#description" class="md-nav__link">
+    Description
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    Example
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -2456,7 +2560,52 @@
                 
                 
                 <h1 id="mod_doh">mod_doh</h1>
-<p>Note: This documentation is working in process. Please help improve it by <a href="https://github.com/baidu/bfe/issues/new/choose">filing issues</a> or <a href="../../../development/submit_pr_guide/">pull requests</a>.</p>
+<h2 id="introduction">Introduction</h2>
+<p>Module doh supports DNS over HTTPS.</p>
+<h2 id="module-configuration">Module configuration</h2>
+<h3 id="description">Description</h3>
+<p>conf/mod_doh/mod_doh.conf</p>
+<table>
+<thead>
+<tr>
+<th>Config Item</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Basic.Cond</td>
+<td>String<br>Condition for DoH requests, see <a href="../../../condition/condition_grammar/">Condition</a></td>
+</tr>
+<tr>
+<td>Dns.Address</td>
+<td>String<br>Address of DNS server</td>
+</tr>
+<tr>
+<td>Dns.RetryMax</td>
+<td>Int<br>Maximum retries <br>Defaults to 0 (no retry)</td>
+</tr>
+<tr>
+<td>Dns.Timeout</td>
+<td>Int<br>A cumulative timeout for dial, write and read (ms)</td>
+</tr>
+<tr>
+<td>Log.OpenDebug</td>
+<td>Boolean<br>Whether enable debug log<br>Defaults to False</td>
+</tr>
+</tbody>
+</table>
+<h3 id="example">Example</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
+<span class="na">Cond</span> <span class="o">=</span> <span class="s">&quot;default_t()&quot;</span>
+
+<span class="k">[Dns]</span>
+<span class="na">Address</span> <span class="o">=</span> <span class="s">&quot;127.0.0.1:53&quot;</span>
+<span class="na">Timeout</span> <span class="o">=</span> <span class="s">1000</span>
+
+<span class="k">[Log]</span>
+<span class="na">OpenDebug</span> <span class="o">=</span> <span class="s">false</span>
+</code></pre></div>
                 
               
               
