@@ -1,0 +1,46 @@
+<div class="langChange" id="translate" title="中文|English">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path
+            d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0014.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04M18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12m-2.62 7l1.62-4.33L19.12 17h-3.24z" />
+    </svg>
+</div>
+
+
+<script>
+    var translate = document.getElementById('translate');
+    translate.addEventListener('click', changeHref, false);
+    function changeHref() {
+        if (window.location.href.search('en_us') !== -1) {
+            var changeHref = window.location.href.replace('en_us', 'zh_cn');
+
+        } else {
+            var changeHref = window.location.href.replace('zh_cn', 'en_us');
+        }
+        window.location.href = changeHref
+    }
+</script>
+
+<style>
+    .langChange {
+        display: inline-block;
+        width: 2.4rem;
+        height: 2.4rem;
+        vertical-align: middle;
+        margin-left: .5rem;
+    }
+
+    .langChange svg {
+        fill: rgba(255, 255, 255, 0.548);
+        display: block;
+        width: 1.2rem;
+        height: 1.2rem;
+        margin: 0 auto;
+        margin-top: .6rem;
+        margin-left: .6rem;
+    }
+
+    .langChange :hover {
+        fill: white;
+        cursor: pointer;
+    }
+</style>
