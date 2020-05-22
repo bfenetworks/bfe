@@ -47,6 +47,19 @@ const (
 	GlobalProduct = "global"
 )
 
+// Hop-by-hop headers. These are removed when sent to the backend.
+// http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
+var HopHeaders = []string{
+	"Connection",
+	"Keep-Alive",
+	"Proxy-Authenticate",
+	"Proxy-Authorization",
+	"Te", // canonicalized version of "TE"
+	"Trailers",
+	"Transfer-Encoding",
+	"Upgrade",
+}
+
 // CreateInternalSrvErrResp returns a HTTP 500 response
 func CreateInternalSrvErrResp(request *Request) *bfe_http.Response {
 	return CreateInternalResp(request, bfe_http.StatusInternalServerError)
