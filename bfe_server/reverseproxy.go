@@ -73,19 +73,6 @@ func NewReverseProxy(server *BfeServer, state *ProxyState) *ReverseProxy {
 	return rp
 }
 
-// Hop-by-hop headers. These are removed when sent to the backend.
-// http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
-var hopHeaders = []string{
-	"Connection",
-	"Keep-Alive",
-	"Proxy-Authenticate",
-	"Proxy-Authorization",
-	"Te", // canonicalized version of "TE"
-	"Trailers",
-	"Transfer-Encoding",
-	"Upgrade",
-}
-
 // httpProtoSet set http proto for out request.
 func httpProtoSet(outreq *bfe_http.Request) {
 	outreq.Proto = "HTTP/1.1"
@@ -102,7 +89,7 @@ func hopByHopHeaderRemove(outreq, req *bfe_http.Request) {
 	// is modifying the same underlying map from req (shallow
 	// copied above) so we only copy it if necessary.
 	copiedHeaders := false
-	for _, h := range hopHeaders {
+	for _, h := range bfe_basic.HopHeaders {
 		if outreq.Header.Get(h) != "" {
 			if !copiedHeaders {
 				outreq.Header = make(bfe_http.Header, len(req.Header))

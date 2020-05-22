@@ -21,6 +21,7 @@ import (
 	"github.com/baidu/bfe/bfe_modules/mod_access"
 	"github.com/baidu/bfe/bfe_modules/mod_auth_basic"
 	"github.com/baidu/bfe/bfe_modules/mod_auth_jwt"
+	"github.com/baidu/bfe/bfe_modules/mod_auth_request"
 	"github.com/baidu/bfe/bfe_modules/mod_block"
 	"github.com/baidu/bfe/bfe_modules/mod_compress"
 	"github.com/baidu/bfe/bfe_modules/mod_doh"
@@ -92,6 +93,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_header
 	mod_header.NewModuleHeader(),
+
+	// mod_auth_request
+	mod_auth_request.NewModuleAuthRequest(),
 
 	// mod_errors
 	mod_errors.NewModuleErrors(),
