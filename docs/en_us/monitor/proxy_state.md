@@ -1,8 +1,10 @@
-# Introduction
+# Proxy
+
+## Introduction
 
 proxy_state monitor state of proxy.
 
-# Monitor Item
+## Monitor Item
 
 | Monitor Item                    | Description                                              |
 | ------------------------------- | -------------------------------------------------------- |

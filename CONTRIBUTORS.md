@@ -6,7 +6,9 @@
 | Caiyuan Yang | jansci621 |
 | Chongmiao Liu | lcmmhcc |
 | Derek Zheng | shanhuhai5739 |
+| Haobin zhang | zhanghaobin |
 | Jie Liu | freeHackOfJeff |
+| Jie Wan | wanjiecs |
 | Jin Tong | cumirror |
 | Jiyang Zhang | scriptkids |
 | Kaiyu Zheng | kaiyuzheng | 
@@ -26,14 +28,18 @@
 | Sijie Yang | iyangsj |
 | Tianqi Zhang | NKztq |
 | Wenjie Tian | WJTian |
+| Wenlong Chen | LeroChen |
 | Wensi Yang | tianxinheihei | 
 | Xiaofei Yu | xiaofei0800 |
 | Xiaoli Liu | liuxiaoli007 |
+| Xiaonan chen | two |
 | Xiaoye Jiang | kidleaf-jiang |
 | Xin Li | lx-or-xxxl |
 | Yang Liu | dut-yangliu |
 | Yuqi Xiao | YuqiXiao |
+| Zheng Liu | liuzheng |
 | Zhichao Lin | lxiaozhic |
+| Yuchen Wang | CHneger |
 |          | 0xflotus |
 |          | calify |
 |          | MoonShining |

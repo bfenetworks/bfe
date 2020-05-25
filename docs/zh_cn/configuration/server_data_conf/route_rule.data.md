@@ -1,8 +1,10 @@
-# 配置简介
+# 分流规则配置 
+
+## 配置简介
 
 route_rule.data 是BFE的分流配置文件。
 
-# 配置描述
+## 配置描述
 
 | 配置项                       | 描述                                                       |
 | ---------------------------- | ---------------------------------------------------------- |
@@ -14,9 +16,9 @@ route_rule.data 是BFE的分流配置文件。
 | ProductRule[v][].Cond        | String<br>分流条件, 语法详见[Condition](../../condition/condition_grammar.md) |
 | ProductRule[v][].ClusterName | Object<br>目的集群                                         |
 
-# 配置示例
+## 配置示例
 
-```
+```json
 {
     "Version": "20190101000000",
     "ProductRule": {

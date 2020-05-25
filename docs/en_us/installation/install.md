@@ -1,14 +1,14 @@
 # Installation notes
 
-## Installation method
+## Installation methods
 - [Install from source](install_from_source.md)
 - [Install using binaries](install_using_binaries.md)
-- [Install using "go get"](install_using_go_get.md)
+- [Install using go](install_using_go.md)
 - [Install using snap](install_using_snap.md)
 
-## Platform support
+## Supported platform
 | Operating System | Description |
 | ---------- | ------------------ |
 | Linux OS   | Support<br>*Recommended development and deployment system* |
 | Mac OS     | Support            |
-| Windows OS | Support<br>*Not supported to obtain VIP/CIP when configuring layer 4 load balancing as BGW |
+| Windows OS | Support<br>        |

@@ -23,6 +23,7 @@ var allowActions map[string]bool = map[string]bool{
 	// host actions
 	action.ActionHostSetFromPathPrefix: true, // set host from path prefix
 	action.ActionHostSet:               true, //set host
+	action.ActionHostSuffixReplace:     true, // replace host suffix
 
 	// path actions
 	action.ActionPathSet:        true, // set path

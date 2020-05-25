@@ -25,6 +25,7 @@ import (
 
 import (
 	"github.com/baidu/bfe/bfe_modules/mod_trace/trace"
+	"github.com/baidu/bfe/bfe_modules/mod_trace/trace/elastic"
 	"github.com/baidu/bfe/bfe_modules/mod_trace/trace/jaeger"
 	"github.com/baidu/bfe/bfe_modules/mod_trace/trace/zipkin"
 	"github.com/baidu/bfe/bfe_util"
@@ -34,19 +35,28 @@ const (
 	defaultDataPath = "mod_trace/trace_rule.data"
 )
 
+var (
+	supportedTraceAgent = map[string]bool{
+		zipkin.Name:  true,
+		jaeger.Name:  true,
+		elastic.Name: true,
+	}
+)
+
 type ConfModTrace struct {
 	Basic struct {
 		DataPath    string // The path of rule data
 		ServiceName string // The name of this service
-		TraceAgent  string // The type of trace agent: zipkin/jaeger
+		TraceAgent  string // The type of trace agent: zipkin, jaeger or elastic
 	}
 
 	Log struct {
 		OpenDebug bool
 	}
 
-	Zipkin zipkin.Config // Settings for zipkin, only useful when TraceAgent is zipkin
-	Jaeger jaeger.Config // Settings for jaeger, only useful when TraceAgent is jaeger
+	Zipkin  zipkin.Config  // Settings for zipkin, only useful when TraceAgent is zipkin
+	Jaeger  jaeger.Config  // Settings for jaeger, only useful when TraceAgent is jaeger
+	Elastic elastic.Config // Settings for elastic, only useful when TraceAgent is elastic
 }
 
 func ConfLoad(filePath string, confRoot string) (*ConfModTrace, error) {
@@ -73,8 +83,12 @@ func (cfg *ConfModTrace) Check(confRoot string) error {
 	}
 	cfg.Basic.DataPath = bfe_util.ConfPathProc(cfg.Basic.DataPath, confRoot)
 
-	if cfg.Basic.TraceAgent != jaeger.Name && cfg.Basic.TraceAgent != zipkin.Name {
-		return fmt.Errorf("ModTrace.TraceAgent must be %s or %s", jaeger.Name, zipkin.Name)
+	if len(cfg.Basic.TraceAgent) == 0 {
+		return fmt.Errorf("ModTrace.TraceAgent not set")
+	}
+
+	if _, ok := supportedTraceAgent[cfg.Basic.TraceAgent]; !ok {
+		return fmt.Errorf("ModTrace.TraceAgent %s is not supported", cfg.Basic.TraceAgent)
 	}
 
 	return nil
@@ -86,6 +100,8 @@ func (cfg *ConfModTrace) GetTraceConfig() trace.TraceAgent {
 		return &cfg.Jaeger
 	case zipkin.Name:
 		return &cfg.Zipkin
+	case elastic.Name:
+		return &cfg.Elastic
 	default:
 		return &cfg.Jaeger
 	}

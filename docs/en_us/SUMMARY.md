@@ -1,8 +1,8 @@
 # Summary
 
-* [About](README.md)
+* [About](ABOUT.md)
 * Introduction
-  * [Overview](overview.md)
+  * [Overview](introduction/overview.md)
   * [Comparsion to similar systems](introduction/comparison.md)
   * Design overview
     * [Terminology](introduction/terminology.md)
@@ -11,18 +11,18 @@
     * [Traffic balancing](introduction/balance.md)
   * [Getting help](introduction/getting_help.md)
   * [Version History](https://github.com/baidu/bfe/blob/master/CHANGELOG.md)
-* Quick Start
+* Getting Started 
   * [Install](installation/install_from_source.md)
-  * [Traffic forwarding Example](example/route.md)
-  * User Guides
-    * [Connection/Request Block](example/block.md)
-    * [Request Redirect](example/redirect.md)
-    * [Request Rewrite](example/rewrite.md)
+  * [User Guides](example/guide.md)
+    * [Traffic forwarding](example/route.md)
+    * [Traffic blocking](example/block.md)
+    * [Request redirect](example/redirect.md)
+    * [Request rewrite](example/rewrite.md)
     * [TLS mutual authentication](example/client_auth.md)
 * [Installation](installation/install.md)
   * [Install from source](installation/install_from_source.md)
   * [Install using binaries](installation/install_using_binaries.md)
-  * [Install using go get](installation/install_using_go_get.md)
+  * [Install using go](installation/install_using_go.md)
   * [Install using snap](installation/install_using_snap.md)
 * Configuration
   * [Overview](configuration/config.md)
@@ -35,33 +35,40 @@
     * [Host rule](configuration/server_data_conf/host_rule.data.md)
     * [Vip rule](configuration/server_data_conf/vip_rule.data.md)
     * [Route rule](configuration/server_data_conf/route_rule.data.md)
+  * [Backend Cluster](configuration/server_data_conf/cluster_conf.data.md)
   * Load Balancing
     * [Sub-clusters balancing](configuration/cluster_conf/gslb.data.md)
     * [Instances balancing](configuration/cluster_conf/cluster_table.data.md)
   * Name Service
     * [Naming](configuration/server_data_conf/name_conf.data.md)
-  * [Modules](module/modules.md)
-    * [mod_access](configuration/mod_access/mod_access.md)
-    * [mod_auth_basic](configuration/mod_auth_basic/mod_auth_basic.md)
-    * [mod_block](configuration/mod_block/mod_block.md)
-    * [mod_compress](configuration/mod_compress/mod_compress.md)
-    * [mod_errors](configuration/mod_errors/mod_errors.md)
-    * [mod_geo](configuration/mod_geo/mod_geo.md)
-    * [mod_header](configuration/mod_header/mod_header.md)
-    * [mod_http_code](configuration/mod_http_code/mod_http_code.md)
-    * [mod_key_log](configuration/mod_key_log/mod_key_log.md)
-    * [mod_redirect](configuration/mod_redirect/mod_redirect.md)
-    * [mod_rewrite](configuration/mod_rewrite/mod_rewrite.md)
-    * [mod_static](configuration/mod_static/mod_static.md)
-    * [mod_tag](configuration/mod_tag/mod_tag.md)
-    * [mod_trust_clientip](configuration/mod_trust_clientip/mod_trust_clientip.md)
-    * [mod_userid](configuration/mod_userid/mod_userid.md)
-* Operation
+* [Modules](modules/modules.md)
+  * [mod_access](modules/mod_access/mod_access.md)
+  * [mod_auth_basic](modules/mod_auth_basic/mod_auth_basic.md)
+  * [mod_auth_jwt](modules/mod_auth_jwt/mod_auth_jwt.md)
+  * [mod_block](modules/mod_block/mod_block.md)
+  * [mod_compress](modules/mod_compress/mod_compress.md)
+  * [mod_doh](modules/mod_doh/mod_doh.md)
+  * [mod_errors](modules/mod_errors/mod_errors.md)
+  * [mod_geo](modules/mod_geo/mod_geo.md)
+  * [mod_header](modules/mod_header/mod_header.md)
+  * [mod_http_code](modules/mod_http_code/mod_http_code.md)
+  * [mod_key_log](modules/mod_key_log/mod_key_log.md)
+  * [mod_logid](modules/mod_logid/mod_logid.md)
+  * [mod_prison](modules/mod_prison/mod_prison.md)
+  * [mod_redirect](modules/mod_redirect/mod_redirect.md)
+  * [mod_rewrite](modules/mod_rewrite/mod_rewrite.md)
+  * [mod_static](modules/mod_static/mod_static.md)
+  * [mod_tag](modules/mod_tag/mod_tag.md)
+  * [mod_trace](modules/mod_trace/mod_trace.md)
+  * [mod_trust_clientip](modules/mod_trust_clientip/mod_trust_clientip.md)
+  * [mod_userid](modules/mod_userid/mod_userid.md)
+* Operations
   * [Command line options](operation/command.md)
-  * [Environment argruments](operation/env_var.md)
+  * [Environment variables](operation/env_var.md)
   * [System signals](operation/signal.md)
   * [Configuration reload](operation/reload.md)
   * [System metrics](operation/monitor.md)
+  * [Log Rotation](operation/log_rotation.md)
   * [Traffic tapping](operation/capture_packet.md)
   * [Performance](operation/performance.md)
 * How to Contribute
@@ -72,15 +79,15 @@
   * [Releasing process](development/release_regulation.md)
   * Development guides
     * [Source code layout](development/source_code_layout.md)
-  * [BFE module development](module/overview.md)
-    * [BFE callback introduction](module/bfe_callback.md)
-    * [How to write a module](module/how_to_write_module.md)
+  * [BFE module development](development/module/overview.md)
+    * [BFE callback introduction](development/module/bfe_callback.md)
+    * [How to write a module](development/module/how_to_write_module.md)
 * FAQ
   * [Installation](faq/installation.md)
   * [Configuration](faq/configuration.md)
   * [Performance](faq/performance.md)
   * [Development](faq/development.md)
-* [Appendix A: Monitor](monitor.md)
+* Appendix A: Monitor
   * Protocol 
     * [SSL/TLS](monitor/tls_state.md)
     * [HTTP](monitor/http_state.md)
@@ -95,16 +102,7 @@
     * [Balance error](monitor/bal_state.md)
   * Proxy
     * [Proxy state](monitor/proxy_state.md)
-  * Modules
-    * [module_status](monitor/module_status.md)
-    * [mod_auth_basic](monitor/mod_auth_basic.md)
-    * [mod_block](monitor/mod_block.md)
-    * [mod_compress](monitor/mod_compress.md)
-    * [mod_geo](monitor/mod_geo.md)
-    * [mod_http_code](monitor/mod_http_code.md)
-    * [mod_logid](monitor/mod_logid.md)
-    * [mod_static](monitor/mod_static.md)
-    * [mod_trust_clientip](monitor/mod_trust_clientip.md)
+  * [Modules](monitor/module_status.md)
   * Lentency
     * [Lentency histogram](monitor/proxy_XXX_delay.md)
 * Appendix B: Condition

@@ -72,8 +72,8 @@ func (cfg *ConfModDoh) Check() error {
 		return fmt.Errorf("RetryMax should >= 0.")
 	}
 
-	if cfg.Dns.Timeout < 0 {
-		return fmt.Errorf("Timeout should >= 0.")
+	if cfg.Dns.Timeout < 1 {
+		return fmt.Errorf("Timeout should > 0.")
 	}
 
 	_, err = net.ResolveUDPAddr("udp", cfg.Dns.Address)

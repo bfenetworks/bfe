@@ -1,17 +1,24 @@
-# Introduction
+# Naming Configurationn
+
+## Introduction
 
 name_conf.data records the mapping between service name and service instances. 
 
-# Configuration
+## Configuration
 
 | Config Item | Description                                                  |
 | ----------- | ------------------------------------------------------------ |
 | Version     | String<br>Version of config file                                       |
-| Config      | Struct<br>Mapping between name and instances. Key: service name. Value:  a list of instances. Instance:<br>- Host: instance address <br>- Port: instance port<br>- Weight: instance weight |
+| Config      | Struct<br>Mapping between service name and instances                   |
+| Config{k}   | String<br>Service name                                                 |
+| Config{v}   | Struct<br>A list of instances                                          |
+| Config{v}[].Host    | String<br>Instance address                                     |
+| Config{v}[].Port    | Integer<br>Instance port                                       |
+| Config{v}[].Weight  | Integer<br>Instance weight                                     |
 
-# Example
+## Example
 
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

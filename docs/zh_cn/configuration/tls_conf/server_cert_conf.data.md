@@ -1,8 +1,10 @@
-# 配置简介
+# TLS服务端证书配置
+
+## 配置简介
 
 server_cert_conf.data用于配置证书和密钥。
 
-# 配置描述
+## 配置描述
 
 | 配置项   | 描述                                                         |
 | -------- | ------------------------------------------------------------ |
@@ -16,9 +18,9 @@ server_cert_conf.data用于配置证书和密钥。
 | Config.CertConf{v}.ServerKeyFile | String<br>证书关联密钥文件路径 |
 | Config.CertConf{v}.OcspResponseFile | String<br>证书关联OCSP Stple文件路径<br>可选配置 |
 
-# 配置示例
+## 配置示例
 
-```
+```json
 {
     "Version": "20190101000000",
     "Config": {

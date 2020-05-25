@@ -1,8 +1,10 @@
-# Introduction
+# Proxy Lentency
+
+## Introduction
 
 proxy_XXX_delay monitor state of proxy delay.
 
-# Monitor Item
+## Monitor Item
 
 | Monitor Item | Description                               |
 | ------------ | ----------------------------------------- |
@@ -14,7 +16,7 @@ proxy_XXX_delay monitor state of proxy delay.
 | PastTime     | Last statistic time                       |
 | Past         | Proxy delay data of last statistic time   |
 
-## proxy Delay Data
+### proxy Delay Data
 
 | Monitor Item | Description                                                  |
 | ------------ | ------------------------------------------------------------ |

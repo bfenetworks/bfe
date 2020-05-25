@@ -1,8 +1,10 @@
-# Introduction
+# Configuration about Server Certificates
+
+## Introduction
 
 server_cert_conf.data records the config for server certificate and private key
 
-# Configuration
+## Configuration
 
 | Config Item | Description                                                  |
 | ----------- | ------------------------------------------------------------ |
@@ -16,8 +18,8 @@ server_cert_conf.data records the config for server certificate and private key
 | Config.CertConf{v}.ServerKeyFile     | String<br>Path of private key           |
 | Config.CertConf{v}.OcspResponseFile  | String<br>Path of OCSP Stple (optional) |
 
-# Example
-```
+## Example
+```json
 {
     "Version": "20190101000000",
     "Config": {

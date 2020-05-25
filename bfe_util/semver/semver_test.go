@@ -21,7 +21,7 @@ type testItem struct {
 	valid   bool
 }
 
-func TestNew(t *testing.T) {
+func TestNewVersion(t *testing.T) {
 	tests := []testItem{
 		{version: "0.1.0"},
 		{version: "1.0.0-0.3.7"},
@@ -60,7 +60,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestVersion_Equal(t *testing.T) {
+func TestVersionEqual(t *testing.T) {
 	v1, err := New("1.2.3")
 	if err != nil {
 		t.Fatal(err)

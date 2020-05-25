@@ -1,10 +1,12 @@
-# Introduction
+# Instances Balancing Configuration
+
+## Introduction
 
 cluster_table.data records the load balancing config among instances.
 
-# Configuration
+## Configuration
 
-## Basic configuration
+### Basic configuration
 | Config Item           | Description                     |
 | --------------------- | ------------------------------- |
 | Version               | String<br>Verson of config file |
@@ -14,7 +16,7 @@ cluster_table.data records the load balancing config among instances.
 | Config{v}{k}          | String<br>name of subcluster |
 | Config{v}{v}          | Object<br>config of subcluster(a list of instance) |
 
-## Instance configuraton
+### Instance configuraton
 | Config Item           | Description                     |
 | --------------------- | ------------------------------- |
 | Addr                  | String<br>ip address of instance |
@@ -22,8 +24,8 @@ cluster_table.data records the load balancing config among instances.
 | Port                  | String<br>port of instance |
 | Weight                | String<br>weight of instance |
 
-# Example
-```
+## Example
+```json
 {
     "Config": {
         "cluster_example": {

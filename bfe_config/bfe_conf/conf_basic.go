@@ -29,7 +29,6 @@ import (
 )
 
 const (
-	BalancerBgw   = "BGW"   // layer4 balancer in baidu
 	BalancerProxy = "PROXY" // layer4 balancer working in PROXY mode (eg. F5, Ctrix, ELB etc)
 	BalancerNone  = "NONE"  // layer4 balancer not used
 )
@@ -234,14 +233,12 @@ func checkLayer4LoadBalancer(cfg *ConfigBasic) error {
 	}
 
 	switch cfg.Layer4LoadBalancer {
-	case BalancerBgw:
-		return nil
 	case BalancerProxy:
 		return nil
 	case BalancerNone:
 		return nil
 	default:
-		return fmt.Errorf("Layer4LoadBalancer[%s] should be BGW/PROXY/NONE", cfg.Layer4LoadBalancer)
+		return fmt.Errorf("Layer4LoadBalancer[%s] should be PROXY/NONE", cfg.Layer4LoadBalancer)
 	}
 }
 

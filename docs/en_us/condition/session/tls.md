@@ -11,7 +11,7 @@
 
 * Example
 
-```
+```go
 ses_tls_sni_in("example.com|example.org")
 ```
 
@@ -30,6 +30,6 @@ ses_tls_sni_in("example.com|example.org")
 
 * Example
 
-```
+```go
 ses_tls_client_ca_in("ca1|ca2")
 ```

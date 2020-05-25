@@ -1,17 +1,19 @@
-# Introduction
+# Cluster Configuration 
+
+## Introduction
 
 cluster_conf.data records the cluster config.
 
-# Configuration
+## Configuration
 
 | Config Item | Description                                                   |
 | ----------- | ------------------------------------------------------------- |
 | Version     | String<br>Verson of config file                                         |
 | Config      | Struct<br>Map data, key is cluster name, value is cluster config detail |
 
-## Cluster Config Detail
+### Cluster Config Detail
 
-### Backend Config
+#### Backend Config
 
 BackendConf is config for backend.
 
@@ -22,7 +24,7 @@ BackendConf is config for backend.
 | MaxIdleConnsPerHost   | Int<br>Max idle conns to each backend              |
 | RetryLevel            | Int<br>Retry level if request fail                 |
 
-### Health Check Config
+#### Health Check Config
 
 CheckConf is config of backend check.
 
@@ -37,7 +39,7 @@ CheckConf is config of backend check.
 | CheckTimeout  | Int<br>Timeout for health check, in ms                             |
 | CheckInterval | Int<br>Interval of health check, in ms                             |
 
-### GSLB Config
+#### GSLB Config
 
 GslbBasic is cluster config for Gslb.
 
@@ -48,7 +50,7 @@ GslbBasic is cluster config for Gslb.
 | BalanceMode | String<br>BalanceMode, default WRR                                     |
 | HashConf    | Struct<br>Hash config about load balabnce<br>- HashStrategy: HashStrategy is hash strategy for subcluster-level load balance. Such as ClientIdOnly, ClientIpOnly, ClientIdPreferred<br>- HashHeader: HashHeader is an optional request header which represents a unique client. Format for speicial cookie header is "Cookie:Key"<br>- SessionSticky: SessionSticky enable sticky session (ensures that all requests from the user during the session are sent to the same backend) |
 
-### Cluster Basic Config
+#### Cluster Basic Config
 
 ClusterBasic is basic config for cluster.
 
@@ -62,8 +64,8 @@ ClusterBasic is basic config for cluster.
 | ResFlushInterval       | Int<br>Interval to flush response in ms. if zero, disable periodic flush |
 | CancelOnClientClose    | Bool<br>Cancel blocking operation on server if client connection disconnected |
 
-# Example
-```
+## Example
+```json
 {
     "Version": "20190101000000",
     "Config": {

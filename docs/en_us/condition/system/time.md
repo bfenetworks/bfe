@@ -14,7 +14,7 @@ Time format：yyyymmddhhmmssZ，Z is time zone，detail information is shown in 
 
 * Example
 
-```
+```go
 bfe_time_range("20190204203000H", "20190204204500H")
 ```
 

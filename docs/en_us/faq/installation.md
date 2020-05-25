@@ -1,8 +1,8 @@
 # Installation FAQ
 
 ## Go get timeout during installation
-- Set GOPROXY enviromennt as follows (go1.13+):
-```
+- Set GOPROXY enviroment variable as follows (go1.13+):
+```bash
 $ go env -w GO111MODULE=on
 $ go env -w GOPROXY=https://goproxy.cn,direct
 ```

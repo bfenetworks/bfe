@@ -13,11 +13,11 @@
 // limitations under the License.
 
 // BfeListener is a wapper of TCP listener which accept connections behind
-// a load balancer (BGW/PROXY/NONE)
+// a load balancer (PROXY/NONE)
 //
 //  Note: The TLS listener is wired together like:
 //  1. TCP listener
-//  2. BFE listener (BGW/PROXY)
+//  2. BFE listener (PROXY)
 //  3. TLS listener
 
 package bfe_server
@@ -30,7 +30,6 @@ import (
 import (
 	"github.com/baidu/bfe/bfe_config/bfe_conf"
 	"github.com/baidu/bfe/bfe_proxy"
-	"github.com/baidu/bfe/bfe_util"
 )
 
 import (
@@ -38,7 +37,7 @@ import (
 )
 
 // BfeListener is used to wrap an underlying TCP listener, which accept connections
-// behind a layer4 load balancer (BGW/PROXY)
+// behind a layer4 load balancer (PROXY)
 type BfeListener struct {
 	// Listener is the underlying tcp listener
 	Listener net.Listener
@@ -76,10 +75,6 @@ func (l *BfeListener) Accept() (net.Conn, error) {
 	}
 
 	switch l.BalancerType {
-	case bfe_conf.BalancerBgw:
-		conn = bfe_util.NewBgwConn(conn.(*net.TCPConn))
-		log.Logger.Debug("BfeListener: accept connection via BGW")
-
 	case bfe_conf.BalancerProxy:
 		conn = bfe_proxy.NewConn(conn, l.ProxyHeaderTimeout, l.ProxyHeaderLimit)
 		log.Logger.Debug("BfeListener: accept connection via PROXY")

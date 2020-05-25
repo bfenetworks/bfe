@@ -1,6 +1,6 @@
 # Traffic forwarding
 
-![Traffic Forwarding](../images/traffic-forward.svg)
+![Traffic Forwarding](../../images/traffic-forward.svg)
 
 - Step1-2：DNS query
     - request host name：demo.example.com

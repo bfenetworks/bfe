@@ -12,6 +12,6 @@
 
 * Example
 
-```
+```go
 res_code_in("200|500")
 ```

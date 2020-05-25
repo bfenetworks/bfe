@@ -1,4 +1,4 @@
-# Request cookie related primitive
+# Request Cookie Related Primitives
 
 ## req_cookie_key_in(key_list)
 * Description: Judge if cookie key matches configured patterns
@@ -12,8 +12,8 @@
 
 * Example
 
-```
-req_cookie_key_in("UID")
+```go
+req_cookie_key_in("uid|cid|uss")
 ```
 
 ## req_cookie_value_in(key, value_list, case_insensitive)
@@ -29,8 +29,8 @@ req_cookie_key_in("UID")
 
 * Example
 
-```
-req_cookie_value_in("UID", "XXX", true)
+```go
+req_cookie_value_in("deviceid", "testid", true)
 ```
 
 ## req_cookie_value_prefix_in(key, value_prefix_list, case_insensitive)
@@ -46,8 +46,8 @@ req_cookie_value_in("UID", "XXX", true)
 
 * Example
 
-```
-req_cookie_value_prefix_in("UID", "XXX", true)
+```go
+req_cookie_value_prefix_in("deviceid", "x", true)
 ```
 
 ## req_cookie_value_suffix_in(key, value_suffix_list, case_insensitive)
@@ -63,8 +63,8 @@ req_cookie_value_prefix_in("UID", "XXX", true)
 
 * Example
 
-```
-req_cookie_value_suffix_in("UID", "XXX", true)
+```go
+req_cookie_value_suffix_in("deviceid", "1", true)
 ```
 
 ## req_cookie_value_hash_in(key, value_list, case_insensitive)
@@ -80,8 +80,8 @@ req_cookie_value_suffix_in("UID", "XXX", true)
 
 * Example
 
-```
-req_cookie_value_hash_in("UID", "100", true)
+```go
+req_cookie_value_hash_in("uid", "100", true)
 ```
 
 ## req_cookie_value_contain(key, value, case_insensitive)
@@ -98,6 +98,6 @@ req_cookie_value_hash_in("UID", "100", true)
 
 * Example
 
-```
-req_cookie_value_contain("UID", "XXX", true)
+```go
+req_cookie_value_contain("deviceid", "test", true)
 ```

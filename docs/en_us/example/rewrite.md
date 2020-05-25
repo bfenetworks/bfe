@@ -11,20 +11,20 @@ Modify example configurations (conf/) as the following steps:
 
 * Step 1. Modify conf/bfe.conf and enable mod_rewrite
 
-```
+```ini
 Modules = mod_rewrite  # enable mod_rewrite
 ```
 
 * Step 2. Modify conf/mod_rewrite/mod_rewrite.conf and set the rule configuration file
 
-```
+```ini
 [basic]
 DataPath = mod_rewrite/rewrite.data
 ```
 
 * Step 3. Modify rewrite rules configuration
 
-```
+```json
 {
     "Version": "init version",
     "Config": {
@@ -44,7 +44,7 @@ DataPath = mod_rewrite/rewrite.data
 
 * Step 4. Verify configured rules
 
-```
+```bash
 curl -H "host: example.org" "http://127.1:8080/service"
 ```
 

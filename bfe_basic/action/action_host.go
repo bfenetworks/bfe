@@ -50,3 +50,14 @@ func ReqHostSetFromFirstPathSegment(req *bfe_basic.Request) {
 	req.HttpRequest.Host = segs[1]
 	req.HttpRequest.URL.Path = "/" + segs[2]
 }
+
+// ReqHostSuffixReplace replaces suffix of hostname.
+func ReqHostSuffixReplace(req *bfe_basic.Request, originSuffix, newSuffix string) {
+	hostname := req.HttpRequest.URL.Host
+	if !strings.HasSuffix(hostname, originSuffix) {
+		return
+	}
+	
+	hostname = strings.TrimSuffix(hostname, originSuffix) + newSuffix
+	req.HttpRequest.Host = hostname
+}

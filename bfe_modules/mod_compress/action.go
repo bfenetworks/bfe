@@ -20,8 +20,13 @@ import (
 	"fmt"
 )
 
+import (
+	"github.com/andybalholm/brotli"
+)
+
 const (
-	ActionGzip = "GZIP"
+	ActionGzip   = "GZIP"
+	ActionBrotli = "BROTLI"
 )
 
 type ActionFile struct {
@@ -41,13 +46,21 @@ func ActionFileCheck(conf *ActionFile) error {
 		return errors.New("no Cmd")
 	}
 
-	if *conf.Cmd != ActionGzip {
+	switch *conf.Cmd {
+	case ActionGzip:
+		if *conf.Quality < gzip.HuffmanOnly || *conf.Quality > gzip.BestCompression {
+			return fmt.Errorf("Quality should be [%d, %d]",
+				gzip.HuffmanOnly, gzip.BestCompression)
+		}
+	case ActionBrotli:
+		if *conf.Quality < brotli.BestSpeed || *conf.Quality > brotli.BestCompression {
+			return fmt.Errorf("Quality should be [%d, %d]",
+				brotli.BestSpeed, brotli.BestCompression)
+		}
+	default:
 		return fmt.Errorf("invalid cmd: %s", *conf.Cmd)
 	}
-	if *conf.Quality < gzip.HuffmanOnly || *conf.Quality > gzip.BestCompression {
-		return fmt.Errorf("Quality should be [%d, %d]",
-			gzip.HuffmanOnly, gzip.BestCompression)
-	}
+
 	if *conf.FlushSize < 64 || *conf.FlushSize > 4096 {
 		return fmt.Errorf("FlushSize should be [64, 4096]")
 	}

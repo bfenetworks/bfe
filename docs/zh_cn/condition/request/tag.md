@@ -13,6 +13,6 @@
 
 * 示例
 
-```
+```go
 req_tag_match("clientIP", "blacklist")
 ```

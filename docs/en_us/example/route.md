@@ -13,7 +13,7 @@ Modify example configurations (conf/) as the following steps:
 
 * Step 1. Config path of forward rules in conf/bfe.conf
 
-```
+```ini
 hostRuleConf = server_data_conf/host_rule.data
 routeRuleConf = server_data_conf/route_rule.data
 clusterConf = server_data_conf/cluster_conf.data
@@ -24,7 +24,7 @@ gslbConf = cluster_conf/gslb.data
 
 * Step 2. Config host rules (conf/server_data_conf/host_rule.data)
 
-```
+```json
 {
     "Version": "init version",
     "DefaultProduct": null,
@@ -44,7 +44,7 @@ gslbConf = cluster_conf/gslb.data
 * Step 3. Config cluster configuration (conf/server_data_conf/cluster_conf.data)
 Note: Set health check params and use default value for other params
 
-```
+```json
 {
     "Version": "init version",
     "Config": {
@@ -70,7 +70,7 @@ Note: Set health check params and use default value for other params
 
 * Step 4. Config instances of cluster (conf/cluster_conf/cluster_table.data)
 
-```
+```json
 {
     "Version": "init version",
     "Config": {
@@ -96,7 +96,7 @@ Note: Set health check params and use default value for other params
 
 * Step 5. Config gslb configuration (conf/cluster_conf/gslb.data)
 
-```
+```json
 {
     "Hostname": "",
     "Ts": "0",
@@ -115,7 +115,7 @@ Note: Set health check params and use default value for other params
 
 * Step 6. Config route rules (conf/server_data_conf/route_rule.data)
 
-```
+```json
 {
     "Version": "init version",
     "ProductRule": {
@@ -135,7 +135,7 @@ Note: Set health check params and use default value for other params
 
 * Step 7. Verify configured rules
 
-```
+```bash
 curl -H "host: example.org" "http://127.1:8080/static/test.html"  
 # request will route to 10.0.0.1:8001
 

@@ -6,8 +6,8 @@
 
 使用tcpdump抓取示例：
 
-```
-tcpdump tcp port 8443 -i any -s -w test.pcap
+```bash
+# tcpdump tcp port 8443 -i any -s -w test.pcap
 ```
 
 ## 流量分析
@@ -21,10 +21,10 @@ tcpdump tcp port 8443 -i any -s -w test.pcap
 对于基于TLS的加密流量，可配合使用mod_key_log和wireshark进行解密分析。操作步骤:
 
 * Step1: 在bfe开启mod_key_log模块，保存TLS会话密钥到key.log日志文件中
-  * 注：修改bfe.conf文件，增加启用mod_key_log模块, 模块配置详见[mod_key_log](../configuration/mod_key_log/mod_key_log.md)
+  * 注：修改bfe.conf文件，增加启用mod_key_log模块, 模块配置详见[mod_key_log](../modules/mod_key_log/mod_key_log.md)
 
-```
-[server]
+```ini
+[Server]
 Modules = mod_key_log
 ```
 
@@ -32,3 +32,5 @@ Modules = mod_key_log
   * 注：配置路径Edit→Preferences→Protocols→SSL→(Pre)-Master-Secret log filename
 
 * Step3: 使用wireshark打开并解密抓包数据
+
+![WireShark解密https](../../images/wireshark-https.png)

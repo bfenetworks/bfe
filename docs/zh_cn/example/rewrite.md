@@ -11,14 +11,14 @@
 
 * Step 1. bfe启用mod_rewrite模块（conf/bfe.conf)
 
-```
+```ini
 Modules = mod_rewrite  #启用mod_rewrite
 ```
 
 * Step 2. 配置rewrite规则文件的存储路径 (conf/mod_rewrite/mod_rewrite.conf)
   
-```
-[basic]
+```ini
+[Basic]
 DataPath = mod_rewrite/rewrite.data
 ```
   
@@ -26,7 +26,7 @@ DataPath = mod_rewrite/rewrite.data
   
 路径前缀为/service的所有请求均会添加/v1前缀后转发给后端服务
   
-```
+```json
 {
     "Version": "init version",
     "Config": {
@@ -46,7 +46,7 @@ DataPath = mod_rewrite/rewrite.data
 
 * Step 4. 验证配置规则
 
-```
+```bash
 curl -H "host: example.org" "http://127.1:8080/service"
 ```
 

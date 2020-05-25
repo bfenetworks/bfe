@@ -1,8 +1,10 @@
-# Introduction
+# SubClusters Balancing Configuration
+
+## Introduction
 
 gslb.data records the load balancing config between sub-clusters. 
 
-# Configuration
+## Configuration
 
 | Config Item | Description                                                  |
 | ----------- | ------------------------------------------------------------ |
@@ -14,8 +16,8 @@ gslb.data records the load balancing config between sub-clusters.
 | Hostname    | String<br>Hostname of gslb scheduler                                   |
 | Ts          | String<br>Timestamp of config file                                     |
 
-# Example
-```
+## Example
+```json
 {
     "Clusters": {
         "cluster_example": {

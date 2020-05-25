@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	RAW_SESSION_TICKET_KEY_SIZE = 48 // bytes
+	RawSessionTicketKeySize = 48 // bytes
 )
 
 // SessionTicketKeyConf is session ticket key config.
@@ -47,7 +47,7 @@ func SessionTicketKeyConfCheck(conf SessionTicketKeyConf) error {
 	if err != nil {
 		return fmt.Errorf("session ticket key %s(%s)", err.Error(), conf.SessionTicketKey)
 	}
-	if len(key) != RAW_SESSION_TICKET_KEY_SIZE {
+	if len(key) != RawSessionTicketKeySize {
 		return fmt.Errorf("session ticket key should be 96 bytes hex string (%s)", conf.SessionTicketKey)
 	}
 
@@ -63,7 +63,7 @@ func rawSessionTicketKeyLoad(filename string) (SessionTicketKeyConf, error) {
 		return config, err
 	}
 
-	if len(data) != RAW_SESSION_TICKET_KEY_SIZE {
+	if len(data) != RawSessionTicketKeySize {
 		return config, fmt.Errorf("invalid session ticket key(%d)", len(data))
 	}
 
