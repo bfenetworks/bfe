@@ -11,6 +11,6 @@
 
 * 示例
 
-```
+```go
 req_method_in("GET|POST")
 ```

@@ -1,0 +1,11 @@
+{
+    "Version": "auth_request_rule_version",
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "req_path_prefix_in(\"/auth_request\", false)",
+                "Enable": true
+            }
+        ]
+    }
+}

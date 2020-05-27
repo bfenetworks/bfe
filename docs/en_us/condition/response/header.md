@@ -12,7 +12,7 @@
 
 * Example
 
-```
+```go
 res_header_key_in("X-Bfe-Debug")
 ```
 
@@ -30,6 +30,6 @@ res_header_key_in("X-Bfe-Debug")
 
 * Example
 
-```
+```go
 res_header_value_in("X-Bfe-Debug", "1", true)
 ```

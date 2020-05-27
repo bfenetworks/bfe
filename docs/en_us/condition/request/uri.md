@@ -1,6 +1,4 @@
-# Request URI related primitives
-
-URI format：http://host[:port]/path/?query
+# Request URI Related Primitives
 
 ## req_host_in(host_list)
 * Description: Judge if host matches configured patterns
@@ -13,11 +11,11 @@ URI format：http://host[:port]/path/?query
 
 * Example
 
-```
-# right：
+```go
+// right：
 req_host_in("www.bfe-networks.com|bfe-networks.com")
 
-# wrong：
+// wrong：
 req_host_in("www.bfe-networks.com | bfe-networks.com")
 ```
 
@@ -28,13 +26,13 @@ req_host_in("www.bfe-networks.com | bfe-networks.com")
 
 | Parameter | Descrption |
 | --------- | ---------- |
-| path_list | String<br>a list of paths which are concatenated using &#124; |
+| path_list | String<br>a list of paths which are concatenated using &#124; <br>Each path should start with '/' |
 | case_insensitive | Boolean<br>case insensitive |
 
 * Example
 
-```
-req_path_in("/abc", true)
+```go
+req_path_in("/api/search|/api/list", true)
 ```
 
 ## req_path_prefix_in(prefix_list, case_insensitive)
@@ -44,13 +42,13 @@ req_path_in("/abc", true)
 
 | Parameter | Descrption |
 | --------- | ---------- |
-| prefix_list | String<br>a list of path prefixs which are concatenated using &#124; |
+| prefix_list | String<br>a list of path prefixs which are concatenated using &#124; <br>Each path prefix should start with '/' |
 | case_insensitive | Boolean<br>case insensitive |
 
 * Example
 
-```
-req_path_prefix_in("/x/y", false)
+```go
+req_path_prefix_in("/api/report|/api/analytics", false)
 ```
     
 ## req_path_suffix_in(suffix_list, case_insensitive)
@@ -65,12 +63,9 @@ req_path_prefix_in("/x/y", false)
 
 * Example
 
+```go
+req_path_suffix_in(".php|.jsp", false)
 ```
-req_path_suffix_in("/x/y", false)
-```
-
-**Note:**
-**The patterns of req_path_in and req_path_prefix_in need to be included "/"**
 
 ## req_query_key_in(key_list)
 * Description: Judge if query key matches configured patterns
@@ -83,8 +78,8 @@ req_path_suffix_in("/x/y", false)
 
 * Example
 
-```
-req_query_key_exist("abc")
+```go
+req_query_key_exist("word|wd")
 ```
 
 ## req_query_key_prefix_in(prefix_list)
@@ -99,8 +94,8 @@ req_query_key_exist("abc")
 
 * Example
 
-```
-req_query_key_prefix_in("abc")
+```go
+req_query_key_prefix_in("rid")
 ```
 
 ## req_query_value_in(key, value_list, case_insensitive)
@@ -116,8 +111,8 @@ req_query_key_prefix_in("abc")
 
 * Example
 
-```
-req_query_value_in("abc", "XXX", true)
+```go
+req_query_value_in("uid", "x|y|z", true)
 ```
 
 ## req_query_value_prefix_in(key, prefix_list, case_insensitive)
@@ -133,8 +128,8 @@ req_query_value_in("abc", "XXX", true)
 
 * Example
 
-```
-req_query_value_prefix_in("abc", "XXX", true)
+```go
+req_query_value_prefix_in("uid", "100|200", true)
 ```
 
 ## req_query_value_suffix_in(key, suffix_list, case_insensitive)
@@ -150,8 +145,8 @@ req_query_value_prefix_in("abc", "XXX", true)
 
 * Example
 
-```
-req_query_value_suffix_in("abc", "XXX", true)
+```go
+req_query_value_suffix_in("uid", "1|2|3", true)
 ```
 
 ## req_query_value_hash_in(key, value_list, case_insensitive)
@@ -167,8 +162,8 @@ req_query_value_suffix_in("abc", "XXX", true)
 
 * Example
 
-```
-req_query_value_hash_in("abc", "100", true)
+```go
+req_query_value_hash_in("cid", "100", true)
 ```
 
 ## req_port_in(port_list)
@@ -183,7 +178,7 @@ req_query_value_hash_in("abc", "100", true)
 
 * Example
 
-```
+```go
 req_port_in("80|8080")
 ```
 
@@ -198,6 +193,6 @@ req_port_in("80|8080")
 
 * Example
 
-```
+```go
 req_url_regmatch(`/s\?word=123`)
 ```

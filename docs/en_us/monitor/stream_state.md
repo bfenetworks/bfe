@@ -1,8 +1,10 @@
-# Introduction
+# Stream
+
+## Introduction
 
 stream_state monitor state of STREAM.
 
-# Monitor Item
+## Monitor Item
 
 | Monitor Item        | Description                          |
 | ------------------- | ------------------------------------ |

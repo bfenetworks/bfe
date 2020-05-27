@@ -12,14 +12,14 @@
 
 * Step 1. bfe启用mod_block模块（conf/bfe.conf)
 
-```
+```ini
 Modules = mod_block   #启用mod_block
 ```
 
 * Step 2. 配置使用的block规则文件（包括全局IP黑名单和封禁规则）路径(mod_block/mod_block.conf)
   
-```
-[basic]
+```ini
+[Basic]
 # 封禁规则文件路径
 ProductRulePath = mod_block/block_rules.data
 
@@ -37,7 +37,7 @@ IPBlacklistPath = mod_block/ip_blacklist.data
   
 * Step 4. 配置封禁规则 (mod_block/block_rules.data)
   
-```
+```json
 {
     "Version": "init version",
     "Config": {
@@ -55,7 +55,7 @@ IPBlacklistPath = mod_block/ip_blacklist.data
 
 * Step 5. 验证封禁规则
 
-```
+```bash
 curl -v -H "host: example.org" "http://127.1:8080/bonus"
 ```
 连接将会被直接关闭

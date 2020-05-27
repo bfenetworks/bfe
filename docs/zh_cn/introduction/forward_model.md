@@ -1,6 +1,6 @@
 # BFE流量接入转发流程
 
-![流量接入与转发](../../introdutionn/images/traffic-forward.svg)
+![流量接入与转发](../../images/traffic-forward.svg)
 
 - Step1-2：DNS解析
     - 请求的域名为demo.example.com

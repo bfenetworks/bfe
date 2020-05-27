@@ -1,23 +1,23 @@
 # System metrics
 
-BFE has a variety of built-in metrics and supports multiple output formats, which can be obtained through monitor interfaces.
+BFE has a variety of built-in metrics which can be exposed in various formats.
 
-## Configuration
+## Configure monitor port
 Set monitor port in the BFE core configuration file (conf/bfe.conf).
 
-```
-[server]
-monitorPort = 8421
+```ini
+[Server]
+MonitorPort = 8421
 ```
 
 ## Fetch metric categories
-Visit the following address for a list of available metrics categories
+Visit the following address for a list of available metric categories
 
 ```
 http://<addr>:8421/monitor
 ```
 
-## Fetch metric data
+## Fetch metrics
 
 ```
 http://<addr>:8421/monitor/<category>
@@ -25,10 +25,11 @@ http://<addr>:8421/monitor/<category>
 
 ## Fetch metric data in specified format
 
-Currently supported format of metrics: 
- * [prometheus](https://prometheus.io/)
- * kv
- * json (default)
+Currently supported formats: 
+
+* [prometheus](https://prometheus.io/)
+* kv
+* json (default)
 
 Specify the format of the output like below:
 

@@ -1,33 +1,35 @@
 # Install from source code
 
-## Prerequisite
+## Prerequisites
 - golang 1.13+
-- git
+- git 2.0+
 
 ## Download source code
-```
-git clone https://github.com/baidu/bfe
+```bash
+$ git clone https://github.com/baidu/bfe
 ```
 
-## Compile
+## Build
 - Execute the following command to build bfe:
 
-```
+```bash
 $ cd bfe
 $ make
 ```
 
+!!! tip
+    If you encounter an error such as "https fetch: Get ... connect: connection timed out", please set the GOPROXY and try again. See [Installation FAQ](../faq/installation.md)
+
 - Execute the following command to run tests:
 
-```
+```bash
 $ make test
 ```
 
 - Executable object file location:
 
-```
+```bash
 $ file output/bin/bfe
-
 output/bin/bfe: ELF 64-bit LSB executable, ...
 ```
 
@@ -35,7 +37,12 @@ output/bin/bfe: ELF 64-bit LSB executable, ...
 
 - Run BFE with example configuration files:
 
-```
+```bash
 $ cd output/bin/
 $ ./bfe -c ../conf -l ../log
 ```
+
+## Further reading
+
+- Get started with [Beginner's Guide](../example/guide.md)
+                                           

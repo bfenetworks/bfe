@@ -27,10 +27,19 @@ GOTEST       := $(GO) test
 GOVET        := $(GO) vet
 GOGET        := $(GO) get
 GOGEN        := $(GO) generate
+GOFLAGS      := -race
 STATICCHECK  := staticcheck
+
+# init arch
+ARCH := $(shell getconf LONG_BIT)
+ifeq ($(ARCH),64)
+	GOTEST += $(GOFLAGS)
+endif
 
 # init bfe version
 BFE_VERSION ?= $(shell cat VERSION)
+# init git commit id
+GIT_COMMIT ?= $(shell git rev-parse HEAD)
 
 # init bfe packages
 BFE_PKGS := $(shell go list ./...)
@@ -48,7 +57,7 @@ prepare-gen:
 # make compile, go build
 compile: test build
 build:
-	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION)" 
+	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT)"
 
 # make test, test your code
 test: test-case vet-case
@@ -60,7 +69,7 @@ vet-case:
 # make coverage for codecov
 coverage:
 	echo -n > coverage.txt
-	for pkg in $(BFE_PKGS) ; do $(GOTEST) -race -coverprofile=profile.out -covermode=atomic $${pkg} && cat profile.out >> coverage.txt; done
+	for pkg in $(BFE_PKGS) ; do $(GOTEST) -coverprofile=profile.out -covermode=atomic $${pkg} && cat profile.out >> coverage.txt; done
 
 # make package
 package:

@@ -2,19 +2,19 @@
 
 ## req_header_key_in(key_list)
 * 含义： 判断请求头部中key是否为key_list之一
-    * 注：Header名称使用HTTP协议规范形式
+
 * 参数  
 
 | 参数     | 描述                   |
 | -------- | ---------------------- |
-| key_list | String<br>key列表, 多个之间使用‘&#124;’连接 |  
+| key_list | String<br>key列表, 多个之间使用‘&#124;’连接<br>Header名称使用HTTP协议规范形式|  
 
 * 示例
-```
-# 正确：
+```go
+// 正确：
 req_header_key_in("Header-Test")
   
-#错误：
+// 错误：
 req_header_key_in("Header-test")
 req_header_key_in("header-test")
 req_header_key_in("header-Test")
@@ -31,8 +31,8 @@ req_header_key_in("header-Test")
 | case_insensitive | Boolean<br>是否忽略大小写 |  
 
 * 示例
-```
-req_header_value_in("Host", "xxx.com", true)
+```go
+req_header_value_in("Referer", "https://example.org/login", true)
 ```
 
 ## req_header_value_prefix_in(header_name, prefix_list, case_insensitive)
@@ -46,8 +46,8 @@ req_header_value_in("Host", "xxx.com", true)
 | case_insensitive | Boolean<br>是否忽略大小写 |  
 
 * 示例
-```
-req_header_value_prefix_in("Host", "xxx", true)
+```go
+req_header_value_prefix_in("Referer", "https://example.org", true)
 ```
 
 ## req_header_value_suffix_in(header_name, suffix_list, case_insensitive)
@@ -61,8 +61,8 @@ req_header_value_prefix_in("Host", "xxx", true)
 | case_insensitive | Boolean<br>是否忽略大小写 |  
 
 * 示例
-```
-req_header_value_suffix_in("Host", "xxx", true)
+```go
+req_header_value_suffix_in("User-Agent", "2.0.4", true)
 ```
 
 ## req_header_value_hash_in(header_name, hash_value_list, case_insensitive)
@@ -76,8 +76,8 @@ req_header_value_suffix_in("Host", "xxx", true)
 | case_insensitive | Boolean<br>是否忽略大小写 |  
 
 * 示例
-```
-req_header_value_hash_in("Host", "100-200|400", true)
+```go
+req_header_value_hash_in("X-Device-Id", "100-200|400", true)
 ```
 
 ## req_header_value_contain(header_name, value_list, case_insensitive)
@@ -91,6 +91,6 @@ req_header_value_hash_in("Host", "100-200|400", true)
 | case_insensitive | Boolean<br>是否忽略大小写 |  
 
 * 示例
-```
-req_header_value_contain("Host", "xxx", true)
+```go
+req_header_value_contain("User-Agent", "Firefox|Chrome", true)
 ```

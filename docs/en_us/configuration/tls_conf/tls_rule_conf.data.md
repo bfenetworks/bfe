@@ -1,25 +1,33 @@
-# Introduction
+# Configration about TLS
+
+## Introduction
 
 tls_rule_conf.data records the tls protocol config
 
-# Configuration
+## Configuration
 
-| Config Item       | Description                                                             |
-| ----------------- | ----------------------------------------------------------------------- |
-| Version           | String<br>Version of config file                                                  |
-| DefaultNextProtos | String Array<br>Default application layer protocols over TLS                            |
-| Config            | Struct<br>Tls rule config. Key: unique label, Value: tls rule detail              |
-| CertName     | String<br>Name of server certificate (Defined in server_cert_conf.data)  |
-| NextProtos   | String Array<br>TLS application layer protocol<br>- if empty, default http/1.1 |
-| Grade        | String<br>TLS Security grade (A+, A, B, C)                           |
-| ClientAuth   | Bool<br>Enable TLS Client Authentication                               |
-| ClientCAName | String<br>Name of Client CA certificate                                  |
-| VipConf      | String Array<br>List of VIP addresses                                          |
-| SniConf      | String Array<br>List of hostnames (optional)                                   |
+| Config Item             | Description                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| Version                 | String<br>Version of configure file                                            |
+| Config                  | Object<br>TLS rule config.                                                     |
+| Config{k}               | String<br>Unique label                                                         |
+| Config{v}               | Object<br>TLS rule detail                                                      |
+| Config{v}.CertName      | String<br>Name of server certificate (Note: defined in server_cert_conf.data)  |
+| Config{v}.NextProtos    | Object<br>TLS application layer protocol list <br>- Default is ["http/1.1"]    |
+| Config{v}.NextProtos[]  | String<br>TLS application layer protocol<br>- Contains h2, spdy/3.1, http/1.1  |
+| Config{v}.Grade         | String<br>TLS Security grade, Contains A+, A, B, C                             |
+| Config{v}.ClientAuth    | Bool<br>Enable TLS Client Authentication                                       |
+| Config{v}.ClientCAName  | String<br>Name of Client CA certificate                                        |
+| Config{v}.VipConf       | Object Array<br>List of VIP addresses (Note: priority is given to TLS configuration based on VIP)  |
+| Config{v}.VipConf[]     | String Array<br>VIP                                                            |
+| Config{v}.SniConf       | Object Array<br>List of hostnames (optional) <br>- (Note: when TLS configuration cannot be determined according to VIP, SNI is used to determine TLS configuration)  |
+| Config{v}.SniConf[]     | String Array<br>Hostname                                                       |
+| DefaultNextProtos       | Object<br>Default(Supported) application layer protocols over TLS              |
+| DefaultNextProtos[]     | String<br>TLS application layer protocol<br>- Contains h2, spdy/3.1, http/1.1  |
 
-# Example
+## Example
 
-```
+```json
 {
     "Version": "20190101000000",
     "DefaultNextProtos": ["h2", "http/1.1"],
@@ -40,3 +48,36 @@ tls_rule_conf.data records the tls protocol config
     }
 }
 ```
+
+## Security Grade
+
+BFE supports multiple security grades(A+/A/B/C) for ease of TLS configuration. Security grades vary depending on the protocols and the cipher suites supported.
+
+### Grade A+
+
+| Supported Protocols | Supported Cipher Suites |
+| ------------------- | ----------------------- |
+| TLS1.2              | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_OLD_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA |
+
+
+### Grade A
+
+| Supported Protocols | Supported Cipher Suites |
+| ------------------- | ----------------------- |
+| TLS1.2<br>TLS1.1<br>TLS1.0 | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_OLD_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA |
+
+### Grade B
+
+| Supported Protocols | Supported Cipher Suites |
+| ------------------- | ----------------------- |
+| TLS1.2<br>TLS1.1<br>TLS1.0 | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_OLD_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA |
+| SSLv3 | TLS_ECDHE_RSA_WITH_RC4_128_SHA<br>TLS_RSA_WITH_RC4_128_SHA |
+
+
+### Grade C
+
+| Supported Protocols | Supported Cipher Suites |
+| ------------------- | ----------------------- |
+| TLS1.2<br>TLS1.1<br>TLS1.0 | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_OLD_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA<br>TLS_ECDHE_RSA_WITH_RC4_128_SHA<br>TLS_RSA_WITH_RC4_128_SHA |
+| SSLv3 | TLS_ECDHE_RSA_WITH_RC4_128_SHA<br>TLS_RSA_WITH_RC4_128_SHA |
+

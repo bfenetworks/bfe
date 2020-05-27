@@ -1,4 +1,4 @@
-# Request tag related primtives
+# Request Tag Related Primtives
 
 ## req_tag_match(tagName, tagValue)
 * Description: Judge if request tag matches configured value
@@ -14,6 +14,6 @@
 
 * Example
 
-```
+```go
 req_tag_match("clientIP", "blacklist")
 ```

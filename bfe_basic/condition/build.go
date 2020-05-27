@@ -154,6 +154,13 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			fetcher: &HostFetcher{},
 			matcher: matcher,
 		}, nil
+	case "req_host_tag_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &HostTagFetcher{},
+			matcher: NewInMatcher(node.Args[0].Value, true),
+		}, nil
 	case "req_host_regmatch":
 		reg, err := regexp.Compile(node.Args[0].Value)
 		if err != nil {
@@ -164,6 +171,13 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			node:    node,
 			fetcher: &HostFetcher{},
 			matcher: NewRegMatcher(reg),
+		}, nil
+	case "req_host_suffix_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &HostFetcher{},
+			matcher: NewSuffixInMatcher(node.Args[0].Value, true),
 		}, nil
 	case "req_path_in":
 		return &PrimitiveCond{

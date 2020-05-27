@@ -398,3 +398,22 @@ func TestBuildTlsClientCAIn(t *testing.T) {
 		t.Errorf("ca match ses_tls_client_ca_in(\"clientCa\")")
 	}
 }
+
+func TestBuildHostTagIn(t *testing.T) {
+	cond, err := Build("req_host_tag_in(\"host_tag1|host_tag2\")")
+	if err != nil {
+		t.Fatalf("should have no error")
+	}
+	req.Route.HostTag = "host_tag1"
+	if !cond.Match(&req) {
+		t.Fatalf("should match host tag %s", req.Route.HostTag)
+	}
+	req.Route.HostTag = "host_tag2"
+	if !cond.Match(&req) {
+		t.Fatalf("should match host tag %s", req.Route.HostTag)
+	}
+	req.Route.HostTag = "host_tag3"
+	if cond.Match(&req) {
+		t.Fatalf("should not match host tag %s", req.Route.HostTag)
+	}
+}

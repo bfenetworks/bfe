@@ -11,7 +11,7 @@
 
 * 示例
 
-```
+```go
 res_header_key_in("X-Bfe-Debug")
 ```
 
@@ -28,7 +28,7 @@ res_header_key_in("X-Bfe-Debug")
 
 * 示例
 
-```
+```go
 res_header_value_in("X-Bfe-Debug", "1", true)
 ```
   

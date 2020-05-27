@@ -35,8 +35,9 @@ type BackendInfo struct {
 }
 
 type RedirectInfo struct {
-	Url  string // URL
-	Code int    // HTTP status code
+	Url    string          // URL
+	Code   int             // HTTP status code
+	Header bfe_http.Header // Extra header
 }
 
 type RequestRoute struct {

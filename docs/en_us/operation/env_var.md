@@ -1,10 +1,15 @@
-# Environment arguments
+# Environment variables
 
 ## GODEBUG
 
-* export GODEBUG="http2debug=1"
-    * output verbose log which prints header info processed by http2 hpack encode
+* Output verbose log about http2 header info
 
-* export GODEBUG="http2debug=2"
-    * output verbose log which prints header info processed by http2 hpack encode
-    * output verbose framer log read or wrote by http2 server 
+```bash
+$ export GODEBUG="http2debug=1"
+```
+
+* Output verbose log about http2 header and framer info
+
+```bash
+$ export GODEBUG="http2debug=2"
+```

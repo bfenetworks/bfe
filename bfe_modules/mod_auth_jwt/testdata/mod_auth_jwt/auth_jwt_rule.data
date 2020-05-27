@@ -1,0 +1,12 @@
+{
+    "Config": {
+        "unittest": [
+            {
+                "Cond": "req_host_in(\"www.example.org\")",
+                "KeyFile": "./testdata/mod_auth_jwt/key_file",
+                "Realm": "unittest"
+            }
+        ]
+    },
+    "Version": "unittest"
+}

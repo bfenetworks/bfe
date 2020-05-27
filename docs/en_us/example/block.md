@@ -12,13 +12,13 @@ Modify example configurations (conf/) as the following steps:
 
 * Step 1. Modify conf/bfe.conf and enable mod_block
 
-```
+```ini
 Modules = mod_block   #enable mod_block
 ```
 
 * Step 2. Modify conf/mod_block/mod_block.conf and configure path of global ip blacklist and block rules
   
-```
+```ini
 [basic]
 ProductRulePath = mod_block/block_rules.data
 
@@ -29,13 +29,13 @@ IPBlacklistPath = mod_block/ip_blacklist.data
   
 Config ip address list, such as 2.2.2.2
   
-```
+```ini
 2.2.2.2
 ```
 
 * Step 4. Configure block rules (conf/mod_block/block_rules.data)
   
-```
+```json
 {
     "Version": "init version",
     "Config": {
@@ -53,7 +53,7 @@ Config ip address list, such as 2.2.2.2
   
 * Step 5. Verify configured rules
 
-```
+```bash
 curl -v -H "host: example.org" "http://127.1:8080/bonus"
 ```
 

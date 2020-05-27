@@ -12,7 +12,7 @@
 
 * Step 1.在 conf/bfe.conf配置转发功能使用的配置文件路径
 
-```
+```ini
 hostRuleConf = server_data_conf/host_rule.data      #域名规则配置文件
 routeRuleConf = server_data_conf/route_rule.data    #分流规则配置文件
 clusterConf = server_data_conf/cluster_conf.data    #集群配置文件
@@ -23,7 +23,7 @@ gslbConf = cluster_conf/gslb.data                   #子集群负载均衡配置
 
 * Step 2. 配置域名规则 (conf/server_data_conf/host_rule.data)
 
-```
+```json
 {
     "Version": "init version",
     "DefaultProduct": null,
@@ -43,7 +43,7 @@ gslbConf = cluster_conf/gslb.data                   #子集群负载均衡配置
 * Step 3. 配置集群的基础信息 (conf/server_data_conf/cluster_conf.data)
 配置集群cluster_demo_static和cluster_demo_dynamic健康检查的参数，其他均使用默认值
 
-```
+```json
 {
     "Version": "init version",
     "Config": {
@@ -69,7 +69,7 @@ gslbConf = cluster_conf/gslb.data                   #子集群负载均衡配置
 
 * Step 4. 配置集群下实例信息 (conf/cluster_conf/cluster_table.data)
 
-```
+```json
 {
     "Version": "init version",
     "Config": {
@@ -95,7 +95,7 @@ gslbConf = cluster_conf/gslb.data                   #子集群负载均衡配置
 
 * Step 5. 配置子集群内负载均衡 (conf/cluster_conf/gslb.data)
 
-```
+```json
 {
     "Hostname": "",
     "Ts": "0",
@@ -116,7 +116,7 @@ gslbConf = cluster_conf/gslb.data                   #子集群负载均衡配置
   * 将/static开头的流量转发到cluster_demo_static集群
   * 其余流量转发到cluster_demo_dynamic集群
 
-```
+```json
 {
     "Version": "init version",
     "ProductRule": {
@@ -138,7 +138,7 @@ gslbConf = cluster_conf/gslb.data                   #子集群负载均衡配置
 
 * Step 7. 验证配置规则
 
-```
+```bash
 curl -H "host: example.org" "http://127.1:8080/static/test.html"  
 # 将请求转发至10.0.0.1:8001
 

@@ -23,6 +23,10 @@ import (
 	gcfg "gopkg.in/gcfg.v1"
 )
 
+import (
+	"github.com/baidu/bfe/bfe_util"
+)
+
 // ConfModAccess holds the config of access module.
 type ConfModAccess struct {
 	Log struct {
@@ -39,7 +43,7 @@ type ConfModAccess struct {
 }
 
 // ConfLoad loads config of access module from file.
-func ConfLoad(filePath string) (*ConfModAccess, error) {
+func ConfLoad(filePath string, confRoot string) (*ConfModAccess, error) {
 	var err error
 	var cfg ConfModAccess
 
@@ -48,7 +52,7 @@ func ConfLoad(filePath string) (*ConfModAccess, error) {
 		return &cfg, err
 	}
 
-	err = cfg.Check()
+	err = cfg.Check(confRoot)
 	if err != nil {
 		return &cfg, err
 	}
@@ -58,7 +62,7 @@ func ConfLoad(filePath string) (*ConfModAccess, error) {
 	return &cfg, nil
 }
 
-func (cfg *ConfModAccess) Check() error {
+func (cfg *ConfModAccess) Check(confRoot string) error {
 	if cfg.Log.LogPrefix == "" {
 		return fmt.Errorf("ModAccess.LogPrefix is empty")
 	}
@@ -66,6 +70,7 @@ func (cfg *ConfModAccess) Check() error {
 	if cfg.Log.LogDir == "" {
 		return fmt.Errorf("ModAccess.LogDir is empty")
 	}
+	cfg.Log.LogDir = bfe_util.ConfPathProc(cfg.Log.LogDir, confRoot)
 
 	if !log4go.WhenIsValid(cfg.Log.RotateWhen) {
 		return fmt.Errorf("ModAccess.RotateWhen invalid: %s", cfg.Log.RotateWhen)

@@ -1,17 +1,23 @@
-# Introduction
+# Route Rule Configuration
+
+## Introduction
 
 route_rule.data records route rule config for each product. 
 
-# Configuration
+## Configuration
 
 | Config Item | Description                                                  |
 | ----------- | ------------------------------------------------------------ |
 | Version     | String<br>Time of generating config file                               |
-| ProductRule | Struct<br>Route rules for each product. Key is product name, Value is a ordered list of route rules. Route rule include: <br>- Cond: condition expression<br>- ClusterName: destination cluster name |
+| ProductRule | Struct<br>Route rules for each product                                 |
+| ProductRule{k}        | String<br>Product name                                       |
+| ProductRule{v}        | Struct<br>A ordered list of route rules                      |
+| ProductRule{v}[].Cond | String<br>Condition expression                               |
+| ProductRule{v}[].ClusterName | String<br>Destination cluster name                    |
 
-# Example
+## Example
 
-```
+```json
 {
     "Version": "20190101000000",
     "ProductRule": {
