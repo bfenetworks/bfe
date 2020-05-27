@@ -505,76 +505,15 @@
       
         <li class="md-nav__item">
   <a href="#_2" class="md-nav__link">
-    集群级别负载均衡
+    概述
   </a>
-  
-    <nav class="md-nav" aria-label="集群级别负载均衡">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#_3" class="md-nav__link">
-    机制说明
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_4" class="md-nav__link">
-    示例场景
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#_5" class="md-nav__link">
-    实例级别负载均衡
+  <a href="#_3" class="md-nav__link">
+    示例场景
   </a>
-  
-    <nav class="md-nav" aria-label="实例级别负载均衡">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#_6" class="md-nav__link">
-    机制说明
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_7" class="md-nav__link">
-    健康检查
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_8" class="md-nav__link">
-    失败重试机制
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_9" class="md-nav__link">
-    连接池
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_10" class="md-nav__link">
-    会话保持
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -2607,76 +2546,15 @@
       
         <li class="md-nav__item">
   <a href="#_2" class="md-nav__link">
-    集群级别负载均衡
+    概述
   </a>
-  
-    <nav class="md-nav" aria-label="集群级别负载均衡">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#_3" class="md-nav__link">
-    机制说明
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_4" class="md-nav__link">
-    示例场景
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#_5" class="md-nav__link">
-    实例级别负载均衡
+  <a href="#_3" class="md-nav__link">
+    示例场景
   </a>
-  
-    <nav class="md-nav" aria-label="实例级别负载均衡">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#_6" class="md-nav__link">
-    机制说明
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_7" class="md-nav__link">
-    健康检查
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_8" class="md-nav__link">
-    失败重试机制
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_9" class="md-nav__link">
-    连接池
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#_10" class="md-nav__link">
-    会话保持
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -2700,64 +2578,72 @@
                   
                 
                 
-                <h1 id="_1">负载均衡</h1>
-<h2 id="_2">集群级别负载均衡</h2>
-<h3 id="_3">机制说明</h3>
+                <h1 id="_1">集群内负载均衡</h1>
+<h2 id="_2">概述</h2>
 <ul>
 <li>
-<p>BFE可以配置一个集群中的子集群的流量分配比例。</p>
+<p>一个集群往往包含多个子集群。在BFE中，可以针对集群配置其多个子集群间的流量分配比例。</p>
 </li>
 <li>
-<p>该配置中可以包含一个虚拟的子集群，BLACKHOLE（黑洞）。分向黑洞的流量会被丢弃。它可以用来防止子集群过载。</p>
-</li>
-</ul>
-<h3 id="_4">示例场景</h3>
+<p>另外，对每个集群，还包含一个虚拟的子集群，BLACKHOLE（黑洞）。</p>
 <ul>
-<li>
-<p>假设基本场景如下图所示：</p>
-<ul>
-<li>
-<p>共两个IDC：IDC1和IDC2</p>
-</li>
-<li>
-<p>两个BFE集群：BFE1和BFE2</p>
-</li>
-<li>
-<p>后端产品线的集群有两个子集群：子集群1和子集群2</p>
-</li>
+<li>分给黑洞子集群的流量会被主动丢弃</li>
+<li>黑洞用来防止集群整体过载</li>
 </ul>
 </li>
 <li>
-<p>BFE集群（BFE1和BFE2）可以根据子集群（外加Blackhole）分流比例的配置，分发流量。如：</p>
+<p>子集群粒度的负载均衡，这是BFE的一个重要功能。这个功能在多IDC场景非常有用。</p>
+</li>
+</ul>
+<h2 id="_3">示例场景</h2>
 <ul>
 <li>
-<p>BFE1集群的分流配置为：{子集群1:w11，子集群2:w12, Blackhole:w1B}</p>
+<p>示例场景如下图所示，包含：</p>
+<ul>
+<li>
+<p>两个IDC：IDC_1和IDC_2</p>
 </li>
 <li>
-<p>BFE2集群的分流配置为：{子集群1:w21，子集群2:w22, Blackhole:w2B}</p>
+<p>两个BFE集群：BFE_1和BFE_2</p>
+</li>
+<li>
+<p>后端集群有两个子集群：SubCluster_1和SubCluster_2</p>
 </li>
 </ul>
 </li>
 <li>
-<p>BFE实例根据上述配置做WRR调度（加权轮询），向子集群转发请求。</p>
+<p>可以针对BFE集群，设置子集群的分流比例，如：</p>
 <ul>
-<li>例如，当BFE1的分流配置{w11，w12,
-    w1B}为{45，45，10}时，该集群在BFE1转发给子集群1、子集群2、Blackhole的流量比例依次为：45%、45%、10%。</li>
+<li>
+<p>BFE_1集群的分流配置为：{SubCluster_1: W11，SubCluster_2: W12, Blackhole: W1B}</p>
+</li>
+<li>
+<p>BFE_2集群的分流配置为：{SubCluster_1: W21，SubCluster_2: W22, Blackhole: W2B}</p>
+</li>
+</ul>
+</li>
+<li>
+<p>BFE实例根据上述配置做WRR调度（加权轮询），向子集群转发请求</p>
+<ul>
+<li>例如，当BFE_1的分流配置{W11，W12, W1B}为{45，45，10}时，BFE_1转发给SubCluster_1、SubCluster_1、Blackhole的流量比例依次为：45%、45%、10%。</li>
 </ul>
 </li>
 <li>
 <p>通过修改上述配置，可以将流量在不同的子集群之间切换，实现负载均衡、快速止损、过载保护等目的。</p>
 </li>
 </ul>
-<h2 id="_5">实例级别负载均衡</h2>
-<h3 id="_6">机制说明</h3>
+<p><img alt="Forwarding Table" src="../../images/bfe-gslb.png" /></p>
+<h1 id="_4">子集群内的负载均衡</h1>
+<h2 id="_5">负载均衡算法</h2>
 <ul>
-<li>在同一子集群内的多个实例间，BFE支持使用多种负载均衡算法：</li>
+<li>在同一子集群内的多个实例间，BFE支持使用多种负载均衡算法：<ul>
 <li>WRR: 加权轮询算法</li>
 <li>WLC: 加权最小连接数</li>
+</ul>
+</li>
 <li>如实例的处理能力不同，可以分配不同的权重。</li>
 </ul>
-<h3 id="_7">健康检查</h3>
+<h2 id="_6">健康检查</h2>
 <p>对于BFE下游的每一个实例，BFE会维护一个状态机，包含2个状态：</p>
 <ul>
 <li>正常状态：这个实例可以正常处理BFE转发的请求</li>
@@ -2779,7 +2665,7 @@
 <ul>
 <li>BFE从该实例收到健康检查请求的正确响应</li>
 </ul>
-<h3 id="_8">失败重试机制</h3>
+<h2 id="_7">失败重试机制</h2>
 <p>BFE在转发时，支持以下两种失败重试机制：</p>
 <ul>
 <li>
@@ -2795,7 +2681,7 @@
 </ul>
 </li>
 </ul>
-<h3 id="_9">连接池</h3>
+<h2 id="_8">连接池</h2>
 <p>BFE和下游实例的连接支持两种方式：</p>
 <ul>
 <li>
@@ -2824,7 +2710,7 @@
 </ul>
 </li>
 </ul>
-<h3 id="_10">会话保持</h3>
+<h2 id="_9">会话保持</h2>
 <p>BFE向下游转发请求时，支持将相同来源请求，转发至固定的业务后端（某个子集群或某个实例）</p>
 <ul>
 <li>

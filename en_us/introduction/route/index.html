@@ -492,8 +492,15 @@
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#rule-configuration" class="md-nav__link">
-    Rule configuration
+  <a href="#overview" class="md-nav__link">
+    Overview
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#forwarding-table" class="md-nav__link">
+    Forwarding Table
   </a>
   
 </li>
@@ -2545,8 +2552,15 @@
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#rule-configuration" class="md-nav__link">
-    Rule configuration
+  <a href="#overview" class="md-nav__link">
+    Overview
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#forwarding-table" class="md-nav__link">
+    Forwarding Table
   </a>
   
 </li>
@@ -2579,20 +2593,24 @@
                 
                 
                 <h1 id="request-routing">Request Routing</h1>
-<p>In BFE configuration, a "product" could be composed of multiple clusters. User can define how requests are routed among the clusters. Request routing is based on the content of HTTP request.</p>
-<h2 id="rule-configuration">Rule configuration</h2>
+<h2 id="overview">Overview</h2>
 <ul>
-<li>Fields in HTTP Header is used to define routing rule for distributing traffic in cluster level, for example:<ul>
-<li>host, path, query, cookie, method, etc.</li>
+<li>In BFE <a href="../forward_model/">forwarding model</a>, after "product name" for one request is determined, the destionation cluster should be identified.</li>
+<li>A Forwarding Table is provided for each product inside BFE.</li>
+<li>For each request, the forwarding table for the determined product is searched, and destination cluster is identified.</li>
 </ul>
-</li>
-<li>BFE provide a "Condition" expression to define how to route request with special header. This is routing rule in cluster level load balance.</li>
-<li>If multiple rules are configured, BFE would match the rules in sequence. Matching procedure stop if one rule is matched.</li>
+<h2 id="forwarding-table">Forwarding Table</h2>
+<ul>
+<li>Forwarding table is composed by one or more "forwarding rules".</li>
+<li>Each forwarding rule has two parts: condition(for matching the request), destionation cluster.</li>
+<li>Condition is expressed in <a href="../condition">Condition Expression</a>.</li>
+<li>For a request, multiple rules in forwarding table are searched up to down.(i.e., the order of forwarding rules is very important.) The procedure will stop if some rule is matched.</li>
+<li>There must be one Default Rule in the forwarding table. If no other rules is matched for a request, the destionation cluster defined in Default Rule is returned.</li>
 </ul>
 <h2 id="example">Example</h2>
 <ul>
 <li>
-<p>A product "demo", which needs process three kinds of traffic: static content traffic, "post" traffic, other traffic, then we can define three clusters ：</p>
+<p>A product "demo" has three clusters:</p>
 <ul>
 <li>demo-static：serve static content </li>
 <li>demo-post：serve post request</li>
@@ -2600,14 +2618,18 @@
 </ul>
 </li>
 <li>
-<p>To BFE configuration, following routing rules can be added:</p>
+<p>The expected scenarios:</p>
 <ul>
-<li>Rule 1: req_path_prefix_in("/static", false) -&gt; demo-static, which means requests with path prefixed with "/static" will be routed to cluster demo-static.</li>
-<li>Rule 2: req_method_in("POST")&amp;&amp;req_path_prefix_in("/setting",false) -&gt; demo-post, which means that request which use method "POST" and is prefixed with "/setting" will be routed to cluster "demo-post". </li>
-<li>Rule 3: default -&gt; demo-main, which means all request which doesn't match above rules will be sent to cluster "demo-main".</li>
+<li>Requests with path prefixed with "/static" will be forwarded to cluster demo-static.</li>
+<li>Request using method "POST" and prefixed with "/setting" will be forwarded to cluster "demo-post". </li>
+<li>Other request will be forwarded to cluster "demo-main".</li>
 </ul>
 </li>
+<li>
+<p>The corresponding forwarding table is shown as follows.</p>
+</li>
 </ul>
+<p><img alt="Forwarding Table" src="../../images/bfe-forwarding-table.png" /></p>
                 
               
               

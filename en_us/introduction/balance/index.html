@@ -512,6 +512,13 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    Overview
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#example" class="md-nav__link">
     Example
   </a>
@@ -2594,6 +2601,13 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    Overview
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#example" class="md-nav__link">
     Example
   </a>
@@ -2662,98 +2676,118 @@
                 
                 <h1 id="request-balancing">Request balancing</h1>
 <h2 id="sub-cluster-level-load-balance">Sub cluster level load balance</h2>
+<h3 id="overview">Overview</h3>
 <ul>
 <li>
-<p>In sub cluster level, load balance rules also can be configured. The rules define traffic weight which is distributed to each sub cluster。</p>
+<p>Usually one cluster has more than one sub clusters. In BFE, it is supported to 
+define weights for distributing traffic to each sub cluster.</p>
 </li>
 <li>
-<p>A special virtual sub cluster "BLACKHOLE" could be used to discard traffic。</p>
+<p>Also there is a special virtual sub cluster "BLACKHOLE" for each cluster.</p>
+<ul>
+<li>Traffic allocated to "BLACKHOLE" will be discarded.</li>
+<li>"BLACKHOLE" is used to prevent traffic overloading to the whole cluster.</li>
+</ul>
+</li>
+<li>
+<p>Load balance between sub clusters, it is a very important feature for BFE. 
+This feature is very useful in multi-IDCs scenario.</p>
 </li>
 </ul>
 <h3 id="example">Example</h3>
 <ul>
 <li>
-<p>Consider following configuration：</p>
+<p>Consider the following scenario：</p>
 <ul>
-<li>Two IDC：IDC1, IDC2</li>
-<li>Two BFE cluster：BFE1, BFE2</li>
-<li>Two backend sub cluster：sub-cluster-1, sub-cluster-2</li>
+<li>Two IDCs：IDC_1, IDC_2</li>
+<li>Two BFE clusters：BFE_1, BFE_2</li>
+<li>Two backend sub clusters：SubCluster_1, SubCluster_2</li>
 </ul>
 </li>
 <li>
-<p>In BFE cluster(BFE1 and BFE2):</p>
+<p>In BFE clusters, weights for distributing traffic to each sub cluster can be configured as follows:</p>
 <ul>
-<li>BFE1：{sub-cluster-1:w11，sub-cluster-2:w12, Blackhole:w1B}</li>
-<li>BFE2：{sub-cluster-1:w21，sub-cluster-2:w22, Blackhole:w2B}</li>
+<li>BFE_1：{SubCluster_1: W11，SubCluster_2: W12, Blackhole: W1B}</li>
+<li>BFE_2：{SubCluster_1: W21，SubCluster_2: W22, Blackhole: W2B}</li>
 </ul>
 </li>
 <li>
-<p>Based on the weight in configuration, BFE distribute traffic to backend sub cluster.</p>
+<p>Based on the above configuration, BFE clusters distribute traffic to backend sub clusters.</p>
 <ul>
-<li>For example，if weight configuration {w11, w12, w1B} ={45，45，10}, percent of traffic to sub cluster is sub-cluster-1, sub-cluster-2 and Blackhole is 45%, 45% and 10%.</li>
+<li>For example，if configuration of BFE_1 is {W11，W12, W1B} ={45，45，10}, traffic percentage to SubCluster_1, SubCluster_2 and Blackhole is 45%, 45% and 10%.</li>
 </ul>
 </li>
 </ul>
+<p><img alt="Forwarding Table" src="../../images/bfe-gslb.png" /></p>
 <h2 id="instance-level-load-balance">Instance level load balance</h2>
 <ul>
-<li>Usually, a sub cluster is composed of multiple instances. Within sub cluster, WRR（weighted round robin) is used to distribute request among instance。</li>
-<li>Instance can be assign different weight based on its capacity。</li>
+<li>Usually, a sub cluster is composed of multiple instances. </li>
+<li>Within sub cluster, several policies is provided for distributing traffic among instances. e.g., <ul>
+<li>WRR(Weighted Round Robin)</li>
+<li>WLC(Weighted Least Connection)</li>
+</ul>
+</li>
+<li>Instances can be assigned with different weights based on their capacity。</li>
 </ul>
 <h2 id="health-check">Health check</h2>
-<p>BFE do health check for each backend instance. A instance has following two states: </p>
+<p>BFE supports health check for each backend instance.</p>
+<p>BFE maintains a state machine for each instance, with two states: </p>
 <ul>
-<li>NORMAL state：the instance act normally in processing request.</li>
-<li>CHECKING state：the instance is abnormal and can't process request. BFE do health check periodically in this state. </li>
+<li>NORMAL：the instance acts normally in processing request.</li>
+<li>CHECKING：the instance fails to process request and response to BFE. BFE starts health check for this instance, until it acts normally again. </li>
 </ul>
-<p>State switch:
+<p>The condition for switching between states:
 - NORMAL to CHECKING, when：
-    - Consecutive failure, in connecting or sending request to the instance, exceed a threshhod.</p>
+    - Number of consecutive failures, in connecting or sending request to the instance, exceeds a threshhod.</p>
 <ul>
 <li>CHECKING to NORMAL, when：<ul>
-<li>BFE receive correct response from backend instance for health check request.</li>
+<li>BFE receives correct response for health check request from the instance.</li>
 </ul>
 </li>
 </ul>
 <h2 id="retry-in-failure">Retry in failure</h2>
-<p>If request routing fail, BFE support retry the request in two levels：</p>
+<p>If request forwarding fails, BFE supports retry in two ways：</p>
 <ul>
-<li>Re-route request within same sub cluster.</li>
-<li>Re-route request to other sub cluster.</li>
+<li>In-Sub-Cluster Retry: Re-forward request within the same sub cluster.</li>
+<li>Cross-Sub-Cluster Rery: Re-forward request to other sub cluster.</li>
 </ul>
 <h2 id="connection-pool">Connection pool</h2>
-<p>TCP connection between BFE and backend instance support：</p>
+<p>Two ways are supported for TCP connection between BFE and backend instance：</p>
 <ul>
 <li>
-<p>short-lived connection：BFE route each request request to backend server with a new established TCP connection.</p>
+<p>Short-Lived Connection：BFE forwards each request to backend instance with a new established TCP connection.</p>
 </li>
 <li>
-<p>connection pool：</p>
+<p>Connection Pool：</p>
 <ul>
-<li>BFE maintain connection pool to instances.</li>
 <li>
-<p>To an incoming request：</p>
+<p>BFE maintains a connection pool for each backend instance.</p>
+</li>
+<li>
+<p>For a request forwarded to given backend instance:</p>
 <ul>
-<li>if there is an available connection, reuse it.</li>
-<li>else establish a new TCP connection.</li>
+<li>If there is an available idle connection in the connection pool, take it from the pool and reuse it.</li>
+<li>Otherwise, establish a new TCP connection.</li>
 </ul>
 </li>
 <li>
-<p>After finish processing a request via a connection:</p>
+<p>After processing for a request is finished, for the connection used for this request:</p>
 <ul>
-<li>If current size of connection pool is less than configured number, the connection is added into the pool.</li>
-<li>Else close the connection directly.</li>
+<li>If number of idle connections in the pool is less than configured capacity, the connection is added into the pool.</li>
+<li>Otherwise, close the connection directly.</li>
 </ul>
 </li>
 </ul>
 </li>
 </ul>
 <h2 id="session-stickiness">Session stickiness</h2>
-<p>BFE support session stickiness based on following identity of request request:
+<p>BFE supports session stickiness.</p>
+<p>Session could be defined based on following infos of the request:
 - Source IP
 - Field in request header, cookie etc.</p>
-<p>Keep session in different routing level:
-- Sub cluster level: request of a session is sent to same sub cluster (may be different instance in this sub cluster).
-- Instance level: request of a session is sent to same instance.</p>
+<p>Session stickiness is supported for the following two levels:
+- Sub cluster level: requests of the same session are forwarded to the same sub cluster (may be different instances in this sub cluster).
+- Instance level: requests of the same session are fowarded to the same instance.</p>
                 
               
               
