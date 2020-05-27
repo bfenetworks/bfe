@@ -29,4 +29,4 @@
 
 - The corresponding forwarding table is shown as follows.
 
-![Forwarding Table](../../images/forwarding_table.png)
+![Forwarding Table](../../images/bfe-forwarding-table.png)

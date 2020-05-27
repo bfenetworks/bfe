@@ -27,7 +27,7 @@
     + 请求方法为"POST"、且path以"/setting"为前缀的，都发往demo-post
     + 其它请求，都发往demo-main
 - 对应以上要求，产品线demo的转发表如下图所示
-![Forwarding Table](../../images/forwarding_table.png)
+![Forwarding Table](../../images/bfe-forwarding-table.png)
 
 
 

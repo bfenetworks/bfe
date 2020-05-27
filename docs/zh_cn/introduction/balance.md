@@ -33,7 +33,7 @@
 
 - 通过修改上述配置，可以将流量在不同的子集群之间切换，实现负载均衡、快速止损、过载保护等目的。
 
-![Forwarding Table](../../images/gslb.png)
+![Forwarding Table](../../images/bfe-gslb.png)
 
 # 子集群内的负载均衡
 

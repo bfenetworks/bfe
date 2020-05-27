@@ -28,7 +28,7 @@ This feature is very useful in multi-IDCs scenario.
 - Based on the above configuration, BFE clusters distribute traffic to backend sub clusters.
     - For example，if configuration of BFE_1 is {W11，W12, W1B} ={45，45，10}, traffic percentage to SubCluster_1, SubCluster_2 and Blackhole is 45%, 45% and 10%.
 
-![Forwarding Table](../../images/gslb.png)
+![Forwarding Table](../../images/bfe-gslb.png)
 
 ## Instance level load balance
 
