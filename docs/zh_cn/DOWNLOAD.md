@@ -1,5 +1,16 @@
 BFE提供预编译二进制文件供下载。也可在GitHub下载各平台[最新版本BFE](https://github.com/baidu/bfe/releases)。
 
+## bfe v0.10.0
+
+* 2020-05-25 [发布说明](https://github.com/baidu/bfe/releases/tag/v0.10.0)
+
+| 文件名    | 操作系统 | 平台 | 大小 | SHA256检验和 |
+| --------- | -------- | ---- | ---- | ------------ |
+| [bfe_0.10.0_darwin_amd64.tar.gz](https://github.com/baidu/bfe/releases/download/v0.10.0/bfe_0.10.0_darwin_amd64.tar.gz) | darwin | amd64 | 6.61 MB | a8c9336efc94124bc7dc016fda3a45eed9d4d80b065ebf1f450bc4ca78f3dd39 |
+| [bfe_0.10.0_linux_amd64.tar.gz](https://github.com/baidu/bfe/releases/download/v0.10.0/bfe_0.10.0_linux_amd64.tar.gz) | linux | amd64 | 7.36 MB | f8b136990daf5f59498c7f86a9adcbabc6c93b1599614bb9d32796b538537a9c |
+| [bfe_0.10.0_windows_amd64.tar.gz](https://github.com/baidu/bfe/releases/download/v0.10.0/bfe_0.10.0_windows_amd64.tar.gz) | windows | amd64 | 5.97 MB | 8ceb5292e0a2e7a43962c55258bd7882913b3ebe6f3fbb42fff4ef07f513701b |
+
+
 ## bfe v0.9.0
 
 * 2020-04-16 [发布说明](https://github.com/baidu/bfe/releases/tag/v0.9.0)
