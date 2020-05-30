@@ -1,4 +1,4 @@
-# Request balancing
+# Traffic balancing
 
 ## Sub cluster level load balance
 
@@ -55,7 +55,7 @@ The condition for switching between states:
     - BFE receives correct response for health check request from the instance.
 
 
-## Retry in failure
+## Automatic retries
 
 If request forwarding fails, BFE supports retry in two ways：
 

@@ -115,6 +115,7 @@ nav:
       - '命令行工具及参数': 'operation/command.md'
       - '环境变量说明': 'operation/env_var.md'
       - '系统信号说明': 'operation/signal.md'
+      - '管理接口说明': 'operation/api.md'
       - '配置热加载': 'operation/reload.md'
       - '监控指标获取': 'operation/monitor.md'
       - '日志切割备份': 'operation/log_rotation.md'

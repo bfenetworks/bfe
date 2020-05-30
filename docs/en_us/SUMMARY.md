@@ -66,6 +66,7 @@
   * [Command line options](operation/command.md)
   * [Environment variables](operation/env_var.md)
   * [System signals](operation/signal.md)
+  * [Management API](operation/api.md)
   * [Configuration reload](operation/reload.md)
   * [System metrics](operation/monitor.md)
   * [Log Rotation](operation/log_rotation.md)

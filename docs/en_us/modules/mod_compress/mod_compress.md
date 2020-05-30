@@ -1,6 +1,6 @@
 # mod_compress
 
-## Introductionn
+## Introduction
 
 mod_compress compresses responses based on specified rules.
 
