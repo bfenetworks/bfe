@@ -67,7 +67,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#request-balancing" class="md-skip">
+        <a href="#traffic-balancing" class="md-skip">
           Skip to content
         </a>
       
@@ -545,8 +545,8 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#retry-in-failure" class="md-nav__link">
-    Retry in failure
+  <a href="#automatic-retries" class="md-nav__link">
+    Automatic retries
   </a>
   
 </li>
@@ -1461,6 +1461,18 @@
   <li class="md-nav__item">
     <a href="../../operation/signal/" title="System signals" class="md-nav__link">
       System signals
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../operation/api/" title="Management API" class="md-nav__link">
+      Management API
     </a>
   </li>
 
@@ -2634,8 +2646,8 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#retry-in-failure" class="md-nav__link">
-    Retry in failure
+  <a href="#automatic-retries" class="md-nav__link">
+    Automatic retries
   </a>
   
 </li>
@@ -2674,7 +2686,7 @@
                   
                 
                 
-                <h1 id="request-balancing">Request balancing</h1>
+                <h1 id="traffic-balancing">Traffic balancing</h1>
 <h2 id="sub-cluster-level-load-balance">Sub cluster level load balance</h2>
 <h3 id="overview">Overview</h3>
 <ul>
@@ -2745,7 +2757,7 @@ This feature is very useful in multi-IDCs scenario.</p>
 </ul>
 </li>
 </ul>
-<h2 id="retry-in-failure">Retry in failure</h2>
+<h2 id="automatic-retries">Automatic retries</h2>
 <p>If request forwarding fails, BFE supports retry in two ways：</p>
 <ul>
 <li>In-Sub-Cluster Retry: Re-forward request within the same sub cluster.</li>

@@ -1482,6 +1482,18 @@
 
 
   <li class="md-nav__item">
+    <a href="../../../operation/api/" title="管理接口说明" class="md-nav__link">
+      管理接口说明
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
     <a href="../../../operation/reload/" title="配置热加载" class="md-nav__link">
       配置热加载
     </a>
@@ -2865,7 +2877,7 @@
 
 
 <h2 id="_9">内置变量说明</h2>
-<p>可以通过 %variable 使用变量，参见下文示例  </p>
+<p>BFE支持如下一系列变量并在处理请求阶段求值。关于变量的使用参见如上配置示例。</p>
 <table>
 <thead>
 <tr>
@@ -2875,75 +2887,75 @@
 </thead>
 <tbody>
 <tr>
-<td>bfe_client_ip</td>
+<td>%bfe_client_ip</td>
 <td>客户端IP</td>
 </tr>
 <tr>
-<td>bfe_client_port</td>
+<td>%bfe_client_port</td>
 <td>客户端端口</td>
 </tr>
 <tr>
-<td>bfe_request_host</td>
+<td>%bfe_request_host</td>
 <td>请求Host</td>
 </tr>
 <tr>
-<td>bfe_session_id</td>
+<td>%bfe_session_id</td>
 <td>会话ID</td>
 </tr>
 <tr>
-<td>bfe_log_id</td>
+<td>%bfe_log_id</td>
 <td>请求ID</td>
 </tr>
 <tr>
-<td>bfe_cip</td>
+<td>%bfe_cip</td>
 <td>客户端IP (CIP)</td>
 </tr>
 <tr>
-<td>bfe_vip</td>
+<td>%bfe_vip</td>
 <td>服务端IP (VIP)</td>
 </tr>
 <tr>
-<td>bfe_server_name</td>
-<td>添加请求头</td>
+<td>%bfe_server_name</td>
+<td>BFE实例地址</td>
 </tr>
 <tr>
-<td>bfe_cluster</td>
-<td>目的集群</td>
+<td>%bfe_cluster</td>
+<td>目的后端集群</td>
 </tr>
 <tr>
-<td>bfe_backend_info</td>
+<td>%bfe_backend_info</td>
 <td>后端信息</td>
 </tr>
 <tr>
-<td>bfe_ssl_resume</td>
-<td>是否tls/ssl会话复用</td>
+<td>%bfe_ssl_resume</td>
+<td>是否TLS/SSL会话复用</td>
 </tr>
 <tr>
-<td>bfe_ssl_cipher</td>
-<td>tls/ssl加密套件</td>
+<td>%bfe_ssl_cipher</td>
+<td>TLS/SSL加密套件</td>
 </tr>
 <tr>
-<td>bfe_ssl_version</td>
-<td>tls/ssl协议版本</td>
+<td>%bfe_ssl_version</td>
+<td>TLS/SSL协议版本</td>
 </tr>
 <tr>
-<td>bfe_protocol</td>
+<td>%bfe_protocol</td>
 <td>访问协议</td>
 </tr>
 <tr>
-<td>client_cert_serial_number</td>
+<td>%client_cert_serial_number</td>
 <td>客户端证书序列号</td>
 </tr>
 <tr>
-<td>client_cert_subject_title</td>
+<td>%client_cert_subject_title</td>
 <td>客户端证书Subject title</td>
 </tr>
 <tr>
-<td>client_cert_subject_common_name</td>
+<td>%client_cert_subject_common_name</td>
 <td>客户端证书Subject Common Name</td>
 </tr>
 <tr>
-<td>client_cert_subject_organization</td>
+<td>%client_cert_subject_organization</td>
 <td>客户端证书Subject Organization</td>
 </tr>
 </tbody>

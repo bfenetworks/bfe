@@ -505,14 +505,62 @@
       
         <li class="md-nav__item">
   <a href="#_2" class="md-nav__link">
+    集群内负载均衡
+  </a>
+  
+    <nav class="md-nav" aria-label="集群内负载均衡">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
     概述
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    示例场景
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    子集群内的负载均衡
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#_3" class="md-nav__link">
-    示例场景
+  <a href="#_6" class="md-nav__link">
+    健康检查
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    失败重试机制
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_8" class="md-nav__link">
+    连接池
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_9" class="md-nav__link">
+    会话保持
   </a>
   
 </li>
@@ -1413,6 +1461,18 @@
   <li class="md-nav__item">
     <a href="../../operation/signal/" title="系统信号说明" class="md-nav__link">
       系统信号说明
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../operation/api/" title="管理接口说明" class="md-nav__link">
+      管理接口说明
     </a>
   </li>
 
@@ -2546,14 +2606,62 @@
       
         <li class="md-nav__item">
   <a href="#_2" class="md-nav__link">
+    集群内负载均衡
+  </a>
+  
+    <nav class="md-nav" aria-label="集群内负载均衡">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
     概述
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    示例场景
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    子集群内的负载均衡
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#_3" class="md-nav__link">
-    示例场景
+  <a href="#_6" class="md-nav__link">
+    健康检查
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    失败重试机制
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_8" class="md-nav__link">
+    连接池
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_9" class="md-nav__link">
+    会话保持
   </a>
   
 </li>
@@ -2578,8 +2686,9 @@
                   
                 
                 
-                <h1 id="_1">集群内负载均衡</h1>
-<h2 id="_2">概述</h2>
+                <h1 id="_1">负载均衡</h1>
+<h2 id="_2">集群内负载均衡</h2>
+<h3 id="_3">概述</h3>
 <ul>
 <li>
 <p>一个集群往往包含多个子集群。在BFE中，可以针对集群配置其多个子集群间的流量分配比例。</p>
@@ -2595,7 +2704,7 @@
 <p>子集群粒度的负载均衡，这是BFE的一个重要功能。这个功能在多IDC场景非常有用。</p>
 </li>
 </ul>
-<h2 id="_3">示例场景</h2>
+<h3 id="_4">示例场景</h3>
 <ul>
 <li>
 <p>示例场景如下图所示，包含：</p>
@@ -2633,8 +2742,7 @@
 </li>
 </ul>
 <p><img alt="Forwarding Table" src="../../images/bfe-gslb.png" /></p>
-<h1 id="_4">子集群内的负载均衡</h1>
-<h2 id="_5">负载均衡算法</h2>
+<h2 id="_5">子集群内的负载均衡</h2>
 <ul>
 <li>在同一子集群内的多个实例间，BFE支持使用多种负载均衡算法：<ul>
 <li>WRR: 加权轮询算法</li>

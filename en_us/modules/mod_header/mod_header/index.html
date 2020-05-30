@@ -1264,6 +1264,13 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#builtin-variables" class="md-nav__link">
+    Builtin Variables
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1465,6 +1472,18 @@
   <li class="md-nav__item">
     <a href="../../../operation/signal/" title="System signals" class="md-nav__link">
       System signals
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../operation/api/" title="Management API" class="md-nav__link">
+      Management API
     </a>
   </li>
 
@@ -2664,6 +2683,13 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#builtin-variables" class="md-nav__link">
+    Builtin Variables
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2777,40 +2803,39 @@
 <tr>
 <th>Action</th>
 <th>Description</th>
+<th>Parameters</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>REQ_HEADER_SET</td>
 <td>Set request header</td>
+<td>HeaderName, HeaderValue</td>
 </tr>
 <tr>
 <td>REQ_HEADER_ADD</td>
 <td>Add request header</td>
-</tr>
-<tr>
-<td>RSP_HEADER_SET</td>
-<td>Set response header</td>
-</tr>
-<tr>
-<td>RSP_HEADER_ADD</td>
-<td>Add response header</td>
+<td>HeaderName, HeaderValue</td>
 </tr>
 <tr>
 <td>REQ_HEADER_DEL</td>
 <td>Delete request header</td>
+<td>HeaderName</td>
+</tr>
+<tr>
+<td>RSP_HEADER_SET</td>
+<td>Set response header</td>
+<td>HeaderName, HeaderValue</td>
+</tr>
+<tr>
+<td>RSP_HEADER_ADD</td>
+<td>Add response header</td>
+<td>HeaderName, HeaderValue</td>
 </tr>
 <tr>
 <td>RSP_HEADER_DEL</td>
 <td>Delete response header</td>
-</tr>
-<tr>
-<td>REQ_HEADER_MOD</td>
-<td>Modify request header</td>
-</tr>
-<tr>
-<td>RSP_HEADER_MOD</td>
-<td>Modify response header</td>
+<td>HeaderName</td>
 </tr>
 </tbody>
 </table>
@@ -2822,6 +2847,20 @@
             <span class="p">{</span>
                 <span class="nt">&quot;cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_path_prefix_in(\&quot;/header\&quot;, false)&quot;</span><span class="p">,</span>
                 <span class="nt">&quot;actions&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="p">{</span>
+                        <span class="nt">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;REQ_HEADER_SET&quot;</span><span class="p">,</span>
+                        <span class="nt">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span>
+                            <span class="s2">&quot;X-Bfe-Log-Id&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;%bfe_log_id&quot;</span>
+                        <span class="p">]</span>
+                    <span class="p">},</span>
+                    <span class="p">{</span>
+                        <span class="nt">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;REQ_HEADER_SET&quot;</span><span class="p">,</span>
+                        <span class="nt">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span>
+                            <span class="s2">&quot;X-Bfe-Vip&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;%bfe_vip&quot;</span>
+                        <span class="p">]</span>
+                    <span class="p">},</span>
                     <span class="p">{</span>
                         <span class="nt">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;RSP_HEADER_SET&quot;</span><span class="p">,</span>
                         <span class="nt">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span>
@@ -2836,6 +2875,93 @@
     <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
+
+
+<h2 id="builtin-variables">Builtin Variables</h2>
+<p>BFE provides a list of variables which are evaluated in the runtime during the processing of each request.
+See the <strong>Example</strong> above.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>%bfe_client_ip</td>
+<td>Client IP</td>
+</tr>
+<tr>
+<td>%bfe_client_port</td>
+<td>Client port</td>
+</tr>
+<tr>
+<td>%bfe_request_host</td>
+<td>Value of Request Host header</td>
+</tr>
+<tr>
+<td>%bfe_session_id</td>
+<td>Session ID</td>
+</tr>
+<tr>
+<td>%bfe_log_id</td>
+<td>Request ID</td>
+</tr>
+<tr>
+<td>%bfe_cip</td>
+<td>Client IP (CIP)</td>
+</tr>
+<tr>
+<td>%bfe_vip</td>
+<td>Virtual IP (VIP)</td>
+</tr>
+<tr>
+<td>%bfe_server_name</td>
+<td>BFE instance address</td>
+</tr>
+<tr>
+<td>%bfe_cluster</td>
+<td>Backend cluster</td>
+</tr>
+<tr>
+<td>%bfe_backend_info</td>
+<td>Backend information</td>
+</tr>
+<tr>
+<td>%bfe_ssl_resume</td>
+<td>Whether the TLS/SSL session is resumed with session id or session ticket</td>
+</tr>
+<tr>
+<td>%bfe_ssl_cipher</td>
+<td>TLS/SSL cipher suite</td>
+</tr>
+<tr>
+<td>%bfe_ssl_version</td>
+<td>TLS/SSL version</td>
+</tr>
+<tr>
+<td>%bfe_protocol</td>
+<td>Application level protocol</td>
+</tr>
+<tr>
+<td>%client_cert_serial_number</td>
+<td>Serial number of client certificate</td>
+</tr>
+<tr>
+<td>%client_cert_subject_title</td>
+<td>Subject title of client certificate</td>
+</tr>
+<tr>
+<td>%client_cert_subject_common_name</td>
+<td>Subject Common Name of client certificate</td>
+</tr>
+<tr>
+<td>%client_cert_subject_organization</td>
+<td>Subject Organization of client certificate</td>
+</tr>
+</tbody>
+</table>
                 
               
               
