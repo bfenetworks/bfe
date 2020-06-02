@@ -105,7 +105,7 @@
     * [转发状态](monitor/proxy_state.md)
   * [扩展模块](monitor/module_status.md)
   * 延迟
-    * [延迟分布](monitor/proxy_XXX_delay.md)
+    * [延迟分布](monitor/latency.md)
 * 附录B：条件原语
   * [条件的概念及语法](condition/condition_grammar.md)
   * [条件原语命名规范](condition/condition_naming_convention.md)
