@@ -1,8 +1,8 @@
-# Host Table Status 
+# 路由
 
 ## 简介
 
-host_table_status是路由相关配置的状态。
+`/monitor/host_table_status`接口返回路由相关指标。
 
 ## 监控项
 

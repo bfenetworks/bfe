@@ -15,14 +15,14 @@ MonitorPort = 8421
 
 All the following endpoints must be accessed with a `GET` HTTP request.
 
-| Path               | Description                                                        |
-| ------------------ | ------------------------------------------------------------------ |
-| `/monitor`         | Lists all the monitor categories. |
-| `/monitor/{name}`  | Returns the metrics information of the monitor category specified by `name`. |
-| `/reload`          | Lists all the reload entries. |
-| `/reload/{name}`   | Reloads the configuration specified by `name`. |
-| `/debug/pprof/`    | See the [pprof Index](https://golang.org/pkg/net/http/pprof/#Index) Go documentation.|
-| `/debug/cmdline`   | See the [pprof Cmdline](https://golang.org/pkg/net/http/pprof/#Cmdline) Go documentation. |
-| `/debug/profile`   | See the [pprof Profile](https://golang.org/pkg/net/http/pprof/#Profile) Go documentation. |
-| `/debug/symbol`    | See the [pprof Symbol](https://golang.org/pkg/net/http/pprof/#Symbol) Go documentation. |
-| `/debug/trace`     | See the [pprof Trace](https://golang.org/pkg/net/http/pprof/#Trace) Go documentation. |
+| Path             | Description                                                        |
+| ---------------- | ------------------------------------------------------------------ |
+| /monitor         | Lists all the monitor categories. See [System metrics](monitor.md) |
+| /monitor/{name}  | Returns the metrics information of the monitor category specified by `name`. |
+| /reload          | Lists all the reload entries. See [Configuration reload](reload.md) |
+| /reload/{name}   | Reloads the configuration specified by `name`. |
+| /debug/pprof/    | See the [pprof Index](https://golang.org/pkg/net/http/pprof/#Index) Go documentation.|
+| /debug/cmdline   | See the [pprof Cmdline](https://golang.org/pkg/net/http/pprof/#Cmdline) Go documentation. |
+| /debug/profile   | See the [pprof Profile](https://golang.org/pkg/net/http/pprof/#Profile) Go documentation. |
+| /debug/symbol    | See the [pprof Symbol](https://golang.org/pkg/net/http/pprof/#Symbol) Go documentation. |
+| /debug/trace     | See the [pprof Trace](https://golang.org/pkg/net/http/pprof/#Trace) Go documentation. |

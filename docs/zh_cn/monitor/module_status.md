@@ -2,7 +2,7 @@
 
 ## 简介
 
-module_status是模块的状态信息。
+`/monitor/module_status`接口返回模块的状态信息。
 
 ## 监控项
 

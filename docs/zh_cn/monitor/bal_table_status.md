@@ -2,7 +2,7 @@
 
 ## 简介
 
-bal_table_status是保存后端集群table的状态。
+`/monitor/bal_table_status`接口返回端集群的状态指标。
 
 ## 监控项
 

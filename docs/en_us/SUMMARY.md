@@ -103,9 +103,10 @@
     * [Balance error](monitor/bal_state.md)
   * Proxy
     * [Proxy state](monitor/proxy_state.md)
+    * [Memory](monitor/proxy_mem_stat.md)
   * [Modules](monitor/module_status.md)
   * Lentency
-    * [Lentency histogram](monitor/proxy_XXX_delay.md)
+    * [Lentency histogram](monitor/latency.md)
 * Appendix B: Condition
   * [Condition Concept and Grammar](condition/condition_grammar.md)
   * [Condition Naming Convention](condition/condition_naming_convention.md)

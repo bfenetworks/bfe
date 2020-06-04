@@ -11,8 +11,8 @@ conf/mod_auth_jwt/mod_auth_jwt.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>path of rule configuraiton |
-| Log.OpenDebug | Boolean<br>debug flag of module |
+| Basic.DataPath | String<br>Path of rule configuraiton |
+| Log.OpenDebug | Boolean<br>Debug flag of module |
 
 ### Example
 

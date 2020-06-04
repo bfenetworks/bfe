@@ -2,7 +2,7 @@
 
 ## 简介
 
-proxy_mem_stat是BFE内存使用情况的状态信息。
+`/monitor/proxy_mem_stat`接口返回BFE内存相关状态指标。
 
 ## 监控项
 

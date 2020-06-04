@@ -140,7 +140,7 @@ nav:
       - '开发相关': 'faq/development.md'
     - '监控指标':
       - '协议': 
-        - 'SSL/TLS': 'monitor/tls_state.md'
+        - 'TLS': 'monitor/tls_state.md'
         - 'HTTP': 'monitor/http_state.md'
         - 'HTTP2': 'monitor/http2_state.md'
         - 'SPDY': 'monitor/spdy_state.md'
@@ -153,9 +153,10 @@ nav:
         - '均衡错误': 'monitor/bal_state.md'
       - '反向代理':
         - '转发状态': 'monitor/proxy_state.md'
+        - '内存详情': 'monitor/proxy_mem_stat.md'
       - '扩展模块': 'monitor/module_status.md'
       - '延迟':
-        - '延迟分布': 'monitor/proxy_XXX_delay.md'
+        - '延迟分布': 'monitor/latency.md'
     - '条件原语':
       - '条件的概念及语法': 'condition/condition_grammar.md'
       - '条件原语命名规范': 'condition/condition_naming_convention.md'

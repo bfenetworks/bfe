@@ -66,7 +66,7 @@
   * [命令行工具及参数](operation/command.md)
   * [环境变量说明](operation/env_var.md)
   * [系统信号说明](operation/signal.md)
-  * [管理接口说明API](operation/api.md)
+  * [管理接口说明](operation/api.md)
   * [配置热加载](operation/reload.md)
   * [监控指标获取](operation/monitor.md)
   * [日志切割备份](operation/log_rotation.md)
@@ -90,7 +90,7 @@
   * [开发相关](faq/development.md)
 * 附录A: 监控
   * 协议 
-    * [SSL/TLS](monitor/tls_state.md)
+    * [TLS](monitor/tls_state.md)
     * [HTTP](monitor/http_state.md)
     * [HTTP2](monitor/http2_state.md)
     * [SPDY](monitor/spdy_state.md)
@@ -103,6 +103,7 @@
     * [均衡错误](monitor/bal_state.md)
   * 反向代理
     * [转发状态](monitor/proxy_state.md)
+    * [内存详情](monitor/proxy_mem_stat.md)
   * [扩展模块](monitor/module_status.md)
   * 延迟
     * [延迟分布](monitor/latency.md)

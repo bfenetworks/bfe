@@ -8,7 +8,7 @@ The BFE documentation is composed of a few major sections:
 
 * **Installation**: How to build/install BFE.
 
-* **Configuration**: Detailed configuration instructions in BFE.
+* **Configuration**: Detailed configuration instructions for BFE.
 
 * **Operations**: General information on how to operate BFE.
 

@@ -11,8 +11,8 @@ conf/mod_userid/mod_userid.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>path of rule configuraiton |
-| Log.OpenDebug | Boolean<br>debug flag of module |
+| Basic.DataPath | String<br>Path of rule configuraiton |
+| Log.OpenDebug | Boolean<br>Debug flag of module |
 
 ### Example
 ```ini
@@ -31,15 +31,15 @@ conf/mod_userid/userid_rule.data
 | Config Item | Description                                             |
 | ----------- | ------------------------------------------------------- |
 | Version     | String<br>Verson of config file |
-| Config | Object<br>rules for each product |
+| Config | Object<br>Rules for each product |
 | Config{k} | String<br>Product name |
 | Config{v} | Object<br>A list of rules |
 | Config{v}[] | Object<br>A rule |
 | Config{v}[].Cond          | String<br>Condition expression, See [Condition](../../condition/condition_grammar.md) |
-| Config{v}[].Params.Name   | String<br>the cookie name        |
-| Config{v}[].Params.Domain | String<br>the cookie domain      |
-| Config{v}[].Params.Path   | String<br>the cookie path        |
-| Config{v}[].Params.MaxAge | Integer<br>the cookie max age     |
+| Config{v}[].Params.Name   | String<br>The cookie name        |
+| Config{v}[].Params.Domain | String<br>The cookie domain      |
+| Config{v}[].Params.Path   | String<br>The cookie path        |
+| Config{v}[].Params.MaxAge | Integer<br>The cookie max age     |
 
 ### Example
 ```json

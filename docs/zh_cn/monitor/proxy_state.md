@@ -2,7 +2,7 @@
 
 ## 简介
 
-proxy_state是BFE服务的核心状态信息。
+`/monitor/proxy_state`接口返回BFE服务核心状态指标。
 
 ## 监控项
 

@@ -11,8 +11,8 @@ conf/mod_header/mod_header.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>path of rule configuraiton |
-| Log.OpenDebug | Boolean<br>debug flag of module |
+| Basic.DataPath | String<br>Path of rule configuraiton |
+| Log.OpenDebug | Boolean<br>Debug flag of module |
 
 ### Example
 

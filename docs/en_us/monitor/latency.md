@@ -1,22 +1,28 @@
-# Proxy Lentency
+# Latency
 
 ## Introduction
 
-proxy_XXX_delay monitor state of proxy delay.
+| Endpoint                              | Description       | 
+| ------------------------------------- | ----------------- |
+| /monitor/proxy_delay                  | Latency of the forwarding GET requests |
+| /monitor/proxy_post_delay             | Latency of the forwarding POST requests |
+| /monitor/proxy_handshake_delay        | Latency of the TLS handshake |
+| /monitor/proxy_handshake_full_delay   | Latency of the TLS full handshake |
+| /monitor/proxy_handshake_resume_delay | Latency of the TLS abbreviated handshake |
 
-## Monitor Item
+## Metrics
 
-| Monitor Item | Description                               |
+| Metric       | Description                               |
 | ------------ | ----------------------------------------- |
 | Interval     | Interval of get proxy delay.              |
 | KeyPrefix    | Key prefix                                |
 | ProgramName  | Program name                              |
 | CurrTime     | Current time                              |
-| Current      | Proxy delay data of current interval time |
+| Current      | Latency histgram for current time slot    |
 | PastTime     | Last statistic time                       |
-| Past         | Proxy delay data of last statistic time   |
+| Past         | Latency histgram data of last time slot   |
 
-### proxy Delay Data
+## Lentency Histgram
 
 | Monitor Item | Description                                                  |
 | ------------ | ------------------------------------------------------------ |

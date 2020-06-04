@@ -45,7 +45,7 @@ OpenDebug = false
 | Action                  | Descrition                          |
 | ------------------------| ------------------------------------|
 | GZIP                    | Compress response using gzip method |
-| BROTLI                    | Compress response using brotli method |
+| BROTLI                  | Compress response using brotli method |
 
 ### Example
 ```json

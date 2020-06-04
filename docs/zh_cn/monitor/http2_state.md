@@ -2,7 +2,7 @@
 
 ## 简介
 
-http2_state是HTTP2的状态信息。
+`/monitor/http2_state`接口返回HTTP2相关指标。
 
 ## 监控项
 

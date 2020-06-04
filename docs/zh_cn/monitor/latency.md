@@ -2,15 +2,13 @@
 
 ## 简介
 
-proxy_XXX_delay是统计延时的状态信息。
-
-| 统计项名称                     | 描述              |
-| ---------------------------- | ----------------- |
-| proxy_delay                  | 统计转发延时        |
-| proxy_post_delay             | 统计POST请求转发延时 |
-| proxy_handshake_delay        | 统计TLS握手延时     |
-| proxy_handshake_full_delay   | 统计TLS完全握手延时  |
-| proxy_handshake_resume_delay | 统计TLS简化握手延时  |
+| 接口                                  | 描述              |
+| ------------------------------------- | ----------------- |
+| /monitor/proxy_delay                  | 统计转发延时        |
+| /monitor/proxy_post_delay             | 统计POST请求转发延时 |
+| /monitor/proxy_handshake_delay        | 统计TLS握手延时     |
+| /monitor/proxy_handshake_full_delay   | 统计TLS完全握手延时  |
+| /monitor/proxy_handshake_resume_delay | 统计TLS简化握手延时  |
 
 ## 监控项
 
