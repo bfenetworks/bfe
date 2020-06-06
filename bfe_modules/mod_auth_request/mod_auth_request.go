@@ -42,6 +42,9 @@ const (
 	DelayConterInterval    = 60 // interval for moving current to past (in s)
 	DelayCounterBucketSize = 1  // size of delay counter bucket (in ms)
 	DelayCounterBucketNum  = 20 // number of delay counter bucket
+
+	XForwardedMethod = "X-Forwarded-Method"
+	XForwardedURI    = "X-Forwarded-Uri"
 )
 
 var (
@@ -51,11 +54,12 @@ var (
 )
 
 type ModuleAuthRequestState struct {
-	AuthRequestChecked   *metrics.Counter
-	AuthRequestPass      *metrics.Counter
-	AuthRequestForbidden *metrics.Counter
-	AuthRequestFail      *metrics.Counter
-	AuthRequestUncertain *metrics.Counter
+	AuthRequestChecked      *metrics.Counter
+	AuthRequestPass         *metrics.Counter
+	AuthRequestForbidden    *metrics.Counter
+	AuthRequestUnauthorized *metrics.Counter
+	AuthRequestFail         *metrics.Counter
+	AuthRequestUncertain    *metrics.Counter
 }
 
 type ModuleAuthRequest struct {
@@ -117,19 +121,36 @@ func removeHopHeaders(headers http.Header) {
 }
 
 func (m *ModuleAuthRequest) createAuthRequest(originReq *bfe_basic.Request) *http.Request {
-	forwardReq, _ := http.NewRequest(http.MethodGet, m.conf.Basic.AuthAddress, nil)
+	authReq, _ := http.NewRequest(http.MethodGet, m.conf.Basic.AuthAddress, nil)
 
 	// copy header from origin request header
-	bfe_http.CopyHeader(bfe_http.Header(forwardReq.Header), originReq.HttpRequest.Header)
+	bfe_http.CopyHeader(bfe_http.Header(authReq.Header), originReq.HttpRequest.Header)
 
 	// remove hop headers
-	removeHopHeaders(forwardReq.Header)
+	removeHopHeaders(authReq.Header)
 
-	if openDebug {
-		log.Logger.Info("%s: auth request header: [%v]", m.name, forwardReq.Header)
+	// remove Content-Length header
+	authReq.Header.Del("Content-Length")
+
+	xMethod := originReq.HttpRequest.Header.Get(XForwardedMethod)
+	if xMethod != "" {
+		authReq.Header.Set(XForwardedMethod, xMethod)
+	} else {
+		authReq.Header.Set(XForwardedMethod, originReq.HttpRequest.Method)
 	}
 
-	return forwardReq
+	xUri := originReq.HttpRequest.Header.Get(XForwardedURI)
+	if xUri != "" {
+		authReq.Header.Set(XForwardedURI, xUri)
+	} else {
+		authReq.Header.Set(XForwardedURI, originReq.HttpRequest.URL.RequestURI())
+	}
+
+	if openDebug {
+		log.Logger.Info("%s: auth request header: [%v]", m.name, authReq.Header)
+	}
+
+	return authReq
 }
 
 func (m *ModuleAuthRequest) callAuthService(forwardReq *http.Request) (*http.Response, error) {
@@ -145,29 +166,37 @@ func (m *ModuleAuthRequest) callAuthService(forwardReq *http.Request) (*http.Res
 	return resp, nil
 }
 
-func (m *ModuleAuthRequest) checkAuthForbidden(resp *http.Response) bool {
-	// if the response code is 401 or 403, the access is denied
-	if resp.StatusCode == bfe_http.StatusUnauthorized || resp.StatusCode == bfe_http.StatusForbidden {
+func (m *ModuleAuthRequest) genAuthForbiddenResp(req *bfe_basic.Request, resp *http.Response) *bfe_http.Response {
+	forbiddenResp := bfe_basic.CreateInternalResp(req, resp.StatusCode)
+	if resp.StatusCode == bfe_http.StatusUnauthorized {
+		if wwwAuth := resp.Header.Get("WWW-Authenticate"); len(wwwAuth) > 0 {
+			forbiddenResp.Header.Set("WWW-Authenticate", wwwAuth)
+		}
+		m.state.AuthRequestUnauthorized.Inc(1)
+		return forbiddenResp
+	}
+
+	if resp.StatusCode == bfe_http.StatusForbidden {
 		m.state.AuthRequestForbidden.Inc(1)
-		return true
+		return forbiddenResp
 	}
 
 	// if the service response code is 2XX, the access is allowed.
 	if resp.StatusCode/100 == 2 {
 		m.state.AuthRequestPass.Inc(1)
-		return false
+		return nil
 	}
 
 	// if any other response code returned is considered an error
 	m.state.AuthRequestUncertain.Inc(1)
 	if openDebug {
-		log.Logger.Info("%s: auth response is not expected, resp code[%d]", resp.StatusCode)
+		log.Logger.Info("%s: auth response is not expected, resp code[%d]", m.name, resp.StatusCode)
 	}
-	return false
+	return nil
 }
 
 // forward request to auth server
-func (m *ModuleAuthRequest) forwardAuthServer(req *bfe_basic.Request) (bool, int) {
+func (m *ModuleAuthRequest) forwardAuthServer(req *bfe_basic.Request) *bfe_http.Response {
 	// create auth request
 	authReq := m.createAuthRequest(req)
 
@@ -175,15 +204,11 @@ func (m *ModuleAuthRequest) forwardAuthServer(req *bfe_basic.Request) (bool, int
 	resp, err := m.callAuthService(authReq)
 	if err != nil {
 		m.state.AuthRequestFail.Inc(1)
-		return false, 0
+		return nil
 	}
 	defer resp.Body.Close()
 
-	if m.checkAuthForbidden(resp) {
-		return true, resp.StatusCode
-	}
-
-	return false, 0
+	return m.genAuthForbiddenResp(req, resp)
 }
 
 func (m *ModuleAuthRequest) authRequestHandler(req *bfe_basic.Request) (int, *bfe_http.Response) {
@@ -197,9 +222,9 @@ func (m *ModuleAuthRequest) authRequestHandler(req *bfe_basic.Request) (int, *bf
 			m.state.AuthRequestChecked.Inc(1)
 
 			// check request is denied
-			if isDenied, code := m.forwardAuthServer(req); isDenied {
+			if resp := m.forwardAuthServer(req); resp != nil {
 				req.ErrCode = ErrAuthRequest
-				return bfe_module.BfeHandlerResponse, bfe_basic.CreateInternalResp(req, code)
+				return bfe_module.BfeHandlerResponse, resp
 			}
 		}
 	}
@@ -247,7 +272,7 @@ func (m *ModuleAuthRequest) init(conf *ConfModAuthRequest, cbs *bfe_module.BfeCa
 		return err
 	}
 
-	err = cbs.AddFilter(bfe_module.HandleAfterLocation, m.authRequestHandler)
+	err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.authRequestHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.authRequestHandler): %v", m.name, err)
 	}
