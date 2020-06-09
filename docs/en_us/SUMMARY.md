@@ -90,7 +90,7 @@
   * [Development](faq/development.md)
 * Appendix A: Monitor
   * Protocol 
-    * [SSL/TLS](monitor/tls_state.md)
+    * [TLS](monitor/tls_state.md)
     * [HTTP](monitor/http_state.md)
     * [HTTP2](monitor/http2_state.md)
     * [SPDY](monitor/spdy_state.md)
