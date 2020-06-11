@@ -16,14 +16,20 @@ package tls_rule_conf
 
 import (
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+)
+
+import (
+	"github.com/baidu/go-lib/log"
 )
 
 import (
@@ -442,6 +448,66 @@ func ClientCALoad(tlsRuleMap TlsRuleMap, clientCADir string) (map[string]*x509.C
 	}
 
 	return clientCAMap, nil
+}
+
+func getCientCRL(clientCRLDir, clientCAName string) ([]*pkix.CertificateList, error) {
+	clientCRLSubDir := filepath.Join(clientCRLDir, clientCAName)
+	crlFiles, err := ioutil.ReadDir(clientCRLSubDir)
+	if err != nil {
+		log.Logger.Debug("ioutil.ReadDir %s failed: %v", clientCRLSubDir, err)
+		return nil, nil
+	}
+
+	var crls []*pkix.CertificateList
+	for _, crlFile := range crlFiles {
+		if crlFile.IsDir() {
+			continue
+		}
+
+		if !strings.HasSuffix(crlFile.Name(), ".crl") {
+			continue
+		}
+
+		crlFilePath := filepath.Join(clientCRLSubDir, crlFile.Name())
+		fileContent, err := ioutil.ReadFile(crlFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("read crl %s failed, %v", crlFilePath, err)
+		}
+
+		crl, err := x509.ParseCRL(fileContent)
+		if err != nil {
+			return nil, fmt.Errorf("parse crl %s failed, %v", crlFilePath, err)
+		}
+
+		log.Logger.Debug("read %s success", crlFile.Name())
+		crls = append(crls, crl)
+	}
+	return crls, nil
+}
+
+func ClientCRLLoad(clientCAMap map[string]*x509.CertPool, clientCRLDir string) (map[string]*bfe_tls.CRLPool, error) {
+	clientCRLPoolMap := make(map[string]*bfe_tls.CRLPool)
+	for clientCAName, _ := range clientCAMap {
+		crls, err := getCientCRL(clientCRLDir, clientCAName)
+		if err != nil {
+			return nil, err
+		}
+
+		if crls == nil {
+			continue
+		}
+
+		crlPool := bfe_tls.NewCRLPool()
+		for _, crl := range crls {
+			if err := crlPool.AddCRL(crl); err != nil {
+				return nil, fmt.Errorf("client_ca %s read crl: %v", clientCAName, err)
+			}
+		}
+
+		clientCRLPoolMap[clientCAName] = crlPool
+	}
+
+	return clientCRLPoolMap, nil
 }
 
 // TlsRuleConfLoad load config of rule from file.

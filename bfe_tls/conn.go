@@ -70,6 +70,7 @@ type Conn struct {
 	clientAuth          ClientAuthType // tls client auth type
 	clientCAs           *x509.CertPool
 	clientCAName        string   // tls client CA name
+	clientCRLPool       *CRLPool // tls client CRL pool
 	enableDynamicRecord bool     // enable dynamic record size or not
 	clientRandom        []byte   // random in client hello msg
 	serverRandom        []byte   // random in server hello msg

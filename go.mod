@@ -27,7 +27,7 @@ require (
 	golang.org/x/crypto v0.0.0-20200117160349-530e935923ad
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/sys v0.0.0-20200121082415-34d275377bf9
-	golang.org/x/tools v0.0.0-20200521211927-2b542361a4fc // indirect
+	golang.org/x/tools v0.0.0-20200610052024-8d7dbee4c8ae // indirect
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/square/go-jose.v2 v2.4.1
 	gopkg.in/warnings.v0 v0.1.2 // indirect
