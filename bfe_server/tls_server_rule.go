@@ -31,6 +31,7 @@ import (
 import (
 	"github.com/baidu/bfe/bfe_config/bfe_tls_conf/tls_rule_conf"
 	"github.com/baidu/bfe/bfe_http2"
+	"github.com/baidu/bfe/bfe_stream"
 	"github.com/baidu/bfe/bfe_tls"
 )
 
@@ -39,8 +40,9 @@ var (
 )
 
 type ServerRule struct {
-	TlsRule bfe_tls.Rule   // server rule for tls
-	H2Rule  bfe_http2.Rule // server rule for h2
+	TlsRule    bfe_tls.Rule    // server rule for tls
+	H2Rule     bfe_http2.Rule  // server rule for h2
+	StreamRule bfe_stream.Rule // server rule for stream
 }
 
 type TLSServerRuleMap struct {
@@ -79,10 +81,16 @@ func (m *TLSServerRuleMap) Get(c *bfe_tls.Conn) *bfe_tls.Rule {
 	return &r.TlsRule
 }
 
-// GetRule returns h2 rule for given connection
-func (m *TLSServerRuleMap) GetRule(c *bfe_tls.Conn) *bfe_http2.Rule {
+// GetHTTP2Rule returns h2 rule for given connection.
+func (m *TLSServerRuleMap) GetHTTP2Rule(c *bfe_tls.Conn) *bfe_http2.Rule {
 	r := m.getRule(c)
 	return &r.H2Rule
+}
+
+//  GetStreamRule returns stream rule for given connection.
+func (m *TLSServerRuleMap) GetStreamRule(c *bfe_tls.Conn) *bfe_stream.Rule {
+	r := m.getRule(c)
+	return &r.StreamRule
 }
 
 func (m *TLSServerRuleMap) getRule(c *bfe_tls.Conn) *ServerRule {
@@ -130,6 +138,8 @@ func (m *TLSServerRuleMap) getDefaultRule(c *bfe_tls.Conn) *ServerRule {
 	rule.H2Rule.MaxConcurrentStreams = 0
 	rule.H2Rule.MaxUploadBufferPerStream = 0
 	rule.H2Rule.DisableDegrade = false
+
+	rule.StreamRule.ProxyProtocol = 0
 
 	return rule
 }
@@ -199,13 +209,16 @@ func (m *TLSServerRuleMap) createServerRule(conf *tls_rule_conf.TlsRuleConf,
 	// enable dynamic tls record
 	r.TlsRule.DynamicRecord = conf.DynamicRecord
 
-	// h2 related settings
+	// h2/stream related settings
 	for _, protoConf := range conf.NextProtos {
 		proto, params, _ := tls_rule_conf.ParseNextProto(protoConf)
-		if proto == tls_rule_conf.HTTP2 {
+		switch proto {
+		case tls_rule_conf.HTTP2:
 			r.H2Rule.MaxConcurrentStreams = uint32(params.Mcs)
 			r.H2Rule.MaxUploadBufferPerStream = uint32(params.Isw)
 			r.H2Rule.DisableDegrade = (params.Level > tls_rule_conf.PROTO_OPTIONAL)
+		case tls_rule_conf.STREAM:
+			r.StreamRule.ProxyProtocol = params.PP
 		}
 	}
 
@@ -238,6 +251,7 @@ type NextProtosConf struct {
 	level      []int             // negatiation level for each protocol
 	mcs        []int             // max concurrency per conn for each protocol
 	rate       []int             // presence rate for each protocol
+	pp         []int             // PROXY protocol option for connections to backend
 }
 
 func NewNextProtosConf(rule *TLSServerRuleMap, protoConf []string) *NextProtosConf {
@@ -247,6 +261,7 @@ func NewNextProtosConf(rule *TLSServerRuleMap, protoConf []string) *NextProtosCo
 	c.level = make([]int, len(protoConf))
 	c.mcs = make([]int, len(protoConf))
 	c.rate = make([]int, len(protoConf))
+	c.pp = make([]int, len(protoConf))
 
 	for i, protoString := range protoConf {
 		proto, params, _ := tls_rule_conf.ParseNextProto(protoString)
@@ -254,6 +269,7 @@ func NewNextProtosConf(rule *TLSServerRuleMap, protoConf []string) *NextProtosCo
 		c.level[i] = params.Level
 		c.mcs[i] = params.Mcs
 		c.rate[i] = params.Rate
+		c.pp[i] = params.PP
 	}
 	return c
 }

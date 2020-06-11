@@ -317,6 +317,9 @@ func (srv *BfeServer) initTLSNextProtoHandler() {
 	bfe_http2.DisableConnHeaderCheck()
 	bfe_http2.SetServerRule(srv.TLSServerRule)
 	bfe_http2.EnableLargeConnRecvWindow()
+
+	// init params for stream
+	bfe_stream.SetServerRule(srv.TLSServerRule)
 }
 
 func (srv *BfeServer) InitModules() error {
