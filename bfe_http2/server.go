@@ -340,7 +340,7 @@ func (s *Server) ServeConn(c net.Conn, opts *ServeConnOpts) {
 	// get rule for current conn
 	var r *Rule
 	if tlsConn, ok := c.(*tls.Conn); ok && serverRule != nil {
-		r = serverRule.GetRule(tlsConn)
+		r = serverRule.GetHTTP2Rule(tlsConn)
 	}
 
 	sc := &serverConn{

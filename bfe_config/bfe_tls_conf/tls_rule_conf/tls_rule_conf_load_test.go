@@ -55,6 +55,12 @@ func TestTlsRuleConfLoad(t *testing.T) {
 		VipConf:    []string{"1.0.0.5"},
 		Grade:      "B",
 	}
+	confExpect.Config["pm"] = &TlsRuleConf{
+		CertName:   "*.baidu.com",
+		NextProtos: []string{"stream;level=2;pp=1"},
+		VipConf:    []string{"1.0.0.6"},
+		Grade:      "B",
+	}
 
 	if !reflect.DeepEqual(confExpect, confActual) {
 		t.Errorf("config expect %v, actual %v", confExpect, confActual)

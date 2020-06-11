@@ -94,11 +94,18 @@ type TlsRuleConf struct {
 
 type TlsRuleMap map[string]*TlsRuleConf // product -> pointer to tls rule conf
 
+const (
+	ProxyProtocolDisabled  = 0
+	ProxyProtocolV1Enabled = 1
+	ProxyProtocolV2Enabled = 2
+)
+
 type NextProtosParams struct {
 	Level int // protocol negotiation level
 	Mcs   int // max concurrent stream per conn
 	Isw   int // initial stream window for server
 	Rate  int // presence rate while level is PROTO_OPTIONAL
+	PP    int // proxy protocol to backend, 0: disable, 1: enable v1 pp, 2: enable v2 pp
 }
 
 func GetDefaultNextProtosParams() NextProtosParams {
@@ -107,6 +114,7 @@ func GetDefaultNextProtosParams() NextProtosParams {
 		Mcs:   200,
 		Isw:   65535,
 		Rate:  100,
+		PP:    0,
 	}
 }
 
@@ -223,6 +231,14 @@ func CheckValidProto(protoConf string) error {
 		return fmt.Errorf("proto rate for http/1.1 should be 100")
 	}
 
+	// check proxy protocol
+	if params.PP < ProxyProtocolDisabled || params.PP > ProxyProtocolV2Enabled {
+		return fmt.Errorf("proto pp should be [%d, %d]", ProxyProtocolDisabled, ProxyProtocolV2Enabled)
+	}
+	if params.PP != ProxyProtocolDisabled && proto != STREAM {
+		return fmt.Errorf("param pp is only available for %s proto", STREAM)
+	}
+
 	// check next proto
 	for _, validProto := range validNextProtos {
 		if proto == validProto {
@@ -275,6 +291,10 @@ func parseProtoParams(protoConf string) (params NextProtosParams, err error) {
 		case "rate":
 			if params.Rate, err = strconv.Atoi(vals[0]); err != nil {
 				return params, fmt.Errorf("invalid rate: %s", vals[0])
+			}
+		case "pp":
+			if params.PP, err = strconv.Atoi(vals[0]); err != nil {
+				return params, fmt.Errorf("invalid pp: %s", vals[0])
 			}
 		default:
 			return params, fmt.Errorf("unknown params: %s", key)

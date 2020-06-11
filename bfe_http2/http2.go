@@ -553,7 +553,7 @@ func acceptRequest() bool {
 }
 
 type ServerRule interface {
-	GetRule(conn *tls.Conn) *Rule
+	GetHTTP2Rule(conn *tls.Conn) *Rule
 }
 
 // customized http2 config for specific conn in server side
