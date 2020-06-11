@@ -6,15 +6,15 @@
             "VipConf": [
                 "10.199.4.14"
             ],
-            "SniConf": null,
+            "SniConf": ["example.org"],
             "CertName": "example.org",
             "NextProtos": [
                 "h2;rate=0;isw=65535;mcs=200;level=0",
                 "http/1.1"
             ],
             "Grade": "C",
-            "ClientCAName": ""
+            "ClientAuth": false,
+            "ClientCAName": "example_ca"
         }
     }
 }
-

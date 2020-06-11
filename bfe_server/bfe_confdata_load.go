@@ -228,6 +228,13 @@ func (srv *BfeServer) tlsConfLoad(certConfFile string, tlsRuleFile string) error
 		return fmt.Errorf("in ClientCALoad() :%s", err.Error())
 	}
 
+	// load client cert CRL
+	clientCRLBaseDir := srv.Config.HttpsBasic.ClientCRLBaseDir
+	clientCRLPoolMap, err := tls_rule_conf.ClientCRLLoad(clientCAMap, clientCRLBaseDir)
+	if err != nil {
+		return fmt.Errorf("in ClientCRLLoad(): %s", err.Error())
+	}
+
 	// validate tls conf
 	if err := tls_rule_conf.CheckTlsConf(certMap, tlsRule.Config); err != nil {
 		return fmt.Errorf("in CheckTlsConf() :%s", err.Error())
@@ -235,7 +242,7 @@ func (srv *BfeServer) tlsConfLoad(certConfFile string, tlsRuleFile string) error
 
 	// update certificates and tls rule data
 	srv.MultiCert.Update(certMap, tlsRule.Config)
-	srv.TLSServerRule.Update(tlsRule, clientCAMap)
+	srv.TLSServerRule.Update(tlsRule, clientCAMap, clientCRLPoolMap)
 	log.Logger.Debug("update tls server rule success")
 
 	return nil

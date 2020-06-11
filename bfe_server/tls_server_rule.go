@@ -145,13 +145,14 @@ func (m *TLSServerRuleMap) getDefaultRule(c *bfe_tls.Conn) *ServerRule {
 }
 
 func (m *TLSServerRuleMap) Update(conf tls_rule_conf.BfeTlsRuleConf,
-	clientCAMap map[string]*x509.CertPool) {
+	clientCAMap map[string]*x509.CertPool, clientCRLPoolMap map[string]*bfe_tls.CRLPool) {
 	vipRuleMap := make(map[string]*ServerRule)
 	sniRuleMap := make(map[string]*ServerRule)
 
 	for _, ruleConf := range conf.Config {
 		clientCAs := clientCAMap[ruleConf.ClientCAName]
-		rule := m.createServerRule(ruleConf, clientCAs, conf.DefaultNextProtos)
+		clientCRLPool := clientCRLPoolMap[ruleConf.ClientCAName]
+		rule := m.createServerRule(ruleConf, clientCAs, clientCRLPool, conf.DefaultNextProtos)
 		for _, vip := range ruleConf.VipConf {
 			vipRuleMap[vip] = rule
 		}
@@ -181,7 +182,7 @@ func (m *TLSServerRuleMap) Update(conf tls_rule_conf.BfeTlsRuleConf,
 }
 
 func (m *TLSServerRuleMap) createServerRule(conf *tls_rule_conf.TlsRuleConf,
-	clientCAs *x509.CertPool, defaultNextProtos []string) *ServerRule {
+	clientCAs *x509.CertPool, clientCRLPool *bfe_tls.CRLPool, defaultNextProtos []string) *ServerRule {
 	r := new(ServerRule)
 
 	// tls next protos
@@ -202,6 +203,7 @@ func (m *TLSServerRuleMap) createServerRule(conf *tls_rule_conf.TlsRuleConf,
 	r.TlsRule.ClientAuth = conf.ClientAuth
 	r.TlsRule.ClientCAs = clientCAs
 	r.TlsRule.ClientCAName = conf.ClientCAName
+	r.TlsRule.ClientCRLPool = clientCRLPool
 
 	// enable chacha20-poly1305 cipher suites
 	r.TlsRule.Chacha20 = conf.Chacha20
