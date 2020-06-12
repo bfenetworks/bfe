@@ -5,7 +5,9 @@
 | ---- | -------------- |
 | Caiyuan Yang | jansci621 |
 | Chongmiao Liu | lcmmhcc |
+| Daniel Sutton | ducksecops |
 | Derek Zheng | shanhuhai5739 |
+| Hao Dong | anotherwriter |
 | Haobin zhang | zhanghaobin |
 | Jie Liu | freeHackOfJeff |
 | Jie Wan | wanjiecs |
@@ -24,6 +26,7 @@
 | Qing Liu | liuximu |
 | Qingxin Yang | yangqingxin1993 |
 | Shan Xiao | arlingtonroad |
+| Shengnan Yu | goldfish-fish |
 | Shuai Yan | yanshuai615270 |
 | Sijie Yang | iyangsj |
 | Tianqi Zhang | NKztq |
