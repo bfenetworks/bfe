@@ -78,11 +78,6 @@ type _addr6 struct {
 	_ports
 }
 
-type _addrUnix struct {
-	Src [108]byte
-	Dst [108]byte
-}
-
 // parseVersion2 parses protocol header
 //
 // Note: binary header format:
@@ -173,20 +168,6 @@ func parseVersion2(reader *bufio.Reader) (header *Header, err error) {
 		header.SourcePort = addr.SrcPort
 		header.DestinationPort = addr.DstPort
 	}
-	// TODO fully support Unix addresses
-	//	else if header.TransportProtocol.IsUnix() {
-	//		var addr _addrUnix
-	//		if err := binary.Read(payloadReader, binary.BigEndian, &addr); err != nil {
-	//			return nil, ErrInvalidAddress
-	//		}
-	//
-	//if header.SourceAddress, err = net.ResolveUnixAddr("unix", string(addr.Src[:])); err != nil {
-	//	return nil, ErrCantResolveSourceUnixAddress
-	//}
-	//if header.DestinationAddress, err = net.ResolveUnixAddr("unix", string(addr.Dst[:])); err != nil {
-	//	return nil, ErrCantResolveDestinationUnixAddress
-	//}
-	//}
 
 	// TODO add encapsulated TLV support
 
