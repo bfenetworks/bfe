@@ -163,7 +163,7 @@ func (m *ModuleTrustClientIP) acceptHandler(session *bfe_basic.Session) int {
 	}
 
 	if openDebug {
-		log.Logger.Debug("mod_trust_clientip:src ip = %s, trusted=%s",
+		log.Logger.Debug("mod_trust_clientip:src ip = %s, trusted = %t",
 			session.RemoteAddr.IP, session.IsTrustIP)
 	}
 
