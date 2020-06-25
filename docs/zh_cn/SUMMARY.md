@@ -10,7 +10,7 @@
     * [基于内容路由](introduction/route.md)
     * [流量负载均衡](introduction/balance.md)
   * [获取帮助](introduction/getting_help.md)
-  * [发布历史](https://github.com/baidu/bfe/blob/master/CHANGELOG.md)
+  * [发布历史](https://github.com/bfenetworks/bfe/blob/master/CHANGELOG.md)
 * 快速开始
   * [安装及运行](installation/install_from_source.md)
   * [使用示例](example/guide.md)

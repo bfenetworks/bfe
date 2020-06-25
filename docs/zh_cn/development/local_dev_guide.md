@@ -11,7 +11,7 @@
 以下教程将指导您提交代码。
 ## [Fork](https://help.github.com/articles/fork-a-repo/)
 
-跳转到[BFE](https://github.com/baidu/bfe) GitHub首页，然后单击 `Fork` 按钮，生成自己目录下的仓库，比如 <https://github.com/USERNAME/bfe>
+跳转到[BFE](https://github.com/bfenetworks/bfe) GitHub首页，然后单击 `Fork` 按钮，生成自己目录下的仓库，比如 <https://github.com/USERNAME/bfe>
 
 ## 克隆（Clone）
 
@@ -122,7 +122,7 @@ $ git commit -m "test=release/1.1"
 
 ## 保持本地仓库最新
 
-在准备发起 Pull Request 之前，需要同步原仓库（<https://github.com/baidu/bfe>）最新的代码。
+在准备发起 Pull Request 之前，需要同步原仓库（<https://github.com/bfenetworks/bfe>）最新的代码。
 
 首先通过 `git remote` 查看当前远程仓库的名字
 
@@ -137,7 +137,7 @@ origin	https://github.com/USERNAME/bfe (push)
 这里 origin 是我们 clone 的远程仓库的名字，也就是自己用户名下的 BFE，接下来我们创建一个原始 BFE 仓库的远程主机，命名为 upstream。
 
 ```bash
-$ git remote add upstream https://github.com/baidu/bfe
+$ git remote add upstream https://github.com/bfenetworks/bfe
 $ git remote
 origin
 upstream

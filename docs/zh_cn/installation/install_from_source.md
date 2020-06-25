@@ -6,7 +6,7 @@
 
 ## 源码下载
 ```bash
-$ git clone https://github.com/baidu/bfe
+$ git clone https://github.com/bfenetworks/bfe
 ```
 
 ## 编译

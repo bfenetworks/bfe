@@ -2,7 +2,7 @@
 
 ## Download binaries
 
-- [Download the latest release](https://github.com/baidu/bfe/releases) of BFE for your platfrom.
+- [Download the latest release](https://github.com/bfenetworks/bfe/releases) of BFE for your platfrom.
 
 ## Installation
 

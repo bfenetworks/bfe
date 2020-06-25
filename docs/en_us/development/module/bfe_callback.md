@@ -18,7 +18,7 @@ There are 9 callback points in BFE:
 - HandleRequestFinish: after response from backend is forwarded by BFE.
 - HandleFinish: after connection with client is closed.
 
-The definition of callback points is in [/bfe_module/bfe_callback.go](https://github.com/baidu/bfe/tree/master/bfe_module/bfe_callback.go)
+The definition of callback points is in [/bfe_module/bfe_callback.go](https://github.com/bfenetworks/bfe/tree/master/bfe_module/bfe_callback.go)
 
 ## Return Values of Callback Function
 
@@ -31,7 +31,7 @@ The return values and the actions are defined as follows:
 - BfeHandlerResponse: send response.
 - BfeHandlerClose: close connection without sending response.
 
-The definition of return values is in [/bfe_module/bfe_handler_list.go](https://github.com/baidu/bfe/tree/master/bfe_module/bfe_handler_list.go)
+The definition of return values is in [/bfe_module/bfe_handler_list.go](https://github.com/bfenetworks/bfe/tree/master/bfe_module/bfe_handler_list.go)
 
 ## Types of Callback Functions
 
@@ -44,7 +44,7 @@ There are 5 types of callback functions.
 - HandlersResponse: Handler for processing response received
 - HandlersFinish: Handler for processing connection close
 
-The types of callback function are defined in [/bfe_module/bfe_handler_list.go](https://github.com/baidu/bfe/tree/master/bfe_module/bfe_handler_list.go)
+The types of callback function are defined in [/bfe_module/bfe_handler_list.go](https://github.com/bfenetworks/bfe/tree/master/bfe_module/bfe_handler_list.go)
 
 The following describes each type of callback functions in detail
 

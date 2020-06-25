@@ -10,7 +10,7 @@
     * [Traffic routing](introduction/route.md)
     * [Traffic balancing](introduction/balance.md)
   * [Getting help](introduction/getting_help.md)
-  * [Version History](https://github.com/baidu/bfe/blob/master/CHANGELOG.md)
+  * [Version History](https://github.com/bfenetworks/bfe/blob/master/CHANGELOG.md)
 * Getting Started 
   * [Install](installation/install_from_source.md)
   * [User Guides](example/guide.md)
@@ -127,4 +127,4 @@
   * System related Condition Primitives
     * [Time](condition/system/time.md)
 
-Note: This documentation is working in process. Please help improve it by [filing issues](https://github.com/baidu/bfe/issues/new/choose) or [pull requests](development/submit_pr_guide.md).
+Note: This documentation is working in process. Please help improve it by [filing issues](https://github.com/bfenetworks/bfe/issues/new/choose) or [pull requests](development/submit_pr_guide.md).

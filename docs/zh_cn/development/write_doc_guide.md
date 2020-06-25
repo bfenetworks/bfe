@@ -33,7 +33,7 @@ $ sudo npm install -g gitbook-cli
 下载完整的BFE仓库：
 
 ```bash
-$ git clone https://github.com/baidu/bfe
+$ git clone https://github.com/bfenetworks/bfe
 ```
 
 ### 在本地运行文档站点
@@ -86,4 +86,4 @@ $ gitbook serve --port 8000
 
 ## 帮助改进预览工具
 
-我们非常欢迎您对平台和支持内容的各个方面做出贡献，以便更好地呈现这些内容。您可以Fork或Clone这个存储库，或者提出问题并提供反馈，以及在issues上提交bug信息。详细内容请参考[开发指南](https://github.com/baidu/bfe/blob/develop/README.md)。
+我们非常欢迎您对平台和支持内容的各个方面做出贡献，以便更好地呈现这些内容。您可以Fork或Clone这个存储库，或者提出问题并提供反馈，以及在issues上提交bug信息。详细内容请参考[开发指南](https://github.com/bfenetworks/bfe/blob/develop/README.md)。

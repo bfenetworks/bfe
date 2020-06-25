@@ -40,7 +40,7 @@ Follow the following procedures to release a new version:
 
     * Test the functional correctness of the version. If it fails, fixing all the bugs in the 'release/vX.Y.Z' branch, and return to the second step with patch number added by 1. 
 
-1. Complete the writing of [Release Note](https://github.com/baidu/bfe/blob/develop/CHANGELOG.md).
+1. Complete the writing of [Release Note](https://github.com/bfenetworks/bfe/blob/develop/CHANGELOG.md).
 
 1. Merge the 'release/vX.Y.Z' branch into the master branch, and delete the 'release/vX.Y.Z' branch. Merge 'master' branches into the 'develop' branch.
 

@@ -8,16 +8,16 @@
 
 **Twitter**: [@BFE-Networks](https://twitter.com/BfeNetworks)
 
-**Issue tracker**: 在[GitHub issue tracker](https://github.com/baidu/bfe/issues) 反馈bug或功能需求。
+**Issue tracker**: 在[GitHub issue tracker](https://github.com/bfenetworks/bfe/issues) 反馈bug或功能需求。
 
 ## 参与开发
-衷心感谢您的贡献，欢迎您访问Github上[BFE项目](https://github.com/baidu/bfe), 并按[流程](https://github.com/baidu/bfe/blob/develop/CONTRIBUTING.md)参与贡献代码及文档。
+衷心感谢您的贡献，欢迎您访问Github上[BFE项目](https://github.com/bfenetworks/bfe), 并按[流程](https://github.com/bfenetworks/bfe/blob/develop/CONTRIBUTING.md)参与贡献代码及文档。
 
 ## 项目治理
-BFE是独立的开源项目，BFE项目遵循如下[管理办法](https://github.com/baidu/bfe/blob/develop/GOVERNANCE.md)。
+BFE是独立的开源项目，BFE项目遵循如下[管理办法](https://github.com/bfenetworks/bfe/blob/develop/GOVERNANCE.md)。
 
 ## 行为准则
-为了构建一个受欢迎且无骚扰的社区，BFE社区应遵循如下[行为准则](https://github.com/baidu/bfe/blob/develop/CODE_OF_CONDUCT.md)。
+为了构建一个受欢迎且无骚扰的社区，BFE社区应遵循如下[行为准则](https://github.com/bfenetworks/bfe/blob/develop/CODE_OF_CONDUCT.md)。
 
 ## 申请专项合作
 欢迎[邮件](mailto:bfe-osc@baidu.com)我们洽谈。
