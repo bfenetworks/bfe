@@ -15,7 +15,7 @@
 package mod_errors
 
 import (
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_util"
 	"github.com/baidu/go-lib/log"
 	gcfg "gopkg.in/gcfg.v1"
 )

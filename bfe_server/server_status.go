@@ -22,15 +22,15 @@ import (
 )
 
 import (
-	bal "github.com/baidu/bfe/bfe_balance/bal_gslb"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_http2"
-	"github.com/baidu/bfe/bfe_module"
-	"github.com/baidu/bfe/bfe_proxy"
-	"github.com/baidu/bfe/bfe_spdy"
-	"github.com/baidu/bfe/bfe_stream"
-	"github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_websocket"
+	bal "github.com/bfenetworks/bfe/bfe_balance/bal_gslb"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http2"
+	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_proxy"
+	"github.com/bfenetworks/bfe/bfe_spdy"
+	"github.com/bfenetworks/bfe/bfe_stream"
+	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_websocket"
 )
 
 // setting for delay

@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_basic/condition"
 )
 
 // RouteRule is composed by a condition and cluster to serve

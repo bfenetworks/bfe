@@ -42,8 +42,8 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_bufio"
-	"github.com/baidu/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_bufio"
+	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 // DefaultTransport is the default implementation of Transport and is

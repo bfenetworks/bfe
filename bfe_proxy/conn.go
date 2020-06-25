@@ -27,7 +27,7 @@ import (
 )
 
 import (
-	bufio "github.com/baidu/bfe/bfe_bufio"
+	bufio "github.com/bfenetworks/bfe/bfe_bufio"
 )
 
 const (

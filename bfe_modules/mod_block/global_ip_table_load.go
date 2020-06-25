@@ -19,8 +19,8 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_util/ipdict"
-	"github.com/baidu/bfe/bfe_util/ipdict/txt_load"
+	"github.com/bfenetworks/bfe/bfe_util/ipdict"
+	"github.com/bfenetworks/bfe/bfe_util/ipdict/txt_load"
 )
 
 // GlobalIPTableLoad loads global ip table.

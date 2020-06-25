@@ -15,8 +15,8 @@
 package bfe_basic
 
 import (
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_route/bfe_cluster"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
 )
 
 const (

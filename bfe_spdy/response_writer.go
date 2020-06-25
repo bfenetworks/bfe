@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	http "github.com/baidu/bfe/bfe_http"
+	http "github.com/bfenetworks/bfe/bfe_http"
 )
 
 // responseWriter is the http.ResponseWriter implementation.  It's

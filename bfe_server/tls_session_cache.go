@@ -30,8 +30,8 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_conf"
-	"github.com/baidu/bfe/bfe_util/bns"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
+	"github.com/bfenetworks/bfe/bfe_util/bns"
 )
 
 type ServerSessionCache struct {

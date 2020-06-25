@@ -15,7 +15,7 @@
 package mod_prison
 
 import (
-	"github.com/baidu/bfe/bfe_basic/action"
+	"github.com/bfenetworks/bfe/bfe_basic/action"
 )
 
 var allowActions map[string]bool = map[string]bool{

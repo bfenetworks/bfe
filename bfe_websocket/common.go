@@ -21,9 +21,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_balance/backend"
-	http "github.com/baidu/bfe/bfe_http"
-	tls "github.com/baidu/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_balance/backend"
+	http "github.com/bfenetworks/bfe/bfe_http"
+	tls "github.com/bfenetworks/bfe/bfe_tls"
 )
 
 import (

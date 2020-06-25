@@ -31,7 +31,7 @@ import (
 )
 
 import (
-	http "github.com/baidu/bfe/bfe_http"
+	http "github.com/bfenetworks/bfe/bfe_http"
 )
 
 var VerboseLogs = false

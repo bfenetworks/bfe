@@ -28,10 +28,10 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_conf"
-	"github.com/baidu/bfe/bfe_debug"
-	"github.com/baidu/bfe/bfe_server"
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
+	"github.com/bfenetworks/bfe/bfe_debug"
+	"github.com/bfenetworks/bfe/bfe_server"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 var (

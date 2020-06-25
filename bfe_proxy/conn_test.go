@@ -25,8 +25,8 @@ import (
 )
 
 import (
-	bufio "github.com/baidu/bfe/bfe_bufio"
-	"github.com/baidu/bfe/bfe_util"
+	bufio "github.com/bfenetworks/bfe/bfe_bufio"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 func TestProxyHeaderNormal(t *testing.T) {

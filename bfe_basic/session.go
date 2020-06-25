@@ -25,7 +25,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 type Session struct {

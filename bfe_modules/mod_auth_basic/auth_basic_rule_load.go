@@ -23,7 +23,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_basic/condition"
 )
 
 type AuthBasicRuleFile struct {

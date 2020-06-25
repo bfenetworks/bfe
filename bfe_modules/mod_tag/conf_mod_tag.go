@@ -23,7 +23,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 const (

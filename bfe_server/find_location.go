@@ -24,12 +24,12 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_balance/backend"
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_route"
-	"github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_balance/backend"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_route"
+	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 // findProduct finds product name for given request.

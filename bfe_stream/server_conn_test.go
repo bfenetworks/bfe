@@ -25,9 +25,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_balance/backend"
-	"github.com/baidu/bfe/bfe_proxy"
-	tls "github.com/baidu/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_balance/backend"
+	"github.com/bfenetworks/bfe/bfe_proxy"
+	tls "github.com/bfenetworks/bfe/bfe_tls"
 )
 
 func TestTLSProxyForEchoServer(t *testing.T) {

@@ -25,7 +25,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_util/ipdict"
+	"github.com/bfenetworks/bfe/bfe_util/ipdict"
 )
 
 var (

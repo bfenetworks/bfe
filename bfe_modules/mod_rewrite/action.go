@@ -15,8 +15,8 @@
 package mod_rewrite
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_basic/action"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_basic/action"
 )
 
 var allowActions map[string]bool = map[string]bool{

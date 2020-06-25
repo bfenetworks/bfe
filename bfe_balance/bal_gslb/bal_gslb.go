@@ -32,12 +32,12 @@ import (
 )
 
 import (
-	bal_backend "github.com/baidu/bfe/bfe_balance/backend"
-	"github.com/baidu/bfe/bfe_balance/bal_slb"
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/gslb_conf"
+	bal_backend "github.com/bfenetworks/bfe/bfe_balance/backend"
+	"github.com/bfenetworks/bfe/bfe_balance/bal_slb"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/gslb_conf"
 )
 
 const (

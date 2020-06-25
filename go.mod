@@ -1,4 +1,4 @@
-module github.com/baidu/bfe
+module github.com/bfenetworks/bfe
 
 go 1.13
 
@@ -7,6 +7,7 @@ require (
 	github.com/andybalholm/brotli v1.0.0
 	github.com/asergeyev/nradix v0.0.0-20170505151046-3872ab85bb56 // indirect
 	github.com/baidu/go-lib v0.0.0-20191217050907-c1bbbad6b030
+	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/miekg/dns v1.1.29
@@ -27,7 +28,7 @@ require (
 	golang.org/x/crypto v0.0.0-20200117160349-530e935923ad
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	golang.org/x/sys v0.0.0-20200121082415-34d275377bf9
-	golang.org/x/tools v0.0.0-20200610052024-8d7dbee4c8ae // indirect
+	golang.org/x/tools v0.0.0-20200624225443-88f3c62a19ff // indirect
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/square/go-jose.v2 v2.4.1
 	gopkg.in/warnings.v0 v0.1.2 // indirect

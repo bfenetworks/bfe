@@ -29,9 +29,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_balance/backend"
-	bufio "github.com/baidu/bfe/bfe_bufio"
-	http "github.com/baidu/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_balance/backend"
+	bufio "github.com/bfenetworks/bfe/bfe_bufio"
+	http "github.com/bfenetworks/bfe/bfe_http"
 )
 
 type serverConn struct {

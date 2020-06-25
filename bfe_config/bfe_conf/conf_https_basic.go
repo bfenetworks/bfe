@@ -27,8 +27,8 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 var TlsVersionMap = map[string]uint16{

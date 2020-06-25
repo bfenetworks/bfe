@@ -33,9 +33,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_tls_conf/server_cert_conf"
-	"github.com/baidu/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/server_cert_conf"
+	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 // Notes about `NextProtos`:

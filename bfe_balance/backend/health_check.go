@@ -29,8 +29,8 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	"github.com/baidu/bfe/bfe_debug"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
+	"github.com/bfenetworks/bfe/bfe_debug"
 )
 
 func UpdateStatus(backend *BfeBackend, cluster string) bool {

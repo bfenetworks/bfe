@@ -26,7 +26,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_net/textproto"
+	"github.com/bfenetworks/bfe/bfe_net/textproto"
 )
 
 // TimeFormat is the time format to use with

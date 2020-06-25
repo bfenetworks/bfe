@@ -23,8 +23,8 @@ import (
 )
 
 import (
-	http "github.com/baidu/bfe/bfe_http"
-	tls "github.com/baidu/bfe/bfe_tls"
+	http "github.com/bfenetworks/bfe/bfe_http"
+	tls "github.com/bfenetworks/bfe/bfe_tls"
 )
 
 const (

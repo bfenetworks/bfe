@@ -49,8 +49,8 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_http"
 )
 
 // RequestFilter filters incomming requests and return a response or nil.

@@ -38,10 +38,10 @@ import (
 )
 
 import (
-	http "github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_http2/hpack"
-	tls "github.com/baidu/bfe/bfe_tls"
-	util "github.com/baidu/bfe/bfe_util"
+	http "github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http2/hpack"
+	tls "github.com/bfenetworks/bfe/bfe_tls"
+	util "github.com/bfenetworks/bfe/bfe_util"
 )
 
 var stderrVerbose = flag.Bool("stderr_verbose", false, "Mirror verbosity to stderr, unbuffered")

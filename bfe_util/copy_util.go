@@ -20,7 +20,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http"
 )
 
 var copyPool sync.Pool

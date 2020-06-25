@@ -20,7 +20,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_util/byte_pool"
+	"github.com/bfenetworks/bfe/bfe_util/byte_pool"
 )
 
 /* hash node */

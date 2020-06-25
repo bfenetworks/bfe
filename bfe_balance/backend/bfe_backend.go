@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
 )
 
 // BfeBackend is a backend server.

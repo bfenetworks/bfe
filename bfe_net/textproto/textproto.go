@@ -46,7 +46,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_bufio"
+	"github.com/bfenetworks/bfe/bfe_bufio"
 )
 
 // An Error represents a numeric error response from a server.

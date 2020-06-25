@@ -26,9 +26,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_basic/action"
-	"github.com/baidu/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_basic/action"
+	"github.com/bfenetworks/bfe/bfe_basic/condition"
 )
 
 type prisonRule struct {

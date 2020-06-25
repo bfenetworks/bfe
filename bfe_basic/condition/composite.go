@@ -17,8 +17,8 @@
 package condition
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_basic/condition/parser"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
 )
 
 // UnaryCond is unary condition for !cond

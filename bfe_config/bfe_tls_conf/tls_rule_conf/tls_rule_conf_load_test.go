@@ -20,7 +20,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 func TestTlsRuleConfLoad(t *testing.T) {

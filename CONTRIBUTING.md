@@ -1,7 +1,7 @@
 # Contribute Code
 
 You are welcome to contribute to project BFE. To contribute to BFE, you have to agree with the 
-[Contributor License Agreement](https://cla-assistant.io/baidu/bfe).
+[Contributor License Agreement](https://cla-assistant.io/bfenetworks/bfe).
 
 We sincerely appreciate your contribution. This document explains our workflow and work style.
 
@@ -62,7 +62,7 @@ BFE uses this [Git branching model](http://nvie.com/posts/a-successful-git-branc
    An experienced Git user pulls from the official repo often -- daily or even hourly, so they notice conflicts with others work early, and it's easier to resolve smaller conflicts.
 
    ```bash
-   git remote add upstream https://github.com/baidu/bfe
+   git remote add upstream https://github.com/bfenetworks/bfe
    git pull upstream develop
    ```
 
@@ -74,7 +74,7 @@ BFE uses this [Git branching model](http://nvie.com/posts/a-successful-git-branc
    git push origin my-cool-stuff
    ```
 
-   The push allows you to create a pull request, requesting owners of this [official repo](https://github.com/baidu/bfe) to pull your change into the official one.
+   The push allows you to create a pull request, requesting owners of this [official repo](https://github.com/bfenetworks/bfe) to pull your change into the official one.
 
    To create a pull request, please follow [these steps](https://help.github.com/articles/creating-a-pull-request/).
 

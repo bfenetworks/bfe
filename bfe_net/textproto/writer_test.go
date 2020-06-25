@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_bufio"
+	"github.com/bfenetworks/bfe/bfe_bufio"
 )
 
 func TestPrintfLine(t *testing.T) {

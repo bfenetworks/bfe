@@ -29,10 +29,10 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_tls_conf/tls_rule_conf"
-	"github.com/baidu/bfe/bfe_http2"
-	"github.com/baidu/bfe/bfe_stream"
-	"github.com/baidu/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/tls_rule_conf"
+	"github.com/bfenetworks/bfe/bfe_http2"
+	"github.com/bfenetworks/bfe/bfe_stream"
+	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 var (

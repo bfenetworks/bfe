@@ -26,8 +26,8 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_conf"
-	"github.com/baidu/bfe/bfe_modules"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
+	"github.com/bfenetworks/bfe/bfe_modules"
 )
 
 func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {

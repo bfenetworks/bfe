@@ -22,8 +22,8 @@ import (
 )
 
 import (
-	http "github.com/baidu/bfe/bfe_http"
-	tls "github.com/baidu/bfe/bfe_tls"
+	http "github.com/bfenetworks/bfe/bfe_http"
+	tls "github.com/bfenetworks/bfe/bfe_tls"
 )
 
 // A MockServer is an tls/tcp server listening on a system-chosen port on the

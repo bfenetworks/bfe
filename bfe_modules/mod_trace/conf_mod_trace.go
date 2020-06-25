@@ -24,11 +24,11 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_modules/mod_trace/trace"
-	"github.com/baidu/bfe/bfe_modules/mod_trace/trace/elastic"
-	"github.com/baidu/bfe/bfe_modules/mod_trace/trace/jaeger"
-	"github.com/baidu/bfe/bfe_modules/mod_trace/trace/zipkin"
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_trace/trace"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_trace/trace/elastic"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_trace/trace/jaeger"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_trace/trace/zipkin"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 const (

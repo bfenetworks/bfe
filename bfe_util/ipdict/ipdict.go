@@ -23,7 +23,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_util/hash_set"
+	"github.com/bfenetworks/bfe/bfe_util/hash_set"
 )
 
 const (

@@ -34,8 +34,8 @@ import (
 )
 
 import (
-	http "github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_http2/hpack"
+	http "github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http2/hpack"
 )
 
 var knownFailing = flag.Bool("known_failing", false, "Run known-failing tests.")

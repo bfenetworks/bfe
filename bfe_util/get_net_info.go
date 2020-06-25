@@ -23,7 +23,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 // CloseWriter is the interface that wraps the basic CloseWrite method.

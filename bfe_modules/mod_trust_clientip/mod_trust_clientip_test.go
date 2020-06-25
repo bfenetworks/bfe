@@ -20,9 +20,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_util/ipdict"
-	"github.com/baidu/bfe/bfe_util/net_util"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_util/ipdict"
+	"github.com/bfenetworks/bfe/bfe_util/net_util"
 )
 
 func TestAcceptHandler_1(t *testing.T) {

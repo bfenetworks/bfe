@@ -33,18 +33,18 @@ import (
 )
 
 import (
-	bfe_cluster_backend "github.com/baidu/bfe/bfe_balance/backend"
-	bal_gslb "github.com/baidu/bfe/bfe_balance/bal_gslb"
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	"github.com/baidu/bfe/bfe_debug"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_http2"
-	"github.com/baidu/bfe/bfe_module"
-	"github.com/baidu/bfe/bfe_route"
-	"github.com/baidu/bfe/bfe_route/bfe_cluster"
-	"github.com/baidu/bfe/bfe_spdy"
-	"github.com/baidu/bfe/bfe_util"
+	bfe_cluster_backend "github.com/bfenetworks/bfe/bfe_balance/backend"
+	bal_gslb "github.com/bfenetworks/bfe/bfe_balance/bal_gslb"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
+	"github.com/bfenetworks/bfe/bfe_debug"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http2"
+	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_route"
+	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
+	"github.com/bfenetworks/bfe/bfe_spdy"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 // RoundTripperMap holds mappings from cluster-name to RoundTripper.

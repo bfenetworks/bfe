@@ -28,7 +28,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http"
 )
 
 // Redirect replies to the request with a redirect to url,
