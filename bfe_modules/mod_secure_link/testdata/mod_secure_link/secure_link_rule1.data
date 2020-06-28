@@ -1,0 +1,9 @@
+{
+    "Version": "1234",
+    "Config": {
+        "p2": [
+            {
+                "cond": "default_t()"
+            }
+        ]
+}
