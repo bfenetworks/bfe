@@ -8,7 +8,9 @@
   base: core18
   grade: stable
   confinement: strict
-
+  architectures:
+    - build-on: [amd64, arm64, ppc64el]
+  
   parts:
     bfe:
       plugin: go
