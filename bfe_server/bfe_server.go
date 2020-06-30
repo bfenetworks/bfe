@@ -100,7 +100,6 @@ type BfeServer struct {
 
 // NewBfeModules create a new instance of BfeServer.
 func NewBfeServer(cfg bfe_conf.BfeConfig, confRoot string,
-	listenerMap map[string]net.Listener,
 	version string) *BfeServer {
 
 	s := new(BfeServer)
@@ -109,10 +108,6 @@ func NewBfeServer(cfg bfe_conf.BfeConfig, confRoot string,
 	s.Config = cfg
 	s.ConfRoot = confRoot
 	s.InitConfig()
-
-	// set service listener
-	s.listenerMap = listenerMap
-	s.HttpListener = listenerMap["HTTP"]
 
 	// initialize counters, proxyState
 	s.serverStatus = NewServerStatus()
@@ -197,9 +192,6 @@ func (srv *BfeServer) InitHttps() (err error) {
 
 	// init tls next proto handlers
 	srv.initTLSNextProtoHandler()
-
-	// initialize https listeners
-	srv.HttpsListener = NewHttpsListener(srv.listenerMap["HTTPS"], srv.TLSConfig)
 
 	return nil
 }
@@ -435,4 +427,38 @@ func (s *BfeServer) GetCheckConf(clusterName string) *cluster_conf.BackendCheck 
 		return nil
 	}
 	return cluster.BackendCheckConf()
+}
+
+func (srv *BfeServer) InitListeners(config bfe_conf.BfeConfig) error {
+	listenerMap := make(map[string]net.Listener)
+	lnConf := map[string]int{
+		"HTTP":  config.Server.HttpPort,
+		"HTTPS": config.Server.HttpsPort,
+	}
+
+	for proto, port := range lnConf {
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		if err != nil {
+			return err
+		}
+
+		// wrap underlying listener according to balancer type
+		listener = NewBfeListener(listener, config)
+		listenerMap[proto] = listener
+		log.Logger.Info("InitListeners(): begin to listen [:%d]", port)
+	}
+
+	srv.listenerMap = listenerMap
+	srv.HttpListener = listenerMap["HTTP"]
+	srv.HttpsListener = NewHttpsListener(srv.listenerMap["HTTPS"], srv.TLSConfig)
+
+	return nil
+}
+
+func (p *BfeServer) closeListeners() {
+	for _, ln := range p.listenerMap {
+		if err := ln.Close(); err != nil {
+			log.Logger.Error("closeListeners(): %s, %s", err, ln.Addr())
+		}
+	}
 }
