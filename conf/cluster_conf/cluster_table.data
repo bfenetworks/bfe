@@ -3,9 +3,19 @@
         "cluster_example": {
             "example.bfe.bj": [
                 {
-                    "Addr": "10.199.189.26",
+                    "Addr": "127.0.0.1",
                     "Name": "example_hostname",
-                    "Port": 8181,
+                    "Port": 8999,
+                    "Weight": 10
+                }
+            ]
+        },
+        "fcgi_cluster_example": {
+            "fcgi.example.bfe.bj": [
+                {
+                    "Addr": "127.0.0.1",
+                    "Name": "fcgi_example_hostname",
+                    "Port": 9000,
                     "Weight": 10
                 }
             ]
