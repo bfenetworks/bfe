@@ -17,11 +17,6 @@
 package bfe_server
 
 import (
-	"fmt"
-	"net"
-)
-
-import (
 	"github.com/baidu/go-lib/log"
 )
 
@@ -31,21 +26,14 @@ import (
 )
 
 func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
-	// create listeners
-	lnMap, err := createListeners(cfg)
-	if err != nil {
-		log.Logger.Error("StartUp(): createListeners():%s", err.Error())
-		return err
-	}
-
 	// set all available modules
 	bfe_modules.SetModules()
 
 	// create bfe server
-	bfeServer := NewBfeServer(cfg, confRoot, lnMap, version)
+	bfeServer := NewBfeServer(cfg, confRoot, version)
 
 	// initial http
-	err = bfeServer.InitHttp()
+	err := bfeServer.InitHttp()
 	if err != nil {
 		log.Logger.Error("StartUp(): InitHttp():%s", err.Error())
 		return err
@@ -111,6 +99,13 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	}
 	log.Logger.Info("StartUp():bfeServer.InitPlugins() OK")
 
+	// initialize listeners
+	err = bfeServer.InitListeners(cfg)
+	if err != nil {
+		log.Logger.Error("StartUp(): InitListeners():%v", err)
+		return err
+	}
+
 	// start embedded web server
 	bfeServer.Monitor.Start()
 
@@ -134,34 +129,4 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 
 	err = <-serveChan
 	return err
-}
-
-func createListeners(config bfe_conf.BfeConfig) (map[string]net.Listener, error) {
-	lnMap := make(map[string]net.Listener)
-	lnConf := map[string]int{
-		"HTTP":  config.Server.HttpPort,
-		"HTTPS": config.Server.HttpsPort,
-	}
-
-	for proto, port := range lnConf {
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-		if err != nil {
-			return nil, err
-		}
-
-		// wrap underlying listener according to balancer type
-		listener = NewBfeListener(listener, config)
-		lnMap[proto] = listener
-		log.Logger.Info("createListeners(): begin to listen port[:%d]", port)
-	}
-
-	return lnMap, nil
-}
-
-func (p *BfeServer) closeListeners() {
-	for _, ln := range p.listenerMap {
-		if err := ln.Close(); err != nil {
-			log.Logger.Error("closeListeners(): %s, %s", err, ln.Addr())
-		}
-	}
 }
