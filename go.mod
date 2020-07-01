@@ -3,6 +3,7 @@ module github.com/bfenetworks/bfe
 go 1.13
 
 require (
+	github.com/RackSec/srslog v0.0.0-20180709174129-a4725f04ec91
 	github.com/abbot/go-http-auth v0.4.1-0.20181019201920-860ed7f246ff
 	github.com/andybalholm/brotli v1.0.0
 	github.com/asergeyev/nradix v0.0.0-20170505151046-3872ab85bb56 // indirect

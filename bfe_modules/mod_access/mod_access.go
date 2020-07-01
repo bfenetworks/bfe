@@ -23,17 +23,15 @@ import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
-	"github.com/bfenetworks/bfe/bfe_util/access_log"
 )
 
 import (
-	"github.com/baidu/go-lib/log/log4go"
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
 )
 
 type ModuleAccess struct {
 	name   string
-	logger log4go.Logger
+	logger *LoggerWrapper
 	conf   *ConfModAccess
 
 	reqFmts     []LogFmtItem
@@ -92,8 +90,7 @@ func (m *ModuleAccess) init(conf *ConfModAccess, cbs *bfe_module.BfeCallbacks, w
 		return fmt.Errorf("%s.Init(): CheckLogFormat %s", m.name, err.Error())
 	}
 
-	m.logger, err = access_log.LoggerInit(conf.Log.LogPrefix, conf.Log.LogDir,
-		conf.Log.RotateWhen, conf.Log.BackupCount)
+	m.logger, err = LoggerInit(conf)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): create logger", m.name)
 	}

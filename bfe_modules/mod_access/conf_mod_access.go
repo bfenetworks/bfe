@@ -36,6 +36,12 @@ type ConfModAccess struct {
 		BackupCount int    // log file backup number
 	}
 
+	SysLog struct {
+		Network string
+		Addr    string
+		Tag     string
+	}
+
 	Template struct {
 		RequestTemplate string // access log formate string
 		SessionTemplate string // session finish log formate string
