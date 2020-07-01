@@ -606,8 +606,8 @@ func useProxy(addr string) bool {
 		}
 	}
 
-	no_proxy := getenvEitherCase("NO_PROXY")
-	if no_proxy == "*" {
+	noProxy := getenvEitherCase("NO_PROXY")
+	if noProxy == "*" {
 		return false
 	}
 
@@ -616,7 +616,7 @@ func useProxy(addr string) bool {
 		addr = addr[:strings.LastIndex(addr, ":")]
 	}
 
-	for _, p := range strings.Split(no_proxy, ",") {
+	for _, p := range strings.Split(noProxy, ",") {
 		p = strings.ToLower(strings.TrimSpace(p))
 		if len(p) == 0 {
 			continue
