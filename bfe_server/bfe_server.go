@@ -354,27 +354,27 @@ func (srv *BfeServer) InitSignalTable() {
 	srv.SignalTable.StartSignalHandle()
 }
 
-func (s *BfeServer) InitWebMonitor(port int) error {
+func (srv *BfeServer) InitWebMonitor(port int) error {
 	var err error
-	s.Monitor, err = newBfeMonitor(s, port)
+	srv.Monitor, err = newBfeMonitor(srv, port)
 	return err
 }
 
 // ShutdownHandler is signal handler for QUIT
-func (s *BfeServer) ShutdownHandler(sig os.Signal) {
-	shutdownTimeout := s.Config.Server.GracefulShutdownTimeout
+func (srv *BfeServer) ShutdownHandler(sig os.Signal) {
+	shutdownTimeout := srv.Config.Server.GracefulShutdownTimeout
 	log.Logger.Info("get signal %s, graceful shutdown in %ds", sig, shutdownTimeout)
 
 	// notify that server is in graceful shutdown state
-	close(s.CloseNotifyCh)
+	close(srv.CloseNotifyCh)
 
 	// close server listeners
-	s.closeListeners()
+	srv.closeListeners()
 
 	// waits server conns to finish
 	connFinCh := make(chan bool)
 	go func() {
-		s.connWaitGroup.Wait()
+		srv.connWaitGroup.Wait()
 		connFinCh <- true
 	}()
 
@@ -401,27 +401,27 @@ Loop:
 }
 
 // CheckGracefulShutdown check wether the server is in graceful shutdown state.
-func (s *BfeServer) CheckGracefulShutdown() bool {
+func (srv *BfeServer) CheckGracefulShutdown() bool {
 	select {
-	case <-s.CloseNotifyCh:
+	case <-srv.CloseNotifyCh:
 		return true
 	default:
 		return false
 	}
 }
 
-func (s *BfeServer) GetServerConf() *bfe_route.ServerDataConf {
-	s.confLock.RLock()
-	sf := s.ServerConf
-	s.confLock.RUnlock()
+func (srv *BfeServer) GetServerConf() *bfe_route.ServerDataConf {
+	srv.confLock.RLock()
+	sf := srv.ServerConf
+	srv.confLock.RUnlock()
 
 	return sf
 }
 
 // GetCheckConf implements CheckConfFetcher and return current
 // health check configuration.
-func (s *BfeServer) GetCheckConf(clusterName string) *cluster_conf.BackendCheck {
-	sf := s.GetServerConf()
+func (srv *BfeServer) GetCheckConf(clusterName string) *cluster_conf.BackendCheck {
+	sf := srv.GetServerConf()
 	cluster, err := sf.ClusterTable.Lookup(clusterName)
 	if err != nil {
 		return nil
@@ -455,8 +455,8 @@ func (srv *BfeServer) InitListeners(config bfe_conf.BfeConfig) error {
 	return nil
 }
 
-func (p *BfeServer) closeListeners() {
-	for _, ln := range p.listenerMap {
+func (srv *BfeServer) closeListeners() {
+	for _, ln := range srv.listenerMap {
 		if err := ln.Close(); err != nil {
 			log.Logger.Error("closeListeners(): %s, %s", err, ln.Addr())
 		}
