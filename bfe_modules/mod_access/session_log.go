@@ -65,7 +65,7 @@ func onLogFmtSesErrorCode(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buff
 		return errors.New("session is nil")
 	}
 
-	errCode, errMsg := session.GetError()
+	errMsg, errCode := session.GetError()
 	msg := buildErrorMsg(errCode, errMsg)
 	buff.WriteString(msg)
 
