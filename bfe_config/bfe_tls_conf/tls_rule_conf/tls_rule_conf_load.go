@@ -507,7 +507,7 @@ func getCientCRL(clientCRLDir, clientCAName string) ([]*pkix.CertificateList, er
 
 func ClientCRLLoad(clientCAMap map[string]*x509.CertPool, clientCRLDir string) (map[string]*bfe_tls.CRLPool, error) {
 	clientCRLPoolMap := make(map[string]*bfe_tls.CRLPool)
-	for clientCAName, _ := range clientCAMap {
+	for clientCAName := range clientCAMap {
 		crls, err := getCientCRL(clientCRLDir, clientCAName)
 		if err != nil {
 			return nil, err
