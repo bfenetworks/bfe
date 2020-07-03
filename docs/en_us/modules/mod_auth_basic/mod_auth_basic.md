@@ -11,8 +11,8 @@ conf/mod_auth_basic/mod_auth_basic.conf
 
 | Config Item         | Description                                 |
 | ------------------- | ------------------------------------------- |
-| Basic.DataPath      | String<br>path of rule configuration |
-| Log.OpenDebug       | Boolean<br>whether enable debug log<br>Default False |
+| Basic.DataPath      | String<br>Path of rule configuration |
+| Log.OpenDebug       | Boolean<br>Whether enable debug log<br>Default False |
 
 ### Example
 
@@ -39,12 +39,16 @@ OpenDebug = false
 | Config{v}[].Realm | String<br>Realm, ie. protection space<br>Default "Restricted" |
 
 Description about password configuration:
+
 * The password configuration can be generated using htpasswd or openssl
 * Generated using openssl: 
+
 ```
 printf "user1:$(openssl passwd -apr1 123456)\n" >> ./userfile
 ```
+
 * Password configuration example
+
 ```  
 # user1, 123456
 user1:$apr1$mI7SilJz$CWwYJyYKbhVDNl26sdUSh/

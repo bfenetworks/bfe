@@ -2,7 +2,7 @@
 
 下面将BFE和一些相关的系统进行对比。
 
-注：由于相关项目在活跃开发，如下信息可能过期或有误，欢迎您在 https://github.com/baidu/bfe/issues 反馈。
+注：由于相关项目在活跃开发，如下信息可能过期或有误，欢迎您在 https://github.com/bfenetworks/bfe/issues 反馈。
 
 ## BFE及相关系统的定位
 

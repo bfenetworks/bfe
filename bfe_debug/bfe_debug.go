@@ -15,7 +15,7 @@
 package bfe_debug
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
 )
 
 var (

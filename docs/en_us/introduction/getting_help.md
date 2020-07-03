@@ -4,7 +4,7 @@ We are very interested in building a community around BFE. If you are interested
 
 ## Discussion about questions or requirements
 
-Welcome to submit issues at https://github.com/baidu/bfe/issues/new/choose, we will reply you in working days
+Welcome to submit issues at https://github.com/bfenetworks/bfe/issues/new/choose, we will reply you in working days
 
 
 ## Reporting security vulnerabilities
@@ -14,7 +14,7 @@ Security issues and bugs should be reported privately to bfe-security@baidu.com.
 
 ## Contributing to BFE
 
-We sincerely appreciate your contribution. Please visit https://github.com/baidu/bfe and follow the [workflow](https://github.com/baidu/bfe/blob/develop/CONTRIBUTING.md).
+We sincerely appreciate your contribution. Please visit https://github.com/bfenetworks/bfe and follow the [workflow](https://github.com/bfenetworks/bfe/blob/develop/CONTRIBUTING.md).
 
 
 ## Application for special cooperation

@@ -27,7 +27,7 @@ import (
 )
 
 import (
-	http "github.com/baidu/bfe/bfe_http"
+	http "github.com/bfenetworks/bfe/bfe_http"
 )
 
 // Version is the protocol version number that this package implements (spdy3.1/spdy3).

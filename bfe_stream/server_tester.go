@@ -24,10 +24,10 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_balance/backend"
-	http "github.com/baidu/bfe/bfe_http"
-	tls "github.com/baidu/bfe/bfe_tls"
-	util "github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_balance/backend"
+	http "github.com/bfenetworks/bfe/bfe_http"
+	tls "github.com/bfenetworks/bfe/bfe_tls"
+	util "github.com/bfenetworks/bfe/bfe_util"
 )
 
 type ServerTester struct {

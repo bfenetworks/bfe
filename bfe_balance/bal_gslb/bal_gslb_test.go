@@ -22,11 +22,11 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/gslb_conf"
-	"github.com/baidu/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/gslb_conf"
+	"github.com/bfenetworks/bfe/bfe_http"
 )
 
 func loadJson(path string, v interface{}) error {

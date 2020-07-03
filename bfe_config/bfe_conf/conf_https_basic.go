@@ -18,6 +18,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 )
 
@@ -26,8 +27,8 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 var TlsVersionMap = map[string]uint16{
@@ -77,7 +78,8 @@ type ConfigHttpsBasic struct {
 
 	EnableSslv2ClientHello bool // support sslv2 client hello for backward compatibility
 
-	ClientCABaseDir string // client root CAs base directory
+	ClientCABaseDir  string // client root CAs base directory
+	ClientCRLBaseDir string // client cert CRL base directory
 }
 
 func (cfg *ConfigHttpsBasic) SetDefaultConf() {
@@ -118,6 +120,11 @@ func (cfg *ConfigHttpsBasic) Check(confRoot string) error {
 	}
 
 	err = clientCABaseDirCheck(cfg, confRoot)
+	if err != nil {
+		return err
+	}
+
+	err = clientCRLConfCheck(cfg, confRoot)
 	if err != nil {
 		return err
 	}
@@ -177,6 +184,20 @@ func clientCABaseDirCheck(cfg *ConfigHttpsBasic, confRoot string) error {
 		cfg.ClientCABaseDir = "tls_conf/client_ca"
 	}
 	cfg.ClientCABaseDir = bfe_util.ConfPathProc(cfg.ClientCABaseDir, confRoot)
+	return nil
+}
+
+func clientCRLConfCheck(cfg *ConfigHttpsBasic, confRoot string) error {
+	if len(cfg.ClientCRLBaseDir) == 0 {
+		log.Logger.Warn("ClientCRLBaseDir not set, use default value")
+		cfg.ClientCRLBaseDir = "tls_conf/client_crl"
+	}
+
+	cfg.ClientCRLBaseDir = bfe_util.ConfPathProc(cfg.ClientCRLBaseDir, confRoot)
+	f, err := os.Stat(cfg.ClientCRLBaseDir)
+	if err != nil || !f.IsDir() {
+		return fmt.Errorf("ClientCRLBaseDir %s not exists", cfg.ClientCRLBaseDir)
+	}
 	return nil
 }
 

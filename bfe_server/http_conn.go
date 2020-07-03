@@ -35,13 +35,13 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_bufio"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_module"
-	"github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_util"
-	"github.com/baidu/bfe/bfe_websocket"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_bufio"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_websocket"
 )
 
 // This should be >= 512 bytes for DetectContentType,

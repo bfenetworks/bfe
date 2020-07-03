@@ -23,7 +23,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic/condition/parser"
+	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
 )
 
 func Build(condStr string) (Condition, error) {

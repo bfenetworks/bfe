@@ -2,7 +2,7 @@
 
 Here comparion will be made between BFE and several similar system.
 
-NOTE: Most of the projects below are under active development. Thus some of the information may become out of date. If that is the case please feedback to https://github.com/baidu/bfe/issues.
+NOTE: Most of the projects below are under active development. Thus some of the information may become out of date. If that is the case please feedback to https://github.com/bfenetworks/bfe/issues.
 
 ## Briefs of BFE and similar systems
 

@@ -27,7 +27,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http"
 )
 
 // wrapper around io.ReaderCloser which on first read, sends an

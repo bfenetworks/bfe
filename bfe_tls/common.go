@@ -64,9 +64,9 @@ const (
 // Grade C: ssl3 is ok only with RC4 cipher
 const (
 	GradeAPlus = "A+"
-	GradeA      = "A"
-	GradeB      = "B"
-	GradeC      = "C"
+	GradeA     = "A"
+	GradeB     = "B"
+	GradeC     = "C"
 )
 
 /*
@@ -303,6 +303,9 @@ type Rule struct {
 
 	// client CA name
 	ClientCAName string
+
+	// client CRL pool
+	ClientCRLPool *CRLPool
 
 	// enable Chacha20-poly1305 cipher suites
 	Chacha20 bool

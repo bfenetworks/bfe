@@ -23,8 +23,8 @@ import (
 )
 
 import (
-	http "github.com/baidu/bfe/bfe_http"
-	tls "github.com/baidu/bfe/bfe_tls"
+	http "github.com/bfenetworks/bfe/bfe_http"
+	tls "github.com/bfenetworks/bfe/bfe_tls"
 )
 
 const (
@@ -89,6 +89,10 @@ func (s *Server) handleConn(hs *http.Server, c net.Conn, h http.Handler) *server
 	if tc, ok := c.(*tls.Conn); ok {
 		sc.tlsState = new(tls.ConnectionState)
 		*sc.tlsState = tc.ConnectionState()
+		if serverRule != nil {
+			sc.rule = serverRule.GetStreamRule(tc)
+		}
+
 	}
 
 	sc.closeNotifyCh = hs.CloseNotifyCh
@@ -120,4 +124,19 @@ func NewProtoHandler(conf *Server) func(*http.Server, *tls.Conn, http.Handler) {
 		}
 	}
 	return protoHandler
+}
+
+// Rule is the customized config for specific conn in server side.
+type Rule struct {
+	ProxyProtocol int
+}
+
+type ServerRule interface {
+	GetStreamRule(conn *tls.Conn) *Rule
+}
+
+var serverRule ServerRule
+
+func SetServerRule(r ServerRule) {
+	serverRule = r
 }

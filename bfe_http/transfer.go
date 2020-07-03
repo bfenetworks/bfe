@@ -30,8 +30,8 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_bufio"
-	"github.com/baidu/bfe/bfe_net/textproto"
+	"github.com/bfenetworks/bfe/bfe_bufio"
+	"github.com/bfenetworks/bfe/bfe_net/textproto"
 )
 
 // transferWriter inspects the fields of a user-supplied Request or Response,

@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_basic/condition"
 )
 
 type blockRuleFile struct {
@@ -165,10 +165,10 @@ func ProductRuleConfLoad(filename string) (productRuleConf, error) {
 
 	// open the file
 	file, err := os.Open(filename)
-	defer file.Close()
 	if err != nil {
 		return conf, err
 	}
+	defer file.Close()
 
 	// decode the file
 	decoder := json.NewDecoder(file)

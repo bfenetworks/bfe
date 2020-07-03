@@ -8,7 +8,7 @@ When writing a module for BFE, the following aspects should be considered:
 - How to write and register callback functions
 - How to expose internal states
 
-mod_block is used as an example for ease of understanding.（[/bfe_modules/mod_block](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block)）
+mod_block is used as an example for ease of understanding.（[/bfe_modules/mod_block](https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block)）
 
 ## Load Configuration
 
@@ -28,8 +28,8 @@ For a given module, there are 2 types of configuration:
 
 ### Placement of configuration files
 
-- The configuration files of the modules should be placed in [/conf/{module_name}](https://github.com/baidu/bfe/tree/master/conf)
-- Example: Configuration files of mod_block are located in [/conf/mod_block](https://github.com/baidu/bfe/tree/master/conf/mod_block)
+- The configuration files of the modules should be placed in [/conf/{module_name}](https://github.com/bfenetworks/bfe/tree/master/conf)
+- Example: Configuration files of mod_block are located in [/conf/mod_block](https://github.com/bfenetworks/bfe/tree/master/conf/mod_block)
 
 
 ### Verification of configuration
@@ -43,7 +43,7 @@ Configuration files are verified whenever they are loaded, regardless of static 
 
 For dynamic configurations, it is required to register callback function on dedicated web server. Hot-reload of dynamic configuration can be triggered by accessing specified URL.
 
-Example: In the init function of mod_block, there is some logic as follows, used to register callback function for configuration reload([mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))
+Example: In the init function of mod_block, there is some logic as follows, used to register callback function for configuration reload([mod_block.go](https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go))
 
 ```golang
     // register web handler for reload
@@ -61,7 +61,7 @@ Write callback functions for appropriate callback point.
 
 Note that for different callback points, definition of callback functions may be different. Definition of callback points and  callback functions in BFE can be found in [bfe_callback](./bfe_callback.md).
 
-Example: there are two callback functions defined in mod_block([mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))
+Example: there are two callback functions defined in mod_block([mod_block.go](https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go))
 
 ```golang
 func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {
@@ -78,7 +78,7 @@ func (m *ModuleBlock) productBlockHandler(request *bfe_basic.Request) (int, *bfe
 
 Callback functions should be registered when the module is initialized.
 
-Example: registration of callback functions in mod_block is as follows([mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))
+Example: registration of callback functions in mod_block is as follows([mod_block.go](https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go))
 
 ```golang
 func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers, cr string) error {
@@ -111,7 +111,7 @@ To expose internal states of a module, do the following 3 steps:
 
 Firstly, design statistical metrics and define them as member variables.
 
-Example: define ModuleBlockState in mod_block ([mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))
+Example: define ModuleBlockState in mod_block ([mod_block.go](https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go))
 
 ```golang
 type ModuleBlockState struct {
@@ -151,7 +151,7 @@ func NewModuleBlock() *ModuleBlock {
 
 In order to expose internal status, callback function should be implemented.
 
-Example: In mod_block, there is logic as follows,  where monitorHandlers () is the callback function([mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))
+Example: In mod_block, there is logic as follows,  where monitorHandlers () is the callback function([mod_block.go](https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go))
 
 ```golang
 func (m *ModuleBlock) getState(params map[string][]string) ([]byte, error) {
@@ -187,7 +187,7 @@ Then register callback function during module initialization.
 
 Insert some code for doing statistic.
 
-Example: [mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go)
+Example: [mod_block.go](https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go)
 
 ```golang
 func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {

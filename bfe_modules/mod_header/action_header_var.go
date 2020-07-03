@@ -25,10 +25,10 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_modules/mod_geo"
-	"github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_geo"
+	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 type HeaderValueHandler func(req *bfe_basic.Request) string

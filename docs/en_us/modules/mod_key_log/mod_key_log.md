@@ -15,10 +15,10 @@ conf/mod_key_log/mod_key_log.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
-| Log.LogPrefix | String<br>filename prefix for log |
-| Log.LogDir | String<br>directory of log files |
-| Log.RotateWhen | String<br>inteval to rotate log file |
-| Log.BackupCount | Integer<br>max number of rotated log files |
+| Log.LogPrefix | String<br>Filename prefix for log |
+| Log.LogDir | String<br>Directory of log files |
+| Log.RotateWhen | String<br>Inteval to rotate log file |
+| Log.BackupCount | Integer<br>Max number of rotated log files |
 
 ### Example
 ```ini

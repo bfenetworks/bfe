@@ -11,7 +11,7 @@ conf/mod_rewrite/mod_rewrite.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>path of rule configuraiton |
+| Basic.DataPath | String<br>Path of rule configuraiton |
 
 ### Example
 

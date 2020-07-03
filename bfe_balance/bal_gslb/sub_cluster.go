@@ -19,9 +19,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_balance/backend"
-	"github.com/baidu/bfe/bfe_balance/bal_slb"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
+	"github.com/bfenetworks/bfe/bfe_balance/backend"
+	"github.com/bfenetworks/bfe/bfe_balance/bal_slb"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
 )
 
 // type of sub cluster

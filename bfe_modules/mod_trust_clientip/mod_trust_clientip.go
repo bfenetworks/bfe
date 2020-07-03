@@ -30,9 +30,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_module"
-	"github.com/baidu/bfe/bfe_util/ipdict"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_util/ipdict"
 )
 
 const (
@@ -163,7 +163,7 @@ func (m *ModuleTrustClientIP) acceptHandler(session *bfe_basic.Session) int {
 	}
 
 	if openDebug {
-		log.Logger.Debug("mod_trust_clientip:src ip = %s, trusted=%s",
+		log.Logger.Debug("mod_trust_clientip:src ip = %s, trusted = %t",
 			session.RemoteAddr.IP, session.IsTrustIP)
 	}
 

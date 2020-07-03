@@ -27,7 +27,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_bufio"
+	"github.com/bfenetworks/bfe/bfe_bufio"
 )
 
 const maxLineLength = 4096 // assumed <= bufio.defaultBufSize

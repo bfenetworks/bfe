@@ -18,7 +18,7 @@ BFE转发过程中的回调点如下图所示。
 - HandleRequestFinish：位于后端响应处理完毕后
 - HandleFinish：位于和客户端的TCP连接关闭后
 
-回调点的定义，可以查看[/bfe_module/bfe_callback.go](https://github.com/baidu/bfe/tree/master/bfe_module/bfe_callback.go)
+回调点的定义，可以查看[/bfe_module/bfe_callback.go](https://github.com/bfenetworks/bfe/tree/master/bfe_module/bfe_callback.go)
 
 ## 回调函数的返回值
 
@@ -32,7 +32,7 @@ BFE转发过程中的回调点如下图所示。
 - BfeHandlerResponse：发送响应
 - BfeHandlerClose：直接关闭连接，不发送任何数据
 
-回调函数返回值的定义，可以查看[/bfe_module/bfe_handler_list.go](https://github.com/baidu/bfe/tree/master/bfe_module/bfe_handler_list.go)
+回调函数返回值的定义，可以查看[/bfe_module/bfe_handler_list.go](https://github.com/bfenetworks/bfe/tree/master/bfe_module/bfe_handler_list.go)
 
 ## 回调函数的形式
 
@@ -44,7 +44,7 @@ BFE转发过程中的回调点如下图所示。
 - HandlersResponse：用于处理和响应有关的场景
 - HandlersFinish：用于处理连接关闭的相关场景
 
-回调函数类型的定义，可以查看[/bfe_module/bfe_handler_list.go](https://github.com/baidu/bfe/tree/master/bfe_module/bfe_handler_list.go)
+回调函数类型的定义，可以查看[/bfe_module/bfe_handler_list.go](https://github.com/bfenetworks/bfe/tree/master/bfe_module/bfe_handler_list.go)
 
 下面对这几种回调函数做详细的说明。
 

@@ -29,7 +29,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_http2/hpack"
+	"github.com/bfenetworks/bfe/bfe_http2/hpack"
 )
 
 func testFramer() (*Framer, *bytes.Buffer) {

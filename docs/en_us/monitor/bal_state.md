@@ -2,11 +2,11 @@
 
 ## Introduction
 
-bal_state monitor the subcluster level load balance state using gslb.
+The endpoint `/monitor/bal_state` exposes metrics about subcluster level load balancing.
 
-## Monitor Item
+## Metrics
 
-| Monitor Item                | Description                            |
+| Metric                      | Description                            |
 | --------------------------- | -------------------------------------- |
 | ERR_BK_NO_BACKEND           | Counter for no backend found           |
 | ERR_BK_NO_SUB_CLUSTER       | Counter for no sub-cluster found       |

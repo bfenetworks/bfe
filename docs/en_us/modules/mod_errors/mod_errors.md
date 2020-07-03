@@ -1,4 +1,4 @@
-# mod_erros
+# mod_errors
 
 ## Introduction
 

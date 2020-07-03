@@ -27,7 +27,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_bufio"
+	"github.com/bfenetworks/bfe/bfe_bufio"
 )
 
 type canonicalHeaderKeyTest struct {

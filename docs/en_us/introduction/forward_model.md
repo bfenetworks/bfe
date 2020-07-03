@@ -1,30 +1,29 @@
 # Traffic forwarding
 
-![Traffic Forwarding](../../images/traffic-forward.svg)
+![Traffic Forwarding](../../images/traffic-forward.png)
 
-- Step1-2：DNS query
-    - request host name：demo.example.com
-    - get IP address 6.6.6.6（example）
+- Step 1-2：DNS resolution
+    - The hostname to resolve is demo.example.com
+    - The translated IP address from DNS server is 6.6.6.6（example）
 
-- Step3：IP diagram is routed to POP of IDC1，and processed by layer 4 load balancer L4LB.
+- Step 3：The client creates a TCP connection to 6.6.6.6 on port 80 and send a HTTP request. The IP diagrams are routed to PoP of IDC1，and processed by the Layer 4 Load Balancer.
 
-- Step4：L4LB forward diagram to BFE
+- Step 4：The Layer 4 Load Balancer forwards diagrams to BFE.
 
-- Step5：BFE receive HTTP request, identify which product the request belongs to:
-    - BFE uses field "host" in HTTP header to decide product.
+- Step 5：BFE receives an HTTP request and find a product for it:
+    - BFE uses the HTTP Host header to find the suitable product.
     - In this scenario, assume demo.example.com belongs to product "demo".
 
-- Step6：Identify a cluster of product "demo", which would handle this message.
-    - Based on configured distribution rule of product "demo", identify cluster "demo-static" in this product to handle the message .
+- Step 6：Based on routing rules of product "demo", BFE finds a suitable cluster to process the request.
+    - In this scenario, assume the selected cluster is "demo-static".
+    - See [Traffic routing](route.md)
 
-- Step7：Identify a sub cluster within "demo-static"
-    - Based on routing rule in "demo-static", identify sub cluster "demo-static.idc1" to handle this message.
+- Step 7-8：Based on balacing policies of product "demo", BFE selects a sub cluster and an instance within cluster "demo-static" 
+    - In this scenario, assume the selected sub cluster is "demo-static.idc1" and the selected instance is "demo-static-01.idc1" .
+    - See [Traffic balancing](balance.md)
 
-- Step8：Identify instance
-    - based on configured load balancing policy, identify instance as "a-demo-static-1.idc1".
+- Step 9：The request is forwarded to "demo-static-01.idc1".
 
-- Step9：request is sent to instance "a-demo-static-1.idc1".
+- Step 10：BFE receives a response from "demo-static-01.idc1".
 
-- Step10：BFE receive response message from "a-demo-static-1.idc1".
-
-- Step11-12：BFE send back response to client, via L4LB.
+- Step 11-12：BFE forwards the response to the client via the Layer 4 Load Balancer.

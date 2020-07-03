@@ -19,7 +19,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
 )
 
 func TestBfeBackendInit_case1(t *testing.T) {

@@ -36,9 +36,9 @@ import (
 )
 
 import (
-	http "github.com/baidu/bfe/bfe_http"
-	tls "github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_util/pipe"
+	http "github.com/bfenetworks/bfe/bfe_http"
+	tls "github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util/pipe"
 )
 
 const (

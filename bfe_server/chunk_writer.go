@@ -34,8 +34,8 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_bufio"
-	"github.com/baidu/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_bufio"
+	"github.com/bfenetworks/bfe/bfe_http"
 )
 
 // maxPostHandlerReadBytes is the max number of Request.Body bytes not

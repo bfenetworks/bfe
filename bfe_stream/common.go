@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_balance/backend"
+	"github.com/bfenetworks/bfe/bfe_balance/backend"
 )
 
 var (

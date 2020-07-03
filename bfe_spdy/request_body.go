@@ -23,7 +23,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_util/pipe"
+	"github.com/bfenetworks/bfe/bfe_util/pipe"
 )
 
 type RequestBody struct {

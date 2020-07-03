@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -299,6 +300,7 @@ Curves:
 		c.clientAuth = RequireAndVerifyClientCert
 		c.clientCAs = rule.ClientCAs
 		c.clientCAName = rule.ClientCAName
+		c.clientCRLPool = rule.ClientCRLPool
 	}
 
 	// check whether chacha20-poly1305 is enabled for current connection
@@ -882,6 +884,11 @@ func (hs *serverHandshakeState) processCertsFromClient(certificates [][]byte) (c
 		if certs[i], err = x509.ParseCertificate(asn1Data); err != nil {
 			c.sendAlert(alertBadCertificate)
 			return nil, errors.New("tls: failed to parse client certificate: " + err.Error())
+		}
+
+		if c.clientCRLPool != nil && c.clientCRLPool.CheckCertRevoked(certs[i]) {
+			c.sendAlert(alertCertificateRevoked)
+			return nil, fmt.Errorf("tls: revoked client certificate: %s %s", strings.ToUpper(certs[i].SerialNumber.Text(16)), certs[i].Subject.CommonName)
 		}
 	}
 

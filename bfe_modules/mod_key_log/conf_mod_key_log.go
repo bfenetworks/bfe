@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 // ConfModKeyLog represents the basic config for mod_key_log.

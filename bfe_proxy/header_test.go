@@ -35,7 +35,7 @@ import (
 )
 
 import (
-	bufio "github.com/baidu/bfe/bfe_bufio"
+	bufio "github.com/bfenetworks/bfe/bfe_bufio"
 )
 
 // Stuff to be used in both versions tests.

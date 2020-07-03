@@ -65,11 +65,11 @@ func_name(params)
 Condition Expression(CE) grammar is defined as follows:
 
 ```
-CE ::= CE && CE
-     | CE || CE
-     | ( CE )
-     | ! CE
-     | ConditionPrimitive
+CE = CE && CE
+   | CE || CE
+   | ( CE )
+   | ! CE
+   | ConditionPrimitive
 ```
 
 ### Advanced Condition Expression Grammar
@@ -77,12 +77,12 @@ CE ::= CE && CE
 Advanced Condition Expression(ACE) grammar is defined as follows:
 
 ```
-ACE ::= ACE && ACE
-      | ACE || ACE
-      | ( ACE)
-      | ! ACE
-      | ConditionPrimitive
-      | ConditionVariable
+ACE = ACE && ACE
+    | ACE || ACE
+    | ( ACE)
+    | ! ACE
+    | ConditionPrimitive
+    | ConditionVariable
 ```
 
 ### Operator Precedence

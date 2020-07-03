@@ -27,8 +27,8 @@ import (
 )
 
 import (
-	bufio "github.com/baidu/bfe/bfe_bufio"
-	http "github.com/baidu/bfe/bfe_http"
+	bufio "github.com/bfenetworks/bfe/bfe_bufio"
+	http "github.com/bfenetworks/bfe/bfe_http"
 )
 
 var (

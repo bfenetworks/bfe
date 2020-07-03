@@ -28,9 +28,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_basic/condition/parser"
-	"github.com/baidu/bfe/bfe_util/net_util"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
+	"github.com/bfenetworks/bfe/bfe_util/net_util"
 	"github.com/spaolacci/murmur3"
 )
 

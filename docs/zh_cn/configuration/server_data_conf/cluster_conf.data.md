@@ -32,26 +32,26 @@ cluster_conf.data为集群转发配置文件。
 
 | 配置项                   | 描述                                                         |
 | ------------------------ | ------------------------------------------------------------ |
-| CheckConnf.Schem         | String<br>健康检查协议，支持HTTP和TCP<br>默认值 HTTP         |
-| CheckConnf.Uri           | String<br>健康检查请求URI (仅HTTP)<br>默认值 /health_check   |
-| CheckConnf.Host          | String<br>健康检查请求HOST (仅HTTP)<br>默认值 ""             |
-| CheckConnf.StatusCode    | Integer<br>期待返回的响应状态码 (仅HTTP)<br>默认值 0         |
-| CheckConnf.FailNum       | Integer<br>健康检查启动阈值F（转发请求连续失败F次后，将后端实例置为不可用状态，并启动健康检查）<br>默认值5 |
-| CheckConnf.SuccNum       | Integer<br>健康检查成功阈值S（健康检查连续成功S次后，将后端实例置为可用状态）<br>默认值1 |
-| CheckConnf.CheckTimeout  | Integer<br>健康检查的超时时间，单位是毫秒<br>默认值0（无超时）|
-| CheckConnf.CheckInterval | Integer<br>健康检查的间隔时间，单位是毫秒<br>默认值1 |
+| CheckConf.Schem         | String<br>健康检查协议，支持HTTP和TCP<br>默认值 HTTP         |
+| CheckConf.Uri           | String<br>健康检查请求URI (仅HTTP)<br>默认值 /health_check   |
+| CheckConf.Host          | String<br>健康检查请求HOST (仅HTTP)<br>默认值 ""             |
+| CheckConf.StatusCode    | Integer<br>期待返回的响应状态码 (仅HTTP)<br>默认值 0，代表任意状态码 |
+| CheckConf.FailNum       | Integer<br>健康检查启动阈值（转发请求连续失败FailNum次后，将后端实例置为不可用状态，并启动健康检查）<br>默认值5 |
+| CheckConf.SuccNum       | Integer<br>健康检查成功阈值（健康检查连续成功SuccNum次后，将后端实例置为可用状态）<br>默认值1 |
+| CheckConf.CheckTimeout  | Integer<br>健康检查的超时时间，单位是毫秒<br>默认值0（无超时）|
+| CheckConf.CheckInterval | Integer<br>健康检查的间隔时间，单位是毫秒<br>默认值1 |
 
 #### GSLB基础配置
 
 | 配置项                           | 描述                                       |
 | -------------------------------- | ------------------------------------------ |
-| GslbBadic.CrossRetry             | Integer<br>跨子集群最大重试次数<br>默认值0 |
-| GslbBadic.RetryMax               | Integer<br>子集群内最大重试次数<br>默认值2 |
-| GslbBadic.BalanceMode            | String<br>负载均衡模式(WRR: 加权轮询; WLC: 加权最小连接数)<br>默认值WRR |
-| GslbBadic.HashConf               | Object<br>会话保持的HASH策略配置 |
-| GslbBadic.HashConf.HashStrategy  | Integer<br>会话保持的哈希策(ClientIdOnly, ClientIpOnly, ClientIdPreferred)<br>默认值ClientIpOnly |
-| GslbBadic.HashConf.HashHeader    | String<br>会话保持的hash请求头 |
-| GslbBadic.HashConf.SessionSticky | Boolean<br>是否开启会话保持（开启后，可以保证来源于同一个用户的请求可以发送到同一个后端）<br>默认值False |
+| GslbBasic.CrossRetry             | Integer<br>跨子集群最大重试次数<br>默认值0 |
+| GslbBasic.RetryMax               | Integer<br>子集群内最大重试次数<br>默认值2 |
+| GslbBasic.BalanceMode            | String<br>负载均衡模式(WRR: 加权轮询; WLC: 加权最小连接数)<br>默认值WRR |
+| GslbBasic.HashConf               | Object<br>会话保持的HASH策略配置 |
+| GslbBasic.HashConf.HashStrategy  | Integer<br>会话保持的哈希策(ClientIdOnly, ClientIpOnly, ClientIdPreferred)<br>默认值ClientIpOnly |
+| GslbBasic.HashConf.HashHeader    | String<br>会话保持的hash请求头 |
+| GslbBasic.HashConf.SessionSticky | Boolean<br>是否开启会话保持（开启后，可以保证来源于同一个用户的请求可以发送到同一个后端）<br>默认值False |
 
 #### 集群基础配置
 

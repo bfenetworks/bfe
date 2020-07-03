@@ -3,7 +3,7 @@
 ## Principles
 
 The BFE community adheres to the following principles:
-- Open: BFE is open source. See [Contributor License Agreement](https://cla-assistant.io/baidu/bfe).
+- Open: BFE is open source. See [Contributor License Agreement](https://cla-assistant.io/bfenetworks/bfe).
 - Welcoming and respectful: See [Code of Conduct](CODE_OF_CONDUCT.md).
 - Transparent and accessible: Work and collaboration are done in public.
 - Merit: Ideas and contributions are accepted according to their technical merit and alignment with project objectives, scope, and design principles.
@@ -29,7 +29,7 @@ The BFE community adheres to the following principles:
 
 * Classify GitHub issues and perform pull request reviews for other maintainers and the community.
 
-* During GitHub issue classification, apply all applicable [labels](https://github.com/baidu/bfe/labels)
+* During GitHub issue classification, apply all applicable [labels](https://github.com/bfenetworks/bfe/labels)
   to each new issue. Labels are extremely useful for follow-up of future issues. Which labels to apply
   is somewhat subjective so just use your best judgment. 
 

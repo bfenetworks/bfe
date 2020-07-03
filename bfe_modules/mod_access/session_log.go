@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_basic"
 )
 
 func onLogFmtSesClientIp(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,

@@ -8,13 +8,15 @@
   base: core18
   grade: stable
   confinement: strict
-
+  architectures:
+    - build-on: [amd64, arm64, ppc64el]
+  
   parts:
     bfe:
       plugin: go
       go-channel: 1.13/stable
-      go-importpath: github.com/baidu/bfe
-      source: https://github.com/baidu/bfe.git
+      go-importpath: github.com/bfenetworks/bfe
+      source: https://github.com/bfenetworks/bfe.git
       source-type: git
       override-build: | 
         make

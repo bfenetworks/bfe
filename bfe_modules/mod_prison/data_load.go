@@ -20,9 +20,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic/action"
-	"github.com/baidu/bfe/bfe_basic/condition"
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_basic/action"
+	"github.com/bfenetworks/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 type AccessSignConf struct {

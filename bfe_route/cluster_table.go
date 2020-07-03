@@ -23,8 +23,8 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	"github.com/baidu/bfe/bfe_route/bfe_cluster"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
+	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
 )
 
 // ClusterMap holds mappings from clusterName to cluster.

@@ -1,4 +1,4 @@
-# Request balancing
+# Traffic balancing
 
 ## Sub cluster level load balance
 
@@ -28,7 +28,7 @@ This feature is very useful in multi-IDCs scenario.
 - Based on the above configuration, BFE clusters distribute traffic to backend sub clusters.
     - For example，if configuration of BFE_1 is {W11，W12, W1B} ={45，45，10}, traffic percentage to SubCluster_1, SubCluster_2 and Blackhole is 45%, 45% and 10%.
 
-![Forwarding Table](../../images/gslb.png)
+![Forwarding Table](../../images/bfe-gslb.png)
 
 ## Instance level load balance
 
@@ -55,7 +55,7 @@ The condition for switching between states:
     - BFE receives correct response for health check request from the instance.
 
 
-## Retry in failure
+## Automatic retries
 
 If request forwarding fails, BFE supports retry in two ways：
 

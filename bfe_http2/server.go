@@ -42,10 +42,10 @@ import (
 )
 
 import (
-	http "github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_http2/hpack"
-	tls "github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_util/pipe"
+	http "github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http2/hpack"
+	tls "github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util/pipe"
 )
 
 const (
@@ -340,7 +340,7 @@ func (s *Server) ServeConn(c net.Conn, opts *ServeConnOpts) {
 	// get rule for current conn
 	var r *Rule
 	if tlsConn, ok := c.(*tls.Conn); ok && serverRule != nil {
-		r = serverRule.GetRule(tlsConn)
+		r = serverRule.GetHTTP2Rule(tlsConn)
 	}
 
 	sc := &serverConn{
