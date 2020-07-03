@@ -1,0 +1,18 @@
+{
+	"Version": "123",
+	"Config": {
+		"unittest2": [
+			{
+				"Cond": "req_path_in(\"/md\", false)"
+			}
+	],
+		"unittest": [
+			{
+				"Cond": "req_path_in(\"/default\", false)"
+			},
+			{
+				"Cond": "req_path_in(\"/github\", false)"
+			}
+	]
+	}
+}
