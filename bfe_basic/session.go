@@ -17,11 +17,11 @@
 package bfe_basic
 
 import (
+	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
-	"fmt"
 )
 
 import (
@@ -121,13 +121,13 @@ func (s *Session) SetError(errCode error, errMsg string) {
 	s.lock.Unlock()
 }
 
-func (s *Session) GetError() (error, string) {
+func (s *Session) GetError() (string, error) {
 	s.lock.Lock()
 	errCode := s.ErrCode
 	errMsg := s.ErrMsg
 	s.lock.Unlock()
 
-	return errCode, errMsg
+	return errMsg, errCode
 }
 
 func (s *Session) SetContext(key, val interface{}) {
