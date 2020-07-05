@@ -164,7 +164,7 @@ func (m *ModuleGeo) setGeoInfoToReqContext(req *bfe_basic.Request, cityInfo *geo
 
 	if openDebug {
 		log.Logger.Debug("%s: the geolocation information: conturyIsoCode(%s), subdivisionIsoCode(%s),"+
-			"cityName(%s), longitude(%d) and latitude(%d)",
+			"cityName(%s), longitude(%s) and latitude(%s)",
 			m.name, conturyIsoCode, subdivisionIsoCode, cityName, latitude, longitude)
 	}
 }
