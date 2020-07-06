@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2936,10 +2936,9 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_4">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
-<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_static/static_rule.data</span>
-<span class="na">MimeTypePath</span> <span class="o">=</span> <span class="s">mod_static/mime_type.data</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">[Basic]
+DataPath = mod_static/static_rule.data
+MimeTypePath = mod_static/mime_type.data</code></pre>
 
 
 <h2 id="_5">规则配置</h2>
@@ -3000,24 +2999,23 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_7">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="p">{</span>
-                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_host_in(\&quot;www.example.org\&quot;)&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Action&quot;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="nt">&quot;Cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;BROWSE&quot;</span><span class="p">,</span>
-                    <span class="nt">&quot;Params&quot;</span><span class="p">:</span> <span class="p">[</span>
-                        <span class="s2">&quot;./&quot;</span><span class="p">,</span>
-                        <span class="s2">&quot;index.html&quot;</span>
-                    <span class="p">]</span>
-                <span class="p">}</span>
-            <span class="p">}</span>
-        <span class="p">]</span>
-    <span class="p">},</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Config&quot;: {
+        &quot;example_product&quot;: [
+            {
+                &quot;Cond&quot;: &quot;req_host_in(\&quot;www.example.org\&quot;)&quot;,
+                &quot;Action&quot;: {
+                    &quot;Cmd&quot;: &quot;BROWSE&quot;,
+                    &quot;Params&quot;: [
+                        &quot;./&quot;,
+                        &quot;index.html&quot;
+                    ]
+                }
+            }
+        ]
+    },
+    &quot;Version&quot;: &quot;20190101000000&quot;
+}</code></pre>
 
 
 <h2 id="mime">MIME配置</h2>
@@ -3050,14 +3048,13 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_9">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;.avi&quot;</span><span class="p">:</span> <span class="s2">&quot;video/x-msvideo&quot;</span><span class="p">,</span>
-        <span class="nt">&quot;.doc&quot;</span><span class="p">:</span> <span class="s2">&quot;application/msword&quot;</span>
-    <span class="p">},</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Config&quot;: {
+        &quot;.avi&quot;: &quot;video/x-msvideo&quot;,
+        &quot;.doc&quot;: &quot;application/msword&quot;
+    },
+    &quot;Version&quot;: &quot;20190101000000&quot;
+}</code></pre>
 
 
 <h2 id="_10">监控项</h2>

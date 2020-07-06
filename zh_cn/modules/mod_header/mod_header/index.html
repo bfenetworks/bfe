@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2896,9 +2896,8 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_4">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
-<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_header/header_rule.data</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">[Basic]
+DataPath = mod_header/header_rule.data</code></pre>
 
 
 <h2 id="_5">规则配置</h2>
@@ -3000,41 +2999,40 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_8">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="p">{</span>
-                <span class="nt">&quot;cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_path_prefix_in(\&quot;/header\&quot;, false)&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;actions&quot;</span><span class="p">:</span> <span class="p">[</span>
-                    <span class="p">{</span>
-                        <span class="nt">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;REQ_HEADER_SET&quot;</span><span class="p">,</span>
-                        <span class="nt">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span>
-                            <span class="s2">&quot;X-Bfe-Log-Id&quot;</span><span class="p">,</span>
-                            <span class="s2">&quot;%bfe_log_id&quot;</span>
-                        <span class="p">]</span>
-                    <span class="p">},</span>
-                    <span class="p">{</span>
-                        <span class="nt">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;REQ_HEADER_SET&quot;</span><span class="p">,</span>
-                        <span class="nt">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span>
-                            <span class="s2">&quot;X-Bfe-Vip&quot;</span><span class="p">,</span>
-                            <span class="s2">&quot;%bfe_vip&quot;</span>
-                        <span class="p">]</span>
-                    <span class="p">},</span>
-                    <span class="p">{</span>
-                        <span class="nt">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;RSP_HEADER_SET&quot;</span><span class="p">,</span>
-                        <span class="nt">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span>
-                            <span class="s2">&quot;X-Proxied-By&quot;</span><span class="p">,</span>
-                            <span class="s2">&quot;bfe&quot;</span>
-                        <span class="p">]</span>
-                    <span class="p">}</span>
-                <span class="p">],</span>
-                <span class="nt">&quot;last&quot;</span><span class="p">:</span> <span class="kc">true</span>
-            <span class="p">}</span>
-        <span class="p">]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;20190101000000&quot;,
+    &quot;Config&quot;: {
+        &quot;example_product&quot;: [
+            {
+                &quot;cond&quot;: &quot;req_path_prefix_in(\&quot;/header\&quot;, false)&quot;,
+                &quot;actions&quot;: [
+                    {
+                        &quot;cmd&quot;: &quot;REQ_HEADER_SET&quot;,
+                        &quot;params&quot;: [
+                            &quot;X-Bfe-Log-Id&quot;,
+                            &quot;%bfe_log_id&quot;
+                        ]
+                    },
+                    {
+                        &quot;cmd&quot;: &quot;REQ_HEADER_SET&quot;,
+                        &quot;params&quot;: [
+                            &quot;X-Bfe-Vip&quot;,
+                            &quot;%bfe_vip&quot;
+                        ]
+                    },
+                    {
+                        &quot;cmd&quot;: &quot;RSP_HEADER_SET&quot;,
+                        &quot;params&quot;: [
+                            &quot;X-Proxied-By&quot;,
+                            &quot;bfe&quot;
+                        ]
+                    }
+                ],
+                &quot;last&quot;: true
+            }
+        ]
+    }
+}</code></pre>
 
 
 <h2 id="_9">内置变量说明</h2>

@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2868,9 +2868,8 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_4">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
-<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_auth_jwt/auth_jwt_rule.data</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">[Basic]
+DataPath = mod_auth_jwt/auth_jwt_rule.data</code></pre>
 
 
 <h2 id="_5">规则配置</h2>
@@ -2923,37 +2922,34 @@ RU5ErkJggg==" ></image>
 <li>配置文件必须遵守<a href="https://tools.ietf.org/html/rfc7517">JSON Web Key规范</a></li>
 <li>生成示例Key：</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">echo -n jwt_example | base64 | tr &#39;+/&#39; &#39;-_&#39; | tr -d &#39;=&#39;</span>
-</code></pre></div>
+<pre class="codehilite"><code>echo -n jwt_example | base64 | tr '+/' '-_' | tr -d '='</code></pre>
 
 
 <ul>
 <li>JWK配置文件示例：</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="p">[</span>
-    <span class="p">{</span>
-        <span class="nt">&quot;k&quot;</span><span class="p">:</span> <span class="s2">&quot;and0X2V4YW1wbGU&quot;</span><span class="p">,</span>
-        <span class="nt">&quot;kty&quot;</span><span class="p">:</span> <span class="s2">&quot;oct&quot;</span><span class="p">,</span>
-        <span class="nt">&quot;kid&quot;</span><span class="p">:</span> <span class="s2">&quot;0001&quot;</span>
-    <span class="p">}</span>
-<span class="p">]</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">[
+    {
+        &quot;k&quot;: &quot;and0X2V4YW1wbGU&quot;,
+        &quot;kty&quot;: &quot;oct&quot;,
+        &quot;kid&quot;: &quot;0001&quot;
+    }
+]</code></pre>
 
 
 <h3 id="_7">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="p">{</span>
-                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_host_in(\&quot;www.example.org\&quot;)&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;KeyFile&quot;</span><span class="p">:</span> <span class="s2">&quot;mod_auth_jwt/key_file&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Realm&quot;</span><span class="p">:</span> <span class="s2">&quot;Restricted&quot;</span>
-            <span class="p">}</span>
-        <span class="p">]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;20190101000000&quot;,
+    &quot;Config&quot;: {
+        &quot;example_product&quot;: [
+            {
+                &quot;Cond&quot;: &quot;req_host_in(\&quot;www.example.org\&quot;)&quot;,
+                &quot;KeyFile&quot;: &quot;mod_auth_jwt/key_file&quot;,
+                &quot;Realm&quot;: &quot;Restricted&quot;
+            }
+        ]
+    }
+}</code></pre>
                 
               
               

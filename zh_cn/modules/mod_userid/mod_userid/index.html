@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2868,12 +2868,11 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_4">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
-<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_userid/userid_rule.data</span>
+<pre class="codehilite"><code class="language-ini">[Basic]
+DataPath = mod_userid/userid_rule.data
 
-<span class="k">[Log]</span>
-<span class="na">OpenDebug</span> <span class="o">=</span> <span class="s">true</span>
-</code></pre></div>
+[Log]
+OpenDebug = true</code></pre>
 
 
 <h2 id="_5">规则配置</h2>
@@ -2926,33 +2925,32 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_7">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;2019-12-10184356&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="p">{</span>
-                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_path_prefix_in(\&quot;/abc\&quot;, true)&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Params&quot;</span><span class="p">:</span> <span class="p">{</span>
-                     <span class="nt">&quot;Name&quot;</span><span class="p">:</span> <span class="s2">&quot;bfe_userid_abc&quot;</span><span class="p">,</span>
-                     <span class="nt">&quot;Domain&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-                     <span class="nt">&quot;Path&quot;</span><span class="p">:</span> <span class="s2">&quot;/abc&quot;</span><span class="p">,</span>
-                     <span class="nt">&quot;MaxAge&quot;</span><span class="p">:</span> <span class="mi">3153600</span>
-                 <span class="p">},</span>
-                 <span class="nt">&quot;Generator&quot;</span><span class="p">:</span> <span class="s2">&quot;default&quot;</span>
-            <span class="p">},</span> 
-            <span class="p">{</span>
-                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;default_t()&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Params&quot;</span><span class="p">:</span> <span class="p">{</span>
-                     <span class="nt">&quot;Name&quot;</span><span class="p">:</span> <span class="s2">&quot;bfe_userid&quot;</span><span class="p">,</span>
-                     <span class="nt">&quot;Domain&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-                     <span class="nt">&quot;Path&quot;</span><span class="p">:</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span>
-                     <span class="nt">&quot;MaxAge&quot;</span><span class="p">:</span> <span class="mi">3153600</span>
-                 <span class="p">}</span>
-            <span class="p">}</span>
-        <span class="p">]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;2019-12-10184356&quot;,
+    &quot;Config&quot;: {
+        &quot;example_product&quot;: [
+            {
+                &quot;Cond&quot;: &quot;req_path_prefix_in(\&quot;/abc\&quot;, true)&quot;,
+                &quot;Params&quot;: {
+                     &quot;Name&quot;: &quot;bfe_userid_abc&quot;,
+                     &quot;Domain&quot;: &quot;&quot;,
+                     &quot;Path&quot;: &quot;/abc&quot;,
+                     &quot;MaxAge&quot;: 3153600
+                 },
+                 &quot;Generator&quot;: &quot;default&quot;
+            }, 
+            {
+                &quot;Cond&quot;: &quot;default_t()&quot;,
+                &quot;Params&quot;: {
+                     &quot;Name&quot;: &quot;bfe_userid&quot;,
+                     &quot;Domain&quot;: &quot;&quot;,
+                     &quot;Path&quot;: &quot;/&quot;,
+                     &quot;MaxAge&quot;: 3153600
+                 }
+            }
+        ]
+    }
+}</code></pre>
                 
               
               
