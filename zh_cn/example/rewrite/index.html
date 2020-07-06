@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2763,45 +2763,41 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>Step 1. bfe启用mod_rewrite模块（conf/bfe.conf)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="na">Modules</span> <span class="o">=</span> <span class="s">mod_rewrite  #启用mod_rewrite</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">Modules = mod_rewrite  #启用mod_rewrite</code></pre>
 
 
 <ul>
 <li>Step 2. 配置rewrite规则文件的存储路径 (conf/mod_rewrite/mod_rewrite.conf)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
-<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_rewrite/rewrite.data</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">[Basic]
+DataPath = mod_rewrite/rewrite.data</code></pre>
 
 
 <ul>
 <li>Step 3. 配置rewrite规则</li>
 </ul>
 <p>路径前缀为/service的所有请求均会添加/v1前缀后转发给后端服务</p>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[{</span>
-            <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_path_prefix_in(\&quot;/service\&quot;, false)&quot;</span><span class="p">,</span>
-            <span class="nt">&quot;Actions&quot;</span><span class="p">:</span> <span class="p">[{</span>
-                <span class="nt">&quot;Cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;PATH_PREFIX_ADD&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Params&quot;</span><span class="p">:</span> <span class="p">[</span>
-                    <span class="s2">&quot;/v1/&quot;</span>
-                <span class="p">]</span>
-            <span class="p">}],</span>
-            <span class="nt">&quot;Last&quot;</span><span class="p">:</span> <span class="kc">true</span>
-        <span class="p">}]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;init version&quot;,
+    &quot;Config&quot;: {
+        &quot;example_product&quot;: [{
+            &quot;Cond&quot;: &quot;req_path_prefix_in(\&quot;/service\&quot;, false)&quot;,
+            &quot;Actions&quot;: [{
+                &quot;Cmd&quot;: &quot;PATH_PREFIX_ADD&quot;,
+                &quot;Params&quot;: [
+                    &quot;/v1/&quot;
+                ]
+            }],
+            &quot;Last&quot;: true
+        }]
+    }
+}</code></pre>
 
 
 <ul>
 <li>Step 4. 验证配置规则</li>
 </ul>
-<div class="codehilite"><pre><span></span><code>curl -H <span class="s2">&quot;host: example.org&quot;</span> <span class="s2">&quot;http://127.1:8080/service&quot;</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash">curl -H &quot;host: example.org&quot; &quot;http://127.1:8080/service&quot;</code></pre>
 
 
 <p>对应后端服务集群cluster_demo_dynamic收到的请求PATH为"v1/service"</p>

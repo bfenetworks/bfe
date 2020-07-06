@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2763,52 +2763,47 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>Step 1. Modify conf/bfe.conf and enable mod_block</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="na">Modules</span> <span class="o">=</span> <span class="s">mod_block   #enable mod_block</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">Modules = mod_block   #enable mod_block</code></pre>
 
 
 <ul>
 <li>Step 2. Modify conf/mod_block/mod_block.conf and configure path of global ip blacklist and block rules</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="k">[basic]</span>
-<span class="na">ProductRulePath</span> <span class="o">=</span> <span class="s">mod_block/block_rules.data</span>
+<pre class="codehilite"><code class="language-ini">[basic]
+ProductRulePath = mod_block/block_rules.data
 
-<span class="na">IPBlacklistPath</span> <span class="o">=</span> <span class="s">mod_block/ip_blacklist.data</span>
-</code></pre></div>
+IPBlacklistPath = mod_block/ip_blacklist.data</code></pre>
 
 
 <ul>
 <li>Step 3. Configure global blacklist (conf/mod_block/ip_blacklist.data)</li>
 </ul>
 <p>Config ip address list, such as 2.2.2.2</p>
-<div class="codehilite"><pre><span></span><code><span class="na">2.2.2.2</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">2.2.2.2</code></pre>
 
 
 <ul>
 <li>Step 4. Configure block rules (conf/mod_block/block_rules.data)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[{</span>
-            <span class="nt">&quot;action&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="nt">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;CLOSE&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;params&quot;</span><span class="p">:</span> <span class="p">[]</span>
-            <span class="p">},</span>
-            <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;block bonus&quot;</span><span class="p">,</span>
-            <span class="nt">&quot;cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_path_in(\&quot;/bonus\&quot;, false)&quot;</span>
-        <span class="p">}]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;init version&quot;,
+    &quot;Config&quot;: {
+        &quot;example_product&quot;: [{
+            &quot;action&quot;: {
+                &quot;cmd&quot;: &quot;CLOSE&quot;,
+                &quot;params&quot;: []
+            },
+            &quot;name&quot;: &quot;block bonus&quot;,
+            &quot;cond&quot;: &quot;req_path_in(\&quot;/bonus\&quot;, false)&quot;
+        }]
+    }
+}</code></pre>
 
 
 <ul>
 <li>Step 5. Verify configured rules</li>
 </ul>
-<div class="codehilite"><pre><span></span><code>curl -v -H <span class="s2">&quot;host: example.org&quot;</span> <span class="s2">&quot;http://127.1:8080/bonus&quot;</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash">curl -v -H &quot;host: example.org&quot; &quot;http://127.1:8080/bonus&quot;</code></pre>
 
 
 <p>The connection will be closed by bfe immediately.</p>

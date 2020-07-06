@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2899,12 +2899,11 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>模块配置文件</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
-<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_compress/compress_rule.data</span>
+<pre class="codehilite"><code class="language-ini">[Basic]
+DataPath = mod_compress/compress_rule.data
 
-<span class="k">[Log]</span>
-<span class="na">OpenDebug</span> <span class="o">=</span> <span class="s">false</span>
-</code></pre></div>
+[Log]
+OpenDebug = false</code></pre>
 
 
 <h2 id="_5">规则配置</h2>
@@ -2979,22 +2978,21 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_8">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="p">{</span>
-                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_host_in(\&quot;www.example.org\&quot;)&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Action&quot;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="nt">&quot;Cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;GZIP&quot;</span><span class="p">,</span>
-                    <span class="nt">&quot;Quality&quot;</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span>
-                    <span class="nt">&quot;FlushSize&quot;</span><span class="p">:</span> <span class="mi">512</span>
-                <span class="p">}</span>
-            <span class="p">}</span>
-        <span class="p">]</span>
-    <span class="p">},</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Config&quot;: {
+        &quot;example_product&quot;: [
+            {
+                &quot;Cond&quot;: &quot;req_host_in(\&quot;www.example.org\&quot;)&quot;,
+                &quot;Action&quot;: {
+                    &quot;Cmd&quot;: &quot;GZIP&quot;,
+                    &quot;Quality&quot;: 9,
+                    &quot;FlushSize&quot;: 512
+                }
+            }
+        ]
+    },
+    &quot;Version&quot;: &quot;20190101000000&quot;
+}</code></pre>
 
 
 <h2 id="_9">监控项</h2>

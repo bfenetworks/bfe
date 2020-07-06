@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2892,9 +2892,8 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="example">Example</h3>
-<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
-<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_static/static_rule.data</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">[Basic]
+DataPath = mod_static/static_rule.data</code></pre>
 
 
 <h2 id="rule-configuration">Rule Configuration</h2>
@@ -2962,24 +2961,23 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="example_1">Example</h3>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="p">{</span>
-                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_host_in(\&quot;www.example.org\&quot;)&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Action&quot;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="nt">&quot;Cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;BROWSE&quot;</span><span class="p">,</span>
-                    <span class="nt">&quot;Params&quot;</span><span class="p">:</span> <span class="p">[</span>
-                        <span class="s2">&quot;./&quot;</span><span class="p">,</span>
-                        <span class="s2">&quot;index.html&quot;</span>
-                    <span class="p">]</span>
-                <span class="p">}</span>
-            <span class="p">}</span>
-        <span class="p">]</span>
-    <span class="p">},</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Config&quot;: {
+        &quot;example_product&quot;: [
+            {
+                &quot;Cond&quot;: &quot;req_host_in(\&quot;www.example.org\&quot;)&quot;,
+                &quot;Action&quot;: {
+                    &quot;Cmd&quot;: &quot;BROWSE&quot;,
+                    &quot;Params&quot;: [
+                        &quot;./&quot;,
+                        &quot;index.html&quot;
+                    ]
+                }
+            }
+        ]
+    },
+    &quot;Version&quot;: &quot;20190101000000&quot;
+}</code></pre>
 
 
 <h2 id="metrics">Metrics</h2>

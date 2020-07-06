@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2994,158 +2994,157 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h2 id="example">Example</h2>
-<div class="codehilite"><pre><span></span><code><span class="k">[Server]</span>
-<span class="c1"># listen port for http request</span>
-<span class="na">HttpPort</span> <span class="o">=</span> <span class="s">8080</span>
-<span class="c1"># listen port for https request</span>
-<span class="na">HttpsPort</span> <span class="o">=</span> <span class="s">8443</span>
-<span class="c1"># listen port for monitor request</span>
-<span class="na">MonitorPort</span> <span class="o">=</span> <span class="s">8421</span>
+<pre class="codehilite"><code class="language-ini">[Server]
+# listen port for http request
+HttpPort = 8080
+# listen port for https request
+HttpsPort = 8443
+# listen port for monitor request
+MonitorPort = 8421
 
-<span class="c1"># max number of CPUs to use (0 to use all CPUs)</span>
-<span class="na">MaxCpus</span> <span class="o">=</span> <span class="s">0</span>
+# max number of CPUs to use (0 to use all CPUs)
+MaxCpus = 0
 
-<span class="c1"># type of layer-4 load balancer (PROXY/NONE)</span>
-<span class="c1"># </span>
-<span class="c1"># Note:</span>
-<span class="c1"># - PROXY: layer-4 balancer talking the proxy protocol</span>
-<span class="c1">#          eg. F5 BigIP/Citrix ADC </span>
-<span class="c1"># - NONE: layer-4 balancer disabled </span>
-<span class="na">Layer4LoadBalancer</span> <span class="o">=</span> <span class="s">&quot;&quot;</span>
+# type of layer-4 load balancer (PROXY/NONE)
+# 
+# Note:
+# - PROXY: layer-4 balancer talking the proxy protocol
+#          eg. F5 BigIP/Citrix ADC 
+# - NONE: layer-4 balancer disabled 
+Layer4LoadBalancer = &quot;&quot;
 
-<span class="c1"># tls handshake timeout, in seconds</span>
-<span class="na">TlsHandshakeTimeout</span> <span class="o">=</span> <span class="s">30</span>
+# tls handshake timeout, in seconds
+TlsHandshakeTimeout = 30
 
-<span class="c1"># read timeout, in seconds</span>
-<span class="na">ClientReadTimeout</span> <span class="o">=</span> <span class="s">60</span>
+# read timeout, in seconds
+ClientReadTimeout = 60
 
-<span class="c1"># write timeout, in seconds</span>
-<span class="na">ClientWriteTimeout</span> <span class="o">=</span> <span class="s">60</span>
+# write timeout, in seconds
+ClientWriteTimeout = 60
 
-<span class="c1"># if false, client connection is shutdown disregard of http headers</span>
-<span class="na">KeepAliveEnabled</span> <span class="o">=</span> <span class="s">true</span>
+# if false, client connection is shutdown disregard of http headers
+KeepAliveEnabled = true
 
-<span class="c1"># timeout for graceful shutdown (maximum 300 sec)</span>
-<span class="na">GracefulShutdownTimeout</span> <span class="o">=</span> <span class="s">10</span>
+# timeout for graceful shutdown (maximum 300 sec)
+GracefulShutdownTimeout = 10
 
-<span class="c1"># max header length in bytes in request</span>
-<span class="na">MaxHeaderBytes</span> <span class="o">=</span> <span class="s">1048576</span>
+# max header length in bytes in request
+MaxHeaderBytes = 1048576
 
-<span class="c1"># max URI(in header) length in bytes in request</span>
-<span class="na">MaxHeaderUriBytes</span> <span class="o">=</span> <span class="s">8192</span>
+# max URI(in header) length in bytes in request
+MaxHeaderUriBytes = 8192
 
-<span class="c1"># routing related confs</span>
-<span class="na">HostRuleConf</span> <span class="o">=</span> <span class="s">server_data_conf/host_rule.data</span>
-<span class="na">VipRuleConf</span> <span class="o">=</span> <span class="s">server_data_conf/vip_rule.data</span>
-<span class="na">RouteRuleConf</span> <span class="o">=</span> <span class="s">server_data_conf/route_rule.data</span>
-<span class="na">ClusterConf</span> <span class="o">=</span> <span class="s">server_data_conf/cluster_conf.data</span>
-<span class="na">NameConf</span> <span class="o">=</span> <span class="s">server_data_conf/name_conf.data</span>
+# routing related confs
+HostRuleConf = server_data_conf/host_rule.data
+VipRuleConf = server_data_conf/vip_rule.data
+RouteRuleConf = server_data_conf/route_rule.data
+ClusterConf = server_data_conf/cluster_conf.data
+NameConf = server_data_conf/name_conf.data
 
-<span class="c1"># load balancing related confs </span>
-<span class="na">ClusterTableConf</span> <span class="o">=</span> <span class="s">cluster_conf/cluster_table.data</span>
-<span class="na">GslbConf</span> <span class="o">=</span> <span class="s">cluster_conf/gslb.data</span>
+# load balancing related confs 
+ClusterTableConf = cluster_conf/cluster_table.data
+GslbConf = cluster_conf/gslb.data
 
-<span class="na">Modules</span> <span class="o">=</span> <span class="s">mod_trust_clientip</span>
-<span class="na">Modules</span> <span class="o">=</span> <span class="s">mod_block</span>
-<span class="na">Modules</span> <span class="o">=</span> <span class="s">mod_header</span>
-<span class="na">Modules</span> <span class="o">=</span> <span class="s">mod_rewrite</span>
-<span class="na">Modules</span> <span class="o">=</span> <span class="s">mod_redirect</span>
-<span class="na">Modules</span> <span class="o">=</span> <span class="s">mod_logid</span>
+Modules = mod_trust_clientip
+Modules = mod_block
+Modules = mod_header
+Modules = mod_rewrite
+Modules = mod_redirect
+Modules = mod_logid
 
-<span class="c1"># interval for get diff of proxy-state</span>
-<span class="na">MonitorInterval</span> <span class="o">=</span> <span class="s">20</span>
+# interval for get diff of proxy-state
+MonitorInterval = 20
 
-<span class="na">DebugServHttp</span> <span class="o">=</span> <span class="s">false</span>
-<span class="na">DebugBfeRoute</span> <span class="o">=</span> <span class="s">false</span>
-<span class="na">DebugBal</span> <span class="o">=</span> <span class="s">false</span>
-<span class="na">DebugHealthCheck</span> <span class="o">=</span> <span class="s">false</span>
+DebugServHttp = false
+DebugBfeRoute = false
+DebugBal = false
+DebugHealthCheck = false
 
-<span class="k">[HttpsBasic]</span>
-<span class="c1"># cert conf for https</span>
-<span class="na">ServerCertConf</span> <span class="o">=</span> <span class="s">tls_conf/server_cert_conf.data</span>
+[HttpsBasic]
+# cert conf for https
+ServerCertConf = tls_conf/server_cert_conf.data
 
-<span class="c1"># tls rule for https</span>
-<span class="na">TlsRuleConf</span> <span class="o">=</span> <span class="s">tls_conf/tls_rule_conf.data</span>
+# tls rule for https
+TlsRuleConf = tls_conf/tls_rule_conf.data
 
-<span class="c1"># supported cipherSuites preference settings</span>
-<span class="c1">#</span>
-<span class="c1"># ciphersuites implemented in golang</span>
-<span class="c1">#     TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256</span>
-<span class="c1">#     TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256</span>
-<span class="c1">#     TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256</span>
-<span class="c1">#     TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256</span>
-<span class="c1">#     TLS_ECDHE_RSA_WITH_RC4_128_SHA</span>
-<span class="c1">#     TLS_ECDHE_ECDSA_WITH_RC4_128_SHA</span>
-<span class="c1">#     TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA</span>
-<span class="c1">#     TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA</span>
-<span class="c1">#     TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA</span>
-<span class="c1">#     TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA</span>
-<span class="c1">#     TLS_RSA_WITH_RC4_128_SHA</span>
-<span class="c1">#     TLS_RSA_WITH_AES_128_CBC_SHA</span>
-<span class="c1">#     TLS_RSA_WITH_AES_256_CBC_SHA</span>
-<span class="c1">#     TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA</span>
-<span class="c1">#     TLS_RSA_WITH_3DES_EDE_CBC_SHA</span>
-<span class="c1">#</span>
-<span class="c1"># Note:</span>
-<span class="c1"># -. Equivalent cipher suites (cipher suites with same priority in server side):</span>
-<span class="c1">#    CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256</span>
-<span class="c1">#    CipherSuites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256</span>
-<span class="c1">#</span>
-<span class="na">CipherSuites</span><span class="o">=</span><span class="s">TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256</span>
-<span class="na">CipherSuites</span><span class="o">=</span><span class="s">TLS_ECDHE_RSA_WITH_RC4_128_SHA</span>
-<span class="na">CipherSuites</span><span class="o">=</span><span class="s">TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA</span>
-<span class="na">CipherSuites</span><span class="o">=</span><span class="s">TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA</span>
-<span class="na">CipherSuites</span><span class="o">=</span><span class="s">TLS_RSA_WITH_RC4_128_SHA</span>
-<span class="na">CipherSuites</span><span class="o">=</span><span class="s">TLS_RSA_WITH_AES_128_CBC_SHA</span>
-<span class="na">CipherSuites</span><span class="o">=</span><span class="s">TLS_RSA_WITH_AES_256_CBC_SHA</span>
+# supported cipherSuites preference settings
+#
+# ciphersuites implemented in golang
+#     TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+#     TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+#     TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+#     TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+#     TLS_ECDHE_RSA_WITH_RC4_128_SHA
+#     TLS_ECDHE_ECDSA_WITH_RC4_128_SHA
+#     TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+#     TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA
+#     TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+#     TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
+#     TLS_RSA_WITH_RC4_128_SHA
+#     TLS_RSA_WITH_AES_128_CBC_SHA
+#     TLS_RSA_WITH_AES_256_CBC_SHA
+#     TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA
+#     TLS_RSA_WITH_3DES_EDE_CBC_SHA
+#
+# Note:
+# -. Equivalent cipher suites (cipher suites with same priority in server side):
+#    CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+#    CipherSuites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+#
+CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+CipherSuites=TLS_ECDHE_RSA_WITH_RC4_128_SHA
+CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+CipherSuites=TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+CipherSuites=TLS_RSA_WITH_RC4_128_SHA
+CipherSuites=TLS_RSA_WITH_AES_128_CBC_SHA
+CipherSuites=TLS_RSA_WITH_AES_256_CBC_SHA
 
-<span class="c1"># supported curve perference settings</span>
-<span class="c1">#</span>
-<span class="c1"># curves implemented in golang: </span>
-<span class="c1">#     CurveP256 </span>
-<span class="c1">#     CurveP384 </span>
-<span class="c1">#     CurveP521</span>
-<span class="c1">#</span>
-<span class="c1"># Note:</span>
-<span class="c1"># - Do not use CurveP384/CurveP521 which is with poor performance</span>
-<span class="c1">#</span>
-<span class="na">CurvePreferences</span><span class="o">=</span><span class="s">CurveP256</span>
+# supported curve perference settings
+#
+# curves implemented in golang: 
+#     CurveP256 
+#     CurveP384 
+#     CurveP521
+#
+# Note:
+# - Do not use CurveP384/CurveP521 which is with poor performance
+#
+CurvePreferences=CurveP256
 
-<span class="c1"># support Sslv2 ClientHello for compatible with ancient </span>
-<span class="c1"># TLS capable clients (mozilla 5, java 5/6, openssl 0.9.8 etc)</span>
-<span class="na">EnableSslv2ClientHello</span> <span class="o">=</span> <span class="s">true</span>
+# support Sslv2 ClientHello for compatible with ancient 
+# TLS capable clients (mozilla 5, java 5/6, openssl 0.9.8 etc)
+EnableSslv2ClientHello = true
 
-<span class="c1"># client ca certificates base directory</span>
-<span class="c1"># Note: filename suffix for ca certificate file should be &quot;.crt&quot;, eg. example_ca_bundle.crt</span>
-<span class="na">ClientCABaseDir</span> <span class="o">=</span> <span class="s">tls_conf/client_ca</span>
+# client ca certificates base directory
+# Note: filename suffix for ca certificate file should be &quot;.crt&quot;, eg. example_ca_bundle.crt
+ClientCABaseDir = tls_conf/client_ca
 
-<span class="k">[SessionCache]</span>
-<span class="c1"># disable tls session cache or not</span>
-<span class="na">SessionCacheDisabled</span> <span class="o">=</span> <span class="s">true</span>
+[SessionCache]
+# disable tls session cache or not
+SessionCacheDisabled = true
 
-<span class="c1"># tcp address of redis server</span>
-<span class="na">Servers</span> <span class="o">=</span> <span class="s">&quot;example.redis.cluster&quot;</span>
+# tcp address of redis server
+Servers = &quot;example.redis.cluster&quot;
 
-<span class="c1"># prefix for cache key</span>
-<span class="na">KeyPrefix</span> <span class="o">=</span> <span class="s">&quot;bfe&quot;</span>
+# prefix for cache key
+KeyPrefix = &quot;bfe&quot;
 
-<span class="c1"># connection params (ms)</span>
-<span class="na">ConnectTimeout</span> <span class="o">=</span> <span class="s">50</span>
-<span class="na">ReadTimeout</span> <span class="o">=</span> <span class="s">50</span>
-<span class="na">WriteTimeout</span> <span class="o">=</span> <span class="s">50</span>
+# connection params (ms)
+ConnectTimeout = 50
+ReadTimeout = 50
+WriteTimeout = 50
 
-<span class="c1"># max idle connections in connection pool</span>
-<span class="na">MaxIdle</span> <span class="o">=</span> <span class="s">20</span>
+# max idle connections in connection pool
+MaxIdle = 20
 
-<span class="c1"># expire time for tls session state (second)</span>
-<span class="na">SessionExpire</span> <span class="o">=</span> <span class="s">3600</span>
+# expire time for tls session state (second)
+SessionExpire = 3600
 
-<span class="k">[SessionTicket]</span>
-<span class="c1"># disable tls session ticket or not</span>
-<span class="na">SessionTicketsDisabled</span> <span class="o">=</span> <span class="s">true</span>
-<span class="c1"># session ticket key</span>
-<span class="na">SessionTicketKeyFile</span> <span class="o">=</span> <span class="s">tls_conf/session_ticket_key.data</span>
-</code></pre></div>
+[SessionTicket]
+# disable tls session ticket or not
+SessionTicketsDisabled = true
+# session ticket key
+SessionTicketKeyFile = tls_conf/session_ticket_key.data</code></pre>
                 
               
               
