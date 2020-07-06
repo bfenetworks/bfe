@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2825,22 +2825,21 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format</p>
 </tbody>
 </table>
 <h3 id="example">Example</h3>
-<div class="codehilite"><pre><span></span><code><span class="k">[Log]</span>
-<span class="c1"># filename prefix for log </span>
-<span class="na">LogPrefix</span> <span class="o">=</span> <span class="s">key</span>
+<pre class="codehilite"><code class="language-ini">[Log]
+# filename prefix for log 
+LogPrefix = key
 
-<span class="c1"># log directory </span>
-<span class="na">LogDir</span> <span class="o">=</span> <span class="s">../log</span>
+# log directory 
+LogDir = ../log
 
-<span class="c1"># interval to rotate logs: M/H/D</span>
-<span class="c1"># - M: minute</span>
-<span class="c1"># - H: hour</span>
-<span class="c1"># - D: day</span>
-<span class="na">RotateWhen</span> <span class="o">=</span> <span class="s">H </span>
+# interval to rotate logs: M/H/D
+# - M: minute
+# - H: hour
+# - D: day
+RotateWhen = H 
 
-<span class="c1"># max number of rotated log files</span>
-<span class="na">BackupCount</span> <span class="o">=</span> <span class="s">3</span>
-</code></pre></div>
+# max number of rotated log files
+BackupCount = 3</code></pre>
                 
               
               
