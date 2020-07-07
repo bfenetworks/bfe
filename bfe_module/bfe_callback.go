@@ -75,8 +75,8 @@ func NewBfeCallbacks() *BfeCallbacks {
 
 	// create handler list for each callback point
 	// for HandlesAccept
-	bfeCallbacks.callbacks[HandleAccept] = NewHandlerList(HandleAccept)
-	bfeCallbacks.callbacks[HandleHandshake] = NewHandlerList(HandleAccept)
+	bfeCallbacks.callbacks[HandleAccept] = NewHandlerList(HandlersAccept)
+	bfeCallbacks.callbacks[HandleHandshake] = NewHandlerList(HandlersAccept)
 
 	// for HandlersRequest
 	bfeCallbacks.callbacks[HandleBeforeLocation] = NewHandlerList(HandlersRequest)
