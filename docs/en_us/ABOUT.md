@@ -1,4 +1,4 @@
-BFE is an open-source layer 7 load balancer derived from proprietary Baidu Front End.
+BFE is an open-source layer 7 load balancer from proprietary Baidu.
 
 The BFE documentation is composed of a few major sections:
 
