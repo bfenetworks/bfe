@@ -92,13 +92,13 @@ func (back *BfeBackend) setAvail(avail bool) {
 
 func (back *BfeBackend) ConnNum() int {
 	back.RLock()
-	conns := back.connNum
+	connNum := back.connNum
 	back.RUnlock()
 
-	return conns
+	return connNum
 }
 
-func (back *BfeBackend) AddConnNum() {
+func (back *BfeBackend) IncConnNum() {
 	back.Lock()
 	back.connNum++
 	back.Unlock()

@@ -225,7 +225,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 		}
 
 		// err == nil if and only if we choose a new backend,
-		// desc old backend connection num
+		// decr old backend connection num
 		if request.Trans.Backend != nil {
 			request.Trans.Backend.DecConnNum()
 			request.Trans.Backend = nil
@@ -252,7 +252,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 
 		// set backend addr to out request
 		backend := request.Trans.Backend
-		backend.AddConnNum()
+		backend.IncConnNum()
 		setBackendAddr(outreq, backend)
 
 		// invoke backend
