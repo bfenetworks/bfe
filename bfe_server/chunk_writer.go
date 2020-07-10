@@ -317,11 +317,14 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 
 	// get Res-length from response header
 	// see mod_http_sign
-	resLength := header.GetDirect("Res-Length")
-	hijackDectctResLength, err := strconv.Atoi(resLength)
-	if err != nil {
-		log.Logger.Debug("Get Res-Length failed, err %s", err)
-		hijackDectctResLength = -1
+	var hijackDectctResLength int = -1
+	if resLength := header.GetDirect("Res-Length"); resLength != "" {
+		if v, err := strconv.Atoi(resLength); err == nil {
+			hijackDectctResLength = v
+		} else {
+			log.Logger.Debug("Get Res-Length failed, resLength=%s, err=%s", resLength, err)
+			header.Del("Res-Length")
+		}
 	}
 
 	// If this was an HTTP/1.0 request with keep-alive and we sent a
