@@ -16,16 +16,16 @@ Modify example configurations (conf/) as the following steps:
 Modules = mod_block   #enable mod_block
 ```
 
-* Step 2. Modify conf/mod_block/mod_block.conf and configure path of global ip blacklist and block rules
+* Step 2. Modify conf/mod_block/mod_block.conf and configure path of global ip blocklist and block rules
   
 ```ini
 [basic]
 ProductRulePath = mod_block/block_rules.data
 
-IPBlacklistPath = mod_block/ip_blacklist.data
+IPBlocklistPath = mod_block/ip_blocklist.data
 ```
   
-* Step 3. Configure global blacklist (conf/mod_block/ip_blacklist.data)
+* Step 3. Configure global blocklist (conf/mod_block/ip_blocklist.data)
   
 Config ip address list, such as 2.2.2.2
   
