@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Create listeners in the final initialization step
 - Change package name to 'github.com/bfenetworks/bfe'
 
+### Removed
+- Drops words like blacklist from programming to make vocabulary more inclusive
+- Remove legacy signature of response
+
 ### Fixed
 - Fix getTransport() and modify transports map with write lock
 
