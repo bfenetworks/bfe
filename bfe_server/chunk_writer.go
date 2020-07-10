@@ -315,18 +315,6 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 		setHeader.contentLength = strconv.AppendInt(cw.res.clenBuf[:0], int64(len(p)), 10)
 	}
 
-	// get Res-length from response header
-	// see mod_http_sign
-	var hijackDectctResLength int = -1
-	if resLength := header.GetDirect("Res-Length"); resLength != "" {
-		if v, err := strconv.Atoi(resLength); err == nil {
-			hijackDectctResLength = v
-		} else {
-			log.Logger.Debug("Get Res-Length failed, resLength=%s, err=%s", resLength, err)
-			header.Del("Res-Length")
-		}
-	}
-
 	// If this was an HTTP/1.0 request with keep-alive and we sent a
 	// Content-Length back, we can make this a keep-alive response ...
 	if w.req.WantsHttp10KeepAlive() {
@@ -441,9 +429,6 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 		}
 	}
 
-	// set signature headers for response
-	cw.setSignField(setHeader.transferEncoding, cw.res.contentLength, hijackDectctResLength)
-
 	prev := w.conn.buf.TotalWrite
 	w.conn.buf.WriteString(statusLine(w.req, code))
 	cw.header.WriteSubset(w.conn.buf, excludeHeader)
@@ -451,28 +436,4 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 
 	w.conn.buf.Write(crlf)
 	w.headerWritten = int64(w.conn.buf.TotalWrite - prev)
-}
-
-func (cw *chunkWriter) setSignField(transferEncoding string, contentLength int64, hijackDectctResLength int) {
-	if cw.Signer == nil {
-		return
-	}
-
-	// use res-length first
-	if hijackDectctResLength != -1 {
-		log.Logger.Debug("http: writeSignField(): use Res-Length %d %s", hijackDectctResLength, strconv.Itoa(hijackDectctResLength))
-		signature := cw.Signer.CalcSign(strconv.Itoa(hijackDectctResLength))
-		cw.header.Set("X-Res-Oc", signature)
-	}
-
-	if transferEncoding == "chunked" {
-		log.Logger.Debug("http: writeSignField(): chunked encoding")
-		cw.header.Set("X-Bd-Oc", "0")
-	} else if contentLength != -1 {
-		log.Logger.Debug("http: writeSignField(): not chunked, with valid content length %d %s", contentLength, strconv.FormatInt(contentLength, 10))
-		signature := cw.Signer.CalcSign(strconv.FormatInt(contentLength, 10))
-		cw.header.Set("X-Bd-Oc", signature)
-	} else {
-		log.Logger.Debug("http: writeSignField(): not chunked, without valid content Length")
-	}
 }
