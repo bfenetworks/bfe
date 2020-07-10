@@ -39,7 +39,7 @@ const (
 )
 
 var (
-	ERR_BLACKLIST = errors.New("BLACKLIST")
+	ERR_BLOCKLIST = errors.New("BLOCKLIST")
 )
 
 var (
@@ -67,10 +67,10 @@ type ModuleBlock struct {
 	metrics metrics.Metrics
 
 	productRulePath string // path of block rule data file
-	ipBlacklistPath string // path of ip blacklist data file
+	ipBlocklistPath string // path of ip blocklist data file
 
 	ruleTable *ProductRuleTable // table for product block rules
-	ipTable   *ipdict.IPTable   // table for global ip blacklist
+	ipTable   *ipdict.IPTable   // table for global ip blocklist
 }
 
 func NewModuleBlock() *ModuleBlock {
@@ -88,13 +88,13 @@ func (m *ModuleBlock) Name() string {
 	return m.name
 }
 
-// loadGlobalIPTable loads global ip blacklist.
+// loadGlobalIPTable loads global ip blocklist.
 func (m *ModuleBlock) loadGlobalIPTable(query url.Values) error {
 	// get reload file path
 	path := query.Get("path")
 	if path == "" {
 		// use default
-		path = m.ipBlacklistPath
+		path = m.ipBlocklistPath
 	}
 
 	// load data
@@ -136,7 +136,7 @@ func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {
 
 	clientIP := session.RemoteAddr.IP
 	if m.ipTable.Search(clientIP) {
-		session.SetError(ERR_BLACKLIST, "connection blocked")
+		session.SetError(ERR_BLOCKLIST, "connection blocked")
 		log.Logger.Debug("%s refuse connection (remote: %v)",
 			m.name, session.RemoteAddr)
 		m.state.ConnRefuse.Inc(1)
@@ -188,7 +188,7 @@ func (m *ModuleBlock) productRulesProcess(req *bfe_basic.Request, rules *blockRu
 
 			switch rule.Action.Cmd {
 			case "CLOSE":
-				req.ErrCode = ERR_BLACKLIST
+				req.ErrCode = ERR_BLOCKLIST
 				log.Logger.Debug("%s block connection (rule:%v, remote:%s)",
 					m.name, rule, req.RemoteAddr)
 				m.state.ReqRefuse.Inc(1)
@@ -248,7 +248,7 @@ func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 	}
 
 	m.productRulePath = conf.Basic.ProductRulePath
-	m.ipBlacklistPath = conf.Basic.IPBlacklistPath
+	m.ipBlocklistPath = conf.Basic.IPBlocklistPath
 	openDebug = conf.Log.OpenDebug
 
 	// load conf data
