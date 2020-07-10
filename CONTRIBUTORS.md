@@ -3,9 +3,12 @@
 
 | Name | Github Account |
 | ---- | -------------- |
+| Aifang Xu | flyanna |
 | Caiyuan Yang | jansci621 |
+| Chao Wang | Corey-Wang |
 | Chongmiao Liu | lcmmhcc |
 | Daniel Sutton | ducksecops |
+| Dechuang Gu | hellogdc |
 | Derek Zheng | shanhuhai5739 |
 | Hao Dong | anotherwriter |
 | Haobin zhang | zhanghaobin |
@@ -30,6 +33,7 @@
 | Shuai Yan | yanshuai615270 |
 | Sijie Yang | iyangsj |
 | Tianqi Zhang | NKztq |
+| Weiqiang Zheng | wrayzheng |
 | Wenjie Tian | WJTian |
 | Wenlong Chen | LeroChen |
 | Wensi Yang | tianxinheihei | 
@@ -39,6 +43,8 @@
 | Xiaoye Jiang | kidleaf-jiang |
 | Xin Li | lx-or-xxxl |
 | Yang Liu | dut-yangliu |
+| Yusheng Sun | wodedipanr |
+| Yuan Liu | lewisay |
 | Yuqi Xiao | YuqiXiao |
 | Zheng Liu | liuzheng |
 | Zhichao Lin | lxiaozhic |
