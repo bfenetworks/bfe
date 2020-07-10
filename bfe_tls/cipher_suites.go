@@ -129,7 +129,7 @@ func CheckSuiteRSA(id uint16) bool {
 		return true
 	case TLS_RSA_WITH_3DES_EDE_CBC_SHA:
 		return true
-        case TLS_RSA_WITH_SM4_SM3:
+	case TLS_RSA_WITH_SM4_SM3:
 		return true
 	}
 	return false
