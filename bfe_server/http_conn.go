@@ -577,9 +577,9 @@ func (c *conn) serveRequest(w bfe_http.ResponseWriter, request *bfe_basic.Reques
 	return
 }
 
-// validNPN reports whether the proto is not a blacklisted Next
+// validNPN reports whether the proto is not a blocklisted Next
 // Protocol Negotiation protocol.  Empty and built-in protocol types
-// are blacklisted and can't be overridden with alternate
+// are blocklisted and can't be overridden with alternate
 // implementations.
 func validNPN(proto string) bool {
 	switch proto {

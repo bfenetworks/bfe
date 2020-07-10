@@ -24,10 +24,10 @@ Modules = mod_block   #启用mod_block
 ProductRulePath = mod_block/block_rules.data
 
 # IP黑名单文件路径
-IPBlacklistPath = mod_block/ip_blacklist.data
+IPBlocklistPath = mod_block/ip_blocklist.data
 ```
   
-* Step 3. 配置全局IP黑名单 (mod_block/ip_blacklist.data)
+* Step 3. 配置全局IP黑名单 (mod_block/ip_blocklist.data)
   
  通过IP黑名单封禁IP地址：2.2.2.2
   
