@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -2781,17 +2781,20 @@ RU5ErkJggg==" ></image>
 <p>BFE has a variety of built-in metrics which can be exposed in various formats.</p>
 <h2 id="configure-monitor-port">Configure monitor port</h2>
 <p>Set monitor port in the BFE core configuration file (conf/bfe.conf).</p>
-<pre class="codehilite"><code class="language-ini">[Server]
-MonitorPort = 8421</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="k">[Server]</span>
+<span class="na">MonitorPort</span> <span class="o">=</span> <span class="s">8421</span>
+</code></pre></div>
 
 
 <h2 id="fetch-metric-categories">Fetch metric categories</h2>
 <p>Visit the following address for a list of available metric categories</p>
-<pre class="codehilite"><code>http://&lt;addr&gt;:8421/monitor</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="c">http://&lt;addr&gt;:8421/monitor</span>
+</code></pre></div>
 
 
 <h2 id="fetch-metrics">Fetch metrics</h2>
-<pre class="codehilite"><code>http://&lt;addr&gt;:8421/monitor/&lt;category&gt;</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="c">http://&lt;addr&gt;:8421/monitor/&lt;category&gt;</span>
+</code></pre></div>
 
 
 <h2 id="fetch-metric-data-in-specified-format">Fetch metric data in specified format</h2>
@@ -2802,7 +2805,8 @@ MonitorPort = 8421</code></pre>
 <li>json (default)</li>
 </ul>
 <p>Specify the format of the output like below:</p>
-<pre class="codehilite"><code>http://&lt;addr&gt;:8421/monitor/proxy_state?format=prometheus</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="c">http://&lt;addr&gt;:8421/monitor/proxy_state?format=prometheus</span>
+</code></pre></div>
                 
               
               

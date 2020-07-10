@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -2808,13 +2808,15 @@ RU5ErkJggg==" ></image>
 <h2 id="_2">删除远程分支</h2>
 <p>在 PR 被 merge 进主仓库后，我们可以在 PR 的页面删除远程仓库的分支。</p>
 <p>也可以使用 <code>git push origin :分支名</code> 删除远程分支，如：</p>
-<pre class="codehilite"><code class="language-bash">$ git push origin :my-cool-stuff</code></pre>
+<div class="codehilite"><pre><span></span><code>$ git push origin :my-cool-stuff
+</code></pre></div>
 
 
 <h2 id="_3">删除本地分支</h2>
 <p>最后，删除本地分支。</p>
-<pre class="codehilite"><code class="language-bash">$ git checkout develop # 切换到 develop 分支
-$ git branch -D my-cool-stuff # 删除 my-cool-stuff 分支</code></pre>
+<div class="codehilite"><pre><span></span><code>$ git checkout develop <span class="c1"># 切换到 develop 分支</span>
+$ git branch -D my-cool-stuff <span class="c1"># 删除 my-cool-stuff 分支</span>
+</code></pre></div>
 
 
 <p>至此，我们就完成了一次代码贡献的过程。</p>

@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -2808,13 +2808,15 @@ RU5ErkJggg==" ></image>
 <h2 id="delete-remote-branch">Delete remote branch</h2>
 <p>We can delete branches of remote repository in PR page after your PR is successfully merged into master repository.</p>
 <p>We can also delete the branch of remote repository with <code>git push origin :the_branch_name</code>, such as:</p>
-<pre class="codehilite"><code class="language-bash">$ git push origin :my-cool-stuff</code></pre>
+<div class="codehilite"><pre><span></span><code>$ git push origin :my-cool-stuff
+</code></pre></div>
 
 
 <h2 id="delete-local-branch">Delete local branch</h2>
 <p>Finally,we delete local branch</p>
-<pre class="codehilite"><code class="language-bash">$ git checkout develop # switch to develop branch
-$ git branch -D my-cool-stuff # delete my-cool-stuff branch</code></pre>
+<div class="codehilite"><pre><span></span><code>$ git checkout develop <span class="c1"># switch to develop branch</span>
+$ git branch -D my-cool-stuff <span class="c1"># delete my-cool-stuff branch</span>
+</code></pre></div>
 
 
 <p>And now we finish a full process of code contribution</p>

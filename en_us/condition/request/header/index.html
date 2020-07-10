@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -2834,13 +2834,14 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">// right：
-req_header_key_in(&quot;Header-Test&quot;)
+<div class="codehilite"><pre><span></span><code><span class="c1">// right：</span>
+<span class="nx">req_header_key_in</span><span class="p">(</span><span class="s">&quot;Header-Test&quot;</span><span class="p">)</span>
 
-// wrong：
-req_header_key_in(&quot;Header-test&quot;)
-req_header_key_in(&quot;header-test&quot;)
-req_header_key_in(&quot;header-Test&quot;)</code></pre>
+<span class="c1">// wrong：</span>
+<span class="nx">req_header_key_in</span><span class="p">(</span><span class="s">&quot;Header-test&quot;</span><span class="p">)</span>
+<span class="nx">req_header_key_in</span><span class="p">(</span><span class="s">&quot;header-test&quot;</span><span class="p">)</span>
+<span class="nx">req_header_key_in</span><span class="p">(</span><span class="s">&quot;header-Test&quot;</span><span class="p">)</span>
+</code></pre></div>
 
 
 <h2 id="req_header_value_inheader_name-value_list-case_insensitive">req_header_value_in(header_name, value_list, case_insensitive)</h2>
@@ -2878,7 +2879,8 @@ req_header_key_in(&quot;header-Test&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_header_value_in(&quot;Referer&quot;, &quot;https://example.org/login&quot;, true)</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_header_value_in</span><span class="p">(</span><span class="s">&quot;Referer&quot;</span><span class="p">,</span> <span class="s">&quot;https://example.org/login&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
+</code></pre></div>
 
 
 <h2 id="req_header_value_prefix_inheader_name-value_prefix_list-case_insensitive">req_header_value_prefix_in(header_name, value_prefix_list, case_insensitive)</h2>
@@ -2915,7 +2917,8 @@ req_header_key_in(&quot;header-Test&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_header_prefix_value_in(&quot;Referer&quot;, &quot;https://example.org&quot;, true)</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_header_prefix_value_in</span><span class="p">(</span><span class="s">&quot;Referer&quot;</span><span class="p">,</span> <span class="s">&quot;https://example.org&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
+</code></pre></div>
 
 
 <h2 id="req_header_value_suffix_inheader_name-value_suffix_list-case_insensitive">req_header_value_suffix_in(header_name, value_suffix_list, case_insensitive)</h2>
@@ -2952,7 +2955,8 @@ req_header_key_in(&quot;header-Test&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_header_suffix_value_in(&quot;User-Agent&quot;, &quot;2.0.4&quot;, true)</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_header_suffix_value_in</span><span class="p">(</span><span class="s">&quot;User-Agent&quot;</span><span class="p">,</span> <span class="s">&quot;2.0.4&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
+</code></pre></div>
 
 
 <h2 id="req_header_value_hash_inheader_name-value_list-case_insensitive">req_header_value_hash_in(header_name, value_list, case_insensitive)</h2>
@@ -2989,7 +2993,8 @@ req_header_key_in(&quot;header-Test&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_header_value_hash_in(&quot;X-Device-Id&quot;, &quot;100-200|400&quot;, true)</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_header_value_hash_in</span><span class="p">(</span><span class="s">&quot;X-Device-Id&quot;</span><span class="p">,</span> <span class="s">&quot;100-200|400&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
+</code></pre></div>
 
 
 <h2 id="req_header_value_containheader_name-value_list-case_insensitive">req_header_value_contain(header_name, value_list, case_insensitive)</h2>
@@ -3026,7 +3031,8 @@ req_header_key_in(&quot;header-Test&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_header_value_contain(&quot;User-Agent&quot;, &quot;Firefox|Chrome&quot;, true)</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_header_value_contain</span><span class="p">(</span><span class="s">&quot;User-Agent&quot;</span><span class="p">,</span> <span class="s">&quot;Firefox|Chrome&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
+</code></pre></div>
                 
               
               

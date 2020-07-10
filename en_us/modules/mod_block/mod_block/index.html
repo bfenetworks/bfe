@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -2890,23 +2890,25 @@ RU5ErkJggg==" ></image>
 <td>Path of product rule configuration</td>
 </tr>
 <tr>
-<td>Basic.IPBlacklistPath</td>
-<td>Path of ip blacklist file</td>
+<td>Basic.IPBlocklistPath</td>
+<td>Path of ip blocklist file</td>
 </tr>
 </tbody>
 </table>
 <h3 id="example">Example</h3>
-<pre class="codehilite"><code class="language-ini">[Basic]
-# product rule config file path
-ProductRulePath = mod_block/block_rules.data
+<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
+<span class="c1"># product rule config file path</span>
+<span class="na">ProductRulePath</span> <span class="o">=</span> <span class="s">mod_block/block_rules.data</span>
 
-# global ip blacklist file path
-IPBlacklistPath = mod_block/ip_blacklist.data</code></pre>
+<span class="c1"># global ip blocklist file path</span>
+<span class="na">IPBlocklistPath</span> <span class="o">=</span> <span class="s">mod_block/ip_blocklist.data</span>
+</code></pre></div>
 
 
-<p>Format of IPBlacklistPath file</p>
-<pre class="codehilite"><code>192.168.1.253 192.168.1.254
-192.168.1.250</code></pre>
+<p>Format of IPBlocklistPath file</p>
+<div class="codehilite"><pre><span></span><code><span class="err">192.168.1.253 192.168.1.254</span>
+<span class="err">192.168.1.250</span>
+</code></pre></div>
 
 
 <h2 id="rule-configuration">Rule Configuration</h2>
@@ -2982,21 +2984,22 @@ IPBlacklistPath = mod_block/ip_blacklist.data</code></pre>
 </tbody>
 </table>
 <h3 id="example_1">Example</h3>
-<pre class="codehilite"><code class="language-json">{
-  &quot;Version&quot;: &quot;20190101000000&quot;,
-  &quot;Config&quot;: {
-      &quot;example_product&quot;: [
-          {
-            &quot;action&quot;: {
-                  &quot;cmd&quot;: &quot;CLOSE&quot;,
-                  &quot;params&quot;: []
-              },
-              &quot;name&quot;: &quot;example rule&quot;,
-              &quot;cond&quot;: &quot;req_path_in(\&quot;/limit\&quot;, false)&quot;            
-          }
-      ]
-  }
-}</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+  <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+      <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
+          <span class="p">{</span>
+            <span class="nt">&quot;action&quot;</span><span class="p">:</span> <span class="p">{</span>
+                  <span class="nt">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;CLOSE&quot;</span><span class="p">,</span>
+                  <span class="nt">&quot;params&quot;</span><span class="p">:</span> <span class="p">[]</span>
+              <span class="p">},</span>
+              <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;example rule&quot;</span><span class="p">,</span>
+              <span class="nt">&quot;cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_path_in(\&quot;/limit\&quot;, false)&quot;</span>            
+          <span class="p">}</span>
+      <span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
 
 
 <h2 id="metrics">Metrics</h2>

@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -2767,15 +2767,17 @@ RU5ErkJggg==" ></image>
 <p>BFE内置了CPU profile接口，配合使用火焰图工具，用于定位分析性能问题</p>
 <h2 id="_2">配置管理端口</h2>
 <p>在BFE核心配置文件(conf/bfe.conf)中, 配置MonitorPort</p>
-<pre class="codehilite"><code class="language-ini">[Server]
-MonitorPort = 8421</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="k">[Server]</span>
+<span class="na">MonitorPort</span> <span class="o">=</span> <span class="s">8421</span>
+</code></pre></div>
 
 
 <h2 id="_3">工具准备</h2>
 <ul>
 <li>FlameGragh</li>
 </ul>
-<pre class="codehilite"><code class="language-bash">$ git clone https://github.com/brendangregg/FlameGraph</code></pre>
+<div class="codehilite"><pre><span></span><code>$ git clone https://github.com/brendangregg/FlameGraph
+</code></pre></div>
 
 
 <p>其中包含stackcollpase-go.pl和flamegraph.pl</p>
@@ -2783,15 +2785,17 @@ MonitorPort = 8421</code></pre>
 <ul>
 <li>获取性能采样数据</li>
 </ul>
-<pre class="codehilite"><code class="language-bash">$ go tool pprof -seconds=60 -raw -output=bfe.pprof  http://&lt;addr&gt;:&lt;port&gt;/debug/pprof/profile</code></pre>
+<div class="codehilite"><pre><span></span><code>$ go tool pprof -seconds<span class="o">=</span><span class="m">60</span> -raw -output<span class="o">=</span>bfe.pprof  http://&lt;addr&gt;:&lt;port&gt;/debug/pprof/profile
+</code></pre></div>
 
 
 <p>注：seconds=60 表示抓取60s的采样数据</p>
 <ul>
 <li>转换并绘制火焰图</li>
 </ul>
-<pre class="codehilite"><code class="language-bash">$ ./stackcollpase-go.pl bfe.pporf &gt; bfe.flame
-$ ./flamegraph.pl bfe.flame &gt; bfe.svg</code></pre>
+<div class="codehilite"><pre><span></span><code>$ ./stackcollpase-go.pl bfe.pporf &gt; bfe.flame
+$ ./flamegraph.pl bfe.flame &gt; bfe.svg
+</code></pre></div>
 
 
 <ul>

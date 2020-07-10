@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -2762,40 +2762,44 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>Step 1. Modify conf/bfe.conf and enable mod_rewrite</li>
 </ul>
-<pre class="codehilite"><code class="language-ini">Modules = mod_rewrite  # enable mod_rewrite</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="na">Modules</span> <span class="o">=</span> <span class="s">mod_rewrite  # enable mod_rewrite</span>
+</code></pre></div>
 
 
 <ul>
 <li>Step 2. Modify conf/mod_rewrite/mod_rewrite.conf and set the rule configuration file</li>
 </ul>
-<pre class="codehilite"><code class="language-ini">[basic]
-DataPath = mod_rewrite/rewrite.data</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="k">[basic]</span>
+<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_rewrite/rewrite.data</span>
+</code></pre></div>
 
 
 <ul>
 <li>Step 3. Modify rewrite rules configuration</li>
 </ul>
-<pre class="codehilite"><code class="language-json">{
-    &quot;Version&quot;: &quot;init version&quot;,
-    &quot;Config&quot;: {
-        &quot;example_product&quot;: [{
-            &quot;Cond&quot;: &quot;req_path_prefix_in(\&quot;/service\&quot;, false)&quot;,
-            &quot;Actions&quot;: [{
-                &quot;Cmd&quot;: &quot;PATH_PREFIX_ADD&quot;,
-                &quot;Params&quot;: [
-                    &quot;/v1/&quot;
-                ]
-            }],
-            &quot;Last&quot;: true
-        }]
-    }
-}</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[{</span>
+            <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_path_prefix_in(\&quot;/service\&quot;, false)&quot;</span><span class="p">,</span>
+            <span class="nt">&quot;Actions&quot;</span><span class="p">:</span> <span class="p">[{</span>
+                <span class="nt">&quot;Cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;PATH_PREFIX_ADD&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Params&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="s2">&quot;/v1/&quot;</span>
+                <span class="p">]</span>
+            <span class="p">}],</span>
+            <span class="nt">&quot;Last&quot;</span><span class="p">:</span> <span class="kc">true</span>
+        <span class="p">}]</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
 
 
 <ul>
 <li>Step 4. Verify configured rules</li>
 </ul>
-<pre class="codehilite"><code class="language-bash">curl -H &quot;host: example.org&quot; &quot;http://127.1:8080/service&quot;</code></pre>
+<div class="codehilite"><pre><span></span><code>curl -H <span class="s2">&quot;host: example.org&quot;</span> <span class="s2">&quot;http://127.1:8080/service&quot;</span>
+</code></pre></div>
 
 
 <p>The final path of request received by service 'cluster_demo_dynamic' is 'v1/service'.</p>

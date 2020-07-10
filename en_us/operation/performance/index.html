@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -2767,15 +2767,17 @@ RU5ErkJggg==" ></image>
 <p>BFE has built-in CPU profile interfaces, which can be used in conjunction with the FlameGraph tool to locate and analyze performance problems.</p>
 <h2 id="configure-monitor-port">Configure monitor port</h2>
 <p>Set monitor port in the BFE core configuration file (conf/bfe.conf).</p>
-<pre class="codehilite"><code class="language-ini">[Server]
-MonitorPort = 8421</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="k">[Server]</span>
+<span class="na">MonitorPort</span> <span class="o">=</span> <span class="s">8421</span>
+</code></pre></div>
 
 
 <h2 id="tools">Tools</h2>
 <ul>
 <li>FlameGragh</li>
 </ul>
-<pre class="codehilite"><code class="language-bash">$ git clone https://github.com/brendangregg/FlameGraph</code></pre>
+<div class="codehilite"><pre><span></span><code>$ git clone https://github.com/brendangregg/FlameGraph
+</code></pre></div>
 
 
 <p>Which contains stackcollpase-go.pl and flamegraph.pl tools</p>
@@ -2783,15 +2785,17 @@ MonitorPort = 8421</code></pre>
 <ul>
 <li>Get performance sampling data</li>
 </ul>
-<pre class="codehilite"><code class="language-bash">$ go tool pprof -seconds=60 -raw -output=bfe.pprof  http://&lt;addr&gt;:&lt;port&gt;/debug/pprof/profile</code></pre>
+<div class="codehilite"><pre><span></span><code>$ go tool pprof -seconds<span class="o">=</span><span class="m">60</span> -raw -output<span class="o">=</span>bfe.pprof  http://&lt;addr&gt;:&lt;port&gt;/debug/pprof/profile
+</code></pre></div>
 
 
 <p>Note: seconds=60 means capturing 60 seconds of stack samples</p>
 <ul>
 <li>Transform and draw FlameGraph</li>
 </ul>
-<pre class="codehilite"><code class="language-bash">$ ./stackcollpase-go.pl bfe.pporf &gt; bfe.flame
-$ ./flamegraph.pl bfe.flame &gt; bfe.svg</code></pre>
+<div class="codehilite"><pre><span></span><code>$ ./stackcollpase-go.pl bfe.pporf &gt; bfe.flame
+$ ./flamegraph.pl bfe.flame &gt; bfe.svg
+</code></pre></div>
 
 
 <ul>

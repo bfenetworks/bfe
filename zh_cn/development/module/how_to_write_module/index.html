@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -2968,7 +2968,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>对每个模块可以有一个或多个这样的配置文件</li>
 <li>配置文件的名字一般以.data结尾</li>
-<li>如：在mod_block下有 block_rules.data 和 ip_blacklist.data</li>
+<li>如：在mod_block下有 block_rules.data 和 ip_blocklist.data</li>
 </ul>
 </li>
 </ul>
@@ -2987,11 +2987,12 @@ RU5ErkJggg==" ></image>
 <h3 id="_7">配置的动态加载</h3>
 <p>对于可动态加载的配置，需要在BFE用于监控和加载的专用web server上做回调注册。这样，通过访问BFE对外监控端口的特定URL，就可以触发某个配置的动态加载。</p>
 <p>例如，在mod_block的初始化函数中，可以看到类似下面的逻辑，就是在注册配置加载的回调(详见<a href="https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go">mod_block.go</a>):</p>
-<pre class="codehilite"><code class="language-golang">    // register web handler for reload
-    err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
-    if err != nil {
-      ...
-    }</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="err">    // register web handler for reload</span>
+<span class="err">    err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)</span>
+<span class="err">    if err != nil {</span>
+<span class="err">      ...</span>
+<span class="err">    }</span>
+</code></pre></div>
 
 
 <h2 id="_8">回调函数的编写和注册</h2>
@@ -2999,32 +3000,34 @@ RU5ErkJggg==" ></image>
 <p>根据模块的功能需求，选择合适的回调点，对应编写回调函数。</p>
 <p>注意，对于不同的回调点，回调函数的形式可能不同。BFE所提供的回调点和回调函数的形式，可参考<a href="../bfe_callback/">BFE的回调机制</a></p>
 <p>例如，在mod_block中，编写了以下两个回调函数(详见<a href="https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go">mod_block.go</a>)：</p>
-<pre class="codehilite"><code class="language-golang">func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {
-    ...
-}
+<div class="codehilite"><pre><span></span><code><span class="n">func</span> <span class="p">(</span><span class="n">m</span> <span class="o">*</span><span class="n">ModuleBlock</span><span class="p">)</span> <span class="n">globalBlockHandler</span><span class="p">(</span><span class="k">session</span> <span class="o">*</span><span class="n">bfe_basic</span><span class="p">.</span><span class="k">Session</span><span class="p">)</span> <span class="nb">int</span> <span class="err">{</span>
+    <span class="p">...</span>
+<span class="err">}</span>
 
-func (m *ModuleBlock) productBlockHandler(request *bfe_basic.Request) (int, *bfe_http.Response) {
-    ...
-}</code></pre>
+<span class="n">func</span> <span class="p">(</span><span class="n">m</span> <span class="o">*</span><span class="n">ModuleBlock</span><span class="p">)</span> <span class="n">productBlockHandler</span><span class="p">(</span><span class="n">request</span> <span class="o">*</span><span class="n">bfe_basic</span><span class="p">.</span><span class="n">Request</span><span class="p">)</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="o">*</span><span class="n">bfe_http</span><span class="p">.</span><span class="n">Response</span><span class="p">)</span> <span class="err">{</span>
+    <span class="p">...</span>
+<span class="err">}</span>
+</code></pre></div>
 
 
 <h3 id="_10">回调函数的注册</h3>
 <p>为了让回调函数生效，需要在模块初始化的时候对回调函数进行注册。</p>
 <p>例如，在mod_block中，回调函数的注册逻辑如下(详见<a href="https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go">mod_block.go</a>)：</p>
-<pre class="codehilite"><code class="language-golang">func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers, cr string) error {
-    ...
-    // register handler
-    err = cbs.AddFilter(bfe_module.HandleAccept, m.globalBlockHandler)
-    if err != nil {
-        ...
-    }
+<div class="codehilite"><pre><span></span><code><span class="n">func</span> <span class="p">(</span><span class="n">m</span> <span class="o">*</span><span class="n">ModuleBlock</span><span class="p">)</span> <span class="n">Init</span><span class="p">(</span><span class="n">cbs</span> <span class="o">*</span><span class="n">bfe_module</span><span class="p">.</span><span class="n">BfeCallbacks</span><span class="p">,</span> <span class="n">whs</span> <span class="o">*</span><span class="n">web_monitor</span><span class="p">.</span><span class="n">WebHandlers</span><span class="p">,</span> <span class="n">cr</span> <span class="n">string</span><span class="p">)</span> <span class="n">error</span> <span class="err">{</span>
+    <span class="p">...</span>
+    <span class="o">//</span> <span class="n">register</span> <span class="k">handler</span>
+    <span class="n">err</span> <span class="o">=</span> <span class="n">cbs</span><span class="p">.</span><span class="n">AddFilter</span><span class="p">(</span><span class="n">bfe_module</span><span class="p">.</span><span class="n">HandleAccept</span><span class="p">,</span> <span class="n">m</span><span class="p">.</span><span class="n">globalBlockHandler</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="n">nil</span> <span class="err">{</span>
+        <span class="p">...</span>
+    <span class="err">}</span>
 
-    err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.productBlockHandler)
-    if err != nil {
-        ...
-    }
-    ...
-}</code></pre>
+    <span class="n">err</span> <span class="o">=</span> <span class="n">cbs</span><span class="p">.</span><span class="n">AddFilter</span><span class="p">(</span><span class="n">bfe_module</span><span class="p">.</span><span class="n">HandleFoundProduct</span><span class="p">,</span> <span class="n">m</span><span class="p">.</span><span class="n">productBlockHandler</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="n">nil</span> <span class="err">{</span>
+        <span class="p">...</span>
+    <span class="err">}</span>
+    <span class="p">...</span>
+<span class="err">}</span>
+</code></pre></div>
 
 
 <h2 id="_11">模块状态的展示</h2>
@@ -3038,73 +3041,79 @@ func (m *ModuleBlock) productBlockHandler(request *bfe_basic.Request) (int, *bfe
 <h3 id="_12">定义状态变量</h3>
 <p>需要首先设计在模块中需要统计哪些值，并通过结构体成员变量的方式定义出来。</p>
 <p>如，在mod_block中，有如下定义(详见<a href="https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go">mod_block.go</a>)：</p>
-<pre class="codehilite"><code class="language-golang">type ModuleBlockState struct {
-    ConnTotal    *metrics.Counter // all connnetion checked
-    ConnAccept   *metrics.Counter // connection passed
-    ConnRefuse   *metrics.Counter // connection refused
-    ReqTotal     *metrics.Counter // all request in
-    ReqToCheck   *metrics.Counter // request to check
-    ReqAccept    *metrics.Counter // request accepted
-    ReqRefuse    *metrics.Counter // request refused
-    WrongCommand *metrics.Counter // request with condition satisfied, but wrong command
-}</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="err">type ModuleBlockState struct {</span>
+<span class="err">    ConnTotal    *metrics.Counter // all connnetion checked</span>
+<span class="err">    ConnAccept   *metrics.Counter // connection passed</span>
+<span class="err">    ConnRefuse   *metrics.Counter // connection refused</span>
+<span class="err">    ReqTotal     *metrics.Counter // all request in</span>
+<span class="err">    ReqToCheck   *metrics.Counter // request to check</span>
+<span class="err">    ReqAccept    *metrics.Counter // request accepted</span>
+<span class="err">    ReqRefuse    *metrics.Counter // request refused</span>
+<span class="err">    WrongCommand *metrics.Counter // request with condition satisfied, but wrong command</span>
+<span class="err">}</span>
+</code></pre></div>
 
 
 <p>然后，要在ModuleBlock中定义一个类型为ModuleBlockState的成员变量，还需要定义一个Metrics类型的成员变量，用于相关的计算。</p>
-<pre class="codehilite"><code class="language-golang">type ModuleBlock struct {
-    ...
-    state   ModuleBlockState // module state
-    metrics metrics.Metrics
-    ...</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="err">type ModuleBlock struct {</span>
+<span class="err">    ...</span>
+<span class="err">    state   ModuleBlockState // module state</span>
+<span class="err">    metrics metrics.Metrics</span>
+<span class="err">    ...</span>
+</code></pre></div>
 
 
 <p>然后，需要在构造函数中做初始化的操作</p>
-<pre class="codehilite"><code class="language-golang">func NewModuleBlock() *ModuleBlock {
-    m := new(ModuleBlock)
-    m.name = ModBlock
-    m.metrics.Init(&amp;m.state, ModBlock, 0)
-    ...
-}</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="err">func NewModuleBlock() *ModuleBlock {</span>
+<span class="err">    m := new(ModuleBlock)</span>
+<span class="err">    m.name = ModBlock</span>
+<span class="err">    m.metrics.Init(&amp;m.state, ModBlock, 0)</span>
+<span class="err">    ...</span>
+<span class="err">}</span>
+</code></pre></div>
 
 
 <h3 id="_13">注册显示内部状态的回调函数</h3>
 <p>为了可以通过BFE的监控端口查看模块的内部状态，需要首先实现回调函数。</p>
 <p>如，在mod_block中，有如下逻辑(详见<a href="https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go">mod_block.go</a>)，其中monitorHandlers()是回调函数：</p>
-<pre class="codehilite"><code class="language-golang">func (m *ModuleBlock) getState(params map[string][]string) ([]byte, error) {
-    s := m.metrics.GetAll()
-    return s.Format(params)
-}
+<div class="codehilite"><pre><span></span><code><span class="n">func</span><span class="w"> </span><span class="p">(</span><span class="n">m</span><span class="w"> </span><span class="o">*</span><span class="n">ModuleBlock</span><span class="p">)</span><span class="w"> </span><span class="n">getState</span><span class="p">(</span><span class="n">params</span><span class="w"> </span><span class="k">map</span><span class="o">[</span><span class="n">string</span><span class="o">]</span><span class="err">[]</span><span class="n">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="err">[]</span><span class="n">byte</span><span class="p">,</span><span class="w"> </span><span class="n">error</span><span class="p">)</span><span class="w"> </span><span class="err">{</span><span class="w"></span>
+<span class="w">    </span><span class="n">s</span><span class="w"> </span><span class="err">:</span><span class="o">=</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">metrics</span><span class="p">.</span><span class="n">GetAll</span><span class="p">()</span><span class="w"></span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="nf">Format</span><span class="p">(</span><span class="n">params</span><span class="p">)</span><span class="w"></span>
+<span class="err">}</span><span class="w"></span>
 
-func (m *ModuleBlock) getStateDiff(params map[string][]string) ([]byte, error) {
-    s := m.metrics.GetDiff()
-    return s.Format(params)
-}
+<span class="n">func</span><span class="w"> </span><span class="p">(</span><span class="n">m</span><span class="w"> </span><span class="o">*</span><span class="n">ModuleBlock</span><span class="p">)</span><span class="w"> </span><span class="n">getStateDiff</span><span class="p">(</span><span class="n">params</span><span class="w"> </span><span class="k">map</span><span class="o">[</span><span class="n">string</span><span class="o">]</span><span class="err">[]</span><span class="n">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="err">[]</span><span class="n">byte</span><span class="p">,</span><span class="w"> </span><span class="n">error</span><span class="p">)</span><span class="w"> </span><span class="err">{</span><span class="w"></span>
+<span class="w">    </span><span class="n">s</span><span class="w"> </span><span class="err">:</span><span class="o">=</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">metrics</span><span class="p">.</span><span class="n">GetDiff</span><span class="p">()</span><span class="w"></span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="nf">Format</span><span class="p">(</span><span class="n">params</span><span class="p">)</span><span class="w"></span>
+<span class="err">}</span><span class="w"></span>
 
-func (m *ModuleBlock) monitorHandlers() map[string]interface{} {
-    handlers := map[string]interface{}{
-        m.name:           m.getState,
-        m.name + &quot;.diff&quot;: m.getStateDiff,
-    }
-    return handlers
-}</code></pre>
+<span class="n">func</span><span class="w"> </span><span class="p">(</span><span class="n">m</span><span class="w"> </span><span class="o">*</span><span class="n">ModuleBlock</span><span class="p">)</span><span class="w"> </span><span class="n">monitorHandlers</span><span class="p">()</span><span class="w"> </span><span class="k">map</span><span class="o">[</span><span class="n">string</span><span class="o">]</span><span class="n">interface</span><span class="err">{}</span><span class="w"> </span><span class="err">{</span><span class="w"></span>
+<span class="w">    </span><span class="n">handlers</span><span class="w"> </span><span class="err">:</span><span class="o">=</span><span class="w"> </span><span class="k">map</span><span class="o">[</span><span class="n">string</span><span class="o">]</span><span class="n">interface</span><span class="err">{}{</span><span class="w"></span>
+<span class="w">        </span><span class="n">m</span><span class="p">.</span><span class="nl">name</span><span class="p">:</span><span class="w">           </span><span class="n">m</span><span class="p">.</span><span class="n">getState</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="n">m</span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="ss">&quot;.diff&quot;</span><span class="err">:</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">getStateDiff</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="err">}</span><span class="w"></span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">handlers</span><span class="w"></span>
+<span class="err">}</span><span class="w"></span>
+</code></pre></div>
 
 
 <p>然后，在模块的初始化时，需要注册这个回调函数</p>
-<pre class="codehilite"><code class="language-golang">    // register web handler for monitor
-    err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())
-    if err != nil {
-        ...
-    }</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="err">    // register web handler for monitor</span>
+<span class="err">    err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())</span>
+<span class="err">    if err != nil {</span>
+<span class="err">        ...</span>
+<span class="err">    }</span>
+</code></pre></div>
 
 
 <h3 id="_14">在代码中插入统计逻辑</h3>
 <p>在模块的执行逻辑中，可以插入一些统计的代码。</p>
 <p>如，在mod_block中，可以看到如下代码(详见<a href="https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go">mod_block.go</a>)：</p>
-<pre class="codehilite"><code class="language-golang">func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {
-    ...
-    m.state.ConnTotal.Inc(1)
-    ...
-}</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="err">func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {</span>
+<span class="err">    ...</span>
+<span class="err">    m.state.ConnTotal.Inc(1)</span>
+<span class="err">    ...</span>
+<span class="err">}</span>
+</code></pre></div>
                 
               
               
