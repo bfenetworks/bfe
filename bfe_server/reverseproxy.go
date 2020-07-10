@@ -144,12 +144,14 @@ func (p *ReverseProxy) setTransports(clusterMap bfe_route.ClusterMap) {
 // getTransport return transport from map, if not exist, create a transport.
 func (p *ReverseProxy) getTransport(cluster *bfe_cluster.BfeCluster) bfe_http.RoundTripper {
 	p.tsMu.RLock()
-	defer p.tsMu.RUnlock()
-
 	transport, ok := p.transports[cluster.Name]
+	p.tsMu.RUnlock()
+
 	if !ok {
 		transport = createTransport(cluster)
+		p.tsMu.Lock()
 		p.transports[cluster.Name] = transport
+		p.tsMu.Unlock()
 	}
 
 	return transport
@@ -225,7 +227,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 		}
 
 		// err == nil if and only if we choose a new backend,
-		// desc old backend connection num
+		// decr old backend connection num
 		if request.Trans.Backend != nil {
 			request.Trans.Backend.DecConnNum()
 			request.Trans.Backend = nil
@@ -252,7 +254,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 
 		// set backend addr to out request
 		backend := request.Trans.Backend
-		backend.AddConnNum()
+		backend.IncConnNum()
 		setBackendAddr(outreq, backend)
 
 		// invoke backend

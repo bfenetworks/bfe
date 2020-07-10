@@ -121,7 +121,7 @@ func (sc *serverConn) findBackend(req *http.Request) (net.Conn, *backend.BfeBack
 			log.Logger.Debug("bfe_websocket: balance error: %s ", err)
 			continue
 		}
-		backend.AddConnNum()
+		backend.IncConnNum()
 
 		// establish tcp conn to backend
 		timeout := time.Duration(sc.srv.connectTimeout()) * time.Millisecond
