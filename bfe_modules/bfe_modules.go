@@ -31,6 +31,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_http_code"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_key_log"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_logid"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_markdown"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_prison"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_redirect"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_rewrite"
@@ -99,6 +100,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_errors
 	mod_errors.NewModuleErrors(),
+
+	// mod_markdown
+	mod_markdown.NewModuleMarkdown(),
 
 	// mod_compress
 	mod_compress.NewModuleCompress(),

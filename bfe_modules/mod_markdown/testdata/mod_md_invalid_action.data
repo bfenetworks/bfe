@@ -1,0 +1,12 @@
+{
+	"Version": "",
+	"Config": {
+		"unittest": [
+			{
+				"Cond": "req_path_in(\"/md\", false)",
+				"Action": {
+				}
+			}
+	]
+	}
+}

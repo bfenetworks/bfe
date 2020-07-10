@@ -1,0 +1,288 @@
+<hr/>
+
+<p><strong>Advertisement :)</strong></p>
+
+<ul>
+<li><strong><a href="https://nodeca.github.io/pica/demo/" rel="nofollow">pica</a></strong> - high quality and fast image
+resize in browser.</li>
+<li><strong><a href="https://github.com/nodeca/babelfish/" rel="nofollow">babelfish</a></strong> - developer friendly
+i18n with plurals support and easy syntax.</li>
+</ul>
+
+<p>You will like those projects!</p>
+
+<hr/>
+
+<h1>h1 Heading</h1>
+
+<h2>h2 Heading</h2>
+
+<h3>h3 Heading</h3>
+
+<h4>h4 Heading</h4>
+
+<h5>h5 Heading</h5>
+
+<h6>h6 Heading</h6>
+
+<h2>Horizontal Rules</h2>
+
+<hr/>
+
+<hr/>
+
+<hr/>
+
+<h2>Typographic replacements</h2>
+
+<p>Enable typographer option to see result.</p>
+
+<p>© © ® ® ™ ™ (p) (P) +-</p>
+
+<p>test.. test… test….. test?….. test!….</p>
+
+<p>!!!!!! ???? ,,  – —</p>
+
+<p>“Smartypants, double quotes” and ‘single quotes’</p>
+
+<h2>Emphasis</h2>
+
+<p><strong>This is bold text</strong></p>
+
+<p><strong>This is bold text</strong></p>
+
+<p><em>This is italic text</em></p>
+
+<p><em>This is italic text</em></p>
+
+<p><del>Strikethrough</del></p>
+
+<h2>Blockquotes</h2>
+
+<blockquote>
+<p>Blockquotes can also be nested…
+&gt; …by using additional greater-than signs right next to each other…
+&gt; &gt; …or with spaces between arrows.</p>
+</blockquote>
+
+<h2>Lists</h2>
+
+<p>Unordered</p>
+
+<ul>
+<li>Create a list by starting a line with <code>+</code>, <code>-</code>, or <code>*</code></li>
+<li>Sub-lists are made by indenting 2 spaces:
+
+<ul>
+<li>Marker character change forces new list start:</li>
+<li>Ac tristique libero volutpat at</li>
+<li>Facilisis in pretium nisl aliquet</li>
+<li>Nulla volutpat aliquam velit</li>
+</ul></li>
+<li>Very easy!</li>
+</ul>
+
+<p>Ordered</p>
+
+<ol>
+<li><p>Lorem ipsum dolor sit amet</p></li>
+
+<li><p>Consectetur adipiscing elit</p></li>
+
+<li><p>Integer molestie lorem at massa</p></li>
+
+<li><p>You can use sequential numbers…</p></li>
+
+<li><p>…or keep all the numbers as <code>1.</code></p></li>
+</ol>
+
+<p>Start numbering with offset:</p>
+
+<ol>
+<li>foo</li>
+<li>bar</li>
+</ol>
+
+<h2>Code</h2>
+
+<p>Inline <code>code</code></p>
+
+<p>Indented code</p>
+
+<pre><code>// Some comments
+line 1 of code
+line 2 of code
+line 3 of code
+</code></pre>
+
+<p>Block code “fences”</p>
+
+<pre><code>Sample text here...
+</code></pre>
+
+<p>Syntax highlighting</p>
+
+<pre><code>var foo = function (bar) {
+  return bar++;
+};
+
+console.log(foo(5));
+</code></pre>
+
+<h2>Tables</h2>
+
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>data</td>
+<td>path to data files to supply the data that will be passed into templates.</td>
+</tr>
+
+<tr>
+<td>engine</td>
+<td>engine to be used for processing templates. Handlebars is the default.</td>
+</tr>
+
+<tr>
+<td>ext</td>
+<td>extension to be used for dest files.</td>
+</tr>
+</tbody>
+</table>
+<p>Right aligned columns</p>
+
+<table>
+<thead>
+<tr>
+<th align="right">Option</th>
+<th align="right">Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td align="right">data</td>
+<td align="right">path to data files to supply the data that will be passed into templates.</td>
+</tr>
+
+<tr>
+<td align="right">engine</td>
+<td align="right">engine to be used for processing templates. Handlebars is the default.</td>
+</tr>
+
+<tr>
+<td align="right">ext</td>
+<td align="right">extension to be used for dest files.</td>
+</tr>
+</tbody>
+</table>
+
+<h2>Links</h2>
+
+<p><a href="http://dev.nodeca.com" rel="nofollow">link text</a></p>
+
+<p><a href="http://nodeca.github.io/pica/demo/" title="title text!" rel="nofollow">link with title</a></p>
+
+<p>Autoconverted link <a href="https://github.com/nodeca/pica" rel="nofollow">https://github.com/nodeca/pica</a> (enable linkify to see)</p>
+
+<h2>Images</h2>
+
+<p><img src="https://octodex.github.com/images/minion.png" alt="Minion"/>
+<img src="https://octodex.github.com/images/stormtroopocat.jpg" alt="Stormtroopocat" title="The Stormtroopocat"/></p>
+
+<p>Like links, Images also have a footnote style syntax</p>
+
+<p><img src="https://octodex.github.com/images/dojocat.jpg" alt="Alt text" title="The Dojocat"/></p>
+
+<p>With a reference later in the document defining the URL location:</p>
+
+<h2>Plugins</h2>
+
+<p>The killer feature of <code>markdown-it</code> is very effective support of
+<a href="https://www.npmjs.org/browse/keyword/markdown-it-plugin" rel="nofollow">syntax plugins</a>.</p>
+
+<h3><a href="https://github.com/markdown-it/markdown-it-emoji" rel="nofollow">Emojies</a></h3>
+
+<blockquote>
+<p>Classic markup: :wink: :crush: :cry: :tear: :laughing: :yum:</p>
+
+<p>Shortcuts (emoticons): :-) :-( 8-) ;)</p>
+</blockquote>
+
+<p>see <a href="https://github.com/markdown-it/markdown-it-emoji#change-output" rel="nofollow">how to change output</a> with twemoji.</p>
+
+<h3><a href="https://github.com/markdown-it/markdown-it-sub" rel="nofollow">Subscript</a> / <a href="https://github.com/markdown-it/markdown-it-sup" rel="nofollow">Superscript</a></h3>
+
+<ul>
+<li>19^th^</li>
+<li>H~2~O</li>
+</ul>
+
+<h3><a href="https://github.com/markdown-it/markdown-it-ins" rel="nofollow">&lt;ins&gt;</a></h3>
+
+<p>++Inserted text++</p>
+
+<h3><a href="https://github.com/markdown-it/markdown-it-mark" rel="nofollow">&lt;mark&gt;</a></h3>
+
+<p>==Marked text==</p>
+
+<h3><a href="https://github.com/markdown-it/markdown-it-footnote" rel="nofollow">Footnotes</a></h3>
+
+<p>Footnote 1 link[^first].</p>
+
+<p>Footnote 2 link[^second].</p>
+
+<p>Inline footnote^[Text of inline footnote] definition.</p>
+
+<p>Duplicated footnote reference[^second].</p>
+
+<p>[^first]: Footnote <strong>can have markup</strong></p>
+
+<pre><code>and multiple paragraphs.
+</code></pre>
+
+<p>[^second]: Footnote text.</p>
+
+<h3><a href="https://github.com/markdown-it/markdown-it-deflist" rel="nofollow">Definition lists</a></h3>
+
+<dl>
+<dt>Term 1</dt>
+<dd><p>Definition 1
+with lazy continuation.</p></dd>
+<dt>Term 2 with <em>inline markup</em></dt>
+<dd><p>Definition 2</p>
+
+<pre><code>{ some code, part of Definition 2 }
+</code></pre>
+<p>Third paragraph of definition 2.</p></dd>
+</dl>
+
+<p><em>Compact style:</em></p>
+
+<p>Term 1
+  ~ Definition 1</p>
+
+<p>Term 2
+  ~ Definition 2a
+  ~ Definition 2b</p>
+
+<h3><a href="https://github.com/markdown-it/markdown-it-abbr" rel="nofollow">Abbreviations</a></h3>
+
+<p>This is HTML abbreviation example.</p>
+
+<p>It converts “HTML”, but keep intact partial entries like “xxxHTMLyyy” and so on.</p>
+
+<p>*[HTML]: Hyper Text Markup Language</p>
+
+<h3><a href="https://github.com/markdown-it/markdown-it-container" rel="nofollow">Custom containers</a></h3>
+
+<p>::: warning
+<em>here be dragons</em>
+:::</p>
