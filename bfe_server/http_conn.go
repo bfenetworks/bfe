@@ -528,7 +528,7 @@ func (c *conn) serveRequest(w bfe_http.ResponseWriter, request *bfe_basic.Reques
 	// [*] Not strictly true: HTTP pipelining.  We could let them all process
 	// in parallel even if their responses need to be serialized.
 
-	// server the request
+	// serve the request
 	ret1 := c.server.ReverseProxy.ServeHTTP(w, request)
 
 	// if there is some response, count the time
