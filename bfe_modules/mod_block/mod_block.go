@@ -39,7 +39,7 @@ const (
 )
 
 var (
-	ERR_BLOCKLIST = errors.New("BLOCKLIST")
+	ErrBlock = errors.New("BLOCK")
 )
 
 var (
@@ -136,7 +136,7 @@ func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {
 
 	clientIP := session.RemoteAddr.IP
 	if m.ipTable.Search(clientIP) {
-		session.SetError(ERR_BLOCKLIST, "connection blocked")
+		session.SetError(ErrBlock, "connection blocked")
 		log.Logger.Debug("%s refuse connection (remote: %v)",
 			m.name, session.RemoteAddr)
 		m.state.ConnRefuse.Inc(1)
@@ -188,7 +188,7 @@ func (m *ModuleBlock) productRulesProcess(req *bfe_basic.Request, rules *blockRu
 
 			switch rule.Action.Cmd {
 			case "CLOSE":
-				req.ErrCode = ERR_BLOCKLIST
+				req.ErrCode = ErrBlock
 				log.Logger.Debug("%s block connection (rule:%v, remote:%s)",
 					m.name, rule, req.RemoteAddr)
 				m.state.ReqRefuse.Inc(1)
