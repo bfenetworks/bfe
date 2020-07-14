@@ -17,6 +17,8 @@ package mod_key_log
 import (
 	"encoding/hex"
 	"fmt"
+	"net/url"
+	"path/filepath"
 )
 
 import (
@@ -39,6 +41,10 @@ type ModuleKeyLog struct {
 	name   string         // module name
 	conf   *ConfModKeyLog // module config
 	logger log4go.Logger  // key logger
+
+	dataConfigPath string       // path of data config file
+	ruleTable      *KeyLogTable // table of key_log rules
+
 }
 
 func NewModuleKeyLog() *ModuleKeyLog {
@@ -52,18 +58,48 @@ func (m *ModuleKeyLog) Name() string {
 }
 
 func (m *ModuleKeyLog) logTlsKey(session *bfe_basic.Session) int {
+	rules, ok := m.ruleTable.Search(session.Product)
+	if ok {
+		// redirect rules process
+		needKeyLog := PrepareReqKeyLog(session, rules)
+		if needKeyLog {
+			m.log(session)
+		}
+	} else {
+		m.log(session)
+	}
+	return bfe_module.BfeHandlerGoOn
+}
+
+func (m *ModuleKeyLog) log(session *bfe_basic.Session) {
 	tlsState := session.TlsState
 	if tlsState == nil {
-		return bfe_module.BfeHandlerGoOn
+		return
 	}
-
 	// key log format: <label> <ClientRandom> <MasterSecret>
 	keyLog := fmt.Sprintf("CLIENT_RANDOM %s %s",
 		hex.EncodeToString(tlsState.ClientRandom), // connection id
 		hex.EncodeToString(tlsState.MasterSecret)) // connection master secret
 	m.logger.Info(keyLog)
+}
 
-	return bfe_module.BfeHandlerGoOn
+// PrepareReqKeyLog do key_log to http request, with given key_log rules.
+func PrepareReqKeyLog(session *bfe_basic.Session, rules *RuleList) bool {
+	req := &bfe_basic.Request{
+		Session: session,
+	}
+	flag := false
+	for _, rule := range *rules {
+		// rule condition is satisfied ?
+		if rule.Cond.Match(req) {
+			// do actions of the rule
+			// todo
+
+			// finish key_log rules process
+			flag = true
+		}
+	}
+	return flag
 }
 
 func (m *ModuleKeyLog) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers,
@@ -77,6 +113,12 @@ func (m *ModuleKeyLog) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 		return fmt.Errorf("%s: conf load err %s", m.name, err.Error())
 	}
 	m.conf = conf
+	m.dataConfigPath = conf.Basic.DataPath
+
+	// load from data config file to rule table
+	if _, err := m.loadConfData(nil); err != nil {
+		return fmt.Errorf("err in loadConfData(): %s", err.Error())
+	}
 
 	// init logger
 	m.logger, err = access_log.LoggerInit(m.conf.Log.LogPrefix, m.conf.Log.LogDir,
@@ -91,5 +133,33 @@ func (m *ModuleKeyLog) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 		return fmt.Errorf("%s.Init(): AddFilter(m.logTlsKey): %s", m.name, err.Error())
 	}
 
+	// register web handler for reload
+	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
+	if err != nil {
+		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %s", m.name, err.Error())
+	}
+
 	return nil
+}
+
+func (m *ModuleKeyLog) loadConfData(query url.Values) (string, error) {
+	// get file path
+	path := query.Get("path")
+	if path == "" {
+		// use default
+		path = m.dataConfigPath
+	}
+
+	// load from config file
+	conf, err := keyLogConfLoad(path)
+
+	if err != nil {
+		return "", fmt.Errorf("err in keyLogConfLoad(%s):%s", path, err.Error())
+	}
+
+	// update to rule table
+	m.ruleTable.Update(conf)
+
+	_, fileName := filepath.Split(path)
+	return fmt.Sprintf("%s=%s", fileName, conf.Version), nil
 }
