@@ -24,7 +24,7 @@ theme:
     logo: logo
   favicon: assets/favicon.png
 
-copyright: 'Copyright &copy; 2019-2020 BFE <a href=/zh_cn>中文</a> | <a href=/en_us>English</a>'
+copyright: 'Copyright &copy; 2019-2020 BFE | 文档遵照CC-BY-4.0协议发布'
 
 markdown_extensions:
   - codehilite
