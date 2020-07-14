@@ -1,0 +1,33 @@
+name: Go
+on: [push]
+jobs:
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          stable: 'true'
+          go-version: 1.13
+        id: go
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Lint
+        run: |
+          echo "golang lint, suggest to use golangci-lint"
+
+      - name: Build
+        run: |
+          echo "start to build and test bfe"
+          go version
+          make
+          echo "finish"
+
+      - name: coverage
+        run: |
+          make coverage
+          bash <(curl -s https://codecov.io/bash)
