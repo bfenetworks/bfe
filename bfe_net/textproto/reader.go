@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 import (
@@ -44,6 +45,7 @@ type Reader struct {
 
 // NewReader returns a new Reader reading from r.
 func NewReader(r *bfe_bufio.Reader) *Reader {
+	commonHeaderOnce.Do(initCommonHeader)
 	return &Reader{R: r}
 }
 
@@ -498,18 +500,19 @@ func (r *Reader) ReadMIMEHeaderAndKeys() (MIMEHeader, MIMEKeys, error) {
 			return m, mkeys, err
 		}
 
-		// Key ends at first colon; should not have spaces but
-		// they appear in the wild, violating specs, so we
-		// remove them if present.
+		// Key ends at first colon.
 		i := bytes.IndexByte(kv, ':')
 		if i < 0 {
 			return m, mkeys, ProtocolError("malformed MIME header line: " + string(kv))
 		}
-		endKey := i
-		for endKey > 0 && kv[endKey-1] == ' ' {
-			endKey--
+		key := canonicalMIMEHeaderKey(kv[:i])
+
+		// As per RFC 7230 field-name is a token, tokens consist of one or more chars.
+		// We could return a ProtocolError here, but better to be liberal in what we
+		// accept, so if we get an empty key, skip it.
+		if key == "" {
+			continue
 		}
-		key := canonicalMIMEHeaderKey(kv[:endKey])
 
 		// Skip initial spaces in value.
 		i++ // skip colon
@@ -570,10 +573,15 @@ func (r *Reader) upcomingHeaderNewlines() (n int) {
 // canonical key for "accept-encoding" is "Accept-Encoding".
 // MIME header keys are assumed to be ASCII only.
 func CanonicalMIMEHeaderKey(s string) string {
+	commonHeaderOnce.Do(initCommonHeader)
+
 	// Quick check for canonical encoding.
 	upper := true
 	for i := 0; i < len(s); i++ {
 		c := s[i]
+		if !validHeaderFieldByte(c) {
+			return s
+		}
 		if upper && 'a' <= c && c <= 'z' {
 			return canonicalMIMEHeaderKey([]byte(s))
 		}
@@ -591,6 +599,17 @@ func canonicalMIMEHeaderKey(a []byte) string {
 
 const toLower = 'a' - 'A'
 
+// validHeaderFieldByte reports whether b is a valid byte in a header
+// field name. RFC 7230 says:
+//   header-field   = field-name ":" OWS field-value OWS
+//   field-name     = token
+//   tchar = "!" / "#" / "$" / "%" / "&" / "'" / "*" / "+" / "-" / "." /
+//           "^" / "_" / "`" / "|" / "~" / DIGIT / ALPHA
+//   token = 1*tchar
+func validHeaderFieldByte(b byte) bool {
+	return int(b) < len(isTokenTable) && isTokenTable[b]
+}
+
 // canonicalMIMEHeaderKey is like CanonicalMIMEHeaderKey but is
 // allowed to mutate the provided byte slice before returning the
 // string.
@@ -599,18 +618,22 @@ func canonicalMIMEHeaderKeyOriginal(a []byte) string {
 	// allocation by sharing the strings among all users
 	// of textproto. If we don't find it, a has been canonicalized
 	// so just return string(a).
+	// See if a looks like a header key. If not, return it unchanged.
+	for _, c := range a {
+		if validHeaderFieldByte(c) {
+			continue
+		}
+		// Don't canonicalize.
+		return string(a)
+	}
+
 	upper := true
-	lo := 0
-	hi := len(commonHeaders)
-	for i := 0; i < len(a); i++ {
+	for i, c := range a {
 		// Canonicalize: first letter upper case
 		// and upper case after each dash.
 		// (Host, User-Agent, If-Modified-Since).
 		// MIME headers are ASCII only, so no Unicode issues.
-		c := a[i]
-		if c == ' ' {
-			c = '-'
-		} else if upper && 'a' <= c && c <= 'z' {
+		if upper && 'a' <= c && c <= 'z' {
 			c -= toLower
 		} else if !upper && 'A' <= c && c <= 'Z' {
 			c += toLower
@@ -618,59 +641,143 @@ func canonicalMIMEHeaderKeyOriginal(a []byte) string {
 		a[i] = c
 		upper = c == '-' // for next time
 
-		if lo < hi {
-			for lo < hi && (len(commonHeaders[lo]) <= i || commonHeaders[lo][i] < c) {
-				lo++
-			}
-			for hi > lo && commonHeaders[hi-1][i] > c {
-				hi--
-			}
-		}
 	}
-	if lo < hi && len(commonHeaders[lo]) == len(a) {
-		return commonHeaders[lo]
+	if v := commonHeader[string(a)]; v != "" {
+		return v
 	}
 	return string(a)
 }
 
-var commonHeaders = []string{
-	"Accept",
-	"Accept-Charset",
-	"Accept-Encoding",
-	"Accept-Language",
-	"Accept-Ranges",
-	"Cache-Control",
-	"Cc",
-	"Connection",
-	"Content-Id",
-	"Content-Language",
-	"Content-Length",
-	"Content-Transfer-Encoding",
-	"Content-Type",
-	"Cookie",
-	"Date",
-	"Dkim-Signature",
-	"Etag",
-	"Expires",
-	"From",
-	"Host",
-	"If-Modified-Since",
-	"If-None-Match",
-	"In-Reply-To",
-	"Last-Modified",
-	"Location",
-	"Message-Id",
-	"Mime-Version",
-	"Pragma",
-	"Received",
-	"Return-Path",
-	"Server",
-	"Set-Cookie",
-	"Subject",
-	"To",
-	"User-Agent",
-	"Via",
-	"X-Forwarded-For",
-	"X-Imforwards",
-	"X-Powered-By",
+// commonHeader interns common header strings.
+var commonHeader map[string]string
+
+var commonHeaderOnce sync.Once
+
+func initCommonHeader() {
+	commonHeader = make(map[string]string)
+	for _, v := range []string{
+		"Accept",
+		"Accept-Charset",
+		"Accept-Encoding",
+		"Accept-Language",
+		"Accept-Ranges",
+		"Cache-Control",
+		"Cc",
+		"Connection",
+		"Content-Id",
+		"Content-Language",
+		"Content-Length",
+		"Content-Transfer-Encoding",
+		"Content-Type",
+		"Cookie",
+		"Date",
+		"Dkim-Signature",
+		"Etag",
+		"Expires",
+		"From",
+		"Host",
+		"If-Modified-Since",
+		"If-None-Match",
+		"In-Reply-To",
+		"Last-Modified",
+		"Location",
+		"Message-Id",
+		"Mime-Version",
+		"Pragma",
+		"Received",
+		"Return-Path",
+		"Server",
+		"Set-Cookie",
+		"Subject",
+		"To",
+		"User-Agent",
+		"Via",
+		"X-Forwarded-For",
+		"X-Imforwards",
+		"X-Powered-By",
+	} {
+		commonHeader[v] = v
+	}
+}
+
+// isTokenTable is a copy of net/http/lex.go's isTokenTable.
+// See https://httpwg.github.io/specs/rfc7230.html#rule.token.separators
+var isTokenTable = [127]bool{
+	'!':  true,
+	'#':  true,
+	'$':  true,
+	'%':  true,
+	'&':  true,
+	'\'': true,
+	'*':  true,
+	'+':  true,
+	'-':  true,
+	'.':  true,
+	'0':  true,
+	'1':  true,
+	'2':  true,
+	'3':  true,
+	'4':  true,
+	'5':  true,
+	'6':  true,
+	'7':  true,
+	'8':  true,
+	'9':  true,
+	'A':  true,
+	'B':  true,
+	'C':  true,
+	'D':  true,
+	'E':  true,
+	'F':  true,
+	'G':  true,
+	'H':  true,
+	'I':  true,
+	'J':  true,
+	'K':  true,
+	'L':  true,
+	'M':  true,
+	'N':  true,
+	'O':  true,
+	'P':  true,
+	'Q':  true,
+	'R':  true,
+	'S':  true,
+	'T':  true,
+	'U':  true,
+	'W':  true,
+	'V':  true,
+	'X':  true,
+	'Y':  true,
+	'Z':  true,
+	'^':  true,
+	'_':  true,
+	'`':  true,
+	'a':  true,
+	'b':  true,
+	'c':  true,
+	'd':  true,
+	'e':  true,
+	'f':  true,
+	'g':  true,
+	'h':  true,
+	'i':  true,
+	'j':  true,
+	'k':  true,
+	'l':  true,
+	'm':  true,
+	'n':  true,
+	'o':  true,
+	'p':  true,
+	'q':  true,
+	'r':  true,
+	's':  true,
+	't':  true,
+	'u':  true,
+	'v':  true,
+	'w':  true,
+	'x':  true,
+	'y':  true,
+	'z':  true,
+	'|':  true,
+	'~':  true,
 }
