@@ -24,7 +24,9 @@ theme:
     logo: logo
   favicon: assets/favicon.png
 
-copyright: 'Copyright &copy; 2019-2020 BFE | 文档遵照CC-BY-4.0协议发布'
+copyright: 'Copyright © 2020 BFE作者 | 文档发布基于CC-BY-4.0授权许可 <br/>Copyright © 2020
+            Linux基金会。保留所有权利。Linux基金会已注册并使用商标<br/>如需了解Linux基金会的商标列表，
+            请<a target="_blank" href="https://www.linuxfoundation.org/trademark-usage">访问商标使用页面 </a>'
 
 markdown_extensions:
   - codehilite
@@ -40,9 +42,9 @@ extra:
     - icon: fontawesome/brands/twitter
       link: https://twitter.com/BfeNetworks
     - icon: fontawesome/brands/slack
-      link: https://join.slack.com/t/bfe-networks/shared_invite/zt-cn04xsqr-j7LDFmPkCuCZ39OLcHlMBA
+      link: https://slack.cncf.io
     - icon: fontawesome/solid/envelope
-      link: mailto:bfe-osc@baidu.com
+      link: mailto:bfe-networks@groups.io
 
 nav:
   - '首页': 'index.md'
