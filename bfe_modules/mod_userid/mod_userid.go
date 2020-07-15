@@ -128,6 +128,9 @@ func (m *ModuleUserID) reqSetUid(request *bfe_basic.Request) (int, *bfe_http.Res
 	}
 
 	productRules := conf.FindProductRules(request.Route.Product)
+	if len(productRules) == 0 {
+		productRules = conf.FindProductRules(bfe_basic.ProductGlabal)
+	}
 	for _, rule := range productRules {
 		if !rule.Cond.Match(request) {
 			continue
@@ -142,6 +145,7 @@ func (m *ModuleUserID) reqSetUid(request *bfe_basic.Request) (int, *bfe_http.Res
 			Name:    params.Name,
 			Value:   genUid(),
 			Path:    params.Path,
+			Domain:  params.Domain,
 			Expires: time.Now().Add(params.MaxAge),
 			MaxAge:  int(params.MaxAge.Seconds()),
 		}
