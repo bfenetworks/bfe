@@ -9,6 +9,12 @@ builds:
       - windows
     goarch:
       - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+      - goos: darwin
+        goarch: arm64
 
 changelog:
   skip: true
