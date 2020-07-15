@@ -1,0 +1,43 @@
+{
+	"Version": "1234",
+	"Config": {
+		"p1": [{
+			"cond": "default_t()",
+			"ChecksumKey": "sign",
+			"ExpiresKey": "time",
+			"ExpressionNodes": [{
+					"Type": "query",
+					"Param": "time"
+				},
+				{
+					"Type": "uri"
+				},
+				{
+					"Type": "remote_addr"
+				},
+				{
+					"Type": "label",
+					"Param": " secret"
+				}
+			]
+		}],
+		"p2": [{
+			"cond": "default_t()",
+			"ExpressionNodes": [{
+					"Type": "query",
+					"Param": "time"
+				},
+				{
+					"Type": "uri"
+				},
+				{
+					"Type": "remote_addr"
+				},
+				{
+					"Type": "label",
+					"Param": " secret"
+				}
+			]
+		}]
+	}
+}
