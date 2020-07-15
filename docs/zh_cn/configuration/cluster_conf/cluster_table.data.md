@@ -23,7 +23,7 @@ cluster_table.data配置文件记录各后端集群包含的子集群及实例
 | Addr    | String<br>实例监听地址 |
 | Port    | Integer<br>实例监听端口 |
 | Weight  | Integer<br>实例权重 |
-| Addr    | String<br>实例名称 |
+| Name    | String<br>实例名称 |
 
 
 ## 配置示例
