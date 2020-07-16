@@ -18,7 +18,7 @@ import (
 	"testing"
 )
 
-func TestKeyLogConfLoad_1(t *testing.T) {
+func TestKeyLogConfLoad_Normal(t *testing.T) {
 	config, err := keyLogConfLoad("./testdata/key_log_1.conf")
 	if err != nil {
 		t.Errorf("get err from keyLogConfLoad():%s", err.Error())
@@ -31,7 +31,7 @@ func TestKeyLogConfLoad_1(t *testing.T) {
 	}
 }
 
-func TestKeyLogConfLoad_2(t *testing.T) {
+func TestKeyLogConfLoad_ProductIsNull(t *testing.T) {
 	_, err := keyLogConfLoad("./testdata/key_log_2.conf")
 	if err == nil {
 		t.Error("err should not be nil")

@@ -58,33 +58,31 @@ func (m *ModuleKeyLog) Name() string {
 }
 
 func (m *ModuleKeyLog) logTlsKey(session *bfe_basic.Session) int {
-	rules, ok := m.ruleTable.Search(session.Product)
-	if ok {
-		// redirect rules process
-		needKeyLog := PrepareReqKeyLog(session, rules)
-		if needKeyLog {
-			m.log(session)
-		}
-	} else {
-		m.log(session)
+	isNeedKeyLog := m.isNeedKeyLog(session)
+	if !isNeedKeyLog {
+		return bfe_module.BfeHandlerGoOn
 	}
-	return bfe_module.BfeHandlerGoOn
-}
-
-func (m *ModuleKeyLog) log(session *bfe_basic.Session) {
 	tlsState := session.TlsState
 	if tlsState == nil {
-		return
+		return bfe_module.BfeHandlerGoOn
 	}
 	// key log format: <label> <ClientRandom> <MasterSecret>
 	keyLog := fmt.Sprintf("CLIENT_RANDOM %s %s",
 		hex.EncodeToString(tlsState.ClientRandom), // connection id
 		hex.EncodeToString(tlsState.MasterSecret)) // connection master secret
 	m.logger.Info(keyLog)
+	return bfe_module.BfeHandlerGoOn
 }
 
-// PrepareReqKeyLog do key_log to http request, with given key_log rules.
-func PrepareReqKeyLog(session *bfe_basic.Session, rules *RuleList) bool {
+// isNeedKeyLog Determine if you need to print the key log
+func (m *ModuleKeyLog) isNeedKeyLog(session *bfe_basic.Session) bool {
+	rules, ok := m.ruleTable.Search(session.Product)
+	if !ok {
+		rules, ok = m.ruleTable.Search(bfe_basic.GlobalProduct)
+	}
+	if !ok {
+		return true
+	}
 	req := &bfe_basic.Request{
 		Session: session,
 	}
