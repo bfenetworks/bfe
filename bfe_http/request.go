@@ -33,6 +33,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -40,7 +41,6 @@ import (
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_net/textproto"
 	"github.com/bfenetworks/bfe/bfe_tls"
-	"sync"
 )
 
 const (
