@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -137,20 +137,17 @@ func keyLogConfLoad(filename string) (keyLogConf, error) {
 	var conf keyLogConf
 	var err error
 
-	/* open the file    */
+	// open the file
 	file, err1 := os.Open(filename)
-
 	if err1 != nil {
 		return conf, err1
 	}
+	defer file.Close()
 
-	/* decode the file  */
+	// decode the file
 	decoder := json.NewDecoder(file)
-
 	var config KeyLogConfFile
 	err = decoder.Decode(&config)
-	file.Close()
-
 	if err != nil {
 		return conf, err
 	}
@@ -161,10 +158,9 @@ func keyLogConfLoad(filename string) (keyLogConf, error) {
 		return conf, err
 	}
 
-	/* convert config   */
+	// convert config
 	conf.Version = *config.Version
 	conf.Config = make(ProductRules)
-
 	for product, ruleFileList := range *config.Config {
 		ruleList, err := ruleListConvert(ruleFileList)
 		if err != nil {

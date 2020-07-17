@@ -58,19 +58,17 @@ func (m *ModuleKeyLog) Name() string {
 }
 
 func (m *ModuleKeyLog) logTlsKey(session *bfe_basic.Session) int {
-	isNeedKeyLog := m.isNeedKeyLog(session)
-	if !isNeedKeyLog {
-		return bfe_module.BfeHandlerGoOn
+	if m.isNeedKeyLog(session) {
+		tlsState := session.TlsState
+		if tlsState == nil {
+			return bfe_module.BfeHandlerGoOn
+		}
+		// key log format: <label> <ClientRandom> <MasterSecret>
+		keyLog := fmt.Sprintf("CLIENT_RANDOM %s %s",
+			hex.EncodeToString(tlsState.ClientRandom), // connection id
+			hex.EncodeToString(tlsState.MasterSecret)) // connection master secret
+		m.logger.Info(keyLog)
 	}
-	tlsState := session.TlsState
-	if tlsState == nil {
-		return bfe_module.BfeHandlerGoOn
-	}
-	// key log format: <label> <ClientRandom> <MasterSecret>
-	keyLog := fmt.Sprintf("CLIENT_RANDOM %s %s",
-		hex.EncodeToString(tlsState.ClientRandom), // connection id
-		hex.EncodeToString(tlsState.MasterSecret)) // connection master secret
-	m.logger.Info(keyLog)
 	return bfe_module.BfeHandlerGoOn
 }
 
@@ -81,12 +79,11 @@ func (m *ModuleKeyLog) isNeedKeyLog(session *bfe_basic.Session) bool {
 		rules, ok = m.ruleTable.Search(bfe_basic.GlobalProduct)
 	}
 	if !ok {
-		return true
+		return false
 	}
 	req := &bfe_basic.Request{
 		Session: session,
 	}
-	flag := false
 	for _, rule := range *rules {
 		// rule condition is satisfied ?
 		if rule.Cond.Match(req) {
@@ -94,10 +91,10 @@ func (m *ModuleKeyLog) isNeedKeyLog(session *bfe_basic.Session) bool {
 			// todo
 
 			// finish key_log rules process
-			flag = true
+			return true
 		}
 	}
-	return flag
+	return false
 }
 
 func (m *ModuleKeyLog) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers,
@@ -150,7 +147,6 @@ func (m *ModuleKeyLog) loadConfData(query url.Values) (string, error) {
 
 	// load from config file
 	conf, err := keyLogConfLoad(path)
-
 	if err != nil {
 		return "", fmt.Errorf("err in keyLogConfLoad(%s):%s", path, err.Error())
 	}
