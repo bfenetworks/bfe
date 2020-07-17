@@ -29,6 +29,9 @@ import (
 
 // ConfModKeyLog represents the basic config for mod_key_log.
 type ConfModKeyLog struct {
+	Basic struct {
+		DataPath string // path of config data (key_log)
+	}
 	Log struct {
 		LogPrefix   string // log file prefix
 		LogDir      string // log file dir
