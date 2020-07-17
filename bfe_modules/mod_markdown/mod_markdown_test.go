@@ -125,7 +125,7 @@ func TestModuleMarkdown_renderMarkDownHandler(t *testing.T) {
 		}
 	}
 
-	// test invalid reponse
+	// test invalid response
 	mdPath := "./testdata/testcase0.md"
 	responses := prepareabnormalResponse(mdPath)
 	for _, res := range responses {

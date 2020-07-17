@@ -58,6 +58,7 @@ var condToknames = [...]string{
 	"COMMENT",
 	"ILLEGAL",
 }
+
 var condStatenames = [...]string{}
 
 const condEofCode = 1
@@ -129,52 +130,52 @@ const condPrivate = 57344
 const condLast = 23
 
 var condAct = [...]int{
-
 	18, 20, 16, 2, 19, 17, 11, 9, 10, 8,
 	6, 12, 13, 3, 15, 4, 7, 8, 5, 14,
 	7, 8, 1,
 }
-var condPact = [...]int{
 
+var condPact = [...]int{
 	6, -1000, 15, 6, 6, -1000, -1, 6, 6, 11,
 	-1000, -6, 3, -1000, -1000, -8, -1000, -1000, -1000, -10,
 	-1000,
 }
-var condPgo = [...]int{
 
+var condPgo = [...]int{
 	0, 22, 3, 18, 14,
 }
-var condR1 = [...]int{
 
+var condR1 = [...]int{
 	0, 1, 2, 2, 2, 2, 2, 2, 3, 3,
 	4, 4,
 }
-var condR2 = [...]int{
 
+var condR2 = [...]int{
 	0, 1, 3, 3, 3, 2, 1, 1, 4, 3,
 	1, 3,
 }
-var condChk = [...]int{
 
+var condChk = [...]int{
 	-1000, -1, -2, 7, 9, -3, 4, 5, 6, -2,
 	-2, 7, -2, -2, 8, -4, 8, 11, 8, 12,
 	11,
 }
-var condDef = [...]int{
 
+var condDef = [...]int{
 	0, -2, 1, 0, 0, 6, 7, 0, 0, 0,
 	5, 0, 3, 4, 2, 0, 9, 10, 8, 0,
 	11,
 }
-var condTok1 = [...]int{
 
+var condTok1 = [...]int{
 	1,
 }
-var condTok2 = [...]int{
 
+var condTok2 = [...]int{
 	2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
 	12, 13, 14, 15, 16, 17, 18, 19,
 }
+
 var condTok3 = [...]int{
 	0,
 }
