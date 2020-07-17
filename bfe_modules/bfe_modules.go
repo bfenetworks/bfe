@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_prison"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_redirect"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_rewrite"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_secure_link"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_static"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_tag"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trace"
@@ -78,6 +79,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_auth_jwt
 	mod_auth_jwt.NewModuleAuthJWT(),
+
+	// mod_secure_link
+	mod_secure_link.NewModuleSecureLink(),
 
 	// mod_doh
 	mod_doh.NewModuleDoh(),

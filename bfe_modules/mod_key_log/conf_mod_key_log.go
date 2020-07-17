@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,6 +29,9 @@ import (
 
 // ConfModKeyLog represents the basic config for mod_key_log.
 type ConfModKeyLog struct {
+	Basic struct {
+		DataPath string // path of config data (key_log)
+	}
 	Log struct {
 		LogPrefix   string // log file prefix
 		LogDir      string // log file dir
