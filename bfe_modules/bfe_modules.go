@@ -41,6 +41,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trace"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trust_clientip"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_userid"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_cors"
 )
 
 // list of all modules, the order is very important
@@ -64,6 +65,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_trace
 	mod_trace.NewModuleTrace(),
+
+	// mod_cors
+	mod_cors.NewModuleCors(),
 
 	// mod_block
 	// Requirement: After mod_logid
