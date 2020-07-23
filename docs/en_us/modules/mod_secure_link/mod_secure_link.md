@@ -92,8 +92,10 @@ With above config, the pseudo code to generate link is：
 func WrapSecureLinkParam (req *http.Request) {
 	now := time.Now().Unix()
 	expires := now + int64(time.Hour*24/time.Second)
+	// step1: get origin data
 	origin := fmt.Sprintf("%d%s%s%s", expires, req.RequestURI, req.RemoteAddr, " secret")
 
+	// step2: generator sign
 	sign := func(origin string) string {
 		tmpB := md5.Sum([]byte(origin))
 		tmp := base64.StdEncoding.EncodeToString(tmpB[:])
@@ -103,7 +105,17 @@ func WrapSecureLinkParam (req *http.Request) {
 		return tmp
 	}
 
+	// step3: generate link
 	req.URL.Query().Set("sign", sign(origin))
 	req.URL.Query().Set("time", fmt.Sprintf("%d", expires))
 }
+```
+
+step2: the sign logic in shell is:
+```
+echo -n $origin | openssl md5 -binary | openssl base64 | tr +/ -_ | tr -d =
+
+// one example:
+echo -n '2147483647/s/link127.0.0.1 secret' | openssl md5 -binary | openssl base64 | tr +/ -_ | tr -d =
+_e4Nc3iduzkWRm01TBBNYw
 ```
