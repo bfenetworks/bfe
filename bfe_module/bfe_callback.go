@@ -36,6 +36,9 @@ const (
 	HandleReadResponse   = 6
 	HandleRequestFinish  = 7
 	HandleFinish         = 8
+
+	// extension
+	HandleExtendAsync = 20
 )
 
 func CallbackPointName(point int) string {
@@ -58,6 +61,8 @@ func CallbackPointName(point int) string {
 		return "HandleRequestFinish"
 	case HandleFinish:
 		return "HandleFinish"
+	case HandleExtendAsync:
+		return "HandleExtendAsync"
 	default:
 		return "HandleUnknown"
 	}
@@ -93,6 +98,9 @@ func NewBfeCallbacks() *BfeCallbacks {
 	// for HandlersFinish
 	bfeCallbacks.callbacks[HandleFinish] = NewHandlerList(HandlersFinish)
 
+	// for HandleExtendAsync
+	bfeCallbacks.callbacks[HandleExtendAsync] = NewHandlerList(HandleExtendAsync)
+
 	return bfeCallbacks
 }
 
@@ -116,6 +124,24 @@ func (bcb *BfeCallbacks) AddFilter(point int, f interface{}) error {
 		err = hl.AddResponseFilter(f)
 	case HandlersFinish:
 		err = hl.AddFinishFilter(f)
+	default:
+		err = fmt.Errorf("invalid type of handler list[%d]", hl.handlerType)
+	}
+	return err
+}
+
+// AddExtensionAsync adds extension to given callback point.
+func (bcb *BfeCallbacks) AddExtendAsync(point int, f interface{}) error {
+	hl, ok := bcb.callbacks[point]
+
+	if !ok {
+		return fmt.Errorf("invalid callback point[%d]", point)
+	}
+
+	var err error
+	switch hl.handlerType {
+	case HandleExtendAsync:
+		err = hl.AddExtendAsync(f)
 	default:
 		err = fmt.Errorf("invalid type of handler list[%d]", hl.handlerType)
 	}

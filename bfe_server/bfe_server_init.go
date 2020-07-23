@@ -22,6 +22,7 @@ import (
 
 import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
+	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_modules"
 )
 
@@ -125,6 +126,16 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 			httpsErr := bfeServer.ServeHttps(bfeServer.HttpsListener)
 			serveChan <- httpsErr
 		}()
+	}
+
+	// Callback for HandleExtendAsync
+	hl := bfeServer.CallBacks.GetHandlerList(bfe_module.HandleExtendAsync)
+	if hl != nil {
+		err = hl.FillInExtend(bfeServer.NameConfReload)
+		if err != nil {
+			log.Logger.Error("StartUp(): Callback for HandleExtendAsync():%v", err)
+			return err
+		}
 	}
 
 	err = <-serveChan

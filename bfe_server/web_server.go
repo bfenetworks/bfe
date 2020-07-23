@@ -140,7 +140,7 @@ func (m *BfeMonitor) WebHandlersInit(srv *BfeServer) error {
 		return err
 	}
 
-	// register handlers for for reload
+	// register handlers for reload
 	err = web_monitor.RegisterHandlers(m.WebHandlers, web_monitor.WebHandleReload,
 		m.reloadHandlers())
 	if err != nil {

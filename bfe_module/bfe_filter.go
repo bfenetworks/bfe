@@ -44,6 +44,7 @@
 package bfe_module
 
 import (
+	"net/url"
 	"reflect"
 	"runtime"
 )
@@ -178,4 +179,25 @@ func (f *genericFinishFilter) FilterFinish(session *bfe_basic.Session) int {
 func (f *genericFinishFilter) String() string {
 	ptr := reflect.ValueOf(f.f).Pointer()
 	return runtime.FuncForPC(ptr).Name()
+}
+
+// ExtendFilter filters extend func
+type ExtendFilter interface {
+	FilterExtend(f1 func(url.Values) error)
+}
+
+// NewExtendFilter create a Filter by passed func.
+func NewExtendFilter(f func(func(url.Values) error)) ExtendFilter {
+	rf := new(genericExtendFilter)
+	rf.f = f
+	return rf
+}
+
+type genericExtendFilter struct {
+	f func(func(url.Values) error)
+}
+
+func (f *genericExtendFilter) FilterExtend(f1 func(url.Values) error) {
+	// TODO: we need a workflow in the future
+	go func() { f.f(f1) }()
 }

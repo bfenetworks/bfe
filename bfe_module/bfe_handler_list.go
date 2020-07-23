@@ -19,6 +19,7 @@ package bfe_module
 import (
 	"container/list"
 	"fmt"
+	"net/url"
 )
 
 import (
@@ -49,8 +50,9 @@ const (
 )
 
 type HandlerList struct {
-	handlerType int        /* type of handlers */
-	handlers    *list.List /* list of handlers */
+	handlerType   int         /* type of handlers */
+	handlers      *list.List  /* list of handlers */
+	handlerExtend interface{} /* extend of handler */
 }
 
 // NewHandlerList creates a HandlerList.
@@ -169,6 +171,17 @@ LOOP:
 	return retVal
 }
 
+// FillInExtend filters extend with HandlerList.
+func (hl *HandlerList) FillInExtend(f1 func(url.Values) error) error {
+	switch filter := hl.handlerExtend.(type) {
+	case ExtendFilter:
+		filter.FilterExtend(f1)
+	default:
+		//	do noting
+	}
+	return nil
+}
+
 // AddAcceptFilter adds accept filter to handler list.
 func (hl *HandlerList) AddAcceptFilter(f interface{}) error {
 	callback, ok := f.(func(session *bfe_basic.Session) int)
@@ -221,5 +234,16 @@ func (hl *HandlerList) AddFinishFilter(f interface{}) error {
 	}
 
 	hl.handlers.PushBack(NewFinishFilter(callback))
+	return nil
+}
+
+// AddExtensionAsync adds async func to runing.
+func (hl *HandlerList) AddExtendAsync(f interface{}) error {
+	callback, ok := f.(func(func(url.Values) error))
+	if !ok {
+		return fmt.Errorf("AddExtensionAsync():invalid callback func")
+	}
+
+	hl.handlerExtend = NewExtendFilter(callback)
 	return nil
 }
