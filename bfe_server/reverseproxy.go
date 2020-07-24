@@ -643,8 +643,10 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	// invoke cluster to get response
 	res, action, err = p.clusterInvoke(srv, cluster, basicReq, rw)
 	basicReq.HttpResponse = res
-	// note: set SvrDataConf to nil can ensure that gc will delete useless server data config object
-	// in persistent connection situation(eg. ws)
+
+        // Note: The runtime will not GC the objects referenced by basicReq.SvrDataConf until the request 
+	// has been processed. But the request may last a long time. It's better to remove the reference 
+	// to objects which are not used any more.
 	basicReq.SvrDataConf = nil
 
 	if err != nil {
