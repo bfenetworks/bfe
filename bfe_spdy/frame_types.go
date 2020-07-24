@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import (
 )
 
 import (
-	http "github.com/baidu/bfe/bfe_http"
+	http "github.com/bfenetworks/bfe/bfe_http"
 )
 
 // Version is the protocol version number that this package implements (spdy3.1/spdy3).

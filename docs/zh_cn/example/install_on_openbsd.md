@@ -47,20 +47,20 @@ i386
 
 * 下载bfe 0.4.0 并编译安装
 ```bash
-# wget https://github.com/baidu/bfe/archive/v0.4.0.tar.gz
+# wget https://github.com/bfenetworks/bfe/archive/v0.4.0.tar.gz
 # tar -xvzf v0.4.0.tar.gz
 # cd bfe-0.4.0/
 # export GOPROXY=https://goproxy.io
 # /usr/local/bin/make -j8   
 #
-# mkdir -p /usr/local/baidu_bfe/bin
-# cp bfe /usr/local/baidu_bfe/bin
-# cp -fr conf/ /usr/local/baidu_bfe
+# mkdir -p /usr/local/bfe/bin
+# cp bfe /usr/local/bfe/bin
+# cp -fr conf/ /usr/local/bfe
 ```
 
 * 修改配置文件
 ```bash
-# cd /usr/local/baidu_bfe/conf/mod_access/
+# cd /usr/local/bfe/conf/mod_access/
 # vi mod_access.conf
 LogDir =  ../log
 :wq ## 保存退出
@@ -72,7 +72,7 @@ LogDir =  ../log
 # cd /root/run_bfe
 # vi run_bfe.sh
 #!/usr/local/bin/bash
-cd /usr/local/baidu_bfe/bin
+cd /usr/local/bfe/bin
 ./bfe -c ../conf -l ../log &
 :wq ## 保存退出
 

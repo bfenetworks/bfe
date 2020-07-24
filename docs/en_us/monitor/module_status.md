@@ -2,11 +2,11 @@
 
 ## Introduction
 
-module_status monitor status of modules.
+The endpoint `/monitor/modules` exposes informations about modules.
 
-## Monitor Item
+## Metrics
 
-| Monitor Item | Description               |
+| Metric       | Description               |
 | ------------ | ------------------------- |
 | available    | List of available modules |
 | enabled      | List of enable modules    |

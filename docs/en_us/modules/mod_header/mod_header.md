@@ -11,8 +11,8 @@ conf/mod_header/mod_header.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>path of rule configuraiton |
-| Log.OpenDebug | Boolean<br>debug flag of module |
+| Basic.DataPath | String<br>Path of rule configuraiton |
+| Log.OpenDebug | Boolean<br>Debug flag of module |
 
 ### Example
 
@@ -41,16 +41,14 @@ conf/mod_header/header_rule.data
 | Config{v}[].Actions.Params[] | String<br>A parameter |
 
 ### Actions
-| Action         | Description            |
-| -------------- | ---------------------- |
-| REQ_HEADER_SET | Set request header     |
-| REQ_HEADER_ADD | Add request header     |
-| RSP_HEADER_SET | Set response header    |
-| RSP_HEADER_ADD | Add response header    |
-| REQ_HEADER_DEL | Delete request header  |
-| RSP_HEADER_DEL | Delete response header |
-| REQ_HEADER_MOD | Modify request header  |
-| RSP_HEADER_MOD | Modify response header |
+| Action         | Description            | Parameters |
+| -------------- | ---------------------- | ---------- |
+| REQ_HEADER_SET | Set request header     | HeaderName, HeaderValue |
+| REQ_HEADER_ADD | Add request header     | HeaderName, HeaderValue |
+| REQ_HEADER_DEL | Delete request header  | HeaderName |
+| RSP_HEADER_SET | Set response header    | HeaderName, HeaderValue |
+| RSP_HEADER_ADD | Add response header    | HeaderName, HeaderValue |
+| RSP_HEADER_DEL | Delete response header | HeaderName |
 
 ### Example
 
@@ -62,6 +60,20 @@ conf/mod_header/header_rule.data
             {
                 "cond": "req_path_prefix_in(\"/header\", false)",
                 "actions": [
+                    {
+                        "cmd": "REQ_HEADER_SET",
+                        "params": [
+                            "X-Bfe-Log-Id",
+                            "%bfe_log_id"
+                        ]
+                    },
+                    {
+                        "cmd": "REQ_HEADER_SET",
+                        "params": [
+                            "X-Bfe-Vip",
+                            "%bfe_vip"
+                        ]
+                    },
                     {
                         "cmd": "RSP_HEADER_SET",
                         "params": [
@@ -76,3 +88,29 @@ conf/mod_header/header_rule.data
     }
 }
 ```
+
+## Builtin Variables
+BFE provides a list of variables which are evaluated in the runtime during the processing of each request.
+See the **Example** above.
+
+| Variable       | Description |
+| -------------- | ----------- |
+| %bfe_client_ip | Client IP |
+| %bfe_client_port | Client port |
+| %bfe_request_host | Value of Request Host header |
+| %bfe_session_id | Session ID |
+| %bfe_log_id | Request ID |
+| %bfe_cip | Client IP (CIP) |
+| %bfe_vip | Virtual IP (VIP) |
+| %bfe_server_name | BFE instance address |
+| %bfe_cluster | Backend cluster |
+| %bfe_backend_info | Backend information |
+| %bfe_ssl_resume | Whether the TLS/SSL session is resumed with session id or session ticket |
+| %bfe_ssl_cipher | TLS/SSL cipher suite |
+| %bfe_ssl_version | TLS/SSL version |
+| %bfe_protocol | Application level protocol |
+| %client_cert_serial_number | Serial number of client certificate |
+| %client_cert_subject_title | Subject title of client certificate |
+| %client_cert_subject_common_name | Subject Common Name of client certificate|
+| %client_cert_subject_organization | Subject Organization of client certificate |
+

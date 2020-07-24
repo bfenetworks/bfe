@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 type ConfModBlock struct {
 	Basic struct {
 		ProductRulePath string // path of product block rule data
-		IPBlacklistPath string // path of ip blacklist data
+		IPBlocklistPath string // path of ip blocklist data
 	}
 
 	Log struct {
@@ -65,11 +65,11 @@ func ConfModBlockCheck(cfg *ConfModBlock, confRoot string) error {
 	}
 	cfg.Basic.ProductRulePath = bfe_util.ConfPathProc(cfg.Basic.ProductRulePath, confRoot)
 
-	if cfg.Basic.IPBlacklistPath == "" {
-		log.Logger.Warn("ModBlock.IPBlacklistPath not set, use default value")
-		cfg.Basic.IPBlacklistPath = "mod_block/ip_blacklist.data"
+	if cfg.Basic.IPBlocklistPath == "" {
+		log.Logger.Warn("ModBlock.IPBlocklistPath not set, use default value")
+		cfg.Basic.IPBlocklistPath = "mod_block/ip_blocklist.data"
 	}
-	cfg.Basic.IPBlacklistPath = bfe_util.ConfPathProc(cfg.Basic.IPBlacklistPath, confRoot)
+	cfg.Basic.IPBlocklistPath = bfe_util.ConfPathProc(cfg.Basic.IPBlocklistPath, confRoot)
 
 	return nil
 }

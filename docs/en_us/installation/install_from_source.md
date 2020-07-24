@@ -6,7 +6,7 @@
 
 ## Download source code
 ```bash
-$ git clone https://github.com/baidu/bfe
+$ git clone https://github.com/bfenetworks/bfe
 ```
 
 ## Build

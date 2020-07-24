@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,10 +42,10 @@ import (
 )
 
 import (
-	http "github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_http2/hpack"
-	tls "github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_util/pipe"
+	http "github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http2/hpack"
+	tls "github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util/pipe"
 )
 
 const (
@@ -340,7 +340,7 @@ func (s *Server) ServeConn(c net.Conn, opts *ServeConnOpts) {
 	// get rule for current conn
 	var r *Rule
 	if tlsConn, ok := c.(*tls.Conn); ok && serverRule != nil {
-		r = serverRule.GetRule(tlsConn)
+		r = serverRule.GetHTTP2Rule(tlsConn)
 	}
 
 	sc := &serverConn{
@@ -445,7 +445,7 @@ func (s *Server) ServeConn(c net.Conn, opts *ServeConnOpts) {
 	sc.serve()
 }
 
-// isBadCipher reports whether the cipher is blacklisted by the HTTP/2 spec.
+// isBadCipher reports whether the cipher is blocklisted by the HTTP/2 spec.
 func isBadCipher(cipher uint16) bool {
 	switch cipher {
 	case tls.TLS_RSA_WITH_RC4_128_SHA,

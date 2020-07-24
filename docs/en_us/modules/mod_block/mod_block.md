@@ -11,8 +11,8 @@ conf/mod_block/mod_block.conf
 
 | Config Item | Description | 
 | ----------- | ----------- |
-| Basic.ProductRulePath | path of product rule configuration |
-| Basic.IPBlacklistPath | path of ip blacklist file |
+| Basic.ProductRulePath | Path of product rule configuration |
+| Basic.IPBlocklistPath | Path of ip blocklist file |
 
 ### Example
 ```ini
@@ -20,11 +20,11 @@ conf/mod_block/mod_block.conf
 # product rule config file path
 ProductRulePath = mod_block/block_rules.data
 
-# global ip blacklist file path
-IPBlacklistPath = mod_block/ip_blacklist.data
+# global ip blocklist file path
+IPBlocklistPath = mod_block/ip_blocklist.data
 ```
 
-Format of IPBlacklistPath file
+Format of IPBlocklistPath file
 
 ```
 192.168.1.253 192.168.1.254
@@ -42,14 +42,14 @@ conf/mod_block/block_rules.data
 | Version     | String<br>Verson of config file |
 | Config      | Struct<br>Block rules for each product |
 | Config{k}   | String<br>Product name |
-| Config{v}   | Object<br>a list of rules |
-| Config{v}[] | Object<br>a block rule |
+| Config{v}   | Object<br>A list of rules |
+| Config{v}[] | Object<br>A block rule |
 | Config{v}[].Cond | String<br>Condition expression, See [Condition](../../condition/condition_grammar.md) |
 | Config{v}[].Name | String<br>Name of rule |
 | Config{v}[].Action | Object<br>Action of rule |
 | Config{v}[].Action.Cmd | String<br>Name of action |
-| Config{v}[].Action.Params | Object<br>a list of action parameters |
-| Config{v}[].Action.Params[] | String<br>a action parameter |
+| Config{v}[].Action.Params | Object<br>A list of action parameters |
+| Config{v}[].Action.Params[] | String<br>A action parameter |
 
 ### Actions
   

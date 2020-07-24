@@ -10,7 +10,7 @@
 
 在下面的讲述中，将结合mod_block的实现作为例子。
 
-mod_block的代码位于[/bfe_modules/mod_block](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block)
+mod_block的代码位于[/bfe_modules/mod_block](https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block)
 
 ## 配置的加载
 
@@ -26,14 +26,14 @@ mod_block的代码位于[/bfe_modules/mod_block](https://github.com/baidu/bfe/tr
 - 可动态加载的配置：在BFE程序启动的时候加载，在BFE运行过程中也可以动态加载
     + 对每个模块可以有一个或多个这样的配置文件
     + 配置文件的名字一般以.data结尾
-    + 如：在mod_block下有 block_rules.data 和 ip_blacklist.data
+    + 如：在mod_block下有 block_rules.data 和 ip_blocklist.data
 
 对于每一个配置文件，应编写独立的加载逻辑。
 
 ### 配置文件的放置
 
-- 模块的配置文件，应该统一放置于[/conf](https://github.com/baidu/bfe/tree/master/conf)目录下为每个模块独立建立的目录中
-- 如：mod_block的配置文件，都放置在[/conf/mod_block](https://github.com/baidu/bfe/tree/master/conf/mod_block)中
+- 模块的配置文件，应该统一放置于[/conf](https://github.com/bfenetworks/bfe/tree/master/conf)目录下为每个模块独立建立的目录中
+- 如：mod_block的配置文件，都放置在[/conf/mod_block](https://github.com/bfenetworks/bfe/tree/master/conf/mod_block)中
 
 
 ### 配置加载的检查
@@ -47,7 +47,7 @@ mod_block的代码位于[/bfe_modules/mod_block](https://github.com/baidu/bfe/tr
 
 对于可动态加载的配置，需要在BFE用于监控和加载的专用web server上做回调注册。这样，通过访问BFE对外监控端口的特定URL，就可以触发某个配置的动态加载。
 
-例如，在mod_block的初始化函数中，可以看到类似下面的逻辑，就是在注册配置加载的回调(详见[mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go)):
+例如，在mod_block的初始化函数中，可以看到类似下面的逻辑，就是在注册配置加载的回调(详见[mod_block.go](https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go)):
 
 ```golang
     // register web handler for reload
@@ -65,7 +65,7 @@ mod_block的代码位于[/bfe_modules/mod_block](https://github.com/baidu/bfe/tr
 
 注意，对于不同的回调点，回调函数的形式可能不同。BFE所提供的回调点和回调函数的形式，可参考[BFE的回调机制](./bfe_callback.md)
 
-例如，在mod_block中，编写了以下两个回调函数(详见[mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))：
+例如，在mod_block中，编写了以下两个回调函数(详见[mod_block.go](https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go))：
 
 ```golang
 func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {
@@ -82,7 +82,7 @@ func (m *ModuleBlock) productBlockHandler(request *bfe_basic.Request) (int, *bfe
 
 为了让回调函数生效，需要在模块初始化的时候对回调函数进行注册。
 
-例如，在mod_block中，回调函数的注册逻辑如下(详见[mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))：
+例如，在mod_block中，回调函数的注册逻辑如下(详见[mod_block.go](https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go))：
 
 ```golang
 func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers, cr string) error {
@@ -115,7 +115,7 @@ func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 
 需要首先设计在模块中需要统计哪些值，并通过结构体成员变量的方式定义出来。
 
-如，在mod_block中，有如下定义(详见[mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))：
+如，在mod_block中，有如下定义(详见[mod_block.go](https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go))：
 
 ```golang
 type ModuleBlockState struct {
@@ -155,7 +155,7 @@ func NewModuleBlock() *ModuleBlock {
 
 为了可以通过BFE的监控端口查看模块的内部状态，需要首先实现回调函数。
 
-如，在mod_block中，有如下逻辑(详见[mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))，其中monitorHandlers()是回调函数：
+如，在mod_block中，有如下逻辑(详见[mod_block.go](https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go))，其中monitorHandlers()是回调函数：
 
 ```golang
 func (m *ModuleBlock) getState(params map[string][]string) ([]byte, error) {
@@ -191,7 +191,7 @@ func (m *ModuleBlock) monitorHandlers() map[string]interface{} {
 
 在模块的执行逻辑中，可以插入一些统计的代码。
 
-如，在mod_block中，可以看到如下代码(详见[mod_block.go](https://github.com/baidu/bfe/tree/master/bfe_modules/mod_block/mod_block.go))：
+如，在mod_block中，可以看到如下代码(详见[mod_block.go](https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block/mod_block.go))：
 
 ```golang
 func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {

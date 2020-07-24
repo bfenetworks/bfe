@@ -3,14 +3,18 @@ project_name: bfe
 builds:
   - binary: bfe
     main: ./bfe.go
-    ldflags:
-      - -X main.version={{.Version}}
     goos:
       - linux
       - darwin
       - windows
     goarch:
       - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+      - goos: darwin
+        goarch: arm64
 
 changelog:
   skip: true

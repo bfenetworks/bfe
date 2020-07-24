@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,15 +17,15 @@
 package bfe_basic
 
 import (
+	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
-	"fmt"
 )
 
 import (
-	"github.com/baidu/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 type Session struct {
@@ -121,13 +121,13 @@ func (s *Session) SetError(errCode error, errMsg string) {
 	s.lock.Unlock()
 }
 
-func (s *Session) GetError() (error, string) {
+func (s *Session) GetError() (string, error) {
 	s.lock.Lock()
 	errCode := s.ErrCode
 	errMsg := s.ErrMsg
 	s.lock.Unlock()
 
-	return errCode, errMsg
+	return errMsg, errCode
 }
 
 func (s *Session) SetContext(key, val interface{}) {

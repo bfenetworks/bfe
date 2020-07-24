@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,18 +33,18 @@ import (
 )
 
 import (
-	bfe_cluster_backend "github.com/baidu/bfe/bfe_balance/backend"
-	bal_gslb "github.com/baidu/bfe/bfe_balance/bal_gslb"
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	"github.com/baidu/bfe/bfe_debug"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_http2"
-	"github.com/baidu/bfe/bfe_module"
-	"github.com/baidu/bfe/bfe_route"
-	"github.com/baidu/bfe/bfe_route/bfe_cluster"
-	"github.com/baidu/bfe/bfe_spdy"
-	"github.com/baidu/bfe/bfe_util"
+	bfe_cluster_backend "github.com/bfenetworks/bfe/bfe_balance/backend"
+	bal_gslb "github.com/bfenetworks/bfe/bfe_balance/bal_gslb"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
+	"github.com/bfenetworks/bfe/bfe_debug"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http2"
+	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_route"
+	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
+	"github.com/bfenetworks/bfe/bfe_spdy"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 // RoundTripperMap holds mappings from cluster-name to RoundTripper.
@@ -144,12 +144,14 @@ func (p *ReverseProxy) setTransports(clusterMap bfe_route.ClusterMap) {
 // getTransport return transport from map, if not exist, create a transport.
 func (p *ReverseProxy) getTransport(cluster *bfe_cluster.BfeCluster) bfe_http.RoundTripper {
 	p.tsMu.RLock()
-	defer p.tsMu.RUnlock()
-
 	transport, ok := p.transports[cluster.Name]
+	p.tsMu.RUnlock()
+
 	if !ok {
 		transport = createTransport(cluster)
+		p.tsMu.Lock()
 		p.transports[cluster.Name] = transport
+		p.tsMu.Unlock()
 	}
 
 	return transport
@@ -225,7 +227,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 		}
 
 		// err == nil if and only if we choose a new backend,
-		// desc old backend connection num
+		// decr old backend connection num
 		if request.Trans.Backend != nil {
 			request.Trans.Backend.DecConnNum()
 			request.Trans.Backend = nil
@@ -252,7 +254,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 
 		// set backend addr to out request
 		backend := request.Trans.Backend
-		backend.AddConnNum()
+		backend.IncConnNum()
 		setBackendAddr(outreq, backend)
 
 		// invoke backend

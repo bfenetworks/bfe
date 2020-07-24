@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_module"
 )
 
 const (
@@ -99,26 +99,41 @@ func TestCreateAuthRequest(t *testing.T) {
 	if authReq.Header.Get(testCopyHeader) != testCopyHeaderValue {
 		t.Fatalf("auth request should not have header :%s", testCopyHeaderValue)
 	}
+
+	if authReq.Header.Get(XForwardedMethod) != http.MethodGet {
+		t.Fatalf("%s should be %s, but it's %s", XForwardedMethod, http.MethodGet, authReq.Header.Get(XForwardedMethod))
+	}
+
+	if authReq.Header.Get(XForwardedURI) != "/" {
+		t.Fatalf("%s should be %s, but it's %s", XForwardedURI, "/", authReq.Header.Get(XForwardedURI))
+	}
 }
 
 func TestCheckAuthForbidden(t *testing.T) {
 	m := NewModuleAuthRequest()
 
+	req, _ := bfe_http.NewRequest(http.MethodGet, "http://exapmle.org", nil)
+	basicReq := bfe_basic.NewRequest(req, nil, nil, nil, nil)
 	resp := new(http.Response)
+	resp.Header = make(http.Header)
 
-	resp.StatusCode = 401
-	if !m.checkAuthForbidden(resp) {
-		t.Fatalf("checkAuthForbidden should true")
+	resp.StatusCode = http.StatusUnauthorized
+	var forbiddenResp *bfe_http.Response
+	if forbiddenResp = m.genAuthForbiddenResp(basicReq, resp); forbiddenResp == nil {
+		t.Fatalf("forbiddenResp should be nil")
+	}
+	if forbiddenResp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status_code should be %d, but it's %d", http.StatusUnauthorized, forbiddenResp.StatusCode)
 	}
 
 	resp.StatusCode = http.StatusCreated
-	if m.checkAuthForbidden(resp) {
-		t.Fatalf("checkAuthForbidden should false")
+	if forbiddenResp = m.genAuthForbiddenResp(basicReq, resp); forbiddenResp != nil {
+		t.Fatalf("forbasicResp should be nil")
 	}
 
 	resp.StatusCode = http.StatusMovedPermanently
-	if m.checkAuthForbidden(resp) {
-		t.Fatalf("checkAuthForbidden should false")
+	if forbiddenResp = m.genAuthForbiddenResp(basicReq, resp); forbiddenResp != nil {
+		t.Fatalf("checkAuthForbidden should nil")
 	}
 }
 
@@ -132,6 +147,7 @@ func TestAuthRequestHandler(t *testing.T) {
 	}
 
 	ts := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("WWW-Authenticate", "Basic realm=testforbfe")
 		writer.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer ts.Close()
@@ -155,5 +171,10 @@ func TestAuthRequestHandler(t *testing.T) {
 
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("resp code should be %d, but it's %d", http.StatusUnauthorized, resp.StatusCode)
+	}
+
+	wwwAuth := resp.Header.Get("WWW-Authenticate")
+	if resp.Header.Get("WWW-Authenticate") != "Basic realm=testforbfe" {
+		t.Fatalf("resp header[WWW-Authenticate] should be Basic realm=testforbfe, but it's %s", wwwAuth)
 	}
 }

@@ -85,26 +85,26 @@ DataPath = mod_header/header_rule.data
 ```
   
 ## 内置变量说明
-可以通过 %variable 使用变量，参见下文示例  
+BFE支持如下一系列变量并在处理请求阶段求值。关于变量的使用参见如上配置示例。
 
 | 变量名         | 含义       |
 | -------------- | ---------- |
-| bfe_client_ip | 客户端IP |
-| bfe_client_port | 客户端端口 |
-| bfe_request_host | 请求Host |
-| bfe_session_id | 会话ID |
-| bfe_log_id | 请求ID |
-| bfe_cip | 客户端IP (CIP) |
-| bfe_vip | 服务端IP (VIP) |
-| bfe_server_name | 添加请求头 |
-| bfe_cluster | 目的集群 |
-| bfe_backend_info | 后端信息 |
-| bfe_ssl_resume | 是否tls/ssl会话复用 |
-| bfe_ssl_cipher | tls/ssl加密套件 |
-| bfe_ssl_version | tls/ssl协议版本 |
-| bfe_protocol | 访问协议 |
-| client_cert_serial_number | 客户端证书序列号 |
-| client_cert_subject_title | 客户端证书Subject title |
-| client_cert_subject_common_name | 客户端证书Subject Common Name |
-| client_cert_subject_organization | 客户端证书Subject Organization |
+| %bfe_client_ip | 客户端IP |
+| %bfe_client_port | 客户端端口 |
+| %bfe_request_host | 请求Host |
+| %bfe_session_id | 会话ID |
+| %bfe_log_id | 请求ID |
+| %bfe_cip | 客户端IP (CIP) |
+| %bfe_vip | 服务端IP (VIP) |
+| %bfe_server_name | BFE实例地址 |
+| %bfe_cluster | 目的后端集群 |
+| %bfe_backend_info | 后端信息 |
+| %bfe_ssl_resume | 是否TLS/SSL会话复用 |
+| %bfe_ssl_cipher | TLS/SSL加密套件 |
+| %bfe_ssl_version | TLS/SSL协议版本 |
+| %bfe_protocol | 访问协议 |
+| %client_cert_serial_number | 客户端证书序列号 |
+| %client_cert_subject_title | 客户端证书Subject title |
+| %client_cert_subject_common_name | 客户端证书Subject Common Name |
+| %client_cert_subject_organization | 客户端证书Subject Organization |
 

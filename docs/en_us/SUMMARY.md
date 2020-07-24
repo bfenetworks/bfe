@@ -10,7 +10,7 @@
     * [Traffic routing](introduction/route.md)
     * [Traffic balancing](introduction/balance.md)
   * [Getting help](introduction/getting_help.md)
-  * [Version History](https://github.com/baidu/bfe/blob/master/CHANGELOG.md)
+  * [Version History](https://github.com/bfenetworks/bfe/blob/master/CHANGELOG.md)
 * Getting Started 
   * [Install](installation/install_from_source.md)
   * [User Guides](example/guide.md)
@@ -62,10 +62,12 @@
   * [mod_trace](modules/mod_trace/mod_trace.md)
   * [mod_trust_clientip](modules/mod_trust_clientip/mod_trust_clientip.md)
   * [mod_userid](modules/mod_userid/mod_userid.md)
+  * [mod_secure_link](modules/mod_secure_link/mod_secure_link.md)
 * Operations
   * [Command line options](operation/command.md)
   * [Environment variables](operation/env_var.md)
   * [System signals](operation/signal.md)
+  * [Management API](operation/api.md)
   * [Configuration reload](operation/reload.md)
   * [System metrics](operation/monitor.md)
   * [Log Rotation](operation/log_rotation.md)
@@ -89,7 +91,7 @@
   * [Development](faq/development.md)
 * Appendix A: Monitor
   * Protocol 
-    * [SSL/TLS](monitor/tls_state.md)
+    * [TLS](monitor/tls_state.md)
     * [HTTP](monitor/http_state.md)
     * [HTTP2](monitor/http2_state.md)
     * [SPDY](monitor/spdy_state.md)
@@ -102,9 +104,10 @@
     * [Balance error](monitor/bal_state.md)
   * Proxy
     * [Proxy state](monitor/proxy_state.md)
+    * [Memory](monitor/proxy_mem_stat.md)
   * [Modules](monitor/module_status.md)
   * Lentency
-    * [Lentency histogram](monitor/proxy_XXX_delay.md)
+    * [Lentency histogram](monitor/latency.md)
 * Appendix B: Condition
   * [Condition Concept and Grammar](condition/condition_grammar.md)
   * [Condition Naming Convention](condition/condition_naming_convention.md)
@@ -125,4 +128,4 @@
   * System related Condition Primitives
     * [Time](condition/system/time.md)
 
-Note: This documentation is working in process. Please help improve it by [filing issues](https://github.com/baidu/bfe/issues/new/choose) or [pull requests](development/submit_pr_guide.md).
+Note: This documentation is working in process. Please help improve it by [filing issues](https://github.com/bfenetworks/bfe/issues/new/choose) or [pull requests](development/submit_pr_guide.md).

@@ -12,13 +12,13 @@
 The main configuration file is named bfe.conf (conf/bfe.conf). To make the configuration easier to maintain, 
 we split it into a set of feature-specific files stored in the conf/&#60;feature&#62;/ directory.
 
-| functional category | configuration layout |
+| Category     | Layout   |
 | ------------ | -------- |
-| main configuration | conf/bfe.conf |
-| configuration about protocol | conf/tls_conf/ | 
-| configuration about routing | conf/server_data_conf/ |
-| configuration about balancing | conf/cluster_conf/ |
-| configuration about modules | conf/mod_&#60;name&#62; |
+| Main configuration | conf/bfe.conf |
+| Configuration about protocol | conf/tls_conf/ | 
+| Configuration about routing | conf/server_data_conf/ |
+| Configuration about balancing | conf/cluster_conf/ |
+| Configuration about modules | conf/mod_&#60;name&#62; |
 
 ## Reloading Configuration
 

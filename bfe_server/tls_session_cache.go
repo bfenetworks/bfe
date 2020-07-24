@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,8 +30,8 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_conf"
-	"github.com/baidu/bfe/bfe_util/bns"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
+	"github.com/bfenetworks/bfe/bfe_util/bns"
 )
 
 type ServerSessionCache struct {

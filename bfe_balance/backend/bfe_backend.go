@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
 )
 
 // BfeBackend is a backend server.
@@ -92,13 +92,13 @@ func (back *BfeBackend) setAvail(avail bool) {
 
 func (back *BfeBackend) ConnNum() int {
 	back.RLock()
-	conns := back.connNum
+	connNum := back.connNum
 	back.RUnlock()
 
-	return conns
+	return connNum
 }
 
-func (back *BfeBackend) AddConnNum() {
+func (back *BfeBackend) IncConnNum() {
 	back.Lock()
 	back.connNum++
 	back.Unlock()

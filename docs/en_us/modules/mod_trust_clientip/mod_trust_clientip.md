@@ -11,7 +11,7 @@ conf/mod_trust_clientip/mod_trust_clientip.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>path of rule configuraiton |
+| Basic.DataPath | String<br>Path of rule configuraiton |
 
 ### Example
 ```ini
@@ -27,12 +27,12 @@ DataPath = mod_trust_clientip/trust_client_ip.data
 | Config Item       | Type   | Description                                                     |
 | ----------------- | ------ | --------------------------------------------------------------- |
 | Version           | String | Verson of config file                                           |
-| Config            | Object | trusted ip config |
-| Config{k}         | Struct | label
+| Config            | Object | Trusted ip config |
+| Config{k}         | Struct | Label
 | Config{v}         | String | A list of ip segments |
 | Config{v}[]       | Object | A ip segment |
-| Config{v}[].Begin | String | start ip address |
-| Config{v}[].End   | String | end ip address |
+| Config{v}[].Begin | String | Start ip address |
+| Config{v}[].End   | String | End ip address |
 
 ### Example
 ```json
@@ -53,8 +53,8 @@ DataPath = mod_trust_clientip/trust_client_ip.data
 
 | Metric                       | Description                                        |
 | ---------------------------- | -------------------------------------------------- |
-| CONN_ADDR_INTERNAL           | ^PCounter for connection from internal               |
-| CONN_ADDR_INTERNAL_NOT_TRUST | ^PCounter for connection from internal and not trust |
-| CONN_TOTAL                   | ^PCounter for all connnetion checked                 |
-| CONN_TRUST_CLIENTIP          | ^PCounter for connnection from trust address         |
+| CONN_ADDR_INTERNAL           | Counter for connection from internal               |
+| CONN_ADDR_INTERNAL_NOT_TRUST | Counter for connection from internal and not trust |
+| CONN_TOTAL                   | Counter for all connnetion checked                 |
+| CONN_TRUST_CLIENTIP          | Counter for connnection from trust address         |
 

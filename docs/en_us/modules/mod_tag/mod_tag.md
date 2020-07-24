@@ -11,8 +11,8 @@ conf/mod_tag/mod_tag.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>path of rule configuraiton |
-| Log.OpenDebug | Boolean<br>debug flag of module |
+| Basic.DataPath | String<br>Path of rule configuraiton |
+| Log.OpenDebug | Boolean<br>Debug flag of module |
 
 ### Example
 ```ini
@@ -36,9 +36,9 @@ conf/mod_tag/tag_rule.data
 | Config{v}   | Object<br>A list of tag rules |
 | Config{v}[] | Object<br>A tag rule |
 | Config{v}[].Cond           | String<br>Condition expression, See [Condition](../../condition/condition_grammar.md) |
-| Config{v}[].Param.TagName  | String<br>tag name                                   |
-| Config{v}[].Param.TagValue | String<br>tag value                                  |
-| Config{v}[].Last           | Boolean<br>if true, stop to check the remaining rules |
+| Config{v}[].Param.TagName  | String<br>Tag name                                   |
+| Config{v}[].Param.TagValue | String<br>Tag value                                  |
+| Config{v}[].Last           | Boolean<br>If true, stop to check the remaining rules |
 
 ### Example
 

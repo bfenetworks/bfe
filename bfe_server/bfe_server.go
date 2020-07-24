@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,20 +31,20 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_balance"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_tls_conf/session_ticket_key_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_tls_conf/tls_rule_conf"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_http2"
-	"github.com/baidu/bfe/bfe_module"
-	"github.com/baidu/bfe/bfe_route"
-	"github.com/baidu/bfe/bfe_spdy"
-	"github.com/baidu/bfe/bfe_stream"
-	"github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_util/signal_table"
-	"github.com/baidu/bfe/bfe_websocket"
+	"github.com/bfenetworks/bfe/bfe_balance"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/session_ticket_key_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/tls_rule_conf"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http2"
+	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_route"
+	"github.com/bfenetworks/bfe/bfe_spdy"
+	"github.com/bfenetworks/bfe/bfe_stream"
+	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util/signal_table"
+	"github.com/bfenetworks/bfe/bfe_websocket"
 )
 
 // BfeServer
@@ -100,7 +100,6 @@ type BfeServer struct {
 
 // NewBfeModules create a new instance of BfeServer.
 func NewBfeServer(cfg bfe_conf.BfeConfig, confRoot string,
-	listenerMap map[string]net.Listener,
 	version string) *BfeServer {
 
 	s := new(BfeServer)
@@ -109,10 +108,6 @@ func NewBfeServer(cfg bfe_conf.BfeConfig, confRoot string,
 	s.Config = cfg
 	s.ConfRoot = confRoot
 	s.InitConfig()
-
-	// set service listener
-	s.listenerMap = listenerMap
-	s.HttpListener = listenerMap["HTTP"]
 
 	// initialize counters, proxyState
 	s.serverStatus = NewServerStatus()
@@ -197,9 +192,6 @@ func (srv *BfeServer) InitHttps() (err error) {
 
 	// init tls next proto handlers
 	srv.initTLSNextProtoHandler()
-
-	// initialize https listeners
-	srv.HttpsListener = NewHttpsListener(srv.listenerMap["HTTPS"], srv.TLSConfig)
 
 	return nil
 }
@@ -317,6 +309,9 @@ func (srv *BfeServer) initTLSNextProtoHandler() {
 	bfe_http2.DisableConnHeaderCheck()
 	bfe_http2.SetServerRule(srv.TLSServerRule)
 	bfe_http2.EnableLargeConnRecvWindow()
+
+	// init params for stream
+	bfe_stream.SetServerRule(srv.TLSServerRule)
 }
 
 func (srv *BfeServer) InitModules() error {
@@ -359,27 +354,27 @@ func (srv *BfeServer) InitSignalTable() {
 	srv.SignalTable.StartSignalHandle()
 }
 
-func (s *BfeServer) InitWebMonitor(port int) error {
+func (srv *BfeServer) InitWebMonitor(port int) error {
 	var err error
-	s.Monitor, err = newBfeMonitor(s, port)
+	srv.Monitor, err = newBfeMonitor(srv, port)
 	return err
 }
 
 // ShutdownHandler is signal handler for QUIT
-func (s *BfeServer) ShutdownHandler(sig os.Signal) {
-	shutdownTimeout := s.Config.Server.GracefulShutdownTimeout
+func (srv *BfeServer) ShutdownHandler(sig os.Signal) {
+	shutdownTimeout := srv.Config.Server.GracefulShutdownTimeout
 	log.Logger.Info("get signal %s, graceful shutdown in %ds", sig, shutdownTimeout)
 
 	// notify that server is in graceful shutdown state
-	close(s.CloseNotifyCh)
+	close(srv.CloseNotifyCh)
 
 	// close server listeners
-	s.closeListeners()
+	srv.closeListeners()
 
 	// waits server conns to finish
 	connFinCh := make(chan bool)
 	go func() {
-		s.connWaitGroup.Wait()
+		srv.connWaitGroup.Wait()
 		connFinCh <- true
 	}()
 
@@ -406,30 +401,64 @@ Loop:
 }
 
 // CheckGracefulShutdown check wether the server is in graceful shutdown state.
-func (s *BfeServer) CheckGracefulShutdown() bool {
+func (srv *BfeServer) CheckGracefulShutdown() bool {
 	select {
-	case <-s.CloseNotifyCh:
+	case <-srv.CloseNotifyCh:
 		return true
 	default:
 		return false
 	}
 }
 
-func (s *BfeServer) GetServerConf() *bfe_route.ServerDataConf {
-	s.confLock.RLock()
-	sf := s.ServerConf
-	s.confLock.RUnlock()
+func (srv *BfeServer) GetServerConf() *bfe_route.ServerDataConf {
+	srv.confLock.RLock()
+	sf := srv.ServerConf
+	srv.confLock.RUnlock()
 
 	return sf
 }
 
 // GetCheckConf implements CheckConfFetcher and return current
 // health check configuration.
-func (s *BfeServer) GetCheckConf(clusterName string) *cluster_conf.BackendCheck {
-	sf := s.GetServerConf()
+func (srv *BfeServer) GetCheckConf(clusterName string) *cluster_conf.BackendCheck {
+	sf := srv.GetServerConf()
 	cluster, err := sf.ClusterTable.Lookup(clusterName)
 	if err != nil {
 		return nil
 	}
 	return cluster.BackendCheckConf()
+}
+
+func (srv *BfeServer) InitListeners(config bfe_conf.BfeConfig) error {
+	listenerMap := make(map[string]net.Listener)
+	lnConf := map[string]int{
+		"HTTP":  config.Server.HttpPort,
+		"HTTPS": config.Server.HttpsPort,
+	}
+
+	for proto, port := range lnConf {
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		if err != nil {
+			return err
+		}
+
+		// wrap underlying listener according to balancer type
+		listener = NewBfeListener(listener, config)
+		listenerMap[proto] = listener
+		log.Logger.Info("InitListeners(): begin to listen [:%d]", port)
+	}
+
+	srv.listenerMap = listenerMap
+	srv.HttpListener = listenerMap["HTTP"]
+	srv.HttpsListener = NewHttpsListener(srv.listenerMap["HTTPS"], srv.TLSConfig)
+
+	return nil
+}
+
+func (srv *BfeServer) closeListeners() {
+	for _, ln := range srv.listenerMap {
+		if err := ln.Close(); err != nil {
+			log.Logger.Error("closeListeners(): %s, %s", err, ln.Addr())
+		}
+	}
 }

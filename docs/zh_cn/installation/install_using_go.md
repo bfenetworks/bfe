@@ -7,7 +7,7 @@
 - 获取并安装
 
 ```bash
-$ go get github.com/baidu/bfe
+$ go get github.com/bfenetworks/bfe
 ```
 
 可执行目标文件位置: ${GOPATH}/bin/bfe
@@ -21,7 +21,7 @@ $ go get github.com/baidu/bfe
 
 ```bash
 $ cd ${GOPATH}/bin/ 
-$ ./bfe -c ${GOPATH}/src/github.com/baidu/bfe/conf/
+$ ./bfe -c ${GOPATH}/src/github.com/bfenetworks/bfe/conf/
 ```
 
 ## 下一步

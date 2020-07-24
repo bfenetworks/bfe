@@ -1,4 +1,4 @@
-FROM golang:1.13.4-alpine AS build
+FROM golang:1.13.11-alpine AS build
 
 WORKDIR /bfe
 COPY . .

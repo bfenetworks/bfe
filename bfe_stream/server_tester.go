@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,10 +24,10 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_balance/backend"
-	http "github.com/baidu/bfe/bfe_http"
-	tls "github.com/baidu/bfe/bfe_tls"
-	util "github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_balance/backend"
+	http "github.com/bfenetworks/bfe/bfe_http"
+	tls "github.com/bfenetworks/bfe/bfe_tls"
+	util "github.com/bfenetworks/bfe/bfe_util"
 )
 
 type ServerTester struct {

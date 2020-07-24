@@ -12,7 +12,7 @@ You will learn how to develop BFE in local environment under the guidelines of t
 The following guidiance tells you how to submit code.
 ## [Fork](https://help.github.com/articles/fork-a-repo/)
 
-Transfer to the home page of Github [BFE](https://github.com/baidu/bfe) ,and then click button `Fork`  to generate the git under your own file directory,such as <https://github.com/USERNAME/bfe>
+Transfer to the home page of Github [BFE](https://github.com/bfenetworks/bfe) ,and then click button `Fork`  to generate the git under your own file directory,such as <https://github.com/USERNAME/bfe>
 
 ## Clone
 
@@ -120,7 +120,7 @@ $ git commit -m "test=release/1.1"
 
 ## Keep the latest local repository
 
-It needs to keep up with the latest code of original repository(<https://github.com/baidu/bfe>）before Pull Request.
+It needs to keep up with the latest code of original repository(<https://github.com/bfenetworks/bfe>）before Pull Request.
 
 Check the name of current remote repository with `git remote`.
 
@@ -135,7 +135,7 @@ origin	https://github.com/USERNAME/bfe (push)
 origin is the name of remote repository that we clone, which is also the BFE under your own account. Next we create a remote host of an original BFE and name it upstream.
 
 ```bash
-$ git remote add upstream https://github.com/baidu/bfe
+$ git remote add upstream https://github.com/bfenetworks/bfe
 $ git remote
 origin
 upstream

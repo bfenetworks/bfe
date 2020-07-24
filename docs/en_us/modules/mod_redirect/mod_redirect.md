@@ -11,7 +11,7 @@ conf/mod_redirect/mod_redirect.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>path of rule configuraiton |
+| Basic.DataPath | String<br>Path of rule configuraiton |
 
 ### Example
 
@@ -42,10 +42,10 @@ conf/mod_redirect/redirect.data
 ### Actions
 | Action         | Description                                                                         |
 | -------------- | ----------------------------------------------------------------------------------- |
-| URL_SET        | redirect to specified URL                                                           |
-| URL_FROM_QUERY | redirect to URL parsed from specified query in request                              |
-| URL_PREFIX_ADD | redirect to URL concatenated by specified prefix and the original URL               |
-| SCHEME_SET     | redirect to the original URL but with scheme changed. supported scheme: http\|https |
+| URL_SET        | Redirect to specified URL                                                           |
+| URL_FROM_QUERY | Redirect to URL parsed from specified query in request                              |
+| URL_PREFIX_ADD | Redirect to URL concatenated by specified prefix and the original URL               |
+| SCHEME_SET     | Redirect to the original URL but with scheme changed. supported scheme: http\|https |
   
 ### Example
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -129,7 +129,7 @@ func CheckSuiteRSA(id uint16) bool {
 		return true
 	case TLS_RSA_WITH_3DES_EDE_CBC_SHA:
 		return true
-        case TLS_RSA_WITH_SM4_SM3:
+	case TLS_RSA_WITH_SM4_SM3:
 		return true
 	}
 	return false

@@ -1,4 +1,4 @@
-BFE是基于百度统一接入前端(Baidu FrontEnd)开源的七层流量接入系统
+BFE是基于百度统一接入前端开源的七层流量接入系统
 
 BFE文档由以下几个主要部分组成:
 
@@ -21,4 +21,4 @@ BFE文档由以下几个主要部分组成:
 * 条件原语: BFE条件原语的详细说明
 
 
-如果文档没有包含您关注的内容或问题, 请在[Github](https://github.com/baidu/bfe/issues)提交反馈
+如果文档没有包含您关注的内容或问题, 请在[Github](https://github.com/bfenetworks/bfe/issues)提交反馈

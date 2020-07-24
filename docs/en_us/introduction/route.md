@@ -1,24 +1,32 @@
-# Request Routing
+# Traffic Routing
 
-In BFE configuration, a "product" could be composed of multiple clusters. User can define how requests are routed among the clusters. Request routing is based on the content of HTTP request.
+## Overview
 
-## Rule configuration
+- In BFE [forwarding model](./forward_model.md), after "product name" for one request is determined, the destionation cluster should be identified.
+- A Forwarding Table is provided for each product inside BFE.
+- For each request, the forwarding table for the determined product is searched, and destination cluster is identified.
 
-- Fields in HTTP Header is used to define routing rule for distributing traffic in cluster level, for example:
-    - host, path, query, cookie, method, etc.
-- BFE provide a "Condition" expression to define how to route request with special header. This is routing rule in cluster level load balance.
-- If multiple rules are configured, BFE would match the rules in sequence. Matching procedure stop if one rule is matched.
+## Forwarding Table
+
+- Forwarding table is composed by one or more "forwarding rules".
+- Each forwarding rule has two parts: condition(for matching the request), destionation cluster.
+- Condition is expressed in [Condition Expression](../condition).
+- For a request, multiple rules in forwarding table are searched up to down.(i.e., the order of forwarding rules is very important.) The procedure will stop if some rule is matched.
+- There must be one Default Rule in the forwarding table. If no other rules is matched for a request, the destionation cluster defined in Default Rule is returned.
+
 
 ## Example
 
-- A product "demo", which needs process three kinds of traffic: static content traffic, "post" traffic, other traffic, then we can define three clusters ：
-
+- A product "demo" has three clusters:
     - demo-static：serve static content 
     - demo-post：serve post request
     - demo-main: serve other traffic
 
-- To BFE configuration, following routing rules can be added:
-    - Rule 1: req_path_prefix_in("/static", false) -> demo-static, which means requests with path prefixed with "/static" will be routed to cluster demo-static.
-    - Rule 2: req_method_in("POST")&&req_path_prefix_in("/setting",false) -> demo-post, which means that request which use method "POST" and is prefixed with "/setting" will be routed to cluster "demo-post". 
-    - Rule 3: default -> demo-main, which means all request which doesn't match above rules will be sent to cluster "demo-main".
+- The expected scenarios:
+    - Requests with path prefixed with "/static" will be forwarded to cluster demo-static.
+    - Request using method "POST" and prefixed with "/setting" will be forwarded to cluster "demo-post". 
+    - Other request will be forwarded to cluster "demo-main".
 
+- The corresponding forwarding table is shown as follows.
+
+![Forwarding Table](../../images/bfe-forwarding-table.png)

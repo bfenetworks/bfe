@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,11 +24,11 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_modules/mod_trace/trace"
-	"github.com/baidu/bfe/bfe_modules/mod_trace/trace/elastic"
-	"github.com/baidu/bfe/bfe_modules/mod_trace/trace/jaeger"
-	"github.com/baidu/bfe/bfe_modules/mod_trace/trace/zipkin"
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_trace/trace"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_trace/trace/elastic"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_trace/trace/jaeger"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_trace/trace/zipkin"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 const (

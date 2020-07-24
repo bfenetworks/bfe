@@ -13,34 +13,34 @@ mod_trace enables tracing for requests based on defined rules.
 
 | Config Item                   | Description                     |
 | ------------------------------| --------------------------------|
-| Basic.DataPath                | String<br>path of rule configuraiton |
-| Basic.ServiceName             | String<br>service name |
-| Basic.TraceAgent              | String<br>which trace agent to use (jaeger/zipkin) | 
-| Log.OpenDebug                 | Boolean<br>debug flag of module |
+| Basic.DataPath                | String<br>Path of rule configuraiton |
+| Basic.ServiceName             | String<br>Service name |
+| Basic.TraceAgent              | String<br>Which trace agent to use (jaeger/zipkin) | 
+| Log.OpenDebug                 | Boolean<br>Debug flag of module |
 
 #### Configuration about Zipkin
 
 | Config Item                   | Description                     |
 | ------------------------------| --------------------------------|
-| Zipkin.HTTPEndpoint           | String<br>http endpoint to report traces to |
-| Zipkin.SameSpan               | String<br>whether to use Zipkin SameSpan RPC style traces |
-| Zipkin.ID128Bit               | String<br>whether to use 128 bit root span IDs |
-| Zipkin.SampleRate             | Float<br>the rate between 0.0001 and 1.0 of requests to trace |
+| Zipkin.HTTPEndpoint           | String<br>Http endpoint to report traces to |
+| Zipkin.SameSpan               | String<br>Whether to use Zipkin SameSpan RPC style traces |
+| Zipkin.ID128Bit               | String<br>Whether to use 128 bit root span IDs |
+| Zipkin.SampleRate             | Float<br>The rate between 0.0001 and 1.0 of requests to trace |
 
 #### Configuration about Jaeger
 
 | Config Item                   | Description                     |
 | ------------------------------| --------------------------------|
-| Jaeger.SamplingServerURL      | String<br>the address of jaeger-agent's HTTP sampling server |
-| Jaeger.SamplingType           | String<br>the type of the sampler: const, probabilistic, rateLimiting, or remote |
-| Jaeger.SamplingParam          | Float<br>param passed to the sampler |
-| Jaeger.LocalAgentHostPort     | String<br>the address of jaeger-agent which recives spans |
-| Jaeger.Propagation            | String<br>which propagation format to use (jaeger/b3) |
-| Jaeger.Gen128Bit              | Boolean<br>whether to use 128 bit root span IDs |
-| Jaeger.TraceContextHeaderName | String<br>the http header name used to propagate tracing context |
-| Jaeger.CollectorEndpoint      | String<br>the address of jaeger-collector |
-| Jaeger.CollectorUser          | String<br>basic http authentication when sending spans to jaeger-collector |
-| Jaeger.CollectorPassword      | String<br>basic http authentication when sending spans to jaeger-collector |
+| Jaeger.SamplingServerURL      | String<br>The address of jaeger-agent's HTTP sampling server |
+| Jaeger.SamplingType           | String<br>The type of the sampler: const, probabilistic, rateLimiting, or remote |
+| Jaeger.SamplingParam          | Float<br>Param passed to the sampler |
+| Jaeger.LocalAgentHostPort     | String<br>The address of jaeger-agent which recives spans |
+| Jaeger.Propagation            | String<br>Which propagation format to use (jaeger/b3) |
+| Jaeger.Gen128Bit              | Boolean<br>Whether to use 128 bit root span IDs |
+| Jaeger.TraceContextHeaderName | String<br>The http header name used to propagate tracing context |
+| Jaeger.CollectorEndpoint      | String<br>The address of jaeger-collector |
+| Jaeger.CollectorUser          | String<br>Basic http authentication when sending spans to jaeger-collector |
+| Jaeger.CollectorPassword      | String<br>Basic http authentication when sending spans to jaeger-collector |
 
 #### Configuration about Elastic
 
