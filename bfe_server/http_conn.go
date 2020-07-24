@@ -484,6 +484,9 @@ func (c *conn) serve() {
 				proxyState.ClientConnActiveInc(c.session.Proto, 1)
 				// switching to websocket protocol
 				log.Logger.Debug("conn.serve(): upgrade to websocket protocol over http/https")
+				// note: set SvrDataConf to nil can ensure that gc will delete useless server data config object
+				// in persistent connection situation(eg. ws)
+				request.SvrDataConf = nil
 				fn(&c.server.Server, w, req)
 				return
 			default:

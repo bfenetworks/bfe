@@ -643,6 +643,10 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	// invoke cluster to get response
 	res, action, err = p.clusterInvoke(srv, cluster, basicReq, rw)
 	basicReq.HttpResponse = res
+	// note: set SvrDataConf to nil can ensure that gc will delete useless server data config object
+	// in persistent connection situation(eg. ws)
+	basicReq.SvrDataConf = nil
+
 	if err != nil {
 		basicReq.Stat.ResponseStart = time.Now()
 		basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
