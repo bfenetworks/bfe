@@ -88,7 +88,7 @@ func (h Header) Clone() Header {
 	return h2
 }
 
-// get all keys of header
+// Keys get all keys from header
 func (h Header) Keys() []string {
 	keys := make([]string, 0)
 	for key := range h {
