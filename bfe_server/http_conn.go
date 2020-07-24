@@ -482,6 +482,12 @@ func (c *conn) serve() {
 				c.session.Proto = bfe_websocket.Scheme(c.rwc)
 				proxyState.ClientConnServedInc(c.session.Proto, 1)
 				proxyState.ClientConnActiveInc(c.session.Proto, 1)
+				
+				// Note: The runtime will not GC the objects referenced by request.SvrDataConf until the websocket connection 
+				// has been processed. But the connection may last a long time. It's better to remove the reference to objects 
+				// which are not used any more.
+				request.SvrDataConf = nil
+				
 				// switching to websocket protocol
 				log.Logger.Debug("conn.serve(): upgrade to websocket protocol over http/https")
 				fn(&c.server.Server, w, req)
