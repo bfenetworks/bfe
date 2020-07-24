@@ -10,6 +10,7 @@ require (
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gomodule/redigo v2.0.0+incompatible
+	github.com/json-iterator/go v1.1.10
 	github.com/microcosm-cc/bluemonday v1.0.3
 	github.com/miekg/dns v1.1.29
 	github.com/opentracing/opentracing-go v1.1.0
@@ -17,7 +18,6 @@ require (
 	github.com/openzipkin/zipkin-go v0.2.2
 	github.com/oschwald/geoip2-golang v1.4.0
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7
 	github.com/russross/blackfriday/v2 v2.0.1
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0

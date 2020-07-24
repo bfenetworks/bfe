@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	json "github.com/pquerna/ffjson/ffjson"
+	jsoniter "github.com/json-iterator/go"
 )
 
 // RetryLevels
@@ -482,10 +482,11 @@ func (conf *BfeClusterConf) LoadAndCheck(filename string) (string, error) {
 	}
 
 	/* decode the file  */
-	decoder := json.NewDecoder()
+	json := jsoniter.ConfigCompatibleWithStandardLibrary
+	decoder := json.NewDecoder(file)
 	defer file.Close()
 
-	if err := decoder.DecodeReader(file, &conf); err != nil {
+	if err := decoder.Decode(&conf); err != nil {
 		return "", err
 	}
 
