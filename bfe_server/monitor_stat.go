@@ -17,13 +17,16 @@
 package bfe_server
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 )
 
 import (
 	"github.com/baidu/go-lib/web-monitor/kv_encode"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // HostTableStatusGet returns status of HostTable in json.

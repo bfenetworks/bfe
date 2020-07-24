@@ -16,13 +16,13 @@ package action
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"strings"
 )
 
 import (
 	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 const (
