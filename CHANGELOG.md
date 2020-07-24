@@ -11,12 +11,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unrelease]
+## [v0.11.0] - 2020-07-24
 
 ### Added
+- Add mod_cors to enable cross-origin resource sharing
+- Add mod_secure_link to check authenticity and limit lifetime of links
 - Support PROXY protocol for TCP connections to backend
 - Support checking revocation status of the client certificate
 - mod_auth_request: send request with X-Forwarded-Method/X-Forwarded-Uri headers
+- mod_userid: support global rules
+- mod_key_log: support conditional logging
+- Add arm64 support for goreleaser
 
 ### Changed
 - Create listeners in the final initialization step
@@ -28,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fix getTransport() and modify transports map with write lock
+
+### Security
+- Fix textproto: not normalize headers with spaces before the colon (CVE-2019-16276)
 
 
 ## [v0.10.0] - 2020-05-25  
@@ -183,7 +191,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
-[Unrelease]: https://github.com/baidu/bfe/compare/v0.10.0...HEAD
+[v0.11.0]: https://github.com/bfenetworks/bfe/compare/v0.10.0...v0.11.0
 [v0.10.0]: https://github.com/bfenetworks/bfe/compare/v0.9.0...v0.10.0
 [v0.9.0]: https://github.com/bfenetworks/bfe/compare/v0.8.0...v0.9.0
 [v0.8.0]: https://github.com/bfenetworks/bfe/compare/v0.7.0...v0.8.0
