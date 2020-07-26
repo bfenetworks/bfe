@@ -181,23 +181,32 @@ func (f *genericFinishFilter) String() string {
 	return runtime.FuncForPC(ptr).Name()
 }
 
+// Extend Struct
+type ExtendModule struct {
+	NameConfReload         func(url.Values) error
+	TLSConfReload          func(url.Values) error
+	GslbDataConfReload     func(url.Values) error
+	ServerDataConfReload   func(url.Values) error
+	SessionTicketKeyReload func() error
+}
+
 // ExtendFilter filters extend func
 type ExtendFilter interface {
-	FilterExtend(f1 func(url.Values) error)
+	FilterExtend(*ExtendModule)
 }
 
 // NewExtendFilter create a Filter by passed func.
-func NewExtendFilter(f func(func(url.Values) error)) ExtendFilter {
+func NewExtendFilter(f func(em *ExtendModule)) ExtendFilter {
 	rf := new(genericExtendFilter)
 	rf.f = f
 	return rf
 }
 
 type genericExtendFilter struct {
-	f func(func(url.Values) error)
+	f func(module *ExtendModule)
 }
 
-func (f *genericExtendFilter) FilterExtend(f1 func(url.Values) error) {
+func (f *genericExtendFilter) FilterExtend(em *ExtendModule) {
 	// TODO: we need a workflow in the future
-	go func() { f.f(f1) }()
+	go func() { f.f(em) }()
 }

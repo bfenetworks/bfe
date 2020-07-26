@@ -19,7 +19,6 @@ package bfe_module
 import (
 	"container/list"
 	"fmt"
-	"net/url"
 )
 
 import (
@@ -172,10 +171,10 @@ LOOP:
 }
 
 // FillInExtend filters extend with HandlerList.
-func (hl *HandlerList) FillInExtend(f1 func(url.Values) error) error {
+func (hl *HandlerList) FillInExtend(em *ExtendModule) error {
 	switch filter := hl.handlerExtend.(type) {
 	case ExtendFilter:
-		filter.FilterExtend(f1)
+		filter.FilterExtend(em)
 	default:
 		//	do noting
 	}
@@ -239,7 +238,7 @@ func (hl *HandlerList) AddFinishFilter(f interface{}) error {
 
 // AddExtensionAsync adds async func to runing.
 func (hl *HandlerList) AddExtendAsync(f interface{}) error {
-	callback, ok := f.(func(func(url.Values) error))
+	callback, ok := f.(func(em *ExtendModule))
 	if !ok {
 		return fmt.Errorf("AddExtensionAsync():invalid callback func")
 	}

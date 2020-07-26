@@ -128,10 +128,18 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 		}()
 	}
 
+	em := &bfe_module.ExtendModule{
+		NameConfReload:         bfeServer.NameConfReload,
+		TLSConfReload:          bfeServer.TLSConfReload,
+		GslbDataConfReload:     bfeServer.GslbDataConfReload,
+		ServerDataConfReload:   bfeServer.GslbDataConfReload,
+		SessionTicketKeyReload: bfeServer.SessionTicketKeyReload,
+	}
 	// Callback for HandleExtendAsync
 	hl := bfeServer.CallBacks.GetHandlerList(bfe_module.HandleExtendAsync)
 	if hl != nil {
-		err = hl.FillInExtend(bfeServer.NameConfReload)
+
+		err = hl.FillInExtend(em)
 		if err != nil {
 			log.Logger.Error("StartUp(): Callback for HandleExtendAsync():%v", err)
 			return err
