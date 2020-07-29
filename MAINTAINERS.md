@@ -2,7 +2,7 @@
 
 This file lists who are the maintainers of the BFE project. The responsibilities for maintainers are listed in the [GOVERNANCE.md](GOVERNANCE.md) file.
 
-## Project Leader
+## Project Lead
 | Name | GitHub ID | Affiliation |
 | ---- | --------- | ----------- |
 | [Miao Zhang](mailto:zhangmiao02@baidu.com) | [mileszhang2016](https://github.com/mileszhang2016) | Baidu |
