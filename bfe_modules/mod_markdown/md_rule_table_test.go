@@ -134,7 +134,7 @@ func TestMdRuleTable_Search(t *testing.T) {
 			fields: fields{
 				version: "version1",
 				productRules: map[string]*markdownRules{
-					"product1": &markdownRules{&markdownRule{}},
+					"product1": {&markdownRule{}},
 				},
 			},
 			args: args{
@@ -148,7 +148,7 @@ func TestMdRuleTable_Search(t *testing.T) {
 			fields: fields{
 				version: "version1",
 				productRules: map[string]*markdownRules{
-					"product1": &markdownRules{&markdownRule{}},
+					"product1": {&markdownRule{}},
 				},
 			},
 			args: args{
