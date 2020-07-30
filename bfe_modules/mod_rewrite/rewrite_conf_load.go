@@ -67,6 +67,17 @@ func ReWriteRuleCheck(conf ReWriteRuleFile) error {
 		return errors.New("no Actions")
 	}
 
+	// check Action
+	for _, ac := range conf.Actions {
+		if ac.Cmd == "" {
+			return errors.New("no Cmd")
+		}
+		_, ok := allowActions[ac.Cmd]
+		if !ok {
+			return fmt.Errorf("not allowed Cmd: %s", ac.Cmd)
+		}
+	}
+
 	// check Last
 	if conf.Last == nil {
 		return errors.New("no Last")
