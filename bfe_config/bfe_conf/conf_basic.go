@@ -251,7 +251,7 @@ func checkPlugins(cfg *ConfigBasic) error {
 		}
 
 		if !strings.HasSuffix(pluginPath, LibrarySuffix) {
-			pluginPath = pluginPath + LibrarySuffix
+			pluginPath += LibrarySuffix
 		}
 		plugins = append(plugins, pluginPath)
 	}
