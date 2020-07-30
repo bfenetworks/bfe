@@ -708,7 +708,7 @@ func convertSSLv2ClientHello(c *Conn, b *block) error {
 		helloMsg.random = append(helloMsg.random, challengeData...)
 	}
 
-	helloMsg.cipherSuites = make([]uint16, 0, 0)
+	helloMsg.cipherSuites = make([]uint16, 0)
 	for i := 0; i < len(cipherSpecs); i += 3 {
 		// we can only support cipher specs starting with a high bit
 		if cipherSpecs[i] == 0 {

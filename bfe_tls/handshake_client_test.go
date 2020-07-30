@@ -103,7 +103,7 @@ func (test *clientTest) connFromCommand() (conn *recordingConn, child *exec.Cmd,
 	var pemOut bytes.Buffer
 	pem.Encode(&pemOut, &pem.Block{Type: pemType + " PRIVATE KEY", Bytes: derBytes})
 
-	keyPath := tempFile(string(pemOut.Bytes()))
+	keyPath := tempFile(pemOut.String())
 	defer os.Remove(keyPath)
 
 	var command []string
