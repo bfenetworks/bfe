@@ -1902,7 +1902,7 @@ func (sc *serverConn) newWriterAndRequest(st *stream, f *MetaHeadersFrame) (*res
 	bodyOpen := !f.StreamEnded()
 	if method == "HEAD" && bodyOpen {
 		// HEAD requests can't have bodies
-		errMsg := fmt.Sprintf("HEAD request with unexpected body")
+		errMsg := "HEAD request with unexpected body"
 		return nil, nil, StreamError{f.StreamID, ErrCodeProtocol, errMsg}
 	}
 	var tlsState *tls.ConnectionState // nil if not scheme https

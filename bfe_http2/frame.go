@@ -1222,7 +1222,8 @@ func parsePushPromise(fh FrameHeader, p []byte) (_ Frame, err error) {
 	if err != nil {
 		return
 	}
-	pp.PromiseID = pp.PromiseID & (1<<31 - 1)
+	// pp.PromiseID = pp.PromiseID & (1<<31 - 1)
+	pp.PromiseID &= (1<<31 - 1)
 
 	if int(padLength) > len(p) {
 		// like the DATA frame, error out if padding is longer than the body.

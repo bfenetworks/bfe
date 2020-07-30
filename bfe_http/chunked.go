@@ -183,7 +183,7 @@ func parseHexUint(v []byte) (n uint64, err error) {
 		n <<= 4
 		switch {
 		case '0' <= b && b <= '9':
-			b = b - '0'
+			b -= '0'
 		case 'a' <= b && b <= 'f':
 			b = b - 'a' + 10
 		case 'A' <= b && b <= 'F':
