@@ -19,22 +19,22 @@ import (
 	"github.com/bfenetworks/bfe/bfe_basic/action"
 )
 
-var allowActions map[string]bool = map[string]bool{
+var allowActions = map[string]interface{}{
 	// host actions
-	action.ActionHostSetFromPathPrefix: true, // set host from path prefix
-	action.ActionHostSet:               true, //set host
-	action.ActionHostSuffixReplace:     true, // replace host suffix
+	action.ActionHostSetFromPathPrefix: nil, // set host from path prefix
+	action.ActionHostSet:               nil, //set host
+	action.ActionHostSuffixReplace:     nil, // replace host suffix
 
 	// path actions
-	action.ActionPathSet:        true, // set path
-	action.ActionPathPrefixAdd:  true, // add path prefix
-	action.ActionPathPrefixTrim: true, // trim path prefix
+	action.ActionPathSet:        nil, // set path
+	action.ActionPathPrefixAdd:  nil, // add path prefix
+	action.ActionPathPrefixTrim: nil, // trim path prefix
 
 	// query actions
-	action.ActionQueryAdd:          true, // add query
-	action.ActionQueryDel:          true, // del query
-	action.ActionQueryRename:       true, // rename query
-	action.ActionQueryDelAllExcept: true, // del query except given query key
+	action.ActionQueryAdd:          nil, // add query
+	action.ActionQueryDel:          nil, // del query
+	action.ActionQueryRename:       nil, // rename query
+	action.ActionQueryDelAllExcept: nil, // del query except given query key
 }
 
 func reWriteActionsDo(req *bfe_basic.Request, actions []action.Action) {
