@@ -19,6 +19,7 @@
 | Jin Tong | cumirror |
 | Jiyang Zhang | scriptkids |
 | Kaiyu Zheng | kaiyuzheng | 
+| Lidong Chang | changlidong68 |
 | Lihua Chen | clh651188968 |
 | Limei Xiao | limeix |
 | Lei Zhang | deancn |
