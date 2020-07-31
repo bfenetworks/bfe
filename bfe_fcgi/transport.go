@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,12 +39,6 @@ func (t *Transport) RoundTrip(req *bfe_http.Request) (*bfe_http.Response, error)
 		metaData[strings.ToUpper(k)] = strings.Join(vs, ",")
 	}
 
-	// TODO timeout
-	// TODO: reuse conn
-	// there are two way to resue conn:
-	// 1. implement it in FCGIClient, the same logic like bfe_http.persistConn
-	// 2. modify bfe_http.ReadResponse() and bfe_http.Request.write to deal with
-	// fastcgi protocol, so we can reuse bfe_http.persistConn directly
 	client, err := Dial("tcp", req.URL.Host)
 	if err != nil {
 		return nil, ConnectError{
@@ -147,7 +141,7 @@ func BuildMetaValsAndMethod(r *bfe_http.Request, fc *cluster_conf.ClusterFCGICon
 
 func ReadResponse(reader io.Reader, req *bfe_http.Request) (*bfe_http.Response, error) {
 	rb := bufio.NewReader(reader)
-    //	rb.WriteTo(os.Stderr)
+	//	rb.WriteTo(os.Stderr)
 	tp := textproto.NewReader(rb)
 	// tp := textproto.NewReader(reader)
 	resp := &bfe_http.Response{
