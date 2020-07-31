@@ -24,7 +24,7 @@ For a given module, there are 2 types of configuration:
 - Dynamic configuration: be loaded when BFE starts. It can also be hot-reloaded without restarting BFE.
     + There can be one or more such configuration files for each module
     + The name of the configuration file usually ends with .data
-    + Example: block_rules.data and ip_blacklist.data in mod_block
+    + Example: block_rules.data and ip_blocklist.data in mod_block
 
 ### Placement of configuration files
 

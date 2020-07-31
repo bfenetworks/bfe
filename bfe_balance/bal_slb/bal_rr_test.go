@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ func processBalance(t *testing.T, label string, algor int, key []byte, rr *Balan
 		if err != nil {
 			t.Errorf("should not error")
 		}
-		r.AddConnNum()
+		r.IncConnNum()
 		l = append(l, r.Name)
 	}
 
@@ -160,9 +160,9 @@ func TestUpdate(t *testing.T) {
 	}
 
 	b, _ := rr.Balance(WlcSmooth, []byte{1})
-	b.AddConnNum()
+	b.IncConnNum()
 	b, _ = rr.Balance(WlcSmooth, []byte{1})
-	b.AddConnNum()
+	b.IncConnNum()
 
 	for i := 0; i < len(rr.backends); i++ {
 		brr := rr.backends[i]

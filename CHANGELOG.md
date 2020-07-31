@@ -10,6 +10,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [Unrelease]
+
+### Added
+- Support PROXY protocol for TCP connections to backend
+- Support checking revocation status of the client certificate
+- mod_auth_request: send request with X-Forwarded-Method/X-Forwarded-Uri headers
+
+### Changed
+- Create listeners in the final initialization step
+- Change package name to 'github.com/bfenetworks/bfe'
+
+### Removed
+- Drops words like blacklist from programming to make vocabulary more inclusive
+- Remove legacy signature of response
+
+### Fixed
+- Fix getTransport() and modify transports map with write lock
+
+
 ## [v0.10.0] - 2020-05-25  
 ### Added
 - mod_auth_request: authorize clients based on thirdparty authorization service
@@ -163,6 +183,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
+[Unrelease]: https://github.com/baidu/bfe/compare/v0.10.0...HEAD
 [v0.10.0]: https://github.com/bfenetworks/bfe/compare/v0.9.0...v0.10.0
 [v0.9.0]: https://github.com/bfenetworks/bfe/compare/v0.8.0...v0.9.0
 [v0.8.0]: https://github.com/bfenetworks/bfe/compare/v0.7.0...v0.8.0

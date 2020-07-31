@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -75,8 +75,8 @@ func NewBfeCallbacks() *BfeCallbacks {
 
 	// create handler list for each callback point
 	// for HandlesAccept
-	bfeCallbacks.callbacks[HandleAccept] = NewHandlerList(HandleAccept)
-	bfeCallbacks.callbacks[HandleHandshake] = NewHandlerList(HandleAccept)
+	bfeCallbacks.callbacks[HandleAccept] = NewHandlerList(HandlersAccept)
+	bfeCallbacks.callbacks[HandleHandshake] = NewHandlerList(HandlersAccept)
 
 	// for HandlersRequest
 	bfeCallbacks.callbacks[HandleBeforeLocation] = NewHandlerList(HandlersRequest)

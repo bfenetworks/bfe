@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -528,7 +528,7 @@ func (c *conn) serveRequest(w bfe_http.ResponseWriter, request *bfe_basic.Reques
 	// [*] Not strictly true: HTTP pipelining.  We could let them all process
 	// in parallel even if their responses need to be serialized.
 
-	// server the request
+	// serve the request
 	ret1 := c.server.ReverseProxy.ServeHTTP(w, request)
 
 	// if there is some response, count the time
@@ -577,9 +577,9 @@ func (c *conn) serveRequest(w bfe_http.ResponseWriter, request *bfe_basic.Reques
 	return
 }
 
-// validNPN reports whether the proto is not a blacklisted Next
+// validNPN reports whether the proto is not a blocklisted Next
 // Protocol Negotiation protocol.  Empty and built-in protocol types
-// are blacklisted and can't be overridden with alternate
+// are blocklisted and can't be overridden with alternate
 // implementations.
 func validNPN(proto string) bool {
 	switch proto {

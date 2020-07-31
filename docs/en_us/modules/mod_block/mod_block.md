@@ -12,7 +12,7 @@ conf/mod_block/mod_block.conf
 | Config Item | Description | 
 | ----------- | ----------- |
 | Basic.ProductRulePath | Path of product rule configuration |
-| Basic.IPBlacklistPath | Path of ip blacklist file |
+| Basic.IPBlocklistPath | Path of ip blocklist file |
 
 ### Example
 ```ini
@@ -20,11 +20,11 @@ conf/mod_block/mod_block.conf
 # product rule config file path
 ProductRulePath = mod_block/block_rules.data
 
-# global ip blacklist file path
-IPBlacklistPath = mod_block/ip_blacklist.data
+# global ip blocklist file path
+IPBlocklistPath = mod_block/ip_blocklist.data
 ```
 
-Format of IPBlacklistPath file
+Format of IPBlocklistPath file
 
 ```
 192.168.1.253 192.168.1.254

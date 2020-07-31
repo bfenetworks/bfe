@@ -39,7 +39,7 @@ $ curl http://localhost:8421/reload/server_data_conf
 | Module           | Default configuration file | Reload API |
 | ----------------------- | ---------------------------- | ----------------- |
 | mod_auth_basic     | mod_auth_basic/auth_basic_rule.data | /reload/mod_auth_basic|
-| mod_block | mod_block/block_rules.data<br>mod_block/ip_blacklist.data | /reload/mod_block.product_rule_table<br>/reload/mod_block.global_ip_table |
+| mod_block | mod_block/block_rules.data<br>mod_block/ip_blocklist.data | /reload/mod_block.product_rule_table<br>/reload/mod_block.global_ip_table |
 | mod_compress       | mod_compress/compress_rule.data | /reload/mod_compress |
 | mod_errors         | mod_errors/errors_rule.data | /reload/mod_errors |
 | mod_geo            | mod_geo/geo.db | /reload/mod_geo |
