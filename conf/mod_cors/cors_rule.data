@@ -6,10 +6,10 @@
                  "Cond": "req_host_in(\"example.org\")",
                  "AccessControlAllowOrigins": ["%origin"],
                  "AccessControlAllowCredentials": true,
-                 "AccessControlAllowHeaders": ["X-Custom-Header"],
+                 "AccessControlExposeHeaders": ["X-Custom-Header"],
                  "AccessControlAllowMethods": ["HEAD","GET","POST","PUT","DELETE","OPTIONS","PATCH"],
-                 "AccessControlMaxAge": -1,
-                 "AccessControlExposeHeaders": ["X-Custom-Header"]
+                 "AccessControlAllowHeaders": ["X-Custom-Header"],
+                 "AccessControlMaxAge": -1
              }
          ]
     }
