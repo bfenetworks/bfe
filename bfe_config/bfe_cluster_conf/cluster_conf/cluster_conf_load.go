@@ -109,8 +109,6 @@ type ClusterBasicConf struct {
 	ReqFlushInterval    *int  // interval to flush request in ms. if zero, disable periodic flush
 	ResFlushInterval    *int  // interval to flush response in ms. if zero, disable periodic flush
 	CancelOnClientClose *bool // cancel blocking operation on server if client connection disconnected
-
-	ClusterProtocol *string // backend procotol
 }
 
 // ClusterConf is conf of cluster.
