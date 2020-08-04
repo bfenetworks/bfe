@@ -86,6 +86,10 @@ When there are conflicting PRs about changes in project lead, the PR with the mo
 The project lead can volunteer to step down.
 
 
+## Changes in Project Governance
+All substantive updates in Governance require a supermajority maintainers vote.
+
+
 ## Decision making process
 
 Decisions are build on consensus between maintainers.
