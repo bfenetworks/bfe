@@ -17,12 +17,15 @@
 package bfe_module
 
 import (
-	"encoding/json"
 	"fmt"
 )
 
 import (
 	"github.com/baidu/go-lib/log"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // Callback point.

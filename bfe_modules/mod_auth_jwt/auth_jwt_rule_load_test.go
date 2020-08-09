@@ -15,6 +15,7 @@
 package mod_auth_jwt
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -32,7 +33,7 @@ func TestAuthJWTConfLoad(t *testing.T) {
 
 func TestAuthJWTConfLoadKeyInvalid(t *testing.T) {
 	_, err := AuthJWTConfLoad("./testdata/mod_auth_jwt/auth_jwt_rule.data.key_invalid")
-	if err == nil || err.Error() != "square/go-jose: unknown json web key type 'invalid'" {
+	if err == nil || !strings.Contains(err.Error(), " unknown json web key type 'invalid'") {
 		t.Errorf("AuthJWTConfLoad() error: %v", err)
 	}
 }

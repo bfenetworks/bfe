@@ -15,10 +15,13 @@
 package bns
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"sync"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type LocalNameConf map[string][]Instance

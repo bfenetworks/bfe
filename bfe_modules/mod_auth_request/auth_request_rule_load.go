@@ -15,13 +15,13 @@
 package mod_auth_request
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 )
 
 import (
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // rule loaded from file

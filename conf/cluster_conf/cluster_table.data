@@ -5,7 +5,7 @@
                 {
                     "Addr": "127.0.0.1",
                     "Name": "example_hostname",
-                    "Port": 8999,
+                    "Port": 8181,
                     "Weight": 10
                 }
             ]
