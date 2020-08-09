@@ -16,7 +16,6 @@ package server_cert_conf
 
 import (
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -30,6 +29,7 @@ import (
 import (
 	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 const (

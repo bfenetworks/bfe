@@ -17,10 +17,13 @@
 package host_rule_conf
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type HostnameList []string // list of hostname

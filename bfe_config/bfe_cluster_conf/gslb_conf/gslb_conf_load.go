@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	jsoniter "github.com/json-iterator/go"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 var (
@@ -163,7 +163,6 @@ func GslbConfLoad(filename string) (GslbConf, error) {
 	}
 
 	/* decode the file  */
-	json := jsoniter.ConfigCompatibleWithStandardLibrary
 	decoder := json.NewDecoder(file)
 	err2 := decoder.Decode(&config)
 	file.Close()
