@@ -83,7 +83,7 @@ func IPv4ToUint32(ipBytes net.IP) (uint32, error) {
 
 	for i, b := range ipBytes {
 		tmp = uint32(b)
-		ipNum = ipNum | (tmp << uint((3-i)*8))
+		ipNum |= (tmp << uint((3-i)*8))
 	}
 
 	return ipNum, nil
@@ -121,7 +121,7 @@ func Uint32ToIPv4(ipNum uint32) net.IP {
 
 	for i := 0; i < 4; i++ {
 		ipBytes[3-i] = byte(ipNum & 0xFF)
-		ipNum = ipNum >> 8
+		ipNum >>= 8
 	}
 
 	return net.IPv4(ipBytes[0], ipBytes[1], ipBytes[2], ipBytes[3]).To4()

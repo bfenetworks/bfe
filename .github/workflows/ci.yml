@@ -1,33 +1,69 @@
-name: Go
-on: [push]
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-
-  build:
-    name: Build
+  # This workflow contains a single job called "ci"
+  ci:
+    # The type of runner that the job will run on
     runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          stable: 'true'
-          go-version: 1.13
-        id: go
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        # Must fetch at least the immediate parents so that if this is
+        # a pull request then we can checkout the head of the pull request.
+        # Only include this option if you are running this workflow on pull requests.
+        fetch-depth: 2
 
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
+    # If this run was triggered by a pull request event then checkout
+    # the head of the pull request instead of the merge commit.
+    # Only include this step if you are running this workflow on pull requests.
+    - run: git checkout HEAD^2
+      if: ${{ github.event_name == 'pull_request' }}
 
-      - name: Lint
-        run: |
-          echo "golang lint, suggest to use golangci-lint"
+    # Build
+    - name: Build
+      shell: bash
+      run: |
+        make
 
-      - name: Build
-        run: |
-          echo "start to build and test bfe"
-          go version
-          make
-          echo "finish"
+    # Coverage
+    - name: Coverage
+      shell: bash
+      run: |
+        make coverage
+        bash <(curl -s https://codecov.io/bash)
+     
+    # Setup Python and start a mock server for Test
+    - name: setup Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '2.x' # Version range or exact version of a Python version to use, using SemVer's version range syntax
+    - run: python -m SimpleHTTPServer 8181&
 
-      - name: coverage
-        run: |
-          make coverage
-          bash <(curl -s https://codecov.io/bash)
+    # Modify Conf and Run
+    - name: Run
+      shell: bash
+      run: |
+        sed -i s/10.199.189.26/127.0.0.1/g output/conf/cluster_conf/cluster_table.data
+        cd output/bin/ && ./bfe -c ../conf -l ../log &
+    
+    # A simple test to ensure bfe runs ok
+    - name: Test
+      shell: bash
+      run: |
+        status_code=`curl -l -s -o /dev/null -w %{http_code} http://localhost:8080 -H"Host:example.org"`
+        if [ "$status_code" != "200" ]; then exit 1; fi

@@ -24,6 +24,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_auth_request"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_block"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_compress"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_cors"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_doh"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_errors"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_geo"
@@ -41,7 +42,6 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trace"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trust_clientip"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_userid"
-	"github.com/bfenetworks/bfe/bfe_modules/mod_cors"
 )
 
 // list of all modules, the order is very important

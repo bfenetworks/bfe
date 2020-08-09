@@ -57,7 +57,7 @@ func ReqHostSuffixReplace(req *bfe_basic.Request, originSuffix, newSuffix string
 	if !strings.HasSuffix(hostname, originSuffix) {
 		return
 	}
-	
+
 	hostname = strings.TrimSuffix(hostname, originSuffix) + newSuffix
 	req.HttpRequest.Host = hostname
 }

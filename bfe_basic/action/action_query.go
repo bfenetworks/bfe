@@ -82,7 +82,7 @@ func ReqQueryAdd(req *bfe_basic.Request, params []string) {
 		// if RawQuery is empty, remove prefix "&"
 		req.HttpRequest.URL.RawQuery = addQueryString[1:]
 	} else {
-		req.HttpRequest.URL.RawQuery = req.HttpRequest.URL.RawQuery + addQueryString
+		req.HttpRequest.URL.RawQuery += addQueryString
 	}
 }
 

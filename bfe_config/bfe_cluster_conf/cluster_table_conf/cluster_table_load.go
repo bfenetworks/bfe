@@ -246,6 +246,7 @@ func ClusterTableLoad(filename string) (ClusterTableConf, error) {
 // ClusterTableDump dumps conf to file
 func ClusterTableDump(conf ClusterTableConf, filename string) error {
 	// marshal to json
+	json := jsoniter.ConfigCompatibleWithStandardLibrary
 	confJson, err := json.Marshal(conf)
 	if err != nil {
 		return err

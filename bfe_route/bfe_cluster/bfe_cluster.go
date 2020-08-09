@@ -33,9 +33,11 @@ type BfeCluster struct {
 	sync.RWMutex
 	Name string // cluster's name
 
-	backendConf *cluster_conf.BackendBasic  // backend's basic conf
-	CheckConf   *cluster_conf.BackendCheck  // how to check backend
-	GslbBasic   *cluster_conf.GslbBasicConf // gslb basic
+	backendConf     *cluster_conf.BackendBasic  // backend's basic conf
+	CheckConf       *cluster_conf.BackendCheck  // how to check backend
+	GslbBasic       *cluster_conf.GslbBasicConf // gslb basic
+	fcgiConf        *cluster_conf.ClusterFCGIConf
+	clusterProtocol string
 
 	timeoutReadClient      time.Duration // timeout for read client body
 	timeoutReadClientAgain time.Duration // timeout for read client again
@@ -57,6 +59,12 @@ func (cluster *BfeCluster) BasicInit(clusterConf cluster_conf.ClusterConf) {
 	// set backendConf and checkConf
 	cluster.backendConf = clusterConf.BackendConf
 	cluster.CheckConf = clusterConf.CheckConf
+
+	cluster.fcgiConf = clusterConf.FCGIConf
+	cluster.clusterProtocol = "http"
+	if v := clusterConf.ClusterProtocol; v != nil {
+		cluster.clusterProtocol = *v
+	}
 
 	// set gslb retry conf
 	cluster.GslbBasic = clusterConf.GslbBasic
@@ -99,6 +107,19 @@ func (cluster *BfeCluster) BackendConf() *cluster_conf.BackendBasic {
 	res := cluster.backendConf
 	cluster.RUnlock()
 
+	return res
+}
+
+func (cluster *BfeCluster) ClusterProtocol() string {
+	cluster.RLock()
+	res := cluster.clusterProtocol
+	cluster.RUnlock()
+	return res
+}
+func (cluster *BfeCluster) FCGIConf() *cluster_conf.ClusterFCGIConf {
+	cluster.RLock()
+	res := cluster.fcgiConf
+	cluster.RUnlock()
 	return res
 }
 

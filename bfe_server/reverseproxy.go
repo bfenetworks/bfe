@@ -38,6 +38,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_debug"
+	"github.com/bfenetworks/bfe/bfe_fcgi"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_http2"
 	"github.com/bfenetworks/bfe/bfe_module"
@@ -162,22 +163,31 @@ func createTransport(cluster *bfe_cluster.BfeCluster) bfe_http.RoundTripper {
 
 	log.Logger.Debug("create a new transport for %s, timeout %d", cluster.Name, *backendConf.TimeoutResponseHeader)
 
-	// cluster has its own Connect Server Timeout.
-	// so each cluster has a different transport
-	// once cluster's timeout updated, dailer use new value
-	dailer := func(network, add string) (net.Conn, error) {
-		timeout := time.Duration(cluster.TimeoutConnSrv()) * time.Millisecond
-		return net.DialTimeout(network, add, timeout)
-	}
+	switch cluster.ClusterProtocol() {
+	case "http":
+		// cluster has its own Connect Server Timeout.
+		// so each cluster has a different transport
+		// once cluster's timeout updated, dailer use new value
+		dailer := func(network, add string) (net.Conn, error) {
+			timeout := time.Duration(cluster.TimeoutConnSrv()) * time.Millisecond
+			return net.DialTimeout(network, add, timeout)
+		}
 
-	return &bfe_http.Transport{
-		Dial:                  dailer,
-		DisableKeepAlives:     (*backendConf.MaxIdleConnsPerHost) == 0,
-		MaxIdleConnsPerHost:   *backendConf.MaxIdleConnsPerHost,
-		ResponseHeaderTimeout: time.Millisecond * time.Duration(*backendConf.TimeoutResponseHeader),
-		ReqWriteBufferSize:    cluster.ReqWriteBufferSize(),
-		ReqFlushInterval:      cluster.ReqFlushInterval(),
-		DisableCompression:    true,
+		return &bfe_http.Transport{
+			Dial:                  dailer,
+			DisableKeepAlives:     (*backendConf.MaxIdleConnsPerHost) == 0,
+			MaxIdleConnsPerHost:   *backendConf.MaxIdleConnsPerHost,
+			ResponseHeaderTimeout: time.Millisecond * time.Duration(*backendConf.TimeoutResponseHeader),
+			ReqWriteBufferSize:    cluster.ReqWriteBufferSize(),
+			ReqFlushInterval:      cluster.ReqFlushInterval(),
+			DisableCompression:    true,
+		}
+	case "fcgi":
+		return &bfe_fcgi.Transport{}
+	default:
+		/* never come here */
+		log.Logger.Warn("unknown cluster protocol %s", cluster.ClusterProtocol())
+		return nil
 	}
 }
 
@@ -262,6 +272,12 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 		if i == 0 {
 			// record start time of the first try
 			request.Stat.BackendFirst = request.Stat.BackendStart
+
+
+			switch cluster.ClusterProtocol() {
+            case "fcgi":
+				bfe_fcgi.BuildMetaValsAndMethod(outreq, cluster.FCGIConf())
+			}
 		}
 
 		transport := request.Trans.Transport
@@ -643,6 +659,12 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	// invoke cluster to get response
 	res, action, err = p.clusterInvoke(srv, cluster, basicReq, rw)
 	basicReq.HttpResponse = res
+
+	// Note: The runtime will not GC the objects referenced by basicReq.SvrDataConf until the request
+	// has been processed. But the request may last a long time. It's better to remove the reference
+	// to objects which are not used any more.
+	basicReq.SvrDataConf = nil
+
 	if err != nil {
 		basicReq.Stat.ResponseStart = time.Now()
 		basicReq.BfeStatusCode = bfe_http.StatusInternalServerError

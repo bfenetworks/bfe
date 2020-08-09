@@ -295,6 +295,6 @@ func (t *BalTable) GetVersions() BalVersion {
 	t.lock.RLock()
 	versions := t.versions
 	t.lock.RUnlock()
-	
+
 	return versions
 }
