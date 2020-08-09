@@ -15,12 +15,15 @@
 package bfe_util
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 	"reflect"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // LoadJsonFile loads json content from file, unmarshal to jsonObject.

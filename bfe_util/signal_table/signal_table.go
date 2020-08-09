@@ -15,13 +15,16 @@
 package signal_table
 
 import (
-	"encoding/json"
 	"os"
 	"os/signal"
 )
 
 import (
 	"github.com/baidu/go-lib/web-monitor/module_state2"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type signalHandler func(s os.Signal)
