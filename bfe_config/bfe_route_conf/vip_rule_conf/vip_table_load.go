@@ -17,11 +17,14 @@
 package vip_rule_conf
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"os"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type VipList []string // list of vips

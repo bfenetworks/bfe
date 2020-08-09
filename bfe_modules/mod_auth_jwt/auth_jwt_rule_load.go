@@ -15,7 +15,6 @@
 package mod_auth_jwt
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -28,6 +27,7 @@ import (
 
 import (
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type AuthJWTRuleFile struct {

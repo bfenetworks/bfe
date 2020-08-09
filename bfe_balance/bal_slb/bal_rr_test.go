@@ -15,7 +15,6 @@
 package bal_slb
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -25,6 +24,7 @@ import (
 import (
 	"github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 func populateBackend(name, addr string, port int, avail bool) *backend.BfeBackend {

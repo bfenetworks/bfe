@@ -1,0 +1,10 @@
+{
+    "CrossRetry": 2,
+    "RetryMax": 4,
+	"HashConf" : {
+		"HashStrategy": 1,
+		"HashHeader": "Cookie:test",
+		"SessionSticky": false
+	},
+    "BalanceMode": "WRR"
+}

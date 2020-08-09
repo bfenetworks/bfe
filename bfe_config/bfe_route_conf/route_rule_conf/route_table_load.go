@@ -17,7 +17,6 @@
 package route_rule_conf
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -25,6 +24,7 @@ import (
 
 import (
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // RouteRule is composed by a condition and cluster to serve

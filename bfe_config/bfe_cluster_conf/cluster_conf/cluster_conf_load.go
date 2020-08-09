@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	jsoniter "github.com/json-iterator/go"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // RetryLevels
@@ -482,7 +482,6 @@ func (conf *BfeClusterConf) LoadAndCheck(filename string) (string, error) {
 	}
 
 	/* decode the file  */
-	json := jsoniter.ConfigCompatibleWithStandardLibrary
 	decoder := json.NewDecoder(file)
 	defer file.Close()
 
