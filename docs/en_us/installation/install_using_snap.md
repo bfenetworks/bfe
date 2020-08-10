@@ -23,6 +23,6 @@ $ sudo /snap/bin/bfe
 ```
 
 ## Further reading
-
+- Get familiar with [Command options](../operation/command.md)
 - Get started with [Beginner's Guide](../example/guide.md)
 

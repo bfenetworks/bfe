@@ -25,6 +25,6 @@ $ ./bfe -c ${GOPATH}/src/github.com/bfenetworks/bfe/conf/
 ```
 
 ## Further reading
-
+- Get familiar with [Command options](../operation/command.md)
 - Get started with [Beginner's Guide](../example/guide.md)
 
