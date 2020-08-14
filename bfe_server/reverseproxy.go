@@ -160,10 +160,11 @@ func (p *ReverseProxy) getTransport(cluster *bfe_cluster.BfeCluster) bfe_http.Ro
 
 func createTransport(cluster *bfe_cluster.BfeCluster) bfe_http.RoundTripper {
 	backendConf := cluster.BackendConf()
+	protocol := *backendConf.Protocol
 
 	log.Logger.Debug("create a new transport for %s, timeout %d", cluster.Name, *backendConf.TimeoutResponseHeader)
 
-	switch cluster.ClusterProtocol() {
+	switch protocol {
 	case "http":
 		// cluster has its own Connect Server Timeout.
 		// so each cluster has a different transport
@@ -183,10 +184,13 @@ func createTransport(cluster *bfe_cluster.BfeCluster) bfe_http.RoundTripper {
 			DisableCompression:    true,
 		}
 	case "fcgi":
-		return &bfe_fcgi.Transport{}
+		return &bfe_fcgi.Transport{
+			Root:    backendConf.FCGIConf.Root,
+			EnvVars: backendConf.FCGIConf.EnvVars,
+		}
 	default:
 		/* never come here */
-		log.Logger.Warn("unknown cluster protocol %s", cluster.ClusterProtocol())
+		log.Logger.Warn("unknown cluster protocol %s", protocol)
 		return nil
 	}
 }
@@ -272,12 +276,6 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 		if i == 0 {
 			// record start time of the first try
 			request.Stat.BackendFirst = request.Stat.BackendStart
-
-
-			switch cluster.ClusterProtocol() {
-            case "fcgi":
-				bfe_fcgi.BuildMetaValsAndMethod(outreq, cluster.FCGIConf())
-			}
 		}
 
 		transport := request.Trans.Transport

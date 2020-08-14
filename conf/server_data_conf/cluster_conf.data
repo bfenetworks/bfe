@@ -37,10 +37,17 @@
         },
         "fcgi_cluster_example": {
             "BackendConf": {
+                "Protocol": "fcgi",
                 "TimeoutConnSrv": 2000,
                 "TimeoutResponseHeader": 50000,
                 "MaxIdleConnsPerHost": 0,
-                "RetryLevel": 0
+                "RetryLevel": 0,
+                "FCGIConf": {
+                    "EnvVars": {
+                        "A": "a"    
+                    },
+                    "Root": "/home/work"
+                }
             },
             "CheckConf": {
                 "Schem": "http",
@@ -67,13 +74,6 @@
                 "ReqFlushInterval": 0,
                 "ResFlushInterval": -1,
                 "CancelOnClientClose": false
-            },
-            "ClusterProtocol": "fcgi",
-            "FCGIConf": {
-                "EnvVars": {
-                    "A": "a"    
-                },
-                "Root": "/home/work"
             }
         }
     }

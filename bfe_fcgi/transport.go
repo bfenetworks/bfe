@@ -15,25 +15,35 @@
 package bfe_fcgi
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
-	"net/http"
 	"net/http/httputil"
-	"net/textproto"
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	"github.com/bfenetworks/bfe/bfe_http"
 )
 
-type Transport struct{}
+import (
+	bufio "github.com/bfenetworks/bfe/bfe_bufio"
+	http "github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_net/textproto"
+)
 
-func (t *Transport) RoundTrip(req *bfe_http.Request) (*bfe_http.Response, error) {
+// Transport facilitates FastCGI communication.
+type Transport struct {
+	// Root is the fastcgi root directory. Defaults to the root
+	// directory of the parent virtual host.
+	Root string
+
+	// EnvVars is the extra environment variables.
+	EnvVars map[string]string
+}
+
+func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	buildMetaValsAndMethod(req, t.Root, t.EnvVars)
+
 	metaData := map[string]string{}
 	for k, vs := range req.Header {
 		metaData[strings.ToUpper(k)] = strings.Join(vs, ",")
@@ -54,7 +64,7 @@ func (t *Transport) RoundTrip(req *bfe_http.Request) (*bfe_http.Response, error)
 		}
 	}
 
-	rsp, err := ReadResponse(reader, req)
+	rsp, err := readResponse(reader, req)
 	if err != nil {
 		return nil, ReadRespHeaderError{
 			Err: err,
@@ -63,8 +73,7 @@ func (t *Transport) RoundTrip(req *bfe_http.Request) (*bfe_http.Response, error)
 	return rsp, nil
 }
 
-// https://tools.ietf.org/html/rfc3875#section-4
-func BuildMetaValsAndMethod(r *bfe_http.Request, fc *cluster_conf.ClusterFCGIConf) {
+func buildMetaValsAndMethod(r *http.Request, root string, envVars map[string]string) {
 	ip, port := r.RemoteAddr, ""
 	if idx := strings.LastIndex(r.RemoteAddr, ":"); idx > -1 {
 		ip = r.RemoteAddr[:idx]
@@ -75,7 +84,6 @@ func BuildMetaValsAndMethod(r *bfe_http.Request, fc *cluster_conf.ClusterFCGICon
 
 	fpath := r.URL.Path
 
-	root := fc.Root
 	docURI, pathInfo, scriptName := fpath, "", fpath
 	scriptName = strings.TrimSuffix(scriptName, pathInfo)
 	scriptFilename := filepath.Join(root, scriptName)
@@ -85,7 +93,7 @@ func BuildMetaValsAndMethod(r *bfe_http.Request, fc *cluster_conf.ClusterFCGICon
 		reqHost = r.Host
 	}
 
-	metaHeader := bfe_http.Header{}
+	metaHeader := http.Header{}
 	metaHeader.Add("GATEWAY_INTERFACE", "CGI/1.1")
 	metaHeader.Add("SERVER_SOFTWARE", "BFE")
 
@@ -117,7 +125,7 @@ func BuildMetaValsAndMethod(r *bfe_http.Request, fc *cluster_conf.ClusterFCGICon
 	}
 
 	// add config
-	for key, value := range fc.EnvVars {
+	for key, value := range envVars {
 		metaHeader.Set(key, value)
 	}
 
@@ -139,12 +147,10 @@ func BuildMetaValsAndMethod(r *bfe_http.Request, fc *cluster_conf.ClusterFCGICon
 	r.Header = metaHeader
 }
 
-func ReadResponse(reader io.Reader, req *bfe_http.Request) (*bfe_http.Response, error) {
+func readResponse(reader io.Reader, req *http.Request) (*http.Response, error) {
 	rb := bufio.NewReader(reader)
-	//	rb.WriteTo(os.Stderr)
 	tp := textproto.NewReader(rb)
-	// tp := textproto.NewReader(reader)
-	resp := &bfe_http.Response{
+	resp := &http.Response{
 		Request: req,
 	}
 
@@ -153,7 +159,7 @@ func ReadResponse(reader io.Reader, req *bfe_http.Request) (*bfe_http.Response, 
 	if err != nil && err != io.EOF {
 		return nil, err
 	}
-	resp.Header = bfe_http.Header(mimeHeader)
+	resp.Header = http.Header(mimeHeader)
 
 	if resp.Header.Get("Status") != "" {
 		statusParts := strings.SplitN(resp.Header.Get("Status"), " ", 2)
