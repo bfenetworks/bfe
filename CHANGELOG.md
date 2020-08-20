@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unrelease] 
 
 ### Added
+- Support communication with FastCGI server
 - Reduce objects number by release some objects that are not used as soon as possible
 - Replace ffjson with json-iterator 
 - net/textproto: turn an ancient DoS BUG annotation into a comment

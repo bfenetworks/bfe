@@ -19,7 +19,6 @@
 package bfe_fcgi
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -27,54 +26,110 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net"
-	"net/http"
 	"net/http/httputil"
-	"net/textproto"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
+	"time"
 )
 
+import (
+	bufio "github.com/bfenetworks/bfe/bfe_bufio"
+	http "github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_net/textproto"
+)
+
+// FCGIListenSockFileno describes listen socket file number.
 const FCGIListenSockFileNo uint8 = 0
+
+// FCGIHeaderLen describes header length.
 const FCGIHeaderLen uint8 = 8
+
+// Version1 describes the version.
 const Version1 uint8 = 1
+
+// FCGINullRequestID describes the null request ID.
 const FCGINullRequestID uint8 = 0
+
+// FCGIKeepConn describes keep connection mode.
 const FCGIKeepConn uint8 = 1
+
 const doubleCRLF = "\r\n\r\n"
 
 const (
+	// FCGIBeginRequest is the begin request flag.
 	FCGIBeginRequest uint8 = iota + 1
+
+	// FCGIAbortRequest is the abort request flag.
 	FCGIAbortRequest
+
+	// FCGIEndRequest is the end request flag.
 	FCGIEndRequest
+
+	// FCGIParams is the parameters flag.
 	FCGIParams
+
+	// FCGIStdin is the standard input flag.
 	FCGIStdin
+
+	// FCGIStdout is the standard output flag.
 	FCGIStdout
+
+	// FCGIStderr is the standard error flag.
 	FCGIStderr
+
+	// FCGIData is the data flag.
 	FCGIData
+
+	// FCGIGetValues is the get values flag.
 	FCGIGetValues
+
+	// FCGIGetValuesResult is the get values result flag.
 	FCGIGetValuesResult
+
+	// FCGIUnknownType is the unknown type flag.
 	FCGIUnknownType
+
+	// FCGIMaxType is the maximum type flag.
 	FCGIMaxType = FCGIUnknownType
 )
 
 const (
+	// FCGIResponder is the responder flag.
 	FCGIResponser uint8 = iota + 1
+
+	// FCGIAuthorizer is the authorizer flag.
 	FCGIAuthorizer
+
+	// FCGIFilter is the filter flag.
 	FCGIFilter
 )
 
 const (
+	// FCGIRequestComplete is the completed request flag.
 	FCGIRequestComplete uint8 = iota
+
+	// FCGICantMultiplexConns is the multiplexed connections flag.
 	FCGICantMpxConn
+
+	// FCGIOverloaded is the overloaded flag.
 	FCGIOverLoaded
+
+	// FCGIUnknownRole is the unknown role flag.
 	FCGIUnknownRole
 )
 
 const (
-	FCGIMaxConns  string = "MAX_CONNS"
-	FCGIMaxReqs   string = "MAX_REQS"
+	// MaxConns is the maximum connections flag.
+	FCGIMaxConns string = "MAX_CONNS"
+
+	// MaxRequests is the maximum requests flag.
+	FCGIMaxReqs string = "MAX_REQS"
+
+	// MultiplexConns is the multiplex connections flag.
 	FCGIMpxsConns string = "MPXS_CONNS"
 )
 
@@ -133,6 +188,8 @@ func (rec *record) read(r io.Reader) (buf []byte, err error) {
 	return
 }
 
+// FCGIClient implements a FastCGI client, which is a standard for
+// interfacing external applications with Web servers.
 type FCGIClient struct {
 	mutex     sync.Mutex
 	rwc       io.ReadWriteCloser
@@ -142,7 +199,7 @@ type FCGIClient struct {
 	reqId     uint16
 }
 
-// Connects to the fcgi responder at the specified network address.
+// Dial connects to the fcgi responder at the specified network address.
 // See func net.Dial for a description of the network and address parameters.
 func Dial(network, address string) (fcgi *FCGIClient, err error) {
 	var conn net.Conn
@@ -161,7 +218,7 @@ func Dial(network, address string) (fcgi *FCGIClient, err error) {
 	return
 }
 
-// Close fcgi connnection
+// Close closes fcgi connnection
 func (client *FCGIClient) Close() {
 	client.rwc.Close()
 }
@@ -379,6 +436,21 @@ func (client *FCGIClient) Request(p map[string]string, req io.Reader) (resp *htt
 	}
 	resp.Header = http.Header(mimeHeader)
 
+	// Parse the response status
+	status := resp.Header.Get("Status")
+	if status != "" {
+		statusParts := strings.SplitN(status, " ", 2)
+		resp.StatusCode, err = strconv.Atoi(statusParts[0])
+		if err != nil {
+			return
+		}
+		if len(statusParts) > 1 {
+			resp.Status = statusParts[1]
+		}
+	} else {
+		resp.StatusCode = http.StatusOK
+	}
+
 	// TODO: fixTransferEncoding ?
 	resp.TransferEncoding = resp.Header["Transfer-Encoding"]
 	resp.ContentLength, _ = strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
@@ -400,7 +472,23 @@ func (client *FCGIClient) Get(p map[string]string) (resp *http.Response, err err
 	return client.Request(p, nil)
 }
 
-// Get issues a Post request to the fcgi responder. with request body
+// Head issues a HEAD request to the fcgi responder.
+func (c *FCGIClient) Head(p map[string]string) (resp *http.Response, err error) {
+	p["REQUEST_METHOD"] = "HEAD"
+	p["CONTENT_LENGTH"] = "0"
+
+	return c.Request(p, nil)
+}
+
+// Options issues an OPTIONS request to the fcgi responder.
+func (c *FCGIClient) Options(p map[string]string) (resp *http.Response, err error) {
+	p["REQUEST_METHOD"] = "OPTIONS"
+	p["CONTENT_LENGTH"] = "0"
+
+	return c.Request(p, nil)
+}
+
+// Post issues a Post request to the fcgi responder. with request body
 // in the format that bodyType specified
 func (client *FCGIClient) Post(p map[string]string, bodyType string, body io.Reader, l int) (resp *http.Response, err error) {
 	if len(p["REQUEST_METHOD"]) == 0 || p["REQUEST_METHOD"] == "GET" {
@@ -460,6 +548,24 @@ func (client *FCGIClient) PostFile(p map[string]string, data url.Values, file ma
 	}
 
 	return client.Post(p, bodyType, buf, buf.Len())
+}
+
+// SetReadTimeout sets the read timeout for future calls that read from the
+// fcgi responder. A zero value for t means no timeout will be set.
+func (c *FCGIClient) SetReadTimeout(t time.Duration) error {
+	if conn, ok := c.rwc.(net.Conn); ok && t != 0 {
+		return conn.SetReadDeadline(time.Now().Add(t))
+	}
+	return nil
+}
+
+// SetWriteTimeout sets the write timeout for future calls that send data to
+// the fcgi responder. A zero value for t means no timeout will be set.
+func (c *FCGIClient) SetWriteTimeout(t time.Duration) error {
+	if conn, ok := c.rwc.(net.Conn); ok && t != 0 {
+		return conn.SetWriteDeadline(time.Now().Add(t))
+	}
+	return nil
 }
 
 // Checks whether chunked is part of the encodings stack

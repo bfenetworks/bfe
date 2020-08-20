@@ -15,7 +15,6 @@
 package bal_gslb
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"net"
 	"testing"
@@ -27,6 +26,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/gslb_conf"
 	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 func loadJson(path string, v interface{}) error {

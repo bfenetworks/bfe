@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	jsoniter "github.com/json-iterator/go"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // RetryLevels
@@ -67,12 +67,22 @@ type BackendCheck struct {
 	CheckInterval *int    // interval of health check, in ms
 }
 
+// FastCGI related configurations
+type FCGIConf struct {
+        EnvVars map[string]string // the vars which will send to backend
+        Root    string            // the server root
+}
+
 // BackendBasic is conf of backend basic
 type BackendBasic struct {
-	TimeoutConnSrv        *int // timeout for connect backend, in ms
-	TimeoutResponseHeader *int // timeout for read header from backend, in ms
-	MaxIdleConnsPerHost   *int // max idle conns for each backend
-	RetryLevel            *int // retry level if request fail
+	Protocol              *string // backend protocol
+	TimeoutConnSrv        *int    // timeout for connect backend, in ms
+	TimeoutResponseHeader *int    // timeout for read header from backend, in ms
+	MaxIdleConnsPerHost   *int    // max idle conns for each backend
+	RetryLevel            *int    // retry level if request fail
+
+	// protocol specific configurations
+	FCGIConf *FCGIConf
 }
 
 type HashConf struct {
@@ -109,8 +119,6 @@ type ClusterBasicConf struct {
 	ReqFlushInterval    *int  // interval to flush request in ms. if zero, disable periodic flush
 	ResFlushInterval    *int  // interval to flush response in ms. if zero, disable periodic flush
 	CancelOnClientClose *bool // cancel blocking operation on server if client connection disconnected
-
-	ClusterProtocol *string // backend procotol
 }
 
 // ClusterConf is conf of cluster.
@@ -119,15 +127,6 @@ type ClusterConf struct {
 	CheckConf    *BackendCheck     // how to check backend
 	GslbBasic    *GslbBasicConf    // gslb basic conf for cluster
 	ClusterBasic *ClusterBasicConf // basic conf for cluster
-
-	FCGIConf        *ClusterFCGIConf
-	ClusterProtocol *string
-}
-
-// ClusterFCGIConf is conf for fast cgi cluster
-type ClusterFCGIConf struct {
-	EnvVars map[string]string // the vars which will send to backend
-	Root    string            // the server root
 }
 
 type ClusterToConf map[string]ClusterConf
@@ -140,6 +139,14 @@ type BfeClusterConf struct {
 
 // BackendBasicCheck check BackendBasic config.
 func BackendBasicCheck(conf *BackendBasic) error {
+	if conf.Protocol == nil {
+		defaultProtocol := "http"
+		conf.Protocol = &defaultProtocol
+	}
+        if *conf.Protocol != "http" && *conf.Protocol != "fcgi" {
+		return fmt.Errorf("invalid protocol %s (http/fcgi)", *conf.Protocol)
+	}
+
 	if conf.TimeoutConnSrv == nil {
 		defaultTimeConnSrv := 2000
 		conf.TimeoutConnSrv = &defaultTimeConnSrv
@@ -158,6 +165,13 @@ func BackendBasicCheck(conf *BackendBasic) error {
 	if conf.RetryLevel == nil {
 		retryLevel := RetryConnect
 		conf.RetryLevel = &retryLevel
+	}
+
+	if conf.FCGIConf == nil {
+		defaultFCGIConf := new(FCGIConf)
+		defaultFCGIConf.EnvVars = make(map[string]string)
+		defaultFCGIConf.Root = ""
+		conf.FCGIConf = defaultFCGIConf
 	}
 
 	return nil
@@ -493,7 +507,6 @@ func (conf *BfeClusterConf) LoadAndCheck(filename string) (string, error) {
 	}
 
 	/* decode the file  */
-	json := jsoniter.ConfigCompatibleWithStandardLibrary
 	decoder := json.NewDecoder(file)
 	defer file.Close()
 

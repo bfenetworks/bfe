@@ -15,7 +15,6 @@
 package mod_key_log
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -23,6 +22,7 @@ import (
 
 import (
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type KeyLogRuleFile struct {
