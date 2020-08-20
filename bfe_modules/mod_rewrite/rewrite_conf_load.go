@@ -15,7 +15,6 @@
 package mod_rewrite
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -24,6 +23,7 @@ import (
 import (
 	"github.com/bfenetworks/bfe/bfe_basic/action"
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type ReWriteRuleFile struct {
