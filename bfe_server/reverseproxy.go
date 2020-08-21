@@ -21,6 +21,7 @@
 package bfe_server
 
 import (
+	"crypto/tls"
 	"io"
 	"net"
 	"reflect"
@@ -30,6 +31,7 @@ import (
 
 import (
 	"github.com/baidu/go-lib/log"
+	"golang.org/x/net/http2"
 )
 
 import (
@@ -47,6 +49,20 @@ import (
 	"github.com/bfenetworks/bfe/bfe_spdy"
 	"github.com/bfenetworks/bfe/bfe_util"
 )
+
+// TrailerPrefix is a magic prefix for ResponseWriter.Header map keys
+// that, if present, signals that the map entry is actually for
+// the response trailers, and not the response headers. The prefix
+// is stripped after the ServeHTTP call finishes and the values are
+// sent in the trailers.
+//
+// This mechanism is intended only for trailers that are not known
+// prior to the headers being written. If the set of trailers is fixed
+// or known before the header is written, the normal Go trailers mechanism
+// is preferred:
+//    https://golang.org/pkg/net/http/#ResponseWriter
+//    https://golang.org/pkg/net/http/#example_ResponseWriter_trailers
+const TrailerPrefix = "Trailer:"
 
 // RoundTripperMap holds mappings from cluster-name to RoundTripper.
 type RoundTripperMap map[string]bfe_http.RoundTripper
@@ -91,14 +107,27 @@ func hopByHopHeaderRemove(outreq, req *bfe_http.Request) {
 	// copied above) so we only copy it if necessary.
 	copiedHeaders := false
 	for _, h := range bfe_basic.HopHeaders {
-		if outreq.Header.Get(h) != "" {
-			if !copiedHeaders {
-				outreq.Header = make(bfe_http.Header, len(req.Header))
-				bfe_http.CopyHeader(outreq.Header, req.Header)
-				copiedHeaders = true
-			}
-			outreq.Header.Del(h)
+		hv := outreq.Header.Get(h)
+		if hv == "" {
+			continue
 		}
+
+		if h == "Te" && hv == "trailers" {
+			// Issue 21096: tell backend applications that
+			// care about trailer support that we support
+			// trailers. (We do, but we don't go out of
+			// our way to advertise that unless the
+			// incoming client request thought it was
+			// worth mentioning)
+			continue
+		}
+
+		if !copiedHeaders {
+			outreq.Header = make(bfe_http.Header, len(req.Header))
+			bfe_http.CopyHeader(outreq.Header, req.Header)
+			copiedHeaders = true
+		}
+		outreq.Header.Del(h)
 	}
 }
 
@@ -187,6 +216,16 @@ func createTransport(cluster *bfe_cluster.BfeCluster) bfe_http.RoundTripper {
 		return &bfe_fcgi.Transport{
 			Root:    backendConf.FCGIConf.Root,
 			EnvVars: backendConf.FCGIConf.EnvVars,
+		}
+	case "h2c":
+		return &bfe_http2.Transport{
+			T: &http2.Transport{
+				AllowHTTP: true,
+				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+					timeout := time.Duration(cluster.TimeoutConnSrv()) * time.Millisecond
+					return net.DialTimeout(network, addr, timeout)
+				},
+			},
 		}
 	default:
 		/* never come here */
@@ -400,7 +439,32 @@ func (p *ReverseProxy) sendResponse(rw bfe_http.ResponseWriter, res *bfe_http.Re
 	// note: writeheader don't guarantee send header
 	rw.WriteHeader(res.StatusCode)
 
-	return p.copyResponse(rw, res.Body, flushInterval, cancelOnClientClose)
+	err := p.copyResponse(rw, res.Body, flushInterval, cancelOnClientClose)
+	res.Body.Close() // close now, instead of defer, to populate res.Trailer
+	if err != nil {
+		return err
+	}
+
+	if res.H2Trailer == nil {
+		return nil
+	}
+
+	if len(*res.H2Trailer) > 0 {
+		// Force chunking if we saw a response trailer.
+		// This prevents net/http from calculating the length for short
+		// bodies and adding a Content-Length.
+		if fl, ok := rw.(bfe_http.Flusher); ok {
+			fl.Flush()
+		}
+	}
+
+	for k, vv := range *res.H2Trailer {
+		k = TrailerPrefix + k
+		for _, v := range vv {
+			rw.Header().Add(k, v)
+		}
+	}
+	return nil
 }
 
 // prepareSigner prepare SignCalculater for response.

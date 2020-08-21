@@ -50,6 +50,7 @@ type ModuleKeyLog struct {
 func NewModuleKeyLog() *ModuleKeyLog {
 	m := new(ModuleKeyLog)
 	m.name = "mod_key_log"
+	m.ruleTable = NewKeyLogTable()
 	return m
 }
 
