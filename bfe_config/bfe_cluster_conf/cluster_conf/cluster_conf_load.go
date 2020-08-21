@@ -69,8 +69,8 @@ type BackendCheck struct {
 
 // FastCGI related configurations
 type FCGIConf struct {
-        EnvVars map[string]string // the vars which will send to backend
-        Root    string            // the server root
+	EnvVars map[string]string // the vars which will send to backend
+	Root    string            // the server root
 }
 
 // BackendBasic is conf of backend basic
@@ -143,8 +143,11 @@ func BackendBasicCheck(conf *BackendBasic) error {
 		defaultProtocol := "http"
 		conf.Protocol = &defaultProtocol
 	}
-        if *conf.Protocol != "http" && *conf.Protocol != "fcgi" {
-		return fmt.Errorf("invalid protocol %s (http/fcgi)", *conf.Protocol)
+	*conf.Protocol = strings.ToLower(*conf.Protocol)
+	switch *conf.Protocol {
+	case "http", "tcp", "ws", "fcgi", "h2c":
+	default:
+		return fmt.Errorf("protocol only support http/tcp/ws/fcgi/h2c, but is:%s", *conf.Protocol)
 	}
 
 	if conf.TimeoutConnSrv == nil {
