@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,16 @@
 package signal_table
 
 import (
-	"encoding/json"
 	"os"
 	"os/signal"
 )
 
 import (
 	"github.com/baidu/go-lib/web-monitor/module_state2"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type signalHandler func(s os.Signal)

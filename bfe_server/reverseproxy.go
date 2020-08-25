@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 package bfe_server
 
 import (
+	"crypto/tls"
 	"io"
 	"net"
 	"reflect"
@@ -30,22 +31,38 @@ import (
 
 import (
 	"github.com/baidu/go-lib/log"
+	"golang.org/x/net/http2"
 )
 
 import (
-	bfe_cluster_backend "github.com/baidu/bfe/bfe_balance/backend"
-	bal_gslb "github.com/baidu/bfe/bfe_balance/bal_gslb"
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	"github.com/baidu/bfe/bfe_debug"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_http2"
-	"github.com/baidu/bfe/bfe_module"
-	"github.com/baidu/bfe/bfe_route"
-	"github.com/baidu/bfe/bfe_route/bfe_cluster"
-	"github.com/baidu/bfe/bfe_spdy"
-	"github.com/baidu/bfe/bfe_util"
+	bfe_cluster_backend "github.com/bfenetworks/bfe/bfe_balance/backend"
+	bal_gslb "github.com/bfenetworks/bfe/bfe_balance/bal_gslb"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
+	"github.com/bfenetworks/bfe/bfe_debug"
+	"github.com/bfenetworks/bfe/bfe_fcgi"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http2"
+	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_route"
+	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
+	"github.com/bfenetworks/bfe/bfe_spdy"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
+
+// TrailerPrefix is a magic prefix for ResponseWriter.Header map keys
+// that, if present, signals that the map entry is actually for
+// the response trailers, and not the response headers. The prefix
+// is stripped after the ServeHTTP call finishes and the values are
+// sent in the trailers.
+//
+// This mechanism is intended only for trailers that are not known
+// prior to the headers being written. If the set of trailers is fixed
+// or known before the header is written, the normal Go trailers mechanism
+// is preferred:
+//    https://golang.org/pkg/net/http/#ResponseWriter
+//    https://golang.org/pkg/net/http/#example_ResponseWriter_trailers
+const TrailerPrefix = "Trailer:"
 
 // RoundTripperMap holds mappings from cluster-name to RoundTripper.
 type RoundTripperMap map[string]bfe_http.RoundTripper
@@ -57,6 +74,7 @@ type ReverseProxy struct {
 	// If no transport from clustername->transport map, create one.
 	tsMu       sync.RWMutex
 	transports RoundTripperMap
+	bufferPool *bfe_util.FixedPool
 
 	server     *BfeServer  // link to bfe server
 	proxyState *ProxyState // state of proxy
@@ -68,20 +86,8 @@ func NewReverseProxy(server *BfeServer, state *ProxyState) *ReverseProxy {
 	rp.transports = make(RoundTripperMap)
 	rp.server = server
 	rp.proxyState = state
+	rp.bufferPool = bfe_util.NewFixedPool(32 * 1024)
 	return rp
-}
-
-// Hop-by-hop headers. These are removed when sent to the backend.
-// http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
-var hopHeaders = []string{
-	"Connection",
-	"Keep-Alive",
-	"Proxy-Authenticate",
-	"Proxy-Authorization",
-	"Te", // canonicalized version of "TE"
-	"Trailers",
-	"Transfer-Encoding",
-	"Upgrade",
 }
 
 // httpProtoSet set http proto for out request.
@@ -100,15 +106,28 @@ func hopByHopHeaderRemove(outreq, req *bfe_http.Request) {
 	// is modifying the same underlying map from req (shallow
 	// copied above) so we only copy it if necessary.
 	copiedHeaders := false
-	for _, h := range hopHeaders {
-		if outreq.Header.Get(h) != "" {
-			if !copiedHeaders {
-				outreq.Header = make(bfe_http.Header, len(req.Header))
-				bfe_http.CopyHeader(outreq.Header, req.Header)
-				copiedHeaders = true
-			}
-			outreq.Header.Del(h)
+	for _, h := range bfe_basic.HopHeaders {
+		hv := outreq.Header.Get(h)
+		if hv == "" {
+			continue
 		}
+
+		if h == "Te" && hv == "trailers" {
+			// Issue 21096: tell backend applications that
+			// care about trailer support that we support
+			// trailers. (We do, but we don't go out of
+			// our way to advertise that unless the
+			// incoming client request thought it was
+			// worth mentioning)
+			continue
+		}
+
+		if !copiedHeaders {
+			outreq.Header = make(bfe_http.Header, len(req.Header))
+			bfe_http.CopyHeader(outreq.Header, req.Header)
+			copiedHeaders = true
+		}
+		outreq.Header.Del(h)
 	}
 }
 
@@ -155,12 +174,14 @@ func (p *ReverseProxy) setTransports(clusterMap bfe_route.ClusterMap) {
 // getTransport return transport from map, if not exist, create a transport.
 func (p *ReverseProxy) getTransport(cluster *bfe_cluster.BfeCluster) bfe_http.RoundTripper {
 	p.tsMu.RLock()
-	defer p.tsMu.RUnlock()
-
 	transport, ok := p.transports[cluster.Name]
+	p.tsMu.RUnlock()
+
 	if !ok {
 		transport = createTransport(cluster)
+		p.tsMu.Lock()
 		p.transports[cluster.Name] = transport
+		p.tsMu.Unlock()
 	}
 
 	return transport
@@ -168,25 +189,48 @@ func (p *ReverseProxy) getTransport(cluster *bfe_cluster.BfeCluster) bfe_http.Ro
 
 func createTransport(cluster *bfe_cluster.BfeCluster) bfe_http.RoundTripper {
 	backendConf := cluster.BackendConf()
+	protocol := *backendConf.Protocol
 
 	log.Logger.Debug("create a new transport for %s, timeout %d", cluster.Name, *backendConf.TimeoutResponseHeader)
 
-	// cluster has its own Connect Server Timeout.
-	// so each cluster has a different transport
-	// once cluster's timeout updated, dailer use new value
-	dailer := func(network, add string) (net.Conn, error) {
-		timeout := time.Duration(cluster.TimeoutConnSrv()) * time.Millisecond
-		return net.DialTimeout(network, add, timeout)
-	}
+	switch protocol {
+	case "http":
+		// cluster has its own Connect Server Timeout.
+		// so each cluster has a different transport
+		// once cluster's timeout updated, dailer use new value
+		dailer := func(network, add string) (net.Conn, error) {
+			timeout := time.Duration(cluster.TimeoutConnSrv()) * time.Millisecond
+			return net.DialTimeout(network, add, timeout)
+		}
 
-	return &bfe_http.Transport{
-		Dial:                  dailer,
-		DisableKeepAlives:     (*backendConf.MaxIdleConnsPerHost) == 0,
-		MaxIdleConnsPerHost:   *backendConf.MaxIdleConnsPerHost,
-		ResponseHeaderTimeout: time.Millisecond * time.Duration(*backendConf.TimeoutResponseHeader),
-		ReqWriteBufferSize:    cluster.ReqWriteBufferSize(),
-		ReqFlushInterval:      cluster.ReqFlushInterval(),
-		DisableCompression:    true,
+		return &bfe_http.Transport{
+			Dial:                  dailer,
+			DisableKeepAlives:     (*backendConf.MaxIdleConnsPerHost) == 0,
+			MaxIdleConnsPerHost:   *backendConf.MaxIdleConnsPerHost,
+			ResponseHeaderTimeout: time.Millisecond * time.Duration(*backendConf.TimeoutResponseHeader),
+			ReqWriteBufferSize:    cluster.ReqWriteBufferSize(),
+			ReqFlushInterval:      cluster.ReqFlushInterval(),
+			DisableCompression:    true,
+		}
+	case "fcgi":
+		return &bfe_fcgi.Transport{
+			Root:    backendConf.FCGIConf.Root,
+			EnvVars: backendConf.FCGIConf.EnvVars,
+		}
+	case "h2c":
+		return &bfe_http2.Transport{
+			T: &http2.Transport{
+				AllowHTTP: true,
+				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+					timeout := time.Duration(cluster.TimeoutConnSrv()) * time.Millisecond
+					return net.DialTimeout(network, addr, timeout)
+				},
+			},
+		}
+	default:
+		/* never come here */
+		log.Logger.Warn("unknown cluster protocol %s", protocol)
+		return nil
 	}
 }
 
@@ -236,17 +280,17 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 		}
 
 		// err == nil if and only if we choose a new backend,
-		// desc old backend connection num
+		// decr old backend connection num
 		if request.Trans.Backend != nil {
 			request.Trans.Backend.DecConnNum()
 			request.Trans.Backend = nil
 		}
 		request.SetRequestTransport(clusterBackend, clusterTransport)
 
-		log.Logger.Debug("ReverseProxy.Invoke(): before HANDLE_FORWARD backend %s:%d",
+		log.Logger.Debug("ReverseProxy.Invoke(): before HandleForward backend %s:%d",
 			request.Trans.Backend.Addr, request.Trans.Backend.Port)
 
-		// Callback for HANDLE_FORWARD
+		// Callback for HandleForward
 		hl := srv.CallBacks.GetHandlerList(bfe_module.HandleForward)
 		if hl != nil {
 			retVal := hl.FilterForward(request)
@@ -258,12 +302,12 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 			}
 		}
 
-		log.Logger.Debug("ReverseProxy.Invoke(): after HANDLE_FORWARD backend %s:%d",
+		log.Logger.Debug("ReverseProxy.Invoke(): after HandleForward backend %s:%d",
 			request.Trans.Backend.Addr, request.Trans.Backend.Port)
 
 		// set backend addr to out request
 		backend := request.Trans.Backend
-		backend.AddConnNum()
+		backend.IncConnNum()
 		setBackendAddr(outreq, backend)
 
 		// invoke backend
@@ -395,7 +439,32 @@ func (p *ReverseProxy) sendResponse(rw bfe_http.ResponseWriter, res *bfe_http.Re
 	// note: writeheader don't guarantee send header
 	rw.WriteHeader(res.StatusCode)
 
-	return p.copyResponse(rw, res.Body, flushInterval, cancelOnClientClose)
+	err := p.copyResponse(rw, res.Body, flushInterval, cancelOnClientClose)
+	res.Body.Close() // close now, instead of defer, to populate res.Trailer
+	if err != nil {
+		return err
+	}
+
+	if res.H2Trailer == nil {
+		return nil
+	}
+
+	if len(*res.H2Trailer) > 0 {
+		// Force chunking if we saw a response trailer.
+		// This prevents net/http from calculating the length for short
+		// bodies and adding a Content-Length.
+		if fl, ok := rw.(bfe_http.Flusher); ok {
+			fl.Flush()
+		}
+	}
+
+	for k, vv := range *res.H2Trailer {
+		k = TrailerPrefix + k
+		for _, v := range vv {
+			rw.Header().Add(k, v)
+		}
+	}
+	return nil
 }
 
 // prepareSigner prepare SignCalculater for response.
@@ -424,7 +493,7 @@ func (p *ReverseProxy) FinishReq(rw bfe_http.ResponseWriter, request *bfe_basic.
 		}
 	}()
 
-	// Callback for HANDLE_REQUEST_FINISH
+	// Callback for HandleRequestFinish
 	hl := srv.CallBacks.GetHandlerList(bfe_module.HandleRequestFinish)
 	if hl != nil {
 		retVal := hl.FilterResponse(request, request.HttpResponse)
@@ -507,7 +576,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	// set clientip of original user for request
 	setClientAddr(basicReq)
 
-	// Callback for HANDLE_BEFORE_LOCATION
+	// Callback for HandleBeforeLocation
 	hl = srv.CallBacks.GetHandlerList(bfe_module.HandleBeforeLocation)
 	if hl != nil {
 		retVal, res = hl.FilterRequest(basicReq)
@@ -524,7 +593,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 			return
 		case bfe_module.BfeHandlerRedirect:
 			// make redirect
-			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code)
+			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)
 			isRedirect = true
 			basicReq.BfeStatusCode = basicReq.Redirect.Code
 			goto send_response
@@ -564,7 +633,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 			return
 		case bfe_module.BfeHandlerRedirect:
 			// make redirect
-			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code)
+			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)
 			isRedirect = true
 			basicReq.BfeStatusCode = basicReq.Redirect.Code
 			goto send_response
@@ -624,7 +693,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 			return
 		case bfe_module.BfeHandlerRedirect:
 			// make redirect
-			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code)
+			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)
 
 			isRedirect = true
 
@@ -652,6 +721,12 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	// invoke cluster to get response
 	res, action, err = p.clusterInvoke(srv, cluster, basicReq, rw)
 	basicReq.HttpResponse = res
+
+	// Note: The runtime will not GC the objects referenced by basicReq.SvrDataConf until the request
+	// has been processed. But the request may last a long time. It's better to remove the reference
+	// to objects which are not used any more.
+	basicReq.SvrDataConf = nil
+
 	if err != nil {
 		basicReq.Stat.ResponseStart = time.Now()
 		basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
@@ -693,7 +768,7 @@ response_got:
 			return
 		case bfe_module.BfeHandlerRedirect:
 			// make redirect
-			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code)
+			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)
 			isRedirect = true
 			basicReq.BfeStatusCode = basicReq.Redirect.Code
 			goto send_response
@@ -761,7 +836,10 @@ func (p *ReverseProxy) copyResponse(dst io.Writer, src io.ReadCloser,
 		}
 	}
 
-	_, err := io.Copy(dst, src)
+	buf := p.bufferPool.GetBlock()
+	defer p.bufferPool.PutBlock(buf)
+
+	_, err := io.CopyBuffer(dst, src, buf)
 	return err
 }
 

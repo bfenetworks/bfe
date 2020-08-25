@@ -1,15 +1,17 @@
-# Introduction
+# Balancing Details
 
-bal_table_status monitor table state for maintain backend cluster.
+## Introduction
 
-# Monitor Item
+The endpoint `/monitor/bal_table_status` exposes metrics about backend clusters.
 
-| Monitor Item | Description                                                  |
+## Metrics
+
+| Metric       | Description                                                  |
 | ------------ | ------------------------------------------------------------ |
 | Balancers    | State of cluster, it is map data, key is cluster name, value is cluster state |
 | BackendNum   | Number of cluster backend                                    |
 
-## cluster state
+### cluster state
 
 | Monitor Item | Description                                                  |
 | ------------ | ------------------------------------------------------------ |

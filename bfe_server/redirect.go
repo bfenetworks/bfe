@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,12 +28,12 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http"
 )
 
 // Redirect replies to the request with a redirect to url,
 // which may be a path relative to the request path.
-func Redirect(w bfe_http.ResponseWriter, r *bfe_http.Request, urlStr string, code int) {
+func Redirect(w bfe_http.ResponseWriter, r *bfe_http.Request, urlStr string, code int, extraHeader bfe_http.Header) {
 	if u, err := url.Parse(urlStr); err == nil {
 		// If url was relative, make absolute by
 		// combining with request path.
@@ -78,7 +78,14 @@ func Redirect(w bfe_http.ResponseWriter, r *bfe_http.Request, urlStr string, cod
 		}
 	}
 
-	w.Header().Set("Location", urlStr)
+	header := w.Header()
+	for key, values := range extraHeader {
+		for _, value := range values {
+			header.Add(key, value)
+		}
+	}
+	header.Set("Location", urlStr)
+	header.Set("Server", "bfe")
 	w.WriteHeader(code)
 
 	// RFC2616 recommends that a short note "SHOULD" be included in the

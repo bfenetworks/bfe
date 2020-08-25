@@ -1,10 +1,12 @@
-# Introduction
+# WebSocket
 
-websocket_state monitor state of websocket.
+## Introduction
 
-# Monitor Item
+The endpoint `/monitor/websocket_state` exposes metrics about WebSocket.
 
-| Monitor Item                  | Description                           |
+## Metrics
+
+| Metric                        | Description                           |
 | ----------------------------- | ------------------------------------- |
 | WEB_SOCKET_BYTES_RECV         | Counter for receiving websocket bytes |
 | WEB_SOCKET_BYTES_SENT         | Counter for sending websocket bytes   |

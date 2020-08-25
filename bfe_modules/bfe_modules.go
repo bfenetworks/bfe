@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,21 +17,31 @@
 package bfe_modules
 
 import (
-	"github.com/baidu/bfe/bfe_module"
-	"github.com/baidu/bfe/bfe_modules/mod_access"
-	"github.com/baidu/bfe/bfe_modules/mod_auth_basic"
-	"github.com/baidu/bfe/bfe_modules/mod_block"
-	"github.com/baidu/bfe/bfe_modules/mod_compress"
-	"github.com/baidu/bfe/bfe_modules/mod_errors"
-	"github.com/baidu/bfe/bfe_modules/mod_geo"
-	"github.com/baidu/bfe/bfe_modules/mod_header"
-	"github.com/baidu/bfe/bfe_modules/mod_http_code"
-	"github.com/baidu/bfe/bfe_modules/mod_key_log"
-	"github.com/baidu/bfe/bfe_modules/mod_logid"
-	"github.com/baidu/bfe/bfe_modules/mod_redirect"
-	"github.com/baidu/bfe/bfe_modules/mod_rewrite"
-	"github.com/baidu/bfe/bfe_modules/mod_static"
-	"github.com/baidu/bfe/bfe_modules/mod_trust_clientip"
+	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_access"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_auth_basic"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_auth_jwt"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_auth_request"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_block"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_compress"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_cors"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_doh"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_errors"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_geo"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_header"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_http_code"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_key_log"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_logid"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_markdown"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_prison"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_redirect"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_rewrite"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_secure_link"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_static"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_tag"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_trace"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_trust_clientip"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_userid"
 )
 
 // list of all modules, the order is very important
@@ -43,17 +53,42 @@ var moduleList = []bfe_module.BfeModule{
 	// Requirement: After mod_trust_clientip
 	mod_logid.NewModuleLogId(),
 
+	// mode_userid
+	mod_userid.NewModuleUserID(),
+
 	// mod_geo
 	// Requirement: After mod_logid
 	mod_geo.NewModuleGeo(),
+
+	// mod_tag
+	mod_tag.NewModuleTag(),
+
+	// mod_trace
+	mod_trace.NewModuleTrace(),
+
+	// mod_cors
+	mod_cors.NewModuleCors(),
 
 	// mod_block
 	// Requirement: After mod_logid
 	mod_block.NewModuleBlock(),
 
+	// mod_prison
+	// Requirement: After mod_logid
+	mod_prison.NewModulePrison(),
+
 	// mod_auth_basic
 	// Requirement: before mod_static
 	mod_auth_basic.NewModuleAuthBasic(),
+
+	// mod_auth_jwt
+	mod_auth_jwt.NewModuleAuthJWT(),
+
+	// mod_secure_link
+	mod_secure_link.NewModuleSecureLink(),
+
+	// mod_doh
+	mod_doh.NewModuleDoh(),
 
 	// mod_redirect
 	// Requirement: After mod_logid
@@ -68,8 +103,14 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_header
 	mod_header.NewModuleHeader(),
 
+	// mod_auth_request
+	mod_auth_request.NewModuleAuthRequest(),
+
 	// mod_errors
 	mod_errors.NewModuleErrors(),
+
+	// mod_markdown
+	mod_markdown.NewModuleMarkdown(),
 
 	// mod_compress
 	mod_compress.NewModuleCompress(),

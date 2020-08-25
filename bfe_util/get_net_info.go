@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,11 +23,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_tls"
-)
-
-import (
-	sys "golang.org/x/sys/unix"
+	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 // CloseWriter is the interface that wraps the basic CloseWrite method.
@@ -83,13 +79,6 @@ func GetConnFile(conn net.Conn) (*os.File, error) {
 	}
 
 	return nil, fmt.Errorf("GetConnFd(): conn type not support %s", reflect.TypeOf(conn))
-}
-
-// GetsockoptMutiByte returns the value of the socket option opt for the
-// socket associated with fd at the given socket level.
-func GetsockoptMutiByte(fd, level, opt int) ([]byte, error) {
-	val, err := sys.GetsockoptString(fd, level, opt)
-	return []byte(val), err
 }
 
 // ParseIpAndPort return parsed ip address

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -64,9 +64,9 @@ const (
 // Grade C: ssl3 is ok only with RC4 cipher
 const (
 	GradeAPlus = "A+"
-	GradeA      = "A"
-	GradeB      = "B"
-	GradeC      = "C"
+	GradeA     = "A"
+	GradeB     = "B"
+	GradeC     = "C"
 )
 
 /*
@@ -303,6 +303,9 @@ type Rule struct {
 
 	// client CA name
 	ClientCAName string
+
+	// client CRL pool
+	ClientCRLPool *CRLPool
 
 	// enable Chacha20-poly1305 cipher suites
 	Chacha20 bool

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	json "github.com/pquerna/ffjson/ffjson"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // RetryLevels
@@ -67,12 +67,22 @@ type BackendCheck struct {
 	CheckInterval *int    // interval of health check, in ms
 }
 
+// FastCGI related configurations
+type FCGIConf struct {
+	EnvVars map[string]string // the vars which will send to backend
+	Root    string            // the server root
+}
+
 // BackendBasic is conf of backend basic
 type BackendBasic struct {
-	TimeoutConnSrv        *int // timeout for connect backend, in ms
-	TimeoutResponseHeader *int // timeout for read header from backend, in ms
-	MaxIdleConnsPerHost   *int // max idle conns for each backend
-	RetryLevel            *int // retry level if request fail
+	Protocol              *string // backend protocol
+	TimeoutConnSrv        *int    // timeout for connect backend, in ms
+	TimeoutResponseHeader *int    // timeout for read header from backend, in ms
+	MaxIdleConnsPerHost   *int    // max idle conns for each backend
+	RetryLevel            *int    // retry level if request fail
+
+	// protocol specific configurations
+	FCGIConf *FCGIConf
 }
 
 type HashConf struct {
@@ -129,6 +139,17 @@ type BfeClusterConf struct {
 
 // BackendBasicCheck check BackendBasic config.
 func BackendBasicCheck(conf *BackendBasic) error {
+	if conf.Protocol == nil {
+		defaultProtocol := "http"
+		conf.Protocol = &defaultProtocol
+	}
+	*conf.Protocol = strings.ToLower(*conf.Protocol)
+	switch *conf.Protocol {
+	case "http", "tcp", "ws", "fcgi", "h2c":
+	default:
+		return fmt.Errorf("protocol only support http/tcp/ws/fcgi/h2c, but is:%s", *conf.Protocol)
+	}
+
 	if conf.TimeoutConnSrv == nil {
 		defaultTimeConnSrv := 2000
 		conf.TimeoutConnSrv = &defaultTimeConnSrv
@@ -147,6 +168,13 @@ func BackendBasicCheck(conf *BackendBasic) error {
 	if conf.RetryLevel == nil {
 		retryLevel := RetryConnect
 		conf.RetryLevel = &retryLevel
+	}
+
+	if conf.FCGIConf == nil {
+		defaultFCGIConf := new(FCGIConf)
+		defaultFCGIConf.EnvVars = make(map[string]string)
+		defaultFCGIConf.Root = ""
+		conf.FCGIConf = defaultFCGIConf
 	}
 
 	return nil
@@ -433,13 +461,13 @@ func ClusterConfCheck(conf *ClusterConf) error {
 }
 
 // ClusterToConfCheck check ClusterToConf.
-func ClusterToConfCheck(conf *ClusterToConf) error {
-	for clusterName, clusterConf := range *conf {
+func ClusterToConfCheck(conf ClusterToConf) error {
+	for clusterName, clusterConf := range conf {
 		err := ClusterConfCheck(&clusterConf)
-
 		if err != nil {
 			return fmt.Errorf("conf for %s:%s", clusterName, err.Error())
 		}
+		conf[clusterName] = clusterConf
 	}
 	return nil
 }
@@ -457,7 +485,7 @@ func BfeClusterConfCheck(conf *BfeClusterConf) error {
 		return errors.New("no Config")
 	}
 
-	err := ClusterToConfCheck(conf.Config)
+	err := ClusterToConfCheck(*conf.Config)
 	if err != nil {
 		return fmt.Errorf("BfeClusterConf.Config:%s", err.Error())
 	}
@@ -482,10 +510,10 @@ func (conf *BfeClusterConf) LoadAndCheck(filename string) (string, error) {
 	}
 
 	/* decode the file  */
-	decoder := json.NewDecoder()
+	decoder := json.NewDecoder(file)
 	defer file.Close()
 
-	if err := decoder.DecodeReader(file, &conf); err != nil {
+	if err := decoder.Decode(&conf); err != nil {
 		return "", err
 	}
 

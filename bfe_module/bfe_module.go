@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package bfe_module
 
 import (
-	"encoding/json"
 	"fmt"
 	"path"
 )
@@ -25,6 +24,10 @@ import (
 import (
 	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type BfeModule interface {

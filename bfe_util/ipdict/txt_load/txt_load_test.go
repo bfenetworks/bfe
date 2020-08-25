@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,12 @@
 package txt_load
 
 import (
-	"bytes"
 	"net"
 	"testing"
 )
 
 import (
-	"github.com/baidu/bfe/bfe_util/ipdict"
+	"github.com/bfenetworks/bfe/bfe_util/ipdict"
 )
 
 // test for normal line
@@ -32,39 +31,39 @@ func TestCheckSplit_Case0(t *testing.T) {
 
 	line = "1.1.1.1 2.2.2.2"
 	startIP, endIP, err = checkSplit(line, " ")
-	if !bytes.Equal(startIP, net.ParseIP("1.1.1.1")) ||
-		!bytes.Equal(endIP, net.ParseIP("2.2.2.2")) ||
+	if !startIP.Equal(net.ParseIP("1.1.1.1")) ||
+		!endIP.Equal(net.ParseIP("2.2.2.2")) ||
 		err != nil {
 		t.Error("TestCheckSplit():", err)
 	}
 
 	line = "1.1.1.1"
 	startIP, endIP, err = checkSplit(line, " ")
-	if !bytes.Equal(startIP, net.ParseIP("1.1.1.1")) ||
-		!bytes.Equal(endIP, net.ParseIP("1.1.1.1")) ||
+	if !startIP.Equal(net.ParseIP("1.1.1.1")) ||
+		!endIP.Equal(net.ParseIP("1.1.1.1")) ||
 		err != nil {
 		t.Error("TestCheckSplit():", err)
 	}
 
 	line = "1.1.1.1  2.2.2.2"
 	startIP, endIP, err = checkSplit(line, " ")
-	if !bytes.Equal(startIP, net.ParseIP("1.1.1.1")) ||
-		!bytes.Equal(endIP, net.ParseIP("2.2.2.2")) ||
+	if !startIP.Equal(net.ParseIP("1.1.1.1")) ||
+		!endIP.Equal(net.ParseIP("2.2.2.2")) ||
 		err != nil {
 		t.Error("TestCheckSplit():", err)
 	}
 
 	line = "1.1.1.1  \t\t  2.2.2.2"
 	startIP, endIP, err = checkSplit(line, " ")
-	if !bytes.Equal(startIP, net.ParseIP("1.1.1.1")) ||
-		!bytes.Equal(endIP, net.ParseIP("2.2.2.2")) ||
+	if !startIP.Equal(net.ParseIP("1.1.1.1")) ||
+		!endIP.Equal(net.ParseIP("2.2.2.2")) ||
 		err != nil {
 		t.Error("TestCheckSplit():", err)
 	}
 	line = "1::1  \t\t  1::FFFF"
 	startIP, endIP, err = checkSplit(line, " ")
-	if !bytes.Equal(startIP, net.ParseIP("1::1")) ||
-		!bytes.Equal(endIP, net.ParseIP("1::FFFF")) ||
+	if !startIP.Equal(net.ParseIP("1::1")) ||
+		!endIP.Equal(net.ParseIP("1::FFFF")) ||
 		err != nil {
 		t.Error("TestCheckSplit():", err)
 	}
@@ -113,47 +112,47 @@ func TestCheckLine_Case0(t *testing.T) {
 
 	line = "1.1.1.1 2.2.2.2"
 	startIP, endIP, err = checkLine(line)
-	if !bytes.Equal(startIP, net.ParseIP("1.1.1.1")) ||
-		!bytes.Equal(endIP, net.ParseIP("2.2.2.2")) ||
+	if !startIP.Equal(net.ParseIP("1.1.1.1")) ||
+		!endIP.Equal(net.ParseIP("2.2.2.2")) ||
 		err != nil {
 		t.Error("TestCheckLine():", err)
 	}
 
 	line = "1.1.1.1"
 	startIP, endIP, err = checkLine(line)
-	if !bytes.Equal(startIP, net.ParseIP("1.1.1.1")) ||
-		!bytes.Equal(endIP, net.ParseIP("1.1.1.1")) ||
+	if !startIP.Equal(net.ParseIP("1.1.1.1")) ||
+		!endIP.Equal(net.ParseIP("1.1.1.1")) ||
 		err != nil {
 		t.Error("TestCheckLine():", err)
 	}
 
 	line = "1.1.1.1  2.2.2.2"
 	startIP, endIP, err = checkLine(line)
-	if !bytes.Equal(startIP, net.ParseIP("1.1.1.1")) ||
-		!bytes.Equal(endIP, net.ParseIP("2.2.2.2")) ||
+	if !startIP.Equal(net.ParseIP("1.1.1.1")) ||
+		!endIP.Equal(net.ParseIP("2.2.2.2")) ||
 		err != nil {
 		t.Error("TestCheckLine():", err)
 	}
 
 	line = "1.1.1.1  \t\t  2.2.2.2"
 	startIP, endIP, err = checkLine(line)
-	if !bytes.Equal(startIP, net.ParseIP("1.1.1.1")) ||
-		!bytes.Equal(endIP, net.ParseIP("2.2.2.2")) ||
+	if !startIP.Equal(net.ParseIP("1.1.1.1")) ||
+		!endIP.Equal(net.ParseIP("2.2.2.2")) ||
 		err != nil {
 		t.Error("TestCheckLine():", err)
 	}
 
 	line = "1.1.1.1\t\t   \t\t2.2.2.2"
 	startIP, endIP, err = checkLine(line)
-	if !bytes.Equal(startIP, net.ParseIP("1.1.1.1")) ||
-		!bytes.Equal(endIP, net.ParseIP("2.2.2.2")) ||
+	if !startIP.Equal(net.ParseIP("1.1.1.1")) ||
+		!endIP.Equal(net.ParseIP("2.2.2.2")) ||
 		err != nil {
 		t.Error("TestCheckLine():", err)
 	}
 	line = "1::1\t\t   \t\t1::FFFF"
 	startIP, endIP, err = checkLine(line)
-	if !bytes.Equal(startIP, net.ParseIP("1::1")) ||
-		!bytes.Equal(endIP, net.ParseIP("1::FFFF")) ||
+	if !startIP.Equal(net.ParseIP("1::1")) ||
+		!endIP.Equal(net.ParseIP("1::FFFF")) ||
 		err != nil {
 		t.Error("TestCheckLine():", err)
 	}

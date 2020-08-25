@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_balance/backend"
+	"github.com/bfenetworks/bfe/bfe_balance/backend"
+	"github.com/bfenetworks/bfe/bfe_proxy"
+	tls "github.com/bfenetworks/bfe/bfe_tls"
 )
 
 func TestTLSProxyForEchoServer(t *testing.T) {
@@ -191,6 +193,45 @@ func TestTLSProxyServerShutdown(t *testing.T) {
 		},
 		func(conn net.Conn) {
 			io.Copy(conn, conn)
+		},
+		nil,
+	)
+}
+
+type testServerRule struct {
+	proxyProtocolVersion int
+}
+
+func (t *testServerRule) GetStreamRule(conn *tls.Conn) *Rule {
+	return &Rule{ProxyProtocol: t.proxyProtocolVersion}
+}
+
+func TestTLSProxyUsingProxyProtocolToBackend(t *testing.T) {
+	sr := testServerRule{proxyProtocolVersion: 2}
+	SetServerRule(&sr)
+
+	testTLSProxy(t,
+		func(st *ServerTester) {
+			// generate random msg
+			len := rand.Intn(4096) + 1
+			msg := make([]byte, len)
+			rand.Read(msg)
+
+			// client send msg
+			err := st.Write(msg)
+			if err != nil {
+				st.t.Fatalf("write error: %s", err)
+			}
+
+			// client check msg recv
+			st.WantData(msg)
+		},
+		func(conn net.Conn) {
+			pc := bfe_proxy.NewConn(conn, 0, 0)
+			io.Copy(pc, pc)
+			if pc.BalancerAddr() != conn.RemoteAddr() {
+				t.Errorf("balancer address[%v] should be equal to %v", pc.BalancerAddr(), conn.RemoteAddr())
+			}
 		},
 		nil,
 	)

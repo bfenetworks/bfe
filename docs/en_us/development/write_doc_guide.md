@@ -17,31 +17,31 @@ Once the document is written, you can use the preview tool to check how the docu
 
 ## How to use the preview tool
 
-### 1. Install its dependencies
+### Install its dependencies
 
 Before doing this, please make sure your operating system has gitbook installed.
 
 Take the ubuntu system as an example, run:
 
-```
-sudo apt-get update && apt-get install -y npm
-sudo npm install -g gitbook-cli
+```bash
+$ sudo apt-get update && apt-get install -y npm
+$ sudo npm install -g gitbook-cli
 ```
 
 
-### 2. Clone related repository:
+### Clone related repository:
 
 First download the full repository:
 
-```
-git clone https://github.com/baidu/bfe
+```bash
+$ git clone https://github.com/bfenetworks/bfe
 ```
 
-### 3. Run document site locally
+### Run document site locally
 
 Change to base directory of documents which you want to load and build(docs/LANG), run:
 
-```
+```bash
 $ cd docs/en_us/
 $ gitbook serve --port 8000
 ...
@@ -58,22 +58,21 @@ Then: open your browser and navigate to http://localhost:8000.
 All content should be written in [Markdown](https://guides.github.com/features/mastering-markdown/) (GitHub style).
 
 
-### 1. Contribute new documents
+### Contribute new documents
 
 - Create a new `.md` file or modify an existing article in the repository you are currently working on
 - Add the new document name to the corresponding index file (SUMMARY.md)
 
-### 2. Run the preview tool
+### Run the preview tool
 
 - Run the preview tool in base directory of documents (docs/LANG)
 
+```bash
+$ cd docs/en_us/
+$ gitbook serve --port 8000
+```
 
-  ```
-  cd docs/en_us/
-  gitbook serve --port 8000
-  ```
-
-### 3. Preview modification
+### Preview modification
 
 Open your browser and navigate to http://localhost:8000 .
 
@@ -87,4 +86,4 @@ The steps to submit changes and PR can refer to [How to contribute code](../deve
 
 ## Help improve preview tool
 
-We encourage your contributions to all aspects of the platform and supportive contents. You can Fork or Clone repository, ask questions and feedback, or submit bugs on issues. For details, please refer to the [Development Guide](../../../README.md).
+We encourage your contributions to all aspects of the platform and supportive contents. You can Fork or Clone repository, ask questions and feedback, or submit bugs on issues. For details, please refer to the [Development Guide](https://github.com/bfenetworks/bfe/blob/develop/README.md).

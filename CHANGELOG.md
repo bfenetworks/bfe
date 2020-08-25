@@ -10,17 +10,124 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unrelease]
+## [Unrelease] 
+
 ### Added
+- Support communication with FastCGI server
+- Reduce objects number by release some objects that are not used as soon as possible
+- Replace ffjson with json-iterator 
+- net/textproto: turn an ancient DoS BUG annotation into a comment
+
+
+## [v0.11.0] - 2020-07-24
+
+### Added
+- Add mod_cors to enable cross-origin resource sharing
+- Add mod_secure_link to check authenticity and limit lifetime of links
+- Support PROXY protocol for TCP connections to backend
+- Support checking revocation status of the client certificate
+- mod_auth_request: send request with X-Forwarded-Method/X-Forwarded-Uri headers
+- mod_userid: support global rules
+- mod_key_log: support conditional logging
+- Add arm64 support for goreleaser
+
+### Changed
+- Create listeners in the final initialization step
+- Change package name to 'github.com/bfenetworks/bfe'
+
+### Removed
+- Drops words like blacklist from programming to make vocabulary more inclusive
+- Remove legacy signature of response
+
+### Fixed
+- Fix getTransport() and modify transports map with write lock
+
+### Security
+- Fix textproto: not normalize headers with spaces before the colon (CVE-2019-16276)
+
+
+## [v0.10.0] - 2020-05-25  
+### Added
+- mod_auth_request: authorize clients based on thirdparty authorization service
+- mod_trace: support tracing based on Elastic APM
+- mod_compress: support brotli algorithm
+- mod_rewrite: add HostSuffixReplace action
+- Add condition primitive: req_host_tag_in/req_host_suffix_in
+- Add static content of website based on mkdocs
+- Documents optimization
+
+### Changed
+- Refactor and simplify mod_auth_jwt
+
+### Removed
+- Remove legacy type of Layer4LoadBalancer 
+
+
+## [v0.9.0] - 2020-04-16
+### Added
+- Support loading dynamic modules that may be written and complied by thirdparty vendors
+- Add mod_auth_jwt for JWT authentication
+- mod_trace: support distributed tracing based on jaeger
+- mod_doh: support timeout for DNS requests
+- mod_doh: support edns-client-subnet (ECS)
+- mod_doh: optimize max-age for DoH response
+- Optimize textproto reader cache
+- Documents optimization
+
+### Changed
+- Change base directory of ServerCertFile/ServerKeyFile to ConfRoot
+
+### Fixed
+- Fix failed unit tests about parsing request line under go1.14 environment
+
+
+## [v0.8.0] - 2020-03-27
+### Added
+- Add mod_trace for distributed tracing based on zipkin
+- Add mod_doh for processing DNS over HTTPS(DoH) requests
+- Support TLS protocol with SM related ciphersuites
+- mod_header: add cookie related actions
+- Documents optimization
+
+### Changed
+- Disable sanitization of cookie value
+
+
+## [v0.7.0] - 2020-02-26
+### Added
+- mod_access support NCSA Common Log Format(CLF) and W3C Extended Log Format(ELF)
+- mod_static suuport HTTP HEAD method
+- Add mod_userid for client identification
+- Add mod_tag for tagging and tracking groups of requests
+- http cookie: support Expires attribute in GMT format
+- http cookie: support SameSite attribute 
+- Add static check in Makefile
+- Compiling on Windows OS is supported
+- Documents optimization
+
+### Fixed
+- Fix a bug that causes invalid ips are parsed and treated as domain names
+
+
+## [v0.6.0] - 2020-01-21
+### Added
+- Add mod_prison to limit the amount of requests a user can make in a given period of time.
 - Add condition primitive: ses_tls_sni_in/ses_tls_client_auth/ses_tls_client_ca_in
 - Add tls mutual authentication
+- mod_header support client cert related variables
+- mod_header support geo related variables
 - mod_static support customized mime rules
-- Expose info of module handlers in web monitor
+- mod_static allow sending precompressed files instead of regular files
+- Expose information about module handlers in web monitor
+- Optimize number of accept goroutines
 - Optimize lock of bfe_balance.BalTable
+- Optimize io.Copy while forwarding responses
+- Compiling on Mac OS is supported
 - Documents optimization
 
 ### Changed
 - Change default Layer4LoadBalancer to NONE
+- Upgrade from go1.12 to go1.13
 
 
 ## [v0.5.0] - 2019-12-12
@@ -92,9 +199,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
-[Unrelease]: https://github.com/baidu/bfe/compare/v0.5.0...HEAD
-[v0.5.0]: https://github.com/baidu/bfe/compare/v0.4.0...v0.5.0
-[v0.4.0]: https://github.com/baidu/bfe/compare/v0.3.0...v0.4.0
-[v0.3.0]: https://github.com/baidu/bfe/compare/v0.2.0...v0.3.0
-[v0.2.0]: https://github.com/baidu/bfe/compare/v0.1.0...v0.2.0
-[v0.1.0]: https://github.com/baidu/bfe/releases/tag/v0.1.0
+[Unrelease]: https://github.com/baidu/bfe/compare/v0.11.0...HEAD
+[v0.11.0]: https://github.com/bfenetworks/bfe/compare/v0.10.0...v0.11.0
+[v0.10.0]: https://github.com/bfenetworks/bfe/compare/v0.9.0...v0.10.0
+[v0.9.0]: https://github.com/bfenetworks/bfe/compare/v0.8.0...v0.9.0
+[v0.8.0]: https://github.com/bfenetworks/bfe/compare/v0.7.0...v0.8.0
+[v0.7.0]: https://github.com/bfenetworks/bfe/compare/v0.6.0...v0.7.0
+[v0.6.0]: https://github.com/bfenetworks/bfe/compare/v0.5.0...v0.6.0
+[v0.5.0]: https://github.com/bfenetworks/bfe/compare/v0.4.0...v0.5.0
+[v0.4.0]: https://github.com/bfenetworks/bfe/compare/v0.3.0...v0.4.0
+[v0.3.0]: https://github.com/bfenetworks/bfe/compare/v0.2.0...v0.3.0
+[v0.2.0]: https://github.com/bfenetworks/bfe/compare/v0.1.0...v0.2.0
+[v0.1.0]: https://github.com/bfenetworks/bfe/releases/tag/v0.1.0

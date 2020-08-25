@@ -1,0 +1,11 @@
+{
+    "Version": "auth_request_version",
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "req_path_in(\"/auth_request\", false)",
+                "Enable": true
+            }
+        ]
+    }
+}

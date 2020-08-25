@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package session_ticket_key_conf
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,10 +24,11 @@ import (
 
 import (
 	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 const (
-	RAW_SESSION_TICKET_KEY_SIZE = 48 // bytes
+	RawSessionTicketKeySize = 48 // bytes
 )
 
 // SessionTicketKeyConf is session ticket key config.
@@ -47,14 +47,14 @@ func SessionTicketKeyConfCheck(conf SessionTicketKeyConf) error {
 	if err != nil {
 		return fmt.Errorf("session ticket key %s(%s)", err.Error(), conf.SessionTicketKey)
 	}
-	if len(key) != RAW_SESSION_TICKET_KEY_SIZE {
+	if len(key) != RawSessionTicketKeySize {
 		return fmt.Errorf("session ticket key should be 96 bytes hex string (%s)", conf.SessionTicketKey)
 	}
 
 	return nil
 }
 
-// rawSessionTicketKeyLoad loades session ticket key from file in raw format (48 bytes binary file).
+// rawSessionTicketKeyLoad loads session ticket key from file in raw format (48 bytes binary file).
 func rawSessionTicketKeyLoad(filename string) (SessionTicketKeyConf, error) {
 	var config SessionTicketKeyConf
 
@@ -63,11 +63,11 @@ func rawSessionTicketKeyLoad(filename string) (SessionTicketKeyConf, error) {
 		return config, err
 	}
 
-	if len(data) != RAW_SESSION_TICKET_KEY_SIZE {
+	if len(data) != RawSessionTicketKeySize {
 		return config, fmt.Errorf("invalid session ticket key(%d)", len(data))
 	}
 
-	config.Version = fmt.Sprintf("%s", time.Now())
+	config.Version = time.Now().String()
 	config.SessionTicketKey = fmt.Sprintf("%x", data)
 	return config, nil
 }

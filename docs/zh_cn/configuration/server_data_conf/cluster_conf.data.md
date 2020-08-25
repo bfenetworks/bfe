@@ -1,60 +1,69 @@
-# 简介
+# 集群转发配置
+
+## 配置简介
 
 cluster_conf.data为集群转发配置文件。
 
-# 配置
+## 配置描述
 
-## 基础配置
+### 基础配置
 
-| 配置项  | 类型   | 描述                                                 |
-| ------- | ------ | ---------------------------------------------------- |
-| Version | String | 配置文件版本                                         |
-| Config  | Map&lt;String, ClusterConf&gt; | 集群转发配置参数，key 是集群名称， value是集群转发配置参数 |
+| 配置项     | 描述                           |
+| ---------- | ------------------------------ |
+| Version    | String<br>配置文件版本         |
+| Config     | Object<br>各集群的转发配置参数 |
+| Config[k]  | String<br>集群名称             |
+| Config[v]  | Object<br>集群转发配置参数     |
 
-## 集群转发配置 ClusterConf
+### 集群转发配置
 
-### 后端基础配置 BackendConf
+注：以下配置项均位于名字空间Config[v], 在配置项名称中已省略
 
-| 配置项                | 类型 | 描述                                                         | 默认值 |
-| --------------------- | ---- | ------------------------------------------------------------ | ------ |
-| TimeoutConnSrv        | Int  | 连接后端的超时时间，单位是毫秒                               | 2s     |
-| TimeoutResponseHeader | Int  | 从后端读响应头的超时时间，单位是毫秒                         | 60s    |
-| MaxIdleConnsPerHost   | Int  | BFE实例与每个后端的最大空闲长连接数                          | 2      |
-| RetryLevel            | Int  | 请求重试级别。0：连接后端失败时，进行重试；1：连接后端失败、转发GET请求失败时均进行重试 | 0      |
+#### 后端基础配置
 
-### 健康检查配置 CheckConf
+| 配置项                        | 描述                                                         |
+| ----------------------------- | ------------------------------------------------------------ |
+| BackendConf.TimeoutConnSrv        | Integer<br>连接后端的超时时间，单位是毫秒<br>默认值2 |
+| BackendConf.TimeoutResponseHeader | Integer<br>从后端读响应头的超时时间，单位是毫秒<br>默认值60 |
+| BackendConf.MaxIdleConnsPerHost   | Integer<br>BFE实例与每个后端的最大空闲长连接数<br>默认值2 |
+| BackendConf.RetryLevel            | Integer<br>请求重试级别。0：连接后端失败时，进行重试；1：连接后端失败、转发GET请求失败时均进行重试<br>默认值0 |
 
-| 配置项        | 类型   | 描述                                                         | 默认值        |
-| ------------- | ------ | ------------------------------------------------------------ | ------------- |
-| Schem         | String | 健康检查协议，支持HTTP和TCP                                  | HTTP          |
-| Uri           | String | 健康检查请求URI (仅HTTP)                                     | /health_check |
-| Host          | String | 健康检查请求HOST (仅HTTP)                                    | 空            |
-| StatusCode    | Int    | 期待返回的响应状态码 (仅HTTP)                                | 0             |
-| FailNum       | Int    | 健康检查启动阈值F（转发请求连续失败F次后，将后端实例置为不可用状态，并启动健康检查） | 5             |
-| SuccNum       | Int    | 健康检查成功阈值S（健康检查连续成功S次后，将后端实例置为可用状态） | 1             |
-| CheckTimeout  | Int    | 健康检查的超时时间，单位是毫秒                               | 0（无超时）   |
-| CheckInterval | Int    | 健康检查的间隔时间，单位是毫秒                               | 1s            |
+#### 健康检查配置
 
-### GSLB基础配置 GslbBasic
+| 配置项                   | 描述                                                         |
+| ------------------------ | ------------------------------------------------------------ |
+| CheckConf.Schem         | String<br>健康检查协议，支持HTTP和TCP<br>默认值 HTTP         |
+| CheckConf.Uri           | String<br>健康检查请求URI (仅HTTP)<br>默认值 /health_check   |
+| CheckConf.Host          | String<br>健康检查请求HOST (仅HTTP)<br>默认值 ""             |
+| CheckConf.StatusCode    | Integer<br>期待返回的响应状态码 (仅HTTP)<br>默认值 0，代表任意状态码 |
+| CheckConf.FailNum       | Integer<br>健康检查启动阈值（转发请求连续失败FailNum次后，将后端实例置为不可用状态，并启动健康检查）<br>默认值5 |
+| CheckConf.SuccNum       | Integer<br>健康检查成功阈值（健康检查连续成功SuccNum次后，将后端实例置为可用状态）<br>默认值1 |
+| CheckConf.CheckTimeout  | Integer<br>健康检查的超时时间，单位是毫秒<br>默认值0（无超时）|
+| CheckConf.CheckInterval | Integer<br>健康检查的间隔时间，单位是毫秒<br>默认值1 |
 
-| 配置项      | 类型   | 描述                                                         | 默认值                                            |
-| ----------- | ------ | ------------------------------------------------------------ | ------------------------------------------------- |
-| CrossRetry  | Int    | 跨子集群最大重试次数                                         | 0                                                 |
-| RetryMax    | Int    | 子集群内最大重试次数                                         | 2                                                 |
-| BalanceMode | String | 负载均衡模式，默认为WRR<br>-WRR: 加权轮询 <br>- WLC: 加权最小连接数 | WRR                                               |
-| HashConf    | Struct | 会话保持的HASH策略配置<br>- HashStrategy: 会话保持的哈希策略。例如：ClientIdOnly, ClientIpOnly, ClientIdPreferred<br>- HashHeader: 会话保持的hash请求头<br>- SessionSticky: 是否开启会话保持 （开启后，可以保证来源于同一个用户的请求可以发送到同一个后端） | -HashStrategy: ClientIpOnly<br>-SessionSticky: 否 |
+#### GSLB基础配置
 
-### 集群基础配置 ClusterBasic
+| 配置项                           | 描述                                       |
+| -------------------------------- | ------------------------------------------ |
+| GslbBasic.CrossRetry             | Integer<br>跨子集群最大重试次数<br>默认值0 |
+| GslbBasic.RetryMax               | Integer<br>子集群内最大重试次数<br>默认值2 |
+| GslbBasic.BalanceMode            | String<br>负载均衡模式(WRR: 加权轮询; WLC: 加权最小连接数)<br>默认值WRR |
+| GslbBasic.HashConf               | Object<br>会话保持的HASH策略配置 |
+| GslbBasic.HashConf.HashStrategy  | Integer<br>会话保持的哈希策(ClientIdOnly, ClientIpOnly, ClientIdPreferred)<br>默认值ClientIpOnly |
+| GslbBasic.HashConf.HashHeader    | String<br>会话保持的hash请求头 |
+| GslbBasic.HashConf.SessionSticky | Boolean<br>是否开启会话保持（开启后，可以保证来源于同一个用户的请求可以发送到同一个后端）<br>默认值False |
 
-| 配置项                 | 类型 | 描述                                 | 默认值 |
-| ---------------------- | ---- | ------------------------------------ | ------ |
-| TimeoutReadClient      | Int  | 读用户请求wody的超时时间，单位为毫秒 | 30s    |
-| TimeoutWriteClient     | Int  | 写响应的超时时间，单位为毫秒         | 60s    |
-| TimeoutReadClientAgain | Int  | 连接闲置超时时间，单位为毫秒         | 60s    |
+#### 集群基础配置
 
-# 示例
+| 配置项                              | 描述                                 |
+| ----------------------------------- | ------------------------------------ |
+| ClusterBasic.TimeoutReadClient      | Integer<br>读用户请求wody的超时时间，单位为毫秒<br>默认值30 |
+| ClusterBasic.TimeoutWriteClient     | Integer<br>写响应的超时时间，单位为毫秒<br>默认值60 |
+| ClusterBasic.TimeoutReadClientAgain | Integer<br>连接闲置超时时间，单位为毫秒<br>默认值60 |
 
-```
+## 配置示例
+
+```json
 {
     "Version": "20190101000000",
     "Config": {

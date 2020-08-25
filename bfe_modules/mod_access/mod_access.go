@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_module"
-	"github.com/baidu/bfe/bfe_util/access_log"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_util/access_log"
 )
 
 import (
@@ -72,7 +72,7 @@ func (m *ModuleAccess) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	var conf *ConfModAccess
 
 	confPath := bfe_module.ModConfPath(cr, m.name)
-	if conf, err = ConfLoad(confPath); err != nil {
+	if conf, err = ConfLoad(confPath, cr); err != nil {
 		return fmt.Errorf("%s: cond load err %s", m.name, err.Error())
 	}
 

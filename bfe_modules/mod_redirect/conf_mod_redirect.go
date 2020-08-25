@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 type ConfModRedirect struct {
@@ -33,7 +33,7 @@ type ConfModRedirect struct {
 	}
 }
 
-// ConfLoad loades config from config file
+// ConfLoad loads config from config file
 func ConfLoad(filePath string, confRoot string) (*ConfModRedirect, error) {
 	var cfg ConfModRedirect
 	var err error

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ package mod_key_log
 import (
 	"encoding/hex"
 	"fmt"
+	"net/url"
+	"path/filepath"
 )
 
 import (
@@ -25,9 +27,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_module"
-	"github.com/baidu/bfe/bfe_util/access_log"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_util/access_log"
 )
 
 // ModuleKeyLog writes key logs in NSS key log format so that external
@@ -39,11 +41,16 @@ type ModuleKeyLog struct {
 	name   string         // module name
 	conf   *ConfModKeyLog // module config
 	logger log4go.Logger  // key logger
+
+	dataConfigPath string       // path of data config file
+	ruleTable      *KeyLogTable // table of key_log rules
+
 }
 
 func NewModuleKeyLog() *ModuleKeyLog {
 	m := new(ModuleKeyLog)
 	m.name = "mod_key_log"
+	m.ruleTable = NewKeyLogTable()
 	return m
 }
 
@@ -51,38 +58,62 @@ func (m *ModuleKeyLog) Name() string {
 	return m.name
 }
 
-func (m *ModuleKeyLog) loadConf(confPath string) error {
-	conf, err := ConfLoad(confPath)
-	if err != nil {
-		return fmt.Errorf("%s: conf load err %s", m.name, err.Error())
+func (m *ModuleKeyLog) logTlsKey(session *bfe_basic.Session) int {
+	if m.isNeedKeyLog(session) {
+		tlsState := session.TlsState
+		if tlsState == nil {
+			return bfe_module.BfeHandlerGoOn
+		}
+		// key log format: <label> <ClientRandom> <MasterSecret>
+		keyLog := fmt.Sprintf("CLIENT_RANDOM %s %s",
+			hex.EncodeToString(tlsState.ClientRandom), // connection id
+			hex.EncodeToString(tlsState.MasterSecret)) // connection master secret
+		m.logger.Info(keyLog)
 	}
-
-	m.conf = conf
-	return nil
+	return bfe_module.BfeHandlerGoOn
 }
 
-func (m *ModuleKeyLog) logTlsKey(session *bfe_basic.Session) int {
-	tlsState := session.TlsState
-	if tlsState == nil {
-		return bfe_module.BfeHandlerGoOn
+// isNeedKeyLog Determine if you need to print the key log
+func (m *ModuleKeyLog) isNeedKeyLog(session *bfe_basic.Session) bool {
+	rules, ok := m.ruleTable.Search(session.Product)
+	if !ok {
+		rules, ok = m.ruleTable.Search(bfe_basic.GlobalProduct)
 	}
+	if !ok {
+		return false
+	}
+	req := &bfe_basic.Request{
+		Session: session,
+	}
+	for _, rule := range *rules {
+		// rule condition is satisfied ?
+		if rule.Cond.Match(req) {
+			// do actions of the rule
+			// todo
 
-	// key log format: <label> <ClientRandom> <MasterSecret>
-	keyLog := fmt.Sprintf("CLIENT_RANDOM %s %s",
-		hex.EncodeToString(tlsState.ClientRandom), // connection id
-		hex.EncodeToString(tlsState.MasterSecret)) // connection master secret
-	m.logger.Info(keyLog)
-
-	return bfe_module.BfeHandlerGoOn
+			// finish key_log rules process
+			return true
+		}
+	}
+	return false
 }
 
 func (m *ModuleKeyLog) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers,
 	cr string) error {
+	var conf *ConfModKeyLog
 	var err error
 
 	// load config
-	if err = m.loadConf(bfe_module.ModConfPath(cr, m.name)); err != nil {
-		return err
+	confPath := bfe_module.ModConfPath(cr, m.name)
+	if conf, err = ConfLoad(confPath, cr); err != nil {
+		return fmt.Errorf("%s: conf load err %s", m.name, err.Error())
+	}
+	m.conf = conf
+	m.dataConfigPath = conf.Basic.DataPath
+
+	// load from data config file to rule table
+	if _, err := m.loadConfData(nil); err != nil {
+		return fmt.Errorf("err in loadConfData(): %s", err.Error())
 	}
 
 	// init logger
@@ -98,5 +129,32 @@ func (m *ModuleKeyLog) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 		return fmt.Errorf("%s.Init(): AddFilter(m.logTlsKey): %s", m.name, err.Error())
 	}
 
+	// register web handler for reload
+	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
+	if err != nil {
+		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %s", m.name, err.Error())
+	}
+
 	return nil
+}
+
+func (m *ModuleKeyLog) loadConfData(query url.Values) (string, error) {
+	// get file path
+	path := query.Get("path")
+	if path == "" {
+		// use default
+		path = m.dataConfigPath
+	}
+
+	// load from config file
+	conf, err := keyLogConfLoad(path)
+	if err != nil {
+		return "", fmt.Errorf("err in keyLogConfLoad(%s):%s", path, err.Error())
+	}
+
+	// update to rule table
+	m.ruleTable.Update(conf)
+
+	_, fileName := filepath.Split(path)
+	return fmt.Sprintf("%s=%s", fileName, conf.Version), nil
 }

@@ -11,7 +11,7 @@
 以下教程将指导您提交代码。
 ## [Fork](https://help.github.com/articles/fork-a-repo/)
 
-跳转到[BFE](https://github.com/baidu/bfe) GitHub首页，然后单击 `Fork` 按钮，生成自己目录下的仓库，比如 <https://github.com/USERNAME/bfe>
+跳转到[BFE](https://github.com/bfenetworks/bfe) GitHub首页，然后单击 `Fork` 按钮，生成自己目录下的仓库，比如 <https://github.com/USERNAME/bfe>
 
 ## 克隆（Clone）
 
@@ -24,7 +24,7 @@ $ cd bfe
 
 ## 创建本地分支
 
-BFE目前使用[Git流分支模型](http://nvie.com/posts/a-successful-git-branching-model/)进行开发、测试、发行和维护，具体请参考 [BFE分支规范](../development/releasing_process.md)。
+BFE目前使用[Git流分支模型](http://nvie.com/posts/a-successful-git-branching-model/)进行开发、测试、发行和维护，具体请参考 [BFE分支规范](release_regulation.md)。
 
 所有的 feature 和 bug fix 的开发工作都应该在一个新的分支上完成，一般从 `develop` 分支上创建新分支。
 
@@ -74,7 +74,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
 ## 构建和测试
 
-从源码编译BFE及测试，请参见[编译及安装BFE](../install.md)
+从源码编译BFE及测试，请参见[编译及安装BFE](../installation/install_from_source.md)
 
 ## 提交（commit）
 
@@ -122,7 +122,7 @@ $ git commit -m "test=release/1.1"
 
 ## 保持本地仓库最新
 
-在准备发起 Pull Request 之前，需要同步原仓库（<https://github.com/baidu/bfe>）最新的代码。
+在准备发起 Pull Request 之前，需要同步原仓库（<https://github.com/bfenetworks/bfe>）最新的代码。
 
 首先通过 `git remote` 查看当前远程仓库的名字
 
@@ -137,7 +137,7 @@ origin	https://github.com/USERNAME/bfe (push)
 这里 origin 是我们 clone 的远程仓库的名字，也就是自己用户名下的 BFE，接下来我们创建一个原始 BFE 仓库的远程主机，命名为 upstream。
 
 ```bash
-$ git remote add upstream https://github.com/baidu/bfe
+$ git remote add upstream https://github.com/bfenetworks/bfe
 $ git remote
 origin
 upstream

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,10 @@ import (
 	gcfg "gopkg.in/gcfg.v1"
 )
 
+import (
+	"github.com/bfenetworks/bfe/bfe_util"
+)
+
 // ConfModAccess holds the config of access module.
 type ConfModAccess struct {
 	Log struct {
@@ -39,7 +43,7 @@ type ConfModAccess struct {
 }
 
 // ConfLoad loads config of access module from file.
-func ConfLoad(filePath string) (*ConfModAccess, error) {
+func ConfLoad(filePath string, confRoot string) (*ConfModAccess, error) {
 	var err error
 	var cfg ConfModAccess
 
@@ -48,15 +52,17 @@ func ConfLoad(filePath string) (*ConfModAccess, error) {
 		return &cfg, err
 	}
 
-	err = cfg.Check()
+	err = cfg.Check(confRoot)
 	if err != nil {
 		return &cfg, err
 	}
 
+	cfg.Convert()
+
 	return &cfg, nil
 }
 
-func (cfg *ConfModAccess) Check() error {
+func (cfg *ConfModAccess) Check(confRoot string) error {
 	if cfg.Log.LogPrefix == "" {
 		return fmt.Errorf("ModAccess.LogPrefix is empty")
 	}
@@ -64,6 +70,7 @@ func (cfg *ConfModAccess) Check() error {
 	if cfg.Log.LogDir == "" {
 		return fmt.Errorf("ModAccess.LogDir is empty")
 	}
+	cfg.Log.LogDir = bfe_util.ConfPathProc(cfg.Log.LogDir, confRoot)
 
 	if !log4go.WhenIsValid(cfg.Log.RotateWhen) {
 		return fmt.Errorf("ModAccess.RotateWhen invalid: %s", cfg.Log.RotateWhen)
@@ -82,6 +89,15 @@ func (cfg *ConfModAccess) Check() error {
 	}
 
 	return nil
+}
+
+func (cfg *ConfModAccess) Convert() {
+	switch cfg.Template.RequestTemplate {
+	case "COMMON":
+		cfg.Template.RequestTemplate = "$host - - $request_time \"$request_line\" $status_code $res_len"
+	case "COMBINED":
+		cfg.Template.RequestTemplate = "$host - - $request_time \"$request_line\" $status_code $res_len \"${Referer}req_header\" \"${User-Agent}req_header\""
+	}
 }
 
 func checkLogFmt(item LogFmtItem, logFmtType string) error {

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic/condition/parser"
+	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
 )
 
 func Build(condStr string) (Condition, error) {
@@ -154,6 +154,13 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			fetcher: &HostFetcher{},
 			matcher: matcher,
 		}, nil
+	case "req_host_tag_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &HostTagFetcher{},
+			matcher: NewInMatcher(node.Args[0].Value, true),
+		}, nil
 	case "req_host_regmatch":
 		reg, err := regexp.Compile(node.Args[0].Value)
 		if err != nil {
@@ -164,6 +171,13 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			node:    node,
 			fetcher: &HostFetcher{},
 			matcher: NewRegMatcher(reg),
+		}, nil
+	case "req_host_suffix_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &HostFetcher{},
+			matcher: NewSuffixInMatcher(node.Args[0].Value, true),
 		}, nil
 	case "req_path_in":
 		return &PrimitiveCond{

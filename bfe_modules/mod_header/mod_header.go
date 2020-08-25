@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,14 +26,15 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_module"
 )
 
 const (
-	ReqHeader = 0
-	RspHeader = 1
+	ReqHeader = iota
+	RspHeader
+	TotalType
 )
 
 const (
@@ -106,7 +107,6 @@ func (m *ModuleHeader) applyProductRule(request *bfe_basic.Request, headerType i
 			log.Logger.Debug("%s:before:headers=%s", m.name, *h)
 		}
 
-		// do rewrite to request, according to rules
 		DoHeader(request, headerType, rules[headerType])
 
 		if openDebug {
@@ -117,7 +117,7 @@ func (m *ModuleHeader) applyProductRule(request *bfe_basic.Request, headerType i
 
 func (m *ModuleHeader) setDefaultHeader(request *bfe_basic.Request) {
 	if openDebug {
-		log.Logger.Debug("setDefaultHeader():src ip=%s, isTrustIP=%s",
+		log.Logger.Debug("setDefaultHeader():src ip=%s, isTrustIP=%t",
 			request.RemoteAddr.String(), request.Session.IsTrustIP)
 	}
 

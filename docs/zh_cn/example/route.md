@@ -7,11 +7,12 @@
   * 以/static开头的请求都转发至静态文件服务实例；地址：10.0.0.1:8001
   * 其他的请求都转发至动态服务实例；地址：10.0.0.1:8002
 
+## 配置说明
 在[样例配置](../../../conf/)上稍做修改，就可以实现上述转发功能
 
-* 首先，在[bfe.conf](../../../conf/bfe.conf)上配置转发功能使用的配置文件路径
+* Step 1.在 conf/bfe.conf配置转发功能使用的配置文件路径
 
-```
+```ini
 hostRuleConf = server_data_conf/host_rule.data      #域名规则配置文件
 routeRuleConf = server_data_conf/route_rule.data    #分流规则配置文件
 clusterConf = server_data_conf/cluster_conf.data    #集群配置文件
@@ -20,10 +21,9 @@ clusterTableConf = cluster_conf/cluster_table.data  #集群实例列表配置文
 gslbConf = cluster_conf/gslb.data                   #子集群负载均衡配置文件
 ```
 
-* 配置域名规则（[server_data_conf/host_rule.data](../../../conf/server_data_conf/host_rule.data)）
-  * 将example.org域名关联到产品线example_product
+* Step 2. 配置域名规则 (conf/server_data_conf/host_rule.data)
 
-```
+```json
 {
     "Version": "init version",
     "DefaultProduct": null,
@@ -40,10 +40,10 @@ gslbConf = cluster_conf/gslb.data                   #子集群负载均衡配置
 }
 ```
 
-* 配置集群的基础信息（[server_data_conf/cluster_conf.data](../../../conf/server_data_conf/cluster_conf.data)）
-  * 配置集群cluster_demo_static和cluster_demo_dynamic健康检查的参数，其他均使用默认值
+* Step 3. 配置集群的基础信息 (conf/server_data_conf/cluster_conf.data)
+配置集群cluster_demo_static和cluster_demo_dynamic健康检查的参数，其他均使用默认值
 
-```
+```json
 {
     "Version": "init version",
     "Config": {
@@ -67,11 +67,9 @@ gslbConf = cluster_conf/gslb.data                   #子集群负载均衡配置
 }
 ```
 
-* 配置集群下挂载的实例信息（[cluster_conf/cluster_table.data](../../../conf/cluster_conf/cluster_table.data)）
-  * 在cluster_demo_static和cluster_demo_dynamic集群下面分别创建子集群demo_static.all和demo_dynamic.all
-  * 将静态文件服务实例10.0.0.1:8001挂载到demo_static.all子集群，动态服务实例10.0.0.1:8002挂载到demo_dynamic.all子集群
+* Step 4. 配置集群下实例信息 (conf/cluster_conf/cluster_table.data)
 
-```
+```json
 {
     "Version": "init version",
     "Config": {
@@ -95,11 +93,9 @@ gslbConf = cluster_conf/gslb.data                   #子集群负载均衡配置
 }
 ```
 
-* 配置子集群内负载均衡（[cluster_conf/gslb.data](../../../conf/cluster_conf/gslb.data)）
-  * cluster_demo_static集群的流量全部转发到demo_static.all子集群
-  * cluster_demo_dynamic集群的全部流量全部转发到demo_dynamic.all子集群
+* Step 5. 配置子集群内负载均衡 (conf/cluster_conf/gslb.data)
 
-```
+```json
 {
     "Hostname": "",
     "Ts": "0",
@@ -116,11 +112,11 @@ gslbConf = cluster_conf/gslb.data                   #子集群负载均衡配置
 }
 ```
 
-* 配置分流规则（[server_data_conf/route_rule.data](../../../conf/server_data_conf/route_rule.data)）
+* Step 6. 配置分流规则 (conf/server_data_conf/route_rule.data)
   * 将/static开头的流量转发到cluster_demo_static集群
   * 其余流量转发到cluster_demo_dynamic集群
 
-```
+```json
 {
     "Version": "init version",
     "ProductRule": {
@@ -140,8 +136,12 @@ gslbConf = cluster_conf/gslb.data                   #子集群负载均衡配置
 }
 ```
 
-现在，用curl验证下是否可以转发成功
+* Step 7. 验证配置规则
 
-curl -H "host: example.org" "http://127.1:8080/static/test.html"  将请求转发至10.0.0.1:8001
+```bash
+curl -H "host: example.org" "http://127.1:8080/static/test.html"  
+# 将请求转发至10.0.0.1:8001
 
-curl -H "host: example.org" "http://127.1:8080/api/test" 将请求转发至10.0.0.1:8002
+curl -H "host: example.org" "http://127.1:8080/api/test" 
+# 将请求转发至10.0.0.1:8002
+```

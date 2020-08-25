@@ -1,0 +1,185 @@
+site_name: BFE
+dev_addr: 0.0.0.0:8001
+
+repo_name: 'Github'
+repo_url: https://github.com/bfenetworks/bfe
+docs_dir: 'zh_cn'
+edit_uri: edit/develop/docs/zh_cn/
+site_description: >-
+  现代化的七层负载均衡系统
+
+theme:
+  name: null
+  custom_dir: material
+  language: zh
+  features:
+    - tabs
+  palette:
+    primary: indigo
+    accent: indigo
+  font:
+    text: Roboto
+    code: Roboto Mono
+  icon:
+    logo: logo
+  favicon: assets/favicon.png
+
+copyright: 'Copyright © 2020 BFE作者 | 文档发布基于CC-BY-4.0授权许可 <br/>Copyright © 2020
+            Linux基金会。保留所有权利。Linux基金会已注册并使用商标<br/>如需了解Linux基金会的商标列表，
+            请<a target="_blank" href="https://www.linuxfoundation.org/trademark-usage">访问商标使用页面 </a>'
+
+markdown_extensions:
+  - codehilite
+  - admonition
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/bfenetworks/bfe
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/BfeNetworks
+    - icon: fontawesome/brands/slack
+      link: https://slack.cncf.io
+    - icon: fontawesome/solid/envelope
+      link: mailto:bfe-networks@groups.io
+
+nav:
+  - '首页': 'index.md'
+  - '文档':
+    - '关于': 'ABOUT.md'
+    - '介绍':
+      - 'BFE概览': 'introduction/overview.md'
+      - '竞品对比': 'introduction/comparison.md'
+      - '设计简介':
+        - '相关术语': 'introduction/terminology.md'
+        - '流量接入转发模型': 'introduction/forward_model.md'
+        - '基于内容路由': 'introduction/route.md'
+        - '流量负载均衡': 'introduction/balance.md'
+      - '获取帮助': 'introduction/getting_help.md'
+      - '发布历史': 'https://github.com/bfenetworks/bfe/blob/master/CHANGELOG.md'
+    - '快速开始':
+      - '安装及运行': 'installation/install_from_source.md'
+      - '使用示例':
+        - '使用示例': 'example/guide.md'
+        - '流量转发': 'example/route.md'
+        - '黑名单封禁': 'example/block.md'
+        - '重定向': 'example/redirect.md'
+        - '重写': 'example/rewrite.md'
+        - 'TLS客户端认证': 'example/client_auth.md'
+    - '安装说明': 
+      - '安装概述': 'installation/install.md'
+      - '源码编译安装': 'installation/install_from_source.md'
+      - '二进制文件下载安装': 'installation/install_using_binaries.md'
+      - 'go方式安装': 'installation/install_using_go.md'
+      - 'snap方式安装': 'installation/install_using_snap.md'
+    - '配置说明':
+      - '配置概述': 'configuration/config.md'
+      - '核心配置': 'configuration/bfe.conf.md'
+      - '协议':
+        - 'SSL/TLS': 'configuration/tls_conf/tls_rule_conf.data.md'
+        - '证书': 'configuration/tls_conf/server_cert_conf.data.md'
+        - 'Session ticket key': 'configuration/tls_conf/session_ticket_key.data.md'
+      - '路由':
+        - '域名规则': 'configuration/server_data_conf/host_rule.data.md'
+        - 'VIP规则': 'configuration/server_data_conf/vip_rule.data.md'
+        - '路由规则': 'configuration/server_data_conf/route_rule.data.md'
+      - '后端集群': 'configuration/server_data_conf/cluster_conf.data.md'
+      - '负载均衡':
+        - '子集群负载均衡': 'configuration/cluster_conf/gslb.data.md'
+        - '实例负载均衡': 'configuration/cluster_conf/cluster_table.data.md'
+      - '名字服务':
+        - '名字规则': 'configuration/server_data_conf/name_conf.data.md'
+    - '扩展模块':
+      - 'mod_access': 'modules/mod_access/mod_access.md'
+      - 'mod_auth_basic': 'modules/mod_auth_basic/mod_auth_basic.md'
+      - 'mod_auth_jwt': 'modules/mod_auth_jwt/mod_auth_jwt.md'
+      - 'mod_block': 'modules/mod_block/mod_block.md'
+      - 'mod_compress': 'modules/mod_compress/mod_compress.md'
+      - 'mod_doh': 'modules/mod_doh/mod_doh.md'
+      - 'mod_errors': 'modules/mod_errors/mod_errors.md'
+      - 'mod_geo': 'modules/mod_geo/mod_geo.md'
+      - 'mod_header': 'modules/mod_header/mod_header.md'
+      - 'mod_http_code': 'modules/mod_http_code/mod_http_code.md'
+      - 'mod_key_log': 'modules/mod_key_log/mod_key_log.md'
+      - 'mod_logid': 'modules/mod_logid/mod_logid.md'
+      - 'mod_prison': 'modules/mod_prison/mod_prison.md'
+      - 'mod_redirect': 'modules/mod_redirect/mod_redirect.md'
+      - 'mod_rewrite': 'modules/mod_rewrite/mod_rewrite.md'
+      - 'mod_static': 'modules/mod_static/mod_static.md'
+      - 'mod_tag': 'modules/mod_tag/mod_tag.md'
+      - 'mod_trace': 'modules/mod_trace/mod_trace.md'
+      - 'mod_trust_clientip': 'modules/mod_trust_clientip/mod_trust_clientip.md'
+      - 'mod_userid': 'modules/mod_userid/mod_userid.md'
+    - '运维管理':
+      - '命令行工具及参数': 'operation/command.md'
+      - '环境变量说明': 'operation/env_var.md'
+      - '系统信号说明': 'operation/signal.md'
+      - '管理接口说明': 'operation/api.md'
+      - '配置热加载': 'operation/reload.md'
+      - '监控指标获取': 'operation/monitor.md'
+      - '日志切割备份': 'operation/log_rotation.md'
+      - '流量抓包分析': 'operation/capture_packet.md'
+      - '性能数据采集': 'operation/performance.md'
+    - '参与贡献':
+      - '如何贡献代码':
+        - '本地开发指南': 'development/local_dev_guide.md'
+        - '提交PR注意事项': 'development/submit_pr_guide.md'
+      - '如何贡献文档': 'development/write_doc_guide.md'
+      - '版本发布说明': 'development/release_regulation.md'
+      - '开发参考文档':
+        - '代码结构说明': 'development/source_code_layout.md'
+      - '模块开发介绍':
+        - '模块开发介绍': 'development/module/overview.md'
+        - 'BFE回调机制说明': 'development/module/bfe_callback.md'
+        - '如何开发模块': 'development/module/how_to_write_module.md'
+    - '常见问题':
+      - '安装相关': 'faq/installation.md'
+      - '配置相关': 'faq/configuration.md'
+      - '性能相关': 'faq/performance.md'
+      - '开发相关': 'faq/development.md'
+    - '监控指标':
+      - '协议': 
+        - 'TLS': 'monitor/tls_state.md'
+        - 'HTTP': 'monitor/http_state.md'
+        - 'HTTP2': 'monitor/http2_state.md'
+        - 'SPDY': 'monitor/spdy_state.md'
+        - 'WebSocket': 'monitor/websocket_state.md'
+        - 'Stream': 'monitor/stream_state.md'
+      - '路由':
+        - '域名表': 'monitor/host_table_status.md'
+      - '负载均衡':
+        - '均衡详情': 'monitor/bal_table_status.md'
+        - '均衡错误': 'monitor/bal_state.md'
+      - '反向代理':
+        - '转发状态': 'monitor/proxy_state.md'
+        - '内存详情': 'monitor/proxy_mem_stat.md'
+      - '扩展模块': 'monitor/module_status.md'
+      - '延迟':
+        - '延迟分布': 'monitor/latency.md'
+    - '条件原语':
+      - '条件的概念及语法': 'condition/condition_grammar.md'
+      - '条件原语命名规范': 'condition/condition_naming_convention.md'
+      - '条件原语索引': 'condition/condition_primitive_index.md'
+      - '请求相关条件原语':
+        - 'Method': 'condition/request/method.md'
+        - 'URI': 'condition/request/uri.md'
+        - 'Protocol': 'condition/request/protocol.md'
+        - 'Header': 'condition/request/header.md'
+        - 'Cookie': 'condition/request/cookie.md'
+        - 'Tag': 'condition/request/tag.md'
+        - 'IP': 'condition/request/ip.md'
+      - '响应相关条件原语':
+        - 'Code': 'condition/response/code.md'
+        - 'Header': 'condition/response/header.md'
+      - '会话相关条件原语':
+        - 'IP': 'condition/session/ip.md'
+        - 'TLS': 'condition/session/tls.md'
+      - '系统相关条件原语':
+        - 'Time': 'condition/system/time.md'
+  - '下载':
+    - '预编译文件下载': 'DOWNLOAD.md'
+  - '社区':
+    - '加入我们': 'COMMUNITY.md'

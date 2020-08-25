@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,10 +31,6 @@ func TestConfLoad(t *testing.T) {
 
 	if config.Basic.MimeTypePath != "mod_static/mime_type.data" {
 		t.Errorf("MimeTypePath should be mod_static/mime_type.data, not %s", config.Basic.MimeTypePath)
-	}
-
-	if !config.Basic.ContentDetection {
-		t.Errorf("ContentDetection should be true")
 	}
 
 	if !config.Basic.EnableCompress {

@@ -1,0 +1,6 @@
+#  {"version": "1234", "pairIPNum":1, "singleIPNum":2}
+# global ip blocklist
+
+10.1.1.0 10.1.1.254
+192.168.1.100
+1::1

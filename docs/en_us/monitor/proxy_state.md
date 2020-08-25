@@ -1,10 +1,12 @@
-# Introduction
+# Proxy
 
-proxy_state monitor state of proxy.
+## Introduction
 
-# Monitor Item
+The endpoint `/monitor/proxy_state` exposes metrics about reverse proxy.
 
-| Monitor Item                    | Description                                              |
+## Metrics
+
+| Metric                          | Description                                              |
 | ------------------------------- | -------------------------------------------------------- |
 | CLIENT_CONN_ACTIVE              | Counter for active connection                            |
 | CLIENT_CONN_SERVED              | Counter for connection serverd                           |

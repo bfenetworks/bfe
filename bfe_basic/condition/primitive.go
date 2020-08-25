@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,9 +28,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_basic/condition/parser"
-	"github.com/baidu/bfe/bfe_util/net_util"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
+	"github.com/bfenetworks/bfe/bfe_util/net_util"
 	"github.com/spaolacci/murmur3"
 )
 
@@ -88,6 +88,15 @@ func (hf *HostFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
 	// ignore optional port in Host
 	host := strings.SplitN(req.HttpRequest.Host, ":", 2)[0]
 	return host, nil
+}
+
+type HostTagFetcher struct{}
+
+func (hf *HostTagFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
+	if req == nil {
+		return nil, fmt.Errorf("fetcher: nil pointer")
+	}
+	return req.Route.HostTag, nil
 }
 
 type ProtoFetcher struct{}
@@ -525,10 +534,6 @@ func suffixIn(v string, patterns []string) bool {
 	}
 
 	return false
-}
-
-func contains(v, pattern string) bool {
-	return strings.Contains(v, pattern)
 }
 
 type UAFetcher struct{}

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,8 +30,8 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_conf"
-	"github.com/baidu/bfe/bfe_util/bns"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
+	"github.com/bfenetworks/bfe/bfe_util/bns"
 )
 
 type ServerSessionCache struct {
@@ -95,7 +95,10 @@ func (c *ServerSessionCache) dial() (redis.Conn, error) {
 	c.serversLock.RUnlock()
 
 	// create connection to server
-	conn, err := redis.DialTimeout("tcp", server, c.ConnectTimeout, c.ReadTimeout, c.WriteTimeout)
+	conn, err := redis.Dial("tcp", server,
+		redis.DialConnectTimeout(c.ConnectTimeout),
+		redis.DialReadTimeout(c.ReadTimeout),
+		redis.DialWriteTimeout(c.WriteTimeout))
 	if err != nil {
 		log.Logger.Debug("ServerSessionCache:dail() to %s err(%v)", server, err)
 		c.state.SessionCacheConnFail.Inc(1)

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,12 +17,15 @@
 package bfe_module
 
 import (
-	"encoding/json"
 	"fmt"
 )
 
 import (
 	"github.com/baidu/go-lib/log"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // Callback point.
@@ -74,23 +77,23 @@ func NewBfeCallbacks() *BfeCallbacks {
 	bfeCallbacks.callbacks = make(map[int]*HandlerList)
 
 	// create handler list for each callback point
-	// for HANDLERS_ACCEPT
-	bfeCallbacks.callbacks[HandleAccept] = NewHandlerList(HandleAccept)
-	bfeCallbacks.callbacks[HandleHandshake] = NewHandlerList(HandleAccept)
+	// for HandlesAccept
+	bfeCallbacks.callbacks[HandleAccept] = NewHandlerList(HandlersAccept)
+	bfeCallbacks.callbacks[HandleHandshake] = NewHandlerList(HandlersAccept)
 
-	// for HANDLERS_REQUEST
+	// for HandlersRequest
 	bfeCallbacks.callbacks[HandleBeforeLocation] = NewHandlerList(HandlersRequest)
 	bfeCallbacks.callbacks[HandleFoundProduct] = NewHandlerList(HandlersRequest)
 	bfeCallbacks.callbacks[HandleAfterLocation] = NewHandlerList(HandlersRequest)
 
-	// for HANDLERS_FORWARD
+	// for HandlersForward
 	bfeCallbacks.callbacks[HandleForward] = NewHandlerList(HandlersForward)
 
-	// for HANDLERS_RESPONSE
+	// for HandlersResponse
 	bfeCallbacks.callbacks[HandleReadResponse] = NewHandlerList(HandlersResponse)
 	bfeCallbacks.callbacks[HandleRequestFinish] = NewHandlerList(HandlersResponse)
 
-	// for HANDLERS_FINISH
+	// for HandlersFinish
 	bfeCallbacks.callbacks[HandleFinish] = NewHandlerList(HandlersFinish)
 
 	return bfeCallbacks

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,11 +27,11 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_balance/backend"
-	"github.com/baidu/bfe/bfe_balance/bal_gslb"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/gslb_conf"
-	"github.com/baidu/bfe/bfe_route"
+	"github.com/bfenetworks/bfe/bfe_balance/backend"
+	"github.com/bfenetworks/bfe/bfe_balance/bal_gslb"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/gslb_conf"
+	"github.com/bfenetworks/bfe/bfe_route"
 )
 
 // BalMap holds mappings from clusterName to BalanceGslb.
@@ -272,7 +272,7 @@ func NewBalTableState() *BalTableState {
 	return state
 }
 
-// GetState returnes state of BalTable.
+// GetState returns state of BalTable.
 func (t *BalTable) GetState() *BalTableState {
 	state := NewBalTableState()
 
@@ -290,11 +290,11 @@ func (t *BalTable) GetState() *BalTableState {
 	return state
 }
 
-// GetVersions returnes versions of BalTable.
+// GetVersions returns versions of BalTable.
 func (t *BalTable) GetVersions() BalVersion {
 	t.lock.RLock()
 	versions := t.versions
 	t.lock.RUnlock()
-	
+
 	return versions
 }

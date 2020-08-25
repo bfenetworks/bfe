@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ func (test *clientTest) connFromCommand() (conn *recordingConn, child *exec.Cmd,
 	var pemOut bytes.Buffer
 	pem.Encode(&pemOut, &pem.Block{Type: pemType + " PRIVATE KEY", Bytes: derBytes})
 
-	keyPath := tempFile(string(pemOut.Bytes()))
+	keyPath := tempFile(pemOut.String())
 	defer os.Remove(keyPath)
 
 	var command []string

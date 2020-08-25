@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,16 +26,16 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 )
 
 type BfeCluster struct {
 	sync.RWMutex
 	Name string // cluster's name
 
-	backendConf *cluster_conf.BackendBasic  // backend's basic conf
-	CheckConf   *cluster_conf.BackendCheck  // how to check backend
-	GslbBasic   *cluster_conf.GslbBasicConf // gslb basic
+	backendConf     *cluster_conf.BackendBasic  // backend's basic conf
+	CheckConf       *cluster_conf.BackendCheck  // how to check backend
+	GslbBasic       *cluster_conf.GslbBasicConf // gslb basic
 
 	timeoutReadClient      time.Duration // timeout for read client body
 	timeoutReadClientAgain time.Duration // timeout for read client again

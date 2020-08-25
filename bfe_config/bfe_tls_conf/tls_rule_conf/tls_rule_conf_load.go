@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,8 +16,9 @@ package tls_rule_conf
 
 import (
 	"crypto/x509"
-	"encoding/json"
+	"crypto/x509/pkix"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/url"
 	"os"
@@ -27,9 +28,14 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_tls_conf/server_cert_conf"
-	"github.com/baidu/bfe/bfe_tls"
+	"github.com/baidu/go-lib/log"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/server_cert_conf"
+	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // Notes about `NextProtos`:
@@ -94,11 +100,18 @@ type TlsRuleConf struct {
 
 type TlsRuleMap map[string]*TlsRuleConf // product -> pointer to tls rule conf
 
+const (
+	ProxyProtocolDisabled  = 0
+	ProxyProtocolV1Enabled = 1
+	ProxyProtocolV2Enabled = 2
+)
+
 type NextProtosParams struct {
 	Level int // protocol negotiation level
 	Mcs   int // max concurrent stream per conn
 	Isw   int // initial stream window for server
 	Rate  int // presence rate while level is PROTO_OPTIONAL
+	PP    int // proxy protocol to backend, 0: disable, 1: enable v1 pp, 2: enable v2 pp
 }
 
 func GetDefaultNextProtosParams() NextProtosParams {
@@ -107,6 +120,7 @@ func GetDefaultNextProtosParams() NextProtosParams {
 		Mcs:   200,
 		Isw:   65535,
 		Rate:  100,
+		PP:    0,
 	}
 }
 
@@ -223,6 +237,14 @@ func CheckValidProto(protoConf string) error {
 		return fmt.Errorf("proto rate for http/1.1 should be 100")
 	}
 
+	// check proxy protocol
+	if params.PP < ProxyProtocolDisabled || params.PP > ProxyProtocolV2Enabled {
+		return fmt.Errorf("proto pp should be [%d, %d]", ProxyProtocolDisabled, ProxyProtocolV2Enabled)
+	}
+	if params.PP != ProxyProtocolDisabled && proto != STREAM {
+		return fmt.Errorf("param pp is only available for %s proto", STREAM)
+	}
+
 	// check next proto
 	for _, validProto := range validNextProtos {
 		if proto == validProto {
@@ -275,6 +297,10 @@ func parseProtoParams(protoConf string) (params NextProtosParams, err error) {
 		case "rate":
 			if params.Rate, err = strconv.Atoi(vals[0]); err != nil {
 				return params, fmt.Errorf("invalid rate: %s", vals[0])
+			}
+		case "pp":
+			if params.PP, err = strconv.Atoi(vals[0]); err != nil {
+				return params, fmt.Errorf("invalid pp: %s", vals[0])
 			}
 		default:
 			return params, fmt.Errorf("unknown params: %s", key)
@@ -442,6 +468,66 @@ func ClientCALoad(tlsRuleMap TlsRuleMap, clientCADir string) (map[string]*x509.C
 	}
 
 	return clientCAMap, nil
+}
+
+func getCientCRL(clientCRLDir, clientCAName string) ([]*pkix.CertificateList, error) {
+	clientCRLSubDir := filepath.Join(clientCRLDir, clientCAName)
+	crlFiles, err := ioutil.ReadDir(clientCRLSubDir)
+	if err != nil {
+		log.Logger.Debug("ioutil.ReadDir %s failed: %v", clientCRLSubDir, err)
+		return nil, nil
+	}
+
+	var crls []*pkix.CertificateList
+	for _, crlFile := range crlFiles {
+		if crlFile.IsDir() {
+			continue
+		}
+
+		if !strings.HasSuffix(crlFile.Name(), ".crl") {
+			continue
+		}
+
+		crlFilePath := filepath.Join(clientCRLSubDir, crlFile.Name())
+		fileContent, err := ioutil.ReadFile(crlFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("read crl %s failed, %v", crlFilePath, err)
+		}
+
+		crl, err := x509.ParseCRL(fileContent)
+		if err != nil {
+			return nil, fmt.Errorf("parse crl %s failed, %v", crlFilePath, err)
+		}
+
+		log.Logger.Debug("read %s success", crlFile.Name())
+		crls = append(crls, crl)
+	}
+	return crls, nil
+}
+
+func ClientCRLLoad(clientCAMap map[string]*x509.CertPool, clientCRLDir string) (map[string]*bfe_tls.CRLPool, error) {
+	clientCRLPoolMap := make(map[string]*bfe_tls.CRLPool)
+	for clientCAName := range clientCAMap {
+		crls, err := getCientCRL(clientCRLDir, clientCAName)
+		if err != nil {
+			return nil, err
+		}
+
+		if crls == nil {
+			continue
+		}
+
+		crlPool := bfe_tls.NewCRLPool()
+		for _, crl := range crls {
+			if err := crlPool.AddCRL(crl); err != nil {
+				return nil, fmt.Errorf("client_ca %s read crl: %v", clientCAName, err)
+			}
+		}
+
+		clientCRLPoolMap[clientCAName] = crlPool
+	}
+
+	return clientCRLPoolMap, nil
 }
 
 // TlsRuleConfLoad load config of rule from file.

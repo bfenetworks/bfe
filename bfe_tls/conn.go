@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -70,6 +70,7 @@ type Conn struct {
 	clientAuth          ClientAuthType // tls client auth type
 	clientCAs           *x509.CertPool
 	clientCAName        string   // tls client CA name
+	clientCRLPool       *CRLPool // tls client CRL pool
 	enableDynamicRecord bool     // enable dynamic record size or not
 	clientRandom        []byte   // random in client hello msg
 	serverRandom        []byte   // random in server hello msg
@@ -707,7 +708,7 @@ func convertSSLv2ClientHello(c *Conn, b *block) error {
 		helloMsg.random = append(helloMsg.random, challengeData...)
 	}
 
-	helloMsg.cipherSuites = make([]uint16, 0, 0)
+	helloMsg.cipherSuites = make([]uint16, 0)
 	for i := 0; i < len(cipherSpecs); i += 3 {
 		// we can only support cipher specs starting with a high bit
 		if cipherSpecs[i] == 0 {

@@ -1,10 +1,12 @@
-# Introduction
+# Routing
 
-host_table_status monitor status of host table.
+## Introduction
 
-# Monitor Item
+The endpoint `/monitor/host_table_status` expose metrics about routing configurations.
 
-| Monitor Item          | Description                 |
+## Metrics
+
+| Metric                | Description                 |
 | --------------------- | --------------------------- |
 | HostTableSize         | Size of host table          |
 | HostTagTableSize      | Size of host tag table      |

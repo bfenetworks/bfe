@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,10 +17,13 @@
 package host_rule_conf
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type HostnameList []string // list of hostname
@@ -124,7 +127,7 @@ func HostTableConfCheck(conf HostTableConf) error {
 	return nil
 }
 
-// HostRuleConfLoad loades config of host table from file.
+// HostRuleConfLoad loads config of host table from file.
 func HostRuleConfLoad(filename string) (HostConf, error) {
 	var conf HostConf
 	var config HostTableConf

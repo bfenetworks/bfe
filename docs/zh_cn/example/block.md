@@ -6,53 +6,56 @@
   * 封禁IP：攻击流量来自某些固定的IP（2.2.2.2）
   * 封禁PATH：攻击流量针对某些特定的PATH（/bonus）
 
-在[样例配置](../../../conf/)上添加一些新的配置，就可以实现上述封禁功能
+## 配置说明
 
-* 首先，bfe启用mod_block模块（[bfe.conf](../../../conf/bfe.conf)）
+在样例配置(conf/)上添加一些新的配置，就可以实现上述封禁功能
 
-```
+* Step 1. bfe启用mod_block模块（conf/bfe.conf)
+
+```ini
 Modules = mod_block   #启用mod_block
 ```
 
-* 配置block模块
+* Step 2. 配置使用的block规则文件（包括全局IP黑名单和封禁规则）路径(mod_block/mod_block.conf)
   
-  * 配置使用的block规则文件（包括全局IP黑名单和封禁规则）的存储路径（[mod_block/mod_block.conf](../../../conf/mod_block/mod_block.conf)）
-  
-  ```
-  [basic]
-  # 封禁规则文件路径
-  ProductRulePath = mod_block/block_rules.data
-  
-  # IP黑名单文件路径
-  IPBlacklistPath = mod_block/ip_blacklist.data
-  ```
-  
-  * 配置block规则
-  
-    * 通过IP黑名单封禁IP地址：2.2.2.2（[mod_block/ip_blacklist.data](../../../conf/mod_block/ip_blacklist.data))
-  
-      ```
-      2.2.2.2
-      ```
-  
-    * 封禁PATH：/bonus（[mod_block/block_rules.data](../../../conf/mod_block/block_rules.data))
-  
-      ```
-      {
-          "Version": "init version",
-          "Config": {
-              "example_product": [{
-                  "action": {
-                      "cmd": "CLOSE",
-                      "params": []
-                  },
-                  "name": "block bonus",
-                  "cond": "req_path_in(\"/bonus\", false)"
-              }]
-          }
-      }
-      ```
+```ini
+[Basic]
+# 封禁规则文件路径
+ProductRulePath = mod_block/block_rules.data
 
-* 现在，用curl验证下是否封禁成功
+# IP黑名单文件路径
+IPBlocklistPath = mod_block/ip_blocklist.data
+```
+  
+* Step 3. 配置全局IP黑名单 (mod_block/ip_blocklist.data)
+  
+ 通过IP黑名单封禁IP地址：2.2.2.2
+  
+```
+2.2.2.2
+```
+  
+* Step 4. 配置封禁规则 (mod_block/block_rules.data)
+  
+```json
+{
+    "Version": "init version",
+    "Config": {
+        "example_product": [{
+            "action": {
+                "cmd": "CLOSE",
+                "params": []
+            },
+            "name": "block bonus",
+            "cond": "req_path_in(\"/bonus\", false)"
+        }]
+    }
+}
+```
 
-curl -v -H "host: example.org" "http://127.1:8080/bonus", 连接将会被直接关闭
+* Step 5. 验证封禁规则
+
+```bash
+curl -v -H "host: example.org" "http://127.1:8080/bonus"
+```
+连接将会被直接关闭

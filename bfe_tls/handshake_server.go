@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -82,10 +83,10 @@ func (c *Conn) serverHandshake() error {
 		if err := hs.establishKeys(); err != nil {
 			return err
 		}
-		if err := hs.sendFinished(isResume); err != nil {
+		if err := hs.sendFinished(); err != nil {
 			return err
 		}
-		if err := hs.readFinished(isResume); err != nil {
+		if err := hs.readFinished(); err != nil {
 			return err
 		}
 		c.didResume = true
@@ -100,13 +101,13 @@ func (c *Conn) serverHandshake() error {
 		if err := hs.establishKeys(); err != nil {
 			return err
 		}
-		if err := hs.readFinished(isResume); err != nil {
+		if err := hs.readFinished(); err != nil {
 			return err
 		}
-		if err := hs.sendSessionTicket(isResume); err != nil {
+		if err := hs.sendSessionTicket(); err != nil {
 			return err
 		}
-		if err := hs.sendFinished(isResume); err != nil {
+		if err := hs.sendFinished(); err != nil {
 			return err
 		}
 
@@ -299,6 +300,7 @@ Curves:
 		c.clientAuth = RequireAndVerifyClientCert
 		c.clientCAs = rule.ClientCAs
 		c.clientCAName = rule.ClientCAName
+		c.clientCRLPool = rule.ClientCRLPool
 	}
 
 	// check whether chacha20-poly1305 is enabled for current connection
@@ -784,7 +786,7 @@ func (hs *serverHandshakeState) establishKeys() error {
 	return nil
 }
 
-func (hs *serverHandshakeState) readFinished(isResume bool) error {
+func (hs *serverHandshakeState) readFinished() error {
 	c := hs.c
 
 	c.readRecord(recordTypeChangeCipherSpec)
@@ -827,7 +829,7 @@ func (hs *serverHandshakeState) readFinished(isResume bool) error {
 	return nil
 }
 
-func (hs *serverHandshakeState) sendSessionTicket(isResume bool) error {
+func (hs *serverHandshakeState) sendSessionTicket() error {
 	if !hs.hello.ticketSupported {
 		return nil
 	}
@@ -853,7 +855,7 @@ func (hs *serverHandshakeState) sendSessionTicket(isResume bool) error {
 	return nil
 }
 
-func (hs *serverHandshakeState) sendFinished(isResume bool) error {
+func (hs *serverHandshakeState) sendFinished() error {
 	c := hs.c
 
 	c.writeRecord(recordTypeChangeCipherSpec, []byte{1})
@@ -882,6 +884,11 @@ func (hs *serverHandshakeState) processCertsFromClient(certificates [][]byte) (c
 		if certs[i], err = x509.ParseCertificate(asn1Data); err != nil {
 			c.sendAlert(alertBadCertificate)
 			return nil, errors.New("tls: failed to parse client certificate: " + err.Error())
+		}
+
+		if c.clientCRLPool != nil && c.clientCRLPool.CheckCertRevoked(certs[i]) {
+			c.sendAlert(alertCertificateRevoked)
+			return nil, fmt.Errorf("tls: revoked client certificate: %s %s", strings.ToUpper(certs[i].SerialNumber.Text(16)), certs[i].Subject.CommonName)
 		}
 	}
 

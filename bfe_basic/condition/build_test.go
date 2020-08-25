@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,10 +22,10 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_util/net_util"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util/net_util"
 )
 
 var (
@@ -396,5 +396,24 @@ func TestBuildTlsClientCAIn(t *testing.T) {
 	req.Session = &bfe_basic.Session{TlsState: &bfe_tls.ConnectionState{ClientAuth: false, ClientCAName: "clientCa"}, IsSecure: true}
 	if buildTlsClientCAIn.Match(&req) {
 		t.Errorf("ca match ses_tls_client_ca_in(\"clientCa\")")
+	}
+}
+
+func TestBuildHostTagIn(t *testing.T) {
+	cond, err := Build("req_host_tag_in(\"host_tag1|host_tag2\")")
+	if err != nil {
+		t.Fatalf("should have no error")
+	}
+	req.Route.HostTag = "host_tag1"
+	if !cond.Match(&req) {
+		t.Fatalf("should match host tag %s", req.Route.HostTag)
+	}
+	req.Route.HostTag = "host_tag2"
+	if !cond.Match(&req) {
+		t.Fatalf("should match host tag %s", req.Route.HostTag)
+	}
+	req.Route.HostTag = "host_tag3"
+	if cond.Match(&req) {
+		t.Fatalf("should not match host tag %s", req.Route.HostTag)
 	}
 }

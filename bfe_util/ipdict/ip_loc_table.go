@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package ipdict
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"sort"
@@ -99,7 +100,7 @@ func (t *IpLocationTable) Add(startIP, endIP net.IP, location string) error {
 	}
 
 	if t.offset >= t.maxSize {
-		return fmt.Errorf("Add():caused by table is full")
+		return errors.New("Add():caused by table is full")
 	}
 
 	startIP16 := startIP.To16()

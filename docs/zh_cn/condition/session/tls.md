@@ -1,22 +1,35 @@
-# TLS相关
+# TLS相关条件原语
 
-## 通用原语参数
-- patterns：字符串，表示多个可匹配的pattern，用‘|’连接
+## ses_tls_sni_in(host_list)
+* 语义: 判断TLS握手中的sni字段是否为host_list之一
 
-## TLS原语
-- **ses_tls_sni_in(patterns)**
-  - 判断TLS握手中的sni是否为patterns之一
-  ```
-  # TLS握手中的sni为www.bfe-networks.com或bfe-networks.com的会话
-  ses_tls_sni_in("www.bfe-networks.com|bfe-networks.com")
-  ```
+* 参数
 
-- **ses_tls_client_auth()**
-  - 判断是否启用TLS双向认证
+| 参数      | 描述                   |
+| --------- | ---------------------- |
+| host_list | String<br>域名列表, 多个域名之间使用&#124;分隔 |
 
-- **ses_tls_client_ca_in(patterns)**
-  - 判断是否启用TLS双向认证且客户端证书签发根CA为patterns之一
-  ```
-  # 启用TLS双向认证且客户端证书签发CA是ca1或ca2的会话
-  ses_tls_client_ca_in("ca1|ca2")
-  ```
+* 示例
+
+```go
+ses_tls_sni_in("example.com|example.org")
+```
+
+## ses_tls_client_auth()
+* 语义: 判断是否启用TLS双向认证
+
+## ses_tls_client_ca_in(ca_list)
+* 语义: 判断是否启用TLS双向认证且客户端证书签发根CA为ca_list之一
+
+* 参数
+
+| 参数      | 描述                   |
+| --------- | ---------------------- |
+| ca_list | String<br>CA标识列表, 多个CA标识之间使用&#124;分隔 |
+
+
+* 示例
+
+```go
+ses_tls_client_ca_in("ca1|ca2")
+```
