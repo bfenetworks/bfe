@@ -361,7 +361,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 		//  5. other error
 		allowRetry := false
 		switch err.(type) {
-		case bfe_http.ConnectError:
+		case bfe_http.ConnectError, bfe_fcgi.ConnectError:
 			// if error happens in dial phrase, we can retry
 			request.ErrCode = bfe_basic.ErrBkConnectBackend
 			request.ErrMsg = err.Error()
@@ -369,7 +369,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 			allowRetry = true
 			backend.OnFail(cluster.Name)
 
-		case bfe_http.WriteRequestError:
+		case bfe_http.WriteRequestError, bfe_fcgi.WriteRequestError:
 			request.ErrCode = bfe_basic.ErrBkWriteRequest
 			request.ErrMsg = err.Error()
 			p.proxyState.ErrBkWriteRequest.Inc(1)
@@ -381,7 +381,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 				backend.OnFail(cluster.Name)
 			}
 
-		case bfe_http.ReadRespHeaderError:
+		case bfe_http.ReadRespHeaderError, bfe_fcgi.ReadRespHeaderError:
 			request.ErrCode = bfe_basic.ErrBkReadRespHeader
 			request.ErrMsg = err.Error()
 			p.proxyState.ErrBkReadRespHeader.Inc(1)
