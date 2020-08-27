@@ -18,7 +18,7 @@ import (
 	"testing"
 )
 
-func TestReWriteTableSearch_1(t *testing.T) {
+func TestReWriteTableSearch(t *testing.T) {
 	config, err := ReWriteConfLoad("./testdata/rewrite_1.conf")
 	if err != nil {
 		t.Errorf("get err from ReWriteConfLoad():%s", err.Error())
