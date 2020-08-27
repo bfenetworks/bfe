@@ -13,10 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unrelease] 
 
 ### Added
+- Support gRPC over HTTP/2
 - Support communication with FastCGI server
 - Reduce objects number by release some objects that are not used as soon as possible
 - Replace ffjson with json-iterator 
 - net/textproto: turn an ancient DoS BUG annotation into a comment
+- Optimize processing of new connections under PROXY mode
+- Support integration testing in CI
 
 
 ## [v0.11.0] - 2020-07-24
