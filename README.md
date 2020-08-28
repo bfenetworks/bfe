@@ -13,7 +13,7 @@
 BFE is a modern layer 7 load balancer from baidu.
 
 ## Advantages
-- Multiple protocols supported, including HTTP, HTTPS, SPDY, HTTP2, WebSocket, TLS, etc.
+- Multiple protocols supported, including HTTP, HTTPS, SPDY, HTTP2, WebSocket, TLS, FastCGI, etc.
 - Content based routing, support user-defined routing rule in advanced domain-specific language.
 - Support multiple load balancing policies.
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly.
