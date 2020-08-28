@@ -19,10 +19,14 @@ BackendConf is config for backend.
 
 | Config Item           | Description                                 |
 | --------------------- | ------------------------------------------- |
+| Protocol              | String<br>Protocol for conect backend, supported http and fcgi, default is http |
 | TimeoutConnSrv        | Int<br>Timeout for connect backend, in ms          |
 | TimeoutResponseHeader | Int<br>Timeout for read response header, in ms     |
 | MaxIdleConnsPerHost   | Int<br>Max idle conns to each backend              |
 | RetryLevel            | Int<br>Retry level if request fail                 |
+| FCGIConf              | Object<br>Conf for FastCGI Protocol                |
+| FCGIConf.Root         | String<br>the root folder to the site              |
+| FCGIConf.EnvVars      | Map[string]string<br>extra environment variable    |
 
 #### Health Check Config
 
@@ -75,6 +79,47 @@ ClusterBasic is basic config for cluster.
                 "TimeoutResponseHeader": 50000,
                 "MaxIdleConnsPerHost": 0,
                 "RetryLevel": 0
+            },
+            "CheckConf": {
+                "Schem": "http",
+                "Uri": "/healthcheck",
+                "Host": "example.org",
+                "StatusCode": 200,
+                "FailNum": 10,
+                "CheckInterval": 1000
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 2,
+                "HashConf": {
+                    "HashStrategy": 0,
+                    "HashHeader": "Cookie:UID",
+                    "SessionSticky": false
+                }
+            },
+            "ClusterBasic": {
+                "TimeoutReadClient": 30000,
+                "TimeoutWriteClient": 60000,
+                "TimeoutReadClientAgain": 30000,
+                "ReqWriteBufferSize": 512,
+                "ReqFlushInterval": 0,
+                "ResFlushInterval": -1,
+                "CancelOnClientClose": false
+            }
+        },
+        "fcgi_cluster_example": {
+            "BackendConf": {
+                "Protocol": "fcgi",
+                "TimeoutConnSrv": 2000,
+                "TimeoutResponseHeader": 50000,
+                "MaxIdleConnsPerHost": 0,
+                "RetryLevel": 0,
+                "FCGIConf": {
+                    "Root": "/home/work",
+                    "EnvVars": {
+                        "VarKey": "VarVal"
+                    }    
+                }
             },
             "CheckConf": {
                 "Schem": "http",

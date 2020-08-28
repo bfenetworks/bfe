@@ -21,7 +21,7 @@ BFE is designed to provide every tenant a dedicated share of the instance. Each 
 
 * Multiple protocols supported
 
-BFE supports HTTP, HTTPS, SPDY, HTTP2, WebSocket, TLS, etc. Future support is planned for gRPC and HTTP/3.
+BFE supports HTTP, HTTPS, SPDY, HTTP2, WebSocket, TLS, FastCGI, etc. Future support is planned for gRPC and HTTP/3.
 
 * Content based routing
 
