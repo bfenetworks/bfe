@@ -727,7 +727,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	// to objects which are not used any more.
 	basicReq.SvrDataConf = nil
 
-	if err != nil {
+	if err != nil || res == nil {
 		basicReq.Stat.ResponseStart = time.Now()
 		basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
 		res = bfe_basic.CreateInternalSrvErrResp(basicReq)
