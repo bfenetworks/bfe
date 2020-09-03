@@ -15,11 +15,14 @@
 package mod_trust_clientip
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"os"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type AddrScopeFile struct {

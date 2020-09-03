@@ -22,6 +22,6 @@ $ ./bfe -c ../conf -l ../log
 ```
 
 ## Further reading
-
+- Get familiar with [Command options](../operation/command.md)
 - Get started with [Beginner's Guide](../example/guide.md)
 

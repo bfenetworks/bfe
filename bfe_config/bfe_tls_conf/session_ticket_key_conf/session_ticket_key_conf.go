@@ -16,7 +16,6 @@ package session_ticket_key_conf
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,6 +24,7 @@ import (
 
 import (
 	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 const (

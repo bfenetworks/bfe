@@ -15,7 +15,6 @@
 package mod_secure_link
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 )
@@ -23,6 +22,7 @@ import (
 import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // RuleFile define how to validate secure link

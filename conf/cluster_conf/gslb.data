@@ -3,6 +3,14 @@
         "cluster_example": {
             "GSLB_BLACKHOLE": 0,
             "example.bfe.bj": 100
+        },
+        "fcgi_cluster_example": {
+            "GSLB_BLACKHOLE": 0,
+            "fcgi.example.bfe.bj": 100
+        },
+        "h2c_cluster_example": {
+            "GSLB_BLACKHOLE": 0,
+            "h2c.example.bfe.bj": 100
         }
     },
     "Hostname": "",

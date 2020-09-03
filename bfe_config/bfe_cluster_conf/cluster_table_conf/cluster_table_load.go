@@ -19,12 +19,15 @@ package cluster_table_conf
 import (
 	"errors"
 	"fmt"
-	json "github.com/pquerna/ffjson/ffjson"
 	"io/ioutil"
 	"math/rand"
 	"os"
 	"reflect"
 	"sort"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // BackendConf is conf of backend
@@ -222,9 +225,9 @@ func ClusterTableLoad(filename string) (ClusterTableConf, error) {
 	}
 
 	/* decode the file  */
-	decoder := json.NewDecoder()
+	decoder := json.NewDecoder(file)
 
-	err2 := decoder.DecodeReader(file, &config)
+	err2 := decoder.Decode(&config)
 	file.Close()
 
 	if err2 != nil {

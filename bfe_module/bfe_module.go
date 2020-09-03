@@ -17,7 +17,6 @@
 package bfe_module
 
 import (
-	"encoding/json"
 	"fmt"
 	"path"
 )
@@ -25,6 +24,10 @@ import (
 import (
 	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type BfeModule interface {

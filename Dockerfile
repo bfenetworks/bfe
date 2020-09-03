@@ -11,4 +11,5 @@ COPY conf /bfe/output/conf/
 EXPOSE 8080 8443 8421
 
 WORKDIR /bfe/output/bin
-CMD ["./bfe", "-c", "../conf/"]
+ENTRYPOINT ["./bfe"]
+CMD ["-c", "../conf/", "-l", "../log"]

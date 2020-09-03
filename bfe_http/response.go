@@ -23,6 +23,7 @@ package bfe_http
 import (
 	"errors"
 	"io"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -95,6 +96,8 @@ type Response struct {
 	// Trailer maps trailer keys to values, in the same
 	// format as the header.
 	Trailer Header
+
+	H2Trailer *http.Header
 
 	// The Request that was sent to obtain this Response.
 	// Request's Body is nil (having already been consumed).

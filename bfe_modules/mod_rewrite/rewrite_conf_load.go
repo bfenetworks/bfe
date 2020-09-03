@@ -15,7 +15,6 @@
 package mod_rewrite
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -24,6 +23,7 @@ import (
 import (
 	"github.com/bfenetworks/bfe/bfe_basic/action"
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type ReWriteRuleFile struct {
@@ -65,6 +65,17 @@ func ReWriteRuleCheck(conf ReWriteRuleFile) error {
 	// check Actions
 	if conf.Actions == nil {
 		return errors.New("no Actions")
+	}
+
+	// check Action
+	for _, ac := range conf.Actions {
+		if ac.Cmd == "" {
+			return errors.New("no Cmd")
+		}
+		_, ok := allowActions[ac.Cmd]
+		if !ok {
+			return fmt.Errorf("not allowed Cmd: %s", ac.Cmd)
+		}
 	}
 
 	// check Last

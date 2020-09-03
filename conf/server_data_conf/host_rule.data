@@ -3,7 +3,9 @@
     "DefaultProduct": null,
     "Hosts": {
         "exampleTag":[
-            "example.org"
+            "example.org",
+            "fcgi.example.org",
+            "h2c.example.org"
         ]
     },
     "HostTags": {

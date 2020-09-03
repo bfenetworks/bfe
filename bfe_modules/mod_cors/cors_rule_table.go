@@ -33,8 +33,8 @@ type CorsRule struct {
 	AccessControlAllowOriginMap   map[string]bool
 	AccessControlAllowCredentials bool
 	AccessControlExposeHeaders    []string
-	AccessControlAllowHeaders     []string
 	AccessControlAllowMethods     []string
+	AccessControlAllowHeaders     []string
 	AccessControlMaxAge           *int
 }
 

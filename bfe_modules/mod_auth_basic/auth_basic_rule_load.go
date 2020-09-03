@@ -16,7 +16,6 @@ package mod_auth_basic
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -24,6 +23,7 @@ import (
 
 import (
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type AuthBasicRuleFile struct {

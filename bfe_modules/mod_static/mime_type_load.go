@@ -15,10 +15,13 @@
 package mod_static
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type MimeType map[string]string

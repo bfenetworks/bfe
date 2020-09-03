@@ -15,7 +15,6 @@
 package mod_cors
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -24,6 +23,7 @@ import (
 
 import (
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type CorsRuleFile struct {
@@ -45,7 +45,6 @@ type CorsRuleRaw struct {
 	AccessControlAllowOrigins []string
 
 	// AccessControlAllowCredentials Indicates whether or not the response to the request can be exposed
-	// when the credentials flag is true.
 	AccessControlAllowCredentials bool
 
 	// AccessControlExposeHeaders lets a server whitelist headers that browsers are allowed to access.
@@ -56,10 +55,11 @@ type CorsRuleRaw struct {
 	AccessControlAllowMethods []string
 
 	// AccessControlAllowHeaders indicates which HTTP headers can be used when making the actual request.
-	// This is used in response to a preflight request
+	// This is used in response to a preflight request.
 	AccessControlAllowHeaders []string
 
 	// AccessControlMaxAge indicates how long the results of a preflight request can be cached.
+	// This is used in response to a preflight request.
 	AccessControlMaxAge *int
 }
 

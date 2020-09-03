@@ -33,9 +33,9 @@ type BfeCluster struct {
 	sync.RWMutex
 	Name string // cluster's name
 
-	backendConf *cluster_conf.BackendBasic  // backend's basic conf
-	CheckConf   *cluster_conf.BackendCheck  // how to check backend
-	GslbBasic   *cluster_conf.GslbBasicConf // gslb basic
+	backendConf     *cluster_conf.BackendBasic  // backend's basic conf
+	CheckConf       *cluster_conf.BackendCheck  // how to check backend
+	GslbBasic       *cluster_conf.GslbBasicConf // gslb basic
 
 	timeoutReadClient      time.Duration // timeout for read client body
 	timeoutReadClientAgain time.Duration // timeout for read client again
