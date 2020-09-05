@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#_1" class="md-skip">
+        <a href="../../#_1" class="md-skip">
           跳转至
         </a>
       
@@ -2764,108 +2764,103 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>Step 1.在 conf/bfe.conf配置转发功能使用的配置文件路径</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="na">hostRuleConf</span> <span class="o">=</span> <span class="s">server_data_conf/host_rule.data      #域名规则配置文件</span>
-<span class="na">routeRuleConf</span> <span class="o">=</span> <span class="s">server_data_conf/route_rule.data    #分流规则配置文件</span>
-<span class="na">clusterConf</span> <span class="o">=</span> <span class="s">server_data_conf/cluster_conf.data    #集群配置文件</span>
+<pre class="codehilite"><code class="language-ini">hostRuleConf = server_data_conf/host_rule.data      #域名规则配置文件
+routeRuleConf = server_data_conf/route_rule.data    #分流规则配置文件
+clusterConf = server_data_conf/cluster_conf.data    #集群配置文件
 
-<span class="na">clusterTableConf</span> <span class="o">=</span> <span class="s">cluster_conf/cluster_table.data  #集群实例列表配置文件</span>
-<span class="na">gslbConf</span> <span class="o">=</span> <span class="s">cluster_conf/gslb.data                   #子集群负载均衡配置文件</span>
-</code></pre></div>
+clusterTableConf = cluster_conf/cluster_table.data  #集群实例列表配置文件
+gslbConf = cluster_conf/gslb.data                   #子集群负载均衡配置文件</code></pre>
 
 
 <ul>
 <li>Step 2. 配置域名规则 (conf/server_data_conf/host_rule.data)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;DefaultProduct&quot;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
-    <span class="nt">&quot;Hosts&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;exampleTag&quot;</span><span class="p">:[</span>
-            <span class="s2">&quot;example.org&quot;</span> <span class="err">//</span> <span class="err">域名example.org=&gt;域名标签exampleTag</span>
-        <span class="p">]</span>
-    <span class="p">},</span>
-    <span class="nt">&quot;HostTags&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:[</span>
-            <span class="s2">&quot;exampleTag&quot;</span> <span class="err">//</span> <span class="err">域名标签exampleTag=&gt;产品线名称example_product</span>
-        <span class="p">]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;init version&quot;,
+    &quot;DefaultProduct&quot;: null,
+    &quot;Hosts&quot;: {
+        &quot;exampleTag&quot;:[
+            &quot;example.org&quot; // 域名example.org=&gt;域名标签exampleTag
+        ]
+    },
+    &quot;HostTags&quot;: {
+        &quot;example_product&quot;:[
+            &quot;exampleTag&quot; // 域名标签exampleTag=&gt;产品线名称example_product
+        ]
+    }
+}</code></pre>
 
 
 <ul>
 <li>Step 3. 配置集群的基础信息 (conf/server_data_conf/cluster_conf.data)
 配置集群cluster_demo_static和cluster_demo_dynamic健康检查的参数，其他均使用默认值</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;cluster_demo_static&quot;</span><span class="p">:</span> <span class="p">{</span>                    <span class="err">//</span> <span class="err">集群cluster_demo_static的配置</span>
-            <span class="nt">&quot;CheckConf&quot;</span><span class="p">:</span> <span class="p">{</span>                          <span class="err">//</span> <span class="err">健康检查配置</span>
-                <span class="nt">&quot;Schem&quot;</span><span class="p">:</span> <span class="s2">&quot;http&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Uri&quot;</span><span class="p">:</span> <span class="s2">&quot;/health_check&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Host&quot;</span><span class="p">:</span> <span class="s2">&quot;example.org&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;StatusCode&quot;</span><span class="p">:</span> <span class="mi">200</span>
-            <span class="p">}</span>
-        <span class="p">},</span>
-        <span class="nt">&quot;cluster_demo_dynamic&quot;</span><span class="p">:</span> <span class="p">{</span>                   <span class="err">//</span> <span class="err">集群cluster_demo_dynamic的配置</span>
-            <span class="nt">&quot;CheckConf&quot;</span><span class="p">:</span> <span class="p">{</span>                          <span class="err">//</span> <span class="err">健康检查配置</span>
-                <span class="nt">&quot;Schem&quot;</span><span class="p">:</span> <span class="s2">&quot;http&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Uri&quot;</span><span class="p">:</span> <span class="s2">&quot;/health_check&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Host&quot;</span><span class="p">:</span> <span class="s2">&quot;example.org&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;StatusCode&quot;</span><span class="p">:</span> <span class="mi">200</span>
-            <span class="p">}</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;init version&quot;,
+    &quot;Config&quot;: {
+        &quot;cluster_demo_static&quot;: {                    // 集群cluster_demo_static的配置
+            &quot;CheckConf&quot;: {                          // 健康检查配置
+                &quot;Schem&quot;: &quot;http&quot;,
+                &quot;Uri&quot;: &quot;/health_check&quot;,
+                &quot;Host&quot;: &quot;example.org&quot;,
+                &quot;StatusCode&quot;: 200
+            }
+        },
+        &quot;cluster_demo_dynamic&quot;: {                   // 集群cluster_demo_dynamic的配置
+            &quot;CheckConf&quot;: {                          // 健康检查配置
+                &quot;Schem&quot;: &quot;http&quot;,
+                &quot;Uri&quot;: &quot;/health_check&quot;,
+                &quot;Host&quot;: &quot;example.org&quot;,
+                &quot;StatusCode&quot;: 200
+            }
+        }
+    }
+}</code></pre>
 
 
 <ul>
 <li>Step 4. 配置集群下实例信息 (conf/cluster_conf/cluster_table.data)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;cluster_demo_static&quot;</span><span class="p">:</span> <span class="p">{</span>         <span class="err">//</span> <span class="err">集群</span> <span class="err">=&gt;</span> <span class="err">子集群</span> <span class="err">=&gt;</span> <span class="err">实例列表</span>
-            <span class="nt">&quot;demo_static.all&quot;</span><span class="p">:</span> <span class="p">[{</span>        <span class="err">//</span> <span class="err">子集群demo_static.all</span>
-                <span class="nt">&quot;Addr&quot;</span><span class="p">:</span> <span class="s2">&quot;10.0.0.1&quot;</span><span class="p">,</span>      <span class="err">//</span> <span class="err">实例地址:10.0.0.1</span>
-                <span class="nt">&quot;Name&quot;</span><span class="p">:</span> <span class="s2">&quot;static.A&quot;</span><span class="p">,</span>      <span class="err">//</span> <span class="err">实例名:static.A</span>
-                <span class="nt">&quot;Port&quot;</span><span class="p">:</span> <span class="mi">8001</span><span class="p">,</span>            <span class="err">//</span> <span class="err">实例端口:8001</span>
-                <span class="nt">&quot;Weight&quot;</span><span class="p">:</span> <span class="mi">1</span>              <span class="err">//</span> <span class="err">实例权重</span><span class="p">:</span><span class="mi">1</span>
-            <span class="p">}]</span>
-        <span class="p">},</span>
-        <span class="nt">&quot;cluster_demo_dynamic&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="nt">&quot;demo_dynamic.all&quot;</span><span class="p">:</span> <span class="p">[{</span>
-                <span class="nt">&quot;Addr&quot;</span><span class="p">:</span> <span class="s2">&quot;10.0.0.1&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Name&quot;</span><span class="p">:</span> <span class="s2">&quot;dynamic.A&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Port&quot;</span><span class="p">:</span> <span class="mi">8002</span><span class="p">,</span>
-                <span class="nt">&quot;Weight&quot;</span><span class="p">:</span> <span class="mi">1</span>
-            <span class="p">}]</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;init version&quot;,
+    &quot;Config&quot;: {
+        &quot;cluster_demo_static&quot;: {         // 集群 =&gt; 子集群 =&gt; 实例列表
+            &quot;demo_static.all&quot;: [{        // 子集群demo_static.all
+                &quot;Addr&quot;: &quot;10.0.0.1&quot;,      // 实例地址:10.0.0.1
+                &quot;Name&quot;: &quot;static.A&quot;,      // 实例名:static.A
+                &quot;Port&quot;: 8001,            // 实例端口:8001
+                &quot;Weight&quot;: 1              // 实例权重:1
+            }]
+        },
+        &quot;cluster_demo_dynamic&quot;: {
+            &quot;demo_dynamic.all&quot;: [{
+                &quot;Addr&quot;: &quot;10.0.0.1&quot;,
+                &quot;Name&quot;: &quot;dynamic.A&quot;,
+                &quot;Port&quot;: 8002,
+                &quot;Weight&quot;: 1
+            }]
+        }
+    }
+}</code></pre>
 
 
 <ul>
 <li>Step 5. 配置子集群内负载均衡 (conf/cluster_conf/gslb.data)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Hostname&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Ts&quot;</span><span class="p">:</span> <span class="s2">&quot;0&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Clusters&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;cluster_demo_static&quot;</span><span class="p">:</span> <span class="p">{</span>       <span class="err">//</span> <span class="err">集群</span> <span class="err">=&gt;</span> <span class="err">子集群权重</span>
-            <span class="nt">&quot;GSLB_BLACKHOLE&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>       <span class="err">//</span> <span class="err">黑洞的分流权重为0，表示不丢弃流量</span>
-            <span class="nt">&quot;demo_static.all&quot;</span><span class="p">:</span> <span class="mi">100</span>     <span class="err">//</span> <span class="err">权重为</span><span class="mi">100</span><span class="err">，表示全部分流到demo_static.all</span>
-        <span class="p">},</span>
-        <span class="nt">&quot;cluster_demo_dynamic&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="nt">&quot;GSLB_BLACKHOLE&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-            <span class="nt">&quot;demo_dynamic.all&quot;</span><span class="p">:</span> <span class="mi">100</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Hostname&quot;: &quot;&quot;,
+    &quot;Ts&quot;: &quot;0&quot;,
+    &quot;Clusters&quot;: {
+        &quot;cluster_demo_static&quot;: {       // 集群 =&gt; 子集群权重
+            &quot;GSLB_BLACKHOLE&quot;: 0,       // 黑洞的分流权重为0，表示不丢弃流量
+            &quot;demo_static.all&quot;: 100     // 权重为100，表示全部分流到demo_static.all
+        },
+        &quot;cluster_demo_dynamic&quot;: {
+            &quot;GSLB_BLACKHOLE&quot;: 0,
+            &quot;demo_dynamic.all&quot;: 100
+        }
+    }
+}</code></pre>
 
 
 <ul>
@@ -2873,35 +2868,33 @@ RU5ErkJggg==" ></image>
 <li>将/static开头的流量转发到cluster_demo_static集群</li>
 <li>其余流量转发到cluster_demo_dynamic集群</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;ProductRule&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>    <span class="err">//</span> <span class="err">产品线</span> <span class="err">=&gt;</span> <span class="err">分流规则</span>
-            <span class="p">{</span>
-                <span class="err">//</span> <span class="err">以/static开头的path分流到cluster_demo_static集群</span>
-                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_path_prefix_in(\&quot;/static\&quot;, false)&quot;</span><span class="p">,</span>  
-                <span class="nt">&quot;ClusterName&quot;</span><span class="p">:</span> <span class="s2">&quot;cluster_demo_static&quot;</span>
-            <span class="p">},</span>
-            <span class="p">{</span>
-                <span class="err">//</span> <span class="err">其他流量分流到cluster_demo_dynamic集群</span>
-                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;default_t()&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;ClusterName&quot;</span><span class="p">:</span> <span class="s2">&quot;cluster_demo_dynamic&quot;</span>
-            <span class="p">}</span>
-        <span class="p">]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;init version&quot;,
+    &quot;ProductRule&quot;: {
+        &quot;example_product&quot;: [    // 产品线 =&gt; 分流规则
+            {
+                // 以/static开头的path分流到cluster_demo_static集群
+                &quot;Cond&quot;: &quot;req_path_prefix_in(\&quot;/static\&quot;, false)&quot;,  
+                &quot;ClusterName&quot;: &quot;cluster_demo_static&quot;
+            },
+            {
+                // 其他流量分流到cluster_demo_dynamic集群
+                &quot;Cond&quot;: &quot;default_t()&quot;,
+                &quot;ClusterName&quot;: &quot;cluster_demo_dynamic&quot;
+            }
+        ]
+    }
+}</code></pre>
 
 
 <ul>
 <li>Step 7. 验证配置规则</li>
 </ul>
-<div class="codehilite"><pre><span></span><code>curl -H <span class="s2">&quot;host: example.org&quot;</span> <span class="s2">&quot;http://127.1:8080/static/test.html&quot;</span>  
-<span class="c1"># 将请求转发至10.0.0.1:8001</span>
+<pre class="codehilite"><code class="language-bash">curl -H &quot;host: example.org&quot; &quot;http://127.1:8080/static/test.html&quot;  
+# 将请求转发至10.0.0.1:8001
 
-curl -H <span class="s2">&quot;host: example.org&quot;</span> <span class="s2">&quot;http://127.1:8080/api/test&quot;</span> 
-<span class="c1"># 将请求转发至10.0.0.1:8002</span>
-</code></pre></div>
+curl -H &quot;host: example.org&quot; &quot;http://127.1:8080/api/test&quot; 
+# 将请求转发至10.0.0.1:8002</code></pre>
                 
               
               
@@ -3006,7 +2999,7 @@ curl -H <span class="s2">&quot;host: example.org&quot;</span> <span class="s2">&
     </div>
     
       <script src="../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
+      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "ja", "clipboard.copy": "\u590d\u5236", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "\u5df2\u590d\u5236", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
       
       <script>
         app = initialize({
