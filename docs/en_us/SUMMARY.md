@@ -15,6 +15,7 @@
   * [Install](installation/install_from_source.md)
   * [User Guides](example/guide.md)
     * [Traffic forwarding](example/route.md)
+    * [FastCGI procotol](example/fastcgi.md)
     * [Traffic blocking](example/block.md)
     * [Request redirect](example/redirect.md)
     * [Request rewrite](example/rewrite.md)

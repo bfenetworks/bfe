@@ -15,6 +15,7 @@
   * [安装及运行](installation/install_from_source.md)
   * [使用示例](example/guide.md)
     * [流量转发](example/route.md)
+    * [FastCGI协议](example/fastcgi.md)
     * [黑名单封禁](example/block.md)
     * [重定向](example/redirect.md)
     * [重写](example/rewrite.md)
