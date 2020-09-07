@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../../#mod_trace" class="md-skip">
+        <a href="#mod_trace" class="md-skip">
           跳转至
         </a>
       
@@ -3097,103 +3097,106 @@ RU5ErkJggg==" ></image>
 </table>
 <h3 id="_5">配置示例</h3>
 <h4 id="zipkin_1">基于Zipkin示例</h4>
-<pre class="codehilite"><code class="language-ini">[Basic]
-DataPath = mod_trace/trace_rule.data
-ServiceName = bfe
+<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
+<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_trace/trace_rule.data</span>
+<span class="na">ServiceName</span> <span class="o">=</span> <span class="s">bfe</span>
 
-# Which trace agent to use (zipkin, jaeger, elastic)
-TraceAgent = zipkin
+<span class="c1"># Which trace agent to use (zipkin, jaeger, elastic)</span>
+<span class="na">TraceAgent</span> <span class="o">=</span> <span class="s">zipkin</span>
 
-[Log]
-OpenDebug = false
+<span class="k">[Log]</span>
+<span class="na">OpenDebug</span> <span class="o">=</span> <span class="s">false</span>
 
-[Zipkin]
-# Zipkin, only useful when the TraceAgent is zipkin
+<span class="k">[Zipkin]</span>
+<span class="c1"># Zipkin, only useful when the TraceAgent is zipkin</span>
 
-# HTTP Endpoint to report traces to
-HTTPEndpoint = http://127.0.0.1:9411/api/v2/spans
+<span class="c1"># HTTP Endpoint to report traces to</span>
+<span class="na">HTTPEndpoint</span> <span class="o">=</span> <span class="s">http://127.0.0.1:9411/api/v2/spans</span>
 
-# Use Zipkin SameSpan RPC style traces
-SameSpan = false
+<span class="c1"># Use Zipkin SameSpan RPC style traces</span>
+<span class="na">SameSpan</span> <span class="o">=</span> <span class="s">false</span>
 
-# Use Zipkin 128 bit root span IDs
-ID128Bit = true
+<span class="c1"># Use Zipkin 128 bit root span IDs</span>
+<span class="na">ID128Bit</span> <span class="o">=</span> <span class="s">true</span>
 
-# The rate between 0.0001 and 1.0 of requests to trace
-SampleRate = 1.0</code></pre>
+<span class="c1"># The rate between 0.0001 and 1.0 of requests to trace</span>
+<span class="na">SampleRate</span> <span class="o">=</span> <span class="s">1.0</span>
+</code></pre></div>
 
 
 <h4 id="jaeger_1">基于Jaeger示例</h4>
-<pre class="codehilite"><code class="language-ini">[Basic]
-DataPath = mod_trace/trace_rule.data
-ServiceName = bfe
+<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
+<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_trace/trace_rule.data</span>
+<span class="na">ServiceName</span> <span class="o">=</span> <span class="s">bfe</span>
 
-# Which trace agent to use (zipkin, jaeger, elastic)
-TraceAgent = jaeger
+<span class="c1"># Which trace agent to use (zipkin, jaeger, elastic)</span>
+<span class="na">TraceAgent</span> <span class="o">=</span> <span class="s">jaeger</span>
 
-[Log]
-OpenDebug = false
+<span class="k">[Log]</span>
+<span class="na">OpenDebug</span> <span class="o">=</span> <span class="s">false</span>
 
-[Jaeger]
-# Jaeger, only useful when the TraceAgent is jaeger
+<span class="k">[Jaeger]</span>
+<span class="c1"># Jaeger, only useful when the TraceAgent is jaeger</span>
 
-# SamplingServerURL is the address of jaeger-agent's HTTP sampling server
-SamplingServerURL = http://127.0.0.1:5778/sampling
+<span class="c1"># SamplingServerURL is the address of jaeger-agent&#39;s HTTP sampling server</span>
+<span class="na">SamplingServerURL</span> <span class="o">=</span> <span class="s">http://127.0.0.1:5778/sampling</span>
 
-# Type specifies the type of the sampler: const, probabilistic, rateLimiting, or remote
-SamplingType = const
+<span class="c1"># Type specifies the type of the sampler: const, probabilistic, rateLimiting, or remote</span>
+<span class="na">SamplingType</span> <span class="o">=</span> <span class="s">const</span>
 
-# Param is a value passed to the sampler.
-# Valid values for Param field are:
-# - for &quot;const&quot; sampler, 0 or 1 for always false/true respectively
-# - for &quot;probabilistic&quot; sampler, a probability between 0 and 1
-# - for &quot;rateLimiting&quot; sampler, the number of spans per second
-# - for &quot;remote&quot; sampler, param is the same as for &quot;probabilistic&quot;
-#   and indicates the initial sampling rate before the actual one
-#   is received from the mothership.
-SamplingParam = 1.0
+<span class="c1"># Param is a value passed to the sampler.</span>
+<span class="c1"># Valid values for Param field are:</span>
+<span class="c1"># - for &quot;const&quot; sampler, 0 or 1 for always false/true respectively</span>
+<span class="c1"># - for &quot;probabilistic&quot; sampler, a probability between 0 and 1</span>
+<span class="c1"># - for &quot;rateLimiting&quot; sampler, the number of spans per second</span>
+<span class="c1"># - for &quot;remote&quot; sampler, param is the same as for &quot;probabilistic&quot;</span>
+<span class="c1">#   and indicates the initial sampling rate before the actual one</span>
+<span class="c1">#   is received from the mothership.</span>
+<span class="na">SamplingParam</span> <span class="o">=</span> <span class="s">1.0</span>
 
-# LocalAgentHostPort instructs reporter to send spans to jaeger-agent at this address
-LocalAgentHostPort = 127.0.0.1:6831
+<span class="c1"># LocalAgentHostPort instructs reporter to send spans to jaeger-agent at this address</span>
+<span class="na">LocalAgentHostPort</span> <span class="o">=</span> <span class="s">127.0.0.1:6831</span>
 
-# Which propagation format to use (jaeger/b3)
-Propagation = jaeger
+<span class="c1"># Which propagation format to use (jaeger/b3)</span>
+<span class="na">Propagation</span> <span class="o">=</span> <span class="s">jaeger</span>
 
-# Use Jaeger 128 bit root span IDs
-Gen128Bit = true
+<span class="c1"># Use Jaeger 128 bit root span IDs</span>
+<span class="na">Gen128Bit</span> <span class="o">=</span> <span class="s">true</span>
 
-# TraceContextHeaderName is the http header name used to propagate tracing context.
-TraceContextHeaderName = uber-trace-id
+<span class="c1"># TraceContextHeaderName is the http header name used to propagate tracing context.</span>
+<span class="na">TraceContextHeaderName</span> <span class="o">=</span> <span class="s">uber-trace-id</span>
 
-# Instructs reporter to send spans to jaeger-collector at this URL
-CollectorEndpoint = &quot;&quot;
+<span class="c1"># Instructs reporter to send spans to jaeger-collector at this URL</span>
+<span class="na">CollectorEndpoint</span> <span class="o">=</span> <span class="s">&quot;&quot;</span>
 
-# CollectorUser for basic http authentication when sending spans to jaeger-collector
-CollectorUser = &quot;&quot;
+<span class="c1"># CollectorUser for basic http authentication when sending spans to jaeger-collector</span>
+<span class="na">CollectorUser</span> <span class="o">=</span> <span class="s">&quot;&quot;</span>
 
-# CollectorPassword for basic http authentication when sending spans to jaeger-collector
-CollectorPassword = &quot;&quot;</code></pre>
+<span class="c1"># CollectorPassword for basic http authentication when sending spans to jaeger-collector</span>
+<span class="na">CollectorPassword</span> <span class="o">=</span> <span class="s">&quot;&quot;</span>
+</code></pre></div>
 
 
 <h4 id="elastic_1">基于Elastic示例</h4>
-<pre class="codehilite"><code class="language-ini">[Basic]
-DataPath = mod_trace/trace_rule.data
-ServiceName = bfe
+<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
+<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_trace/trace_rule.data</span>
+<span class="na">ServiceName</span> <span class="o">=</span> <span class="s">bfe</span>
 
-# Which trace agent to use (zipkin, jaeger, elastic)
-TraceAgent = elastic
+<span class="c1"># Which trace agent to use (zipkin, jaeger, elastic)</span>
+<span class="na">TraceAgent</span> <span class="o">=</span> <span class="s">elastic</span>
 
-[Log]
-OpenDebug = false
+<span class="k">[Log]</span>
+<span class="na">OpenDebug</span> <span class="o">=</span> <span class="s">false</span>
 
-[Elastic]
-# Elastic, only useful when TraceAgent is elastic
+<span class="k">[Elastic]</span>
+<span class="c1"># Elastic, only useful when TraceAgent is elastic</span>
 
-# Set the URL of the Elastic APM server
-ServerURL = http://127.0.0.1:8200
+<span class="c1"># Set the URL of the Elastic APM server</span>
+<span class="na">ServerURL</span> <span class="o">=</span> <span class="s">http://127.0.0.1:8200</span>
 
-# Set the token used to connect to Elastic APM Server
-SecretToken = &quot;&quot;</code></pre>
+<span class="c1"># Set the token used to connect to Elastic APM Server</span>
+<span class="na">SecretToken</span> <span class="o">=</span> <span class="s">&quot;&quot;</span>
+</code></pre></div>
 
 
 <h2 id="_6">规则配置</h2>
@@ -3238,17 +3241,18 @@ SecretToken = &quot;&quot;</code></pre>
 </tbody>
 </table>
 <h3 id="_8">配置示例</h3>
-<pre class="codehilite"><code class="language-json">{
-  &quot;Version&quot;: &quot;20200218210000&quot;,
-  &quot;Config&quot;: {
-    &quot;example_product&quot;: [
-       {
-         &quot;Cond&quot;: &quot;req_host_in(\&quot;example.org\&quot;)&quot;,
-         &quot;Enable&quot;: true
-       }
-    ]
-  }
-}</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+  <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20200218210000&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
+       <span class="p">{</span>
+         <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_host_in(\&quot;example.org\&quot;)&quot;</span><span class="p">,</span>
+         <span class="nt">&quot;Enable&quot;</span><span class="p">:</span> <span class="kc">true</span>
+       <span class="p">}</span>
+    <span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
                 
               
               
@@ -3353,7 +3357,7 @@ SecretToken = &quot;&quot;</code></pre>
     </div>
     
       <script src="../../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "ja", "clipboard.copy": "\u590d\u5236", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "\u5df2\u590d\u5236", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
+      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
       
       <script>
         app = initialize({

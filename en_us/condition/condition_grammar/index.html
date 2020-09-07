@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../#concept-and-grammar" class="md-skip">
+        <a href="#concept-and-grammar" class="md-skip">
           Skip to content
         </a>
       
@@ -2891,8 +2891,9 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>A condition primitive is a basic and built-in function which check some specified condition matched or not.</li>
 </ul>
-<pre class="codehilite"><code class="language-go">// return true if the request Host is &quot;www.bfe-networks.com&quot; or &quot;bfe-networks.com&quot;
-req_host_in(&quot;www.bfe-networks.com|bfe-networks.com&quot;)</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="c1">// return true if the request Host is &quot;www.bfe-networks.com&quot; or &quot;bfe-networks.com&quot;</span>
+<span class="nx">req_host_in</span><span class="p">(</span><span class="s">&quot;www.bfe-networks.com|bfe-networks.com&quot;</span><span class="p">)</span>
+</code></pre></div>
 
 
 <ul>
@@ -2902,8 +2903,9 @@ req_host_in(&quot;www.bfe-networks.com|bfe-networks.com&quot;)</code></pre>
 <ul>
 <li>A condition expression is a series of condition primitives combined with operators (e.g. AND, OR, NOT, etc).</li>
 </ul>
-<pre class="codehilite"><code class="language-go">// return ture if the request host is &quot;bfe-networks.com&quot; and the request method is &quot;GET&quot;
-req_host_in(&quot;bfe-networks.com&quot;) &amp;&amp; req_method_in(&quot;GET&quot;)</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="c1">// return ture if the request host is &quot;bfe-networks.com&quot; and the request method is &quot;GET&quot;</span>
+<span class="nx">req_host_in</span><span class="p">(</span><span class="s">&quot;bfe-networks.com&quot;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="nx">req_method_in</span><span class="p">(</span><span class="s">&quot;GET&quot;</span><span class="p">)</span>
+</code></pre></div>
 
 
 <ul>
@@ -2913,8 +2915,9 @@ req_host_in(&quot;bfe-networks.com&quot;) &amp;&amp; req_method_in(&quot;GET&quo
 <ul>
 <li>You can define a variable  and assign a condition expression to it.</li>
 </ul>
-<pre class="codehilite"><code class="language-go">// define a condition varaible
-bfe_host = req_host_in(&quot;bfe-networks.com&quot;)</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="c1">// define a condition varaible</span>
+<span class="nx">bfe_host</span> <span class="p">=</span> <span class="nx">req_host_in</span><span class="p">(</span><span class="s">&quot;bfe-networks.com&quot;</span><span class="p">)</span>
+</code></pre></div>
 
 
 <h3 id="advanced-condition-expression">Advanced Condition Expression</h3>
@@ -2926,14 +2929,16 @@ bfe_host = req_host_in(&quot;bfe-networks.com&quot;)</code></pre>
 <p>In an advanced condition expression, the condition variable is identified by  "$" prefix</p>
 </li>
 </ul>
-<pre class="codehilite"><code class="language-go">// return true if the value of new_host is true and the request method is GET
-$news_host &amp;&amp; req_method_in(&quot;GET&quot;)</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="c1">// return true if the value of new_host is true and the request method is GET</span>
+<span class="err">$</span><span class="nx">news_host</span> <span class="o">&amp;&amp;</span> <span class="nx">req_method_in</span><span class="p">(</span><span class="s">&quot;GET&quot;</span><span class="p">)</span>
+</code></pre></div>
 
 
 <h2 id="grammar">Grammar</h2>
 <h3 id="condition-primitive-grammar">Condition Primitive Grammar</h3>
 <p>A condition primitive is shown as follows:</p>
-<pre class="codehilite"><code class="language-go">func_name(params)</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="nx">func_name</span><span class="p">(</span><span class="nx">params</span><span class="p">)</span>
+</code></pre></div>
 
 
 <ul>
@@ -2943,21 +2948,23 @@ $news_host &amp;&amp; req_method_in(&quot;GET&quot;)</code></pre>
 </ul>
 <h3 id="condition-expression-grammar">Condition Expression Grammar</h3>
 <p>Condition Expression(CE) grammar is defined as follows:</p>
-<pre class="codehilite"><code>CE = CE &amp;&amp; CE
-   | CE || CE
-   | ( CE )
-   | ! CE
-   | ConditionPrimitive</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="err">CE = CE &amp;&amp; CE</span>
+<span class="err">   | CE || CE</span>
+<span class="err">   | ( CE )</span>
+<span class="err">   | ! CE</span>
+<span class="err">   | ConditionPrimitive</span>
+</code></pre></div>
 
 
 <h3 id="advanced-condition-expression-grammar">Advanced Condition Expression Grammar</h3>
 <p>Advanced Condition Expression(ACE) grammar is defined as follows:</p>
-<pre class="codehilite"><code>ACE = ACE &amp;&amp; ACE
-    | ACE || ACE
-    | ( ACE)
-    | ! ACE
-    | ConditionPrimitive
-    | ConditionVariable</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="err">ACE = ACE &amp;&amp; ACE</span>
+<span class="err">    | ACE || ACE</span>
+<span class="err">    | ( ACE)</span>
+<span class="err">    | ! ACE</span>
+<span class="err">    | ConditionPrimitive</span>
+<span class="err">    | ConditionVariable</span>
+</code></pre></div>
 
 
 <h3 id="operator-precedence">Operator Precedence</h3>
@@ -3102,7 +3109,7 @@ $news_host &amp;&amp; req_method_in(&quot;GET&quot;)</code></pre>
     </div>
     
       <script src="../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "en", "clipboard.copy": "Copy to clipboard", "search.result.none": "No matching documents", "search.result.other": "# matching documents", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "Copied to clipboard", "search.result.one": "1 matching document"}</script>
+      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({

@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../../#mod_key_log" class="md-skip">
+        <a href="#mod_key_log" class="md-skip">
           Skip to content
         </a>
       
@@ -2825,21 +2825,22 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format</p>
 </tbody>
 </table>
 <h3 id="example">Example</h3>
-<pre class="codehilite"><code class="language-ini">[Log]
-# filename prefix for log 
-LogPrefix = key
+<div class="codehilite"><pre><span></span><code><span class="k">[Log]</span>
+<span class="c1"># filename prefix for log </span>
+<span class="na">LogPrefix</span> <span class="o">=</span> <span class="s">key</span>
 
-# log directory 
-LogDir = ../log
+<span class="c1"># log directory </span>
+<span class="na">LogDir</span> <span class="o">=</span> <span class="s">../log</span>
 
-# interval to rotate logs: M/H/D
-# - M: minute
-# - H: hour
-# - D: day
-RotateWhen = H 
+<span class="c1"># interval to rotate logs: M/H/D</span>
+<span class="c1"># - M: minute</span>
+<span class="c1"># - H: hour</span>
+<span class="c1"># - D: day</span>
+<span class="na">RotateWhen</span> <span class="o">=</span> <span class="s">H </span>
 
-# max number of rotated log files
-BackupCount = 3</code></pre>
+<span class="c1"># max number of rotated log files</span>
+<span class="na">BackupCount</span> <span class="o">=</span> <span class="s">3</span>
+</code></pre></div>
                 
               
               
@@ -2944,7 +2945,7 @@ BackupCount = 3</code></pre>
     </div>
     
       <script src="../../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "en", "clipboard.copy": "Copy to clipboard", "search.result.none": "No matching documents", "search.result.other": "# matching documents", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "Copied to clipboard", "search.result.one": "1 matching document"}</script>
+      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({

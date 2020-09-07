@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../#_1" class="md-skip">
+        <a href="#_1" class="md-skip">
           跳转至
         </a>
       
@@ -2762,41 +2762,45 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>Step 1. bfe启用mod_redirect模块 (conf/bfe.conf)</li>
 </ul>
-<pre class="codehilite"><code class="language-ini">Modules = mod_redirect  #启用mod_redirect</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="na">Modules</span> <span class="o">=</span> <span class="s">mod_redirect  #启用mod_redirect</span>
+</code></pre></div>
 
 
 <ul>
 <li>Step 2. 配置redirect规则文件的存储路径 (conf/mod_redirect/mod_redirect.conf)</li>
 </ul>
-<pre class="codehilite"><code class="language-ini">[Basic]
-DataPath = mod_redirect/redirect.data</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
+<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_redirect/redirect.data</span>
+</code></pre></div>
 
 
 <ul>
 <li>Step 3. 修改redirect规则文件 (conf/mod_redirect/redirect.data)
 将域名为example.org的所有http请求重定向为https请求</li>
 </ul>
-<pre class="codehilite"><code class="language-json">{
-    &quot;Version&quot;: &quot;init version&quot;,
-    &quot;Config&quot;: {
-        &quot;example_product&quot;: [{
-            &quot;Cond&quot;: &quot;!req_proto_secure() &amp;&amp; req_host_in(\&quot;example.org\&quot;)&quot;,
-            &quot;Actions&quot;: [{
-                &quot;Cmd&quot;: &quot;SCHEME_SET&quot;,
-                &quot;Params&quot;: [
-                    &quot;https&quot;
-                ]
-            }],
-            &quot;Status&quot;: 301
-        }]
-    }
-}</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[{</span>
+            <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;!req_proto_secure() &amp;&amp; req_host_in(\&quot;example.org\&quot;)&quot;</span><span class="p">,</span>
+            <span class="nt">&quot;Actions&quot;</span><span class="p">:</span> <span class="p">[{</span>
+                <span class="nt">&quot;Cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;SCHEME_SET&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Params&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="s2">&quot;https&quot;</span>
+                <span class="p">]</span>
+            <span class="p">}],</span>
+            <span class="nt">&quot;Status&quot;</span><span class="p">:</span> <span class="mi">301</span>
+        <span class="p">}]</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
 
 
 <ul>
 <li>Step 4. 验证置规则</li>
 </ul>
-<pre class="codehilite"><code class="language-bash">curl -H &quot;host: example.org&quot; &quot;http://127.1:8080/test&quot;</code></pre>
+<div class="codehilite"><pre><span></span><code>curl -H <span class="s2">&quot;host: example.org&quot;</span> <span class="s2">&quot;http://127.1:8080/test&quot;</span>
+</code></pre></div>
 
 
 <p>将返回301响应，响应Location头部为https://example.org/test</p>
@@ -2904,7 +2908,7 @@ DataPath = mod_redirect/redirect.data</code></pre>
     </div>
     
       <script src="../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "ja", "clipboard.copy": "\u590d\u5236", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "\u5df2\u590d\u5236", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
+      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
       
       <script>
         app = initialize({

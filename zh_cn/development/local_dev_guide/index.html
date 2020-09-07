@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../#_1" class="md-skip">
+        <a href="#_1" class="md-skip">
           跳转至
         </a>
       
@@ -2877,110 +2877,121 @@ RU5ErkJggg==" ></image>
 <p>跳转到<a href="https://github.com/bfenetworks/bfe">BFE</a> GitHub首页，然后单击 <code>Fork</code> 按钮，生成自己目录下的仓库，比如 <a href="https://github.com/USERNAME/bfe">https://github.com/USERNAME/bfe</a></p>
 <h2 id="clone">克隆（Clone）</h2>
 <p>将远程仓库 clone 到本地：</p>
-<pre class="codehilite"><code class="language-bash">$ git clone https://github.com/USERNAME/bfe
-$ cd bfe</code></pre>
+<div class="codehilite"><pre><span></span><code>$ git clone https://github.com/USERNAME/bfe
+$ <span class="nb">cd</span> bfe
+</code></pre></div>
 
 
 <h2 id="_3">创建本地分支</h2>
 <p>BFE目前使用<a href="http://nvie.com/posts/a-successful-git-branching-model/">Git流分支模型</a>进行开发、测试、发行和维护，具体请参考 <a href="../release_regulation/">BFE分支规范</a>。</p>
 <p>所有的 feature 和 bug fix 的开发工作都应该在一个新的分支上完成，一般从 <code>develop</code> 分支上创建新分支。</p>
 <p>使用 <code>git checkout -b</code> 创建并切换到新分支。</p>
-<pre class="codehilite"><code class="language-bash">$ git checkout -b my-cool-stuff</code></pre>
+<div class="codehilite"><pre><span></span><code>$ git checkout -b my-cool-stuff
+</code></pre></div>
 
 
 <p>值得注意的是，在 checkout 之前，需要保持当前分支目录 clean，否则会把 untracked 的文件也带到新分支上，这可以通过 <code>git status</code> 查看。</p>
 <h2 id="pre-commit">使用 <code>pre-commit</code> 钩子</h2>
 <p>BFE 开发人员使用 <a href="http://pre-commit.com/">pre-commit</a> 工具来管理 Git 预提交钩子。 它可以帮助我们格式化源代码，在提交（commit）前自动检查一些基本事宜（如每个文件只有一个 EOL，Git 中不要添加大文件等）。</p>
 <p><code>pre-commit</code>测试是 Travis-CI 中单元测试的一部分，不满足钩子的 PR 不能被提交到 BFE，首先安装并在当前目录运行它：</p>
-<pre class="codehilite"><code class="language-bash">$ pip install pre-commit
-$ pre-commit install</code></pre>
+<div class="codehilite"><pre><span></span><code>$ pip install pre-commit
+$ pre-commit install
+</code></pre></div>
 
 
 <p>BFE 使用 <code>gofmt</code> 来调整 golang源代码格式。</p>
 <h2 id="_4">开始开发</h2>
 <p>在本例中，我删除了 README.md 中的一行，并创建了一个新文件。</p>
 <p>通过 <code>git status</code> 查看当前状态，这会提示当前目录的一些变化，同时也可以通过 <code>git diff</code> 查看文件具体被修改的内容。</p>
-<pre class="codehilite"><code class="language-bash">$ git status
-On branch test
-Changes not staged for commit:
-  (use &quot;git add &lt;file&gt;...&quot; to update what will be committed)
-  (use &quot;git checkout -- &lt;file&gt;...&quot; to discard changes in working directory)
+<div class="codehilite"><pre><span></span><code>$ git status
+On branch <span class="nb">test</span>
+Changes not staged <span class="k">for</span> commit:
+  <span class="o">(</span>use <span class="s2">&quot;git add &lt;file&gt;...&quot;</span> to update what will be committed<span class="o">)</span>
+  <span class="o">(</span>use <span class="s2">&quot;git checkout -- &lt;file&gt;...&quot;</span> to discard changes in working directory<span class="o">)</span>
 
     modified:   README.md
 
 Untracked files:
-  (use &quot;git add &lt;file&gt;...&quot; to include in what will be committed)
+  <span class="o">(</span>use <span class="s2">&quot;git add &lt;file&gt;...&quot;</span> to include in what will be committed<span class="o">)</span>
 
-    test
+    <span class="nb">test</span>
 
-no changes added to commit (use &quot;git add&quot; and/or &quot;git commit -a&quot;)</code></pre>
+no changes added to commit <span class="o">(</span>use <span class="s2">&quot;git add&quot;</span> and/or <span class="s2">&quot;git commit -a&quot;</span><span class="o">)</span>
+</code></pre></div>
 
 
 <h2 id="_5">构建和测试</h2>
 <p>从源码编译BFE及测试，请参见<a href="../../installation/install_from_source/">编译及安装BFE</a></p>
 <h2 id="commit">提交（commit）</h2>
 <p>接下来我们取消对 README.md 文件的改变，然后提交新添加的 test 文件。</p>
-<pre class="codehilite"><code class="language-bash">$ git checkout -- README.md
+<div class="codehilite"><pre><span></span><code>$ git checkout -- README.md
 $ git status
-On branch test
+On branch <span class="nb">test</span>
 Untracked files:
-  (use &quot;git add &lt;file&gt;...&quot; to include in what will be committed)
+  <span class="o">(</span>use <span class="s2">&quot;git add &lt;file&gt;...&quot;</span> to include in what will be committed<span class="o">)</span>
 
-    test
+    <span class="nb">test</span>
 
-nothing added to commit but untracked files present (use &quot;git add&quot; to track)
-$ git add test</code></pre>
+nothing added to commit but untracked files present <span class="o">(</span>use <span class="s2">&quot;git add&quot;</span> to track<span class="o">)</span>
+$ git add <span class="nb">test</span>
+</code></pre></div>
 
 
 <p>Git 每次提交代码，都需要写提交说明，这可以让其他人知道这次提交做了哪些改变，这可以通过<code>git commit</code> 完成。</p>
-<pre class="codehilite"><code class="language-bash">$ git commit
-CRLF end-lines remover...............................(no files to check)Skipped
-yapf.................................................(no files to check)Skipped
-Check for added large files..............................................Passed
-Check for merge conflicts................................................Passed
-Check for broken symlinks................................................Passed
-Detect Private Key...................................(no files to check)Skipped
-Fix End of Files.....................................(no files to check)Skipped
-clang-formater.......................................(no files to check)Skipped
-[my-cool-stuff c703c041] add test file
- 1 file changed, 0 insertions(+), 0 deletions(-)
- create mode 100644 233</code></pre>
+<div class="codehilite"><pre><span></span><code>$ git commit
+CRLF end-lines remover...............................<span class="o">(</span>no files to check<span class="o">)</span>Skipped
+yapf.................................................<span class="o">(</span>no files to check<span class="o">)</span>Skipped
+Check <span class="k">for</span> added large files..............................................Passed
+Check <span class="k">for</span> merge conflicts................................................Passed
+Check <span class="k">for</span> broken symlinks................................................Passed
+Detect Private Key...................................<span class="o">(</span>no files to check<span class="o">)</span>Skipped
+Fix End of Files.....................................<span class="o">(</span>no files to check<span class="o">)</span>Skipped
+clang-formater.......................................<span class="o">(</span>no files to check<span class="o">)</span>Skipped
+<span class="o">[</span>my-cool-stuff c703c041<span class="o">]</span> add <span class="nb">test</span> file
+ <span class="m">1</span> file changed, <span class="m">0</span> insertions<span class="o">(</span>+<span class="o">)</span>, <span class="m">0</span> deletions<span class="o">(</span>-<span class="o">)</span>
+ create mode <span class="m">100644</span> <span class="m">233</span>
+</code></pre></div>
 
 
 <p><b> <font color="red">需要注意的是：您需要在commit中添加说明（commit message）以触发CI单测，写法如下：</font> </b></p>
-<pre class="codehilite"><code class="language-bash"># 触发develop分支的CI单测
-$ git commit -m &quot;test=develop&quot;
+<div class="codehilite"><pre><span></span><code><span class="c1"># 触发develop分支的CI单测</span>
+$ git commit -m <span class="s2">&quot;test=develop&quot;</span>
 
-# 触发release/1.1分支的CI单侧
-$ git commit -m &quot;test=release/1.1&quot;</code></pre>
+<span class="c1"># 触发release/1.1分支的CI单侧</span>
+$ git commit -m <span class="s2">&quot;test=release/1.1&quot;</span>
+</code></pre></div>
 
 
 <h2 id="_6">保持本地仓库最新</h2>
 <p>在准备发起 Pull Request 之前，需要同步原仓库（<a href="https://github.com/bfenetworks/bfe">https://github.com/bfenetworks/bfe</a>）最新的代码。</p>
 <p>首先通过 <code>git remote</code> 查看当前远程仓库的名字</p>
-<pre class="codehilite"><code class="language-bash">$ git remote
+<div class="codehilite"><pre><span></span><code>$ git remote
 origin
 $ git remote -v
-origin  https://github.com/USERNAME/bfe (fetch)
-origin  https://github.com/USERNAME/bfe (push)</code></pre>
+origin  https://github.com/USERNAME/bfe <span class="o">(</span>fetch<span class="o">)</span>
+origin  https://github.com/USERNAME/bfe <span class="o">(</span>push<span class="o">)</span>
+</code></pre></div>
 
 
 <p>这里 origin 是我们 clone 的远程仓库的名字，也就是自己用户名下的 BFE，接下来我们创建一个原始 BFE 仓库的远程主机，命名为 upstream。</p>
-<pre class="codehilite"><code class="language-bash">$ git remote add upstream https://github.com/bfenetworks/bfe
+<div class="codehilite"><pre><span></span><code>$ git remote add upstream https://github.com/bfenetworks/bfe
 $ git remote
 origin
-upstream</code></pre>
+upstream
+</code></pre></div>
 
 
 <p>获取 upstream 的最新代码并更新当前分支。</p>
-<pre class="codehilite"><code class="language-bash">$ git fetch upstream
-$ git pull upstream develop</code></pre>
+<div class="codehilite"><pre><span></span><code>$ git fetch upstream
+$ git pull upstream develop
+</code></pre></div>
 
 
 <h2 id="push">Push 到远程仓库</h2>
 <p>将本地的修改推送到 GitHub 上，也就是 https://github.com/USERNAME/bfe</p>
-<pre class="codehilite"><code class="language-bash"># 推送到远程仓库 origin 的 my-cool-stuff 分支上
-$ git push origin my-cool-stuff</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 推送到远程仓库 origin 的 my-cool-stuff 分支上</span>
+$ git push origin my-cool-stuff
+</code></pre></div>
                 
               
               
@@ -3085,7 +3096,7 @@ $ git push origin my-cool-stuff</code></pre>
     </div>
     
       <script src="../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "ja", "clipboard.copy": "\u590d\u5236", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "\u5df2\u590d\u5236", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
+      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
       
       <script>
         app = initialize({

@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../../#mod_compress" class="md-skip">
+        <a href="#mod_compress" class="md-skip">
           Skip to content
         </a>
       
@@ -2882,11 +2882,12 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="example">Example</h3>
-<pre class="codehilite"><code class="language-ini">[Basic]
-DataPath = mod_compress/compress_rule.data
+<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
+<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_compress/compress_rule.data</span>
 
-[Log]
-OpenDebug = false</code></pre>
+<span class="k">[Log]</span>
+<span class="na">OpenDebug</span> <span class="o">=</span> <span class="s">false</span>
+</code></pre></div>
 
 
 <h2 id="rule-configuration">Rule Configuration</h2>
@@ -2961,21 +2962,22 @@ OpenDebug = false</code></pre>
 </tbody>
 </table>
 <h3 id="example_1">Example</h3>
-<pre class="codehilite"><code class="language-json">{
-    &quot;Config&quot;: {
-        &quot;example_product&quot;: [
-            {
-                &quot;Cond&quot;: &quot;req_host_in(\&quot;www.example.org\&quot;)&quot;,
-                &quot;Action&quot;: {
-                    &quot;Cmd&quot;: &quot;GZIP&quot;,
-                    &quot;Quality&quot;: 9,
-                    &quot;FlushSize&quot;: 512
-                }
-            }
-        ]
-    },
-    &quot;Version&quot;: &quot;20190101000000&quot;
-}</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_host_in(\&quot;www.example.org\&quot;)&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Action&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="nt">&quot;Cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;GZIP&quot;</span><span class="p">,</span>
+                    <span class="nt">&quot;Quality&quot;</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span>
+                    <span class="nt">&quot;FlushSize&quot;</span><span class="p">:</span> <span class="mi">512</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">]</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span>
+<span class="p">}</span>
+</code></pre></div>
                 
               
               
@@ -3080,7 +3082,7 @@ OpenDebug = false</code></pre>
     </div>
     
       <script src="../../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "en", "clipboard.copy": "Copy to clipboard", "search.result.none": "No matching documents", "search.result.other": "# matching documents", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "Copied to clipboard", "search.result.one": "1 matching document"}</script>
+      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({
