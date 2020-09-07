@@ -8,6 +8,7 @@
 | Chao Wang | Corey-Wang |
 | Chengjin Wu | ChengjinWu |
 | Chongmiao Liu | lcmmhcc |
+| Chunlin An | Adolph-An |
 | Daniel Sutton | ducksecops |
 | Dechuang Gu | hellogdc |
 | Derek Zheng | shanhuhai5739 |
@@ -59,7 +60,10 @@
 | Zhankang Han | leceshide |
 |          | 0xflotus |
 |          | calify |
+|          | Gii16 |
 |          | MoonShining |
 |          | odidev |
+|          | pirDOL |
+|          | tianlan2011 |
 |          | u5surf |
 |          | xiaocongwjb |
