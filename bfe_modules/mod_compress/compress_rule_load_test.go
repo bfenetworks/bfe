@@ -18,7 +18,7 @@ import (
 	"testing"
 )
 
-func TestProductRuleConfLoad_1(t *testing.T) {
+func TestProductRuleConfLoadCorrect(t *testing.T) {
 	config, err := ProductRuleConfLoad("./testdata/mod_compress/compress_rule.data")
 	if err != nil {
 		t.Errorf("ProductRuleConfLoad() error: %v", err)
@@ -30,7 +30,7 @@ func TestProductRuleConfLoad_1(t *testing.T) {
 	}
 }
 
-func TestProductRuleConfLoad_2(t *testing.T) {
+func TestProductRuleConfLoadCmdError(t *testing.T) {
 	_, err := ProductRuleConfLoad("./testdata/mod_compress/compress_rule.data.cmd_error")
 	if err == nil ||
 		err.Error() != "Config: ProductRules: unittest, compressRule: 0, invalid cmd: ERR_COMPRESS" {
