@@ -330,8 +330,11 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 		request.Backend.BackendPort = uint32(backend.Port)
 
 		if err == nil {
-			// succeed in invoking backend
-			backend.OnSuccess()
+			if checkBackendStatus(cluster.OutlierDetectionLevel(), res.StatusCode) {
+				backend.OnFail(cluster.Name)
+			} else {
+				backend.OnSuccess()
+			}
 
 			// clear err msg in req.
 			// this step is required, if finally succeed after retry
@@ -864,4 +867,8 @@ func checkRequestWithoutBody(req *bfe_http.Request) bool {
 		return body.Eof()
 	}
 	return false
+}
+
+func checkBackendStatus(outlierDetectionLevel int, statusCode int) bool {
+	return outlierDetectionLevel == cluster_conf.OutlierDetection5XX && statusCode/100 == 5
 }
