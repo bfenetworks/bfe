@@ -182,3 +182,28 @@ func (req *Request) SetContext(key, val interface{}) {
 func (req *Request) GetContext(key interface{}) interface{} {
 	return req.Context[key]
 }
+
+func (r *Request) SetVar(key string, val interface{}) {
+	v := r.GetContext(BfeVarsKey)
+	if v == nil {
+		v = make(map[string]interface{})
+	}
+	vars, ok := v.(map[string]interface{})
+	if !ok {
+		vars = make(map[string]interface{})
+	}
+	vars[key] = val
+	r.SetContext(BfeVarsKey, vars)
+}
+
+func (r *Request) GetVar(key string) interface{} {
+	v := r.GetContext(BfeVarsKey)
+	if v == nil {
+		return nil
+	}
+	vars, ok := v.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	return vars[key]
+}

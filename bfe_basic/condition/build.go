@@ -503,6 +503,28 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			fetcher: &ClientCANameFetcher{},
 			matcher: NewInMatcher(node.Args[0].Value, false),
 		}, nil
+	case "req_path_with_vars_in":
+		matcher, err := NewPathVariableMatcher(node.Args[0].Value, false)
+		if err != nil {
+			return nil, err
+		}
+		return &VariableCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &PathFetcher{},
+			matcher: matcher,
+		}, nil
+	case "req_path_with_vars_prefix_in":
+		matcher, err := NewPathVariableMatcher(node.Args[0].Value, true)
+		if err != nil {
+			return nil, err
+		}
+		return &VariableCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &PathFetcher{},
+			matcher: matcher,
+		}, nil
 	case "req_context_value_in":
 		return &PrimitiveCond{
 			name:    node.Fun.Name,
