@@ -16,6 +16,7 @@
 | Hao Dong | anotherwriter |
 | Haobin zhang | zhanghaobin |
 | Hui Yu | dblate |
+| Gen Wang | gracewang510 |
 | Jie Liu | freeHackOfJeff |
 | Jie Wan | wanjiecs |
 | Jin Tong | cumirror |
@@ -50,6 +51,7 @@
 | Xiaonan chen | two |
 | Xiaoye Jiang | kidleaf-jiang |
 | Xin Li | lx-or-xxxl |
+| Yang Guo | Marswin |
 | Yang Liu | dut-yangliu |
 | Yusheng Sun | wodedipanr |
 | Yuan Liu | lewisay |
