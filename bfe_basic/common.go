@@ -29,6 +29,10 @@ const (
 	HeaderRealPort      = "X-Real-Port"
 )
 
+const (
+	BfeVarsKey = "bfe-vars-key"
+)
+
 type OperationStage int
 
 const (
