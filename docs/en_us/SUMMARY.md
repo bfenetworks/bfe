@@ -18,6 +18,7 @@
     * [Traffic blocking](example/block.md)
     * [Request redirect](example/redirect.md)
     * [Request rewrite](example/rewrite.md)
+    * [FastCGI procotol](example/fastcgi.md)
     * [TLS mutual authentication](example/client_auth.md)
 * [Installation](installation/install.md)
   * [Install from source](installation/install_from_source.md)
