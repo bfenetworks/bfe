@@ -444,11 +444,11 @@ func NewFramer(w io.Writer, r io.Reader) *Framer {
 // that will be read by a subsequent call to ReadFrame.
 // It is the caller's responsibility to advertise this
 // limit with a SETTINGS frame.
-func (fr *Framer) SetMaxReadFrameSize(v uint32) {
+func (f *Framer) SetMaxReadFrameSize(v uint32) {
 	if v > maxFrameSize {
 		v = maxFrameSize
 	}
-	fr.maxReadSize = v
+	f.maxReadSize = v
 }
 
 // ErrorDetail returns a more detailed error of the last error
@@ -458,8 +458,8 @@ func (fr *Framer) SetMaxReadFrameSize(v uint32) {
 // to return a non-nil value and like the rest of the http2 package,
 // its return value is not protected by an API compatibility promise.
 // ErrorDetail is reset after the next call to ReadFrame.
-func (fr *Framer) ErrorDetail() error {
-	return fr.errDetail
+func (f *Framer) ErrorDetail() error {
+	return f.errDetail
 }
 
 // ErrFrameTooLarge is returned from Framer.ReadFrame when the peer
