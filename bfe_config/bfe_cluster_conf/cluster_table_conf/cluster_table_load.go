@@ -162,9 +162,9 @@ func (conf *AllClusterBackend) Check() error {
 	return AllClusterBackendCheck(conf)
 }
 
-func (sub *SubClusterBackend) Check() error {
+func (s *SubClusterBackend) Check() error {
 	availBackend := false
-	for index, backendConf := range *sub {
+	for index, backendConf := range *s {
 		err := BackendConfCheck(backendConf)
 
 		if err != nil {
