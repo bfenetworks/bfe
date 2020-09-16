@@ -161,24 +161,24 @@ func (req *Request) Protocol() string {
 	return req.HttpRequest.Proto
 }
 
-func (r *Request) AddTags(name string, ntags []string) {
+func (req *Request) AddTags(name string, ntags []string) {
 	if len(ntags) == 0 {
 		return
 	}
 
-	tags := r.Tags.TagTable[name]
+	tags := req.Tags.TagTable[name]
 	tags = append(tags, ntags...)
-	r.Tags.TagTable[name] = tags
+	req.Tags.TagTable[name] = tags
 }
 
-func (r *Request) GetTags(name string) []string {
-	return r.Tags.TagTable[name]
+func (req *Request) GetTags(name string) []string {
+	return req.Tags.TagTable[name]
 }
 
-func (r *Request) SetContext(key, val interface{}) {
-	r.Context[key] = val
+func (req *Request) SetContext(key, val interface{}) {
+	req.Context[key] = val
 }
 
-func (r *Request) GetContext(key interface{}) interface{} {
-	return r.Context[key]
+func (req *Request) GetContext(key interface{}) interface{} {
+	return req.Context[key]
 }
