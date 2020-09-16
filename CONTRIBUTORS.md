@@ -24,6 +24,7 @@
 | Kaiyu Zheng | kaiyuzheng | 
 | Lidong Chang | changlidong68 |
 | Lihua Chen | clh651188968 |
+| Liujia Wei | weiliujia |
 | Limei Xiao | limeix |
 | Lei Zhang | deancn |
 | Lu Guo | guolu60 |
@@ -42,6 +43,7 @@
 | Shuai Yan | yanshuai615270 |
 | Sijie Yang | iyangsj |
 | Tianqi Zhang | NKztq |
+| Weijie Zhao | zwj13513118235 |
 | Weiqiang Zheng | wrayzheng |
 | Wenjie Tian | WJTian |
 | Wenlong Chen | LeroChen |
