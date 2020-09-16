@@ -926,3 +926,15 @@ func (fetcher *ClientCANameFetcher) Fetch(req *bfe_basic.Request) (interface{}, 
 
 	return req.Session.TlsState.ClientCAName, nil
 }
+
+type ContextValueFetcher struct {
+	key string
+}
+
+func (f *ContextValueFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
+	if req == nil || req.HttpRequest == nil || req.Context == nil || f.key == "" {
+		return nil, fmt.Errorf("fetcher: nil pointer")
+	}
+
+	return req.GetContext(f.key), nil
+}
