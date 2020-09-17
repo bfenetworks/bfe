@@ -525,6 +525,13 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			fetcher: &PathFetcher{},
 			matcher: matcher,
 		}, nil
+	case "req_context_value_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &ContextValueFetcher{node.Args[0].Value},
+			matcher: NewInMatcher(node.Args[1].Value, false),
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported primitive %s", node.Fun.Name)
 	}
