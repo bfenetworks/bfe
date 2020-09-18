@@ -191,14 +191,14 @@ func TestRecordAccess(t *testing.T) {
 	// meet threshod, should be zero
 	rule.recordAccess(sign)
 
-	value, ok = rule.accessDict.Get(sign)
+	_, ok = rule.accessDict.Get(sign)
 	if ok {
 		t.Errorf("access counter should be deleted")
 		return
 	}
 
 	// should get failed
-	value, ok = rule.accessDict.Get(AccessSign(md5.Sum([]byte("1234"))))
+	_, ok = rule.accessDict.Get(AccessSign(md5.Sum([]byte("1234"))))
 	if ok {
 		t.Error("should get failed")
 		return
