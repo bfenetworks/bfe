@@ -59,10 +59,10 @@ func (t *SignalTable) handle(sig os.Signal) {
 }
 
 // signalHandle is the signal handle loop
-func (table *SignalTable) signalHandle() {
+func (t *SignalTable) signalHandle() {
 
 	var sigs []os.Signal
-	for sig := range table.shs {
+	for sig := range t.shs {
 		sigs = append(sigs, sig)
 	}
 
@@ -71,7 +71,7 @@ func (table *SignalTable) signalHandle() {
 
 	for {
 		sig := <-c
-		table.handle(sig)
+		t.handle(sig)
 	}
 }
 
