@@ -19,7 +19,7 @@ import (
 	"testing"
 )
 
-func TestConfModGeoCase1(t *testing.T) {
+func TestConfModGeo(t *testing.T) {
 	config, err := ConfLoad("./test_data/mod_geo/mod_geo.conf", "")
 	if err != nil {
 		msg := fmt.Sprintf("confModGeoLoad():err=%s", err.Error())
@@ -32,8 +32,8 @@ func TestConfModGeoCase1(t *testing.T) {
 	}
 }
 
-func TestConfModGeoCase2(t *testing.T) {
-	config, err := ConfLoad("./test_data/mod_geo/mod_geo1.conf", "")
+func TestConfModGeoDefaultPath(t *testing.T) {
+	config, err := ConfLoad("./test_data/mod_geo/mod_geo.conf.default_path", "")
 	if err != nil {
 		msg := fmt.Sprintf("confModGeoLoad():err=%s", err.Error())
 		t.Error(msg)
