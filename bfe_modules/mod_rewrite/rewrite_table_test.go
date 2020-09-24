@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import (
 	"testing"
 )
 
-func TestReWriteTableSearch_1(t *testing.T) {
+func TestReWriteTableSearch(t *testing.T) {
 	config, err := ReWriteConfLoad("./testdata/rewrite_1.conf")
 	if err != nil {
 		t.Errorf("get err from ReWriteConfLoad():%s", err.Error())

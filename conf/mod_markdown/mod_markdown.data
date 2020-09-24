@@ -1,0 +1,10 @@
+{
+	"Version": "mod_markdown_version",
+	"Config": {
+		"example": [
+			{
+				"Cond": "req_path_in(\".md\", false)"
+			}
+	]
+	}
+}

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ func (m *ModuleRedirect) redirectHandler(request *bfe_basic.Request) (int, *bfe_
 
 	if ok {
 		if openDebug {
-			log.Logger.Debug("%s:before:host=%s, path=%s, query=%s, rules=",
+			log.Logger.Debug("%s:before:host=%s, path=%s, query=%s, rules=%v",
 				m.name,
 				request.HttpRequest.Host, request.HttpRequest.URL.Path,
 				request.HttpRequest.URL.RawQuery, rules)

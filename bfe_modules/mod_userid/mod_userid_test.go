@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,10 +24,10 @@ import (
 )
 
 import (
+	"github.com/baidu/go-lib/web-monitor/web_monitor"
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
-	"github.com/baidu/go-lib/web-monitor/web_monitor"
 )
 
 func TestModuleUserIDName(t *testing.T) {

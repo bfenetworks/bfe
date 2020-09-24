@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -183,7 +183,7 @@ func parseHexUint(v []byte) (n uint64, err error) {
 		n <<= 4
 		switch {
 		case '0' <= b && b <= '9':
-			b = b - '0'
+			b -= '0'
 		case 'a' <= b && b <= 'f':
 			b = b - 'a' + 10
 		case 'A' <= b && b <= 'F':

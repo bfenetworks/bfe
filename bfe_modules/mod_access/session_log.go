@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ func onLogFmtSesErrorCode(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buff
 		return errors.New("session is nil")
 	}
 
-	errCode, errMsg := session.GetError()
+	errMsg, errCode := session.GetError()
 	msg := buildErrorMsg(errCode, errMsg)
 	buff.WriteString(msg)
 

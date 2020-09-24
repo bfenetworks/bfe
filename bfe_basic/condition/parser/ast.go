@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -138,7 +138,6 @@ func (b BasicLitList) End() token.Pos {
 	return b[len(b)].End()
 }
 
-//TODO: not accurate
 func (p ParenExpr) Pos() token.Pos {
 	return p.X.Pos()
 }
@@ -147,7 +146,6 @@ func (p ParenExpr) End() token.Pos {
 	return p.X.End()
 }
 
-// calller should check its Kind
 func (b *BasicLit) ToBool() bool {
 	if b.Kind != BOOL {
 		return false

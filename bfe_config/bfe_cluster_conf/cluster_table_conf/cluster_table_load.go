@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +19,15 @@ package cluster_table_conf
 import (
 	"errors"
 	"fmt"
-	json "github.com/pquerna/ffjson/ffjson"
 	"io/ioutil"
 	"math/rand"
 	"os"
 	"reflect"
 	"sort"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // BackendConf is conf of backend
@@ -159,9 +162,9 @@ func (conf *AllClusterBackend) Check() error {
 	return AllClusterBackendCheck(conf)
 }
 
-func (sub *SubClusterBackend) Check() error {
+func (s *SubClusterBackend) Check() error {
 	availBackend := false
-	for index, backendConf := range *sub {
+	for index, backendConf := range *s {
 		err := BackendConfCheck(backendConf)
 
 		if err != nil {
@@ -222,9 +225,9 @@ func ClusterTableLoad(filename string) (ClusterTableConf, error) {
 	}
 
 	/* decode the file  */
-	decoder := json.NewDecoder()
+	decoder := json.NewDecoder(file)
 
-	err2 := decoder.DecodeReader(file, &config)
+	err2 := decoder.Decode(&config)
 	file.Close()
 
 	if err2 != nil {

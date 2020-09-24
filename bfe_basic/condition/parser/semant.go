@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -74,6 +74,7 @@ var funcProtos = map[string][]Token{
 	"ses_tls_sni_in":             {STRING},
 	"ses_tls_client_auth":        nil,
 	"ses_tls_client_ca_in":       {STRING},
+	"req_context_value_in":       {STRING, STRING},
 }
 
 func prototypeCheck(expr *CallExpr) error {

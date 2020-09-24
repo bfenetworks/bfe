@@ -11,7 +11,7 @@ mod_block基于自定义的规则，对连接或请求进行封禁。
 | 配置项  | 描述                                                           |
 | ------- | -------------------------------------------------------------- |
 | Basic.ProductRulePath | String<br>封禁规则文件路径 |
-| Basic.IPBlacklistPath | String<br>全局IP黑名单文件路径 |
+| Basic.IPBlocklistPath | String<br>全局IP黑名单文件路径 |
 
 * 全局IP黑名单文件说明：
   * 可以配置单独的 IP，也可配置起始 IP
@@ -28,8 +28,8 @@ mod_block基于自定义的规则，对连接或请求进行封禁。
 # product rule config file path
 ProductRulePath = mod_block/block_rules.data
   
-# global ip blacklist file path
-IPBlacklistPath = mod_block/ip_blacklist.data
+# global ip blocklist file path
+IPBlocklistPath = mod_block/ip_blocklist.data
 ```
 
 ## 规则配置

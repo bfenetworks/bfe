@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@ import (
 	"testing"
 )
 
-func Test_conf_mod_redirect_case1(t *testing.T) {
-	config, err := ConfLoad("./testdata/conf_mod_redirect/bfe_1.conf", "")
+func TestConfLoad(t *testing.T) {
+	config, err := ConfLoad("./testdata/conf_mod_redirect/mod_redirect.conf", "")
 	if err != nil {
 		t.Errorf("confModRedirectLoad():err=%s", err.Error())
 		return
@@ -31,9 +31,9 @@ func Test_conf_mod_redirect_case1(t *testing.T) {
 }
 
 /* load config from config file    */
-func Test_conf_mod_redirect_case2(t *testing.T) {
+func TestConfLoadDefaultDataPath(t *testing.T) {
 	// illegal value
-	config, _ := ConfLoad("./testdata/conf_mod_redirect/bfe_2.conf", "/home/bfe/conf")
+	config, _ := ConfLoad("./testdata/conf_mod_redirect/mod_redirect.conf.default_data_path", "/home/bfe/conf")
 
 	// use default value
 	if config.Basic.DataPath != "/home/bfe/conf/mod_redirect/redirect.data" {

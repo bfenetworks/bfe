@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -128,6 +128,9 @@ func (m *ModuleUserID) reqSetUid(request *bfe_basic.Request) (int, *bfe_http.Res
 	}
 
 	productRules := conf.FindProductRules(request.Route.Product)
+	if len(productRules) == 0 {
+		productRules = conf.FindProductRules(bfe_basic.GlobalProduct)
+	}
 	for _, rule := range productRules {
 		if !rule.Cond.Match(request) {
 			continue
@@ -142,6 +145,7 @@ func (m *ModuleUserID) reqSetUid(request *bfe_basic.Request) (int, *bfe_http.Res
 			Name:    params.Name,
 			Value:   genUid(),
 			Path:    params.Path,
+			Domain:  params.Domain,
 			Expires: time.Now().Add(params.MaxAge),
 			MaxAge:  int(params.MaxAge.Seconds()),
 		}

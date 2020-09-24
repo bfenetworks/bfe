@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -111,6 +111,14 @@ func (cluster *BfeCluster) RetryLevel() int {
 		return cluster_conf.RetryConnect
 	}
 	return *retryLevel
+}
+
+func (cluster *BfeCluster) OutlierDetectionLevel() int {
+	cluster.RLock()
+	outlierDetectionLevel := cluster.backendConf.OutlierDetectionLevel
+	cluster.RUnlock()
+
+	return *outlierDetectionLevel
 }
 
 func (cluster *BfeCluster) TimeoutReadClient() time.Duration {

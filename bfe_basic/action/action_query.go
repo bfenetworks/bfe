@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -82,7 +82,7 @@ func ReqQueryAdd(req *bfe_basic.Request, params []string) {
 		// if RawQuery is empty, remove prefix "&"
 		req.HttpRequest.URL.RawQuery = addQueryString[1:]
 	} else {
-		req.HttpRequest.URL.RawQuery = req.HttpRequest.URL.RawQuery + addQueryString
+		req.HttpRequest.URL.RawQuery += addQueryString
 	}
 }
 

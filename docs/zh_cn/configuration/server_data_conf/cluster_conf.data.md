@@ -23,10 +23,14 @@ cluster_conf.data为集群转发配置文件。
 
 | 配置项                        | 描述                                                         |
 | ----------------------------- | ------------------------------------------------------------ |
-| Backend.TimeoutConnSrv        | Integer<br>连接后端的超时时间，单位是毫秒<br>默认值2 |
-| Backend.TimeoutResponseHeader | Integer<br>从后端读响应头的超时时间，单位是毫秒<br>默认值60 |
-| Backend.MaxIdleConnsPerHost   | Integer<br>BFE实例与每个后端的最大空闲长连接数<br>默认值2 |
-| Backend.RetryLevel            | Integer<br>请求重试级别。0：连接后端失败时，进行重试；1：连接后端失败、转发GET请求失败时均进行重试<br>默认值0 |
+| BackendConf.Protocol              | String<br>后端服务的协议，当前支持http和fcgi, 默认值http |
+| BackendConf.TimeoutConnSrv        | Integer<br>连接后端的超时时间，单位是毫秒<br>默认值2 |
+| BackendConf.TimeoutResponseHeader | Integer<br>从后端读响应头的超时时间，单位是毫秒<br>默认值60 |
+| BackendConf.MaxIdleConnsPerHost   | Integer<br>BFE实例与每个后端的最大空闲长连接数<br>默认值2 |
+| BackendConf.RetryLevel            | Integer<br>请求重试级别。0：连接后端失败时，进行重试；1：连接后端失败、转发GET请求失败时均进行重试<br>默认值0 |
+| BackendConf.FCGIConf              | Object<br>FastCGI 协议的配置                              |
+| BackendConf.FCGIConf.Root         | String<br>网站的Root文件夹位置                            |
+| BackendConf.FCGIConf.EnvVars      | Map[string]string<br>拓展的环境变量                       |
 
 #### 健康检查配置
 
@@ -95,6 +99,47 @@ cluster_conf.data为集群转发配置文件。
                 "TimeoutReadClient": 30000,
                 "TimeoutWriteClient": 60000,
                 "TimeoutReadClientAgain": 30000,
+            }
+        },
+        "fcgi_cluster_example": {
+            "BackendConf": {
+                "Protocol": "fcgi",
+                "TimeoutConnSrv": 2000,
+                "TimeoutResponseHeader": 50000,
+                "MaxIdleConnsPerHost": 0,
+                "RetryLevel": 0,
+                "FCGIConf": {
+                    "Root": "/home/work",
+                    "EnvVars": {
+                        "VarKey": "VarVal"
+                    }    
+                }
+            },
+            "CheckConf": {
+                "Schem": "http",
+                "Uri": "/healthcheck",
+                "Host": "example.org",
+                "StatusCode": 200,
+                "FailNum": 10,
+                "CheckInterval": 1000
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 2,
+                "HashConf": {
+                    "HashStrategy": 0,
+                    "HashHeader": "Cookie:UID",
+                    "SessionSticky": false
+                }
+            },
+            "ClusterBasic": {
+                "TimeoutReadClient": 30000,
+                "TimeoutWriteClient": 60000,
+                "TimeoutReadClientAgain": 30000,
+                "ReqWriteBufferSize": 512,
+                "ReqFlushInterval": 0,
+                "ResFlushInterval": -1,
+                "CancelOnClientClose": false
             }
         }
     }

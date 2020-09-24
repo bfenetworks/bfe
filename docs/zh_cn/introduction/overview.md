@@ -2,7 +2,7 @@
 
 ## BFE是什么
 
-BFE是基于百度统一接入前端(Baidu FrontEnd)开源的七层流量接入系统。
+BFE是基于百度统一接入前端开源的七层流量接入系统。
 
 
 ## 功能特性及优点
@@ -21,7 +21,7 @@ BFE是基于百度统一接入前端(Baidu FrontEnd)开源的七层流量接入�
 
 * 支持丰富的接入协议
 
-支持HTTP，HTTPS，SPDY，HTTP/2，WebSocket，TLS等。未来计划支持gRPC, HTTP/3。
+支持HTTP，HTTPS，SPDY，HTTP/2，WebSocket，TLS, FastCGI等。未来计划支持gRPC, HTTP/3。
 
 * 基于请求内容路由
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -88,7 +88,7 @@ func (h Header) Clone() Header {
 	return h2
 }
 
-// get all keys of header
+// Keys get all keys from header
 func (h Header) Keys() []string {
 	keys := make([]string, 0)
 	for key := range h {

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package tls_rule_conf
 import (
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -36,6 +35,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/server_cert_conf"
 	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // Notes about `NextProtos`:
@@ -507,7 +507,7 @@ func getCientCRL(clientCRLDir, clientCAName string) ([]*pkix.CertificateList, er
 
 func ClientCRLLoad(clientCAMap map[string]*x509.CertPool, clientCRLDir string) (map[string]*bfe_tls.CRLPool, error) {
 	clientCRLPoolMap := make(map[string]*bfe_tls.CRLPool)
-	for clientCAName, _ := range clientCAMap {
+	for clientCAName := range clientCAMap {
 		crls, err := getCientCRL(clientCRLDir, clientCAName)
 		if err != nil {
 			return nil, err

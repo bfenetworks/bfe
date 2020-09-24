@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -191,14 +191,14 @@ func TestRecordAccess(t *testing.T) {
 	// meet threshod, should be zero
 	rule.recordAccess(sign)
 
-	value, ok = rule.accessDict.Get(sign)
+	_, ok = rule.accessDict.Get(sign)
 	if ok {
 		t.Errorf("access counter should be deleted")
 		return
 	}
 
 	// should get failed
-	value, ok = rule.accessDict.Get(AccessSign(md5.Sum([]byte("1234"))))
+	_, ok = rule.accessDict.Get(AccessSign(md5.Sum([]byte("1234"))))
 	if ok {
 		t.Error("should get failed")
 		return

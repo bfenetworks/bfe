@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1086,11 +1086,8 @@ func (m *nextProtoMsg) unmarshal(data []byte) bool {
 	}
 	paddingLen := int(data[0])
 	data = data[1:]
-	if len(data) != paddingLen {
-		return false
-	}
 
-	return true
+	return len(data) == paddingLen
 }
 
 type certificateRequestMsg struct {
@@ -1245,11 +1242,8 @@ func (m *certificateRequestMsg) unmarshal(data []byte) bool {
 		m.certificateAuthorities = append(m.certificateAuthorities, cas[:caLen])
 		cas = cas[caLen:]
 	}
-	if len(data) > 0 {
-		return false
-	}
 
-	return true
+	return len(data) <= 0
 }
 
 type certificateVerifyMsg struct {

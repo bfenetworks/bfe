@@ -26,7 +26,7 @@ mod_block的代码位于[/bfe_modules/mod_block](https://github.com/bfenetworks/
 - 可动态加载的配置：在BFE程序启动的时候加载，在BFE运行过程中也可以动态加载
     + 对每个模块可以有一个或多个这样的配置文件
     + 配置文件的名字一般以.data结尾
-    + 如：在mod_block下有 block_rules.data 和 ip_blacklist.data
+    + 如：在mod_block下有 block_rules.data 和 ip_blocklist.data
 
 对于每一个配置文件，应编写独立的加载逻辑。
 

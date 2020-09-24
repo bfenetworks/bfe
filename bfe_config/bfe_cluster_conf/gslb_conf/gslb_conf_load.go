@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,12 @@ package gslb_conf
 import (
 	"errors"
 	"fmt"
-	json "github.com/pquerna/ffjson/ffjson"
 	"os"
 	"reflect"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 var (
@@ -160,8 +163,8 @@ func GslbConfLoad(filename string) (GslbConf, error) {
 	}
 
 	/* decode the file  */
-	decoder := json.NewDecoder()
-	err2 := decoder.DecodeReader(file, &config)
+	decoder := json.NewDecoder(file)
+	err2 := decoder.Decode(&config)
 	file.Close()
 	if err2 != nil {
 		return config, err2

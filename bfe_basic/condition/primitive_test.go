@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -219,5 +219,25 @@ func TestContainMatcher_2(t *testing.T) {
 	matcher := NewContainMatcher("yingwen", true)
 	if !matcher.Match("Yingwen") {
 		t.Fatalf("should match Yingwen")
+	}
+}
+
+// test ContextFetcher
+func TestContextValueFetcher(t *testing.T) {
+	// prepare input data
+	hf := ContextValueFetcher{"hello"}
+	req := bfe_basic.NewRequest(nil, nil, nil, nil, nil)
+	req.HttpRequest = &bfe_http.Request{}
+	req.SetContext("hello", "world")
+	// Fetch
+	contextVal, err := hf.Fetch(req)
+	if err != nil {
+		t.Fatalf("Fetch(): %v", err)
+		t.FailNow()
+	}
+
+	// check
+	if contextVal.(string) != "world" {
+		t.Errorf("Fetch contextVal error, want=%v, got=%v", "world", contextVal)
 	}
 }

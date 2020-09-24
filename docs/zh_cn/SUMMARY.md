@@ -18,6 +18,7 @@
     * [黑名单封禁](example/block.md)
     * [重定向](example/redirect.md)
     * [重写](example/rewrite.md)
+    * [FastCGI协议](example/fastcgi.md)
     * [TLS客户端认证](example/client_auth.md)
 * [安装说明](installation/install.md)
   * [源码编译安装](installation/install_from_source.md)
@@ -62,6 +63,7 @@
   * [mod_trace](modules/mod_trace/mod_trace.md)
   * [mod_trust_clientip](modules/mod_trust_clientip/mod_trust_clientip.md)
   * [mod_userid](modules/mod_userid/mod_userid.md)
+  * [mod_secure_link](modules/mod_secure_link/mod_secure_link.md)
 * 运维管理
   * [命令行工具及参数](operation/command.md)
   * [环境变量说明](operation/env_var.md)

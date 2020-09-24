@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import (
 	"testing"
 )
 
-func TestAuthBasicConfLoad_1(t *testing.T) {
+func TestAuthBasicConfLoadCorrect(t *testing.T) {
 	auth_basicConf, err := AuthBasicConfLoad("./testdata/mod_auth_basic/auth_basic_rule.data")
 	if err != nil {
 		t.Errorf("AuthBasicConfLoad() error: %v", err)
@@ -30,7 +30,7 @@ func TestAuthBasicConfLoad_1(t *testing.T) {
 	}
 }
 
-func TestAuthBasicConfLoad_2(t *testing.T) {
+func TestAuthBasicConfLoadUserFileEmpty(t *testing.T) {
 	_, err := AuthBasicConfLoad("./testdata/mod_auth_basic/auth_basic_rule.data.userfile_empty")
 	if err == nil || err.Error() != "Config: invalid product rules:unittest, "+
 		"AuthBasicRule: 0, UserFile empty." {

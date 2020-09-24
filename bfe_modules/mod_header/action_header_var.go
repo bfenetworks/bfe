@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ import (
 type HeaderValueHandler func(req *bfe_basic.Request) string
 
 const (
-	UNKNOWN = "unknown"
+	Unknown = "unknown"
 )
 
 var VariableHandlers = map[string]HeaderValueHandler{
@@ -283,7 +283,7 @@ func getBfeVip(req *bfe_basic.Request) string {
 		return req.Session.Vip.String()
 	}
 
-	return UNKNOWN
+	return Unknown
 }
 
 func getAddressFetcher(conn net.Conn) bfe_util.AddressFetcher {
@@ -299,16 +299,16 @@ func getAddressFetcher(conn net.Conn) bfe_util.AddressFetcher {
 func getBfeBip(req *bfe_basic.Request) string {
 	f := getAddressFetcher(req.Session.Connection)
 	if f == nil {
-		return UNKNOWN
+		return Unknown
 	}
 
 	baddr := f.BalancerAddr()
 	if baddr == nil {
-		return UNKNOWN
+		return Unknown
 	}
 	bip, _, err := net.SplitHostPort(baddr.String())
 	if err != nil { /* never come here */
-		return UNKNOWN
+		return Unknown
 	}
 
 	return bip
@@ -319,7 +319,7 @@ func getBfeRip(req *bfe_basic.Request) string {
 	raddr := conn.LocalAddr()
 	rip, _, err := net.SplitHostPort(raddr.String())
 	if err != nil { /* never come here */
-		return UNKNOWN
+		return Unknown
 	}
 
 	return rip
@@ -334,7 +334,7 @@ func getBfeBackendInfo(req *bfe_basic.Request) string {
 func getBfeServerName(req *bfe_basic.Request) string {
 	hostname, err := os.Hostname()
 	if err != nil {
-		return UNKNOWN
+		return Unknown
 	}
 
 	return hostname

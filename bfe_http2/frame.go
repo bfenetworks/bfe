@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1222,7 +1222,8 @@ func parsePushPromise(fh FrameHeader, p []byte) (_ Frame, err error) {
 	if err != nil {
 		return
 	}
-	pp.PromiseID = pp.PromiseID & (1<<31 - 1)
+	// pp.PromiseID = pp.PromiseID & (1<<31 - 1)
+	pp.PromiseID &= (1<<31 - 1)
 
 	if int(padLength) > len(p) {
 		// like the DATA frame, error out if padding is longer than the body.
