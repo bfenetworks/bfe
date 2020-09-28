@@ -25,9 +25,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
 	"github.com/bfenetworks/bfe/bfe_util/net_util"
@@ -457,6 +455,51 @@ func NewPrefixInMatcher(patterns string, foldCase bool) *PrefixInMatcher {
 
 	return &PrefixInMatcher{
 		patterns: p,
+		foldCase: foldCase,
+	}
+}
+
+type PathElementPrefixMatcher struct {
+	patterns []string
+	foldCase bool
+}
+
+func (p *PathElementPrefixMatcher) Match(v interface{}) bool {
+	vs, ok := v.(string)
+	if !ok {
+		return false
+	}
+
+	if !strings.HasSuffix(vs, "/") {
+		vs += "/"
+	}
+
+	if p.foldCase {
+		vs = strings.ToUpper(vs)
+	}
+
+	return prefixIn(vs, p.patterns)
+}
+
+func NewPathElementPrefixMatcher(patterns string, foldCase bool) *PathElementPrefixMatcher {
+	p := strings.Split(patterns, "|")
+
+	elementPatterns := make([]string, len(p))
+
+	for i, v := range p {
+		if !strings.HasSuffix(v, "/") {
+			v += "/"
+		}
+		if foldCase {
+			elementPatterns[i] = strings.ToUpper(v)
+		} else {
+			elementPatterns[i] = v
+		}
+
+	}
+
+	return &PathElementPrefixMatcher{
+		patterns: elementPatterns,
 		foldCase: foldCase,
 	}
 }

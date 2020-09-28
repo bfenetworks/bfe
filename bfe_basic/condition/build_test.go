@@ -19,9 +19,7 @@ import (
 	"reflect"
 	"regexp"
 	"testing"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_tls"
@@ -108,6 +106,19 @@ var buildPrimitiveTests = []struct {
 			matcher: &InMatcher{
 				patterns: []string{"/ABC"},
 				foldCase: true},
+		},
+		false,
+	},
+	{
+		"testBuildReqPathElementPrefixIn",
+		"req_path_element_prefix_in(\"/abc\", true)",
+		&PrimitiveCond{
+			name:    "req_path_element_prefix_in",
+			fetcher: &PathFetcher{},
+			matcher: &PathElementPrefixMatcher{
+				patterns: []string{"/ABC/"},
+				foldCase: true,
+			},
 		},
 		false,
 	},

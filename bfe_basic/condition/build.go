@@ -20,9 +20,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
 )
 
@@ -199,6 +197,13 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			node:    node,
 			fetcher: &PathFetcher{},
 			matcher: NewSuffixInMatcher(node.Args[0].Value, node.Args[1].ToBool()),
+		}, nil
+	case "req_path_element_prefix_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &PathFetcher{},
+			matcher: NewPathElementPrefixMatcher(node.Args[0].Value, node.Args[1].ToBool()),
 		}, nil
 	case "req_path_regmatch":
 		reg, err := regexp.Compile(node.Args[0].Value)

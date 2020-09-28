@@ -17,9 +17,7 @@ package condition
 import (
 	"net"
 	"testing"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 )
@@ -239,5 +237,18 @@ func TestContextValueFetcher(t *testing.T) {
 	// check
 	if contextVal.(string) != "world" {
 		t.Errorf("Fetch contextVal error, want=%v, got=%v", "world", contextVal)
+	}
+}
+
+func TestPathElementPrefixMatcher(t *testing.T) {
+	matcher := NewPathElementPrefixMatcher("/path|/path/ab", true)
+	if !matcher.Match("/path/a/c") {
+		t.Fatalf("should match /path/a/c")
+	}
+	if !matcher.Match("/path/ab") {
+		t.Fatalf("should match /path/ab")
+	}
+	if matcher.Match("/pathabc") {
+		t.Fatalf("should not match /pathabc")
 	}
 }
