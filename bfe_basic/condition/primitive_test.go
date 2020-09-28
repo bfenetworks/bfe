@@ -241,3 +241,16 @@ func TestContextValueFetcher(t *testing.T) {
 		t.Errorf("Fetch contextVal error, want=%v, got=%v", "world", contextVal)
 	}
 }
+
+func TestPathElementPrefixMatcher(t *testing.T) {
+	matcher := NewPathElementPrefixMatcher("/path|/path/ab", true)
+	if !matcher.Match("/path/a/c") {
+		t.Fatalf("should match /path/a/c")
+	}
+	if !matcher.Match("/path/ab") {
+		t.Fatalf("should match /path/ab")
+	}
+	if matcher.Match("/pathabc") {
+		t.Fatalf("should not match /pathabc")
+	}
+}
