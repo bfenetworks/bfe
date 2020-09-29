@@ -17,9 +17,7 @@ package condition
 import (
 	"net"
 	"testing"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 )

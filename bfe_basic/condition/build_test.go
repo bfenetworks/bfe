@@ -19,9 +19,7 @@ import (
 	"reflect"
 	"regexp"
 	"testing"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_tls"

@@ -25,9 +25,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
 	"github.com/bfenetworks/bfe/bfe_util/net_util"

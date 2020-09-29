@@ -20,9 +20,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
 )
 
