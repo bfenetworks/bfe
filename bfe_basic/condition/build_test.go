@@ -112,6 +112,19 @@ var buildPrimitiveTests = []struct {
 		false,
 	},
 	{
+		"testBuildReqPathElementPrefixIn",
+		"req_path_element_prefix_in(\"/abc\", true)",
+		&PrimitiveCond{
+			name:    "req_path_element_prefix_in",
+			fetcher: &PathFetcher{},
+			matcher: &PathElementPrefixMatcher{
+				patterns: []string{"/ABC/"},
+				foldCase: true,
+			},
+		},
+		false,
+	},
+	{
 		"testBuildQueRegMatch",
 		"req_query_value_regmatch(\"abc\", \"123\")",
 		&PrimitiveCond{
