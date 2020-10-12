@@ -23,6 +23,7 @@
  * req_path_in(path_list, case_insensitive)
  * req_path_prefix_in(prefix_list, case_insensitive)
  * req_path_suffix_in(suffix_list, case_insensitive)
+ * req_path_element_suffix_in(suffix_list, case_insensitive)
  * req_query_key_in(key_list)
  * req_query_key_prefix_in(prefix_list)
  * req_query_value_in(key,  value_list, case_insensitive)
