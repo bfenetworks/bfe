@@ -150,22 +150,26 @@ func (p *ReverseProxy) setTransports(clusterMap bfe_route.ClusterMap) {
 			continue
 		}
 
-		t := transport.(*bfe_http.Transport)
+		switch t := transport.(type) {
+		case *bfe_http.Transport:
+			// get transport, check if transport needs update
+			backendConf := conf.BackendConf()
+			if (t.MaxIdleConnsPerHost != *backendConf.MaxIdleConnsPerHost) ||
+				(t.ResponseHeaderTimeout != time.Millisecond*time.Duration(*backendConf.TimeoutResponseHeader)) ||
+				(t.ReqWriteBufferSize != conf.ReqWriteBufferSize()) ||
+				(t.ReqFlushInterval != conf.ReqFlushInterval()) {
+				// create new transport with newConf instead of update transport
+				// update transport needs lock
+				transport = createTransport(conf)
+				newTransports[cluster] = transport
+				continue
+			}
 
-		// get transport, check if transport needs update
-		backendConf := conf.BackendConf()
-		if (t.MaxIdleConnsPerHost != *backendConf.MaxIdleConnsPerHost) ||
-			(t.ResponseHeaderTimeout != time.Millisecond*time.Duration(*backendConf.TimeoutResponseHeader)) ||
-			(t.ReqWriteBufferSize != conf.ReqWriteBufferSize()) ||
-			(t.ReqFlushInterval != conf.ReqFlushInterval()) {
-			// create new transport with newConf instead of update transport
-			// update transport needs lock
+			newTransports[cluster] = transport
+		default:
 			transport = createTransport(conf)
 			newTransports[cluster] = transport
-			continue
 		}
-
-		newTransports[cluster] = transport
 	}
 
 	p.transports = newTransports
