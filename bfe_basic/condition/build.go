@@ -218,6 +218,13 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			fetcher: &PathFetcher{},
 			matcher: NewRegMatcher(reg),
 		}, nil
+	case "req_path_contain":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &PathFetcher{},
+			matcher: NewContainMatcher(node.Args[0].Value, node.Args[1].ToBool()),
+		}, nil
 	case "req_url_regmatch":
 		reg, err := regexp.Compile(node.Args[0].Value)
 		if err != nil {
