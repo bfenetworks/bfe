@@ -35,6 +35,7 @@ var funcProtos = map[string][]Token{
 	"req_path_in":                {STRING, BOOL},
 	"req_path_prefix_in":         {STRING, BOOL},
 	"req_path_suffix_in":         {STRING, BOOL},
+	"req_path_contain":           {STRING, BOOL},
 	"req_path_regmatch":          {STRING},
 	"req_path_element_prefix_in": {STRING, BOOL},
 	"req_query_key_prefix_in":    {STRING},
