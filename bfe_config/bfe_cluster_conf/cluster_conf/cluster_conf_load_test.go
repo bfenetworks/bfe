@@ -65,3 +65,11 @@ func TestClusterConfLoad_6(t *testing.T) {
 		return
 	}
 }
+
+func TestClusterConfLoad_7(t *testing.T) {
+	_, err := ClusterConfLoad("./testdata/cluster_conf_7.conf")
+	if err == nil {
+		t.Error("it should be error in ClusterConfLoad()")
+		return
+	}
+}

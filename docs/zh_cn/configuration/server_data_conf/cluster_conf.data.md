@@ -64,6 +64,12 @@ cluster_conf.data为集群转发配置文件。
 | ClusterBasic.TimeoutReadClient      | Integer<br>读用户请求wody的超时时间，单位为毫秒<br>默认值30 |
 | ClusterBasic.TimeoutWriteClient     | Integer<br>写响应的超时时间，单位为毫秒<br>默认值60 |
 | ClusterBasic.TimeoutReadClientAgain | Integer<br>连接闲置超时时间，单位为毫秒<br>默认值60 |
+| ClusterBasic.RequestBuffering       | Boolean<br>异步传输，缓存用户请求body，等待数据读取完毕后向backend转发<br>默认值false |
+| ClusterBasic.MaxRequestBodyBytes    | Integer<br>请求body最大缓存大小，单位为字节<br>默认值1073741824(1G) |
+| ClusterBasic.MemRequestBodyBytes    | Integer<br>请求body最大内存缓存大小，单位为字节<br>默认值1048576(1M) |
+| ClusterBasic.ProxyBuffering         | Boolean<br>异步传输，缓存backend相应body，等待数据读取完毕后向client转发 |
+| ClusterBasic.MaxResponseBodyBytes   | Integer<br>响应body最大缓存大小，单位为字节<br>默认值1073741824(1G) |
+| ClusterBasic.MemResponseBodyBytes   | Integer<br>响应body最大内存缓存大小，单位为字节<br>默认值1048576(1M) |
 
 ## 配置示例
 
@@ -139,7 +145,13 @@ cluster_conf.data为集群转发配置文件。
                 "ReqWriteBufferSize": 512,
                 "ReqFlushInterval": 0,
                 "ResFlushInterval": -1,
-                "CancelOnClientClose": false
+                "CancelOnClientClose": false,
+                "RequestBuffering": true,
+                "MaxRequestBodyBytes": 1000,
+                "MemRequestBodyBytes": 1000,
+                "ProxyBuffering": true,
+                "MaxResponseBodyBytes": 1000,
+                "MemResponseBodyBytes": 1000
             }
         }
     }

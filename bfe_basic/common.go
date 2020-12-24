@@ -70,6 +70,16 @@ func CreateForbiddenResp(request *Request) *bfe_http.Response {
 	return CreateInternalResp(request, bfe_http.StatusForbidden)
 }
 
+// CreateStatusBadRequestResp returns a HTTP 400 response
+func CreateStatusBadRequestResp(request *Request) *bfe_http.Response {
+	return CreateInternalResp(request, bfe_http.StatusBadRequest)
+}
+
+// CreateStatusRequestTimeout returns a HTTP 408 response
+func CreateStatusRequestTimeout(request *Request) *bfe_http.Response {
+	return CreateInternalResp(request, bfe_http.StatusRequestTimeout)
+}
+
 func CreateInternalResp(request *Request, code int) *bfe_http.Response {
 	res := new(bfe_http.Response)
 	res.StatusCode = code

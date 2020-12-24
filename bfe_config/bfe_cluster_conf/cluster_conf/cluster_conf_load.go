@@ -21,9 +21,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
@@ -128,6 +126,13 @@ type ClusterBasicConf struct {
 	TimeoutReadClient      *int // timeout for read client body in ms
 	TimeoutWriteClient     *int // timeout for write response to client
 	TimeoutReadClientAgain *int // timeout for read client again in ms
+
+	RequestBuffering     *bool  // enables or disables buffering of request from the client.
+	MaxRequestBodyBytes  *int64 // write max body size to file for request body
+	MemRequestBodyBytes  *int64 // write max body size to memory for request body
+	ProxyBuffering       *bool  // enables or disables buffering of responses from the proxied server.
+	MaxResponseBodyBytes *int64 // write max body size to file for response body
+	MemResponseBodyBytes *int64 // write max body size to memory for response body
 
 	ReqWriteBufferSize  *int  // write buffer size for request in byte
 	ReqFlushInterval    *int  // interval to flush request in ms. if zero, disable periodic flush
@@ -431,6 +436,36 @@ func ClusterBasicConfCheck(conf *ClusterBasicConf) error {
 	if conf.CancelOnClientClose == nil {
 		cancelOnClientClose := false
 		conf.CancelOnClientClose = &cancelOnClientClose
+	}
+
+	if conf.RequestBuffering == nil {
+		requestBuffering := false
+		conf.RequestBuffering = &requestBuffering
+	}
+
+	if conf.MaxRequestBodyBytes == nil {
+		maxRequestBodyBytes := int64(1 << 30) // 1 GB
+		conf.MaxRequestBodyBytes = &maxRequestBodyBytes
+	}
+
+	if conf.MemRequestBodyBytes == nil {
+		memRequestBodyBytes := int64(1 << 20) // 1 MB
+		conf.MemRequestBodyBytes = &memRequestBodyBytes
+	}
+
+	if conf.ProxyBuffering == nil {
+		proxyBuffering := false
+		conf.ProxyBuffering = &proxyBuffering
+	}
+
+	if conf.MaxResponseBodyBytes == nil {
+		maxResponseBodyBytes := int64(1 << 30) // 1 GB
+		conf.MaxResponseBodyBytes = &maxResponseBodyBytes
+	}
+
+	if conf.MemResponseBodyBytes == nil {
+		memResponseBodyBytes := int64(1 << 20) // 1 MB
+		conf.MemResponseBodyBytes = &memResponseBodyBytes
 	}
 
 	return nil

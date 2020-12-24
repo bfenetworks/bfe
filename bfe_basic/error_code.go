@@ -31,6 +31,7 @@ var (
 	ErrClientExpectFail     = errors.New("CLIENT_EXPECT_FAIL")     // expect fail
 	ErrClientReset          = errors.New("CLIENT_RESET")           // client reset connection
 	ErrClientFrame          = errors.New("CLIENT_LONG_FRAME")      // only used for spdy/http2
+	ErrClientReadBody       = errors.New("CLIENT_READ_BODY")       // fail to read client body
 
 	// backend error
 	ErrBkFindProduct       = errors.New("BK_FIND_PRODUCT")         // fail to find product

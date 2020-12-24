@@ -29,9 +29,9 @@ require (
 	go.elastic.co/apm/module/apmot v1.7.2
 	go.uber.org/atomic v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20200625001655-4c5254603344
-	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
-	golang.org/x/tools v0.0.0-20200729194436-6467de6f59a7 // indirect
+	golang.org/x/net v0.0.0-20201021035429-f5854403a974
+	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f
+	golang.org/x/tools v0.0.0-20201224043029-2b0845dc783e // indirect
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/square/go-jose.v2 v2.4.1
 	gopkg.in/warnings.v0 v0.1.2 // indirect

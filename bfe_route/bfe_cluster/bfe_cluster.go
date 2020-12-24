@@ -19,13 +19,8 @@ package bfe_cluster
 import (
 	"sync"
 	"time"
-)
 
-import (
 	"github.com/baidu/go-lib/log"
-)
-
-import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 )
 
@@ -45,6 +40,13 @@ type BfeCluster struct {
 	reqFlushInterval    time.Duration // interval to flush request
 	resFlushInterval    time.Duration // interval to flush resposne
 	cancelOnClientClose bool          // cancel blocking operation in server if client conn gone
+
+	requestBuffering     bool  // enables or disables buffering of request from the client.
+	maxRequestBodyBytes  int64 // write max body size to file for request body
+	memRequestBodyBytes  int64 // write max body size to memory for request body
+	proxyBuffering       bool  // enables or disables buffering of responses from the proxied server.
+	maxResponseBodyBytes int64 // write max body size to file for response body
+	memResponseBodyBytes int64 // write max body size to memory for response body
 }
 
 func NewBfeCluster(name string) *BfeCluster {
@@ -75,6 +77,12 @@ func (cluster *BfeCluster) BasicInit(clusterConf cluster_conf.ClusterConf) {
 		time.Duration(*clusterConf.ClusterBasic.ResFlushInterval) * time.Millisecond
 	cluster.cancelOnClientClose = *clusterConf.ClusterBasic.CancelOnClientClose
 
+	cluster.requestBuffering = *clusterConf.ClusterBasic.RequestBuffering
+	cluster.maxRequestBodyBytes = *clusterConf.ClusterBasic.MaxRequestBodyBytes
+	cluster.memRequestBodyBytes = *clusterConf.ClusterBasic.MemRequestBodyBytes
+	cluster.proxyBuffering = *clusterConf.ClusterBasic.ProxyBuffering
+	cluster.maxResponseBodyBytes = *clusterConf.ClusterBasic.MaxResponseBodyBytes
+	cluster.memResponseBodyBytes = *clusterConf.ClusterBasic.MemResponseBodyBytes
 	log.Logger.Info("cluster %s init success", cluster.Name)
 }
 
@@ -176,6 +184,53 @@ func (cluster *BfeCluster) DefaultSSEFlushInterval() time.Duration {
 func (cluster *BfeCluster) CancelOnClientClose() bool {
 	cluster.RLock()
 	res := cluster.cancelOnClientClose
+	cluster.RUnlock()
+
+	return res
+}
+
+func (cluster *BfeCluster) MaxRequestBodyBytes() int64 {
+	cluster.RLock()
+	res := cluster.maxRequestBodyBytes
+	cluster.RUnlock()
+
+	return res
+}
+
+func (cluster *BfeCluster) MemRequestBodyBytes() int64 {
+	cluster.RLock()
+	res := cluster.memRequestBodyBytes
+	cluster.RUnlock()
+
+	return res
+}
+
+func (cluster *BfeCluster) MemResponseBodyBytes() int64 {
+	cluster.RLock()
+	res := cluster.memResponseBodyBytes
+	cluster.RUnlock()
+
+	return res
+}
+
+func (cluster *BfeCluster) MaxResponseBodyBytes() int64 {
+	cluster.RLock()
+	res := cluster.maxResponseBodyBytes
+	cluster.RUnlock()
+
+	return res
+}
+
+func (cluster *BfeCluster) ProxyBuffering() bool {
+	cluster.RLock()
+	res := cluster.proxyBuffering
+	cluster.RUnlock()
+
+	return res
+}
+func (cluster *BfeCluster) RequestBuffering() bool {
+	cluster.RLock()
+	res := cluster.requestBuffering
 	cluster.RUnlock()
 
 	return res

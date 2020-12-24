@@ -27,16 +27,17 @@ type ProxyState struct {
 	PanicBackendRead     *metrics.Counter // panic when read from backend
 
 	// client side errors
-	ErrClientLongUrl        *metrics.Counter
-	ErrClientLongHeader     *metrics.Counter
-	ErrClientClose          *metrics.Counter
-	ErrClientTimeout        *metrics.Counter
-	ErrClientBadRequest     *metrics.Counter
-	ErrClientZeroContentlen *metrics.Counter
-	ErrClientExpectFail     *metrics.Counter
-	ErrClientConnAccept     *metrics.Counter
-	ErrClientWrite          *metrics.Counter
-	ErrClientReset          *metrics.Counter
+	ErrClientLongUrl         *metrics.Counter
+	ErrClientLongHeader      *metrics.Counter
+	ErrClientClose           *metrics.Counter
+	ErrClientTimeout         *metrics.Counter
+	ErrClientBadRequest      *metrics.Counter
+	ErrClientZeroContentlen  *metrics.Counter
+	ErrClientExpectFail      *metrics.Counter
+	ErrClientConnAccept      *metrics.Counter
+	ErrClientWrite           *metrics.Counter
+	ErrClientReset           *metrics.Counter
+	ErrClientReqFailReadBody *metrics.Counter
 
 	// route config errors
 	ErrBkFindProduct  *metrics.Counter
@@ -51,6 +52,7 @@ type ProxyState struct {
 	ErrBkReadRespHeader    *metrics.Counter
 	ErrBkRespHeaderTimeout *metrics.Counter
 	ErrBkTransportBroken   *metrics.Counter
+	ErrBkRespFailReadBody  *metrics.Counter
 
 	// tls handshake
 	TlsHandshakeAll  *metrics.Counter

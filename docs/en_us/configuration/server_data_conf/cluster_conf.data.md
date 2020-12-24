@@ -67,6 +67,12 @@ ClusterBasic is basic config for cluster.
 | ReqFlushInterval       | Int<br>Interval to flush request in ms. if zero, disable periodic flush |
 | ResFlushInterval       | Int<br>Interval to flush response in ms. if zero, disable periodic flush |
 | CancelOnClientClose    | Bool<br>Cancel blocking operation on server if client connection disconnected |
+| ClusterBasic.RequestBuffering       | Bool<br>Asynchronous transport, caches the user request Body, waits for data to be read and then forwards to Backend<br>default false |
+| ClusterBasic.MaxRequestBodyBytes    | Int<br>Request the maximum body cache size in bytes<br>default 1073741824(1G) |
+| ClusterBasic.MemRequestBodyBytes    | Int<br>Request the maximum body memory cache size in bytes<br>default 1048576(1M) |
+| ClusterBasic.ProxyBuffering         | Bool<br>Asynchronous transport, cache Backend corresponding Body, wait for data read and then forward to client |
+| ClusterBasic.MaxResponseBodyBytes   | Int<br>Maximum cache size in bytes for response body<br>default 1073741824(1G) |
+| ClusterBasic.MemResponseBodyBytes   | Int<br>Response Body maximum memory cache size in bytes<br>default 1048576(1M) |
 
 ## Example
 ```json
@@ -145,7 +151,13 @@ ClusterBasic is basic config for cluster.
                 "ReqWriteBufferSize": 512,
                 "ReqFlushInterval": 0,
                 "ResFlushInterval": -1,
-                "CancelOnClientClose": false
+                "CancelOnClientClose": false,
+                "RequestBuffering": true,
+                "MaxRequestBodyBytes": 1000,
+                "MemRequestBodyBytes": 1000,
+                "ProxyBuffering": true,
+                "MaxResponseBodyBytes": 1000,
+                "MemResponseBodyBytes": 1000
             }
         }
     }

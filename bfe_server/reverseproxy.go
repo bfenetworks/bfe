@@ -23,18 +23,15 @@ package bfe_server
 import (
 	"crypto/tls"
 	"io"
+	"io/ioutil"
 	"net"
 	"reflect"
 	"sync"
 	"time"
-)
 
-import (
 	"github.com/baidu/go-lib/log"
 	"golang.org/x/net/http2"
-)
 
-import (
 	bfe_cluster_backend "github.com/bfenetworks/bfe/bfe_balance/backend"
 	bal_gslb "github.com/bfenetworks/bfe/bfe_balance/bal_gslb"
 	"github.com/bfenetworks/bfe/bfe_basic"
@@ -48,6 +45,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
 	"github.com/bfenetworks/bfe/bfe_spdy"
 	"github.com/bfenetworks/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_util/multibuf"
 )
 
 // TrailerPrefix is a magic prefix for ResponseWriter.Header map keys
@@ -725,6 +723,50 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	// remove hop-by-hop headers
 	hopByHopHeaderRemove(outreq, req)
 
+	if cluster.RequestBuffering() && outreq.Body != nil {
+		body, err := multibuf.New(req.Body, multibuf.MaxBytes(cluster.MaxRequestBodyBytes()),
+			multibuf.MemBytes(cluster.MemRequestBodyBytes()))
+		var failed bool
+		var totalSize int64
+		if err != nil || body == nil {
+			failed = true
+		} else {
+			totalSize, err = body.Size()
+			if err != nil {
+				failed = true
+			}
+		}
+		defer func() {
+			if body != nil {
+				errc := body.Close()
+				if errc != nil {
+					log.Logger.Error("buffer: failed to close req body, err: %v", errc)
+				}
+			}
+		}()
+		if failed {
+			outreq.Body.Close()
+			basicReq.ErrCode = bfe_basic.ErrClientReadBody
+			basicReq.ErrMsg = err.Error()
+			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+				p.proxyState.ErrClientTimeout.Inc(1)
+				res = bfe_basic.CreateStatusRequestTimeout(basicReq)
+			} else {
+				p.proxyState.ErrClientReqFailReadBody.Inc(1)
+				res = bfe_basic.CreateStatusBadRequestResp(basicReq)
+			}
+			// close connection
+			action = closeAfterReply
+			goto response_got
+		}
+		if body == nil || totalSize == 0 {
+			outreq.Body = ioutil.NopCloser(req.Body)
+		} else {
+			outreq.Body = ioutil.NopCloser(body.(io.Reader))
+		}
+		outreq.ContentLength = totalSize
+	}
+
 	// invoke cluster to get response
 	res, action, err = p.clusterInvoke(srv, cluster, basicReq, rw)
 	basicReq.HttpResponse = res
@@ -787,6 +829,30 @@ send_response:
 	basicReq.Stat.ResponseStart = time.Now()
 
 	if !isRedirect && res != nil {
+		if cluster != nil && cluster.ProxyBuffering() && res.Body != nil {
+			body, err := multibuf.New(res.Body, multibuf.MaxBytes(cluster.MaxResponseBodyBytes()),
+				multibuf.MemBytes(cluster.MemResponseBodyBytes()))
+			var failed bool
+			if err != nil || body == nil {
+				failed = true
+			}
+			defer func() {
+				if body != nil {
+					errc := body.Close()
+					if errc != nil {
+						log.Logger.Error("buffer: failed to close resp body, err: %v", errc)
+					}
+				}
+			}()
+			if failed {
+				p.proxyState.ErrBkRespFailReadBody.Inc(1)
+			}
+			if body == nil {
+				res.Body = ioutil.NopCloser(res.Body)
+			} else {
+				res.Body = ioutil.NopCloser(body.(io.Reader))
+			}
+		}
 		err = p.sendResponse(rw, res, resFlushInterval, cancelOnClientClose)
 		if err != nil {
 			// Note: for h2/spdy protocol, not close client conn when send
