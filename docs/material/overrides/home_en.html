@@ -487,10 +487,11 @@
     <div class="md-footer-meta__inner md-grid">
         <div class="md-footer-copyright">
             <div class="md-footer-copyright__highlight">
-                Copyright © 2020 The BFE Authors | Documentation Distributed under CC-BY-4.0
+                Copyright © <span class="get-year"></span> The BFE Authors | Documentation Distributed under CC-BY-4.0
             </div>
             <div class="md-footer-copyright__highlight">
-                Copyright © 2020 The Linux Foundation. All rights reserved. The Linux Foundation has registered
+                Copyright © <span class="get-year"></span> The Linux Foundation. All rights reserved. The Linux
+                Foundation has registered
                 trademarks and
                 uses trademarks
             </div>
@@ -536,7 +537,11 @@
         </div>
     </div>
 </div>
-
+<script>
+    var x = document.getElementsByClassName('get-year');
+    x[0].innerHTML = new Date().getFullYear();
+    x[1].innerHTML = new Date().getFullYear();
+</script>
 {% endblock %}
 {% block content %}{% endblock %}
 {% block footer %}{% endblock %}
