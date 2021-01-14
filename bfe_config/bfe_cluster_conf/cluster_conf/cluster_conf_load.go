@@ -33,6 +33,13 @@ const (
 	RetryGet     = 1 // retry if forward GET request fail (plus RetryConnect)
 )
 
+// DefaultTimeout
+const (
+	DefaultReadClientTimeout      = 30000
+	DefaultWriteClientTimeout     = 60000
+	DefaultReadClientAgainTimeout = 60000
+)
+
 // Outlier detection levels
 const (
 	// Abnormal events about backend:
@@ -399,17 +406,17 @@ func HashConfCheck(conf *HashConf) error {
 // ClusterBasicConfCheck check ClusterBasicConf.
 func ClusterBasicConfCheck(conf *ClusterBasicConf) error {
 	if conf.TimeoutReadClient == nil {
-		timeoutReadClient := 30000
+		timeoutReadClient := DefaultReadClientTimeout
 		conf.TimeoutReadClient = &timeoutReadClient
 	}
 
 	if conf.TimeoutWriteClient == nil {
-		timoutWriteClient := 60000
+		timoutWriteClient := DefaultWriteClientTimeout
 		conf.TimeoutWriteClient = &timoutWriteClient
 	}
 
 	if conf.TimeoutReadClientAgain == nil {
-		timeoutReadClientAgain := 60000
+		timeoutReadClientAgain := DefaultReadClientAgainTimeout
 		conf.TimeoutReadClientAgain = &timeoutReadClientAgain
 	}
 

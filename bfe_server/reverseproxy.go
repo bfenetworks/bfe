@@ -577,6 +577,9 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	resFlushInterval := time.Duration(0)
 	cancelOnClientClose := false
 
+	timeoutWriteClient := time.Duration(cluster_conf.DefaultWriteClientTimeout) * time.Millisecond
+	timeoutReadClientAgain := time.Duration(cluster_conf.DefaultReadClientAgainTimeout) * time.Millisecond
+
 	// get instance of BfeServer
 	srv := p.server
 
@@ -682,6 +685,10 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 
 	// set deadline to finish read client request body
 	p.setTimeout(bfe_basic.StageReadReqBody, basicReq.Connection, req, cluster.TimeoutReadClient())
+	resFlushInterval = cluster.ResFlushInterval()
+	cancelOnClientClose = cluster.CancelOnClientClose()
+	timeoutWriteClient = cluster.TimeoutWriteClient()
+	timeoutReadClientAgain = cluster.TimeoutReadClientAgain()
 
 	// Callback for HandleAfterLocation
 	hl = srv.CallBacks.GetHandlerList(bfe_module.HandleAfterLocation)
@@ -740,27 +747,25 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 		res = bfe_basic.CreateInternalSrvErrResp(basicReq)
 		goto response_got
 	}
-	resFlushInterval = cluster.ResFlushInterval()
-	cancelOnClientClose = cluster.CancelOnClientClose()
 	if resFlushInterval == 0 && basicReq.HttpRequest.Header.Get("Accept") == "text/event-stream" {
 		resFlushInterval = cluster.DefaultSSEFlushInterval()
 	}
 
+response_got:
 	// timeout for write response to client
 	// Note: we use io.Copy() to read from backend and write to client.
 	// For avoid from blocking on client conn or backend conn forever,
 	// we must timeout both conns after specified duration.
-	p.setTimeout(bfe_basic.StageWriteClient, basicReq.Connection, req, cluster.TimeoutWriteClient())
-	writeTimer = time.AfterFunc(cluster.TimeoutWriteClient(), func() {
+	p.setTimeout(bfe_basic.StageWriteClient, basicReq.Connection, req, timeoutWriteClient)
+	writeTimer = time.AfterFunc(timeoutWriteClient, func() {
 		transport := basicReq.Trans.Transport.(*bfe_http.Transport)
 		transport.CancelRequest(basicReq.OutRequest) // force close connection to backend
 	})
 	defer writeTimer.Stop()
 
 	// for read next request
-	defer p.setTimeout(bfe_basic.StageEndRequest, basicReq.Connection, req, cluster.TimeoutReadClientAgain())
+	defer p.setTimeout(bfe_basic.StageEndRequest, basicReq.Connection, req, timeoutReadClientAgain)
 
-response_got:
 	defer res.Body.Close()
 
 	// Callback for HandleReadResponse
