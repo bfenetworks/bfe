@@ -792,9 +792,6 @@ RU5ErkJggg==" ></image>
         <a href="https://www.cctv.com/" target="_black">
             <img src="assets/images/cctv.png" alt="">
         </a>
-        <a href="http://www.cebbank.com/" target="_black">
-            <img src="assets/images/china_everbright_bank.jpg" alt="">
-        </a>
         <a href="https://www.chinalife.com.cn/chinalife/index/" target="_black">
             <img src="assets/images/china_life.jpg" alt="">
         </a>
@@ -820,10 +817,10 @@ RU5ErkJggg==" ></image>
     <div class="md-footer-meta__inner md-grid">
         <div class="md-footer-copyright">
             <div class="md-footer-copyright__highlight">
-                Copyright © 2020 BFE作者 | 文档发布基于CC-BY-4.0授权许可
+                Copyright © <span class="get-year"></span> BFE作者 | 文档发布基于CC-BY-4.0授权许可
             </div>
             <div class="md-footer-copyright__highlight">
-                Copyright © 2020
+                Copyright © <span class="get-year"></span>
                 Linux基金会。保留所有权利。Linux基金会已注册并使用商标
             </div>
             <div class="md-footer-copyright__highlight">
@@ -867,6 +864,11 @@ RU5ErkJggg==" ></image>
         </div>
     </div>
 </div>
+<script>
+    var x = document.getElementsByClassName('get-year');
+    x[0].innerHTML = new Date().getFullYear();
+    x[1].innerHTML = new Date().getFullYear();
+</script>
 
       <main class="md-main" data-md-component="main">
         <div class="md-main__inner md-grid">
@@ -1321,6 +1323,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="example/fastcgi/" title="FastCGI" class="md-nav__link">
+      FastCGI
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -1412,6 +1426,18 @@ RU5ErkJggg==" ></image>
   <li class="md-nav__item">
     <a href="installation/install_using_snap/" title="snap方式安装" class="md-nav__link">
       snap方式安装
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="installation/install_using_docker/" title="docker方式安装" class="md-nav__link">
+      docker方式安装
     </a>
   </li>
 

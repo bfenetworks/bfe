@@ -788,6 +788,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../example/fastcgi/" title="FastCGI" class="md-nav__link">
+      FastCGI
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -879,6 +891,18 @@ RU5ErkJggg==" ></image>
   <li class="md-nav__item">
     <a href="../../../installation/install_using_snap/" title="snap方式安装" class="md-nav__link">
       snap方式安装
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../installation/install_using_docker/" title="docker方式安装" class="md-nav__link">
+      docker方式安装
     </a>
   </li>
 
@@ -2384,6 +2408,13 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
+  <a href="#req_path_element_prefix_inprefix_list-case_insensitive" class="md-nav__link">
+    req_path_element_prefix_in(prefix_list, case_insensitive)
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#req_path_suffix_insuffix_list-case_insensitive" class="md-nav__link">
     req_path_suffix_in(suffix_list, case_insensitive)
   </a>
@@ -2809,6 +2840,13 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
+  <a href="#req_path_element_prefix_inprefix_list-case_insensitive" class="md-nav__link">
+    req_path_element_prefix_in(prefix_list, case_insensitive)
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#req_path_suffix_insuffix_list-case_insensitive" class="md-nav__link">
     req_path_suffix_in(suffix_list, case_insensitive)
   </a>
@@ -2986,6 +3024,40 @@ RU5ErkJggg==" ></image>
 <li>示例</li>
 </ul>
 <div class="codehilite"><pre><span></span><code><span class="nx">req_path_prefix_in</span><span class="p">(</span><span class="s">&quot;/api/report|/api/analytics&quot;</span><span class="p">,</span> <span class="kc">false</span><span class="p">)</span>
+</code></pre></div>
+
+
+<h2 id="req_path_element_prefix_inprefix_list-case_insensitive">req_path_element_prefix_in(prefix_list, case_insensitive)</h2>
+<ul>
+<li>
+<p>含义：判断http的path element是否前缀匹配prefix_list之一</p>
+</li>
+<li>
+<p>参数</p>
+</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>prefix_list</td>
+<td>String<br>path element prefix列表, 多个之间使用‘&#124;’连接 <br>每个path prefix应以"/"开头且以"/"结尾，非"/"结尾时会自动补充"/"</td>
+</tr>
+<tr>
+<td>case_insensitive</td>
+<td>Boolean<br>是否忽略大小写</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>示例</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="nx">req_path_element_prefix_in</span><span class="p">(</span><span class="s">&quot;/api/report/|/api/analytics/&quot;</span><span class="p">,</span> <span class="kc">false</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -3315,7 +3387,7 @@ RU5ErkJggg==" ></image>
       <div class="md-footer-copyright">
         
           <div class="md-footer-copyright__highlight">
-            Copyright © 2020 BFE作者 | 文档发布基于CC-BY-4.0授权许可 <br/>Copyright © 2020 Linux基金会。保留所有权利。Linux基金会已注册并使用商标<br/>如需了解Linux基金会的商标列表， 请<a target="_blank" href="https://www.linuxfoundation.org/trademark-usage">访问商标使用页面 </a>
+            Copyright © 2021 BFE作者 | 文档发布基于CC-BY-4.0授权许可 <br/>Copyright © 2021 Linux基金会。保留所有权利。Linux基金会已注册并使用商标<br/>如需了解Linux基金会的商标列表， 请<a target="_blank" href="https://www.linuxfoundation.org/trademark-usage">访问商标使用页面 </a>
           </div>
         
       </div>

@@ -807,9 +807,6 @@ RU5ErkJggg==" ></image>
         <a href="https://www.cctv.com/" target="_black">
             <img src="assets/images/cctv.png" alt="">
         </a>
-        <a href="http://www.cebbank.com/" target="_black">
-            <img src="assets/images/china_everbright_bank.jpg" alt="">
-        </a>
         <a href="https://www.chinalife.com.cn/chinalife/index/" target="_black">
             <img src="assets/images/china_life.jpg" alt="">
         </a>
@@ -835,10 +832,11 @@ RU5ErkJggg==" ></image>
     <div class="md-footer-meta__inner md-grid">
         <div class="md-footer-copyright">
             <div class="md-footer-copyright__highlight">
-                Copyright © 2020 The BFE Authors | Documentation Distributed under CC-BY-4.0
+                Copyright © <span class="get-year"></span> The BFE Authors | Documentation Distributed under CC-BY-4.0
             </div>
             <div class="md-footer-copyright__highlight">
-                Copyright © 2020 The Linux Foundation. All rights reserved. The Linux Foundation has registered
+                Copyright © <span class="get-year"></span> The Linux Foundation. All rights reserved. The Linux
+                Foundation has registered
                 trademarks and
                 uses trademarks
             </div>
@@ -884,7 +882,11 @@ RU5ErkJggg==" ></image>
         </div>
     </div>
 </div>
-
+<script>
+    var x = document.getElementsByClassName('get-year');
+    x[0].innerHTML = new Date().getFullYear();
+    x[1].innerHTML = new Date().getFullYear();
+</script>
 
       <main class="md-main" data-md-component="main">
         <div class="md-main__inner md-grid">
@@ -1339,6 +1341,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="example/fastcgi/" title="FastCGI" class="md-nav__link">
+      FastCGI
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -1430,6 +1444,18 @@ RU5ErkJggg==" ></image>
   <li class="md-nav__item">
     <a href="installation/install_using_snap/" title="Install using snap" class="md-nav__link">
       Install using snap
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="installation/install_using_docker/" title="Install using docker" class="md-nav__link">
+      Install using docker
     </a>
   </li>
 
