@@ -69,12 +69,14 @@ nav:
         - 'Request redirect': 'example/redirect.md'
         - 'Request rewrite': 'example/rewrite.md'
         - 'TLS mutual authentication': 'example/client_auth.md'
+        - 'FastCGI': 'example/fastcgi.md'
     - 'Installation': 
       - 'Overview': 'installation/install.md'
       - 'Install from source': 'installation/install_from_source.md'
       - 'Install using binaries': 'installation/install_using_binaries.md'
       - 'Install using go': 'installation/install_using_go.md'
       - 'Install using snap': 'installation/install_using_snap.md'
+      - 'Install using docker': 'installation/install_using_docker.md'
     - 'Configuration':
       - 'Overview': 'configuration/config.md'
       - 'Core': 'configuration/bfe.conf.md'

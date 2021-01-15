@@ -69,12 +69,14 @@ nav:
         - '重定向': 'example/redirect.md'
         - '重写': 'example/rewrite.md'
         - 'TLS客户端认证': 'example/client_auth.md'
+        - 'FastCGI': 'example/fastcgi.md'
     - '安装说明': 
       - '安装概述': 'installation/install.md'
       - '源码编译安装': 'installation/install_from_source.md'
       - '二进制文件下载安装': 'installation/install_using_binaries.md'
       - 'go方式安装': 'installation/install_using_go.md'
       - 'snap方式安装': 'installation/install_using_snap.md'
+      - 'docker方式安装': 'installation/install_using_docker.md'
     - '配置说明':
       - '配置概述': 'configuration/config.md'
       - '核心配置': 'configuration/bfe.conf.md'
