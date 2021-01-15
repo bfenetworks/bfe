@@ -150,22 +150,26 @@ func (p *ReverseProxy) setTransports(clusterMap bfe_route.ClusterMap) {
 			continue
 		}
 
-		t := transport.(*bfe_http.Transport)
+		switch t := transport.(type) {
+		case *bfe_http.Transport:
+			// get transport, check if transport needs update
+			backendConf := conf.BackendConf()
+			if (t.MaxIdleConnsPerHost != *backendConf.MaxIdleConnsPerHost) ||
+				(t.ResponseHeaderTimeout != time.Millisecond*time.Duration(*backendConf.TimeoutResponseHeader)) ||
+				(t.ReqWriteBufferSize != conf.ReqWriteBufferSize()) ||
+				(t.ReqFlushInterval != conf.ReqFlushInterval()) {
+				// create new transport with newConf instead of update transport
+				// update transport needs lock
+				transport = createTransport(conf)
+				newTransports[cluster] = transport
+				continue
+			}
 
-		// get transport, check if transport needs update
-		backendConf := conf.BackendConf()
-		if (t.MaxIdleConnsPerHost != *backendConf.MaxIdleConnsPerHost) ||
-			(t.ResponseHeaderTimeout != time.Millisecond*time.Duration(*backendConf.TimeoutResponseHeader)) ||
-			(t.ReqWriteBufferSize != conf.ReqWriteBufferSize()) ||
-			(t.ReqFlushInterval != conf.ReqFlushInterval()) {
-			// create new transport with newConf instead of update transport
-			// update transport needs lock
+			newTransports[cluster] = transport
+		default:
 			transport = createTransport(conf)
 			newTransports[cluster] = transport
-			continue
 		}
-
-		newTransports[cluster] = transport
 	}
 
 	p.transports = newTransports
@@ -330,8 +334,11 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 		request.Backend.BackendPort = uint32(backend.Port)
 
 		if err == nil {
-			// succeed in invoking backend
-			backend.OnSuccess()
+			if checkBackendStatus(cluster.OutlierDetectionLevel(), res.StatusCode) {
+				backend.OnFail(cluster.Name)
+			} else {
+				backend.OnSuccess()
+			}
 
 			// clear err msg in req.
 			// this step is required, if finally succeed after retry
@@ -570,6 +577,9 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	resFlushInterval := time.Duration(0)
 	cancelOnClientClose := false
 
+	timeoutWriteClient := time.Duration(cluster_conf.DefaultWriteClientTimeout) * time.Millisecond
+	timeoutReadClientAgain := time.Duration(cluster_conf.DefaultReadClientAgainTimeout) * time.Millisecond
+
 	// get instance of BfeServer
 	srv := p.server
 
@@ -675,6 +685,10 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 
 	// set deadline to finish read client request body
 	p.setTimeout(bfe_basic.StageReadReqBody, basicReq.Connection, req, cluster.TimeoutReadClient())
+	resFlushInterval = cluster.ResFlushInterval()
+	cancelOnClientClose = cluster.CancelOnClientClose()
+	timeoutWriteClient = cluster.TimeoutWriteClient()
+	timeoutReadClientAgain = cluster.TimeoutReadClientAgain()
 
 	// Callback for HandleAfterLocation
 	hl = srv.CallBacks.GetHandlerList(bfe_module.HandleAfterLocation)
@@ -733,27 +747,25 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 		res = bfe_basic.CreateInternalSrvErrResp(basicReq)
 		goto response_got
 	}
-	resFlushInterval = cluster.ResFlushInterval()
-	cancelOnClientClose = cluster.CancelOnClientClose()
 	if resFlushInterval == 0 && basicReq.HttpRequest.Header.Get("Accept") == "text/event-stream" {
 		resFlushInterval = cluster.DefaultSSEFlushInterval()
 	}
 
+response_got:
 	// timeout for write response to client
 	// Note: we use io.Copy() to read from backend and write to client.
 	// For avoid from blocking on client conn or backend conn forever,
 	// we must timeout both conns after specified duration.
-	p.setTimeout(bfe_basic.StageWriteClient, basicReq.Connection, req, cluster.TimeoutWriteClient())
-	writeTimer = time.AfterFunc(cluster.TimeoutWriteClient(), func() {
+	p.setTimeout(bfe_basic.StageWriteClient, basicReq.Connection, req, timeoutWriteClient)
+	writeTimer = time.AfterFunc(timeoutWriteClient, func() {
 		transport := basicReq.Trans.Transport.(*bfe_http.Transport)
 		transport.CancelRequest(basicReq.OutRequest) // force close connection to backend
 	})
 	defer writeTimer.Stop()
 
 	// for read next request
-	defer p.setTimeout(bfe_basic.StageEndRequest, basicReq.Connection, req, cluster.TimeoutReadClientAgain())
+	defer p.setTimeout(bfe_basic.StageEndRequest, basicReq.Connection, req, timeoutReadClientAgain)
 
-response_got:
 	defer res.Body.Close()
 
 	// Callback for HandleReadResponse
@@ -864,4 +876,8 @@ func checkRequestWithoutBody(req *bfe_http.Request) bool {
 		return body.Eof()
 	}
 	return false
+}
+
+func checkBackendStatus(outlierDetectionLevel int, statusCode int) bool {
+	return outlierDetectionLevel == cluster_conf.OutlierDetection5XX && statusCode/100 == 5
 }

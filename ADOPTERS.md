@@ -1,6 +1,3 @@
-A non-exhaustive list of bfe adopters is provided below. Send pull request if you want to be listed here.
+See https://www.bfe-networks.net/en_us/#users . 
 
-| Company | Description |
-| ------- | ----------- |
-| Baidu   | [HTTPDNS](https://cloud.baidu.com/product/httpdns.html) |
-| Baidu   | GDP 2.0: Go Develop Platform |
+Please [create an issue](https://github.com/bfenetworks/bfe/issues/new?&title=New%20BFE%20User) if you want to be listed there.

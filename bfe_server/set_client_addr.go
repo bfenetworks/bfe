@@ -36,8 +36,8 @@ func setClientAddr(req *bfe_basic.Request) {
 	clientip := req.HttpRequest.Header.Get(bfe_basic.HeaderRealIP)
 	clientport := req.HttpRequest.Header.Get(bfe_basic.HeaderRealPort)
 	if clientip == "" {
-		clientip = getFirstSplitFromHeader(req, bfe_basic.HeaderForwardedFor, ", ")
-		clientport = getFirstSplitFromHeader(req, bfe_basic.HeaderForwardedPort, ", ")
+		clientip = getFirstSplitFromHeader(req, bfe_basic.HeaderForwardedFor, ",")
+		clientport = getFirstSplitFromHeader(req, bfe_basic.HeaderForwardedPort, ",")
 	}
 	if clientip != "" {
 		parseClientAddr(req, clientip, clientport)
@@ -48,7 +48,7 @@ func getFirstSplitFromHeader(req *bfe_basic.Request, header string, sep string) 
 	ret := ""
 	if str := req.HttpRequest.Header.Get(header); str != "" {
 		l := strings.SplitN(str, sep, 2)
-		ret = l[0] // get first split from header
+		ret = strings.TrimSpace(l[0]) // get first split from header
 	}
 	return ret
 }

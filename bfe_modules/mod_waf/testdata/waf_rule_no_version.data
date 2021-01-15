@@ -1,0 +1,12 @@
+{
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "default_t()",
+                "BlockRules": [
+										"RuleBashCmd"
+                ]
+            }
+        ]
+    }
+}

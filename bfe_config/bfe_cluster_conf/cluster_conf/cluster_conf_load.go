@@ -33,6 +33,26 @@ const (
 	RetryGet     = 1 // retry if forward GET request fail (plus RetryConnect)
 )
 
+// DefaultTimeout
+const (
+	DefaultReadClientTimeout      = 30000
+	DefaultWriteClientTimeout     = 60000
+	DefaultReadClientAgainTimeout = 60000
+)
+
+// Outlier detection levels
+const (
+	// Abnormal events about backend:
+	// - connect backend error
+	// - write request error(caused by backend)
+	// - read response header error
+	OutlierDetectionBasic = 0
+
+	// All abnormal events in basic level and:
+	// - response code is 5xx
+	OutlierDetection5XX = 1
+)
+
 // HashStrategy for subcluster-level load balance (GSLB).
 // Note:
 //  - CLIENTID is a special request header which represents a unique client,
@@ -80,6 +100,7 @@ type BackendBasic struct {
 	TimeoutResponseHeader *int    // timeout for read header from backend, in ms
 	MaxIdleConnsPerHost   *int    // max idle conns for each backend
 	RetryLevel            *int    // retry level if request fail
+	OutlierDetectionLevel *int    // outlier detection level
 
 	// protocol specific configurations
 	FCGIConf *FCGIConf
@@ -168,6 +189,11 @@ func BackendBasicCheck(conf *BackendBasic) error {
 	if conf.RetryLevel == nil {
 		retryLevel := RetryConnect
 		conf.RetryLevel = &retryLevel
+	}
+
+	if conf.OutlierDetectionLevel == nil {
+		outlierDetectionLevel := OutlierDetectionBasic
+		conf.OutlierDetectionLevel = &outlierDetectionLevel
 	}
 
 	if conf.FCGIConf == nil {
@@ -380,17 +406,17 @@ func HashConfCheck(conf *HashConf) error {
 // ClusterBasicConfCheck check ClusterBasicConf.
 func ClusterBasicConfCheck(conf *ClusterBasicConf) error {
 	if conf.TimeoutReadClient == nil {
-		timeoutReadClient := 30000
+		timeoutReadClient := DefaultReadClientTimeout
 		conf.TimeoutReadClient = &timeoutReadClient
 	}
 
 	if conf.TimeoutWriteClient == nil {
-		timoutWriteClient := 60000
+		timoutWriteClient := DefaultWriteClientTimeout
 		conf.TimeoutWriteClient = &timoutWriteClient
 	}
 
 	if conf.TimeoutReadClientAgain == nil {
-		timeoutReadClientAgain := 60000
+		timeoutReadClientAgain := DefaultReadClientAgainTimeout
 		conf.TimeoutReadClientAgain = &timeoutReadClientAgain
 	}
 

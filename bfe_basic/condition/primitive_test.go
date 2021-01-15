@@ -221,3 +221,36 @@ func TestContainMatcher_2(t *testing.T) {
 		t.Fatalf("should match Yingwen")
 	}
 }
+
+// test ContextFetcher
+func TestContextValueFetcher(t *testing.T) {
+	// prepare input data
+	hf := ContextValueFetcher{"hello"}
+	req := bfe_basic.NewRequest(nil, nil, nil, nil, nil)
+	req.HttpRequest = &bfe_http.Request{}
+	req.SetContext("hello", "world")
+	// Fetch
+	contextVal, err := hf.Fetch(req)
+	if err != nil {
+		t.Fatalf("Fetch(): %v", err)
+		t.FailNow()
+	}
+
+	// check
+	if contextVal.(string) != "world" {
+		t.Errorf("Fetch contextVal error, want=%v, got=%v", "world", contextVal)
+	}
+}
+
+func TestPathElementPrefixMatcher(t *testing.T) {
+	matcher := NewPathElementPrefixMatcher("/path|/path/ab", true)
+	if !matcher.Match("/path/a/c") {
+		t.Fatalf("should match /path/a/c")
+	}
+	if !matcher.Match("/path/ab") {
+		t.Fatalf("should match /path/ab")
+	}
+	if matcher.Match("/pathabc") {
+		t.Fatalf("should not match /pathabc")
+	}
+}
