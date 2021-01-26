@@ -89,6 +89,16 @@ func (bal *BalanceGslb) SetGslbBasic(gslbBasic cluster_conf.GslbBasicConf) {
 	bal.lock.Unlock()
 }
 
+func (bal *BalanceGslb) SetSlowStart(backendConf cluster_conf.BackendBasic) {
+	bal.lock.Lock()
+
+	for _, sub := range bal.subClusters {
+		sub.setSlowStart(*backendConf.SlowStartTime)
+	}
+
+	bal.lock.Unlock()
+}
+
 // Init inializes gslb cluster with config
 func (bal *BalanceGslb) Init(gslbConf gslb_conf.GslbClusterConf) error {
 	totalWeight := 0

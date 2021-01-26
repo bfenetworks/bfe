@@ -133,3 +133,65 @@ func SetReqHeader(req *bfe_basic.Request, key string) {
 		req.HttpRequest.Header.Set(key, "val")
 	}
 }
+
+func TestSlowStart(t *testing.T) {
+	t.Logf("bal_gslb_test: TestSlowStart")
+	var c cluster_table_conf.ClusterBackend
+	var gb cluster_conf.GslbBasicConf
+	var g gslb_conf.GslbClusterConf
+	var err error
+
+	loadJson("testdata/cluster1", &c)
+	loadJson("testdata/gb", &gb)
+	loadJson("testdata/g1", &g)
+	t.Logf("%v %v %v\n", c, gb, g)
+
+	bal := NewBalanceGslb("cluster_dumi")
+	if err := bal.Init(g); err != nil {
+		t.Errorf("init error %s", err)
+	}
+	t.Logf("%+v\n", bal)
+	if bal.totalWeight != 100 || !bal.single || bal.subClusters[bal.avail].Name != "light.example.wt" || bal.retryMax != 3 || bal.crossRetry != 1 {
+		t.Errorf("init error")
+	}
+
+	if len(bal.subClusters) != 3 {
+		t.Errorf("cluster len error")
+	}
+
+	t.Logf("%+v", bal.subClusters[0])
+	t.Logf("%+v", bal.subClusters[1])
+	t.Logf("%+v", bal.subClusters[2])
+
+	var c1 cluster_table_conf.ClusterBackend
+	var gb1 cluster_conf.GslbBasicConf
+	var g1 gslb_conf.GslbClusterConf
+	loadJson("testdata/cluster2", &c1)
+	loadJson("testdata/gb2", &gb1)
+	loadJson("testdata/g2", &g1)
+
+	err = cluster_conf.GslbBasicConfCheck(&gb1)
+	if err != nil {
+		t.Errorf("GslbBasicConfCheck err %s", err)
+	}
+	t.Logf("%v %v %v\n", c1, gb1, g1)
+	if err := bal.Reload(g1); err != nil {
+		t.Errorf("reload error %s", err)
+	}
+
+	bal.SetGslbBasic(gb1)
+
+	var backendConf cluster_conf.BackendBasic
+	err = cluster_conf.BackendBasicCheck(&backendConf)
+	if err != nil {
+		t.Errorf("BackendBasicCheck err %s", err)
+	}
+	var ssTime = 30
+	backendConf.SlowStartTime = &ssTime
+	bal.SetSlowStart(backendConf)
+
+	t.Logf("%+v\n", bal)
+	t.Logf("%+v", bal.subClusters[0])
+	t.Logf("%+v", bal.subClusters[1])
+	t.Logf("%+v", bal.subClusters[2])
+}
