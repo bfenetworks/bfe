@@ -188,6 +188,29 @@ func (t *BalTable) SetGslbBasic(clusterTable *bfe_route.ClusterTable) {
 	}
 }
 
+// SetSlowStart sets slow_start related conf (from server data conf) for BalTable.
+//
+// Note:
+//  - SetSlowStart() is called after server reload server data conf
+//  - SetSlowStart() should be concurrency safe
+func (t *BalTable) SetSlowStart(clusterTable *bfe_route.ClusterTable) {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
+	if clusterTable == nil {
+		return
+	}
+
+	for clusterName, bal := range t.balTable {
+		cluster, err := clusterTable.Lookup(clusterName)
+		if err != nil {
+			continue
+		}
+
+		bal.SetSlowStart(*cluster.BackendConf())
+	}
+}
+
 func (t *BalTable) BalTableReload(gslbConfs gslb_conf.GslbConf,
 	backendConfs cluster_table_conf.ClusterTableConf) error {
 	t.lock.Lock()

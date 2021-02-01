@@ -101,6 +101,7 @@ type BackendBasic struct {
 	MaxIdleConnsPerHost   *int    // max idle conns for each backend
 	RetryLevel            *int    // retry level if request fail
 	OutlierDetectionLevel *int    // outlier detection level
+	SlowStartTime         *int    // time for backend increases the weight to the full value, in seconds
 
 	// protocol specific configurations
 	FCGIConf *FCGIConf
@@ -194,6 +195,11 @@ func BackendBasicCheck(conf *BackendBasic) error {
 	if conf.OutlierDetectionLevel == nil {
 		outlierDetectionLevel := OutlierDetectionBasic
 		conf.OutlierDetectionLevel = &outlierDetectionLevel
+	}
+
+	if conf.SlowStartTime == nil {
+		defaultSlowStartTime := 0
+		conf.SlowStartTime = &defaultSlowStartTime
 	}
 
 	if conf.FCGIConf == nil {

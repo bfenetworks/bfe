@@ -96,6 +96,7 @@ loop:
 		}
 
 		log.Logger.Info("backend %s back to Normal", backend.Name)
+		backend.SetRestart(true)
 		backend.SetAvail(true)
 		break loop
 	}
