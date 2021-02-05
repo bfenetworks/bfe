@@ -40,19 +40,6 @@ const (
 	DefaultReadClientAgainTimeout = 60000
 )
 
-// Outlier detection levels
-const (
-	// Abnormal events about backend:
-	// - connect backend error
-	// - write request error(caused by backend)
-	// - read response header error
-	OutlierDetectionBasic = 0
-
-	// All abnormal events in basic level and:
-	// - response code is 5xx
-	OutlierDetection5XX = 1
-)
-
 // HashStrategy for subcluster-level load balance (GSLB).
 // Note:
 //  - CLIENTID is a special request header which represents a unique client,
@@ -95,14 +82,14 @@ type FCGIConf struct {
 
 // BackendBasic is conf of backend basic
 type BackendBasic struct {
-	Protocol              *string // backend protocol
-	TimeoutConnSrv        *int    // timeout for connect backend, in ms
-	TimeoutResponseHeader *int    // timeout for read header from backend, in ms
-	MaxIdleConnsPerHost   *int    // max idle conns for each backend
-	RetryLevel            *int    // retry level if request fail
-	OutlierDetectionLevel *int    // outlier detection level
-	SlowStartTime         *int    // time for backend increases the weight to the full value, in seconds
-
+	Protocol                 *string // backend protocol
+	TimeoutConnSrv           *int    // timeout for connect backend, in ms
+	TimeoutResponseHeader    *int    // timeout for read header from backend, in ms
+	MaxIdleConnsPerHost      *int    // max idle conns for each backend
+	RetryLevel               *int    // retry level if request fail
+	OutlierDetectionLevel    *int    // outlier detection level
+	SlowStartTime            *int    // time for backend increases the weight to the full value, in seconds
+	OutlierDetectionHttpCode *string // outlier detection http status code
 	// protocol specific configurations
 	FCGIConf *FCGIConf
 }
@@ -192,9 +179,13 @@ func BackendBasicCheck(conf *BackendBasic) error {
 		conf.RetryLevel = &retryLevel
 	}
 
-	if conf.OutlierDetectionLevel == nil {
-		outlierDetectionLevel := OutlierDetectionBasic
-		conf.OutlierDetectionLevel = &outlierDetectionLevel
+	if conf.OutlierDetectionHttpCode == nil {
+		outlierDetectionCode := ""
+		conf.OutlierDetectionHttpCode = &outlierDetectionCode
+	} else {
+		httpCode := *conf.OutlierDetectionHttpCode
+		httpCode = strings.ToLower(httpCode)
+		conf.OutlierDetectionHttpCode = &httpCode
 	}
 
 	if conf.SlowStartTime == nil {

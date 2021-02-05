@@ -25,6 +25,8 @@ import (
 	"io"
 	"net"
 	"reflect"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -334,7 +336,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 		request.Backend.BackendPort = uint32(backend.Port)
 
 		if err == nil {
-			if checkBackendStatus(cluster.OutlierDetectionLevel(), res.StatusCode) {
+			if checkBackendStatus(cluster.OutlierDetectionHttpCode(), res.StatusCode) {
 				backend.OnFail(cluster.Name)
 			} else {
 				backend.OnSuccess()
@@ -878,6 +880,25 @@ func checkRequestWithoutBody(req *bfe_http.Request) bool {
 	return false
 }
 
-func checkBackendStatus(outlierDetectionLevel int, statusCode int) bool {
-	return outlierDetectionLevel == cluster_conf.OutlierDetection5XX && statusCode/100 == 5
+func checkBackendStatus(outlierDetectionHttpCodeStr string, statusCode int) bool {
+	if outlierDetectionHttpCodeStr == "" {
+		return false
+	}
+	for _, code := range strings.Split(outlierDetectionHttpCodeStr, "|") {
+		switch code {
+		case "3xx", "4xx", "5xx":
+			if strconv.Itoa(statusCode/100) == code[0:1] {
+				return true
+			}
+		default:
+			codeInt, err := strconv.Atoi(code)
+			if err != nil {
+				continue
+			}
+			if codeInt == statusCode {
+				return true
+			}
+		}
+	}
+	return false
 }
