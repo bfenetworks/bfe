@@ -69,6 +69,12 @@ type Transport struct {
 	altMu      sync.RWMutex
 	altProto   map[string]RoundTripper // nil or map of URI scheme => RoundTripper
 
+	connMu sync.Mutex // mutex for conn count
+	// Conn count which record current connection of each backend
+	// when create a persistConn we count plus one of the cm key,
+	// and minus one when the persistConn is close.
+	connCnt map[string]int
+
 	// Proxy specifies a function to return a proxy for a given
 	// Request. If the function returns a non-nil error, the
 	// request is aborted with the provided error.
@@ -102,6 +108,10 @@ type Transport struct {
 	// (keep-alive) to keep per-host.  If zero,
 	// DefaultMaxIdleConnsPerHost is used.
 	MaxIdleConnsPerHost int
+
+	// MaxConnsPerHost, if non-zero, controls the maximum currency conns
+	//  to per-host.  If less than or equal zero, transport will ignore this value.
+	MaxConnsPerHost int
 
 	// ResponseHeaderTimeout, if non-zero, specifies the amount of
 	// time to wait for a server's response headers after fully
@@ -321,6 +331,16 @@ func (cm *connectMethod) proxyAuth() string {
 	return ""
 }
 
+func (t *Transport) releaseConnCnt(cacheKey string) {
+	t.connMu.Lock()
+	if t.connCnt == nil {
+		t.connMu.Unlock()
+		return
+	}
+	t.connCnt[cacheKey]--
+	t.connMu.Unlock()
+}
+
 // putIdleConn adds pconn to the list of idle persistent connections awaiting
 // a new request.
 // If pconn is no longer needed or not in a good state, putIdleConn
@@ -443,6 +463,21 @@ func (t *Transport) dial(network, addr string) (c net.Conn, err error) {
 	return net.Dial(network, addr)
 }
 
+// check whether we can create new conn to backend with given cachekey
+func (t *Transport) checkAndIncConnCnt(cacheKey string, maxValue int) bool {
+	t.connMu.Lock()
+	if t.connCnt == nil {
+		t.connCnt = make(map[string]int)
+	}
+	if val, ok := t.connCnt[cacheKey]; ok && val >= maxValue {
+		t.connMu.Unlock()
+		return false
+	}
+	t.connCnt[cacheKey]++
+	t.connMu.Unlock()
+	return true
+}
+
 // getConn dials and creates a new persistConn to the target as
 // specified in the connectMethod.  This includes doing a proxy CONNECT
 // and/or setting up TLS.  If this doesn't return an error, the persistConn
@@ -458,11 +493,19 @@ func (t *Transport) getConn(cm *connectMethod) (*persistConn, error) {
 	}
 	dialc := make(chan dialRes)
 	go func() {
+		cacheKey := cm.key()
+		if t.MaxConnsPerHost > 0 && !t.checkAndIncConnCnt(cacheKey, t.MaxConnsPerHost) {
+			dialc <- dialRes{nil, fmt.Errorf("cm key[%v] greater than max conns[%d]", cacheKey, t.MaxConnsPerHost)}
+			return
+		}
 		pc, err := t.dialConn(cm)
 		state.HttpBackendConnAll.Inc(1)
 		if err == nil {
 			state.HttpBackendConnSucc.Inc(1)
+		} else {
+			t.releaseConnCnt(cacheKey)
 		}
+
 		dialc <- dialRes{pc, err}
 	}()
 
@@ -1035,6 +1078,9 @@ func (pc *persistConn) closeLocked() {
 	if !pc.closed {
 		pc.conn.Close()
 		pc.closed = true
+		// there are some many reason to close a conn, in order to avoid missing release in some place,
+		// it is a safely way to release conn cnt in pc.close()
+		pc.t.releaseConnCnt(pc.cacheKey)
 	}
 	pc.mutateHeaderFunc = nil
 }
