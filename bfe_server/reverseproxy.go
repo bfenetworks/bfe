@@ -157,6 +157,7 @@ func (p *ReverseProxy) setTransports(clusterMap bfe_route.ClusterMap) {
 			// get transport, check if transport needs update
 			backendConf := conf.BackendConf()
 			if (t.MaxIdleConnsPerHost != *backendConf.MaxIdleConnsPerHost) ||
+				(t.MaxConnsPerHost != *backendConf.MaxConnsPerHost) ||
 				(t.ResponseHeaderTimeout != time.Millisecond*time.Duration(*backendConf.TimeoutResponseHeader)) ||
 				(t.ReqWriteBufferSize != conf.ReqWriteBufferSize()) ||
 				(t.ReqFlushInterval != conf.ReqFlushInterval()) {
@@ -217,6 +218,7 @@ func createTransport(cluster *bfe_cluster.BfeCluster) bfe_http.RoundTripper {
 			ReqWriteBufferSize:    cluster.ReqWriteBufferSize(),
 			ReqFlushInterval:      cluster.ReqFlushInterval(),
 			DisableCompression:    true,
+			MaxConnsPerHost:       *backendConf.MaxConnsPerHost,
 		}
 	case "fcgi":
 		return &bfe_fcgi.Transport{
