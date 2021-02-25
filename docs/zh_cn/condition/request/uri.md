@@ -28,6 +28,21 @@ req_host_in("www.bfe-networks.com|bfe-networks.com")
 req_path_in("/api/search|/api/list", true)
 ```
 
+## req_path_contain(path_list, case_insensitive)
+* 含义： 判断http的path是否包含path_list中的子串
+
+* 参数
+
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| path_list | String<br> path子串列表，多个列表之间使用‘&#124;’连接|
+| case_insensitive | Boolean<br>是否忽略大小写 |  
+
+* 示例
+```go
+req_path_contain("search", true)
+```
+
 ## req_path_prefix_in(prefix_list, case_insensitive)
 * 含义： 判断http的path是否前缀匹配prefix_list之一
 

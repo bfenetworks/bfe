@@ -35,6 +35,22 @@ req_host_in("www.bfe-networks.com | bfe-networks.com")
 req_path_in("/api/search|/api/list", true)
 ```
 
+## req_path_contain(path_list, case_insensitive)
+* Description: Judge if request path contains configured patterns
+
+* Parameters
+
+| Parameter | Descrption |
+| --------- | ---------- |
+| path_list | String<br>path's substring list which are concatenated with &#124; |
+| case_insensitive | Boolean<br>case insensitive |
+
+* Example
+
+```go
+req_path_contain("search|analytics", true)
+```
+
 ## req_path_prefix_in(prefix_list, case_insensitive)
 * Description: Judge if request path prefix matches configured patterns
 
