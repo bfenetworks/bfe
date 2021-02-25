@@ -20,6 +20,9 @@ import (
 )
 
 const (
+	HeaderClientIP      = "CLIENTIP"
+	HeaderClientIP6     = "Clientip6"
+	HeaderClientPort    = "CLIENTPORT"
 	HeaderBfeIP         = "X-Bfe-Ip"
 	HeaderBfeLogId      = "X-Bfe-Log-Id"
 	HeaderForwardedHost = "X-Forwarded-Host"

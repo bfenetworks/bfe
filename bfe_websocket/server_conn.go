@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"time"
 )
 
@@ -30,6 +31,7 @@ import (
 
 import (
 	"github.com/bfenetworks/bfe/bfe_balance/backend"
+	"github.com/bfenetworks/bfe/bfe_basic"
 	bufio "github.com/bfenetworks/bfe/bfe_bufio"
 	http "github.com/bfenetworks/bfe/bfe_http"
 )
@@ -142,8 +144,35 @@ func (sc *serverConn) findBackend(req *http.Request) (net.Conn, *backend.BfeBack
 	return nil, nil, errRetryTooMany
 }
 
+func setDefaultHeaders(req *http.Request) {
+	if req.State == nil || req.State.Conn == nil {
+		return
+	}
+
+	clientAddr := req.State.Conn.RemoteAddr().(*net.TCPAddr)
+
+	// Note: Websocket is only suitable for direct connection with users.
+	// If there is a proxy in front of BFE, client ip will not be set correctly.
+	if clientAddr.IP.To4() != nil {
+		req.Header.Set(bfe_basic.HeaderClientIP, clientAddr.IP.String())
+	} else {
+		req.Header.Set(bfe_basic.HeaderClientIP6, clientAddr.IP.String())
+	}
+	req.Header.Set(bfe_basic.HeaderClientPort, strconv.Itoa(clientAddr.Port))
+
+	// set x-forwarded-for, x-forwarded-port
+	req.Header.Set(bfe_basic.HeaderForwardedFor, clientAddr.IP.String())
+	req.Header.Set(bfe_basic.HeaderForwardedPort, strconv.Itoa(clientAddr.Port))
+
+	// set bfe ip
+	req.Header.Set(bfe_basic.HeaderBfeIP, req.State.Conn.LocalAddr().(*net.TCPAddr).IP.String())
+}
+
 func (sc *serverConn) websocketHandshake() error {
 	rw, req := sc.rw, sc.req
+
+	// set default header for websocket
+	setDefaultHeaders(req)
 
 	// write client request to backend
 	if err := req.Write(sc.bconn); err != nil {

@@ -103,6 +103,8 @@ func (st *ServerTester) handleWebsocketConn(conn net.Conn) {
 		return
 	}
 
+	req.State.Conn = conn
+
 	// create ResponseWriter
 	rw := NewMockResponseWriter(conn, wr)
 
