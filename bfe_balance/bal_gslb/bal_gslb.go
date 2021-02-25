@@ -326,6 +326,14 @@ func (bal *BalanceGslb) Balance(req *bfe_basic.Request) (*bal_backend.BfeBackend
 		return nil, bfe_basic.ErrBkRetryTooMany
 	}
 
+	// if there is backend info in req's context, bfe will try to lookup backend info;
+	if bal.isContextWithBackend(req) {
+		backend, err := bal.LookupContextBackend(req)
+		if err == nil {
+			return backend, err
+		}
+	}
+
 	// select balance mode
 	switch bal.BalanceMode {
 	case cluster_conf.BalanceModeWlc:
@@ -484,6 +492,45 @@ func (bal *BalanceGslb) randomSelectExclude(excludeCluster *SubCluster) (*SubClu
 
 	// never reach here
 	return subCluster, fmt.Errorf("randomSelectExclude():should not reach here")
+}
+
+func (bal *BalanceGslb) isContextWithBackend(req *bfe_basic.Request) bool {
+	_, ok := req.Context[bfe_basic.ContextBackendKey]
+	return ok
+}
+
+// lookup for backend which set in request's context[ContextBackendKey]
+func (bal *BalanceGslb) LookupContextBackend(req *bfe_basic.Request) (*bal_backend.BfeBackend, error) {
+	if _, ok := req.Context[bfe_basic.ContextBackendKey]; !ok {
+		return nil, fmt.Errorf("no ContextBackend in contexts")
+
+	}
+	val, matched := req.Context[bfe_basic.ContextBackendKey].(*bfe_basic.ContextBackend)
+	if !matched {
+		return nil, fmt.Errorf("context type unmatched: %s", bal.BalanceMode)
+	}
+	var subCluster *SubCluster
+	for _, s := range bal.subClusters {
+		if s.Name == *val.SubCluster && s.weight > 0 {
+			subCluster = s
+			break
+		}
+	}
+	if subCluster == nil {
+		return nil, fmt.Errorf("no subCluster, want: %s", *val.SubCluster)
+	}
+
+	addrInfo := fmt.Sprintf("%s:%d", *val.Addr, *val.Port)
+
+	backend, err := subCluster.backends.LookUpBackend(addrInfo)
+	if err != nil {
+		return backend, err
+	}
+
+	req.Backend.SubclusterName = subCluster.Name
+
+	return backend, nil
+
 }
 
 func (bal *BalanceGslb) SubClusterNum() int {

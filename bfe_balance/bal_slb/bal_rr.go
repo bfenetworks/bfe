@@ -89,13 +89,13 @@ func (s BackendListSorter) Less(i, j int) bool {
 
 type BalanceRR struct {
 	sync.Mutex
-	Name          string
-	backends      BackendList // list of BackendRR
-	sorted        bool        // list of BackeneRR sorted or not
-	next          int         // next backend to schedule
+	Name     string
+	backends BackendList // list of BackendRR
+	sorted   bool        // list of BackeneRR sorted or not
+	next     int         // next backend to schedule
 
-	slowStartNum  int         // number of backends in slow_start phase
-	slowStartTime int         // time for backend increases the weight to the full value, in seconds
+	slowStartNum  int // number of backends in slow_start phase
+	slowStartTime int // time for backend increases the weight to the full value, in seconds
 }
 
 func NewBalanceRR(name string) *BalanceRR {
@@ -510,4 +510,18 @@ func GetHash(value []byte, base uint) int {
 	}
 
 	return int(hash % uint64(base))
+}
+
+// Look up backend with given addrInfo(ip:port)
+func (brr *BalanceRR) LookUpBackend(addrInfo string) (*backend.BfeBackend, error) {
+	brr.Lock()
+	defer brr.Unlock()
+
+	for _, backendRR := range brr.backends {
+		if backendRR.backend.AddrInfo == addrInfo && backendRR.backend.Avail() && backendRR.weight > 0 {
+			return backendRR.backend, nil
+		}
+	}
+
+	return nil, fmt.Errorf("rr_bal:LookUpBackend %s fail", addrInfo)
 }

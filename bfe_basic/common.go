@@ -27,6 +27,8 @@ const (
 	HeaderForwardedPort = "X-Forwarded-Port"
 	HeaderRealIP        = "X-Real-Ip"
 	HeaderRealPort      = "X-Real-Port"
+
+	ContextBackendKey = "BFE-Context-Backend" // backend info in request context
 )
 
 type OperationStage int
@@ -84,4 +86,10 @@ func CreateInternalResp(request *Request, code int) *bfe_http.Response {
 type ServerDataConfInterface interface {
 	ClusterTableLookup(clusterName string) (*bfe_cluster.BfeCluster, error)
 	HostTableLookup(hostname string) (string, error)
+}
+
+type ContextBackend struct {
+	Addr       *string `json:"ip"`
+	Port       *int    `json:"port"`
+	SubCluster *string `json:"subcluster"`
 }
