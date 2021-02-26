@@ -32,3 +32,10 @@ func headerAdd(h *bfe_http.Header, key string, value string) {
 func headerDel(h *bfe_http.Header, key string) {
 	h.Del(key)
 }
+
+// rename header originalKey to newKey
+func headerRename(h *bfe_http.Header, originalKey, newKey string) {
+	val := h.Get(originalKey)
+	h.Set(newKey, val)
+	h.Del(originalKey)
+}
