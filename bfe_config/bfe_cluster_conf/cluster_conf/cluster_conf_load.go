@@ -88,7 +88,6 @@ type BackendBasic struct {
 	MaxIdleConnsPerHost      *int    // max idle conns for each backend
 	MaxConnsPerHost          *int    // max conns for each backend (zero means unrestricted)
 	RetryLevel               *int    // retry level if request fail
-	OutlierDetectionLevel    *int    // outlier detection level
 	SlowStartTime            *int    // time for backend increases the weight to the full value, in seconds
 	OutlierDetectionHttpCode *string // outlier detection http status code
 	// protocol specific configurations
