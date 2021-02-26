@@ -27,6 +27,7 @@ cluster_conf.data为集群转发配置文件。
 | BackendConf.TimeoutConnSrv        | Integer<br>连接后端的超时时间，单位是毫秒<br>默认值2 |
 | BackendConf.TimeoutResponseHeader | Integer<br>从后端读响应头的超时时间，单位是毫秒<br>默认值60 |
 | BackendConf.MaxIdleConnsPerHost   | Integer<br>BFE实例与每个后端的最大空闲长连接数<br>默认值2 |
+| BackendConf.MaxConnsPerHost   | Integer<br>BFE实例与每个后端的最大长连接数，0代表无限制<br>默认值0 |
 | BackendConf.RetryLevel            | Integer<br>请求重试级别。0：连接后端失败时，进行重试；1：连接后端失败、转发GET请求失败时均进行重试<br>默认值0 |
 | BackendConf.FCGIConf              | Object<br>FastCGI 协议的配置                              |
 | BackendConf.FCGIConf.Root         | String<br>网站的Root文件夹位置                            |
@@ -107,6 +108,7 @@ cluster_conf.data为集群转发配置文件。
                 "TimeoutConnSrv": 2000,
                 "TimeoutResponseHeader": 50000,
                 "MaxIdleConnsPerHost": 0,
+                "MaxConnsPerHost": 0,
                 "RetryLevel": 0,
                 "FCGIConf": {
                     "Root": "/home/work",
