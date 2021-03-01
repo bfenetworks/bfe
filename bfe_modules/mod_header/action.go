@@ -51,9 +51,9 @@ func ActionFileCheck(conf ActionFile) error {
 	switch *conf.Cmd {
 	case "REQ_HEADER_SET",
 		"REQ_HEADER_ADD",
+		"REQ_HEADER_RENAME",
 		"RSP_HEADER_SET",
 		"RSP_HEADER_ADD",
-		"REQ_HEADER_RENAME",
 		"RSP_HEADER_RENAME":
 
 		// header and value
