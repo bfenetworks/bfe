@@ -165,6 +165,27 @@ func TestHeaderActionsDo_Case4(t *testing.T) {
 	}
 }
 
+func TestHeaderActionsDo_Case5(t *testing.T) {
+	req := makeBasicRequest("http://www.example.org")
+
+	cmdMod := "REQ_HEADER_RENAME"
+	action := Action{Cmd: cmdMod, Params: []string{"OriginalKey", "NewKey"}}
+	expectVal := "TestCase"
+
+	req.HttpRequest.Header.Add("OriginalKey", expectVal)
+	HeaderActionsDo(req, 0, []Action{action})
+
+	value := req.HttpRequest.Header.Get("NewKey")
+	if value != expectVal {
+		t.Errorf("header rename newkey want[%s] got[%s]", expectVal, value)
+	}
+
+	value = req.HttpRequest.Header.Get("OriginalKey")
+	if value != "" {
+		t.Errorf("header rename originalkey want[%s] got[%s]", "", value)
+	}
+}
+
 func TestActionsConvert(t *testing.T) {
 	cmdSet := "REQ_HEADER_SET"
 	cmdAdd := "REQ_HEADER_ADD"

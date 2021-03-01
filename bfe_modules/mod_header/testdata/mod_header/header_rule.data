@@ -3,6 +3,19 @@
     "Config": {
         "p1": [
             {
+                 "cond": "req_path_prefix_in(\"/header_rename\", false)",
+                 "actions": [
+                     {
+                         "cmd": "REQ_HEADER_RENAME",
+                         "params": [
+                             "OriginalKey",
+                             "NewKey"
+                         ]
+                     }
+                 ],
+                 "last": true
+            },
+            {
                 "cond": "req_path_prefix_in(\"/cookie_set\", false)",
                 "actions": [
                     {
@@ -183,7 +196,7 @@
                         ]   
                     }   
                 ],  
-                "last": true
+                "last": false
             }
 		]
     }
