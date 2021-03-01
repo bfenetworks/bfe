@@ -226,6 +226,54 @@ func TestReadMIMEHeaderNonCompliant(t *testing.T) {
 	}
 }
 
+func TestReadMIMEHeaderMalformed(t *testing.T) {
+	inputs := []string{
+		"No colon first line\r\nFoo: foo\r\n\r\n",
+		" No colon first line with leading space\r\nFoo: foo\r\n\r\n",
+		"\tNo colon first line with leading tab\r\nFoo: foo\r\n\r\n",
+		" First: line with leading space\r\nFoo: foo\r\n\r\n",
+		"\tFirst: line with leading tab\r\nFoo: foo\r\n\r\n",
+		"Foo: foo\r\nNo colon second line\r\n\r\n",
+		"Foo-\n\tBar: foo\r\n\r\n",
+		"Foo-\r\n\tBar: foo\r\n\r\n",
+		"Foo\r\n\t: foo\r\n\r\n",
+		"Foo-\n\tBar",
+	}
+
+	for _, input := range inputs {
+		r := reader(input)
+		if m, err := r.ReadMIMEHeader(); err == nil {
+			t.Errorf("ReadMIMEHeader(%q) = %v, %v; want nil, err", input, m, err)
+		}
+	}
+}
+
+// Test that continued lines are properly trimmed. Issue 11204.
+func TestReadMIMEHeaderTrimContinued(t *testing.T) {
+	// In this header, \n and \r\n terminated lines are mixed on purpose.
+	// We expect each line to be trimmed (prefix and suffix) before being concatenated.
+	// Keep the spaces as they are.
+	r := reader("" + // for code formatting purpose.
+		"a:\n" +
+		" 0 \r\n" +
+		"b:1 \t\r\n" +
+		"c: 2\r\n" +
+		" 3\t\n" +
+		"  \t 4  \r\n\n")
+	m, err := r.ReadMIMEHeader()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := MIMEHeader{
+		"A": {"0"},
+		"B": {"1"},
+		"C": {"2 3 4"},
+	}
+	if !reflect.DeepEqual(m, want) {
+		t.Fatalf("ReadMIMEHeader mismatch.\n got: %q\nwant: %q", m, want)
+	}
+}
+
 type readResponseTest struct {
 	in       string
 	inCode   int
@@ -278,6 +326,36 @@ func TestRFC959Lines(t *testing.T) {
 		}
 	}
 }
+
+// Test that multi-line errors are appropriately and fully read. Issue 10230.
+func TestReadMultiLineError(t *testing.T) {
+	r := reader("550-5.1.1 The email account that you tried to reach does not exist. Please try\n" +
+		"550-5.1.1 double-checking the recipient's email address for typos or\n" +
+		"550-5.1.1 unnecessary spaces. Learn more at\n" +
+		"Unexpected but legal text!\n" +
+		"550 5.1.1 https://support.google.com/mail/answer/6596 h20si25154304pfd.166 - gsmtp\n")
+
+	wantMsg := "5.1.1 The email account that you tried to reach does not exist. Please try\n" +
+		"5.1.1 double-checking the recipient's email address for typos or\n" +
+		"5.1.1 unnecessary spaces. Learn more at\n" +
+		"Unexpected but legal text!\n" +
+		"5.1.1 https://support.google.com/mail/answer/6596 h20si25154304pfd.166 - gsmtp"
+
+	code, msg, err := r.ReadResponse(250)
+	if err == nil {
+		t.Errorf("ReadResponse: no error, want error")
+	}
+	if code != 550 {
+		t.Errorf("ReadResponse: code=%d, want %d", code, 550)
+	}
+	if msg != wantMsg {
+		t.Errorf("ReadResponse: msg=%q, want %q", msg, wantMsg)
+	}
+	if err != nil && err.Error() != "550 "+wantMsg {
+		t.Errorf("ReadResponse: error=%q, want %q", err.Error(), "550 "+wantMsg)
+	}
+}
+
 func TestCommonHeaders(t *testing.T) {
 	commonHeaderOnce.Do(initCommonHeader)
 	for h := range commonHeader {
@@ -324,31 +402,25 @@ Non-Interned: test
 
 func BenchmarkReadMIMEHeader(b *testing.B) {
 	b.ReportAllocs()
-	var buf bytes.Buffer
-	br := bfe_bufio.NewReader(&buf)
-	r := NewReader(br)
-	for i := 0; i < b.N; i++ {
-		var want int
-		var find string
-		if (i & 1) == 1 {
-			buf.WriteString(clientHeaders)
-			want = 10
-			find = "Cookie"
-		} else {
-			buf.WriteString(serverHeaders)
-			want = 9
-			find = "Via"
-		}
-		h, err := r.ReadMIMEHeader()
-		if err != nil {
-			b.Fatal(err)
-		}
-		if len(h) != want {
-			b.Fatalf("wrong number of headers: got %d, want %d", len(h), want)
-		}
-		if _, ok := h[find]; !ok {
-			b.Fatalf("did not find key %s", find)
-		}
+	for _, set := range []struct {
+		name    string
+		headers string
+	}{
+		{"client_headers", clientHeaders},
+		{"server_headers", serverHeaders},
+	} {
+		b.Run(set.name, func(b *testing.B) {
+			var buf bytes.Buffer
+			br := bfe_bufio.NewReader(&buf)
+			r := NewReader(br)
+
+			for i := 0; i < b.N; i++ {
+				buf.WriteString(set.headers)
+				if _, err := r.ReadMIMEHeader(); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
 
