@@ -8,9 +8,5 @@ output
 /**/*.log
 profile.out
 coverage.txt
-
-# idea file
 .idea/*
-
-# vscode file
 .vscode/*
