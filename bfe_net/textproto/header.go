@@ -54,6 +54,18 @@ func (h MIMEHeader) Get(key string) string {
 	return v[0]
 }
 
+// Values returns all values associated with the given key.
+// It is case insensitive; CanonicalMIMEHeaderKey is
+// used to canonicalize the provided key. To use non-canonical
+// keys, access the map directly.
+// The returned slice is not a copy.
+func (h MIMEHeader) Values(key string) []string {
+	if h == nil {
+		return nil
+	}
+	return h[CanonicalMIMEHeaderKey(key)]
+}
+
 // Del deletes the values associated with key.
 func (h MIMEHeader) Del(key string) {
 	delete(h, CanonicalMIMEHeaderKey(key))
