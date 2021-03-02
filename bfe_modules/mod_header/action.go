@@ -195,7 +195,7 @@ func expectPercent(str string) int {
 	return index
 }
 
-const variableCharset = "abcdefghijklmnopqrstuvwxyz_"
+const variableCharset = "abcdefghijklmnopqrstuvwxyz0123456789_"
 
 func expectVariableParam(str string) int {
 	index := 0

@@ -20,6 +20,7 @@ package bfe_tls
 
 import (
 	"bytes"
+	"fmt"
 )
 
 type clientHelloMsg struct {
@@ -40,6 +41,7 @@ type clientHelloMsg struct {
 	secureRenegotiation bool
 	alpnProtocols       []string
 	padding             bool
+	extensionIds        []uint16
 }
 
 func (m *clientHelloMsg) equal(i interface{}) bool {
@@ -64,6 +66,45 @@ func (m *clientHelloMsg) equal(i interface{}) bool {
 		eqSignatureAndHashes(m.signatureAndHashes, m1.signatureAndHashes) &&
 		m.secureRenegotiation == m1.secureRenegotiation &&
 		eqStrings(m.alpnProtocols, m1.alpnProtocols)
+}
+
+// JA3String returns a JA3 fingerprint string for TLS client.
+// For more information, see https://github.com/salesforce/ja3
+func (m *clientHelloMsg) JA3String() string {
+	var buf bytes.Buffer
+	// version
+	fmt.Fprintf(&buf, "%d,", m.vers)
+	// cipher surites
+	writeJA3Uint16Values(&buf, m.cipherSuites)
+	fmt.Fprintf(&buf, ",")
+	// extensions
+	writeJA3Uint16Values(&buf, m.extensionIds)
+	fmt.Fprintf(&buf, ",")
+	// elliptic curves
+	for i, curve := range m.supportedCurves {
+		fmt.Fprintf(&buf, "%d", curve)
+		if i != len(m.supportedCurves)-1 {
+			fmt.Fprintf(&buf, "-")
+		}
+	}
+	fmt.Fprintf(&buf, ",")
+	// elliptic curves point formats
+	for i, point := range m.supportedPoints {
+		fmt.Fprintf(&buf, "%d", point)
+		if i != len(m.supportedPoints)-1 {
+			fmt.Fprintf(&buf, "-")
+		}
+	}
+	return buf.String()
+}
+
+func writeJA3Uint16Values(buf *bytes.Buffer, values []uint16) {
+	for i, value := range values {
+		fmt.Fprintf(buf, "%d", value)
+		if i != len(values)-1 {
+			fmt.Fprintf(buf, "-")
+		}
+	}
 }
 
 func (m *clientHelloMsg) marshal() []byte {
@@ -344,6 +385,7 @@ func (m *clientHelloMsg) unmarshal(data []byte) bool {
 	m.signatureAndHashes = nil
 	m.alpnProtocols = nil
 
+	m.extensionIds = make([]uint16, 0)
 	if len(data) == 0 {
 		// ClientHello is optionally followed by extension data
 		return true
@@ -369,6 +411,7 @@ func (m *clientHelloMsg) unmarshal(data []byte) bool {
 			return false
 		}
 
+		m.extensionIds = append(m.extensionIds, extension)
 		switch extension {
 		case extensionServerName:
 			if length < 2 {
