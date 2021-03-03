@@ -41,6 +41,7 @@
 | Shan Xiao | arlingtonroad |
 | Shengnan Yu | goldfish-fish |
 | Shuai Yan | yanshuai615270 |
+| Shuo Yang | yangshuothtf |
 | Sijie Yang | iyangsj |
 | Tianqi Zhang | NKztq |
 | Weijie Zhao | zwj13513118235 |
