@@ -191,6 +191,24 @@ func TestReadMIMEHeaderNonCompliant(t *testing.T) {
 	}
 }
 
+func TestReadMIMEHeaderMalformed(t *testing.T) {
+	inputs := []string{
+		"No colon first line\r\nFoo: foo\r\n\r\n",
+		" No colon first line with leading space\r\nFoo: foo\r\n\r\n",
+		"\tNo colon first line with leading tab\r\nFoo: foo\r\n\r\n",
+		" First: line with leading space\r\nFoo: foo\r\n\r\n",
+		"\tFirst: line with leading tab\r\nFoo: foo\r\n\r\n",
+		"Foo: foo\r\nNo colon second line\r\n\r\n",
+	}
+
+	for _, input := range inputs {
+		r := reader(input)
+		if m, err := r.ReadMIMEHeader(); err == nil {
+			t.Errorf("ReadMIMEHeader(%q) = %v, %v; want nil, err", input, m, err)
+		}
+	}
+}
+
 // Test that continued lines are properly trimmed. Issue 11204.
 func TestReadMIMEHeaderTrimContinued(t *testing.T) {
 	// In this header, \n and \r\n terminated lines are mixed on purpose.
@@ -269,6 +287,36 @@ func TestRFC959Lines(t *testing.T) {
 		}
 	}
 }
+
+// Test that multi-line errors are appropriately and fully read. Issue 10230.
+func TestReadMultiLineError(t *testing.T) {
+	r := reader("550-5.1.1 The email account that you tried to reach does not exist. Please try\n" +
+		"550-5.1.1 double-checking the recipient's email address for typos or\n" +
+		"550-5.1.1 unnecessary spaces. Learn more at\n" +
+		"Unexpected but legal text!\n" +
+		"550 5.1.1 https://support.google.com/mail/answer/6596 h20si25154304pfd.166 - gsmtp\n")
+
+	wantMsg := "5.1.1 The email account that you tried to reach does not exist. Please try\n" +
+		"5.1.1 double-checking the recipient's email address for typos or\n" +
+		"5.1.1 unnecessary spaces. Learn more at\n" +
+		"Unexpected but legal text!\n" +
+		"5.1.1 https://support.google.com/mail/answer/6596 h20si25154304pfd.166 - gsmtp"
+
+	code, msg, err := r.ReadResponse(250)
+	if err == nil {
+		t.Errorf("ReadResponse: no error, want error")
+	}
+	if code != 550 {
+		t.Errorf("ReadResponse: code=%d, want %d", code, 550)
+	}
+	if msg != wantMsg {
+		t.Errorf("ReadResponse: msg=%q, want %q", msg, wantMsg)
+	}
+	if err.Error() != "550 "+wantMsg {
+		t.Errorf("ReadResponse: error=%q, want %q", err.Error(), "550 "+wantMsg)
+	}
+}
+
 func TestCommonHeaders(t *testing.T) {
 	commonHeaderOnce.Do(initCommonHeader)
 	for h := range commonHeader {

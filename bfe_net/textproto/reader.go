@@ -152,8 +152,9 @@ func (r *Reader) readContinuedLineSlice() ([]byte, error) {
 	// avoid copying that buffered data around in memory and skipping over
 	// non-existent whitespace.
 	if r.R.Buffered() > 1 {
-		peek, err := r.R.Peek(1)
-		if err == nil && isASCIILetter(peek[0]) {
+		peek, _ := r.R.Peek(2)
+		if len(peek) > 0 && (isASCIILetter(peek[0]) || peek[0] == '\n') ||
+			len(peek) == 2 && peek[0] == '\r' && peek[1] == '\n' {
 			return trim(line), nil
 		}
 	}
@@ -256,7 +257,12 @@ func (r *Reader) ReadCodeLine(expectCode int) (code int, message string, err err
 // separated by a newline (\n).
 //
 // See page 36 of RFC 959 (http://www.ietf.org/rfc/rfc959.txt) for
-// details.
+// details of another form of response accepted:
+//
+//  code-message line 1
+//  message line 2
+//  ...
+//  code message line n
 //
 // If the prefix of the status does not match the digits in expectCode,
 // ReadResponse returns with err set to &Error{code, message}.
@@ -267,7 +273,8 @@ func (r *Reader) ReadCodeLine(expectCode int) (code int, message string, err err
 //
 func (r *Reader) ReadResponse(expectCode int) (code int, message string, err error) {
 	code, continued, message, err := r.readCodeLine(expectCode)
-	for err == nil && continued {
+	multi := continued
+	for continued {
 		line, err := r.ReadLine()
 		if err != nil {
 			return 0, "", err
@@ -275,13 +282,17 @@ func (r *Reader) ReadResponse(expectCode int) (code int, message string, err err
 
 		var code2 int
 		var moreMessage string
-		code2, continued, moreMessage, err = parseCodeLine(line, expectCode)
+		code2, continued, moreMessage, err = parseCodeLine(line, 0)
 		if err != nil || code2 != code {
 			message += "\n" + strings.TrimRight(line, "\r\n")
 			continued = true
 			continue
 		}
 		message += "\n" + moreMessage
+	}
+	if err != nil && multi && message != "" {
+		// replace one line error message with all lines (full message)
+		err = &Error{code, message}
 	}
 	return
 }
@@ -494,6 +505,16 @@ func (r *Reader) ReadMIMEHeaderAndKeys() (MIMEHeader, MIMEKeys, error) {
 
 	m := make(MIMEHeader, hint)
 	mkeys := make(MIMEKeys, 0, hint)
+
+	// The first line cannot start with a leading space.
+	if buf, err := r.R.Peek(1); err == nil && (buf[0] == ' ' || buf[0] == '\t') {
+		line, err := r.readLineSlice()
+		if err != nil {
+			return m, mkeys, err
+		}
+		return m, mkeys, ProtocolError("malformed MIME header initial line: " + string(line))
+	}
+
 	for {
 		kv, err := r.readContinuedLineSlice()
 		if len(kv) == 0 {
