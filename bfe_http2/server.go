@@ -1567,12 +1567,23 @@ func (sc *serverConn) processSettingInitialWindowSize(val uint32) error {
 
 func (sc *serverConn) processData(f *DataFrame) error {
 	sc.serveG.Check()
+	id := f.Header().StreamID
+	if sc.inGoAway && (sc.goAwayCode != ErrCodeNo || id > sc.maxStreamID) {
+		// Discard all DATA frames if the GOAWAY is due to an
+		// error, or:
+		//
+		// Section 6.8: After sending a GOAWAY frame, the sender
+		// can discard frames for streams initiated by the
+		// receiver with identifiers higher than the identified
+		// last stream.
+		return nil
+	}
+
 	data := f.Data()
 
 	// "If a DATA frame is received whose stream is not in "open"
 	// or "half closed (local)" state, the recipient MUST respond
 	// with a stream error (Section 5.4.2) of type STREAM_CLOSED."
-	id := f.Header().StreamID
 	st, ok := sc.streams[id]
 	if !ok || st.state != stateOpen || st.gotTrailerHeader {
 		// This includes sending a RST_STREAM if the stream is
