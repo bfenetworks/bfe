@@ -1618,7 +1618,10 @@ func (sc *serverConn) processData(f *DataFrame) error {
 	if st.declBodyBytes != -1 && st.bodyBytes+int64(len(data)) > st.declBodyBytes {
 		err := fmt.Errorf("sender tried to send more than declared Content-Length of %d bytes", st.declBodyBytes)
 		st.body.CloseWithError(err)
-		return StreamError{id, ErrCodeStreamClosed, err.Error()}
+		// RFC 7540, sec 8.1.2.6: A request or response is also malformed if the
+		// value of a content-length header field does not equal the sum of the
+		// DATA frame payload lengths that form the body.
+		return StreamError{id, ErrCodeProtocol, err.Error()}
 	}
 	if f.Length > 0 {
 		// Check whether the client has flow control quota.
