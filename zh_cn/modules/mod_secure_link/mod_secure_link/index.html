@@ -2804,12 +2804,11 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_4">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
-<span class="na">DataPath</span> <span class="o">=</span> <span class="s">./mod_secure_link/secure_link.data</span>
+<pre class="codehilite"><code class="language-ini">[Basic]
+DataPath = ./mod_secure_link/secure_link.data
 
-<span class="k">[Log]</span>
-<span class="na">OpenDebug</span> <span class="o">=</span> <span class="s">true</span>
-</code></pre></div>
+[Log]
+OpenDebug = true</code></pre>
 
 
 <h2 id="_5">规则配置</h2>
@@ -2902,66 +2901,63 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_7">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;2019-12-10184356&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;p1&quot;</span><span class="p">:</span> <span class="p">[{</span>
-            <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;default_t()&quot;</span><span class="p">,</span>
-            <span class="nt">&quot;ChecksumKey&quot;</span><span class="p">:</span> <span class="s2">&quot;sign&quot;</span><span class="p">,</span>
-            <span class="nt">&quot;ExpiresKey&quot;</span><span class="p">:</span> <span class="s2">&quot;time&quot;</span><span class="p">,</span>
-            <span class="nt">&quot;ExpressionNodes&quot;</span><span class="p">:</span> <span class="p">[{</span>
-                    <span class="nt">&quot;Type&quot;</span><span class="p">:</span> <span class="s2">&quot;query&quot;</span><span class="p">,</span>
-                    <span class="nt">&quot;Param&quot;</span><span class="p">:</span> <span class="s2">&quot;time&quot;</span>
-                <span class="p">},</span>
-                <span class="p">{</span>
-                    <span class="nt">&quot;Type&quot;</span><span class="p">:</span> <span class="s2">&quot;uri&quot;</span>
-                <span class="p">},</span>
-                <span class="p">{</span>
-                    <span class="nt">&quot;Type&quot;</span><span class="p">:</span> <span class="s2">&quot;remote_addr&quot;</span>
-                <span class="p">},</span>
-                <span class="p">{</span>
-                    <span class="nt">&quot;Type&quot;</span><span class="p">:</span> <span class="s2">&quot;label&quot;</span><span class="p">,</span>
-                    <span class="nt">&quot;Param&quot;</span><span class="p">:</span> <span class="s2">&quot; secret&quot;</span>
-                <span class="p">}</span>
-            <span class="p">]</span>
-        <span class="p">}]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;2019-12-10184356&quot;,
+    &quot;Config&quot;: {
+        &quot;p1&quot;: [{
+            &quot;Cond&quot;: &quot;default_t()&quot;,
+            &quot;ChecksumKey&quot;: &quot;sign&quot;,
+            &quot;ExpiresKey&quot;: &quot;time&quot;,
+            &quot;ExpressionNodes&quot;: [{
+                    &quot;Type&quot;: &quot;query&quot;,
+                    &quot;Param&quot;: &quot;time&quot;
+                },
+                {
+                    &quot;Type&quot;: &quot;uri&quot;
+                },
+                {
+                    &quot;Type&quot;: &quot;remote_addr&quot;
+                },
+                {
+                    &quot;Type&quot;: &quot;label&quot;,
+                    &quot;Param&quot;: &quot; secret&quot;
+                }
+            ]
+        }]
+    }
+}</code></pre>
 
 
 <h3 id="link">Link生成逻辑</h3>
 <p>以上述配置举例，Path的生成逻辑为：</p>
-<div class="codehilite"><pre><span></span><code><span class="n">func</span> <span class="n">WrapSecureLinkParam</span> <span class="p">(</span><span class="n">req</span> <span class="o">*</span><span class="n">http</span><span class="p">.</span><span class="n">Request</span><span class="p">)</span> <span class="err">{</span>
-    <span class="n">now</span> <span class="p">:</span><span class="o">=</span> <span class="k">time</span><span class="p">.</span><span class="n">Now</span><span class="p">().</span><span class="n">Unix</span><span class="p">()</span>
-    <span class="n">expires</span> <span class="p">:</span><span class="o">=</span> <span class="n">now</span> <span class="o">+</span> <span class="n">int64</span><span class="p">(</span><span class="k">time</span><span class="p">.</span><span class="n">Hour</span><span class="o">*</span><span class="mi">24</span><span class="o">/</span><span class="k">time</span><span class="p">.</span><span class="k">Second</span><span class="p">)</span>
-    <span class="o">//</span> <span class="n">step1</span><span class="p">:</span> <span class="k">get</span> <span class="n">origin</span> <span class="k">data</span>
-    <span class="n">origin</span> <span class="p">:</span><span class="o">=</span> <span class="n">fmt</span><span class="p">.</span><span class="n">Sprintf</span><span class="p">(</span><span class="ss">&quot;%d%s%s%s&quot;</span><span class="p">,</span> <span class="n">expires</span><span class="p">,</span> <span class="n">req</span><span class="p">.</span><span class="n">RequestURI</span><span class="p">,</span> <span class="n">req</span><span class="p">.</span><span class="n">RemoteAddr</span><span class="p">,</span> <span class="ss">&quot; secret&quot;</span><span class="p">)</span>
+<pre class="codehilite"><code>func WrapSecureLinkParam (req *http.Request) {
+    now := time.Now().Unix()
+    expires := now + int64(time.Hour*24/time.Second)
+    // step1: get origin data
+    origin := fmt.Sprintf(&quot;%d%s%s%s&quot;, expires, req.RequestURI, req.RemoteAddr, &quot; secret&quot;)
 
-    <span class="o">//</span> <span class="n">step2</span><span class="p">:</span> <span class="n">generator</span> <span class="n">sign</span>
-    <span class="n">sign</span> <span class="p">:</span><span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">origin</span> <span class="n">string</span><span class="p">)</span> <span class="n">string</span> <span class="err">{</span>
-        <span class="n">tmpB</span> <span class="p">:</span><span class="o">=</span> <span class="n">md5</span><span class="p">.</span><span class="k">Sum</span><span class="p">([]</span><span class="n">byte</span><span class="p">(</span><span class="n">origin</span><span class="p">))</span>
-        <span class="n">tmp</span> <span class="p">:</span><span class="o">=</span> <span class="n">base64</span><span class="p">.</span><span class="n">StdEncoding</span><span class="p">.</span><span class="n">EncodeToString</span><span class="p">(</span><span class="n">tmpB</span><span class="p">[:])</span>
-        <span class="n">tmp</span> <span class="o">=</span> <span class="n">strings</span><span class="p">.</span><span class="n">ReplaceAll</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="ss">&quot;+&quot;</span><span class="p">,</span> <span class="ss">&quot;-&quot;</span><span class="p">)</span>
-        <span class="n">tmp</span> <span class="o">=</span> <span class="n">strings</span><span class="p">.</span><span class="n">ReplaceAll</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="ss">&quot;/&quot;</span><span class="p">,</span> <span class="ss">&quot;_&quot;</span><span class="p">)</span>
-        <span class="n">tmp</span> <span class="o">=</span> <span class="n">strings</span><span class="p">.</span><span class="n">ReplaceAll</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="ss">&quot;=&quot;</span><span class="p">,</span> <span class="ss">&quot;&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">tmp</span>
-    <span class="err">}</span>
+    // step2: generator sign
+    sign := func(origin string) string {
+        tmpB := md5.Sum([]byte(origin))
+        tmp := base64.StdEncoding.EncodeToString(tmpB[:])
+        tmp = strings.ReplaceAll(tmp, &quot;+&quot;, &quot;-&quot;)
+        tmp = strings.ReplaceAll(tmp, &quot;/&quot;, &quot;_&quot;)
+        tmp = strings.ReplaceAll(tmp, &quot;=&quot;, &quot;&quot;)
+        return tmp
+    }
 
-    <span class="o">//</span> <span class="n">step3</span><span class="p">:</span> <span class="n">generate</span> <span class="n">link</span>
-    <span class="n">req</span><span class="p">.</span><span class="n">URL</span><span class="p">.</span><span class="n">Query</span><span class="p">().</span><span class="k">Set</span><span class="p">(</span><span class="ss">&quot;sign&quot;</span><span class="p">,</span> <span class="n">sign</span><span class="p">(</span><span class="n">origin</span><span class="p">))</span>
-    <span class="n">req</span><span class="p">.</span><span class="n">URL</span><span class="p">.</span><span class="n">Query</span><span class="p">().</span><span class="k">Set</span><span class="p">(</span><span class="ss">&quot;time&quot;</span><span class="p">,</span> <span class="n">fmt</span><span class="p">.</span><span class="n">Sprintf</span><span class="p">(</span><span class="ss">&quot;%d&quot;</span><span class="p">,</span> <span class="n">expires</span><span class="p">))</span>
-<span class="err">}</span>
-</code></pre></div>
+    // step3: generate link
+    req.URL.Query().Set(&quot;sign&quot;, sign(origin))
+    req.URL.Query().Set(&quot;time&quot;, fmt.Sprintf(&quot;%d&quot;, expires))
+}</code></pre>
 
 
 <p>step2 的逻辑用shell命令表示为：</p>
-<div class="codehilite"><pre><span></span><code><span class="n">echo</span> <span class="o">-</span><span class="n">n</span> <span class="err">$</span><span class="n">origin</span> <span class="o">|</span> <span class="n">openssl</span> <span class="n">md5</span> <span class="o">-</span><span class="nb">binary</span> <span class="o">|</span> <span class="n">openssl</span> <span class="n">base64</span> <span class="o">|</span> <span class="n">tr</span> <span class="o">+/</span> <span class="o">-</span><span class="n">_</span> <span class="o">|</span> <span class="n">tr</span> <span class="o">-</span><span class="n">d</span> <span class="o">=</span>
+<pre class="codehilite"><code>echo -n $origin | openssl md5 -binary | openssl base64 | tr +/ -_ | tr -d =
 
-<span class="o">//</span> <span class="n">one</span> <span class="n">example</span><span class="p">:</span>
-<span class="n">echo</span> <span class="o">-</span><span class="n">n</span> <span class="s1">&#39;2147483647/s/link127.0.0.1 secret&#39;</span> <span class="o">|</span> <span class="n">openssl</span> <span class="n">md5</span> <span class="o">-</span><span class="nb">binary</span> <span class="o">|</span> <span class="n">openssl</span> <span class="n">base64</span> <span class="o">|</span> <span class="n">tr</span> <span class="o">+/</span> <span class="o">-</span><span class="n">_</span> <span class="o">|</span> <span class="n">tr</span> <span class="o">-</span><span class="n">d</span> <span class="o">=</span>
-<span class="n">_e4Nc3iduzkWRm01TBBNYw</span>
-</code></pre></div>
+// one example:
+echo -n '2147483647/s/link127.0.0.1 secret' | openssl md5 -binary | openssl base64 | tr +/ -_ | tr -d =
+_e4Nc3iduzkWRm01TBBNYw</code></pre>
                 
               
               

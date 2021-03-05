@@ -2915,9 +2915,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>条件原语是基本的内置条件判断单元，执行某种比较来判断是否满足条件</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="c1">// 如果请求host是&quot;bfe-networks.com&quot;或&quot;bfe-networks.org&quot;, 返回true</span>
-<span class="nx">req_host_in</span><span class="p">(</span><span class="s">&quot;bfe-networks.com|bfe-networks.org&quot;</span><span class="p">)</span> 
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">// 如果请求host是&quot;bfe-networks.com&quot;或&quot;bfe-networks.org&quot;, 返回true
+req_host_in(&quot;bfe-networks.com|bfe-networks.org&quot;) </code></pre>
 
 
 <ul>
@@ -2927,9 +2926,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>条件表达式是多个条件原语与操作符(例如与、或、非)的组合</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="c1">// 如果请求域名是&quot;bfe-networks.com&quot;且请求方法是&quot;GET&quot;, 返回true</span>
-<span class="nx">req_host_in</span><span class="p">(</span><span class="s">&quot;bfe-networks.com&quot;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="nx">req_method_in</span><span class="p">(</span><span class="s">&quot;GET&quot;</span><span class="p">)</span> 
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">// 如果请求域名是&quot;bfe-networks.com&quot;且请求方法是&quot;GET&quot;, 返回true
+req_host_in(&quot;bfe-networks.com&quot;) &amp;&amp; req_method_in(&quot;GET&quot;) </code></pre>
 
 
 <ul>
@@ -2939,9 +2937,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>可以将条件表达式赋值给一个变量，这个变量被定义为条件变量</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="c1">// 将条件表达式赋值给变量bfe_host</span>
-<span class="nx">bfe_host</span> <span class="p">=</span> <span class="nx">req_host_in</span><span class="p">(</span><span class="s">&quot;bfe-networks.com&quot;</span><span class="p">)</span> 
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">// 将条件表达式赋值给变量bfe_host
+bfe_host = req_host_in(&quot;bfe-networks.com&quot;) </code></pre>
 
 
 <h3 id="_6">高级条件表达式</h3>
@@ -2953,16 +2950,14 @@ RU5ErkJggg==" ></image>
 <p>在高级条件表达式中，条件变量以$前缀作为标示</p>
 </li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="c1">// 如果变量bfe_host为true且请求方法是&quot;GET&quot;，返回true</span>
-<span class="err">$</span><span class="nx">bfe_host</span> <span class="o">&amp;&amp;</span> <span class="nx">req_method_in</span><span class="p">(</span><span class="s">&quot;GET&quot;</span><span class="p">)</span> 
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">// 如果变量bfe_host为true且请求方法是&quot;GET&quot;，返回true
+$bfe_host &amp;&amp; req_method_in(&quot;GET&quot;) </code></pre>
 
 
 <h2 id="_7">语法说明</h2>
 <h3 id="_8">条件原语的语法</h3>
 <p>条件原语的形式如下：</p>
-<div class="codehilite"><pre><span></span><code><span class="nx">func_name</span><span class="p">(</span><span class="nx">params</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">func_name(params)</code></pre>
 
 
 <ul>
@@ -2972,23 +2967,21 @@ RU5ErkJggg==" ></image>
 </ul>
 <h3 id="_9">条件表达式的语法</h3>
 <p>条件表达式(CE: Condition Expression)的语法定义如下：</p>
-<div class="codehilite"><pre><span></span><code><span class="err">CE = CE &amp;&amp; CE</span>
-<span class="err">   | CE || CE</span>
-<span class="err">   | ( CE )</span>
-<span class="err">   | ! CE</span>
-<span class="err">   | ConditionPrimitive</span>
-</code></pre></div>
+<pre class="codehilite"><code>CE = CE &amp;&amp; CE
+   | CE || CE
+   | ( CE )
+   | ! CE
+   | ConditionPrimitive</code></pre>
 
 
 <h3 id="_10">高级条件表达式的语法</h3>
 <p>高级条件表达式(ACE: Advanced Condition Expression)的语法定义如下：</p>
-<div class="codehilite"><pre><span></span><code><span class="err">ACE = ACE &amp;&amp; ACE</span>
-<span class="err">    | ACE || ACE</span>
-<span class="err">    | ( ACE )</span>
-<span class="err">    | ! ACE</span>
-<span class="err">    | ConditionPrimitive</span>
-<span class="err">    | ConditionVariable</span>
-</code></pre></div>
+<pre class="codehilite"><code>ACE = ACE &amp;&amp; ACE
+    | ACE || ACE
+    | ( ACE )
+    | ! ACE
+    | ConditionPrimitive
+    | ConditionVariable</code></pre>
 
 
 <h3 id="_11">操作符优先级</h3>

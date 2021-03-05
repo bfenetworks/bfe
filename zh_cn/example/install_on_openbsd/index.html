@@ -2725,86 +2725,79 @@ RU5ErkJggg==" ></image>
 <li>设置OpenBSD 6.6软件源安装路径并安装相关软件包：</li>
 </ul>
 <p>amd64</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># export PKG_PATH=&quot;https://mirrors.tuna.tsinghua.edu.cn/OpenBSD/6.6/packages/amd64/&quot;</span>
-<span class="c1"># pkg_add wget go</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash"># export PKG_PATH=&quot;https://mirrors.tuna.tsinghua.edu.cn/OpenBSD/6.6/packages/amd64/&quot;
+# pkg_add wget go</code></pre>
 
 
 <p>i386</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># export PKG_PATH=&quot;https://mirrors.tuna.tsinghua.edu.cn/OpenBSD/6.6/packages/i386/&quot;</span>
-<span class="c1"># pkg_add llvm wget go</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash"># export PKG_PATH=&quot;https://mirrors.tuna.tsinghua.edu.cn/OpenBSD/6.6/packages/i386/&quot;
+# pkg_add llvm wget go</code></pre>
 
 
 <ul>
 <li>由于OpenBSD 6.6自带的make 无法编译BFE，因此需要安装gnu make</li>
 </ul>
 <p>amd64</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># wget http://ftp.gnu.org/gnu/make/make-4.2.tar.bz2</span>
-<span class="c1"># tar -xvjf make-4.2.tar.bz2</span>
-<span class="c1"># cd make-4.2</span>
-<span class="c1"># ./configure</span>
-<span class="c1"># make -j8</span>
-<span class="c1"># make install</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash"># wget http://ftp.gnu.org/gnu/make/make-4.2.tar.bz2
+# tar -xvjf make-4.2.tar.bz2
+# cd make-4.2
+# ./configure
+# make -j8
+# make install</code></pre>
 
 
 <p>i386</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># cd /usr/bin</span>
-<span class="c1"># ln -s clang gcc</span>
-<span class="c1">#</span>
-<span class="c1"># wget http://ftp.gnu.org/gnu/make/make-4.2.tar.bz2</span>
-<span class="c1"># tar -xvjf make-4.2.tar.bz2</span>
-<span class="c1"># cd make-4.2</span>
-<span class="c1"># ./configure</span>
-<span class="c1"># make -j8 </span>
-<span class="c1"># make install</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash"># cd /usr/bin
+# ln -s clang gcc
+#
+# wget http://ftp.gnu.org/gnu/make/make-4.2.tar.bz2
+# tar -xvjf make-4.2.tar.bz2
+# cd make-4.2
+# ./configure
+# make -j8 
+# make install</code></pre>
 
 
 <h2 id="bfe">编译安装BFE</h2>
 <ul>
 <li>下载bfe 0.4.0 并编译安装</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="c1"># wget https://github.com/bfenetworks/bfe/archive/v0.4.0.tar.gz</span>
-<span class="c1"># tar -xvzf v0.4.0.tar.gz</span>
-<span class="c1"># cd bfe-0.4.0/</span>
-<span class="c1"># export GOPROXY=https://goproxy.io</span>
-<span class="c1"># /usr/local/bin/make -j8   </span>
-<span class="c1">#</span>
-<span class="c1"># mkdir -p /usr/local/bfe/bin</span>
-<span class="c1"># cp bfe /usr/local/bfe/bin</span>
-<span class="c1"># cp -fr conf/ /usr/local/bfe</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash"># wget https://github.com/bfenetworks/bfe/archive/v0.4.0.tar.gz
+# tar -xvzf v0.4.0.tar.gz
+# cd bfe-0.4.0/
+# export GOPROXY=https://goproxy.io
+# /usr/local/bin/make -j8   
+#
+# mkdir -p /usr/local/bfe/bin
+# cp bfe /usr/local/bfe/bin
+# cp -fr conf/ /usr/local/bfe</code></pre>
 
 
 <ul>
 <li>修改配置文件</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="c1"># cd /usr/local/bfe/conf/mod_access/</span>
-<span class="c1"># vi mod_access.conf</span>
-<span class="nv">LogDir</span> <span class="o">=</span>  ../log
-:wq <span class="c1">## 保存退出</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash"># cd /usr/local/bfe/conf/mod_access/
+# vi mod_access.conf
+LogDir =  ../log
+:wq ## 保存退出</code></pre>
 
 
 <ul>
 <li>创建启动脚本及运行</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="c1"># mkdir /root/run_bfe</span>
-<span class="c1"># cd /root/run_bfe</span>
-<span class="c1"># vi run_bfe.sh</span>
-<span class="c1">#!/usr/local/bin/bash</span>
-<span class="nb">cd</span> /usr/local/bfe/bin
-./bfe -c ../conf -l ../log <span class="p">&amp;</span>
-:wq <span class="c1">## 保存退出</span>
+<pre class="codehilite"><code class="language-bash"># mkdir /root/run_bfe
+# cd /root/run_bfe
+# vi run_bfe.sh
+#!/usr/local/bin/bash
+cd /usr/local/bfe/bin
+./bfe -c ../conf -l ../log &amp;
+:wq ## 保存退出
 
-<span class="c1"># chmod 755 run_bfe.sh</span>
-<span class="c1"># sh run_bfe.sh</span>
-<span class="c1"># ps |grep bfe</span>
-<span class="m">25625</span> p0  I        <span class="m">6</span>:08.02 ./bfe -c ../conf -l ../log
-<span class="m">79047</span> p0  R+/2     <span class="m">0</span>:00.00 grep bfe
-</code></pre></div>
+# chmod 755 run_bfe.sh
+# sh run_bfe.sh
+# ps |grep bfe
+25625 p0  I        6:08.02 ./bfe -c ../conf -l ../log
+79047 p0  R+/2     0:00.00 grep bfe</code></pre>
                 
               
               

@@ -2778,8 +2778,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>Run BFE with example configuration files:</li>
 </ul>
-<div class="codehilite"><pre><span></span><code>docker run -p <span class="m">8080</span>:8080 -p <span class="m">8443</span>:8443 -p <span class="m">8421</span>:8421 bfenetworks/bfe
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash">docker run -p 8080:8080 -p 8443:8443 -p 8421:8421 bfenetworks/bfe</code></pre>
 
 
 <p>you can access http://127.0.0.1:8080/ and got status code 500 because of there is rule be matched.
@@ -2787,10 +2786,9 @@ you can access http://127.0.0.1:8421/ got monitor infomation.</p>
 <ul>
 <li>Run BFE with your configuration files:</li>
 </ul>
-<div class="codehilite"><pre><span></span><code>// prepare your configuration <span class="o">(</span>see section Configuration <span class="k">if</span> you need<span class="o">)</span> to dir /Users/BFE/conf
+<pre class="codehilite"><code class="language-bash">// prepare your configuration (see section Configuration if you need) to dir /Users/BFE/conf
 
-docker run -p <span class="m">8080</span>:8080 -p <span class="m">8443</span>:8443 -p <span class="m">8421</span>:8421 -v /Users/BFE/Desktop/log:/bfe/log -v /Users/BFE/Desktop/conf:/bfe/conf bfenetworks/bfe
-</code></pre></div>
+docker run -p 8080:8080 -p 8443:8443 -p 8421:8421 -v /Users/BFE/Desktop/log:/bfe/log -v /Users/BFE/Desktop/conf:/bfe/conf bfenetworks/bfe</code></pre>
 
 
 <h2 id="further-reading">Further reading</h2>

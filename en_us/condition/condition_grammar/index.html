@@ -2915,9 +2915,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>A condition primitive is a basic and built-in function which check some specified condition matched or not.</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="c1">// return true if the request Host is &quot;www.bfe-networks.com&quot; or &quot;bfe-networks.com&quot;</span>
-<span class="nx">req_host_in</span><span class="p">(</span><span class="s">&quot;www.bfe-networks.com|bfe-networks.com&quot;</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">// return true if the request Host is &quot;www.bfe-networks.com&quot; or &quot;bfe-networks.com&quot;
+req_host_in(&quot;www.bfe-networks.com|bfe-networks.com&quot;)</code></pre>
 
 
 <ul>
@@ -2927,9 +2926,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>A condition expression is a series of condition primitives combined with operators (e.g. AND, OR, NOT, etc).</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="c1">// return ture if the request host is &quot;bfe-networks.com&quot; and the request method is &quot;GET&quot;</span>
-<span class="nx">req_host_in</span><span class="p">(</span><span class="s">&quot;bfe-networks.com&quot;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="nx">req_method_in</span><span class="p">(</span><span class="s">&quot;GET&quot;</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">// return ture if the request host is &quot;bfe-networks.com&quot; and the request method is &quot;GET&quot;
+req_host_in(&quot;bfe-networks.com&quot;) &amp;&amp; req_method_in(&quot;GET&quot;)</code></pre>
 
 
 <ul>
@@ -2939,9 +2937,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>You can define a variable  and assign a condition expression to it.</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="c1">// define a condition varaible</span>
-<span class="nx">bfe_host</span> <span class="p">=</span> <span class="nx">req_host_in</span><span class="p">(</span><span class="s">&quot;bfe-networks.com&quot;</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">// define a condition varaible
+bfe_host = req_host_in(&quot;bfe-networks.com&quot;)</code></pre>
 
 
 <h3 id="advanced-condition-expression">Advanced Condition Expression</h3>
@@ -2953,16 +2950,14 @@ RU5ErkJggg==" ></image>
 <p>In an advanced condition expression, the condition variable is identified by  "$" prefix</p>
 </li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="c1">// return true if the value of new_host is true and the request method is GET</span>
-<span class="err">$</span><span class="nx">news_host</span> <span class="o">&amp;&amp;</span> <span class="nx">req_method_in</span><span class="p">(</span><span class="s">&quot;GET&quot;</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">// return true if the value of new_host is true and the request method is GET
+$news_host &amp;&amp; req_method_in(&quot;GET&quot;)</code></pre>
 
 
 <h2 id="grammar">Grammar</h2>
 <h3 id="condition-primitive-grammar">Condition Primitive Grammar</h3>
 <p>A condition primitive is shown as follows:</p>
-<div class="codehilite"><pre><span></span><code><span class="nx">func_name</span><span class="p">(</span><span class="nx">params</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">func_name(params)</code></pre>
 
 
 <ul>
@@ -2972,23 +2967,21 @@ RU5ErkJggg==" ></image>
 </ul>
 <h3 id="condition-expression-grammar">Condition Expression Grammar</h3>
 <p>Condition Expression(CE) grammar is defined as follows:</p>
-<div class="codehilite"><pre><span></span><code><span class="err">CE = CE &amp;&amp; CE</span>
-<span class="err">   | CE || CE</span>
-<span class="err">   | ( CE )</span>
-<span class="err">   | ! CE</span>
-<span class="err">   | ConditionPrimitive</span>
-</code></pre></div>
+<pre class="codehilite"><code>CE = CE &amp;&amp; CE
+   | CE || CE
+   | ( CE )
+   | ! CE
+   | ConditionPrimitive</code></pre>
 
 
 <h3 id="advanced-condition-expression-grammar">Advanced Condition Expression Grammar</h3>
 <p>Advanced Condition Expression(ACE) grammar is defined as follows:</p>
-<div class="codehilite"><pre><span></span><code><span class="err">ACE = ACE &amp;&amp; ACE</span>
-<span class="err">    | ACE || ACE</span>
-<span class="err">    | ( ACE)</span>
-<span class="err">    | ! ACE</span>
-<span class="err">    | ConditionPrimitive</span>
-<span class="err">    | ConditionVariable</span>
-</code></pre></div>
+<pre class="codehilite"><code>ACE = ACE &amp;&amp; ACE
+    | ACE || ACE
+    | ( ACE)
+    | ! ACE
+    | ConditionPrimitive
+    | ConditionVariable</code></pre>
 
 
 <h3 id="operator-precedence">Operator Precedence</h3>

@@ -2920,9 +2920,8 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="example">Example</h3>
-<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
-<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_header/header_rule.data</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">[Basic]
+DataPath = mod_header/header_rule.data</code></pre>
 
 
 <h2 id="rule-configuration">Rule Configuration</h2>
@@ -3025,41 +3024,40 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="example_1">Example</h3>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="p">{</span>
-                <span class="nt">&quot;cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_path_prefix_in(\&quot;/header\&quot;, false)&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;actions&quot;</span><span class="p">:</span> <span class="p">[</span>
-                    <span class="p">{</span>
-                        <span class="nt">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;REQ_HEADER_SET&quot;</span><span class="p">,</span>
-                        <span class="nt">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span>
-                            <span class="s2">&quot;X-Bfe-Log-Id&quot;</span><span class="p">,</span>
-                            <span class="s2">&quot;%bfe_log_id&quot;</span>
-                        <span class="p">]</span>
-                    <span class="p">},</span>
-                    <span class="p">{</span>
-                        <span class="nt">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;REQ_HEADER_SET&quot;</span><span class="p">,</span>
-                        <span class="nt">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span>
-                            <span class="s2">&quot;X-Bfe-Vip&quot;</span><span class="p">,</span>
-                            <span class="s2">&quot;%bfe_vip&quot;</span>
-                        <span class="p">]</span>
-                    <span class="p">},</span>
-                    <span class="p">{</span>
-                        <span class="nt">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;RSP_HEADER_SET&quot;</span><span class="p">,</span>
-                        <span class="nt">&quot;params&quot;</span><span class="p">:</span> <span class="p">[</span>
-                            <span class="s2">&quot;X-Proxied-By&quot;</span><span class="p">,</span>
-                            <span class="s2">&quot;bfe&quot;</span>
-                        <span class="p">]</span>
-                    <span class="p">}</span>
-                <span class="p">],</span>
-                <span class="nt">&quot;last&quot;</span><span class="p">:</span> <span class="kc">true</span>
-            <span class="p">}</span>
-        <span class="p">]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;20190101000000&quot;,
+    &quot;Config&quot;: {
+        &quot;example_product&quot;: [
+            {
+                &quot;cond&quot;: &quot;req_path_prefix_in(\&quot;/header\&quot;, false)&quot;,
+                &quot;actions&quot;: [
+                    {
+                        &quot;cmd&quot;: &quot;REQ_HEADER_SET&quot;,
+                        &quot;params&quot;: [
+                            &quot;X-Bfe-Log-Id&quot;,
+                            &quot;%bfe_log_id&quot;
+                        ]
+                    },
+                    {
+                        &quot;cmd&quot;: &quot;REQ_HEADER_SET&quot;,
+                        &quot;params&quot;: [
+                            &quot;X-Bfe-Vip&quot;,
+                            &quot;%bfe_vip&quot;
+                        ]
+                    },
+                    {
+                        &quot;cmd&quot;: &quot;RSP_HEADER_SET&quot;,
+                        &quot;params&quot;: [
+                            &quot;X-Proxied-By&quot;,
+                            &quot;bfe&quot;
+                        ]
+                    }
+                ],
+                &quot;last&quot;: true
+            }
+        ]
+    }
+}</code></pre>
 
 
 <h2 id="builtin-variables">Builtin Variables</h2>
@@ -3124,6 +3122,14 @@ See the <strong>Example</strong> above.</p>
 <tr>
 <td>%bfe_ssl_version</td>
 <td>TLS/SSL version</td>
+</tr>
+<tr>
+<td>%bfe_ssl_ja3_raw</td>
+<td>JA3 fingerprint string for TLS/SSL client</td>
+</tr>
+<tr>
+<td>%bfe_ssl_ja3_hash</td>
+<td>JA3 fingerprint hash for TLS/SSL client</td>
 </tr>
 <tr>
 <td>%bfe_protocol</td>

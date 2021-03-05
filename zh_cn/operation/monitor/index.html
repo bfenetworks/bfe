@@ -2805,20 +2805,17 @@ RU5ErkJggg==" ></image>
 <p>BFE内置丰富的监控指标，支持多种格式，可以通过BFE实例的监控接口获得。</p>
 <h2 id="_2">配置管理端口</h2>
 <p>在BFE核心配置文件(conf/bfe.conf)中, 配置MonitorPort</p>
-<div class="codehilite"><pre><span></span><code><span class="k">[Server]</span>
-<span class="na">MonitorPort</span> <span class="o">=</span> <span class="s">8421</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">[Server]
+MonitorPort = 8421</code></pre>
 
 
 <h2 id="_3">获取指标类别列表</h2>
 <p>访问如下地址，以获取监控项列表：</p>
-<div class="codehilite"><pre><span></span><code><span class="c">http://&lt;addr&gt;:8421/monitor</span>
-</code></pre></div>
+<pre class="codehilite"><code>http://&lt;addr&gt;:8421/monitor</code></pre>
 
 
 <h2 id="_4">获取指标详情</h2>
-<div class="codehilite"><pre><span></span><code><span class="c">http://&lt;addr&gt;:8421/monitor/&lt;category&gt;</span>
-</code></pre></div>
+<pre class="codehilite"><code>http://&lt;addr&gt;:8421/monitor/&lt;category&gt;</code></pre>
 
 
 <h2 id="_5">输出格式</h2>
@@ -2829,8 +2826,7 @@ RU5ErkJggg==" ></image>
 <li>json (默认格式)</li>
 </ul>
 <p>使用format参数指定输出的格式, 示例：</p>
-<div class="codehilite"><pre><span></span><code><span class="c">http://&lt;addr&gt;:&lt;port&gt;/monitor/proxy_state?format=prometheus</span>
-</code></pre></div>
+<pre class="codehilite"><code>http://&lt;addr&gt;:&lt;port&gt;/monitor/proxy_state?format=prometheus</code></pre>
                 
               
               
