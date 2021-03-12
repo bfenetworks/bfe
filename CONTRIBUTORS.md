@@ -16,6 +16,7 @@
 | Hao Dong | anotherwriter |
 | Haobin zhang | zhanghaobin |
 | Hui Yu | dblate |
+| Guangze Song | coopersong |
 | Gen Wang | gracewang510 |
 | Jie Liu | freeHackOfJeff |
 | Jie Wan | wanjiecs |
