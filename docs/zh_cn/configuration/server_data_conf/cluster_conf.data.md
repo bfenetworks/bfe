@@ -61,11 +61,11 @@ cluster_conf.data为集群转发配置文件。
 
 #### 集群基础配置
 
-| 配置项                              | 描述                                 |
-| ----------------------------------- | ------------------------------------ |
-| ClusterBasic.TimeoutReadClient      | Integer<br>读用户请求wody的超时时间，单位为毫秒<br>默认值30 |
-| ClusterBasic.TimeoutWriteClient     | Integer<br>写响应的超时时间，单位为毫秒<br>默认值60 |
-| ClusterBasic.TimeoutReadClientAgain | Integer<br>连接闲置超时时间，单位为毫秒<br>默认值60 |
+| 配置项                              | 描述                                                        |
+| ----------------------------------- | ----------------------------------------------------------- |
+| ClusterBasic.TimeoutReadClient      | Integer<br>读用户请求body的超时时间，单位为毫秒<br>默认值30 |
+| ClusterBasic.TimeoutWriteClient     | Integer<br>写响应的超时时间，单位为毫秒<br>默认值60         |
+| ClusterBasic.TimeoutReadClientAgain | Integer<br>连接闲置超时时间，单位为毫秒<br>默认值60         |
 
 ## 配置示例
 
