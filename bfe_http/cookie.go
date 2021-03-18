@@ -295,25 +295,28 @@ func (c *Cookie) String() string {
 //
 // if filter isn't empty, only cookies of that name are returned
 func readCookies(h Header, filter string) []*Cookie {
-	cookies := []*Cookie{}
-	lines, ok := h["Cookie"]
-	if !ok {
-		return cookies
+	lines := h["Cookie"]
+	if len(lines) == 0 {
+		return []*Cookie{}
 	}
 
+	cookies := make([]*Cookie, 0, len(lines)+strings.Count(lines[0], ";"))
+
 	for _, line := range lines {
-		parts := strings.Split(strings.TrimSpace(line), ";")
-		if len(parts) == 1 && parts[0] == "" {
-			continue
-		}
-		// Per-line attributes
-		parsedPairs := 0
-		for i := 0; i < len(parts); i++ {
-			parts[i] = strings.TrimSpace(parts[i])
-			if len(parts[i]) == 0 {
+		line = strings.TrimSpace(line)
+
+		var part string
+		for len(line) > 0 {
+			if splitIndex := strings.Index(line, ";"); splitIndex > 0 {
+				part, line = line[:splitIndex], line[splitIndex+1:]
+			} else {
+				part, line = line, ""
+			}
+			part = strings.TrimSpace(part)
+			if len(part) == 0 {
 				continue
 			}
-			name, val := parts[i], ""
+			name, val := part, ""
 			if j := strings.Index(name, "="); j >= 0 {
 				name, val = name[:j], name[j+1:]
 			}
@@ -328,7 +331,6 @@ func readCookies(h Header, filter string) []*Cookie {
 				continue
 			}
 			cookies = append(cookies, &Cookie{Name: name, Value: val})
-			parsedPairs++
 		}
 	}
 	return cookies
