@@ -20,7 +20,6 @@ package bfe_http
 
 import (
 	"bytes"
-	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -243,9 +242,12 @@ func SetCookie(w ResponseWriter, cookie *Cookie) {
 // header (if other fields are set).
 func (c *Cookie) String() string {
 	var b bytes.Buffer
-	fmt.Fprintf(&b, "%s=%s", sanitizeCookieName(c.Name), sanitizeCookieValue(c.Value))
+	b.WriteString(sanitizeCookieName(c.Name))
+	b.WriteRune('=')
+	b.WriteString(sanitizeCookieValue(c.Value))
 	if len(c.Path) > 0 {
-		fmt.Fprintf(&b, "; Path=%s", sanitizeCookiePath(c.Path))
+		b.WriteString("; Path=")
+		b.WriteString(sanitizeCookiePath(c.Path))
 	}
 	if len(c.Domain) > 0 {
 		if validCookieDomain(c.Domain) {
@@ -257,25 +259,32 @@ func (c *Cookie) String() string {
 			if d[0] == '.' {
 				d = d[1:]
 			}
-			fmt.Fprintf(&b, "; Domain=%s", d)
+			b.WriteString("; Domain=")
+			b.WriteString(d)
 		} else {
 			log.Logger.Warn("net/http: invalid Cookie.Domain %q; dropping domain attribute",
 				c.Domain)
 		}
 	}
 	if c.Expires.Unix() > 0 {
-		fmt.Fprintf(&b, "; Expires=%s", c.Expires.UTC().Format(TimeFormat))
+		b.WriteString("; Expires=")
+		b2 := b.Bytes()
+		b.Reset()
+		b.Write(c.Expires.UTC().AppendFormat(b2, TimeFormat))
 	}
 	if c.MaxAge > 0 {
-		fmt.Fprintf(&b, "; Max-Age=%d", c.MaxAge)
+		b.WriteString("; Max-Age=")
+		b2 := b.Bytes()
+		b.Reset()
+		b.Write(strconv.AppendInt(b2, int64(c.MaxAge), 10))
 	} else if c.MaxAge < 0 {
-		fmt.Fprintf(&b, "; Max-Age=0")
+		b.WriteString("; Max-Age=0")
 	}
 	if c.HttpOnly {
-		fmt.Fprintf(&b, "; HttpOnly")
+		b.WriteString("; HttpOnly")
 	}
 	if c.Secure {
-		fmt.Fprintf(&b, "; Secure")
+		b.WriteString("; Secure")
 	}
 	switch c.SameSite {
 	case SameSiteDefaultMode:
