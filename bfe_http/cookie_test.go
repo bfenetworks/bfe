@@ -62,6 +62,15 @@ var writeSetCookiesTests = []struct {
 		&Cookie{Name: "cookie-8", Value: "eight", Domain: "::1"},
 		"cookie-8=eight",
 	},
+	// According to IETF 6265 Section 5.1.1.5, the year cannot be less than 1601
+	{
+		&Cookie{Name: "cookie-10", Value: "expiring-1601", Expires: time.Date(1601, 1, 1, 1, 1, 1, 1, time.UTC)},
+		"cookie-10=expiring-1601; Expires=Mon, 01 Jan 1601 01:01:01 GMT",
+	},
+	{
+		&Cookie{Name: "cookie-11", Value: "invalid-expiry", Expires: time.Date(1600, 1, 1, 1, 1, 1, 1, time.UTC)},
+		"cookie-11=invalid-expiry",
+	},
 	{
 		&Cookie{Name: "cookie-12", Value: "samesite-default", SameSite: SameSiteDefaultMode},
 		"cookie-12=samesite-default; SameSite",
