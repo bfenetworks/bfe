@@ -117,8 +117,7 @@ func (m *ModuleKeyLog) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	}
 
 	// init logger
-	m.logger, err = access_log.LoggerInit(m.conf.Log.LogPrefix, m.conf.Log.LogDir,
-		m.conf.Log.RotateWhen, m.conf.Log.BackupCount)
+	m.logger, err = access_log.LoggerInit(m.conf.Log)
 	if err != nil {
 		return fmt.Errorf("%s.Init():create logger:%s", m.name, err.Error())
 	}

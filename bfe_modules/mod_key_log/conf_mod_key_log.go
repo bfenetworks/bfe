@@ -15,16 +15,11 @@
 package mod_key_log
 
 import (
-	"fmt"
-)
-
-import (
-	"github.com/baidu/go-lib/log/log4go"
 	gcfg "gopkg.in/gcfg.v1"
 )
 
 import (
-	"github.com/bfenetworks/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_util/access_log"
 )
 
 // ConfModKeyLog represents the basic config for mod_key_log.
@@ -32,34 +27,12 @@ type ConfModKeyLog struct {
 	Basic struct {
 		DataPath string // path of config data (key_log)
 	}
-	Log struct {
-		LogPrefix   string // log file prefix
-		LogDir      string // log file dir
-		RotateWhen  string // rotate time
-		BackupCount int    // log file backup number
-	}
+	Log access_log.LogConfig
 }
 
 // Check validates module config
 func (cfg *ConfModKeyLog) Check(confRoot string) error {
-	if cfg.Log.LogPrefix == "" {
-		return fmt.Errorf("LogPrefix is empty")
-	}
-
-	if cfg.Log.LogDir == "" {
-		return fmt.Errorf("LogDir is empty")
-	}
-	cfg.Log.LogDir = bfe_util.ConfPathProc(cfg.Log.LogDir, confRoot)
-
-	if !log4go.WhenIsValid(cfg.Log.RotateWhen) {
-		return fmt.Errorf("RotateWhen invalid: %s", cfg.Log.RotateWhen)
-	}
-
-	if cfg.Log.BackupCount <= 0 {
-		return fmt.Errorf("BackupCount should > 0: %d", cfg.Log.BackupCount)
-	}
-
-	return nil
+	return cfg.Log.Check(confRoot)
 }
 
 // ConfLoad loads config from file

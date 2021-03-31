@@ -14,6 +14,7 @@
 package mod_waf
 
 import (
+	"github.com/bfenetworks/bfe/bfe_util/access_log"
 	"reflect"
 	"testing"
 )
@@ -23,12 +24,7 @@ func TestConfModWafCheck(t *testing.T) {
 		Basic struct {
 			ProductRulePath string
 		}
-		Log struct {
-			LogPrefix   string
-			LogDir      string
-			RotateWhen  string
-			BackupCount int
-		}
+		Log access_log.LogConfig
 	}
 	type args struct {
 		confRoot string
@@ -47,12 +43,7 @@ func TestConfModWafCheck(t *testing.T) {
 				}{
 					ProductRulePath: "mod_waf/waf_rule.data",
 				},
-				Log: struct {
-					LogPrefix   string
-					LogDir      string
-					RotateWhen  string
-					BackupCount int
-				}{
+				Log: access_log.LogConfig{
 					LogPrefix:   "waf",
 					LogDir:      "../log",
 					RotateWhen:  "NEXTHOUR",
@@ -72,12 +63,7 @@ func TestConfModWafCheck(t *testing.T) {
 				}{
 					ProductRulePath: "",
 				},
-				Log: struct {
-					LogPrefix   string
-					LogDir      string
-					RotateWhen  string
-					BackupCount int
-				}{
+				Log: access_log.LogConfig {
 					LogPrefix:   "waf",
 					LogDir:      "../log",
 					RotateWhen:  "NEXTHOUR",
@@ -97,12 +83,7 @@ func TestConfModWafCheck(t *testing.T) {
 				}{
 					ProductRulePath: "mod_waf/waf_rule.data",
 				},
-				Log: struct {
-					LogPrefix   string
-					LogDir      string
-					RotateWhen  string
-					BackupCount int
-				}{
+				Log: access_log.LogConfig {
 					LogPrefix:   "waf",
 					LogDir:      "../log",
 					RotateWhen:  "NEXTHOUR",
@@ -122,12 +103,7 @@ func TestConfModWafCheck(t *testing.T) {
 				}{
 					ProductRulePath: "mod_waf/waf_rule.data",
 				},
-				Log: struct {
-					LogPrefix   string
-					LogDir      string
-					RotateWhen  string
-					BackupCount int
-				}{
+				Log: access_log.LogConfig {
 					LogPrefix:   "",
 					LogDir:      "../log",
 					RotateWhen:  "NEXTHOUR",
@@ -147,12 +123,7 @@ func TestConfModWafCheck(t *testing.T) {
 				}{
 					ProductRulePath: "mod_waf/waf_rule.data",
 				},
-				Log: struct {
-					LogPrefix   string
-					LogDir      string
-					RotateWhen  string
-					BackupCount int
-				}{
+				Log: access_log.LogConfig {
 					LogPrefix:   "waf",
 					LogDir:      "",
 					RotateWhen:  "NEXTHOUR",
@@ -172,12 +143,7 @@ func TestConfModWafCheck(t *testing.T) {
 				}{
 					ProductRulePath: "mod_waf/waf_rule.data",
 				},
-				Log: struct {
-					LogPrefix   string
-					LogDir      string
-					RotateWhen  string
-					BackupCount int
-				}{
+				Log: access_log.LogConfig {
 					LogPrefix:   "waf",
 					LogDir:      "",
 					RotateWhen:  "NEXTHOUR",
@@ -197,12 +163,7 @@ func TestConfModWafCheck(t *testing.T) {
 				}{
 					ProductRulePath: "mod_waf/waf_rule.data",
 				},
-				Log: struct {
-					LogPrefix   string
-					LogDir      string
-					RotateWhen  string
-					BackupCount int
-				}{
+				Log: access_log.LogConfig {
 					LogPrefix:   "waf",
 					LogDir:      "../log",
 					RotateWhen:  "HHHH",
@@ -251,12 +212,7 @@ func TestConfLoad(t *testing.T) {
 				}{
 					ProductRulePath: "testdata/mod_waf/waf_rule.data",
 				},
-				Log: struct {
-					LogPrefix   string
-					LogDir      string
-					RotateWhen  string
-					BackupCount int
-				}{
+				Log: access_log.LogConfig {
 					LogPrefix:   "waf",
 					LogDir:      "log",
 					RotateWhen:  "NEXTHOUR",
