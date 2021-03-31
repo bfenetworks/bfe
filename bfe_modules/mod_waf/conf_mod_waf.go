@@ -14,17 +14,13 @@
 package mod_waf
 
 import (
-	"fmt"
-)
-
-import (
 	"github.com/baidu/go-lib/log"
-	"github.com/baidu/go-lib/log/log4go"
 	"gopkg.in/gcfg.v1"
 )
 
 import (
 	"github.com/bfenetworks/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_util/access_log"
 )
 
 const (
@@ -35,12 +31,7 @@ type ConfModWaf struct {
 	Basic struct {
 		ProductRulePath string // path of waf rule data
 	}
-	Log struct {
-		LogPrefix   string // log file prefix
-		LogDir      string // log file dir
-		RotateWhen  string // rotate time
-		BackupCount int    // log file backup number
-	}
+	Log access_log.LogConfig
 }
 
 func (cfg *ConfModWaf) Check(confRoot string) error {
@@ -51,24 +42,7 @@ func (cfg *ConfModWaf) Check(confRoot string) error {
 
 	cfg.Basic.ProductRulePath = bfe_util.ConfPathProc(cfg.Basic.ProductRulePath, confRoot)
 
-	if cfg.Log.LogPrefix == "" {
-		return fmt.Errorf("ConfModWaf.LogPrefix is empty")
-	}
-
-	if cfg.Log.LogDir == "" {
-		return fmt.Errorf("ConfModWaf.LogDir is empty")
-	}
-	cfg.Log.LogDir = bfe_util.ConfPathProc(cfg.Log.LogDir, confRoot)
-
-	if !log4go.WhenIsValid(cfg.Log.RotateWhen) {
-		return fmt.Errorf("ConfModWaf.RotateWhen invalid: %s", cfg.Log.RotateWhen)
-	}
-
-	if cfg.Log.BackupCount <= 0 {
-		return fmt.Errorf("ConfModWaf.BackupCount should > 0: %d", cfg.Log.BackupCount)
-	}
-
-	return nil
+	return cfg.Log.Check(confRoot)
 }
 
 func ConfLoad(filePath string, confRoot string) (*ConfModWaf, error) {
