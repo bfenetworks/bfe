@@ -763,6 +763,7 @@ response_got:
 	p.setTimeout(bfe_basic.StageWriteClient, basicReq.Connection, req, timeoutWriteClient)
 	writeTimer = time.AfterFunc(timeoutWriteClient, func() {
 		if basicReq.Trans.Transport != nil {
+			// TODO: process bfe_fcgi.Transport & bfe_http2.Transport
 			switch t := basicReq.Trans.Transport.(type) {
 			case *bfe_http.Transport:
 				t.CancelRequest(req)
