@@ -29,8 +29,8 @@ import (
 
 type LogConfig struct {
 	// Log directly to a single file (eg. /dev/stdout)
-	LogFile     string // log to a single file without rotation
-	
+	LogFile     string // log file path
+
 	// Log with rotation under specified directory
 	LogPrefix   string // log file prefix
 	LogDir      string // log file dir
