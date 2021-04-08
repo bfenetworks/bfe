@@ -41,6 +41,8 @@ type BfeBackend struct {
 	succNum      int  // number of consecutive successes of health-check request
 
 	closeChan chan bool // tell health-check to stop
+
+	restarted    bool // indicate if this backend is new bring-up by health-check
 }
 
 func NewBfeBackend() *BfeBackend {
@@ -88,6 +90,19 @@ func (back *BfeBackend) setAvail(avail bool) {
 	if back.avail {
 		back.failNum = 0
 	}
+}
+
+func (back *BfeBackend) SetRestart(restart bool) {
+	back.Lock()
+	back.restarted = restart
+	back.Unlock()
+}
+
+func (back *BfeBackend) GetRestart() bool {
+	back.RLock()
+	restart := back.restarted
+	back.RUnlock()
+	return restart
 }
 
 func (back *BfeBackend) ConnNum() int {

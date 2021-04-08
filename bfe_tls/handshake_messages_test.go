@@ -19,6 +19,8 @@
 package bfe_tls
 
 import (
+	"crypto/md5"
+	"fmt"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -262,4 +264,35 @@ func (*sessionState) Generate(rand *rand.Rand, size int) reflect.Value {
 		s.certificates[i] = randomBytes(rand.Intn(10)+1, rand)
 	}
 	return reflect.ValueOf(s)
+}
+
+var ja3HashTests = []struct {
+	vers            uint16
+	cipherSuites    []uint16
+	extensionIds    []uint16
+	supportedCurves []CurveID
+	supportedPoints []uint8
+	ja3Hash         string
+}{
+	{769, []uint16{47, 53, 5, 10, 49161, 49162, 49171, 49172, 50, 56, 19, 4},
+		[]uint16{0, 10, 11}, []CurveID{23, 24, 25}, []uint8{0},
+		"ada70206e40642a3e4461f35503241d5"},
+	{769, []uint16{4, 5, 10, 9, 100, 98, 3, 6, 19, 18, 99},
+		[]uint16{}, []CurveID{}, []uint8{},
+		"de350869b8c85de67a350c8d186f11e6"},
+}
+
+func TestJA3Hash(t *testing.T) {
+	for i, d := range ja3HashTests {
+		msg := clientHelloMsg{}
+		msg.vers = d.vers
+		msg.cipherSuites = d.cipherSuites
+		msg.extensionIds = d.extensionIds
+		msg.supportedCurves = d.supportedCurves
+		msg.supportedPoints = d.supportedPoints
+		ja3Value := md5.Sum([]byte(msg.JA3String()))
+		if d.ja3Hash != fmt.Sprintf("%x", ja3Value) {
+			t.Errorf("#%d: unexpected ja3 value", i)
+		}
+	}
 }

@@ -386,3 +386,24 @@ func TestDisableSanitize(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkCookieString(b *testing.B) {
+	const wantCookieString = `cookie-9=i3e01nf61b6t23bvfmplnanol3; Path=/restricted/; Domain=example.com; Expires=Tue, 10 Nov 2009 23:00:00 GMT; Max-Age=3600`
+	c := &Cookie{
+		Name:    "cookie-9",
+		Value:   "i3e01nf61b6t23bvfmplnanol3",
+		Expires: time.Unix(1257894000, 0),
+		Path:    "/restricted/",
+		Domain:  ".example.com",
+		MaxAge:  3600,
+	}
+	var benchmarkCookieString string
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchmarkCookieString = c.String()
+	}
+	if have, want := benchmarkCookieString, wantCookieString; have != want {
+		b.Fatalf("Have: %v Want: %v", have, want)
+	}
+}

@@ -2960,3 +2960,68 @@ y2ptGsuSmgUtWj3NM9xuwYPm+Z/F84K6+ARYiZ6PYj013sovGKUFfYAqVXVlxtIX
 qyUBnu3X9ps8ZfjLZO7BAkEAlT4R5Yl6cGhaJQYZHOde3JEMhNRcVFMO8dJDaFeo
 f9Oeos0UUothgiDktdQHxdNEwLjQf7lJJBzV+5OtwswCWA==
 -----END RSA PRIVATE KEY-----`)
+
+func TestNoRstPostAfterGOAWAY(t *testing.T) {
+	const msg = "Hello, world."
+	st := newServerTester(t, func(w http.ResponseWriter, r *http.Request) {
+		n, err := io.Copy(ioutil.Discard, r.Body)
+		if err != nil || n > 0 {
+			t.Errorf("Read %d bytes, error %v; want 0 bytes.", n, err)
+		}
+		io.WriteString(w, msg)
+	})
+	defer st.Close()
+	st.greet()
+	// Give the server quota to reply. (plus it has the the 64KB)
+	if err := st.fr.WriteWindowUpdate(0, uint32(1*len(msg))); err != nil {
+		t.Fatal(err)
+	}
+	hbf := st.encodeHeader(":method", "POST")
+	st.writeHeaders(HeadersFrameParam{
+		StreamID:      1,
+		BlockFragment: hbf,
+		EndStream:     false,
+		EndHeaders:    true,
+	})
+	close(st.sc.closeNotifyCh)
+	st.writeData(1, true, nil)
+
+	st.wantGoAway()
+	for {
+		f, err := st.readFrame()
+		if err == io.EOF {
+			st.t.Fatal("got a EOF; want *GoAwayFrame")
+		}
+		if err != nil && err.Error() == "timeout waiting for frame" {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if gf, ok := f.(*RSTStreamFrame); ok && gf.StreamID == 1 {
+			t.Fatal("got rst but want no ret")
+			break
+		}
+	}
+
+}
+
+func TestServer_Rejects_TooSmall(t *testing.T) {
+	testServerResponse(t, func(w http.ResponseWriter, r *http.Request) error {
+		ioutil.ReadAll(r.Body)
+		return nil
+	}, func(st *serverTester) {
+		st.writeHeaders(HeadersFrameParam{
+			StreamID: 1, // clients send odd numbers
+			BlockFragment: st.encodeHeader(
+				":method", "POST",
+				"content-length", "4",
+			),
+			EndStream:  false, // to say DATA frames are coming
+			EndHeaders: true,
+		})
+		st.writeData(1, true, []byte("12345"))
+
+		st.wantRSTStream(1, ErrCodeProtocol)
+	})
+}

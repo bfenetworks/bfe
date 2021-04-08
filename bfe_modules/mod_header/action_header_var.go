@@ -62,6 +62,8 @@ var VariableHandlers = map[string]HeaderValueHandler{
 	"bfe_ssl_resume":                   getBfeSslResume,
 	"bfe_ssl_cipher":                   getBfeSslCipher,
 	"bfe_ssl_version":                  getBfeSslVersion,
+	"bfe_ssl_ja3_raw":                  getBfeSslJa3Raw,
+	"bfe_ssl_ja3_hash":                 getBfeSslJa3Hash,
 	"bfe_protocol":                     getBfeProtocol,
 	"client_cert_serial_number":        getClientCertSerialNumber,
 	"client_cert_subject_title":        getClientCertSubjectTitle,
@@ -178,6 +180,24 @@ func getBfeSslVersion(req *bfe_basic.Request) string {
 
 	state := req.Session.TlsState
 	return bfe_tls.VersionTextForOpenSSL(state.Version)
+}
+
+// get tls ja3 string
+func getBfeSslJa3Raw(req *bfe_basic.Request) string {
+	if req.Session.TlsState == nil {
+		return ""
+	}
+	state := req.Session.TlsState
+	return state.JA3Raw
+}
+
+// get tls ja3 hash
+func getBfeSslJa3Hash(req *bfe_basic.Request) string {
+	if req.Session.TlsState == nil {
+		return ""
+	}
+	state := req.Session.TlsState
+	return state.JA3Hash
 }
 
 // get protocol for application level

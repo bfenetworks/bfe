@@ -16,6 +16,7 @@
 | Hao Dong | anotherwriter |
 | Haobin zhang | zhanghaobin |
 | Hui Yu | dblate |
+| Guangze Song | coopersong |
 | Gen Wang | gracewang510 |
 | Jie Liu | freeHackOfJeff |
 | Jie Wan | wanjiecs |
@@ -41,6 +42,7 @@
 | Shan Xiao | arlingtonroad |
 | Shengnan Yu | goldfish-fish |
 | Shuai Yan | yanshuai615270 |
+| Shuo Yang | yangshuothtf |
 | Sijie Yang | iyangsj |
 | Tianqi Zhang | NKztq |
 | Weijie Zhao | zwj13513118235 |

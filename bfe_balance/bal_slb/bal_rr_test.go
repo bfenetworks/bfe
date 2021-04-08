@@ -45,18 +45,18 @@ func prepareBalanceRR() *BalanceRR {
 	rr := &BalanceRR{
 		backends: []*BackendRR{
 			{
-				weight:  3,
-				current: 3,
+				weight:  300,
+				current: 300,
 				backend: b1,
 			},
 			{
-				weight:  2,
-				current: 2,
+				weight:  200,
+				current: 200,
 				backend: b2,
 			},
 			{
-				weight:  1,
-				current: 1,
+				weight:  100,
+				current: 100,
 				backend: b3,
 			},
 		},
@@ -80,11 +80,63 @@ func processBalance(t *testing.T, label string, algor int, key []byte, rr *Balan
 	}
 }
 
+func processSimpleBalance(t *testing.T, label string, algor int, key []byte, rr *BalanceRR, result []string) {
+	var l []string
+	loopCount := (300+200+100)+4
+
+	for i := 1; i < loopCount; i++ {
+		r, err := rr.Balance(algor, key)
+		if err != nil {
+			t.Errorf("should not error")
+		}
+		r.IncConnNum()
+		// append the end of backend b3
+		if (i > 297) && (i <= 303) {
+			l = append(l, r.Name)
+		}
+		// append the end of backend b1
+		if (i > 600) && (i <= 603) {
+			l = append(l, r.Name)
+		}
+	}
+
+	if !reflect.DeepEqual(l, result) {
+		t.Errorf("balance error [%s] %v, expect %v", label, l, result)
+	}
+}
+
+func processSimpleBalance3(t *testing.T, label string, algor int, key []byte, rr *BalanceRR, result []string) {
+	var l []string
+	loopCount := (200+100)*3+4
+
+	for i := 1; i < loopCount; i++ {
+		r, err := rr.Balance(algor, key)
+		if err != nil {
+			t.Errorf("should not error")
+		}
+		r.IncConnNum()
+		// append the end of backend b3
+		if (i > 198) && (i <= 201) {
+			l = append(l, r.Name)
+		}
+		if (i > 498) && (i <= 501) {
+			l = append(l, r.Name)
+		}
+		if (i > 798) && (i <= 801) {
+			l = append(l, r.Name)
+		}
+	}
+
+	if !reflect.DeepEqual(l, result) {
+		t.Errorf("balance error [%s] %v, expect %v", label, l, result)
+	}
+}
+
 func TestBalance(t *testing.T) {
 	// case 1
 	rr := prepareBalanceRR()
 	expectResult := []string{"b1", "b2", "b3", "b1", "b2", "b1", "b1", "b2", "b3"}
-	processBalance(t, "case 1", WrrSimple, nil, rr, expectResult)
+	processSimpleBalance(t, "case 1", WrrSimple, nil, rr, expectResult)
 
 	// case 2
 	rr = prepareBalanceRR()
@@ -95,7 +147,7 @@ func TestBalance(t *testing.T) {
 	rr = prepareBalanceRR()
 	rr.backends[0].backend.SetAvail(false)
 	expectResult = []string{"b2", "b3", "b2", "b2", "b3", "b2", "b2", "b3", "b2"}
-	processBalance(t, "case 3", WrrSimple, nil, rr, expectResult)
+	processSimpleBalance3(t, "case 3", WrrSimple, nil, rr, expectResult)
 
 	// case 4
 	rr = prepareBalanceRR()
@@ -105,7 +157,7 @@ func TestBalance(t *testing.T) {
 
 	// case 5
 	rr = prepareBalanceRR()
-	expectResult = []string{"b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2"}
+	expectResult = []string{"b1", "b1", "b1", "b1", "b1", "b1", "b1", "b1", "b1"}
 	processBalance(t, "case 5", WrrSticky, []byte{1}, rr, expectResult)
 
 	rr.backends[0], rr.backends[2] = rr.backends[2], rr.backends[0]
@@ -115,7 +167,9 @@ func TestBalance(t *testing.T) {
 	// case 6
 	rr = prepareBalanceRR()
 	rr.backends[0].backend.SetAvail(false)
-	expectResult = []string{"b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2"}
+	// after scale up 100, the hash result changed
+	expectResult = []string{"b3", "b3", "b3", "b3", "b3", "b3", "b3", "b3", "b3"}
+//	expectResult = []string{"b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2"}
 	processBalance(t, "case 6", WrrSticky, []byte{1}, rr, expectResult)
 
 	// case 7, lcw balance
@@ -190,7 +244,7 @@ func checkBackend(t *testing.T, brr *BackendRR, name string, addr string, port i
 	if b.Port != port {
 		t.Errorf("backend port wrong, expect %d, actual %d", port, b.Port)
 	}
-	if brr.weight != weight {
+	if brr.weight != weight*100 {
 		t.Errorf("backend weight wrong, expect %d, actual %d", weight, brr.weight)
 	}
 	if connNum != -1 && b.ConnNum() != connNum {
@@ -238,4 +292,10 @@ func BenchmarkStickyBalance(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		rr.stickyBalance(key)
 	}
+}
+
+func TestSlowStart(t *testing.T) {
+	// case 1
+	rr := prepareBalanceRR()
+	rr.SetSlowStart(30)
 }

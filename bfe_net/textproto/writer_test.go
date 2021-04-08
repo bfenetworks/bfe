@@ -50,3 +50,29 @@ func TestDotWriter(t *testing.T) {
 		t.Fatalf("wrote %q", s)
 	}
 }
+
+func TestDotWriterCloseEmptyWrite(t *testing.T) {
+	var buf bytes.Buffer
+	w := NewWriter(bfe_bufio.NewWriter(&buf))
+	d := w.DotWriter()
+	n, err := d.Write([]byte{})
+	if n != 0 || err != nil {
+		t.Fatalf("Write: %d, %s", n, err)
+	}
+	d.Close()
+	want := "\r\n.\r\n"
+	if s := buf.String(); s != want {
+		t.Fatalf("wrote %q; want %q", s, want)
+	}
+}
+
+func TestDotWriterCloseNoWrite(t *testing.T) {
+	var buf bytes.Buffer
+	w := NewWriter(bfe_bufio.NewWriter(&buf))
+	d := w.DotWriter()
+	d.Close()
+	want := "\r\n.\r\n"
+	if s := buf.String(); s != want {
+		t.Fatalf("wrote %q; want %q", s, want)
+	}
+}

@@ -51,8 +51,10 @@ func ActionFileCheck(conf ActionFile) error {
 	switch *conf.Cmd {
 	case "REQ_HEADER_SET",
 		"REQ_HEADER_ADD",
+		"REQ_HEADER_RENAME",
 		"RSP_HEADER_SET",
-		"RSP_HEADER_ADD":
+		"RSP_HEADER_ADD",
+		"RSP_HEADER_RENAME":
 
 		// header and value
 		if len(conf.Params) != 2 {
@@ -193,7 +195,7 @@ func expectPercent(str string) int {
 	return index
 }
 
-const variableCharset = "abcdefghijklmnopqrstuvwxyz_"
+const variableCharset = "abcdefghijklmnopqrstuvwxyz0123456789_"
 
 func expectVariableParam(str string) int {
 	index := 0
@@ -374,7 +376,11 @@ func actionConvert(actionFile ActionFile) (Action, error) {
 		// append key values
 		action.Params = append(action.Params, key)
 		action.Params = append(action.Params, values...)
-
+	case "REQ_HEADER_RENAME", "RSP_HEADER_RENAME":
+		originalKey := textproto.CanonicalMIMEHeaderKey(actionFile.Params[0])
+		newKey := textproto.CanonicalMIMEHeaderKey(actionFile.Params[1])
+		action.Params = append(action.Params, originalKey)
+		action.Params = append(action.Params, newKey)
 	case "REQ_HEADER_DEL", "RSP_HEADER_DEL":
 		// - REQ_HEADER_DEL: [referer]
 		// - RSP_HEADER_DEL: [location]
@@ -430,6 +436,8 @@ func HeaderActionDo(h *bfe_http.Header, cmd string, headerName string, value str
 	// delete
 	case "HEADER_DEL":
 		headerDel(h, headerName)
+	case "HEADER_RENAME":
+		headerRename(h, headerName, value)
 	}
 }
 
@@ -447,26 +455,35 @@ func getHeader(req *bfe_basic.Request, headerType int) (h *bfe_http.Header) {
 func processHeader(req *bfe_basic.Request, headerType int, action Action) {
 	var key string
 	var value string
+	var cmd string
 
 	h := getHeader(req, headerType)
 
-	if action.Cmd[4:] == "HEADER_MOD" {
+	cmd = action.Cmd[4:]
+
+	switch cmd {
+	case "HEADER_MOD":
 		key = action.Params[1]
 		// get header value
 		if value = h.Get(key); value == "" {
 			// if req do not have this header, continue
 			return
 		}
-
 		// mod header value
 		value = modHeaderValue(value, action)
-	} else {
+	case "HEADER_RENAME":
+		originalKey, newKey := action.Params[0], action.Params[1]
+		if h.Get(originalKey) == "" || h.Get(newKey) != "" {
+			return
+		}
+		key, value = originalKey, newKey
+	default:
 		key = action.Params[0]
 		value = getHeaderValue(req, action)
 	}
 
 	// trim action.Cmd prefix REQ_ and RSP_
-	HeaderActionDo(h, action.Cmd[4:], key, value)
+	HeaderActionDo(h, cmd, key, value)
 }
 
 func processCookie(req *bfe_basic.Request, headerType int, action Action) {

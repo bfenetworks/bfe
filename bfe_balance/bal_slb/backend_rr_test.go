@@ -36,12 +36,12 @@ func TestBackendRRInit_case1(t *testing.T) {
 	backendRR := NewBackendRR()
 	backendRR.Init("example.cluster", &conf)
 
-	if backendRR.weight != 10 {
-		t.Error("backend.weight should be 10")
+	if backendRR.weight != 10 * 100 {
+		t.Error("backend.weight should be 10 * 100")
 	}
 
-	if backendRR.current != 10 {
-		t.Error("backend.current should be 10")
+	if backendRR.current != 10 * 100 {
+		t.Error("backend.current should be 10 * 100")
 	}
 
 	backend := backendRR.backend
