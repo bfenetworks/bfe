@@ -2892,11 +2892,12 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_4">配置示例</h3>
-<pre class="codehilite"><code class="language-ini">[Basic]
-DataPath = mod_tag/tag_rule.data
+<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
+<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_tag/tag_rule.data</span>
 
-[Log]
-OpenDebug = false</code></pre>
+<span class="k">[Log]</span>
+<span class="na">OpenDebug</span> <span class="o">=</span> <span class="s">false</span>
+</code></pre></div>
 
 
 <h2 id="_5">规则配置</h2>
@@ -2949,21 +2950,22 @@ OpenDebug = false</code></pre>
 </tbody>
 </table>
 <h3 id="_7">配置示例</h3>
-<pre class="codehilite"><code class="language-json">{
-  &quot;Version&quot;: &quot;20200218210000&quot;,
-  &quot;Config&quot;: {
-    &quot;example_product&quot;: [
-      {
-        &quot;Cond&quot;: &quot;req_host_in(\&quot;example.org\&quot;)&quot;,
-        &quot;Param&quot;: {
-          &quot;TagName&quot;: &quot;tag&quot;,
-          &quot;TagValue&quot;: &quot;bfe&quot;
-        },
-        &quot;Last&quot;: false
-      }
-    ]
-  }
-}</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+  <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20200218210000&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
+      <span class="p">{</span>
+        <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_host_in(\&quot;example.org\&quot;)&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;Param&quot;</span><span class="p">:</span> <span class="p">{</span>
+          <span class="nt">&quot;TagName&quot;</span><span class="p">:</span> <span class="s2">&quot;tag&quot;</span><span class="p">,</span>
+          <span class="nt">&quot;TagValue&quot;</span><span class="p">:</span> <span class="s2">&quot;bfe&quot;</span>
+        <span class="p">},</span>
+        <span class="nt">&quot;Last&quot;</span><span class="p">:</span> <span class="kc">false</span>
+      <span class="p">}</span>
+    <span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
                 
               
               

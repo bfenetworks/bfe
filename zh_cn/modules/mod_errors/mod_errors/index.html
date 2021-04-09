@@ -2906,8 +2906,9 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_4">配置示例</h3>
-<pre class="codehilite"><code class="language-ini">[Basic]
-DataPath = mod_errors/errors_rule.data</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
+<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_errors/errors_rule.data</span>
+</code></pre></div>
 
 
 <h2 id="_5">规则配置</h2>
@@ -2982,35 +2983,36 @@ DataPath = mod_errors/errors_rule.data</code></pre>
 </tbody>
 </table>
 <h3 id="_8">配置示例</h3>
-<pre class="codehilite"><code class="language-json">{
-    &quot;Version&quot;: &quot;20190101000000&quot;,
-    &quot;Config&quot;: {
-        &quot;example_product&quot;: [
-            {
-                &quot;Cond&quot;: &quot;res_code_in(\&quot;404\&quot;)&quot;,
-                &quot;Actions&quot;: [
-                    {
-                        &quot;Cmd&quot;: &quot;RETURN&quot;,
-                        &quot;Params&quot;: [
-                            &quot;200&quot;, &quot;text/html&quot;, &quot;../conf/mod_errors/404.html&quot;
-                        ]
-                    }
-                ]
-            },
-            {
-                &quot;Cond&quot;: &quot;res_code_in(\&quot;500\&quot;)&quot;,
-                &quot;Actions&quot;: [
-                    {
-                        &quot;Cmd&quot;: &quot;REDIRECT&quot;,
-                        &quot;Params&quot;: [
-                            &quot;http://example.org/error.html&quot;
-                        ]
-                    }
-                ]
-            }
-        ]
-    }
-}</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;res_code_in(\&quot;404\&quot;)&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Actions&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="p">{</span>
+                        <span class="nt">&quot;Cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;RETURN&quot;</span><span class="p">,</span>
+                        <span class="nt">&quot;Params&quot;</span><span class="p">:</span> <span class="p">[</span>
+                            <span class="s2">&quot;200&quot;</span><span class="p">,</span> <span class="s2">&quot;text/html&quot;</span><span class="p">,</span> <span class="s2">&quot;../conf/mod_errors/404.html&quot;</span>
+                        <span class="p">]</span>
+                    <span class="p">}</span>
+                <span class="p">]</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;res_code_in(\&quot;500\&quot;)&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;Actions&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="p">{</span>
+                        <span class="nt">&quot;Cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;REDIRECT&quot;</span><span class="p">,</span>
+                        <span class="nt">&quot;Params&quot;</span><span class="p">:</span> <span class="p">[</span>
+                            <span class="s2">&quot;http://example.org/error.html&quot;</span>
+                        <span class="p">]</span>
+                    <span class="p">}</span>
+                <span class="p">]</span>
+            <span class="p">}</span>
+        <span class="p">]</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
                 
               
               

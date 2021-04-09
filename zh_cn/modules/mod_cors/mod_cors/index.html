@@ -2790,11 +2790,12 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_4">配置示例</h3>
-<pre class="codehilite"><code class="language-ini">[Basic]
-DataPath = mod_cors/cors_rule.data
+<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
+<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_cors/cors_rule.data</span>
 
-[Log]
-OpenDebug = false</code></pre>
+<span class="k">[Log]</span>
+<span class="na">OpenDebug</span> <span class="o">=</span> <span class="s">false</span>
+</code></pre></div>
 
 
 <h2 id="_5">规则配置</h2>
@@ -2859,22 +2860,23 @@ OpenDebug = false</code></pre>
 </tbody>
 </table>
 <h3 id="_7">配置示例</h3>
-<pre class="codehilite"><code class="language-json">{
-    &quot;Version&quot;: &quot;cors_rule.data.version&quot;,
-    &quot;Config&quot;: {
-        &quot;example_product&quot;: [
-             {
-                 &quot;Cond&quot;: &quot;req_host_in(\&quot;example.org\&quot;)&quot;,
-                 &quot;AccessControlAllowOrigins&quot;: [&quot;%origin&quot;],
-                 &quot;AccessControlAllowCredentials&quot;: true,
-                 &quot;AccessControlExposeHeaders&quot;: [&quot;X-Custom-Header&quot;],
-                 &quot;AccessControlAllowMethods&quot;: [&quot;HEAD&quot;,&quot;GET&quot;,&quot;POST&quot;,&quot;PUT&quot;,&quot;DELETE&quot;,&quot;OPTIONS&quot;,&quot;PATCH&quot;],
-                 &quot;AccessControlAllowHeaders&quot;: [&quot;X-Custom-Header&quot;],
-                 &quot;AccessControlMaxAge&quot;: -1
-             }
-         ]
-    }
-}</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;cors_rule.data.version&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
+             <span class="p">{</span>
+                 <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_host_in(\&quot;example.org\&quot;)&quot;</span><span class="p">,</span>
+                 <span class="nt">&quot;AccessControlAllowOrigins&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;%origin&quot;</span><span class="p">],</span>
+                 <span class="nt">&quot;AccessControlAllowCredentials&quot;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+                 <span class="nt">&quot;AccessControlExposeHeaders&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;X-Custom-Header&quot;</span><span class="p">],</span>
+                 <span class="nt">&quot;AccessControlAllowMethods&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;HEAD&quot;</span><span class="p">,</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span><span class="s2">&quot;POST&quot;</span><span class="p">,</span><span class="s2">&quot;PUT&quot;</span><span class="p">,</span><span class="s2">&quot;DELETE&quot;</span><span class="p">,</span><span class="s2">&quot;OPTIONS&quot;</span><span class="p">,</span><span class="s2">&quot;PATCH&quot;</span><span class="p">],</span>
+                 <span class="nt">&quot;AccessControlAllowHeaders&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;X-Custom-Header&quot;</span><span class="p">],</span>
+                 <span class="nt">&quot;AccessControlMaxAge&quot;</span><span class="p">:</span> <span class="mi">-1</span>
+             <span class="p">}</span>
+         <span class="p">]</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
                 
               
               
