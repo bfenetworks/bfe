@@ -266,7 +266,7 @@ func (c *Cookie) String() string {
 				c.Domain)
 		}
 	}
-	if c.Expires.Unix() > 0 {
+	if validCookieExpires(c.Expires) {
 		b.WriteString("; Expires=")
 		b2 := b.Bytes()
 		b.Reset()
@@ -297,6 +297,12 @@ func (c *Cookie) String() string {
 		b.WriteString("; SameSite=Strict")
 	}
 	return b.String()
+}
+
+// validCookieExpires returns whether v is a valid cookie expires-value.
+func validCookieExpires(t time.Time) bool {
+	// IETF RFC 6265 Section 5.1.1.5, the year must not be less than 1601
+	return t.Year() >= 1601
 }
 
 // readCookies parses all "Cookie" values from the header h and
