@@ -52,7 +52,7 @@ IPBlocklistPath = mod_block/ip_blocklist.data
 | 动作  | 含义     |
 | ----- | -------- |
 | CLOSE | 关闭连接 |
-| ALLOW | 打开连接 |
+| ALLOW | 允许请求 |
 
 ### 配置示例
 ```json
