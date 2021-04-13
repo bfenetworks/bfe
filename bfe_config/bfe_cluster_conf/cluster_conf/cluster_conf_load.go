@@ -61,6 +61,7 @@ const (
 	ClientIdOnly      = iota // use CLIENTID to hash
 	ClientIpOnly             // use CLIENTIP to hash
 	ClientIdPreferred        // use CLIENTID to hash, otherwise use CLIENTIP
+	RequestURI               // use request URI to hash
 )
 
 // BALANCE_MODE used for GslbBasicConf.
@@ -108,7 +109,7 @@ type BackendBasic struct {
 
 type HashConf struct {
 	// HashStrategy is hash strategy for subcluster-level load balance.
-	// ClientIdOnly, ClientIpOnly, ClientIdPreferred.
+	// ClientIdOnly, ClientIpOnly, ClientIdPreferred, RequestURI.
 	HashStrategy *int
 
 	// HashHeader is an optional request header which represents a unique client.
@@ -387,9 +388,11 @@ func HashConfCheck(conf *HashConf) error {
 	}
 
 	if *conf.HashStrategy != ClientIdOnly &&
-		*conf.HashStrategy != ClientIpOnly && *conf.HashStrategy != ClientIdPreferred {
-		return fmt.Errorf("HashStrategy[%d] must be [%d], [%d] or [%d]",
-			*conf.HashStrategy, ClientIdOnly, ClientIpOnly, ClientIdPreferred)
+	   *conf.HashStrategy != ClientIpOnly && 
+	   *conf.HashStrategy != ClientIdPreferred &&
+	   *conf.HashStrategy != RequestURI {
+		return fmt.Errorf("HashStrategy[%d] must be [%d], [%d], [%d] or [%d]",
+			*conf.HashStrategy, ClientIdOnly, ClientIpOnly, ClientIdPreferred, RequestURI)
 	}
 	if *conf.HashStrategy == ClientIdOnly || *conf.HashStrategy == ClientIdPreferred {
 		if conf.HashHeader == nil || len(*conf.HashHeader) == 0 {
