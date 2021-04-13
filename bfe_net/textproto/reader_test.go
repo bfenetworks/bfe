@@ -30,41 +30,6 @@ import (
 	"github.com/bfenetworks/bfe/bfe_bufio"
 )
 
-type canonicalHeaderKeyTest struct {
-	in, out string
-}
-
-var canonicalHeaderKeyTests = []canonicalHeaderKeyTest{
-	{"a-b-c", "A-B-C"},
-	{"a-1-c", "A-1-C"},
-	{"User-Agent", "User-Agent"},
-	{"uSER-aGENT", "User-Agent"},
-	{"user-agent", "User-Agent"},
-	{"USER-AGENT", "User-Agent"},
-
-	// Other valid tchar bytes in tokens:
-	{"foo-bar_baz", "Foo-Bar_baz"},
-	{"foo-bar$baz", "Foo-Bar$baz"},
-	{"foo-bar~baz", "Foo-Bar~baz"},
-	{"foo-bar*baz", "Foo-Bar*baz"},
-
-	// Non-ASCII or anything with spaces or non-token chars is unchanged:
-	{"üser-agenT", "üser-agenT"},
-	{"a B", "a B"},
-
-	// This caused a panic due to mishandling of a space:
-	{"C Ontent-Transfer-Encoding", "C Ontent-Transfer-Encoding"},
-	{"foo bar", "foo bar"},
-}
-
-func TestCanonicalMIMEHeaderKey(t *testing.T) {
-	for _, tt := range canonicalHeaderKeyTests {
-		if s := CanonicalMIMEHeaderKey(tt.in); s != tt.out {
-			t.Errorf("CanonicalMIMEHeaderKey(%q) = %q, want %q", tt.in, s, tt.out)
-		}
-	}
-}
-
 func reader(s string) *Reader {
 	return NewReader(bfe_bufio.NewReader(strings.NewReader(s)))
 }
@@ -223,6 +188,32 @@ func TestReadMIMEHeaderNonCompliant(t *testing.T) {
 	}
 	if !reflect.DeepEqual(m, want) || err != nil {
 		t.Fatalf("ReadMIMEHeader =\n%v, %v; want:\n%v", m, err, want)
+	}
+}
+
+// Test that continued lines are properly trimmed. Issue 11204.
+func TestReadMIMEHeaderTrimContinued(t *testing.T) {
+	// In this header, \n and \r\n terminated lines are mixed on purpose.
+	// We expect each line to be trimmed (prefix and suffix) before being concatenated.
+	// Keep the spaces as they are.
+	r := reader("" + // for code formatting purpose.
+		"a:\n" +
+		" 0 \r\n" +
+		"b:1 \t\r\n" +
+		"c: 2\r\n" +
+		" 3\t\n" +
+		"  \t 4  \r\n\n")
+	m, err := r.ReadMIMEHeader()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := MIMEHeader{
+		"A": {"0"},
+		"B": {"1"},
+		"C": {"2 3 4"},
+	}
+	if !reflect.DeepEqual(m, want) {
+		t.Fatalf("ReadMIMEHeader mismatch.\n got: %q\nwant: %q", m, want)
 	}
 }
 

@@ -224,6 +224,8 @@ type ConnectionState struct {
 	ClientCiphers              []uint16              // ciphers supported by client
 	ClientAuth                 bool                  // enable TLS Client Authentication
 	ClientCAName               string                // TLS client CA name
+	JA3Raw                     string                // JA3 fingerprint string for TLS Client
+	JA3Hash                    string                // JA3 fingerprint hash for TLS Client
 }
 
 // ClientAuthType declares the policy the server will follow for

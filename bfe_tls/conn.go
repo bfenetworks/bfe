@@ -76,6 +76,8 @@ type Conn struct {
 	serverRandom        []byte   // random in server hello msg
 	masterSecret        []byte   // master secret for conn
 	clientCiphers       []uint16 // ciphers supported by client
+	ja3Raw              string   // JA3 fingerprint string for TLS Client
+	ja3Hash             string   // JA3 fingerprint hash for TLS Client
 
 	clientProtocol         string
 	clientProtocolFallback bool
@@ -1276,6 +1278,8 @@ func (c *Conn) ConnectionState() ConnectionState {
 			state.ClientAuth = true
 		}
 		state.ClientCAName = c.clientCAName
+		state.JA3Raw = c.ja3Raw
+		state.JA3Hash = c.ja3Hash
 	}
 
 	return state

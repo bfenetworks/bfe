@@ -20,7 +20,6 @@ package bfe_http
 
 import (
 	"bytes"
-	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -243,9 +242,12 @@ func SetCookie(w ResponseWriter, cookie *Cookie) {
 // header (if other fields are set).
 func (c *Cookie) String() string {
 	var b bytes.Buffer
-	fmt.Fprintf(&b, "%s=%s", sanitizeCookieName(c.Name), sanitizeCookieValue(c.Value))
+	b.WriteString(sanitizeCookieName(c.Name))
+	b.WriteRune('=')
+	b.WriteString(sanitizeCookieValue(c.Value))
 	if len(c.Path) > 0 {
-		fmt.Fprintf(&b, "; Path=%s", sanitizeCookiePath(c.Path))
+		b.WriteString("; Path=")
+		b.WriteString(sanitizeCookiePath(c.Path))
 	}
 	if len(c.Domain) > 0 {
 		if validCookieDomain(c.Domain) {
@@ -257,25 +259,32 @@ func (c *Cookie) String() string {
 			if d[0] == '.' {
 				d = d[1:]
 			}
-			fmt.Fprintf(&b, "; Domain=%s", d)
+			b.WriteString("; Domain=")
+			b.WriteString(d)
 		} else {
 			log.Logger.Warn("net/http: invalid Cookie.Domain %q; dropping domain attribute",
 				c.Domain)
 		}
 	}
-	if c.Expires.Unix() > 0 {
-		fmt.Fprintf(&b, "; Expires=%s", c.Expires.UTC().Format(TimeFormat))
+	if validCookieExpires(c.Expires) {
+		b.WriteString("; Expires=")
+		b2 := b.Bytes()
+		b.Reset()
+		b.Write(c.Expires.UTC().AppendFormat(b2, TimeFormat))
 	}
 	if c.MaxAge > 0 {
-		fmt.Fprintf(&b, "; Max-Age=%d", c.MaxAge)
+		b.WriteString("; Max-Age=")
+		b2 := b.Bytes()
+		b.Reset()
+		b.Write(strconv.AppendInt(b2, int64(c.MaxAge), 10))
 	} else if c.MaxAge < 0 {
-		fmt.Fprintf(&b, "; Max-Age=0")
+		b.WriteString("; Max-Age=0")
 	}
 	if c.HttpOnly {
-		fmt.Fprintf(&b, "; HttpOnly")
+		b.WriteString("; HttpOnly")
 	}
 	if c.Secure {
-		fmt.Fprintf(&b, "; Secure")
+		b.WriteString("; Secure")
 	}
 	switch c.SameSite {
 	case SameSiteDefaultMode:
@@ -290,30 +299,39 @@ func (c *Cookie) String() string {
 	return b.String()
 }
 
+// validCookieExpires returns whether v is a valid cookie expires-value.
+func validCookieExpires(t time.Time) bool {
+	// IETF RFC 6265 Section 5.1.1.5, the year must not be less than 1601
+	return t.Year() >= 1601
+}
+
 // readCookies parses all "Cookie" values from the header h and
 // returns the successfully parsed Cookies.
 //
 // if filter isn't empty, only cookies of that name are returned
 func readCookies(h Header, filter string) []*Cookie {
-	cookies := []*Cookie{}
-	lines, ok := h["Cookie"]
-	if !ok {
-		return cookies
+	lines := h["Cookie"]
+	if len(lines) == 0 {
+		return []*Cookie{}
 	}
 
+	cookies := make([]*Cookie, 0, len(lines)+strings.Count(lines[0], ";"))
+
 	for _, line := range lines {
-		parts := strings.Split(strings.TrimSpace(line), ";")
-		if len(parts) == 1 && parts[0] == "" {
-			continue
-		}
-		// Per-line attributes
-		parsedPairs := 0
-		for i := 0; i < len(parts); i++ {
-			parts[i] = strings.TrimSpace(parts[i])
-			if len(parts[i]) == 0 {
+		line = strings.TrimSpace(line)
+
+		var part string
+		for len(line) > 0 {
+			if splitIndex := strings.Index(line, ";"); splitIndex > 0 {
+				part, line = line[:splitIndex], line[splitIndex+1:]
+			} else {
+				part, line = line, ""
+			}
+			part = strings.TrimSpace(part)
+			if len(part) == 0 {
 				continue
 			}
-			name, val := parts[i], ""
+			name, val := part, ""
 			if j := strings.Index(name, "="); j >= 0 {
 				name, val = name[:j], name[j+1:]
 			}
@@ -328,7 +346,6 @@ func readCookies(h Header, filter string) []*Cookie {
 				continue
 			}
 			cookies = append(cookies, &Cookie{Name: name, Value: val})
-			parsedPairs++
 		}
 	}
 	return cookies

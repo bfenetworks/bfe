@@ -27,7 +27,9 @@ cluster_conf.data为集群转发配置文件。
 | BackendConf.TimeoutConnSrv        | Integer<br>连接后端的超时时间，单位是毫秒<br>默认值2 |
 | BackendConf.TimeoutResponseHeader | Integer<br>从后端读响应头的超时时间，单位是毫秒<br>默认值60 |
 | BackendConf.MaxIdleConnsPerHost   | Integer<br>BFE实例与每个后端的最大空闲长连接数<br>默认值2 |
+| BackendConf.MaxConnsPerHost   | Integer<br>BFE实例与每个后端的最大长连接数，0代表无限制<br>默认值0 |
 | BackendConf.RetryLevel            | Integer<br>请求重试级别。0：连接后端失败时，进行重试；1：连接后端失败、转发GET请求失败时均进行重试<br>默认值0 |
+| BackendConf.OutlierDetectionHttpCode            | String<br>后端响应状态码检查，""代表不开启检查，"500"表示后端返回500则认为后端失败，失败计数加一<br>状态码支持"dxx"格式，例如"5xx";多个状态码之间使用'&#124;'连接<br>默认值""，不开启后端响应状态码错误检查 |
 | BackendConf.FCGIConf              | Object<br>FastCGI 协议的配置                              |
 | BackendConf.FCGIConf.Root         | String<br>网站的Root文件夹位置                            |
 | BackendConf.FCGIConf.EnvVars      | Map[string]string<br>拓展的环境变量                       |
@@ -59,11 +61,11 @@ cluster_conf.data为集群转发配置文件。
 
 #### 集群基础配置
 
-| 配置项                              | 描述                                 |
-| ----------------------------------- | ------------------------------------ |
-| ClusterBasic.TimeoutReadClient      | Integer<br>读用户请求wody的超时时间，单位为毫秒<br>默认值30 |
-| ClusterBasic.TimeoutWriteClient     | Integer<br>写响应的超时时间，单位为毫秒<br>默认值60 |
-| ClusterBasic.TimeoutReadClientAgain | Integer<br>连接闲置超时时间，单位为毫秒<br>默认值60 |
+| 配置项                              | 描述                                                        |
+| ----------------------------------- | ----------------------------------------------------------- |
+| ClusterBasic.TimeoutReadClient      | Integer<br>读用户请求body的超时时间，单位为毫秒<br>默认值30 |
+| ClusterBasic.TimeoutWriteClient     | Integer<br>写响应的超时时间，单位为毫秒<br>默认值60         |
+| ClusterBasic.TimeoutReadClientAgain | Integer<br>连接闲置超时时间，单位为毫秒<br>默认值60         |
 
 ## 配置示例
 
@@ -76,7 +78,8 @@ cluster_conf.data为集群转发配置文件。
                 "TimeoutConnSrv": 2000,
                 "TimeoutResponseHeader": 50000,
                 "MaxIdleConnsPerHost": 0,
-                "RetryLevel": 0
+                "RetryLevel": 0,
+                "OutlierDetectionHttpCode": "5xx|403"
             },
             "CheckConf": {
                 "Schem": "http",
@@ -107,6 +110,7 @@ cluster_conf.data为集群转发配置文件。
                 "TimeoutConnSrv": 2000,
                 "TimeoutResponseHeader": 50000,
                 "MaxIdleConnsPerHost": 0,
+                "MaxConnsPerHost": 0,
                 "RetryLevel": 0,
                 "FCGIConf": {
                     "Root": "/home/work",

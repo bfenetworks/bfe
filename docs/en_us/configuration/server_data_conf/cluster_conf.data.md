@@ -23,7 +23,9 @@ BackendConf is config for backend.
 | TimeoutConnSrv        | Int<br>Timeout for connect backend, in ms          |
 | TimeoutResponseHeader | Int<br>Timeout for read response header, in ms     |
 | MaxIdleConnsPerHost   | Int<br>Max idle conns to each backend              |
+| MaxConnsPerHost   | Int<br>Max number of concurrent conns to each backend              |
 | RetryLevel            | Int<br>Retry level if request fail                 |
+| BackendConf.OutlierDetectionHttpCode            | String<br> Http status code that represent error status of backend |
 | FCGIConf              | Object<br>Conf for FastCGI Protocol                |
 | FCGIConf.Root         | String<br>the root folder to the site              |
 | FCGIConf.EnvVars      | Map[string]string<br>extra environment variable    |
@@ -78,7 +80,9 @@ ClusterBasic is basic config for cluster.
                 "TimeoutConnSrv": 2000,
                 "TimeoutResponseHeader": 50000,
                 "MaxIdleConnsPerHost": 0,
-                "RetryLevel": 0
+                "MaxConnsPerHost": 0,
+                "RetryLevel": 0,
+                "OutlierDetectionHttpCode": "5xx|400"
             },
             "CheckConf": {
                 "Schem": "http",

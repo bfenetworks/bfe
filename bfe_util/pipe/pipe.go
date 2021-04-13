@@ -119,6 +119,12 @@ func (p *Pipe) closeWithError(dst *error, err error, fn func()) {
 	}
 	defer p.c.Signal()
 	if *dst != nil {
+		// Note: Here we do not consider the existing io.EOF(i.e. *dst) as a real error
+		// and replace it if necessary. The error handling policy allows us to release
+		// underlying resource(eg. PipeBuffer) as soon as possible.
+		if *dst == io.EOF {
+			*dst = err
+		}
 		// Already been done.
 		return
 	}

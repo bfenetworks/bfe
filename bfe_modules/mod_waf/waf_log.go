@@ -37,8 +37,7 @@ func (wf *wafLogger) Init(conf *ConfModWaf) error {
 	var err error
 	// WAF LOG Demo:[2020/08/25 13:40:58 CST] [INFO] [69613] {"Rule":"RuleBashCmd","Type":"Block","Hit":true ...
 	logFormatter := "[%D %T] [%L] [%P] %M"
-	wf.log, err = access_log.LoggerInitWithFormat(conf.Log.LogPrefix, conf.Log.LogDir,
-		conf.Log.RotateWhen, conf.Log.BackupCount, logFormatter)
+	wf.log, err = access_log.LoggerInitWithFormat(conf.Log, logFormatter)
 	if err != nil {
 		return fmt.Errorf("WafLogger.Init(): create logger error:%v", err)
 	}

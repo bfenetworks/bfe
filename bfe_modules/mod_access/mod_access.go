@@ -92,8 +92,7 @@ func (m *ModuleAccess) init(conf *ConfModAccess, cbs *bfe_module.BfeCallbacks, w
 		return fmt.Errorf("%s.Init(): CheckLogFormat %s", m.name, err.Error())
 	}
 
-	m.logger, err = access_log.LoggerInit(conf.Log.LogPrefix, conf.Log.LogDir,
-		conf.Log.RotateWhen, conf.Log.BackupCount)
+	m.logger, err = access_log.LoggerInit(conf.Log)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): create logger", m.name)
 	}
@@ -148,8 +147,7 @@ func (m *ModuleAccess) requestLogHandler(req *bfe_basic.Request, res *bfe_http.R
 		}
 	}
 
-	byteStr.WriteString("\n")
-	m.logger.Info(byteStr.Bytes())
+	m.logger.Info(byteStr.String())
 
 	return bfe_module.BfeHandlerGoOn
 }
@@ -173,8 +171,7 @@ func (m *ModuleAccess) sessionLogHandler(session *bfe_basic.Session) int {
 		}
 	}
 
-	byteStr.WriteString("\n")
-	m.logger.Info(byteStr.Bytes())
+	m.logger.Info(byteStr.String())
 
 	return bfe_module.BfeHandlerGoOn
 }

@@ -1567,12 +1567,23 @@ func (sc *serverConn) processSettingInitialWindowSize(val uint32) error {
 
 func (sc *serverConn) processData(f *DataFrame) error {
 	sc.serveG.Check()
+	id := f.Header().StreamID
+	if sc.inGoAway && (sc.goAwayCode != ErrCodeNo || id > sc.maxStreamID) {
+		// Discard all DATA frames if the GOAWAY is due to an
+		// error, or:
+		//
+		// Section 6.8: After sending a GOAWAY frame, the sender
+		// can discard frames for streams initiated by the
+		// receiver with identifiers higher than the identified
+		// last stream.
+		return nil
+	}
+
 	data := f.Data()
 
 	// "If a DATA frame is received whose stream is not in "open"
 	// or "half closed (local)" state, the recipient MUST respond
 	// with a stream error (Section 5.4.2) of type STREAM_CLOSED."
-	id := f.Header().StreamID
 	st, ok := sc.streams[id]
 	if !ok || st.state != stateOpen || st.gotTrailerHeader {
 		// This includes sending a RST_STREAM if the stream is
@@ -1607,7 +1618,10 @@ func (sc *serverConn) processData(f *DataFrame) error {
 	if st.declBodyBytes != -1 && st.bodyBytes+int64(len(data)) > st.declBodyBytes {
 		err := fmt.Errorf("sender tried to send more than declared Content-Length of %d bytes", st.declBodyBytes)
 		st.body.CloseWithError(err)
-		return StreamError{id, ErrCodeStreamClosed, err.Error()}
+		// RFC 7540, sec 8.1.2.6: A request or response is also malformed if the
+		// value of a content-length header field does not equal the sum of the
+		// DATA frame payload lengths that form the body.
+		return StreamError{id, ErrCodeProtocol, err.Error()}
 	}
 	if f.Length > 0 {
 		// Check whether the client has flow control quota.

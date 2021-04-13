@@ -9,6 +9,7 @@ mod_access以指定格式记录请求日志和会话日志。
 
 | 配置项                | 描述                                        |
 | ---------------------| ------------------------------------------- |
+| Log.LogFile | String<br>日志文件路径，用来将日志输出到单个文件中（不进行日志切割） |
 | Log.LogPrefix            | String<br>日志文件前缀名称 |
 | Log.LogDir | String<br>access日志文件目录 |
 | Log.RotateWhen | String<br>日志切割时间，支持 M/H/D/MIDNIGHT/NEXTHOUR |
@@ -22,6 +23,8 @@ mod_access以指定格式记录请求日志和会话日志。
   * COMBINED：Combined Log Format; 等价于配置 RequestTemplate = $host - - $request_time \\"$request_line\\" $status_code $res_len \\"${Referer}req_header\\" \\"${User-Agent}req_header\\"
 
 ### 配置示例
+
+#### 将日志保存到指定路径
 ```ini
 [Log]
 # filename prefix for log
@@ -42,6 +45,21 @@ RequestTemplate = "REQUEST_LOG $time clientip: $remote_addr serverip: $server_ad
 
 # template of session log
 SessionTemplate = "SESSION_LOG  $time clientip: $ses_clientip start_time: $ses_start_time end_time: $ses_end_time overhead: $ses_overhead read_total: $ses_read_total write_total: $ses_write_total keepalive_num: $ses_keepalive_num error: $ses_error"
+```
+
+#### 将日志输出到标准输出
+```ini
+[Log]
+# file path for log
+LogFile = /dev/stdout
+
+[Template]
+# template of request log
+RequestTemplate = "REQUEST_LOG $time clientip: $remote_addr serverip: $server_addr host: $host product: $product user_agent: ${User-Agent}req_header status: $status_code error: $error"
+
+# template of session log
+SessionTemplate = "SESSION_LOG  $time clientip: $ses_clientip start_time: $ses_start_time end_time: $ses_end_time overhead: $ses_overhead read_total: $ses_read_total write_total: $ses_write_total keepalive_num: $ses_keepalive_num error: $ses_error"
+
 ```
 
 ## 日志变量

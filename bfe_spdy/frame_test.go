@@ -538,10 +538,12 @@ func TestMultipleSPDYFrames(t *testing.T) {
 	// Start the goroutines to write the frames.
 	go func() {
 		if err := writer.WriteFrame(&headersFrame); err != nil {
-			t.Fatal("WriteFrame (HEADERS): ", err)
+			t.Log("WriteFrame (HEADERS): ", err)
+			return
 		}
 		if err := writer.WriteFrame(&synStreamFrame); err != nil {
-			t.Fatal("WriteFrame (SYN_STREAM): ", err)
+			t.Log("WriteFrame (SYN_STREAM): ", err)
+			return
 		}
 	}()
 

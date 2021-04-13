@@ -25,6 +25,8 @@ import (
 	"io"
 	"net"
 	"reflect"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -155,6 +157,7 @@ func (p *ReverseProxy) setTransports(clusterMap bfe_route.ClusterMap) {
 			// get transport, check if transport needs update
 			backendConf := conf.BackendConf()
 			if (t.MaxIdleConnsPerHost != *backendConf.MaxIdleConnsPerHost) ||
+				(t.MaxConnsPerHost != *backendConf.MaxConnsPerHost) ||
 				(t.ResponseHeaderTimeout != time.Millisecond*time.Duration(*backendConf.TimeoutResponseHeader)) ||
 				(t.ReqWriteBufferSize != conf.ReqWriteBufferSize()) ||
 				(t.ReqFlushInterval != conf.ReqFlushInterval()) {
@@ -215,6 +218,7 @@ func createTransport(cluster *bfe_cluster.BfeCluster) bfe_http.RoundTripper {
 			ReqWriteBufferSize:    cluster.ReqWriteBufferSize(),
 			ReqFlushInterval:      cluster.ReqFlushInterval(),
 			DisableCompression:    true,
+			MaxConnsPerHost:       *backendConf.MaxConnsPerHost,
 		}
 	case "fcgi":
 		return &bfe_fcgi.Transport{
@@ -334,7 +338,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 		request.Backend.BackendPort = uint32(backend.Port)
 
 		if err == nil {
-			if checkBackendStatus(cluster.OutlierDetectionLevel(), res.StatusCode) {
+			if checkBackendStatus(cluster.OutlierDetectionHttpCode(), res.StatusCode) {
 				backend.OnFail(cluster.Name)
 			} else {
 				backend.OnSuccess()
@@ -758,8 +762,16 @@ response_got:
 	// we must timeout both conns after specified duration.
 	p.setTimeout(bfe_basic.StageWriteClient, basicReq.Connection, req, timeoutWriteClient)
 	writeTimer = time.AfterFunc(timeoutWriteClient, func() {
-		transport := basicReq.Trans.Transport.(*bfe_http.Transport)
-		transport.CancelRequest(basicReq.OutRequest) // force close connection to backend
+		if basicReq.Trans.Transport != nil {
+			// TODO: process bfe_fcgi.Transport & bfe_http2.Transport
+			switch t := basicReq.Trans.Transport.(type) {
+			case *bfe_http.Transport:
+				t.CancelRequest(req)
+			default:
+				// do nothing
+			}
+		}
+
 	})
 	defer writeTimer.Stop()
 
@@ -878,6 +890,25 @@ func checkRequestWithoutBody(req *bfe_http.Request) bool {
 	return false
 }
 
-func checkBackendStatus(outlierDetectionLevel int, statusCode int) bool {
-	return outlierDetectionLevel == cluster_conf.OutlierDetection5XX && statusCode/100 == 5
+func checkBackendStatus(outlierDetectionHttpCodeStr string, statusCode int) bool {
+	if outlierDetectionHttpCodeStr == "" {
+		return false
+	}
+	for _, code := range strings.Split(outlierDetectionHttpCodeStr, "|") {
+		switch code {
+		case "3xx", "4xx", "5xx":
+			if strconv.Itoa(statusCode/100) == code[0:1] {
+				return true
+			}
+		default:
+			codeInt, err := strconv.Atoi(code)
+			if err != nil {
+				continue
+			}
+			if codeInt == statusCode {
+				return true
+			}
+		}
+	}
+	return false
 }

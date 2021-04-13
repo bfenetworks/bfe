@@ -62,6 +62,15 @@ var writeSetCookiesTests = []struct {
 		&Cookie{Name: "cookie-8", Value: "eight", Domain: "::1"},
 		"cookie-8=eight",
 	},
+	// According to IETF 6265 Section 5.1.1.5, the year cannot be less than 1601
+	{
+		&Cookie{Name: "cookie-10", Value: "expiring-1601", Expires: time.Date(1601, 1, 1, 1, 1, 1, 1, time.UTC)},
+		"cookie-10=expiring-1601; Expires=Mon, 01 Jan 1601 01:01:01 GMT",
+	},
+	{
+		&Cookie{Name: "cookie-11", Value: "invalid-expiry", Expires: time.Date(1600, 1, 1, 1, 1, 1, 1, time.UTC)},
+		"cookie-11=invalid-expiry",
+	},
 	{
 		&Cookie{Name: "cookie-12", Value: "samesite-default", SameSite: SameSiteDefaultMode},
 		"cookie-12=samesite-default; SameSite",
@@ -384,5 +393,26 @@ func TestDisableSanitize(t *testing.T) {
 		if got := sanitizeCookieValue(tt.in); got != tt.want {
 			t.Errorf("after SetDisableSanitize, sanitizeCookieValue(%q) = %q; want %q", tt.in, got, tt.want)
 		}
+	}
+}
+
+func BenchmarkCookieString(b *testing.B) {
+	const wantCookieString = `cookie-9=i3e01nf61b6t23bvfmplnanol3; Path=/restricted/; Domain=example.com; Expires=Tue, 10 Nov 2009 23:00:00 GMT; Max-Age=3600`
+	c := &Cookie{
+		Name:    "cookie-9",
+		Value:   "i3e01nf61b6t23bvfmplnanol3",
+		Expires: time.Unix(1257894000, 0),
+		Path:    "/restricted/",
+		Domain:  ".example.com",
+		MaxAge:  3600,
+	}
+	var benchmarkCookieString string
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchmarkCookieString = c.String()
+	}
+	if have, want := benchmarkCookieString, wantCookieString; have != want {
+		b.Fatalf("Have: %v Want: %v", have, want)
 	}
 }

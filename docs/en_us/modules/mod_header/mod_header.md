@@ -108,6 +108,8 @@ See the **Example** above.
 | %bfe_ssl_resume | Whether the TLS/SSL session is resumed with session id or session ticket |
 | %bfe_ssl_cipher | TLS/SSL cipher suite |
 | %bfe_ssl_version | TLS/SSL version |
+| %bfe_ssl_ja3_raw | JA3 fingerprint string for TLS/SSL client |
+| %bfe_ssl_ja3_hash | JA3 fingerprint hash for TLS/SSL client |
 | %bfe_protocol | Application level protocol |
 | %client_cert_serial_number | Serial number of client certificate |
 | %client_cert_subject_title | Subject title of client certificate |

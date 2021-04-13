@@ -85,6 +85,10 @@ func (sub *SubCluster) balance(algor int, key []byte) (*backend.BfeBackend, erro
 	return sub.backends.Balance(algor, key)
 }
 
+func (sub *SubCluster) setSlowStart(slowStartTime int) {
+	sub.backends.SetSlowStart(slowStartTime)
+}
+
 // SubClusterList is a list of subcluster.
 type SubClusterList []*SubCluster
 
