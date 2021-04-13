@@ -56,6 +56,7 @@ conf/mod_block/block_rules.data
 | Action | Description          |
 | ------ | -------------------- |
 | CLOSE  | Close the connection |
+| ALLOW  | Accept the request   |
   
 ### Example
 
@@ -63,6 +64,16 @@ conf/mod_block/block_rules.data
 {
   "Version": "20190101000000",
   "Config": {
+      "global": [
+          {
+              "action": {
+                  "cmd": "ALLOW",
+                  "params": []
+              },
+              "cond": "req_host_in(\"n.example.org\") && req_path_prefix_in(\"/index/\", false) && req_query_key_in(\"space\")",
+              "name": "example whiterule"
+          }
+        ],
       "example_product": [
           {
             "action": {
