@@ -284,6 +284,9 @@ func (bal *BalanceGslb) getHashKey(req *bfe_basic.Request) []byte {
 		if hashKey == nil {
 			hashKey = clientIP
 		}
+
+	case cluster_conf.RequestURI:
+		hashKey = []byte(req.HttpRequest.RequestURI)
 	}
 
 	// if hashKey is empty, use random value
