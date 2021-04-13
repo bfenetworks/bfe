@@ -123,7 +123,6 @@ type ModuleBlockState struct {
     ConnAccept   *metrics.Counter // connection passed
     ConnRefuse   *metrics.Counter // connection refused
     ReqTotal     *metrics.Counter // all request in
-    ReqToCheck   *metrics.Counter // request to check
     ReqAccept    *metrics.Counter // request accepted
     ReqRefuse    *metrics.Counter // request refused
     WrongCommand *metrics.Counter // request with condition satisfied, but wrong command

@@ -51,7 +51,6 @@ type ModuleBlockState struct {
 	ConnAccept   *metrics.Counter // connection passed
 	ConnRefuse   *metrics.Counter // connection refused
 	ReqTotal     *metrics.Counter // all request in
-	ReqToCheck   *metrics.Counter // request to check
 	ReqAccept    *metrics.Counter // request accepted
 	ReqRefuse    *metrics.Counter // request refused
 	WrongCommand *metrics.Counter // request with condition satisfied, but wrong command
@@ -169,7 +168,6 @@ func (m *ModuleBlock) productBlockHandler(request *bfe_basic.Request) (
 		return bfe_module.BfeHandlerGoOn, nil
 	}
 
-	m.state.ReqToCheck.Inc(1)
 	return m.productRulesProcess(request, rules)
 }
 
