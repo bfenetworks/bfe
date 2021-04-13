@@ -41,6 +41,8 @@ func ActionFileCheck(conf *ActionFile) error {
 	switch *conf.Cmd {
 	case "CLOSE":
 		paramsLenCheck = 0
+	case "ALLOW":
+		paramsLenCheck = 0
 	default:
 		return fmt.Errorf("invalid cmd:%s", *conf.Cmd)
 	}
