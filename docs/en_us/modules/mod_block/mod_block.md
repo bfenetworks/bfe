@@ -56,7 +56,7 @@ conf/mod_block/block_rules.data
 | Action | Description          |
 | ------ | -------------------- |
 | CLOSE  | Close the connection |
-| ALLOW  | allow the connection |
+| ALLOW  | Accept the request   |
   
 ### Example
 
