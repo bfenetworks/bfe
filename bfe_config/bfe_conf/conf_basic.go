@@ -16,7 +16,6 @@ package bfe_conf
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 )
 
@@ -151,9 +150,6 @@ func basicConfCheck(cfg *ConfigBasic) error {
 	// check MaxCpus
 	if cfg.MaxCpus < 0 {
 		return fmt.Errorf("MaxCpus[%d] is too small", cfg.MaxCpus)
-	} else if cfg.MaxCpus == 0 {
-		// use all logical CPUs on local machine
-		cfg.MaxCpus = runtime.NumCPU()
 	}
 
 	// check Layer4LoadBalancer

@@ -34,6 +34,8 @@ import (
 	"github.com/bfenetworks/bfe/bfe_util"
 )
 
+import _ "go.uber.org/automaxprocs"
+
 var (
 	help        *bool   = flag.Bool("h", false, "to show help")
 	confRoot    *string = flag.String("c", "./conf", "root path of configuration")
@@ -99,8 +101,12 @@ func main() {
 		bfe_util.AbnormalExit()
 	}
 
-	// set maximum number of cpus
-	runtime.GOMAXPROCS(config.Server.MaxCpus)
+	// set maximum number of cpus if the MaxCpus is positive,
+	// otherwise GOMAXPROCS is set according to CPU quota automatically
+	// with the help of "go.uber.org/automaxprocs"
+	if config.Server.MaxCpus > 0 {
+		runtime.GOMAXPROCS(config.Server.MaxCpus)
+	}
 
 	// set log level
 	bfe_debug.SetDebugFlag(config.Server)
