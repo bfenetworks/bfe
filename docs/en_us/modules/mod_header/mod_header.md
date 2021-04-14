@@ -115,4 +115,7 @@ See the **Example** above.
 | %client_cert_subject_title | Subject title of client certificate |
 | %client_cert_subject_common_name | Subject Common Name of client certificate|
 | %client_cert_subject_organization | Subject Organization of client certificate |
-
+| %client_cert_subject_organizational_unit | Subject Organizational Unit of client certificate |
+| %client_cert_subject_province | Subject Province of client certificate |
+| %client_cert_subject_country | Subject Country of client certificate |
+| %client_cert_subject_locality | Subject Locality of client certificate |

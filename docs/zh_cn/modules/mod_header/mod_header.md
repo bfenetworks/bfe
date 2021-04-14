@@ -109,4 +109,7 @@ BFE支持如下一系列变量并在处理请求阶段求值。关于变量的�
 | %client_cert_subject_title | 客户端证书Subject title |
 | %client_cert_subject_common_name | 客户端证书Subject Common Name |
 | %client_cert_subject_organization | 客户端证书Subject Organization |
-
+| %client_cert_subject_organizational_unit | 客户端证书Subject Organizational Unit |
+| %client_cert_subject_province | 客户端证书Subject Province |
+| %client_cert_subject_country | 客户端证书Subject Country |
+| %client_cert_subject_locality | 客户端证书Subject Locality |
