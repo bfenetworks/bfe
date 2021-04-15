@@ -25,6 +25,7 @@ import (
 import (
 	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/log/log4go"
+	_ "go.uber.org/automaxprocs"
 )
 
 import (
@@ -99,8 +100,13 @@ func main() {
 		bfe_util.AbnormalExit()
 	}
 
-	// set maximum number of cpus
-	runtime.GOMAXPROCS(config.Server.MaxCpus)
+	// maximum number of CPUs (GOMAXPROCS) defaults to runtime.CPUNUM 
+	// if running on machine, or CPU quota if running on container
+	// (with the help of "go.uber.org/automaxprocs").
+	// here, we change maximum number of cpus if the MaxCpus is positive.
+	if config.Server.MaxCpus > 0 {
+		runtime.GOMAXPROCS(config.Server.MaxCpus)
+	}
 
 	// set log level
 	bfe_debug.SetDebugFlag(config.Server)
