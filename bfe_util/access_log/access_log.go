@@ -14,7 +14,6 @@
 
 package access_log
 
-import "C"
 import (
 	"fmt"
 	"github.com/bfenetworks/bfe/bfe_util"
