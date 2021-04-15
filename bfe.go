@@ -25,6 +25,7 @@ import (
 import (
 	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/log/log4go"
+	_ "go.uber.org/automaxprocs"
 )
 
 import (
@@ -33,8 +34,6 @@ import (
 	"github.com/bfenetworks/bfe/bfe_server"
 	"github.com/bfenetworks/bfe/bfe_util"
 )
-
-import _ "go.uber.org/automaxprocs"
 
 var (
 	help        *bool   = flag.Bool("h", false, "to show help")
@@ -101,9 +100,10 @@ func main() {
 		bfe_util.AbnormalExit()
 	}
 
-	// set maximum number of cpus if the MaxCpus is positive,
-	// otherwise GOMAXPROCS is set according to CPU quota automatically
-	// with the help of "go.uber.org/automaxprocs"
+	// maximum number of CPUs (GOMAXPROCS) defaults to runtime.CPUNUM 
+	// if running on machine, or CPU quota if running on container
+	// (with the help of "go.uber.org/automaxprocs").
+	// here, we change maximum number of cpus if the MaxCpus is positive.
 	if config.Server.MaxCpus > 0 {
 		runtime.GOMAXPROCS(config.Server.MaxCpus)
 	}
