@@ -25,12 +25,14 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
 	"github.com/bfenetworks/bfe/bfe_util/net_util"
+	"github.com/bfenetworks/bfe/bfe_util"
 	"github.com/spaolacci/murmur3"
 )
 
@@ -983,3 +985,68 @@ func (f *ContextValueFetcher) Fetch(req *bfe_basic.Request) (interface{}, error)
 
 	return req.GetContext(f.key), nil
 }
+
+type BfeTimeFetcher struct{}
+
+// Fetch returns a time in UTC+0 time zone.
+func (f *BfeTimeFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
+	if req == nil || req.HttpRequest == nil {
+		return time.Now().In(time.UTC), nil
+	}
+	values, ok := req.HttpRequest.Header["X-Bfe-Debug-Time"]
+	if !ok {
+		return time.Now().In(time.UTC), nil
+	}
+	debugTimeStr := values[0]
+	debugTime, err := bfe_util.ParseTime(debugTimeStr)
+	if err != nil {
+		return nil, fmt.Errorf("debugTimeStr have invalid format, debugTimeStr:%s, :%s", debugTimeStr, err.Error())
+	}
+	return debugTime, nil
+}
+
+// periodic time range matcher
+type PeriodicTimeMatcher struct {
+	startTime int // in seconds of a day
+	endTime   int
+	offset    int // timezone offset
+}
+// time string format: hhmmssZ, example 150405H, Z-> timezone defined in bfe_util.TimeZoneMap
+func NewPeriodicTimeMatcher(startTimeStr, endTimeStr, periodStr string) (*PeriodicTimeMatcher, error) {
+	if periodStr != "" {
+		return nil, fmt.Errorf("periodStr is not supported, should not be set!")
+	}
+	ts1, offset1, err := bfe_util.ParseTimeOfDay(startTimeStr)
+	if err != nil {
+		return nil, fmt.Errorf("startTime format invalid, err:%s", err.Error())
+	}
+	startTime := ts1.Hour()*3600 + ts1.Minute()*60 + ts1.Second()
+	ts2, offset2, err := bfe_util.ParseTimeOfDay(endTimeStr)
+	if err != nil {
+		return nil, fmt.Errorf("endTime format invalid, err:%s", err.Error())
+	}
+	endTime := ts2.Hour()*3600 + ts2.Minute()*60 + ts2.Second()
+	if startTime > endTime {
+		return nil, fmt.Errorf("startTime[%s] must <= endTime[%s]", startTimeStr, endTimeStr)
+	}
+	if offset1 != offset2 {
+		return nil, fmt.Errorf("timezone of startime and endtime should be same!")
+	}
+	return &PeriodicTimeMatcher{
+		startTime: startTime,
+		endTime:   endTime,
+		offset:    offset1,
+	}, nil
+}
+func (t *PeriodicTimeMatcher) Match(v interface{}) bool {
+	tm, ok := v.(time.Time)
+	if !ok {
+		return false
+	}
+	// tm in UTC, convert it to correct time zone
+	tm = tm.In(time.FixedZone("zone", t.offset))
+	hour, minute, second := tm.Clock()
+	seconds := hour*3600 + minute*60 + second
+	return seconds >= t.startTime && seconds <= t.endTime
+}
+
