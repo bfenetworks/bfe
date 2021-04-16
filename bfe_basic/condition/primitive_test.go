@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The BFE Authors.
+﻿// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -252,5 +252,52 @@ func TestPathElementPrefixMatcher(t *testing.T) {
 	}
 	if matcher.Match("/pathabc") {
 		t.Fatalf("should not match /pathabc")
+	}
+}
+
+func TestPeriodicTimeMatcher(t *testing.T) {
+	matcher, err := NewPeriodicTimeMatcher("200000H", "213000H", "")
+	if err != nil {
+		t.Fatalf("NewPeriodicTimeMatcher() error: %v", err)
+	}
+	_, err = NewPeriodicTimeMatcher("200000R", "213000H", "" )
+	if err == nil {
+		t.Fatalf("NewPeriodicTimeMatcher() should failed")
+	}
+	_, err = NewPeriodicTimeMatcher("220000H", "213000H", "")
+	if err == nil {
+		t.Fatalf("NewPeriodicTimeMatcher() should failed")
+	}
+	_, err = NewPeriodicTimeMatcher("200000H", "213000H", "Monday")
+	if err == nil {
+		t.Fatalf("NewPeriodicTimeMatcher() should failed")
+	}
+	tm := time.Date(2019, 2, 4, 19, 59, 59, 0, time.FixedZone("CST", 8*60*60))
+	if matcher.Match(tm) {
+		t.Fatalf("should not match %v", tm)
+	}
+	tm = time.Date(2019, 2, 4, 11, 59, 59, 0, time.UTC)
+	if matcher.Match(tm) {
+		t.Fatalf("should not match %v", tm)
+	}
+	tm = time.Date(2019, 2, 4, 20, 0, 0, 0, time.FixedZone("CST", 8*60*60))
+	if !matcher.Match(tm) {
+		t.Fatalf("should match %v", tm)
+	}
+	tm = time.Date(2019, 2, 4, 13, 30, 0, 0, time.UTC)
+	if !matcher.Match(tm) {
+		t.Fatalf("should match %v", tm)
+	}
+	tm = time.Date(2019, 2, 4, 21, 30, 1, 0, time.FixedZone("CST", 8*60*60))
+	if matcher.Match(tm) {
+		t.Fatalf("should not match %v", tm)
+	}
+	tm = time.Date(2019, 2, 4, 12, 30, 0, 0, time.UTC)
+	if !matcher.Match(tm) {
+		t.Fatalf("should match %v", tm)
+	}
+	tm = time.Date(2019, 2, 4, 13, 30, 1, 0, time.UTC)
+	if matcher.Match(tm) {
+		t.Fatalf("should not match %v", tm)
 	}
 }
