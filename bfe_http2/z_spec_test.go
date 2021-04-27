@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -83,10 +83,8 @@ func (ss specPart) Less(oo specPart) bool {
 		}
 		return x < y
 	}
-	if len(b) > 0 {
-		return true
-	}
-	return false
+
+	return len(b) > 0
 }
 
 type bySpecSection []specPart

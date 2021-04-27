@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,34 +27,8 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_bufio"
+	"github.com/bfenetworks/bfe/bfe_bufio"
 )
-
-type canonicalHeaderKeyTest struct {
-	in, out string
-}
-
-var canonicalHeaderKeyTests = []canonicalHeaderKeyTest{
-	{"a-b-c", "A-B-C"},
-	{"a-1-c", "A-1-C"},
-	{"User-Agent", "User-Agent"},
-	{"uSER-aGENT", "User-Agent"},
-	{"user-agent", "User-Agent"},
-	{"USER-AGENT", "User-Agent"},
-	{"üser-agenT", "üser-Agent"}, // non-ASCII unchanged
-
-	// This caused a panic due to mishandling of a space:
-	{"C Ontent-Transfer-Encoding", "C-Ontent-Transfer-Encoding"},
-	{"foo bar", "Foo-Bar"},
-}
-
-func TestCanonicalMIMEHeaderKey(t *testing.T) {
-	for _, tt := range canonicalHeaderKeyTests {
-		if s := CanonicalMIMEHeaderKey(tt.in); s != tt.out {
-			t.Errorf("CanonicalMIMEHeaderKey(%q) = %q, want %q", tt.in, s, tt.out)
-		}
-	}
-}
 
 func reader(s string) *Reader {
 	return NewReader(bfe_bufio.NewReader(strings.NewReader(s)))
@@ -170,6 +144,14 @@ func TestReadMIMEHeaderSingle(t *testing.T) {
 	}
 }
 
+func TestReadMIMEHeaderNoKey(t *testing.T) {
+	r := reader(": bar\ntest-1: 1\n\n")
+	m, err := r.ReadMIMEHeader()
+	want := MIMEHeader{"Test-1": {"1"}}
+	if !reflect.DeepEqual(m, want) || err != nil {
+		t.Fatalf("ReadMIMEHeader: %v, %v; want %v", m, err, want)
+	}
+}
 func TestLargeReadMIMEHeader(t *testing.T) {
 	data := make([]byte, 16*1024)
 	for i := 0; i < len(data); i++ {
@@ -187,11 +169,10 @@ func TestLargeReadMIMEHeader(t *testing.T) {
 	}
 }
 
-// Test that we read slightly-bogus MIME headers seen in the wild,
-// with spaces before colons, and spaces in keys.
+// TestReadMIMEHeaderNonCompliant checks that we don't normalize headers
+// with spaces before colons, and accept spaces in keys.
 func TestReadMIMEHeaderNonCompliant(t *testing.T) {
-	// Invalid HTTP response header as sent by an Axis security
-	// camera: (this is handled by IE, Firefox, Chrome, curl, etc.)
+	// These invalid headers will be rejected by net/http according to RFC 7230.
 	r := reader("Foo: bar\r\n" +
 		"Content-Language: en\r\n" +
 		"SID : 0\r\n" +
@@ -201,12 +182,38 @@ func TestReadMIMEHeaderNonCompliant(t *testing.T) {
 	want := MIMEHeader{
 		"Foo":              {"bar"},
 		"Content-Language": {"en"},
-		"Sid":              {"0"},
-		"Audio-Mode":       {"None"},
-		"Privilege":        {"127"},
+		"SID ":             {"0"},
+		"Audio Mode ":      {"None"},
+		"Privilege ":       {"127"},
 	}
 	if !reflect.DeepEqual(m, want) || err != nil {
 		t.Fatalf("ReadMIMEHeader =\n%v, %v; want:\n%v", m, err, want)
+	}
+}
+
+// Test that continued lines are properly trimmed. Issue 11204.
+func TestReadMIMEHeaderTrimContinued(t *testing.T) {
+	// In this header, \n and \r\n terminated lines are mixed on purpose.
+	// We expect each line to be trimmed (prefix and suffix) before being concatenated.
+	// Keep the spaces as they are.
+	r := reader("" + // for code formatting purpose.
+		"a:\n" +
+		" 0 \r\n" +
+		"b:1 \t\r\n" +
+		"c: 2\r\n" +
+		" 3\t\n" +
+		"  \t 4  \r\n\n")
+	m, err := r.ReadMIMEHeader()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := MIMEHeader{
+		"A": {"0"},
+		"B": {"1"},
+		"C": {"2 3 4"},
+	}
+	if !reflect.DeepEqual(m, want) {
+		t.Fatalf("ReadMIMEHeader mismatch.\n got: %q\nwant: %q", m, want)
 	}
 }
 
@@ -262,26 +269,22 @@ func TestRFC959Lines(t *testing.T) {
 		}
 	}
 }
-
 func TestCommonHeaders(t *testing.T) {
-	// need to disable the commonHeaders-based optimization
-	// during this check, or we'd not be testing anything
-	oldch := commonHeaders
-	commonHeaders = []string{}
-	defer func() { commonHeaders = oldch }()
-
-	last := ""
-	for _, h := range oldch {
-		if last > h {
-			t.Errorf("%v is out of order", h)
+	commonHeaderOnce.Do(initCommonHeader)
+	for h := range commonHeader {
+		if h != CanonicalMIMEHeaderKey(h) {
+			t.Errorf("Non-canonical header %q in commonHeader", h)
 		}
-		if last == h {
-			t.Errorf("%v is duplicated", h)
+	}
+	b := []byte("content-Length")
+	want := "Content-Length"
+	n := testing.AllocsPerRun(200, func() {
+		if x := canonicalMIMEHeaderKey(b); x != want {
+			t.Fatalf("canonicalMIMEHeaderKey(%q) = %q; want %q", b, x, want)
 		}
-		if canon := CanonicalMIMEHeaderKey(h); h != canon {
-			t.Errorf("%v is not canonical", h)
-		}
-		last = h
+	})
+	if n > 0 {
+		t.Errorf("canonicalMIMEHeaderKey allocs = %v; want 0", n)
 	}
 }
 

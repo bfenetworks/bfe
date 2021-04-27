@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,25 +25,28 @@ import (
 import (
 	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/log/log4go"
+	_ "go.uber.org/automaxprocs"
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_conf"
-	"github.com/baidu/bfe/bfe_debug"
-	"github.com/baidu/bfe/bfe_server"
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
+	"github.com/bfenetworks/bfe/bfe_debug"
+	"github.com/bfenetworks/bfe/bfe_server"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 var (
-	help     *bool   = flag.Bool("h", false, "to show help")
-	confRoot *string = flag.String("c", "./conf", "root path of configuration")
-	logPath  *string = flag.String("l", "./log", "dir path of log")
-	stdOut   *bool   = flag.Bool("s", false, "to show log in stdout")
-	showVer  *bool   = flag.Bool("v", false, "to show version of bfe")
-	debugLog *bool   = flag.Bool("d", false, "to show debug log (otherwise >= info)")
+	help        *bool   = flag.Bool("h", false, "to show help")
+	confRoot    *string = flag.String("c", "./conf", "root path of configuration")
+	logPath     *string = flag.String("l", "./log", "dir path of log")
+	stdOut      *bool   = flag.Bool("s", false, "to show log in stdout")
+	showVersion *bool   = flag.Bool("v", false, "to show version of bfe")
+	showVerbose *bool   = flag.Bool("V", false, "to show verbose information about bfe")
+	debugLog    *bool   = flag.Bool("d", false, "to show debug log (otherwise >= info)")
 )
 
 var version string
+var commit string
 
 func main() {
 	var err error
@@ -55,8 +58,14 @@ func main() {
 		flag.PrintDefaults()
 		return
 	}
-	if *showVer {
-		fmt.Printf("bfe: version %s\n", version)
+	if *showVersion {
+		fmt.Printf("bfe version: %s\n", version)
+		return
+	}
+	if *showVerbose {
+		fmt.Printf("bfe version: %s\n", version)
+		fmt.Printf("go version: %s\n", runtime.Version())
+		fmt.Printf("git commit: %s\n", commit)
 		return
 	}
 
@@ -91,8 +100,13 @@ func main() {
 		bfe_util.AbnormalExit()
 	}
 
-	// set maximum number of cpus
-	runtime.GOMAXPROCS(config.Server.MaxCpus)
+	// maximum number of CPUs (GOMAXPROCS) defaults to runtime.CPUNUM 
+	// if running on machine, or CPU quota if running on container
+	// (with the help of "go.uber.org/automaxprocs").
+	// here, we change maximum number of cpus if the MaxCpus is positive.
+	if config.Server.MaxCpus > 0 {
+		runtime.GOMAXPROCS(config.Server.MaxCpus)
+	}
 
 	// set log level
 	bfe_debug.SetDebugFlag(config.Server)

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,11 +29,11 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_tls_conf/server_cert_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_tls_conf/session_ticket_key_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_tls_conf/tls_rule_conf"
-	"github.com/baidu/bfe/bfe_route"
-	"github.com/baidu/bfe/bfe_util/bns"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/server_cert_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/session_ticket_key_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/tls_rule_conf"
+	"github.com/bfenetworks/bfe/bfe_route"
+	"github.com/bfenetworks/bfe/bfe_util/bns"
 )
 
 // InitDataLoad load data when bfe start.
@@ -56,10 +56,11 @@ func (srv *BfeServer) InitDataLoad() error {
 		return fmt.Errorf("InitDataLoad():balTableInit Error %s", err)
 	}
 
-	// set gslb retry config
+	// set gslb retry config, slow_start config
 	if srv.ServerConf != nil {
 		ct := srv.ServerConf.ClusterTable
 		srv.balTable.SetGslbBasic(ct)
+		srv.balTable.SetSlowStart(ct)
 	}
 	log.Logger.Info("init bal table success")
 
@@ -116,6 +117,8 @@ func (srv *BfeServer) serverDataConfReload(hostFile, vipFile, routeFile, cluster
 
 	// set gslb basic
 	srv.balTable.SetGslbBasic(newServerConf.ClusterTable)
+	// set slow_start config
+	srv.balTable.SetSlowStart(newServerConf.ClusterTable)
 
 	return nil
 }
@@ -152,6 +155,8 @@ func (srv *BfeServer) gslbDataConfReload(gslbFile, clusterTableFile string) erro
 	serverConf := srv.ServerConf
 	srv.confLock.Unlock()
 	srv.balTable.SetGslbBasic(serverConf.ClusterTable)
+	// set slow_start config
+	srv.balTable.SetSlowStart(serverConf.ClusterTable)
 
 	return nil
 }
@@ -204,7 +209,7 @@ func (srv *BfeServer) TLSConfReload(query url.Values) error {
 
 func (srv *BfeServer) tlsConfLoad(certConfFile string, tlsRuleFile string) error {
 	// load certificate conf
-	certConf, err := server_cert_conf.ServerCertConfLoad(certConfFile)
+	certConf, err := server_cert_conf.ServerCertConfLoad(certConfFile, srv.ConfRoot)
 	if err != nil {
 		return fmt.Errorf("in ServerCertConfLoad() :%s", err.Error())
 	}
@@ -228,6 +233,13 @@ func (srv *BfeServer) tlsConfLoad(certConfFile string, tlsRuleFile string) error
 		return fmt.Errorf("in ClientCALoad() :%s", err.Error())
 	}
 
+	// load client cert CRL
+	clientCRLBaseDir := srv.Config.HttpsBasic.ClientCRLBaseDir
+	clientCRLPoolMap, err := tls_rule_conf.ClientCRLLoad(clientCAMap, clientCRLBaseDir)
+	if err != nil {
+		return fmt.Errorf("in ClientCRLLoad(): %s", err.Error())
+	}
+
 	// validate tls conf
 	if err := tls_rule_conf.CheckTlsConf(certMap, tlsRule.Config); err != nil {
 		return fmt.Errorf("in CheckTlsConf() :%s", err.Error())
@@ -235,7 +247,7 @@ func (srv *BfeServer) tlsConfLoad(certConfFile string, tlsRuleFile string) error
 
 	// update certificates and tls rule data
 	srv.MultiCert.Update(certMap, tlsRule.Config)
-	srv.TLSServerRule.Update(tlsRule, clientCAMap)
+	srv.TLSServerRule.Update(tlsRule, clientCAMap, clientCRLPoolMap)
 	log.Logger.Debug("update tls server rule success")
 
 	return nil

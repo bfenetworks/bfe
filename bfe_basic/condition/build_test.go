@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,9 +22,10 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_util/net_util"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util/net_util"
 )
 
 var (
@@ -107,6 +108,19 @@ var buildPrimitiveTests = []struct {
 			matcher: &InMatcher{
 				patterns: []string{"/ABC"},
 				foldCase: true},
+		},
+		false,
+	},
+	{
+		"testBuildReqPathElementPrefixIn",
+		"req_path_element_prefix_in(\"/abc\", true)",
+		&PrimitiveCond{
+			name:    "req_path_element_prefix_in",
+			fetcher: &PathFetcher{},
+			matcher: &PathElementPrefixMatcher{
+				patterns: []string{"/ABC/"},
+				foldCase: true,
+			},
 		},
 		false,
 	},
@@ -341,5 +355,78 @@ func TestBuildHeaderValueHashIn(t *testing.T) {
 	req.HttpRequest.Header["X-Bfe-Uid"] = []string{"test-uid-0004"} // hash_bucket of "test-uid-0004: 9683
 	if !buildC.Match(&req) {
 		t.Errorf("test-uid-0004 not match req_header_value_hash_in(\"X-Bfe-Uid\", \"4073|5000-9999\", true)")
+	}
+}
+
+func TestBuildTlsSniIn(t *testing.T) {
+	buildTlsSniIn, err := Build("ses_tls_sni_in(\"test.com\")")
+	if err != nil {
+		t.Errorf("build failed, ses_tls_sni_in(\"test.com\"), err(%s)",
+			err.Error())
+	}
+
+	req.Session = &bfe_basic.Session{TlsState: &bfe_tls.ConnectionState{ServerName: "test.com"}, IsSecure: true}
+	if !buildTlsSniIn.Match(&req) {
+		t.Errorf("sni not match ses_tls_sni_in(\"test.com\")")
+	}
+
+	req.Session = &bfe_basic.Session{TlsState: &bfe_tls.ConnectionState{ServerName: "test.com"}}
+	if buildTlsSniIn.Match(&req) {
+		t.Errorf("sni match ses_tls_sni_in(\"test.com\")")
+	}
+}
+
+func TestBuildTlsClientAuth(t *testing.T) {
+	buildTlsClientAuth, err := Build("ses_tls_client_auth()")
+	if err != nil {
+		t.Errorf("build failed, ses_tls_client_auth(), err(%s)",
+			err.Error())
+	}
+
+	req.Session = &bfe_basic.Session{TlsState: &bfe_tls.ConnectionState{ClientAuth: true}, IsSecure: true}
+	if !buildTlsClientAuth.Match(&req) {
+		t.Errorf("clientauth not match ses_tls_client_auth()")
+	}
+
+	req.Session = &bfe_basic.Session{TlsState: &bfe_tls.ConnectionState{ClientAuth: false}, IsSecure: true}
+	if buildTlsClientAuth.Match(&req) {
+		t.Errorf("clientauth match ses_tls_client_auth()")
+	}
+}
+
+func TestBuildTlsClientCAIn(t *testing.T) {
+	buildTlsClientCAIn, err := Build("ses_tls_client_ca_in(\"clientCa\")")
+	if err != nil {
+		t.Errorf("build failed, ses_tls_client_ca_in(\"clientCa\"), err(%s)",
+			err.Error())
+	}
+
+	req.Session = &bfe_basic.Session{TlsState: &bfe_tls.ConnectionState{ClientAuth: true, ClientCAName: "clientCa"}, IsSecure: true}
+	if !buildTlsClientCAIn.Match(&req) {
+		t.Errorf("ca not match ses_tls_client_ca_in(\"clientCa\")")
+	}
+
+	req.Session = &bfe_basic.Session{TlsState: &bfe_tls.ConnectionState{ClientAuth: false, ClientCAName: "clientCa"}, IsSecure: true}
+	if buildTlsClientCAIn.Match(&req) {
+		t.Errorf("ca match ses_tls_client_ca_in(\"clientCa\")")
+	}
+}
+
+func TestBuildHostTagIn(t *testing.T) {
+	cond, err := Build("req_host_tag_in(\"host_tag1|host_tag2\")")
+	if err != nil {
+		t.Fatalf("should have no error")
+	}
+	req.Route.HostTag = "host_tag1"
+	if !cond.Match(&req) {
+		t.Fatalf("should match host tag %s", req.Route.HostTag)
+	}
+	req.Route.HostTag = "host_tag2"
+	if !cond.Match(&req) {
+		t.Fatalf("should match host tag %s", req.Route.HostTag)
+	}
+	req.Route.HostTag = "host_tag3"
+	if cond.Match(&req) {
+		t.Fatalf("should not match host tag %s", req.Route.HostTag)
 	}
 }

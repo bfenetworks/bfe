@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,14 +15,14 @@
 package mod_redirect
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type RedirectRuleFile struct {
@@ -155,7 +155,7 @@ func ruleListConvert(ruleFileList *RuleFileList) (*RuleList, error) {
 	return ruleList, nil
 }
 
-// redirectConfLoad loades config of redirect from file.
+// redirectConfLoad loads config of redirect from file.
 func redirectConfLoad(filename string) (redirectConf, error) {
 	var conf redirectConf
 	var err error

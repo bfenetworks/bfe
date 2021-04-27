@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic/condition/parser"
+	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
 )
 
 func Build(condStr string) (Condition, error) {
@@ -154,6 +154,13 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			fetcher: &HostFetcher{},
 			matcher: matcher,
 		}, nil
+	case "req_host_tag_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &HostTagFetcher{},
+			matcher: NewInMatcher(node.Args[0].Value, true),
+		}, nil
 	case "req_host_regmatch":
 		reg, err := regexp.Compile(node.Args[0].Value)
 		if err != nil {
@@ -164,6 +171,13 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			node:    node,
 			fetcher: &HostFetcher{},
 			matcher: NewRegMatcher(reg),
+		}, nil
+	case "req_host_suffix_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &HostFetcher{},
+			matcher: NewSuffixInMatcher(node.Args[0].Value, true),
 		}, nil
 	case "req_path_in":
 		return &PrimitiveCond{
@@ -186,6 +200,13 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			fetcher: &PathFetcher{},
 			matcher: NewSuffixInMatcher(node.Args[0].Value, node.Args[1].ToBool()),
 		}, nil
+	case "req_path_element_prefix_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &PathFetcher{},
+			matcher: NewPathElementPrefixMatcher(node.Args[0].Value, node.Args[1].ToBool()),
+		}, nil
 	case "req_path_regmatch":
 		reg, err := regexp.Compile(node.Args[0].Value)
 		if err != nil {
@@ -196,6 +217,13 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			node:    node,
 			fetcher: &PathFetcher{},
 			matcher: NewRegMatcher(reg),
+		}, nil
+	case "req_path_contain":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &PathFetcher{},
+			matcher: NewContainMatcher(node.Args[0].Value, node.Args[1].ToBool()),
 		}, nil
 	case "req_url_regmatch":
 		reg, err := regexp.Compile(node.Args[0].Value)
@@ -473,7 +501,53 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			fetcher: &SIPFetcher{},
 			matcher: matcher,
 		}, nil
+	case "ses_tls_sni_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &SniFetcher{},
+			matcher: NewInMatcher(node.Args[0].Value, true),
+		}, nil
+	case "ses_tls_client_auth":
+		return &ClientAuthMatcher{}, nil
+	case "ses_tls_client_ca_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &ClientCANameFetcher{},
+			matcher: NewInMatcher(node.Args[0].Value, false),
+		}, nil
+	case "req_context_value_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &ContextValueFetcher{node.Args[0].Value},
+			matcher: NewInMatcher(node.Args[1].Value, false),
+		}, nil
 
+	case "bfe_time_range":
+		matcher, err := NewTimeMatcher(node.Args[0].Value, node.Args[1].Value)
+		if err != nil {
+			return nil, err
+		}
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &BfeTimeFetcher{},
+			matcher: matcher,
+		}, nil
+
+	case "bfe_periodic_time_range":
+		matcher, err := NewPeriodicTimeMatcher(node.Args[0].Value, node.Args[1].Value, node.Args[2].Value)
+		if err != nil {
+			return nil, err
+		}
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &BfeTimeFetcher{},
+			matcher: matcher,
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported primitive %s", node.Fun.Name)
 	}

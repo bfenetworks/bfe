@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,12 +16,14 @@ package txt_load
 
 import (
 	"bufio"
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"net"
 	"os"
 	"strings"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type MetaInfo struct {
@@ -132,7 +134,7 @@ func getActualFileInfo(path string) (*MetaInfo, error) {
 		}
 
 		// insert start ip and end ip into dict
-		if bytes.Equal(startIP, endIP) {
+		if startIP.Equal(endIP) {
 			singleIPCounter += 1
 		} else {
 			pairIPCounter += 1
@@ -152,13 +154,13 @@ func getActualFileInfo(path string) (*MetaInfo, error) {
 }
 
 /* check meta info */
-func checkMetaInfo(Info MetaInfo) error {
-	if Info.Version == "" {
+func checkMetaInfo(info MetaInfo) error {
+	if info.Version == "" {
 		return fmt.Errorf("metaInfo:Version is empty string")
 	}
 
 	/* PairIPNum/SingleIPNum must >= 0 */
-	if Info.PairIPNum < 0 || Info.SingleIPNum < 0 {
+	if info.PairIPNum < 0 || info.SingleIPNum < 0 {
 		return fmt.Errorf("metaInfo:PairIPNum || SingleIPNum < 0")
 	}
 

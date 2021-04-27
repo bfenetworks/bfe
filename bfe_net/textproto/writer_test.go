@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_bufio"
+	"github.com/bfenetworks/bfe/bfe_bufio"
 )
 
 func TestPrintfLine(t *testing.T) {
@@ -48,5 +48,31 @@ func TestDotWriter(t *testing.T) {
 	want := "abc\r\n..def\r\n...ghi\r\n..jkl\r\n..\r\n.\r\n"
 	if s := buf.String(); s != want {
 		t.Fatalf("wrote %q", s)
+	}
+}
+
+func TestDotWriterCloseEmptyWrite(t *testing.T) {
+	var buf bytes.Buffer
+	w := NewWriter(bfe_bufio.NewWriter(&buf))
+	d := w.DotWriter()
+	n, err := d.Write([]byte{})
+	if n != 0 || err != nil {
+		t.Fatalf("Write: %d, %s", n, err)
+	}
+	d.Close()
+	want := "\r\n.\r\n"
+	if s := buf.String(); s != want {
+		t.Fatalf("wrote %q; want %q", s, want)
+	}
+}
+
+func TestDotWriterCloseNoWrite(t *testing.T) {
+	var buf bytes.Buffer
+	w := NewWriter(bfe_bufio.NewWriter(&buf))
+	d := w.DotWriter()
+	d.Close()
+	want := "\r\n.\r\n"
+	if s := buf.String(); s != want {
+		t.Fatalf("wrote %q; want %q", s, want)
 	}
 }

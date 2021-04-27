@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -104,7 +104,9 @@ func (m *BfeMonitor) monitorHandlers() map[string]interface{} {
 		"proxy_handshake_resume_delay": m.srv.proxyHandshakeResumeDelayGet,
 
 		// for module status
-		"module_status": m.srv.ModuleStatusGetJSON,
+		"module_status":   m.srv.ModuleStatusGetJSON,
+		"module_handlers": m.srv.ModuleHandlersGetJSON,
+
 		// for proxy memory stat
 		"proxy_mem_stat": web_monitor.CreateMemStatsHandler("proxy_mem_stat"),
 	}

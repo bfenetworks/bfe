@@ -1,0 +1,15 @@
+{
+    "Version": "2019-12-10184356",
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "default_t()",
+                "BlockRules": [
+                    "invalid rule"
+                ],
+                "CheckRules": [
+                ]
+            }
+        ]
+    }
+}

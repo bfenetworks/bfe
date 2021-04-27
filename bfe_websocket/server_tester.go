@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,10 +30,10 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_balance/backend"
-	"github.com/baidu/bfe/bfe_bufio"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_balance/backend"
+	"github.com/bfenetworks/bfe/bfe_bufio"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 type ServerTester struct {
@@ -111,8 +111,6 @@ func (st *ServerTester) handleWebsocketConn(conn net.Conn) {
 		st.hl(st.mp.Config, rw, req)
 		return
 	}
-
-	return
 }
 
 // WebSocketHandshake starts websocket handshake (client perspective)

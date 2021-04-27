@@ -7,6 +7,14 @@
                 "ClusterName": "cluster_example"
             },
             {
+                "Cond": "req_host_in(\"fcgi.example.org\")",
+                "ClusterName": "fcgi_cluster_example"
+            },
+            {
+                "Cond": "req_host_in(\"h2c.example.org\")",
+                "ClusterName": "h2c_cluster_example"
+            },
+            {
                 "Cond": "default_t()",
                 "ClusterName": "cluster_example"
             }

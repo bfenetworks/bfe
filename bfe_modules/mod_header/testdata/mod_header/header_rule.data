@@ -1,0 +1,203 @@
+{
+    "Version": "1234",
+    "Config": {
+        "p1": [
+            {
+                 "cond": "req_path_prefix_in(\"/header_rename\", false)",
+                 "actions": [
+                     {
+                         "cmd": "REQ_HEADER_RENAME",
+                         "params": [
+                             "OriginalKey",
+                             "NewKey"
+                         ]
+                     }
+                 ],
+                 "last": true
+            },
+            {
+                "cond": "req_path_prefix_in(\"/cookie_set\", false)",
+                "actions": [
+                    {
+                        "cmd": "REQ_COOKIE_SET",
+                        "params": [
+                            "SET",
+                            "1"
+                        ]
+                    }
+                ],
+                "last": true
+            },
+             {
+                "cond": "req_path_prefix_in(\"/cookie_del\", false)",
+                "actions": [
+                    {
+                        "cmd": "REQ_COOKIE_DEL",
+                        "params": [
+                            "DEL"
+                        ]
+                    }
+                ],
+                "last": true
+            },
+            {
+                "cond": "req_path_prefix_in(\"/first\", false)",
+                "actions": [
+                    {
+                        "cmd": "RSP_COOKIE_DEL",
+                        "params": [
+                            "FIRST",
+                            "example.org",
+                            "/unittest"
+                        ]
+                    }
+                ],
+                "last": false
+            },
+            {
+                "cond": "default_t()",
+                "actions": [
+                    {
+                        "cmd": "RSP_COOKIE_DEL",
+                        "params": [
+                            "SECOND",
+                            "example.org",
+                            "/unittest"
+                        ]
+                    }
+                ],
+                "last": true
+            }
+        ],
+        "p2": [
+            {
+                "cond": "req_path_prefix_in(\"/rsp_cookie_set\", false)",
+                "actions": [
+                    {
+                        "cmd": "RSP_COOKIE_SET",
+                        "params": [
+                            "SET",
+                            "2",
+                            "example.org",
+                            "/unittest",
+                            "Tue, 10 Nov 2009 23:00:00 UTC",
+                            "100",
+                            "true",
+                            "true"
+                        ]
+                    }
+                ],
+                "last": true
+            }
+        ],
+        "pn": [
+            {
+                "cond": "req_proto_secure()",
+                "actions": [
+                    {
+                        "cmd": "REQ_HEADER_SET",
+                        "params": [
+                            "X-Ssl-Header",
+                            "1"
+                        ]
+                    }
+                ],
+                "last": true
+            }
+        ],
+        "pb": [
+            {
+                "cond": "!req_proto_secure()",
+                "actions": [
+                    {
+                        "cmd": "REQ_HEADER_ADD",
+                        "params": [
+                            "Header_Add_Test",
+                            "Header_Add_Value"
+                        ]
+                    }
+                ],
+                "last": true
+            }
+        ],
+        "pt": [
+            {
+                "cond": "!req_proto_secure()",
+                "actions": [
+                    {
+                        "cmd": "REQ_HEADER_DEL",
+                        "params": [
+                            "Host"
+                        ]
+                    }
+                ],
+                "last": true
+            }
+        ],
+        "global": [
+            {
+                "cond": "req_proto_secure()",
+                "actions": [
+                    {
+                        "cmd": "REQ_HEADER_SET",
+                        "params": [
+                            "X-Ssl-Header",
+                            "2"
+                        ]
+                    }
+                ],
+                "last": false
+            },
+            {
+                "cond": "!req_proto_secure()",
+                "actions": [
+                    {
+                        "cmd": "REQ_HEADER_DEL",
+                        "params": [
+                            "Host"
+                        ]
+                    }
+				],
+                "last": false
+			},
+            {
+                "cond": "!req_proto_secure()&&!req_cip_trusted()",
+                "actions": [
+                    {
+                        "cmd": "REQ_HEADER_DEL",
+                        "params": [
+                            "X-Ssl-Header"
+                        ]
+                    }
+				],
+                "last": false
+			},
+            {   
+                "cond": "req_cip_trusted()",
+                "actions": [
+                    {   
+                        "cmd": "REQ_HEADER_SET",
+                        "params": [
+                            "TrustIP",
+                            "True"
+                        ]   
+                    }   
+                ],  
+                "last": false
+            },  
+            {   
+                "cond": "!req_cip_trusted()",
+                "actions": [
+                    {   
+                        "cmd": "REQ_HEADER_SET",
+                        "params": [
+                            "TrustIP",
+                            "False"
+                        ]   
+                    }   
+                ],  
+                "last": false
+            }
+		]
+    }
+}

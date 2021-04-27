@@ -1,11 +1,15 @@
-# Introduction
+# Modules
 
-module_status monitor status of modules.
+## Introduction
 
-# Monitor Item
+The endpoint `/monitor/modules` exposes informations about modules.
 
-| Monitor Item | Description               |
+## Metrics
+
+| Metric       | Description               |
 | ------------ | ------------------------- |
 | available    | List of available modules |
 | enabled      | List of enable modules    |
+
+For more details about metrics of each module, see [BFE modules](../modules/modules.md).
 

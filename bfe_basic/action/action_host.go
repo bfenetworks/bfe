@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import (
 	"strings"
 )
 import (
-	"github.com/baidu/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_basic"
 )
 
 // ReqHostSet sets hostname to request.
@@ -49,4 +49,15 @@ func ReqHostSetFromFirstPathSegment(req *bfe_basic.Request) {
 	// set host and trim path prefix
 	req.HttpRequest.Host = segs[1]
 	req.HttpRequest.URL.Path = "/" + segs[2]
+}
+
+// ReqHostSuffixReplace replaces suffix of hostname.
+func ReqHostSuffixReplace(req *bfe_basic.Request, originSuffix, newSuffix string) {
+	hostname := req.HttpRequest.URL.Host
+	if !strings.HasSuffix(hostname, originSuffix) {
+		return
+	}
+
+	hostname = strings.TrimSuffix(hostname, originSuffix) + newSuffix
+	req.HttpRequest.Host = hostname
 }

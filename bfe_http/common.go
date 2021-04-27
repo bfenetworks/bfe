@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,8 +35,8 @@ import (
 )
 
 import (
-	bufio "github.com/baidu/bfe/bfe_bufio"
-	tls "github.com/baidu/bfe/bfe_tls"
+	bufio "github.com/bfenetworks/bfe/bfe_bufio"
+	tls "github.com/bfenetworks/bfe/bfe_tls"
 )
 
 // DefaultMaxHeaderBytes is the maximum permitted size of the headers in an HTTP request.

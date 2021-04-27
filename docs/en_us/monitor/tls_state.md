@@ -1,10 +1,12 @@
-# Introduction
+# TLS
 
-tls_state monitor state of TLS.
+## Introduction
 
-# Monitor Item
+The endpoint `/monitor/tls_state` exposes metrics about TLS protocol.
 
-| Monitor Item                               | Description                                                  |
+## Metrics
+
+| Metric                                     | Description                                                  |
 | ------------------------------------------ | ------------------------------------------------------------ |
 | TLS_HANDSHAKE_ACCEPT_ECDHE_WITHOUT_EXT     | Counter for proposing ECDHE without extensions               |
 | TLS_HANDSHAKE_ACCEPT_SSLV2_CLIENT_HELLO    | Counter for accepting SSLv2 client-hello                     |

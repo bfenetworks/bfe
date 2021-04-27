@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,13 +33,14 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 import (
-	"github.com/baidu/bfe/bfe_bufio"
-	"github.com/baidu/bfe/bfe_net/textproto"
-	"github.com/baidu/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_bufio"
+	"github.com/bfenetworks/bfe/bfe_net/textproto"
+	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 const (
@@ -343,13 +344,6 @@ func valueOrDefault(value, def string) string {
 	return def
 }
 
-// NOTE: This is not intended to reflect the actual Go version being used.
-// It was changed from "Go http package" to "Go 1.1 package http" at the
-// time of the Go 1.1 release because the former User-Agent had ended up
-// on a blacklist for some intrusion detection systems.
-// See https://codereview.appspot.com/7532043.
-const defaultUserAgent = "Go 1.1 package http"
-
 // Write writes an HTTP/1.1 request -- header and body -- in wire format.
 // This method consults the following fields of the request:
 //	Host
@@ -594,25 +588,22 @@ func parseRequestLine(line string) (method, requestURI, proto string, ok bool) {
 	return line[:s1], line[s1+1 : s2], line[s2+1:], true
 }
 
-// TODO(bradfitz): use a sync.Cache when available
-var textprotoReaderCache = make(chan *textproto.Reader, 4)
+var textprotoReaderCache sync.Pool
 
 func newTextprotoReader(br *bfe_bufio.Reader) *textproto.Reader {
-	select {
-	case r := <-textprotoReaderCache:
-		r.R = br
-		return r
-	default:
-		return textproto.NewReader(br)
+	r := textprotoReaderCache.Get()
+	if r != nil {
+		tr := r.(*textproto.Reader)
+		tr.R = br
+		return tr
 	}
+
+	return textproto.NewReader(br)
 }
 
 func putTextprotoReader(r *textproto.Reader) {
 	r.R = nil
-	select {
-	case textprotoReaderCache <- r:
-	default:
-	}
+	textprotoReaderCache.Put(r)
 }
 
 // ReadRequest reads and parses a request from b.

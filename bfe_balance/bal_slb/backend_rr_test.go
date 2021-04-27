@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
 )
 
 func TestBackendRRInit_case1(t *testing.T) {
@@ -36,12 +36,12 @@ func TestBackendRRInit_case1(t *testing.T) {
 	backendRR := NewBackendRR()
 	backendRR.Init("example.cluster", &conf)
 
-	if backendRR.weight != 10 {
-		t.Error("backend.weight should be 10")
+	if backendRR.weight != 10 * 100 {
+		t.Error("backend.weight should be 10 * 100")
 	}
 
-	if backendRR.current != 10 {
-		t.Error("backend.current should be 10")
+	if backendRR.current != 10 * 100 {
+		t.Error("backend.current should be 10 * 100")
 	}
 
 	backend := backendRR.backend

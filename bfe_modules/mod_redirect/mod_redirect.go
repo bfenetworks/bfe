@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_module"
 )
 
 var (
@@ -101,7 +101,7 @@ func (m *ModuleRedirect) redirectHandler(request *bfe_basic.Request) (int, *bfe_
 
 	if ok {
 		if openDebug {
-			log.Logger.Debug("%s:before:host=%s, path=%s, query=%s, rules=",
+			log.Logger.Debug("%s:before:host=%s, path=%s, query=%s, rules=%v",
 				m.name,
 				request.HttpRequest.Host, request.HttpRequest.URL.Path,
 				request.HttpRequest.URL.RawQuery, rules)
@@ -151,7 +151,7 @@ func (m *ModuleRedirect) init(cfg *ConfModRedirect, cbs *bfe_module.BfeCallbacks
 	}
 
 	// register handler
-	err := cbs.AddFilter(bfe_module.HandleAfterLocation, m.redirectHandler)
+	err := cbs.AddFilter(bfe_module.HandleFoundProduct, m.redirectHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.redirectHandler): %s", m.name, err.Error())
 	}

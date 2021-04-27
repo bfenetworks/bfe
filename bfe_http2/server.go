@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,10 +42,10 @@ import (
 )
 
 import (
-	http "github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_http2/hpack"
-	tls "github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_util/pipe"
+	http "github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http2/hpack"
+	tls "github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util/pipe"
 )
 
 const (
@@ -340,7 +340,7 @@ func (s *Server) ServeConn(c net.Conn, opts *ServeConnOpts) {
 	// get rule for current conn
 	var r *Rule
 	if tlsConn, ok := c.(*tls.Conn); ok && serverRule != nil {
-		r = serverRule.GetRule(tlsConn)
+		r = serverRule.GetHTTP2Rule(tlsConn)
 	}
 
 	sc := &serverConn{
@@ -445,7 +445,7 @@ func (s *Server) ServeConn(c net.Conn, opts *ServeConnOpts) {
 	sc.serve()
 }
 
-// isBadCipher reports whether the cipher is blacklisted by the HTTP/2 spec.
+// isBadCipher reports whether the cipher is blocklisted by the HTTP/2 spec.
 func isBadCipher(cipher uint16) bool {
 	switch cipher {
 	case tls.TLS_RSA_WITH_RC4_128_SHA,
@@ -1567,12 +1567,23 @@ func (sc *serverConn) processSettingInitialWindowSize(val uint32) error {
 
 func (sc *serverConn) processData(f *DataFrame) error {
 	sc.serveG.Check()
+	id := f.Header().StreamID
+	if sc.inGoAway && (sc.goAwayCode != ErrCodeNo || id > sc.maxStreamID) {
+		// Discard all DATA frames if the GOAWAY is due to an
+		// error, or:
+		//
+		// Section 6.8: After sending a GOAWAY frame, the sender
+		// can discard frames for streams initiated by the
+		// receiver with identifiers higher than the identified
+		// last stream.
+		return nil
+	}
+
 	data := f.Data()
 
 	// "If a DATA frame is received whose stream is not in "open"
 	// or "half closed (local)" state, the recipient MUST respond
 	// with a stream error (Section 5.4.2) of type STREAM_CLOSED."
-	id := f.Header().StreamID
 	st, ok := sc.streams[id]
 	if !ok || st.state != stateOpen || st.gotTrailerHeader {
 		// This includes sending a RST_STREAM if the stream is
@@ -1607,7 +1618,10 @@ func (sc *serverConn) processData(f *DataFrame) error {
 	if st.declBodyBytes != -1 && st.bodyBytes+int64(len(data)) > st.declBodyBytes {
 		err := fmt.Errorf("sender tried to send more than declared Content-Length of %d bytes", st.declBodyBytes)
 		st.body.CloseWithError(err)
-		return StreamError{id, ErrCodeStreamClosed, err.Error()}
+		// RFC 7540, sec 8.1.2.6: A request or response is also malformed if the
+		// value of a content-length header field does not equal the sum of the
+		// DATA frame payload lengths that form the body.
+		return StreamError{id, ErrCodeProtocol, err.Error()}
 	}
 	if f.Length > 0 {
 		// Check whether the client has flow control quota.
@@ -1902,7 +1916,7 @@ func (sc *serverConn) newWriterAndRequest(st *stream, f *MetaHeadersFrame) (*res
 	bodyOpen := !f.StreamEnded()
 	if method == "HEAD" && bodyOpen {
 		// HEAD requests can't have bodies
-		errMsg := fmt.Sprintf("HEAD request with unexpected body")
+		errMsg := "HEAD request with unexpected body"
 		return nil, nil, StreamError{f.StreamID, ErrCodeProtocol, errMsg}
 	}
 	var tlsState *tls.ConnectionState // nil if not scheme https

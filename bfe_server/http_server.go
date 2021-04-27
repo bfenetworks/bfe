@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -97,14 +97,17 @@ func (srv *BfeServer) Serve(l net.Listener, raw net.Listener, proto string) erro
 			return e
 		}
 
-		// create data structure for new connection
-		c, err := newConn(rw, srv)
-		if err != nil {
-			// current, here is unreachable
-			continue
-		}
-
 		// start go-routine for new connection
-		go c.serve()
+		go func(rwc net.Conn, srv *BfeServer) {
+			// create data structure for new connection
+			c, err := newConn(rw, srv)
+			if err != nil {
+				// current, here is unreachable
+				return
+			}
+
+			// process new connection
+			c.serve()
+		}(rw, srv)
 	}
 }

@@ -1,0 +1,27 @@
+{
+    "Version": "2019-12-10184356",
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "req_path_prefix_in(\"/abc\", true)",
+                "Params": {
+                     "Name": "bfe_userid_abc",
+                     "Domain": "",
+                     "Path": "/abc",
+                     "MaxAge": 3153600
+                 },
+                 "Generator": "default"
+            }, 
+            {
+                "Cond": "default_t()",
+                "Params": {
+                     "Name": "bfe_userid",
+                     "Domain": "",
+                     "Path": "/",
+                     "MaxAge": 3153600
+                 },
+                 "Generator": "default"
+            }
+        ]
+    }
+}

@@ -1,50 +1,90 @@
-# 请求Cookie相关
+# 请求Cookie相关条件原语
 
-## 通用原语参数
-- key：字符串，cookie中的key
-- patterns：字符串，表示多个可匹配的pattern，用‘|’连接
-- case_insensitive：bool类型，是否忽略大小写
+## req_cookie_key_in(key_list)
+* 含义： 判断Cookie key是否为key_list之一
+* 参数
 
-## 请求Cookie原语
-- **req_cookie_key_in(patterns)**
-  - 判断Cookie key是否为patterns之一
-  ```
-  # 判断请求cookie key为UID1或UID2或UID3
-  req_cookie_key_in(“UID1|UID2|UID3”)
-  ```
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| key_list | String<br>key列表，多个之间使用‘&#124;’连接 | 
 
-- **req_cookie_value_in(key, patterns, case_insensitive)**
-  - 判断cookie中key对应的值是否为patterns之一
-  ```
-  # 判断请求cookie中UID的值(忽略大小写)是否是XXX
-  req_cookie_value_in(“UID”, "XXX", true)
-  ```
+* 示例
+```go
+req_cookie_key_in("uid|cid|uss")
+```
 
-- **req_cookie_value_prefix_in(key, patterns, case_insensitive)**
-  - 判断cookie中key的值是否前缀匹配patterns之一
-  ```
-  # 判断请求cookie中UID的cookie值(忽略大小写)是否以XXX开头
-  req_cookie_value_prefix_in(“UID”, "XXX", true)
-  ```
+## req_cookie_value_in(key, value_list, case_insensitive)
+* 含义： 判断cookie中key对应的值是否为value_list之一
+* 参数  
 
-- **req_cookie_value_suffix_in(key, patterns, case_insensitive)**
-  - 判断cookie中key的值是否后缀匹配patterns之一
-  ```
-  # 判断请求cookie中UID的cookie值(忽略大小写)是否以XXX结尾
-  req_cookie_value_suffix_in(“UID”, "XXX", true)
-  ```
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| key | String<br>cookie中的key |
+| value_list | String<br>value列表，多个之间使用‘&#124;’连接 | 
+| case_insensitive | Boolean<br>是否忽略大小写 |  
 
-- **req_cookie_value_hash_in(key, patterns, case_insensitive)**
-  - 对cookie中key的值哈希取模，判断是否匹配patterns之一（模值0～9999）
-  ```
-  # 判断请求cookie中UID的cookie值(忽略大小写)取模后是否为100
-  req_cookie_value_hash_in(“UID”, “100”, true)
-  ```
+* 示例
+```go
+req_cookie_value_in("deviceid", "testid", true)
+```
 
-- **req_cookie_value_contain(key, patterns, case_insensitive)**
-  - 判断cookie中key的值是否包含patterns之一
-  ```
-  # 判断请求cookie中UID的cookie值(忽略大小写)是否包含XXX
-  req_cookie_value_contain(“UID”, “XXX”, true)
-  ```
+## req_cookie_value_prefix_in(key, prefix_list, case_insensitive)
+* 含义： 判断cookie中key的值是否前缀匹配prefix_list之一
+* 参数  
+
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| key | String<br>cookie中的key |
+| prefix_list | String<br>prefix列表，多个之间使用‘&#124;’连接 | 
+| case_insensitive | Boolean<br>是否忽略大小写 |  
+
+* 示例
+```go
+req_cookie_value_prefix_in("deviceid", "x", true)
+```
+
+## req_cookie_value_suffix_in(key, suffix_list, case_insensitive)
+* 含义： 判断cookie中key的值是否后缀匹配suffix_list之一
+* 参数  
+
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| key | String<br>cookie中的key |
+| suffix_list | String<br>suffix列表，多个之间使用‘&#124;’连接 | 
+| case_insensitive | Boolean<br>是否忽略大小写 |  
+
+* 示例
+```go
+req_cookie_value_suffix_in("deviceid", "1", true)
+```
+
+## req_cookie_value_hash_in(key, hash_value_list, case_insensitive)
+* 含义： 对cookie中key的值哈希取模，判断是否匹配hash_value_list之一（模值0～9999）
+* 参数  
+
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| key | String<br>cookie中的key |
+| hash_value_list | String<br>hash value列表，多个之间使用‘&#124;’连接 | 
+| case_insensitive | Boolean<br>是否忽略大小写 |  
+
+* 示例
+```go
+req_cookie_value_hash_in("uid", "100", true)
+```
+
+## req_cookie_value_contain(key, value_list, case_insensitive)
+* 含义： 判断cookie中key的值是否包含value_list之一
+* 参数  
+
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| key | String<br>cookie中的key |
+| value_list | String<br>value列表，多个之间使用‘&#124;’连接 | 
+| case_insensitive | Boolean<br>是否忽略大小写 |  
+
+* 示例
+```go
+req_cookie_value_contain("deviceid", "test", true)
+```
 

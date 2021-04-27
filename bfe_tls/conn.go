@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -69,11 +69,15 @@ type Conn struct {
 	grade               string         // tls security grade, usually is "A", "B", "C"
 	clientAuth          ClientAuthType // tls client auth type
 	clientCAs           *x509.CertPool
+	clientCAName        string   // tls client CA name
+	clientCRLPool       *CRLPool // tls client CRL pool
 	enableDynamicRecord bool     // enable dynamic record size or not
 	clientRandom        []byte   // random in client hello msg
 	serverRandom        []byte   // random in server hello msg
 	masterSecret        []byte   // master secret for conn
 	clientCiphers       []uint16 // ciphers supported by client
+	ja3Raw              string   // JA3 fingerprint string for TLS Client
+	ja3Hash             string   // JA3 fingerprint hash for TLS Client
 
 	clientProtocol         string
 	clientProtocolFallback bool
@@ -706,7 +710,7 @@ func convertSSLv2ClientHello(c *Conn, b *block) error {
 		helloMsg.random = append(helloMsg.random, challengeData...)
 	}
 
-	helloMsg.cipherSuites = make([]uint16, 0, 0)
+	helloMsg.cipherSuites = make([]uint16, 0)
 	for i := 0; i < len(cipherSpecs); i += 3 {
 		// we can only support cipher specs starting with a high bit
 		if cipherSpecs[i] == 0 {
@@ -1270,6 +1274,12 @@ func (c *Conn) ConnectionState() ConnectionState {
 		state.ServerRandom = c.serverRandom
 		state.MasterSecret = c.masterSecret
 		state.ClientCiphers = c.clientCiphers
+		if c.clientAuth == RequireAndVerifyClientCert {
+			state.ClientAuth = true
+		}
+		state.ClientCAName = c.clientCAName
+		state.JA3Raw = c.ja3Raw
+		state.JA3Hash = c.ja3Hash
 	}
 
 	return state

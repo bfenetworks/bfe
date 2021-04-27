@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,13 +24,20 @@ import (
 )
 
 import (
-	json "github.com/pquerna/ffjson/ffjson"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // RetryLevels
 const (
 	RetryConnect = 0 // retry if connect backend fail
 	RetryGet     = 1 // retry if forward GET request fail (plus RetryConnect)
+)
+
+// DefaultTimeout
+const (
+	DefaultReadClientTimeout      = 30000
+	DefaultWriteClientTimeout     = 60000
+	DefaultReadClientAgainTimeout = 60000
 )
 
 // HashStrategy for subcluster-level load balance (GSLB).
@@ -41,6 +48,7 @@ const (
 	ClientIdOnly      = iota // use CLIENTID to hash
 	ClientIpOnly             // use CLIENTIP to hash
 	ClientIdPreferred        // use CLIENTID to hash, otherwise use CLIENTIP
+	RequestURI               // use request URI to hash
 )
 
 // BALANCE_MODE used for GslbBasicConf.
@@ -67,17 +75,29 @@ type BackendCheck struct {
 	CheckInterval *int    // interval of health check, in ms
 }
 
+// FastCGI related configurations
+type FCGIConf struct {
+	EnvVars map[string]string // the vars which will send to backend
+	Root    string            // the server root
+}
+
 // BackendBasic is conf of backend basic
 type BackendBasic struct {
-	TimeoutConnSrv        *int // timeout for connect backend, in ms
-	TimeoutResponseHeader *int // timeout for read header from backend, in ms
-	MaxIdleConnsPerHost   *int // max idle conns for each backend
-	RetryLevel            *int // retry level if request fail
+	Protocol                 *string // backend protocol
+	TimeoutConnSrv           *int    // timeout for connect backend, in ms
+	TimeoutResponseHeader    *int    // timeout for read header from backend, in ms
+	MaxIdleConnsPerHost      *int    // max idle conns for each backend
+	MaxConnsPerHost          *int    // max conns for each backend (zero means unrestricted)
+	RetryLevel               *int    // retry level if request fail
+	SlowStartTime            *int    // time for backend increases the weight to the full value, in seconds
+	OutlierDetectionHttpCode *string // outlier detection http status code
+	// protocol specific configurations
+	FCGIConf *FCGIConf
 }
 
 type HashConf struct {
 	// HashStrategy is hash strategy for subcluster-level load balance.
-	// ClientIdOnly, ClientIpOnly, ClientIdPreferred.
+	// ClientIdOnly, ClientIpOnly, ClientIdPreferred, RequestURI.
 	HashStrategy *int
 
 	// HashHeader is an optional request header which represents a unique client.
@@ -129,6 +149,17 @@ type BfeClusterConf struct {
 
 // BackendBasicCheck check BackendBasic config.
 func BackendBasicCheck(conf *BackendBasic) error {
+	if conf.Protocol == nil {
+		defaultProtocol := "http"
+		conf.Protocol = &defaultProtocol
+	}
+	*conf.Protocol = strings.ToLower(*conf.Protocol)
+	switch *conf.Protocol {
+	case "http", "tcp", "ws", "fcgi", "h2c":
+	default:
+		return fmt.Errorf("protocol only support http/tcp/ws/fcgi/h2c, but is:%s", *conf.Protocol)
+	}
+
 	if conf.TimeoutConnSrv == nil {
 		defaultTimeConnSrv := 2000
 		conf.TimeoutConnSrv = &defaultTimeConnSrv
@@ -144,9 +175,35 @@ func BackendBasicCheck(conf *BackendBasic) error {
 		conf.MaxIdleConnsPerHost = &defaultIdle
 	}
 
+	if conf.MaxConnsPerHost == nil || *conf.MaxConnsPerHost < 0 {
+		defaultConns := 0
+		conf.MaxConnsPerHost = &defaultConns
+	}
+
 	if conf.RetryLevel == nil {
 		retryLevel := RetryConnect
 		conf.RetryLevel = &retryLevel
+	}
+
+	if conf.OutlierDetectionHttpCode == nil {
+		outlierDetectionCode := ""
+		conf.OutlierDetectionHttpCode = &outlierDetectionCode
+	} else {
+		httpCode := *conf.OutlierDetectionHttpCode
+		httpCode = strings.ToLower(httpCode)
+		conf.OutlierDetectionHttpCode = &httpCode
+	}
+
+	if conf.SlowStartTime == nil {
+		defaultSlowStartTime := 0
+		conf.SlowStartTime = &defaultSlowStartTime
+	}
+
+	if conf.FCGIConf == nil {
+		defaultFCGIConf := new(FCGIConf)
+		defaultFCGIConf.EnvVars = make(map[string]string)
+		defaultFCGIConf.Root = ""
+		conf.FCGIConf = defaultFCGIConf
 	}
 
 	return nil
@@ -333,9 +390,11 @@ func HashConfCheck(conf *HashConf) error {
 	}
 
 	if *conf.HashStrategy != ClientIdOnly &&
-		*conf.HashStrategy != ClientIpOnly && *conf.HashStrategy != ClientIdPreferred {
-		return fmt.Errorf("HashStrategy[%d] must be [%d], [%d] or [%d]",
-			*conf.HashStrategy, ClientIdOnly, ClientIpOnly, ClientIdPreferred)
+	   *conf.HashStrategy != ClientIpOnly && 
+	   *conf.HashStrategy != ClientIdPreferred &&
+	   *conf.HashStrategy != RequestURI {
+		return fmt.Errorf("HashStrategy[%d] must be [%d], [%d], [%d] or [%d]",
+			*conf.HashStrategy, ClientIdOnly, ClientIpOnly, ClientIdPreferred, RequestURI)
 	}
 	if *conf.HashStrategy == ClientIdOnly || *conf.HashStrategy == ClientIdPreferred {
 		if conf.HashHeader == nil || len(*conf.HashHeader) == 0 {
@@ -352,17 +411,17 @@ func HashConfCheck(conf *HashConf) error {
 // ClusterBasicConfCheck check ClusterBasicConf.
 func ClusterBasicConfCheck(conf *ClusterBasicConf) error {
 	if conf.TimeoutReadClient == nil {
-		timeoutReadClient := 30000
+		timeoutReadClient := DefaultReadClientTimeout
 		conf.TimeoutReadClient = &timeoutReadClient
 	}
 
 	if conf.TimeoutWriteClient == nil {
-		timoutWriteClient := 60000
+		timoutWriteClient := DefaultWriteClientTimeout
 		conf.TimeoutWriteClient = &timoutWriteClient
 	}
 
 	if conf.TimeoutReadClientAgain == nil {
-		timeoutReadClientAgain := 60000
+		timeoutReadClientAgain := DefaultReadClientAgainTimeout
 		conf.TimeoutReadClientAgain = &timeoutReadClientAgain
 	}
 
@@ -433,13 +492,13 @@ func ClusterConfCheck(conf *ClusterConf) error {
 }
 
 // ClusterToConfCheck check ClusterToConf.
-func ClusterToConfCheck(conf *ClusterToConf) error {
-	for clusterName, clusterConf := range *conf {
+func ClusterToConfCheck(conf ClusterToConf) error {
+	for clusterName, clusterConf := range conf {
 		err := ClusterConfCheck(&clusterConf)
-
 		if err != nil {
 			return fmt.Errorf("conf for %s:%s", clusterName, err.Error())
 		}
+		conf[clusterName] = clusterConf
 	}
 	return nil
 }
@@ -457,7 +516,7 @@ func BfeClusterConfCheck(conf *BfeClusterConf) error {
 		return errors.New("no Config")
 	}
 
-	err := ClusterToConfCheck(conf.Config)
+	err := ClusterToConfCheck(*conf.Config)
 	if err != nil {
 		return fmt.Errorf("BfeClusterConf.Config:%s", err.Error())
 	}
@@ -482,10 +541,10 @@ func (conf *BfeClusterConf) LoadAndCheck(filename string) (string, error) {
 	}
 
 	/* decode the file  */
-	decoder := json.NewDecoder()
+	decoder := json.NewDecoder(file)
 	defer file.Close()
 
-	if err := decoder.DecodeReader(file, &conf); err != nil {
+	if err := decoder.Decode(&conf); err != nil {
 		return "", err
 	}
 

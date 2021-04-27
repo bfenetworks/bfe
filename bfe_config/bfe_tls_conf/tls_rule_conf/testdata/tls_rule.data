@@ -17,12 +17,18 @@
             "NextProtos": ["spdy/3.1;rate=50", "http/1.1"],
             "VipConf" : ["1.0.0.4"],
             "Grade" : "B"
-	},
+        },
         "pt": {
             "CertName": "*.example.com",
             "NextProtos": ["h2;rate=30", "spdy/3.1;rate=50", "http/1.1"],
             "VipConf" : ["1.0.0.5"],
             "Grade" : "B"
-	}
+        },
+        "pm": {
+            "CertName": "*.baidu.com",
+            "NextProtos": ["stream;level=2;pp=1"],
+            "VipConf" : ["1.0.0.6"],
+            "Grade" : "B"
+        }
     }
 }

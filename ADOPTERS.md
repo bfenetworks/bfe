@@ -1,3 +1,3 @@
-A non-exhaustive list of bfe adopters is provided below.
+See https://www.bfe-networks.net/en_us/#users . 
 
-* [HTTPDNS](https://cloud.baidu.com/product/httpdns.html)
+Please [create an issue](https://github.com/bfenetworks/bfe/issues/new?&title=New%20BFE%20User) if you want to be listed there.

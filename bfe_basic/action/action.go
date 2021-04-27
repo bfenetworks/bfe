@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@ package action
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"strings"
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 const (
@@ -39,6 +39,7 @@ const (
 	// host actions
 	ActionHostSetFromPathPrefix = "HOST_SET_FROM_PATH_PREFIX" // set host from path prefix
 	ActionHostSet               = "HOST_SET"                  // set host
+	ActionHostSuffixReplace     = "HOST_SUFFIX_REPLACE"       // set host replaced suffx
 
 	// path actions
 	ActionPathSet        = "PATH_SET"         // set path
@@ -111,6 +112,8 @@ func (ac *Action) Do(req *bfe_basic.Request) error {
 		ReqHostSet(req, ac.Params[0])
 	case ActionHostSetFromPathPrefix:
 		ReqHostSetFromFirstPathSegment(req)
+	case ActionHostSuffixReplace:
+		ReqHostSuffixReplace(req, ac.Params[0], ac.Params[1])
 
 	// for path
 	case ActionPathSet:

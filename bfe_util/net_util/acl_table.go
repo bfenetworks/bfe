@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,10 +50,7 @@ func (t *AclTable) GetAclName(ip string) string {
 	t.mutex.RUnlock()
 
 	val, found, err := curTree.GetByString(ip)
-	if err != nil {
-		return ACL_NOT_FOUND
-	}
-	if !found {
+	if err != nil || !found {
 		return ACL_NOT_FOUND
 	}
 

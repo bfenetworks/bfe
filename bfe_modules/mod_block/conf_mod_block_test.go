@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,8 +30,8 @@ func Test_conf_mod_block_case1(t *testing.T) {
 	if config.Basic.ProductRulePath != "/home/bfe/conf/rule.data" {
 		t.Error("ProductRulePath should be /home/bfe/conf/rule.data")
 	}
-	if config.Basic.IPBlacklistPath != "/home/bfe/conf/ip.data" {
-		t.Error("IPBlacklistPath should be /home/bfe/conf/ip.data")
+	if config.Basic.IPBlocklistPath != "/home/bfe/conf/ip.data" {
+		t.Error("IPBlocklistPath should be /home/bfe/conf/ip.data")
 	}
 }
 
@@ -44,7 +44,7 @@ func Test_conf_mod_block_case2(t *testing.T) {
 	if config.Basic.ProductRulePath != "mod_block/block_rules.data" {
 		t.Error("ProductRulePath should be mod_block/block_rules.data")
 	}
-	if config.Basic.IPBlacklistPath != "mod_block/ip_blacklist.data" {
-		t.Error("IPBlacklistPath should be mod_block/ip_blacklist.data")
+	if config.Basic.IPBlocklistPath != "mod_block/ip_blocklist.data" {
+		t.Error("IPBlocklistPath should be mod_block/ip_blocklist.data")
 	}
 }

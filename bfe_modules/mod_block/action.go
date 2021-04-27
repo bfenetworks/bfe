@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,6 +40,8 @@ func ActionFileCheck(conf *ActionFile) error {
 	// validate command, and get how many params should exist for each command
 	switch *conf.Cmd {
 	case "CLOSE":
+		paramsLenCheck = 0
+	case "ALLOW":
 		paramsLenCheck = 0
 	default:
 		return fmt.Errorf("invalid cmd:%s", *conf.Cmd)

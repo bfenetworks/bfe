@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,10 @@ import (
 	"github.com/baidu/go-lib/log"
 )
 
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
+)
+
 // Callback point.
 const (
 	HandleAccept         = 0
@@ -37,6 +41,31 @@ const (
 	HandleFinish         = 8
 )
 
+func CallbackPointName(point int) string {
+	switch point {
+	case HandleAccept:
+		return "HandleAccept"
+	case HandleHandshake:
+		return "HandleHandshake"
+	case HandleBeforeLocation:
+		return "HandleBeforeLocation"
+	case HandleFoundProduct:
+		return "HandleFoundProduct"
+	case HandleAfterLocation:
+		return "HandleAfterLocation"
+	case HandleForward:
+		return "HandleForward"
+	case HandleReadResponse:
+		return "HandleReadResponse"
+	case HandleRequestFinish:
+		return "HandleRequestFinish"
+	case HandleFinish:
+		return "HandleFinish"
+	default:
+		return "HandleUnknown"
+	}
+}
+
 type BfeCallbacks struct {
 	callbacks map[int]*HandlerList
 }
@@ -48,23 +77,23 @@ func NewBfeCallbacks() *BfeCallbacks {
 	bfeCallbacks.callbacks = make(map[int]*HandlerList)
 
 	// create handler list for each callback point
-	// for HANDLERS_ACCEPT
-	bfeCallbacks.callbacks[HandleAccept] = NewHandlerList(HandleAccept)
-	bfeCallbacks.callbacks[HandleHandshake] = NewHandlerList(HandleAccept)
+	// for HandlesAccept
+	bfeCallbacks.callbacks[HandleAccept] = NewHandlerList(HandlersAccept)
+	bfeCallbacks.callbacks[HandleHandshake] = NewHandlerList(HandlersAccept)
 
-	// for HANDLERS_REQUEST
+	// for HandlersRequest
 	bfeCallbacks.callbacks[HandleBeforeLocation] = NewHandlerList(HandlersRequest)
 	bfeCallbacks.callbacks[HandleFoundProduct] = NewHandlerList(HandlersRequest)
 	bfeCallbacks.callbacks[HandleAfterLocation] = NewHandlerList(HandlersRequest)
 
-	// for HANDLERS_FORWARD
+	// for HandlersForward
 	bfeCallbacks.callbacks[HandleForward] = NewHandlerList(HandlersForward)
 
-	// for HANDLERS_RESPONSE
+	// for HandlersResponse
 	bfeCallbacks.callbacks[HandleReadResponse] = NewHandlerList(HandlersResponse)
 	bfeCallbacks.callbacks[HandleRequestFinish] = NewHandlerList(HandlersResponse)
 
-	// for HANDLERS_FINISH
+	// for HandlersFinish
 	bfeCallbacks.callbacks[HandleFinish] = NewHandlerList(HandlersFinish)
 
 	return bfeCallbacks
@@ -106,4 +135,20 @@ func (bcb *BfeCallbacks) GetHandlerList(point int) *HandlerList {
 	}
 
 	return hl
+}
+
+// ModuleHandlersGetJSON get info of hanlders
+func (bcb *BfeCallbacks) ModuleHandlersGetJSON() ([]byte, error) {
+	cbs := make(map[string][]string)
+
+	for point, hl := range bcb.callbacks {
+		pointName := fmt.Sprintf("%d#%s", point, CallbackPointName(point))
+		handlerNames := make([]string, 0)
+		for e := hl.handlers.Front(); e != nil; e = e.Next() {
+			handlerNames = append(handlerNames, fmt.Sprintf("%s", e.Value))
+		}
+		cbs[pointName] = handlerNames
+	}
+
+	return json.Marshal(cbs)
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 func TestTlsRuleConfLoad(t *testing.T) {
@@ -53,6 +53,12 @@ func TestTlsRuleConfLoad(t *testing.T) {
 		CertName:   "*.example.com",
 		NextProtos: []string{"h2;rate=30", "spdy/3.1;rate=50", "http/1.1"},
 		VipConf:    []string{"1.0.0.5"},
+		Grade:      "B",
+	}
+	confExpect.Config["pm"] = &TlsRuleConf{
+		CertName:   "*.baidu.com",
+		NextProtos: []string{"stream;level=2;pp=1"},
+		VipConf:    []string{"1.0.0.6"},
 		Grade:      "B",
 	}
 
@@ -163,18 +169,18 @@ func TestTlsRuleConfLoad6(t *testing.T) {
 	confExpect.Config["pb"] = &TlsRuleConf{
 		CertName:   "*.example.com",
 		NextProtos: []string{"spdy/3.1", "http/1.1"},
-		VipConf:    []string{"FF02::1"},
+		VipConf:    []string{"ff02::1"},
 		Grade:      "A",
 	}
 	confExpect.Config["pn"] = &TlsRuleConf{
 		CertName: "*.example.com",
-		VipConf:  []string{"FC00:1:A000:B00::527:127:AB"},
+		VipConf:  []string{"fc00:1:a000:b00:0:527:127:ab"},
 		Grade:    "B",
 	}
 	confExpect.Config["pz"] = &TlsRuleConf{
 		CertName:   "*.example.com",
 		NextProtos: []string{"spdy/3.1;rate=50", "http/1.1"},
-		VipConf:    []string{"2001:0:1111:A:B0::9000:200"},
+		VipConf:    []string{"2001:0:1111:a:b0:0:9000:200"},
 		Grade:      "B",
 	}
 	confExpect.Config["pw"] = &TlsRuleConf{

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ func TestVipTableLoad_3(t *testing.T) {
 		return
 	}
 
-	vip, _ := net.ResolveIPAddr("ip", "2001:0:1111:A:B0::9000:200")
+	vip := net.ParseIP("2001:0:1111:A:B0::9000:200")
 	if config.VipMap[vip.String()] != "pb" {
 		t.Errorf("config.VipMap['2001:0:1111:A:B0::9000:200'] should be 'pb', not %s",
 			config.VipMap[vip.String()])

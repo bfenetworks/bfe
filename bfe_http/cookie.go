@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ package bfe_http
 
 import (
 	"bytes"
-	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -51,11 +50,34 @@ type Cookie struct {
 	MaxAge   int
 	Secure   bool
 	HttpOnly bool
+	SameSite SameSite
 	Raw      string
 	Unparsed []string // Raw text of unparsed attribute-value pairs
 }
 
 type CookieMap map[string]*Cookie
+
+// SameSite allows a server to define a cookie attribute making it impossible for
+// the browser to send this cookie along with cross-site requests. The main
+// goal is to mitigate the risk of cross-origin information leakage, and provide
+// some protection against cross-site request forgery attacks.
+//
+// See https://tools.ietf.org/html/draft-ietf-httpbis-cookie-same-site-00 for details.
+type SameSite int
+
+const (
+	SameSiteDefaultMode SameSite = iota + 1
+	SameSiteLaxMode
+	SameSiteStrictMode
+	SameSiteNoneMode
+)
+
+// if disableSanitize is true, when read cookie value, no sanitize is performed
+var disableSanitize = false
+
+func SetDisableSanitize(disabled bool) {
+	disableSanitize = disabled
+}
 
 // CookieMapGet parse cookies(slice) to req.Route.CookieMap(map)
 func CookieMapGet(cookies []*Cookie) CookieMap {
@@ -80,6 +102,32 @@ func (cm CookieMap) Get(key string) (*Cookie, bool) {
 
 	val, ok := cm[key]
 	return val, ok
+}
+
+// http://tools.ietf.org/html/rfc6265#section-5.2.1 only specify an algorithm to parse a cookie-date
+// According to https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie, Expires format should be HTTP-date
+// Preferred syntax: <day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT
+// However, there are some obsolete formats, specified in https://tools.ietf.org/html/rfc7231#section-7.1.1.2
+func parseExpireTime(val string) (time.Time, bool) {
+	// preferred format
+	exptime, err := time.Parse(TimeFormat, val)
+	if err == nil {
+		return exptime.UTC(), true
+	}
+	exptime, err = time.Parse("Mon, 02-Jan-06 15:04:05 GMT", val)
+	if err == nil {
+		return exptime.UTC(), true
+	}
+	exptime, err = time.Parse(time.RFC1123, val)
+	if err == nil {
+		return exptime.UTC(), true
+	}
+	// set-cookie expire format of php version: Sun, 07-May-2028 10:53:08 GMT
+	exptime, err = time.Parse("Mon, 02-Jan-2006 15:04:05 MST", val)
+	if err == nil {
+		return exptime.UTC(), true
+	}
+	return time.Time{}, false
 }
 
 // readSetCookies parses all "Set-Cookie" values from
@@ -130,6 +178,19 @@ func readSetCookies(h Header) []*Cookie {
 				continue
 			}
 			switch lowerAttr {
+			case "samesite":
+				lowerVal := strings.ToLower(val)
+				switch lowerVal {
+				case "lax":
+					c.SameSite = SameSiteLaxMode
+				case "strict":
+					c.SameSite = SameSiteStrictMode
+				case "none":
+					c.SameSite = SameSiteNoneMode
+				default:
+					c.SameSite = SameSiteDefaultMode
+				}
+				continue
 			case "secure":
 				c.Secure = true
 				continue
@@ -153,16 +214,12 @@ func readSetCookies(h Header) []*Cookie {
 				continue
 			case "expires":
 				c.RawExpires = val
-				exptime, err := time.Parse(time.RFC1123, val)
-				if err != nil {
-					exptime, err = time.Parse("Mon, 02-Jan-2006 15:04:05 MST", val)
-					if err != nil {
-						c.Expires = time.Time{}
-						break
-					}
+				// if parse failed, will add to Unparsed
+				exp, ok := parseExpireTime(val)
+				if ok {
+					c.Expires = exp
+					continue
 				}
-				c.Expires = exptime.UTC()
-				continue
 			case "path":
 				c.Path = val
 				// TODO: Add path parsing
@@ -185,9 +242,12 @@ func SetCookie(w ResponseWriter, cookie *Cookie) {
 // header (if other fields are set).
 func (c *Cookie) String() string {
 	var b bytes.Buffer
-	fmt.Fprintf(&b, "%s=%s", sanitizeCookieName(c.Name), sanitizeCookieValue(c.Value))
+	b.WriteString(sanitizeCookieName(c.Name))
+	b.WriteRune('=')
+	b.WriteString(sanitizeCookieValue(c.Value))
 	if len(c.Path) > 0 {
-		fmt.Fprintf(&b, "; Path=%s", sanitizeCookiePath(c.Path))
+		b.WriteString("; Path=")
+		b.WriteString(sanitizeCookiePath(c.Path))
 	}
 	if len(c.Domain) > 0 {
 		if validCookieDomain(c.Domain) {
@@ -199,27 +259,50 @@ func (c *Cookie) String() string {
 			if d[0] == '.' {
 				d = d[1:]
 			}
-			fmt.Fprintf(&b, "; Domain=%s", d)
+			b.WriteString("; Domain=")
+			b.WriteString(d)
 		} else {
 			log.Logger.Warn("net/http: invalid Cookie.Domain %q; dropping domain attribute",
 				c.Domain)
 		}
 	}
-	if c.Expires.Unix() > 0 {
-		fmt.Fprintf(&b, "; Expires=%s", c.Expires.UTC().Format(time.RFC1123))
+	if validCookieExpires(c.Expires) {
+		b.WriteString("; Expires=")
+		b2 := b.Bytes()
+		b.Reset()
+		b.Write(c.Expires.UTC().AppendFormat(b2, TimeFormat))
 	}
 	if c.MaxAge > 0 {
-		fmt.Fprintf(&b, "; Max-Age=%d", c.MaxAge)
+		b.WriteString("; Max-Age=")
+		b2 := b.Bytes()
+		b.Reset()
+		b.Write(strconv.AppendInt(b2, int64(c.MaxAge), 10))
 	} else if c.MaxAge < 0 {
-		fmt.Fprintf(&b, "; Max-Age=0")
+		b.WriteString("; Max-Age=0")
 	}
 	if c.HttpOnly {
-		fmt.Fprintf(&b, "; HttpOnly")
+		b.WriteString("; HttpOnly")
 	}
 	if c.Secure {
-		fmt.Fprintf(&b, "; Secure")
+		b.WriteString("; Secure")
+	}
+	switch c.SameSite {
+	case SameSiteDefaultMode:
+		b.WriteString("; SameSite")
+	case SameSiteNoneMode:
+		b.WriteString("; SameSite=None")
+	case SameSiteLaxMode:
+		b.WriteString("; SameSite=Lax")
+	case SameSiteStrictMode:
+		b.WriteString("; SameSite=Strict")
 	}
 	return b.String()
+}
+
+// validCookieExpires returns whether v is a valid cookie expires-value.
+func validCookieExpires(t time.Time) bool {
+	// IETF RFC 6265 Section 5.1.1.5, the year must not be less than 1601
+	return t.Year() >= 1601
 }
 
 // readCookies parses all "Cookie" values from the header h and
@@ -227,25 +310,28 @@ func (c *Cookie) String() string {
 //
 // if filter isn't empty, only cookies of that name are returned
 func readCookies(h Header, filter string) []*Cookie {
-	cookies := []*Cookie{}
-	lines, ok := h["Cookie"]
-	if !ok {
-		return cookies
+	lines := h["Cookie"]
+	if len(lines) == 0 {
+		return []*Cookie{}
 	}
 
+	cookies := make([]*Cookie, 0, len(lines)+strings.Count(lines[0], ";"))
+
 	for _, line := range lines {
-		parts := strings.Split(strings.TrimSpace(line), ";")
-		if len(parts) == 1 && parts[0] == "" {
-			continue
-		}
-		// Per-line attributes
-		parsedPairs := 0
-		for i := 0; i < len(parts); i++ {
-			parts[i] = strings.TrimSpace(parts[i])
-			if len(parts[i]) == 0 {
+		line = strings.TrimSpace(line)
+
+		var part string
+		for len(line) > 0 {
+			if splitIndex := strings.Index(line, ";"); splitIndex > 0 {
+				part, line = line[:splitIndex], line[splitIndex+1:]
+			} else {
+				part, line = line, ""
+			}
+			part = strings.TrimSpace(part)
+			if len(part) == 0 {
 				continue
 			}
-			name, val := parts[i], ""
+			name, val := part, ""
 			if j := strings.Index(name, "="); j >= 0 {
 				name, val = name[:j], name[j+1:]
 			}
@@ -260,7 +346,6 @@ func readCookies(h Header, filter string) []*Cookie {
 				continue
 			}
 			cookies = append(cookies, &Cookie{Name: name, Value: val})
-			parsedPairs++
 		}
 	}
 	return cookies
@@ -345,6 +430,10 @@ func sanitizeCookieName(n string) string {
 //           ; whitespace DQUOTE, comma, semicolon,
 //           ; and backslash
 func sanitizeCookieValue(v string) string {
+	if disableSanitize {
+		return v
+	}
+
 	return sanitizeOrWarn("Cookie.Value", validCookieValueByte, v)
 }
 
@@ -406,6 +495,10 @@ func isCookieExpiresByte(c byte) (ok bool) {
 }
 
 func parseCookieValue(raw string) (string, bool) {
+	if disableSanitize {
+		return raw, true
+	}
+
 	return parseCookieValueUsing(raw, isCookieByte)
 }
 

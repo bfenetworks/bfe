@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,12 +20,14 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 type ConfModStatic struct {
 	Basic struct {
-		DataPath string
+		DataPath       string
+		MimeTypePath   string
+		EnableCompress bool
 	}
 
 	Log struct {
@@ -55,7 +57,13 @@ func (cfg *ConfModStatic) Check(confRoot string) error {
 		log.Logger.Warn("ModStatic.DataPath not set, use default value")
 		cfg.Basic.DataPath = "mod_static/static_rule.data"
 	}
+	if cfg.Basic.MimeTypePath == "" {
+		log.Logger.Warn("ModStatic.MimeTypePath not set, use default value")
+		cfg.Basic.MimeTypePath = "mod_static/mime_type.data"
+	}
 
 	cfg.Basic.DataPath = bfe_util.ConfPathProc(cfg.Basic.DataPath, confRoot)
+	cfg.Basic.MimeTypePath = bfe_util.ConfPathProc(cfg.Basic.MimeTypePath, confRoot)
+
 	return nil
 }

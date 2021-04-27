@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ import (
 )
 
 import (
-	bufio "github.com/baidu/bfe/bfe_bufio"
+	bufio "github.com/bfenetworks/bfe/bfe_bufio"
 )
 
 var (
@@ -76,11 +76,6 @@ type _addr6 struct {
 	Src [16]byte
 	Dst [16]byte
 	_ports
-}
-
-type _addrUnix struct {
-	Src [108]byte
-	Dst [108]byte
 }
 
 // parseVersion2 parses protocol header
@@ -173,20 +168,6 @@ func parseVersion2(reader *bufio.Reader) (header *Header, err error) {
 		header.SourcePort = addr.SrcPort
 		header.DestinationPort = addr.DstPort
 	}
-	// TODO fully support Unix addresses
-	//	else if header.TransportProtocol.IsUnix() {
-	//		var addr _addrUnix
-	//		if err := binary.Read(payloadReader, binary.BigEndian, &addr); err != nil {
-	//			return nil, ErrInvalidAddress
-	//		}
-	//
-	//if header.SourceAddress, err = net.ResolveUnixAddr("unix", string(addr.Src[:])); err != nil {
-	//	return nil, ErrCantResolveSourceUnixAddress
-	//}
-	//if header.DestinationAddress, err = net.ResolveUnixAddr("unix", string(addr.Dst[:])); err != nil {
-	//	return nil, ErrCantResolveDestinationUnixAddress
-	//}
-	//}
 
 	// TODO add encapsulated TLV support
 

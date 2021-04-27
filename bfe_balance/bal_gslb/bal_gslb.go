@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,12 +32,12 @@ import (
 )
 
 import (
-	bal_backend "github.com/baidu/bfe/bfe_balance/backend"
-	"github.com/baidu/bfe/bfe_balance/bal_slb"
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/gslb_conf"
+	bal_backend "github.com/bfenetworks/bfe/bfe_balance/backend"
+	"github.com/bfenetworks/bfe/bfe_balance/bal_slb"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/gslb_conf"
 )
 
 const (
@@ -85,6 +85,16 @@ func (bal *BalanceGslb) SetGslbBasic(gslbBasic cluster_conf.GslbBasicConf) {
 	bal.retryMax = *gslbBasic.RetryMax
 	bal.hashConf = *gslbBasic.HashConf
 	bal.BalanceMode = *gslbBasic.BalanceMode
+
+	bal.lock.Unlock()
+}
+
+func (bal *BalanceGslb) SetSlowStart(backendConf cluster_conf.BackendBasic) {
+	bal.lock.Lock()
+
+	for _, sub := range bal.subClusters {
+		sub.setSlowStart(*backendConf.SlowStartTime)
+	}
 
 	bal.lock.Unlock()
 }
@@ -140,7 +150,7 @@ func (bal *BalanceGslb) BackendInit(clusterBackend cluster_table_conf.ClusterBac
 	return nil
 }
 
-// Reload reloades gslb config
+// Reload reloads gslb config
 func (bal *BalanceGslb) Reload(gslbConf gslb_conf.GslbClusterConf) error {
 	bal.lock.Lock()
 	defer bal.lock.Unlock()
@@ -274,6 +284,9 @@ func (bal *BalanceGslb) getHashKey(req *bfe_basic.Request) []byte {
 		if hashKey == nil {
 			hashKey = clientIP
 		}
+
+	case cluster_conf.RequestURI:
+		hashKey = []byte(req.HttpRequest.RequestURI)
 	}
 
 	// if hashKey is empty, use random value

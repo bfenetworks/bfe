@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,10 +44,7 @@ var privateRanges = []IpRange{
 
 // InRange checks whether a given ip address is within a range given
 func InRange(r IpRange, ip net.IP) bool {
-	if bytes.Compare(ip, r.start) >= 0 && bytes.Compare(ip, r.end) <= 0 {
-		return true
-	}
-	return false
+	return bytes.Compare(ip, r.start) >= 0 && bytes.Compare(ip, r.end) <= 0
 }
 
 // ParseIPv4 parse IP addr from string to net.IP
@@ -86,7 +83,7 @@ func IPv4ToUint32(ipBytes net.IP) (uint32, error) {
 
 	for i, b := range ipBytes {
 		tmp = uint32(b)
-		ipNum = ipNum | (tmp << uint((3-i)*8))
+		ipNum |= (tmp << uint((3-i)*8))
 	}
 
 	return ipNum, nil
@@ -124,7 +121,7 @@ func Uint32ToIPv4(ipNum uint32) net.IP {
 
 	for i := 0; i < 4; i++ {
 		ipBytes[3-i] = byte(ipNum & 0xFF)
-		ipNum = ipNum >> 8
+		ipNum >>= 8
 	}
 
 	return net.IPv4(ipBytes[0], ipBytes[1], ipBytes[2], ipBytes[3]).To4()
@@ -152,11 +149,7 @@ func Uint32ToIPv4Str(ipNum uint32) string {
 // return:
 //     bool
 func IsIPv4Address(input string) bool {
-	ip := net.ParseIP(input).To4()
-	if ip == nil {
-		return false
-	}
-	return true
+	return net.ParseIP(input).To4() != nil
 }
 
 // IsPrivateIp Check to see if an ip is in a private subnet.

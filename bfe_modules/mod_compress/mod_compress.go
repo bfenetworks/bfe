@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package mod_compress
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 )
@@ -26,15 +27,20 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_module"
 )
 
 const (
-	EncodeGzip       = "gzip"
-	ModCompress      = "mod_compress"
-	ReqCtxEncodeInfo = "mod_compress.encode_info"
+	// support encode type of Accept-Encoding header
+	EncodeGzip   = "gzip"
+	EncodeBrotli = "br"
+
+	// support encode type of Content-Encoding header
+	EncodeIdentity = "identity"
+
+	ModCompress = "mod_compress"
 )
 
 var (
@@ -42,15 +48,12 @@ var (
 )
 
 type ModuleCompressState struct {
-	ReqTotal             *metrics.Counter
-	ReqSupportCompress   *metrics.Counter
-	ReqMatchCompressRule *metrics.Counter
-	ResEncodeCompress    *metrics.Counter
-}
-
-type EncodeInfo struct {
-	Quality   int
-	FlushSize int
+	ReqTotal              *metrics.Counter
+	ReqSupportCompress    *metrics.Counter
+	ReqMatchCompressRule  *metrics.Counter
+	ResEncodeCompress     *metrics.Counter
+	ResEncodeGzipCompress *metrics.Counter
+	ResEncodeBrCompress   *metrics.Counter
 }
 
 type ModuleCompress struct {
@@ -88,29 +91,30 @@ func (m *ModuleCompress) loadProductRuleConf(query url.Values) error {
 	return nil
 }
 
-func checkSupportCompress(req *bfe_basic.Request) bool {
-	header := req.HttpRequest.Header
-	acceptEncoding := header.GetDirect("Accept-Encoding")
+func checkSupportCompress(acceptEncoding string) bool {
+	return checkSupportGzipCompress(acceptEncoding) || checkSupportBrotliCompress(acceptEncoding)
+}
+
+func checkSupportGzipCompress(acceptEncoding string) bool {
 	return bfe_http.HasToken(acceptEncoding, EncodeGzip)
 }
 
-func (m *ModuleCompress) checkHandler(req *bfe_basic.Request) (int, *bfe_http.Response) {
+func checkSupportBrotliCompress(acceptEncoding string) bool {
+	return bfe_http.HasToken(acceptEncoding, EncodeBrotli)
+}
+
+func (m *ModuleCompress) getCompressRule(req *bfe_basic.Request) (*compressRule, error) {
 	if openDebug {
 		log.Logger.Debug("%s check request", m.name)
 	}
 	m.state.ReqTotal.Inc(1)
-
-	if !checkSupportCompress(req) {
-		return bfe_module.BfeHandlerGoOn, nil
-	}
-	m.state.ReqSupportCompress.Inc(1)
 
 	rules, ok := m.ruleTable.Search(req.Route.Product)
 	if !ok {
 		if openDebug {
 			log.Logger.Debug("%s product %s not found, just pass", m.name, req.Route.Product)
 		}
-		return bfe_module.BfeHandlerGoOn, nil
+		return nil, errors.New("no compress rule")
 	}
 
 	for _, rule := range *rules {
@@ -120,42 +124,59 @@ func (m *ModuleCompress) checkHandler(req *bfe_basic.Request) (int, *bfe_http.Re
 
 		if rule.Cond.Match(req) {
 			m.state.ReqMatchCompressRule.Inc(1)
-
-			req.SetContext(ReqCtxEncodeInfo, &EncodeInfo{rule.Action.Quality, rule.Action.FlushSize})
-			break
+			return &rule, nil
 		}
 	}
 
-	return bfe_module.BfeHandlerGoOn, nil
+	return nil, errors.New("no matched rule")
 }
 
 func (m *ModuleCompress) compressHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
-	var err error
+	acceptEncoding := req.HttpRequest.Header.GetDirect("Accept-Encoding")
+	if !checkSupportCompress(acceptEncoding) {
+		return bfe_module.BfeHandlerGoOn
+	}
+	m.state.ReqSupportCompress.Inc(1)
 
-	val := req.GetContext(ReqCtxEncodeInfo)
-	if val == nil {
+	contentEncoding := res.Header.GetDirect("Content-Encoding")
+	if len(contentEncoding) != 0 && contentEncoding != EncodeIdentity {
 		return bfe_module.BfeHandlerGoOn
 	}
 
-	encodeInfo, ok := val.(*EncodeInfo)
-	if !ok {
-		return bfe_module.BfeHandlerGoOn
-	}
-
-	if res.StatusCode != 200 {
-		return bfe_module.BfeHandlerGoOn
-	}
-
-	if len(res.Header.GetDirect("Content-Encoding")) != 0 {
-		return bfe_module.BfeHandlerGoOn
-	}
-
-	res.Body, err = NewGzipFilter(res.Body, encodeInfo.Quality, encodeInfo.FlushSize)
+	rule, err := m.getCompressRule(req)
 	if err != nil {
 		return bfe_module.BfeHandlerGoOn
 	}
 
-	res.Header.Set("Content-Encoding", EncodeGzip)
+	switch rule.Action.Cmd {
+	case ActionGzip:
+		if !checkSupportGzipCompress(acceptEncoding) {
+			return bfe_module.BfeHandlerGoOn
+		}
+
+		res.Body, err = NewGzipFilter(res.Body, rule.Action.Quality, rule.Action.FlushSize)
+		if err != nil {
+			return bfe_module.BfeHandlerGoOn
+		}
+
+		res.Header.Set("Content-Encoding", EncodeGzip)
+		m.state.ResEncodeGzipCompress.Inc(1)
+	case ActionBrotli:
+		if !checkSupportBrotliCompress(acceptEncoding) {
+			return bfe_module.BfeHandlerGoOn
+		}
+
+		res.Body, err = NewBrotliFilter(res.Body, rule.Action.Quality, rule.Action.FlushSize)
+		if err != nil {
+			return bfe_module.BfeHandlerGoOn
+		}
+
+		res.Header.Set("Content-Encoding", EncodeBrotli)
+		m.state.ResEncodeBrCompress.Inc(1)
+	default:
+		return bfe_module.BfeHandlerGoOn
+	}
+
 	res.Header.Del("Content-Length")
 	m.state.ResEncodeCompress.Inc(1)
 
@@ -199,11 +220,6 @@ func (m *ModuleCompress) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.Web
 
 	if err = m.loadProductRuleConf(nil); err != nil {
 		return fmt.Errorf("%s: loadProductRuleConf() err %v", m.name, err)
-	}
-
-	err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.checkHandler)
-	if err != nil {
-		return fmt.Errorf("%s.Init(): AddFilter(m.checkHandler): %v", m.name, err)
 	}
 
 	err = cbs.AddFilter(bfe_module.HandleReadResponse, m.compressHandler)

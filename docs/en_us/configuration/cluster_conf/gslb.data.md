@@ -1,18 +1,23 @@
-# Introduction
+# SubClusters Balancing Configuration
+
+## Introduction
 
 gslb.data records the load balancing config between sub-clusters. 
 
-# Configuration
+## Configuration
 
-| Config Item | Type   | Description                                                  |
-| ----------- | ------ | ------------------------------------------------------------ |
-| Clusters    | Struct | Key: cluster name. Value: weight for each sub-cluster        |
-| Hostname    | String | Hostname of gslb scheduler                                   |
-| Ts          | String | Timestamp of config file                                     |
+| Config Item | Description                                                  |
+| ----------- | ------------------------------------------------------------ |
+| Clusters    | Object<br>cluster config |
+| Clusters{k} | String<br>cluster name |
+| Clusters{v} | Object<br>weight config for each sub-cluster        |
+| Clusters{v}{k} | String<br>name of sub-cluster<br>GSLB_BLACKHOLE is the name of blackhole sub-cluster which discards all incoming requests |
+| Clusters{v}{v} | Integer<br>weight of sub-cluster<br>The weight should be [0, 100] and the weight sum of all sub-cluster should be 100 |
+| Hostname    | String<br>Hostname of gslb scheduler                                   |
+| Ts          | String<br>Timestamp of config file                                     |
 
-# Example
-
-```
+## Example
+```json
 {
     "Clusters": {
         "cluster_example": {
@@ -24,5 +29,3 @@ gslb.data records the load balancing config between sub-clusters.
     "Ts": "20190101000000"
 }
 ```
-
-

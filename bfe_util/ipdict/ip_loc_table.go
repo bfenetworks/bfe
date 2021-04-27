@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package ipdict
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"sort"
@@ -53,22 +54,22 @@ type IpLocationTable struct {
 	locations []byte
 }
 
-func NewIpLocationTable(maxSize uint32, LocLen uint32) (*IpLocationTable, error) {
+func NewIpLocationTable(maxSize uint32, locLen uint32) (*IpLocationTable, error) {
 	// maxSize max is MAX_LINE
 	if maxSize == 0 || maxSize > MAX_LINE {
 		return nil, fmt.Errorf("NewIpLocationTable caused by maxSize :%d", maxSize)
 	}
 
 	// LocLen max size is MAX_LOC_LEN
-	if LocLen == 0 || LocLen > MAX_LOC_LEN {
-		return nil, fmt.Errorf("NewIpLocationTable caused by LocLen :%d", LocLen)
+	if locLen == 0 || locLen > MAX_LOC_LEN {
+		return nil, fmt.Errorf("NewIpLocationTable caused by LocLen :%d", locLen)
 	}
 
 	ipLocTable := new(IpLocationTable)
 	ipLocTable.maxSize = maxSize
 	ipLocTable.offset = 0
-	ipLocTable.LocLen = LocLen
-	ipLocTable.locations = make([]byte, (HEADER_LEN+LocLen)*maxSize, (HEADER_LEN+LocLen)*maxSize)
+	ipLocTable.LocLen = locLen
+	ipLocTable.locations = make([]byte, (HEADER_LEN+locLen)*maxSize, (HEADER_LEN+locLen)*maxSize)
 	return ipLocTable, nil
 }
 
@@ -99,7 +100,7 @@ func (t *IpLocationTable) Add(startIP, endIP net.IP, location string) error {
 	}
 
 	if t.offset >= t.maxSize {
-		return fmt.Errorf("Add():caused by table is full")
+		return errors.New("Add():caused by table is full")
 	}
 
 	startIP16 := startIP.To16()

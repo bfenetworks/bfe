@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,10 +25,10 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_route_conf/host_rule_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_route_conf/route_rule_conf"
-	"github.com/baidu/bfe/bfe_config/bfe_route_conf/vip_rule_conf"
-	"github.com/baidu/bfe/bfe_route/bfe_cluster"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_route_conf/host_rule_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_route_conf/route_rule_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_route_conf/vip_rule_conf"
+	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
 )
 
 type ServerDataConf struct {
@@ -46,7 +46,7 @@ func newServerDataConf() *ServerDataConf {
 	return c
 }
 
-// LoadServerDataConf loades ServerDataConf config.
+// LoadServerDataConf loads ServerDataConf config.
 func LoadServerDataConf(hostFile, vipFile, routeFile, clusterConfFile string) (*ServerDataConf, error) {
 	s := newServerDataConf()
 
@@ -68,7 +68,7 @@ func LoadServerDataConf(hostFile, vipFile, routeFile, clusterConfFile string) (*
 	return s, nil
 }
 
-// hostTableLoad loades all data for host table from file.
+// hostTableLoad loads all data for host table from file.
 func (s *ServerDataConf) hostTableLoad(hostFile, vipFile, routeFile string) error {
 	// load host rule from file
 	hostConf, err := host_rule_conf.HostRuleConfLoad(hostFile)

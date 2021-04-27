@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_bufio"
+	"github.com/bfenetworks/bfe/bfe_bufio"
 )
 
 // A Writer implements convenience methods for writing
@@ -75,7 +75,8 @@ type dotWriter struct {
 }
 
 const (
-	wstateBeginLine = iota // beginning of line; initial state; must be zero
+	wstateBegin     = iota // initial state; must be zero
+	wstateBeginLine        // beginning of line
 	wstateCR               // wrote \r (possibly at end of line)
 	wstateData             // writing data in middle of line
 )
@@ -85,7 +86,7 @@ func (d *dotWriter) Write(b []byte) (n int, err error) {
 	for n < len(b) {
 		c := b[n]
 		switch d.state {
-		case wstateBeginLine:
+		case wstateBegin, wstateBeginLine:
 			d.state = wstateData
 			if c == '.' {
 				// escape leading dot

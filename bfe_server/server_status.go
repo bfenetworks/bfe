@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,15 +22,15 @@ import (
 )
 
 import (
-	bal "github.com/baidu/bfe/bfe_balance/bal_gslb"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_http2"
-	"github.com/baidu/bfe/bfe_module"
-	"github.com/baidu/bfe/bfe_proxy"
-	"github.com/baidu/bfe/bfe_spdy"
-	"github.com/baidu/bfe/bfe_stream"
-	"github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_websocket"
+	bal "github.com/bfenetworks/bfe/bfe_balance/bal_gslb"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http2"
+	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_proxy"
+	"github.com/bfenetworks/bfe/bfe_spdy"
+	"github.com/bfenetworks/bfe/bfe_stream"
+	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_websocket"
 )
 
 // setting for delay
@@ -264,4 +264,8 @@ func (srv *BfeServer) proxyHandshakeResumeDelayGet(params map[string][]string) (
 
 func (srv *BfeServer) ModuleStatusGetJSON() ([]byte, error) {
 	return bfe_module.ModuleStatusGetJSON()
+}
+
+func (srv *BfeServer) ModuleHandlersGetJSON() ([]byte, error) {
+	return srv.CallBacks.ModuleHandlersGetJSON()
 }

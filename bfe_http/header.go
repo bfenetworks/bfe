@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_net/textproto"
+	"github.com/bfenetworks/bfe/bfe_net/textproto"
 )
 
 // TimeFormat is the time format to use with
@@ -59,6 +59,15 @@ func (h Header) Get(key string) string {
 	return textproto.MIMEHeader(h).Get(key)
 }
 
+// Values returns all values associated with the given key.
+// It is case insensitive; textproto.CanonicalMIMEHeaderKey is
+// used to canonicalize the provided key. To use non-canonical
+// keys, access the map directly.
+// The returned slice is not a copy.
+func (h Header) Values(key string) []string {
+	return textproto.MIMEHeader(h).Values(key)
+}
+
 // GetDirect gets the value associated with the given key
 // in CanonicalHeaderKey form.
 func (h Header) GetDirect(key string) string {
@@ -88,7 +97,7 @@ func (h Header) Clone() Header {
 	return h2
 }
 
-// get all keys of header
+// Keys get all keys from header
 func (h Header) Keys() []string {
 	keys := make([]string, 0)
 	for key := range h {

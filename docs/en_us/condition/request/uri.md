@@ -1,112 +1,229 @@
-# URI
+# Request URI Related Primitives
 
-Note: URI format： http://host[:port\]/path/?query](http://host/path/?query)
+## req_host_in(host_list)
+* Description: Judge if host matches configured patterns
 
-## Common Condition Primitive Parameter
-- patterns: String, representing multiple patterns, format is as "pattern1|pattern2"
-- case_insensitive: Bool, case insensitive
+* Parameters
 
-## Host
+| Parameter | Descrption |
+| --------- | ---------- |
+| host_list | String<br>a list of hosts keys which are concatenated using &#124;<br>case insensitive |
 
-- **req_host_in(patterns)**
-  - Judge if host matches configured patterns
-  - Case insensitive
-  ```
-  // match www.bfe-networks.com or bfe-networks.com, case insensitive
-  req_host_in(“www.bfe-networks.com|bfe-networks.com”)
-  ```
-  
-  - **Note: the both sides of | can not be space**
-  ```
-  # right：
-  req_host_in(“www.bfe-networks.com|bfe-networks.com”)
-  
-  # wrong：
-  req_host_in(“www.bfe-networks.com | bfe-networks.com”)
-  ```
+* Example
 
-## Path
+```go
+// right：
+req_host_in("www.bfe-networks.com|bfe-networks.com")
 
-- **req_path_in(patterns, case_insensitive)**
-  - Judge if request path matches configured patterns
-  ```
-  // if path is /abc，case insensitive
-  req_path_in(“/abc”, true)
-  ```
+// wrong：
+req_host_in("www.bfe-networks.com | bfe-networks.com")
+```
 
-- **req_path_prefix_in(patterns, case_insensitive)**
-  - Judge if request path prefix matches configured patterns
-  ```
-  // if path prefix is /abc，case insensitive
-  req_path_prefix_in(“/x/y”, false)
-  ```
+## req_path_in(path_list, case_insensitive)
+* Description: Judge if request path matches configured patterns
+
+* Parameters
+
+| Parameter | Descrption |
+| --------- | ---------- |
+| path_list | String<br>a list of paths which are concatenated using &#124; <br>Each path should start with '/' |
+| case_insensitive | Boolean<br>case insensitive |
+
+* Example
+
+```go
+req_path_in("/api/search|/api/list", true)
+```
+
+## req_path_contain(path_list, case_insensitive)
+* Description: Judge if request path contains configured patterns
+
+* Parameters
+
+| Parameter | Descrption |
+| --------- | ---------- |
+| path_list | String<br>path's substring list which are concatenated with &#124; |
+| case_insensitive | Boolean<br>case insensitive |
+
+* Example
+
+```go
+req_path_contain("search|analytics", true)
+```
+
+## req_path_prefix_in(prefix_list, case_insensitive)
+* Description: Judge if request path prefix matches configured patterns
+
+* Parameters
+
+| Parameter | Descrption |
+| --------- | ---------- |
+| prefix_list | String<br>a list of path prefixs which are concatenated using &#124; <br>Each path prefix should start with '/' |
+| case_insensitive | Boolean<br>case insensitive |
+
+* Example
+
+```go
+req_path_prefix_in("/api/report|/api/analytics", false)
+```
     
-- **req_path_suffix_in(patterns, case_insensitive)**
-  - Judge if request path suffix matches configured patterns
-  ```
-  // if path suffix is /abc，case insensitive
-  req_path_suffix_in(“/x/y”, false)
-  ```
+## req_path_suffix_in(suffix_list, case_insensitive)
+* Description: Judge if request path suffix matches configured patterns
 
-**Note:**
-**The patterns of req_path_in and req_path_prefix_in need to be included "/"**
+* Parameters
 
-## Query
-- **req_query_key_in(patterns)**
-  - Judge if query key matches configured patterns
-  ```
-  # if key in query is abc
-  req_query_key_exist(“abc”)
-  ```
+| Parameter | Descrption |
+| --------- | ---------- |
+| suffix_list | String<br>a list of path sufixs which are concatenated using &#124; |
+| case_insensitive | Boolean<br>case insensitive |
 
-- **req_query_key_prefix_in(patterns)**
-  - Judge if query key prefix matches configured patterns
-  ```
-  # if key prefix in query is abc
-  req_query_key_prefix_in(“abc”)
-  ```
+* Example
 
-- **req_query_value_in(key, patterns, case_insensitive)**
-  - Judge if value of query key matches configured patterns
-  ```
-  # if the value of abc in query is XXX, case insensitive
-  req_query_value_in(“abc”, "XXX", true)
-  ```
+```go
+req_path_suffix_in(".php|.jsp", false)
+```
 
-- **req_query_value_prefix_in(key, patterns, case_insensitive)**
-  - Judge if value prefix of query key matches configured patterns
-  ```
-  # if the value prefix of abc in query is XXX, case insensitive
-  req_query_value_prefix_in(“abc”, "XXX", true)
-  ```
+## req_path_element_prefix_in(prefix_list, case_insensitive)
+* Description: Judge if request path element prefix matches configured patterns
 
-- **req_query_value_suffix_in(key, patterns, case_insensitive)**
-  - Judge if value suffix of query key matches configured patterns
-  ```
-  # if the value suffix of abc in query is XXX, case insensitive
-  req_query_value_suffix_in(“abc”, "XXX", true)
-  ```
+* Parameters
 
-- **req_query_value_hash_in(key, patterns, case_insensitive)**
-  - Judge if the hash value of specified query matches configured patterns (value after hash is 0～9999)
-  ```
-  # if the hash value of query abc is 100, case insensitive
-  req_query_value_hash_in(“abc”, "100", true)
-  ```
+| Parameter | Descrption |
+| --------- | ---------- |
+| prefix_list | String<br>a list of path element prefixs which are concatenated using &#124; <br>Each path prefix should start with '/' and end with '/', Automatic add '/' suffix when not end with '/'  |
+| case_insensitive | Boolean<br>case insensitive |
 
-## Port
-- **req_port_in(patterns)**
-  - Judge if port matches configured patterns
-  ```
-  # check if port is 80 or 8080
-  req_port_in(“80|8080”)
-  ```
+* Example
 
-## URL
-- **req_url_regmatch(patterns)**
-  - patterns is regular expression to match yrl
-  - ` is recommended using
-  ```
-  # check if url is "/s?word=123"
-  req_url_regmatch(`/s\?word=123`)
-  ```
+```go
+req_path_element_prefix_in("/api/report/|/api/analytics/", false)
+```
+## req_query_key_in(key_list)
+* Description: Judge if query key matches configured patterns
+
+* Parameters
+
+| Parameter | Descrption |
+| --------- | ---------- |
+| key_list | String<br>a list of query keys which are concatenated using &#124; |
+
+* Example
+
+```go
+req_query_key_exist("word|wd")
+```
+
+## req_query_key_prefix_in(prefix_list)
+* Description: Judge if query key prefix matches configured patterns
+
+* Parameters
+
+| Parameter | Descrption |
+| --------- | ---------- |
+| prefix_list | String<br>a list of query key prefixs which are concatenated using &#124; |
+
+
+* Example
+
+```go
+req_query_key_prefix_in("rid")
+```
+
+## req_query_value_in(key, value_list, case_insensitive)
+* Description: Judge if value of query key matches configured patterns
+
+* Parameters
+
+| Parameter | Descrption |
+| --------- | ---------- |
+| key | String<br> query key |
+| value_list | String<br>a list of query values which are concatenated using &#124; |
+| case_insensitive | Boolean<br>case insensitive |
+
+* Example
+
+```go
+req_query_value_in("uid", "x|y|z", true)
+```
+
+## req_query_value_prefix_in(key, prefix_list, case_insensitive)
+* Description: Judge if value prefix of query key matches configured patterns
+
+* Parameters
+
+| Parameter | Descrption |
+| --------- | ---------- |
+| key | String<br> query key |
+| value_list | String<br>a list of query value prefixs which are concatenated using &#124; |
+| case_insensitive | Boolean<br>case insensitive |
+
+* Example
+
+```go
+req_query_value_prefix_in("uid", "100|200", true)
+```
+
+## req_query_value_suffix_in(key, suffix_list, case_insensitive)
+* Description: Judge if value suffix of query key matches configured patterns
+
+* Parameters
+
+| Parameter | Descrption |
+| --------- | ---------- |
+| key | String<br> query key |
+| suffix_list | String<br>a list of query value suffixs which are concatenated using &#124; |
+| case_insensitive | Boolean<br>case insensitive |
+
+* Example
+
+```go
+req_query_value_suffix_in("uid", "1|2|3", true)
+```
+
+## req_query_value_hash_in(key, value_list, case_insensitive)
+* Descrption: Judge if the hash value of specified query matches configured patterns (value after hash is 0～9999)
+
+* Parameters
+
+| Parameter | Descrption |
+| --------- | ---------- |
+| key | String<br> query key |
+| value_list | String<br>a list of hash values which are concatenated using &#124; |
+| case_insensitive | Boolean<br>case insensitive |
+
+* Example
+
+```go
+req_query_value_hash_in("cid", "100", true)
+```
+
+## req_port_in(port_list)
+* Description: Judge if port matches configured patterns
+
+* Parameters
+
+| Parameter | Descrption |
+| --------- | ---------- |
+| port_list | String<br>a list of ports which are concatenated using &#124; |
+
+
+* Example
+
+```go
+req_port_in("80|8080")
+```
+
+## req_url_regmatch(reg_exp)
+* Description: patterns is regular expression to match url
+
+* Parameters
+
+| Parameter | Descrption |
+| --------- | ---------- |
+| reg_exp | String<br>a regular expression<br> It is recommended that use `` to avoid from character escaping |
+
+* Example
+
+```go
+req_url_regmatch(`/s\?word=123`)
+```

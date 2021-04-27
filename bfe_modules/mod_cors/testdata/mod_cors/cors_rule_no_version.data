@@ -1,0 +1,15 @@
+{
+    "Config": {
+        "example_product": [
+             {
+                 "Cond": "req_host_in(\"example.org\")",
+                 "AccessControlAllowOrigins": ["*"],
+                 "AccessControlAllowCredentials": false,
+                 "AccessControlAllowHeaders": [],
+                 "AccessControlAllowMethods": [],
+                 "AccessControlExposeHeaders": [],
+                 "AccessControlMaxAge": 0
+             }
+         ]
+    }
+}

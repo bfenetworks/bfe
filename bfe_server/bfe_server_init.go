@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,35 +17,23 @@
 package bfe_server
 
 import (
-	"fmt"
-	"net"
-)
-
-import (
 	"github.com/baidu/go-lib/log"
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_conf"
-	"github.com/baidu/bfe/bfe_modules"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
+	"github.com/bfenetworks/bfe/bfe_modules"
 )
 
 func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
-	// create listeners
-	lnMap, err := createListeners(cfg)
-	if err != nil {
-		log.Logger.Error("StartUp(): createListeners():%s", err.Error())
-		return err
-	}
-
 	// set all available modules
 	bfe_modules.SetModules()
 
 	// create bfe server
-	bfeServer := NewBfeServer(cfg, lnMap, version)
+	bfeServer := NewBfeServer(cfg, confRoot, version)
 
 	// initial http
-	err = bfeServer.InitHttp()
+	err := bfeServer.InitHttp()
 	if err != nil {
 		log.Logger.Error("StartUp(): InitHttp():%s", err.Error())
 		return err
@@ -57,6 +45,15 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 		log.Logger.Error("StartUp(): InitHttps():%s", err.Error())
 		return err
 	}
+
+	// load data
+	err = bfeServer.InitDataLoad()
+	if err != nil {
+		log.Logger.Error("StartUp(): bfeServer.InitDataLoad():%s",
+			err.Error())
+		return err
+	}
+	log.Logger.Info("StartUp(): bfeServer.InitDataLoad() OK")
 
 	// setup signal table
 	bfeServer.InitSignalTable()
@@ -78,7 +75,7 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	}
 
 	// initialize modules
-	err = bfeServer.InitModules(confRoot)
+	err = bfeServer.InitModules()
 	if err != nil {
 		log.Logger.Error("StartUp(): bfeServer.InitModules():%s",
 			err.Error())
@@ -86,14 +83,28 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	}
 	log.Logger.Info("StartUp():bfeServer.InitModules() OK")
 
-	// load data
-	err = bfeServer.InitDataLoad()
+	// load plugins
+	err = bfeServer.LoadPlugins(cfg.Server.Plugins)
 	if err != nil {
-		log.Logger.Error("StartUp(): bfeServer.InitDataLoad():%s",
+		log.Logger.Error("StartUp():bfeServer.LoadPlugins():%s", err.Error())
+		return err
+	}
+
+	// initialize plugins
+	err = bfeServer.InitPlugins()
+	if err != nil {
+		log.Logger.Error("StartUp():bfeServer.InitPlugins():%s",
 			err.Error())
 		return err
 	}
-	log.Logger.Info("StartUp(): bfeServer.InitDataLoad() OK")
+	log.Logger.Info("StartUp():bfeServer.InitPlugins() OK")
+
+	// initialize listeners
+	err = bfeServer.InitListeners(cfg)
+	if err != nil {
+		log.Logger.Error("StartUp(): InitListeners():%v", err)
+		return err
+	}
 
 	// start embedded web server
 	bfeServer.Monitor.Start()
@@ -101,47 +112,21 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	serveChan := make(chan error)
 
 	// start goroutine to accept http connections
-	go func() {
-		httpErr := bfeServer.ServeHttp(bfeServer.HttpListener)
-		serveChan <- httpErr
-	}()
+	for i := 0; i < cfg.Server.AcceptNum; i++ {
+		go func() {
+			httpErr := bfeServer.ServeHttp(bfeServer.HttpListener)
+			serveChan <- httpErr
+		}()
+	}
 
 	// start goroutine to accept https connections
-	go func() {
-		httpsErr := bfeServer.ServeHttps(bfeServer.HttpsListener)
-		serveChan <- httpsErr
-	}()
+	for i := 0; i < cfg.Server.AcceptNum; i++ {
+		go func() {
+			httpsErr := bfeServer.ServeHttps(bfeServer.HttpsListener)
+			serveChan <- httpsErr
+		}()
+	}
 
 	err = <-serveChan
 	return err
-}
-
-func createListeners(config bfe_conf.BfeConfig) (map[string]net.Listener, error) {
-	lnMap := make(map[string]net.Listener)
-	lnConf := map[string]int{
-		"HTTP":  config.Server.HttpPort,
-		"HTTPS": config.Server.HttpsPort,
-	}
-
-	for proto, port := range lnConf {
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-		if err != nil {
-			return nil, err
-		}
-
-		// wrap underlying listener according to balancer type
-		listener = NewBfeListener(listener, config)
-		lnMap[proto] = listener
-		log.Logger.Info("createListeners(): begin to listen port[:%d]", port)
-	}
-
-	return lnMap, nil
-}
-
-func (p *BfeServer) closeListeners() {
-	for _, ln := range p.listenerMap {
-		if err := ln.Close(); err != nil {
-			log.Logger.Error("closeListeners(): %s, %s", err, ln.Addr())
-		}
-	}
 }

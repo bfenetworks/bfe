@@ -1,0 +1,23 @@
+{
+    "Version": "20200218210000",
+    "Config": {
+        "example_product": [
+             {
+                 "Cond": "req_host_in(\"example.org\")",
+                 "Param": {
+                     "TagName": "tag_test1",
+                     "TagValue": "bfe_test1",
+                     "Last": false
+                 }
+             },
+             {
+                  "Cond": "req_host_in(\"example.org\")",
+                  "Param": {
+                      "TagName": "tag_test2",
+                      "TagValue": "bfe_test2",
+                      "Last": false
+                  }
+              }
+         ]
+    }
+}

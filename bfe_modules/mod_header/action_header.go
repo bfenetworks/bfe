@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 package mod_header
 
 import (
-	"github.com/baidu/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_http"
 )
 
 // insert or modify existing header
@@ -31,4 +31,11 @@ func headerAdd(h *bfe_http.Header, key string, value string) {
 // delete header specified by key
 func headerDel(h *bfe_http.Header, key string) {
 	h.Del(key)
+}
+
+// rename header originalKey to newKey
+func headerRename(h *bfe_http.Header, originalKey, newKey string) {
+	val := h.Get(originalKey)
+	h.Set(newKey, val)
+	h.Del(originalKey)
 }

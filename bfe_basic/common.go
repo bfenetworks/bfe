@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
 package bfe_basic
 
 import (
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_route/bfe_cluster"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
 )
 
 const (
@@ -46,6 +46,19 @@ const (
 const (
 	GlobalProduct = "global"
 )
+
+// Hop-by-hop headers. These are removed when sent to the backend.
+// http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
+var HopHeaders = []string{
+	"Connection",
+	"Keep-Alive",
+	"Proxy-Authenticate",
+	"Proxy-Authorization",
+	"Te", // canonicalized version of "TE"
+	"Trailers",
+	"Transfer-Encoding",
+	"Upgrade",
+}
 
 // CreateInternalSrvErrResp returns a HTTP 500 response
 func CreateInternalSrvErrResp(request *Request) *bfe_http.Response {

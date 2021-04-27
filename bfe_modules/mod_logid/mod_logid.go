@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,9 +28,9 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_module"
 )
 
 const (
@@ -62,19 +62,14 @@ func (m *ModuleLogId) Name() string {
 func (m *ModuleLogId) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers,
 	cr string) error {
 	// register handler
-	err := cbs.AddFilter(bfe_module.HandleAccept, m.afterAccept)
+	err := cbs.AddFilter(bfe_module.HandleAccept, m.sessionIdHandler)
 	if err != nil {
-		return fmt.Errorf("%s.Init(): AddFilter(m.afterAccept): %s", m.name, err.Error())
+		return fmt.Errorf("%s.Init(): AddFilter(m.sessionIdHandler): %s", m.name, err.Error())
 	}
 
-	err = cbs.AddFilter(bfe_module.HandleBeforeLocation, m.beforeLocation)
+	err = cbs.AddFilter(bfe_module.HandleBeforeLocation, m.requestIdHandler)
 	if err != nil {
-		return fmt.Errorf("%s.Init(): AddFilter(m.beforeLocation): %s", m.name, err.Error())
-	}
-
-	err = cbs.AddFilter(bfe_module.HandleAfterLocation, m.afterLocation)
-	if err != nil {
-		return fmt.Errorf("%s.Init(): AddFilter(m.afterLocation): %s", m.name, err.Error())
+		return fmt.Errorf("%s.Init(): AddFilter(m.requestIdHandler): %s", m.name, err.Error())
 	}
 
 	// register web handler
@@ -86,13 +81,13 @@ func (m *ModuleLogId) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 	return nil
 }
 
-func (m *ModuleLogId) afterAccept(session *bfe_basic.Session) int {
+func (m *ModuleLogId) sessionIdHandler(session *bfe_basic.Session) int {
 	session.SessionId = genLogId()
 
 	return bfe_module.BfeHandlerGoOn
 }
 
-func (m *ModuleLogId) beforeLocation(req *bfe_basic.Request) (int, *bfe_http.Response) {
+func (m *ModuleLogId) requestIdHandler(req *bfe_basic.Request) (int, *bfe_http.Response) {
 	// check if request comes from trusted ip
 	if req.Session.IsTrustIP {
 		logId := req.HttpRequest.Header.Get(bfe_basic.HeaderBfeLogId)
@@ -106,10 +101,6 @@ func (m *ModuleLogId) beforeLocation(req *bfe_basic.Request) (int, *bfe_http.Res
 
 	// generate a new log id
 	req.LogId = genLogId()
-	return bfe_module.BfeHandlerGoOn, nil
-}
-
-func (m *ModuleLogId) afterLocation(req *bfe_basic.Request) (int, *bfe_http.Response) {
 	req.HttpRequest.Header.Set(bfe_basic.HeaderBfeLogId, req.LogId)
 	return bfe_module.BfeHandlerGoOn, nil
 }

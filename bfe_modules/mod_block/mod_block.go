@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,10 +27,10 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_module"
-	"github.com/baidu/bfe/bfe_util/ipdict"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_util/ipdict"
 )
 
 const (
@@ -39,7 +39,7 @@ const (
 )
 
 var (
-	ERR_BLACKLIST = errors.New("BLACKLIST")
+	ErrBlock = errors.New("BLOCK")
 )
 
 var (
@@ -51,7 +51,6 @@ type ModuleBlockState struct {
 	ConnAccept   *metrics.Counter // connection passed
 	ConnRefuse   *metrics.Counter // connection refused
 	ReqTotal     *metrics.Counter // all request in
-	ReqToCheck   *metrics.Counter // request to check
 	ReqAccept    *metrics.Counter // request accepted
 	ReqRefuse    *metrics.Counter // request refused
 	WrongCommand *metrics.Counter // request with condition satisfied, but wrong command
@@ -67,10 +66,10 @@ type ModuleBlock struct {
 	metrics metrics.Metrics
 
 	productRulePath string // path of block rule data file
-	ipBlacklistPath string // path of ip blacklist data file
+	ipBlocklistPath string // path of ip blocklist data file
 
 	ruleTable *ProductRuleTable // table for product block rules
-	ipTable   *ipdict.IPTable   // table for global ip blacklist
+	ipTable   *ipdict.IPTable   // table for global ip blocklist
 }
 
 func NewModuleBlock() *ModuleBlock {
@@ -88,13 +87,13 @@ func (m *ModuleBlock) Name() string {
 	return m.name
 }
 
-// loadGlobalIPTable loades global ip blacklist.
+// loadGlobalIPTable loads global ip blocklist.
 func (m *ModuleBlock) loadGlobalIPTable(query url.Values) error {
 	// get reload file path
 	path := query.Get("path")
 	if path == "" {
 		// use default
-		path = m.ipBlacklistPath
+		path = m.ipBlocklistPath
 	}
 
 	// load data
@@ -136,7 +135,7 @@ func (m *ModuleBlock) globalBlockHandler(session *bfe_basic.Session) int {
 
 	clientIP := session.RemoteAddr.IP
 	if m.ipTable.Search(clientIP) {
-		session.SetError(ERR_BLACKLIST, "connection blocked")
+		session.SetError(ErrBlock, "connection blocked")
 		log.Logger.Debug("%s refuse connection (remote: %v)",
 			m.name, session.RemoteAddr)
 		m.state.ConnRefuse.Inc(1)
@@ -159,8 +158,16 @@ func (m *ModuleBlock) productBlockHandler(request *bfe_basic.Request) (
 	}
 	m.state.ReqTotal.Inc(1)
 
-	// find block rules for given request
-	rules, ok := m.ruleTable.Search(request.Route.Product)
+	// check global rules for given request
+	rules, ok := m.ruleTable.Search(bfe_basic.GlobalProduct)
+	if ok { // rules found
+		retVal, isMatch, resp := m.productRulesProcess(request, rules)
+		if isMatch {
+			return retVal, resp
+		}
+	}
+	// check product rules for given request
+	rules, ok = m.ruleTable.Search(request.Route.Product)
 	if !ok { // no rules found
 		if openDebug {
 			log.Logger.Debug("%s product %s not found, just pass",
@@ -169,12 +176,15 @@ func (m *ModuleBlock) productBlockHandler(request *bfe_basic.Request) (
 		return bfe_module.BfeHandlerGoOn, nil
 	}
 
-	m.state.ReqToCheck.Inc(1)
-	return m.productRulesProcess(request, rules)
+	retVal, isMatch, resp := m.productRulesProcess(request, rules)
+	if !isMatch {
+		m.state.ReqAccept.Inc(1)
+	}
+	return retVal, resp
 }
 
 func (m *ModuleBlock) productRulesProcess(req *bfe_basic.Request, rules *blockRuleList) (
-	int, *bfe_http.Response) {
+	int, bool, *bfe_http.Response) {
 	for _, rule := range *rules {
 		if openDebug {
 			log.Logger.Debug("%s process rule: %v", m.name, rule)
@@ -187,12 +197,18 @@ func (m *ModuleBlock) productRulesProcess(req *bfe_basic.Request, rules *blockRu
 			req.SetContext(CtxBlockInfo, blockInfo)
 
 			switch rule.Action.Cmd {
+			case "ALLOW":
+				if openDebug {
+					log.Logger.Debug("%s accept request", m.name)
+				}
+				m.state.ReqAccept.Inc(1)
+				return bfe_module.BfeHandlerGoOn, true, nil
 			case "CLOSE":
-				req.ErrCode = ERR_BLACKLIST
+				req.ErrCode = ErrBlock
 				log.Logger.Debug("%s block connection (rule:%v, remote:%s)",
 					m.name, rule, req.RemoteAddr)
 				m.state.ReqRefuse.Inc(1)
-				return bfe_module.BfeHandlerClose, nil
+				return bfe_module.BfeHandlerClose, true, nil
 			default:
 				if openDebug {
 					log.Logger.Debug("%s unknown block command (%s), just pass",
@@ -206,8 +222,7 @@ func (m *ModuleBlock) productRulesProcess(req *bfe_basic.Request, rules *blockRu
 	if openDebug {
 		log.Logger.Debug("%s accept request", m.name)
 	}
-	m.state.ReqAccept.Inc(1)
-	return bfe_module.BfeHandlerGoOn, nil
+	return bfe_module.BfeHandlerGoOn, false, nil
 }
 
 func (m *ModuleBlock) getState(params map[string][]string) ([]byte, error) {
@@ -248,7 +263,7 @@ func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 	}
 
 	m.productRulePath = conf.Basic.ProductRulePath
-	m.ipBlacklistPath = conf.Basic.IPBlacklistPath
+	m.ipBlocklistPath = conf.Basic.IPBlocklistPath
 	openDebug = conf.Log.OpenDebug
 
 	// load conf data
@@ -265,7 +280,7 @@ func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 		return fmt.Errorf("%s.Init(): AddFilter(m.globalBlockHandler): %s", m.name, err.Error())
 	}
 
-	err = cbs.AddFilter(bfe_module.HandleAfterLocation, m.productBlockHandler)
+	err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.productBlockHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.productBlockHandler): %s", m.name, err.Error())
 	}

@@ -12,7 +12,7 @@ You will learn how to develop BFE in local environment under the guidelines of t
 The following guidiance tells you how to submit code.
 ## [Fork](https://help.github.com/articles/fork-a-repo/)
 
-Transfer to the home page of Github [BFE](https://github.com/baidu/bfe) ,and then click button `Fork`  to generate the git under your own file directory,such as <https://github.com/USERNAME/bfe>
+Transfer to the home page of Github [BFE](https://github.com/bfenetworks/bfe) ,and then click button `Fork`  to generate the git under your own file directory,such as <https://github.com/USERNAME/bfe>
 
 ## Clone
 
@@ -26,7 +26,7 @@ $ cd bfe
 
 ## Create local branch
 
-At present [Git stream branch model](http://nvie.com/posts/a-successful-git-branching-model/)  is applied to BFE to undergo task of development,test,release and maintenance.Please refer to [branch regulation of BFE](../development/releasing_process.md) about details。
+At present [Git stream branch model](http://nvie.com/posts/a-successful-git-branching-model/)  is applied to BFE to undergo task of development,test,release and maintenance.Please refer to [branch regulation of BFE](release_regulation.md) about details。
 
 All development tasks of feature and bug fix should be finished in a new branch which is extended from `develop` branch.
 
@@ -75,7 +75,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 
 ## Build and test
 
-Please refer to [Build and Run](../install.md) about construction and test.
+Please refer to [Build and Run](../installation/install_from_source.md) about construction and test.
 
 ## Commit
 
@@ -120,7 +120,7 @@ $ git commit -m "test=release/1.1"
 
 ## Keep the latest local repository
 
-It needs to keep up with the latest code of original repository(<https://github.com/baidu/bfe>）before Pull Request.
+It needs to keep up with the latest code of original repository(<https://github.com/bfenetworks/bfe>）before Pull Request.
 
 Check the name of current remote repository with `git remote`.
 
@@ -135,7 +135,7 @@ origin	https://github.com/USERNAME/bfe (push)
 origin is the name of remote repository that we clone, which is also the BFE under your own account. Next we create a remote host of an original BFE and name it upstream.
 
 ```bash
-$ git remote add upstream https://github.com/baidu/bfe
+$ git remote add upstream https://github.com/bfenetworks/bfe
 $ git remote
 origin
 upstream

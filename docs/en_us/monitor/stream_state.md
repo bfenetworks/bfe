@@ -1,10 +1,12 @@
-# Introduction
+# Stream
 
-stream_state monitor state of STREAM.
+## Introduction
 
-# Monitor Item
+The endport `/monitor/stream_state` exposes metrics about TLS-TCP reverse proxy.
 
-| Monitor Item        | Description                          |
+## Metrics
+
+| Metric              | Description                          |
 | ------------------- | ------------------------------------ |
 | STREAM_BYTES_RECV   | Counter for receiving stream bytes   |
 | STREAM_BYTES_SENT   | Counter for sending stream bytes     |

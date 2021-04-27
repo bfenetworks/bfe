@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,13 +18,15 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_http"
-	"github.com/baidu/bfe/bfe_net/textproto"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_net/textproto"
 )
 
 type ActionFile struct {
@@ -49,8 +51,10 @@ func ActionFileCheck(conf ActionFile) error {
 	switch *conf.Cmd {
 	case "REQ_HEADER_SET",
 		"REQ_HEADER_ADD",
+		"REQ_HEADER_RENAME",
 		"RSP_HEADER_SET",
-		"RSP_HEADER_ADD":
+		"RSP_HEADER_ADD",
+		"RSP_HEADER_RENAME":
 
 		// header and value
 		if len(conf.Params) != 2 {
@@ -72,6 +76,38 @@ func ActionFileCheck(conf ActionFile) error {
 		// - REQ_HEADER_MOD: [query_add, referer, key, value]
 		if err := checkHeaderModParams(conf.Params); err != nil {
 			return fmt.Errorf("checkHeaderModParams: %s", err.Error())
+		}
+
+	case ReqCookieSet:
+		if len(conf.Params) != 2 {
+			return fmt.Errorf("num of params:[ok:2, now:%d]", len(conf.Params))
+		}
+
+	case ReqCookieDel:
+		if len(conf.Params) != 1 {
+			return fmt.Errorf("num of params:[ok:1, now:%d]", len(conf.Params))
+		}
+
+	case RspCookieDel:
+		if len(conf.Params) != 3 {
+			return fmt.Errorf("num of params:[ok:1, now:%d]", len(conf.Params))
+		}
+
+	case RspCookieSet:
+		if len(conf.Params) != 8 {
+			return fmt.Errorf("num of params:[ok:6, now:%d]", len(conf.Params))
+		}
+		if _, err := time.Parse(time.RFC1123, conf.Params[4]); err != nil {
+			return fmt.Errorf("expires format error, should be RFC1123 format")
+		}
+		if _, err := strconv.Atoi(conf.Params[5]); err != nil {
+			return fmt.Errorf("type of max age should be int")
+		}
+		if _, err := strconv.ParseBool(conf.Params[6]); err != nil {
+			return fmt.Errorf("type of http only should be bool")
+		}
+		if _, err := strconv.ParseBool(conf.Params[7]); err != nil {
+			return fmt.Errorf("type of secure should be bool")
 		}
 
 	default:
@@ -144,7 +180,7 @@ func ActionFileListCheck(conf *ActionFileList) error {
 	return nil
 }
 
-// expectPercent returnes index of '%', otherwise return
+// expectPercent returns index of '%', otherwise return
 // last index of str
 func expectPercent(str string) int {
 	index := 0
@@ -159,7 +195,7 @@ func expectPercent(str string) int {
 	return index
 }
 
-const variableCharset = "abcdefghijklmnopqrstuvwxyz_"
+const variableCharset = "abcdefghijklmnopqrstuvwxyz0123456789_"
 
 func expectVariableParam(str string) int {
 	index := 0
@@ -340,7 +376,11 @@ func actionConvert(actionFile ActionFile) (Action, error) {
 		// append key values
 		action.Params = append(action.Params, key)
 		action.Params = append(action.Params, values...)
-
+	case "REQ_HEADER_RENAME", "RSP_HEADER_RENAME":
+		originalKey := textproto.CanonicalMIMEHeaderKey(actionFile.Params[0])
+		newKey := textproto.CanonicalMIMEHeaderKey(actionFile.Params[1])
+		action.Params = append(action.Params, originalKey)
+		action.Params = append(action.Params, newKey)
 	case "REQ_HEADER_DEL", "RSP_HEADER_DEL":
 		// - REQ_HEADER_DEL: [referer]
 		// - RSP_HEADER_DEL: [location]
@@ -359,6 +399,10 @@ func actionConvert(actionFile ActionFile) (Action, error) {
 		action.Params = append(action.Params, cmd)
 		action.Params = append(action.Params, key)
 		action.Params = append(action.Params, actionFile.Params[2:]...)
+
+	case ReqCookieSet, ReqCookieDel,
+		RspCookieSet, RspCookieDel:
+		action.Params = actionFile.Params
 
 	default:
 		return action, fmt.Errorf("invalid cmd:%s", action.Cmd)
@@ -392,6 +436,8 @@ func HeaderActionDo(h *bfe_http.Header, cmd string, headerName string, value str
 	// delete
 	case "HEADER_DEL":
 		headerDel(h, headerName)
+	case "HEADER_RENAME":
+		headerRename(h, headerName, value)
 	}
 }
 
@@ -406,29 +452,54 @@ func getHeader(req *bfe_basic.Request, headerType int) (h *bfe_http.Header) {
 	return h
 }
 
-func HeaderActionsDo(req *bfe_basic.Request, headerType int, actions []Action) {
+func processHeader(req *bfe_basic.Request, headerType int, action Action) {
 	var key string
 	var value string
+	var cmd string
 
-	for _, action := range actions {
-		h := getHeader(req, headerType)
+	h := getHeader(req, headerType)
 
-		if action.Cmd[4:] == "HEADER_MOD" {
-			key = action.Params[1]
-			// get header value
-			if value = h.Get(key); value == "" {
-				// if req do not have this header, continue
-				continue
-			}
+	cmd = action.Cmd[4:]
 
-			// mod header value
-			value = modHeaderValue(value, action)
-		} else {
-			key = action.Params[0]
-			value = getHeaderValue(req, action)
+	switch cmd {
+	case "HEADER_MOD":
+		key = action.Params[1]
+		// get header value
+		if value = h.Get(key); value == "" {
+			// if req do not have this header, continue
+			return
 		}
+		// mod header value
+		value = modHeaderValue(value, action)
+	case "HEADER_RENAME":
+		originalKey, newKey := action.Params[0], action.Params[1]
+		if h.Get(originalKey) == "" || h.Get(newKey) != "" {
+			return
+		}
+		key, value = originalKey, newKey
+	default:
+		key = action.Params[0]
+		value = getHeaderValue(req, action)
+	}
 
-		// trim action.Cmd prefix REQ_ and RSP_
-		HeaderActionDo(h, action.Cmd[4:], key, value)
+	// trim action.Cmd prefix REQ_ and RSP_
+	HeaderActionDo(h, cmd, key, value)
+}
+
+func processCookie(req *bfe_basic.Request, headerType int, action Action) {
+	if headerType == ReqHeader {
+		ReqCookieActionDo(req, action)
+		return
+	}
+	RspCookieActionDo(req, action)
+}
+
+func HeaderActionsDo(req *bfe_basic.Request, headerType int, actions []Action) {
+	for _, action := range actions {
+		if strings.Contains(action.Cmd, "HEADER") {
+			processHeader(req, headerType, action)
+		} else {
+			processCookie(req, headerType, action)
+		}
 	}
 }

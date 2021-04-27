@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,14 +17,14 @@
 package route_rule_conf
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 // RouteRule is composed by a condition and cluster to serve
@@ -122,7 +122,7 @@ func (conf *RouteTableConf) LoadAndCheck(filename string) (string, error) {
 	return conf.Version, nil
 }
 
-// RouteConfLoad loades config of route table from file.
+// RouteConfLoad loads config of route table from file.
 func RouteConfLoad(filename string) (*RouteTableConf, error) {
 	var conf RouteTableConf
 	if _, err := conf.LoadAndCheck(filename); err != nil {

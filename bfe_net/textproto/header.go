@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,6 +52,18 @@ func (h MIMEHeader) Get(key string) string {
 		return ""
 	}
 	return v[0]
+}
+
+// Values returns all values associated with the given key.
+// It is case insensitive; CanonicalMIMEHeaderKey is
+// used to canonicalize the provided key. To use non-canonical
+// keys, access the map directly.
+// The returned slice is not a copy.
+func (h MIMEHeader) Values(key string) []string {
+	if h == nil {
+		return nil
+	}
+	return h[CanonicalMIMEHeaderKey(key)]
 }
 
 // Del deletes the values associated with key.

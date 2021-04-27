@@ -1,0 +1,544 @@
+{#-
+    This file was automatically generated - do not edit
+  -#}
+{% extends "overrides/main.html" %}
+{% block tabs %}
+{{ super() }}
+<style>
+    .md-header {
+        position: initial
+    }
+
+    .md-main__inner {
+        margin: 0
+    }
+
+    .md-content {
+        display: none
+    }
+
+    .tx-container {
+        padding-top: 1rem;
+        background: linear-gradient(to bottom, var(--md-primary-fg-color), hsla(280deg, 67%, 55%, 1) 99%, #fff 99%)
+    }
+
+    .tx-hero {
+        margin: 0 .8rem;
+        color: var(--md-primary-bg-color)
+    }
+
+    .tx-hero h1 {
+        margin-bottom: 1rem;
+        color: currentColor;
+        font-weight: 700
+    }
+
+    .tx-hero__content {
+        padding-bottom: 6rem;
+        margin: 0 auto;
+    }
+
+    .tx-hero .md-button {
+        margin-top: .5rem;
+        margin-right: .5rem;
+        color: var(--md-primary-bg-color)
+    }
+
+    .tx-hero .md-button--primary {
+        background-color: var(--md-primary-bg-color);
+        color: hsla(280deg, 37%, 48%, 1);
+        border-color: var(--md-primary-bg-color)
+    }
+
+    .tx-hero .md-button:focus,
+    .tx-hero .md-button:hover {
+        background-color: var(--md-accent-fg-color);
+        color: var(--md-default-bg-color);
+        border-color: var(--md-accent-fg-color)
+    }
+
+    .feature-item h2 svg {
+        height: 30px;
+        float: left;
+        margin-right: 10px;
+        transform: translateY(10%);
+    }
+
+    .top-hr {
+        margin-top: 30px;
+    }
+
+    .feature-item {
+        font-family: 'Lato', sans-serif;
+        font-weight: 300;
+        box-sizing: border-box;
+        padding: 0 15px;
+        word-break: break-all
+    }
+
+    .feature-item h2 {
+        color: #333;
+        font-weight: 300;
+        font-size: 25px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: normal;
+        margin-top: 20px;
+        margin-bottom: 10px;
+        font-family: inherit;
+    }
+
+    .feature-item p {
+        font-size: 16px;
+        line-height: 1.8em;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        color: #111;
+        margin: 0 0 10px;
+        display: block;
+    }
+
+    @media screen and (max-width:30em) {
+        .tx-hero h1 {
+            font-size: 1.4rem
+        }
+    }
+
+    @media screen and (min-width:60em) {
+        .md-sidebar--secondary {
+            display: none
+        }
+
+        .tx-hero {
+            display: flex;
+            align-items: stretch
+        }
+
+        .tx-hero__content {
+            max-width: 19rem;
+            margin-top: 3.5rem;
+            margin: 0 auto;
+        }
+    }
+
+    @media screen and (min-width:76.25em) {
+        .md-sidebar--primary {
+            display: none
+        }
+
+        .top-hr {
+            width: 100%;
+            display: flex;
+            max-width: 61rem;
+            margin-right: auto;
+            margin-left: auto;
+            padding: 0 .2rem;
+        }
+
+        .bottom-hr {
+            margin-top: 10px;
+            width: 100%;
+            display: flex;
+            max-width: 61rem;
+            margin-right: auto;
+            margin-left: auto;
+            padding: 0 .2rem;
+        }
+
+        .feature-item {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .feature-item:hover {
+            background-color: #526cfe47;
+            border-radius: 3px;
+        }
+    }
+
+    /* 描述部分样式开始 */
+    .open-source {
+        margin: 30px 0;
+        font-family: 'Lato', sans-serif;
+        font-weight: 300;
+        text-align: center;
+    }
+
+    .open-source h1 {
+        font-weight: 300;
+        font-size: 36px;
+        font-family: inherit;
+        line-height: 1.1;
+        color: inherit;
+        margin-top: 0;
+    }
+
+    .open-source p {
+        width: 50%;
+        margin: auto;
+        font-size: 20px;
+    }
+
+    .open-source .github-stars {
+        margin-top: 20px;
+        width: 200px;
+        height: 30px;
+    }
+
+    .open-source a {
+        color: #337ab7;
+        text-decoration: none;
+        background-color: transparent;
+        font-family: 'Lato', sans-serif;
+        font-weight: 300;
+        text-align: center;
+    }
+
+    .open-source a:hover {
+        text-decoration: underline;
+    }
+
+    .open-source h1 svg {
+        height: 40px;
+        transform: translateY(20%);
+        margin-right: 10px;
+    }
+
+    .open-source .cncf {
+        margin-top: 50px;
+    }
+
+    .hr {
+        border-bottom: 1px solid #eee;
+        width: 100%;
+        margin: 20px 0;
+    }
+
+    /* 描述部分样式结束 */
+    /* 合作伙伴样式开始 */
+    .text-center {
+        text-align: center;
+        padding-right: 15px;
+        padding-left: 15px;
+        margin-right: auto;
+        margin-left: auto;
+        margin-top: 15px;
+        font-family: 'Lato', sans-serif;
+        font-size: 23px;
+        font-weight: 300;
+        padding-bottom: 10px;
+    }
+
+    .logos {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-flow: row wrap;
+        margin: 0 auto;
+    }
+
+    .logos img {
+        flex: 1 1 auto;
+        padding: 25px;
+        max-height: 130px;
+        vertical-align: middle;
+    }
+
+    .hr-logos {
+        margin-top: 0;
+        margin-bottom: 30px;
+    }
+
+    /* 合作伙伴样式结束 */
+
+    /* 页脚部分样式开始 */
+    .md-footer-meta {
+        background-color: #000000de;
+    }
+
+    .md-typeset {
+        font-size: .8rem;
+        line-height: 1.6;
+        -webkit-print-color-adjust: exact;
+        color-adjust: exact;
+    }
+
+    .md-footer-meta__inner {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        padding: .2rem;
+    }
+
+    .md-grid {
+        max-width: 61rem;
+        margin-right: auto;
+        margin-left: auto;
+    }
+
+    .md-footer-copyright {
+        width: auto;
+        margin: auto .6rem;
+        padding: .4rem 0;
+        color: var(--md-default-bg-color--lighter);
+        font-size: .64rem;
+    }
+
+    @media screen and (max-width:45em) {
+        .md-footer-copyright {
+            width: 100%;
+        }
+    }
+
+    .md-footer-copyright__highlight {
+        color: var(--md-default-bg-color--light);
+    }
+
+    .md-footer-social {
+        padding: .6rem 0;
+        margin: 0 .4rem;
+    }
+
+    .md-footer-social__link {
+        display: inline-block;
+        width: 1.6rem;
+        height: 1.6rem;
+        text-align: center;
+    }
+
+    .md-typeset {
+        font-size: .8rem;
+        line-height: 1.6;
+        -webkit-print-color-adjust: exact;
+        color-adjust: exact;
+    }
+
+    /* 页脚部分样式结束 */
+</style>
+<section class="tx-container">
+    <div class="md-grid md-typeset">
+        <div class="tx-hero">
+            <div class="tx-hero__content">
+                <h1>BFE</h1>
+                <p>{{ config.site_description }}</p>
+                <a href="/en_us/installation/install_from_source/" title="Quickly getting started with BFE"
+                    class="md-button md-button--primary">
+                    Get started
+                </a>
+                <a href="{{ config.repo_url }}" title="{{ lang.t('source.link.title') }}" class="md-button">
+                    Go to GitHub
+                </a>
+            </div>
+        </div>
+    </div>
+
+
+</section>
+<!-- 特性介绍开始 -->
+<div class="top-hr">
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M15 17v-3h3v-2l4 3.5-4 3.5v-2h-3m2 1v3h-3v2l-4-3.5 4-3.5v2h3M12 8c-2.21 0-4 1.8-4 4 0 1.91 1.35 3.54 3.21 3.92L16 11.86A3.997 3.997 0 0012 8m0 6c-1.1 0-2-.89-2-2s.9-2 2-2 2 .9 2 2-.89 2-2 2m9.66-5.27l-2-3.46c-.12-.22-.38-.31-.61-.22l-2.49 1c-.51-.41-1.06-.74-1.69-1l-.37-2.63A.506.506 0 0014 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.26-1.17.59-1.69 1L5 5.05c-.23-.09-.5 0-.61.22l-2 3.46c-.13.21-.08.49.11.64L4.57 11l-.07 1 .07 1-2.11 1.63c-.2.15-.25.43-.12.64l2 3.46c.11.27.4.38.66.27l2.5-1c.24.19.5.37.76.53l1.65-1.4c-.77-.33-1.45-.82-2-1.45l-2.41 1-.77-1.3L6.8 13.8a5.55 5.55 0 010-3.6L4.69 8.65l.75-1.3 2.41 1c.78-.9 1.83-1.53 3-1.78l.4-2.57h1.5l.37 2.62c1.17.24 2.22.88 3 1.77l2.41-1 .75 1.3-2.08 1.51c.09.26.16.53.2.8h2l2.1-1.63a.48.48 0 00.16-.64M12 8c-2.21 0-4 1.8-4 4 0 1.91 1.35 3.54 3.21 3.92L16 11.86A3.997 3.997 0 0012 8m0 6c-1.1 0-2-.89-2-2s.9-2 2-2 2 .9 2 2-.89 2-2 2m0-6c-2.21 0-4 1.8-4 4 0 1.91 1.35 3.54 3.21 3.92L16 11.86A3.997 3.997 0 0012 8m0 6c-1.1 0-2-.89-2-2s.9-2 2-2 2 .9 2 2-.89 2-2 2z" />
+            </svg>
+            Plugin framework
+        </h2>
+        <p>BFE has a builtin plugin framework that makes it possible to develop new features rapidly by writing
+            plugins.</p>
+    </div>
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M16 17v2H2v-2s0-4 7-4 7 4 7 4m-3.5-9.5A3.5 3.5 0 109 11a3.5 3.5 0 003.5-3.5m3.44 5.5A5.32 5.32 0 0118 17v2h4v-2s0-3.63-6.06-4M15 4a3.39 3.39 0 00-1.93.59 5 5 0 010 5.82A3.39 3.39 0 0015 11a3.5 3.5 0 000-7z" />
+            </svg>Multi-tenancy
+        </h2>
+        <p>BFE is designed to provide every tenant a dedicated share of the instance. Each tenant’s
+            configuration is isolated and remains invisible to other tenants.</p>
+    </div>
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M6 20a6 6 0 01-6-6c0-3.09 2.34-5.64 5.35-5.96A7.496 7.496 0 0112 4a7.5 7.5 0 017.35 6A5.02 5.02 0 0124 15a5 5 0 01-5 5H6M9.09 8.4L4.5 13l4.59 4.6 1.41-1.42L7.32 13l3.18-3.18L9.09 8.4m5.82 0L13.5 9.82 16.68 13l-3.18 3.18 1.41 1.42L19.5 13l-4.59-4.6z" />
+            </svg>Multiple protocols
+        </h2>
+        <p>BFE supports HTTP, HTTPS, SPDY, HTTP2, gRPC, WebSocket, TLS, FastCGI, etc. Future support is planned for
+            HTTP/3.</p>
+    </div>
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M20 3H5a2 2 0 00-2 2v6h4V9l4 3-4 3v-2H3v6a2 2 0 002 2h15a2 2 0 002-2V5a2 2 0 00-2-2m-3 14h-4v-2h4v2m3-4h-7v-2h7v2m0-4h-7V7h7v2M3 13H0v-2h3v2z" />
+            </svg>Routing</h2>
+        <p>BFE provides an advanced domain-specific language to describe routing rules which are easy to
+            understand and maintain.</p>
+    </div>
+</div>
+<div class="bottom-hr">
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M19 15v-3c-.5 0-4.5.16-4.95 4.2 1.56.55 2.38 2.27 1.83 3.83a3.006 3.006 0 01-3.83 1.83c-1.55-.56-2.38-2.27-1.83-3.83.28-.86.98-1.53 1.83-1.83A6.748 6.748 0 0119 10V7l4 4-4 4m-5 4a1 1 0 00-1-1 1 1 0 00-1 1 1 1 0 001 1 1 1 0 001-1m-2-7.88c.58-.66 1.25-1.23 2-1.69V5h3l-4-4-4 4h3v6.12M7.2 6h-2L2 15h1.9l.7-2h3.2l.7 2h1.9L7.2 6m-2.15 5.65L6.2 8l1.15 3.65h-2.3z" />
+            </svg>Load balancing</h2>
+        <p>BFE supports global load balancing and distributed load balancing for zone aware balancing, zone
+            level failure resilience, overload protection etc.</p>
+    </div>
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M15.9 18.45c1.35 0 2.45-1.1 2.45-2.45s-1.1-2.45-2.45-2.45c-1.36 0-2.45 1.1-2.45 2.45s1.09 2.45 2.45 2.45m5.2-1.77l1.48 1.16c.13.11.17.29.08.45l-1.4 2.42a.35.35 0 01-.43.15l-1.74-.7c-.36.28-.76.51-1.18.69l-.27 1.85c-.02.17-.17.3-.34.3h-2.8c-.18 0-.32-.13-.35-.3l-.26-1.85c-.43-.18-.82-.41-1.18-.69l-1.75.7c-.15.06-.34 0-.42-.15l-1.4-2.42a.351.351 0 01.08-.45l1.48-1.16-.05-.68.05-.69-1.48-1.15a.353.353 0 01-.08-.45l1.4-2.42c.08-.16.27-.22.42-.16l1.75.71c.36-.28.75-.52 1.18-.69l.26-1.86c.03-.16.17-.29.35-.29h2.8c.17 0 .32.13.34.29l.27 1.86c.42.17.82.41 1.18.69l1.74-.71c.17-.06.34 0 .43.16l1.4 2.42c.09.15.05.34-.08.45l-1.48 1.15.05.69-.05.68M6.69 8.07c.87 0 1.57-.7 1.57-1.57 0-.87-.7-1.58-1.57-1.58A1.58 1.58 0 005.11 6.5c0 .87.71 1.57 1.58 1.57m3.34-1.13l.97.74c.07.07.09.19.03.29l-.9 1.56c-.05.1-.17.14-.27.1l-1.12-.45-.74.44-.19 1.19c-.02.11-.11.19-.22.19h-1.8c-.12 0-.21-.08-.23-.19L5.4 9.62l-.76-.44-1.14.45c-.09.04-.2 0-.26-.1l-.9-1.56c-.06-.1-.03-.22.05-.29l.95-.74-.03-.44.03-.44-.95-.74a.229.229 0 01-.05-.29l.9-1.56c.06-.1.17-.14.26-.1l1.13.45.77-.44.16-1.19c.02-.11.11-.19.23-.19h1.8c.11 0 .2.08.22.19L8 3.38l.74.44 1.12-.45c.1-.04.22 0 .27.1l.9 1.56c.06.1.04.22-.03.29l-.97.74.03.44-.03.44z" />
+            </svg>Many builtin plugins</h2>
+        <p>BFE provides a rich set of plugins for traffic management, security, observability, etc.</p>
+    </div>
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M15.5 12c2.5 0 4.5 2 4.5 4.5 0 .88-.25 1.71-.69 2.4l3.08 3.1L21 23.39l-3.12-3.07c-.69.43-1.51.68-2.38.68-2.5 0-4.5-2-4.5-4.5s2-4.5 4.5-4.5m0 2a2.5 2.5 0 00-2.5 2.5 2.5 2.5 0 002.5 2.5 2.5 2.5 0 002.5-2.5 2.5 2.5 0 00-2.5-2.5m6.5-1a3 3 0 00-3-3h-1.5v-.5A5.5 5.5 0 0012 4C9.5 4 7.37 5.69 6.71 8H6a4 4 0 00-4 4 4 4 0 004 4h3v.5c0 .5.06 1 .17 1.5H6a6 6 0 01-6-6c0-3.1 2.34-5.64 5.35-5.96A7.496 7.496 0 0112 2c3.64 0 6.67 2.59 7.36 6.04C21.95 8.22 24 10.36 24 13c0 1.65-.79 3.1-2 4v-.5c0-.73-.12-1.44-.35-2.1.22-.4.35-.9.35-1.4z" />
+            </svg>Observability</h2>
+        <p>BFE includes detailed built-in metrics for all subsystems. BFE writes various logs
+            for trouble shooting, data analysis and visualization. BFE also supports
+            distributed tracing.</p>
+    </div>
+    <div class="feature-item">
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path
+                    d="M13 11h5l-1.5-1.5 1.42-1.42L21.84 12l-3.92 3.92-1.42-1.42L18 13h-5v5l1.5-1.5 1.42 1.42L12 21.84l-3.92-3.92L9.5 16.5 11 18v-5H6l1.5 1.5-1.42 1.42L2.16 12l3.92-3.92L7.5 9.5 6 11h5V6L9.5 7.5 8.08 6.08 12 2.16l3.92 3.92L14.5 7.5 13 6v5z" />
+            </svg>Easily integrated</h2>
+        <p>BFE is easily integrated with mainstream layer 4 load balancing solution, and other ecosystem
+            projects(e.g. Kubernetes, Prometheus, Jaeger, Fluentd etc).</p>
+    </div>
+</div>
+<!-- 特性介绍结束 -->
+<div class="top-hr">
+    <div class="hr">
+    </div>
+</div>
+<!-- github描述开始 -->
+<div class="open-source">
+    <h1>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path
+                d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z" />
+        </svg>Open Source</h1>
+    <p>BFE is open source and available under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache 2.0
+            License </a> on <a href="https://github.com/bfenetworks/bfe">GitHub</a></p>
+    <iframe src="https://ghbtns.com/github-btn.html?user=bfenetworks&repo=bfe&type=star&count=true&size=large"
+        frameborder="0" scrolling="0" class="github-stars"></iframe>
+</div>
+<!-- github描述结束 -->
+<!-- CNCF开始 -->
+<div class="open-source">
+    <p>BFE is a <a href="https://cncf.io/"> Cloud Native Computing Foundation</a> sandbox project</p>
+    <a href="https://cncf.io/"><img src="assets/images/cncf_logo.png" alt="" class="cncf"></a>
+</div>
+<!-- CNCF结束 -->
+<div class="top-hr">
+    <div class="hr">
+    </div>
+</div>
+<!-- 合作伙伴开始 -->
+<div class="text-center" id="users">
+    Some of our users include:
+</div>
+<div class="top-hr hr-logos">
+    <div class="logos">
+        <a href="https://www.baidu.com" target="_black">
+            <img src="assets/images/baidu.png" alt="">
+        </a>
+        <a href="https://cloud.baidu.com/" target="_black">
+            <img src="assets/images/baiducloud.png" alt="">
+        </a>
+        <a href="https://www.cctv.com/" target="_black">
+            <img src="assets/images/cctv.png" alt="">
+        </a>
+        <a href="https://www.chinalife.com.cn/chinalife/index/" target="_black">
+            <img src="assets/images/china_life.jpg" alt="">
+        </a>
+        <a href="https://www.duxiaoman.com/index" target="_black">
+            <img src="assets/images/duxiaoman.png" alt="">
+        </a>
+        <a href="http://www.sichuanair.com/" target="_black">
+            <img src="assets/images/sichuan_airlines.png" alt="">
+        </a>
+        <a href="https://www.spdb.com.cn/" target="_black">
+            <img src="assets/images/spd_bank.jpeg" alt="">
+        </a>
+        <a href="http://www.psbc.com/cn/index.html" target="_black">
+            <img src="assets/images/post.jpg" alt="">
+        </a>
+        <a href="http://www.szse.cn/" target="_black">
+            <img src="assets/images/shenzhen.png" alt="">
+        </a>
+    </div>
+</div>
+<!-- 合作伙伴结束 -->
+<div class=" md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+        <div class="md-footer-copyright">
+            <div class="md-footer-copyright__highlight">
+                Copyright © <span class="get-year"></span> The BFE Authors | Documentation Distributed under CC-BY-4.0
+            </div>
+            <div class="md-footer-copyright__highlight">
+                Copyright © <span class="get-year"></span> The Linux Foundation. All rights reserved. The Linux
+                Foundation has registered
+                trademarks and
+                uses trademarks
+            </div>
+            <div class="md-footer-copyright__highlight">
+                For a list of trademarks of The Linux Foundation, please <a
+                    href="https://www.linuxfoundation.org/trademark-usage" target="_black"> see our Trademark Usage page
+                </a>
+            </div>
+        </div>
+        <div class="md-footer-social">
+            <a href="https://github.com/bfenetworks/bfe" target="_blank" rel="noopener" title="github.com"
+                class="md-footer-social__link">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512">
+                    <path
+                        d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z">
+                    </path>
+                </svg>
+            </a>
+            <a href="https://twitter.com/BfeNetworks" target="_blank" rel="noopener" title="twitter.com"
+                class="md-footer-social__link">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                    <path
+                        d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z">
+                    </path>
+                </svg>
+            </a>
+            <a href="https://slack.cncf.io" target="_blank" rel="noopener" title="join.slack.com"
+                class="md-footer-social__link">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
+                    <path
+                        d="M94.12 315.1c0 25.9-21.16 47.06-47.06 47.06S0 341 0 315.1c0-25.9 21.16-47.06 47.06-47.06h47.06v47.06zm23.72 0c0-25.9 21.16-47.06 47.06-47.06s47.06 21.16 47.06 47.06v117.84c0 25.9-21.16 47.06-47.06 47.06s-47.06-21.16-47.06-47.06V315.1zm47.06-188.98c-25.9 0-47.06-21.16-47.06-47.06S139 32 164.9 32s47.06 21.16 47.06 47.06v47.06H164.9zm0 23.72c25.9 0 47.06 21.16 47.06 47.06s-21.16 47.06-47.06 47.06H47.06C21.16 243.96 0 222.8 0 196.9s21.16-47.06 47.06-47.06H164.9zm188.98 47.06c0-25.9 21.16-47.06 47.06-47.06 25.9 0 47.06 21.16 47.06 47.06s-21.16 47.06-47.06 47.06h-47.06V196.9zm-23.72 0c0 25.9-21.16 47.06-47.06 47.06-25.9 0-47.06-21.16-47.06-47.06V79.06c0-25.9 21.16-47.06 47.06-47.06 25.9 0 47.06 21.16 47.06 47.06V196.9zM283.1 385.88c25.9 0 47.06 21.16 47.06 47.06 0 25.9-21.16 47.06-47.06 47.06-25.9 0-47.06-21.16-47.06-47.06v-47.06h47.06zm0-23.72c-25.9 0-47.06-21.16-47.06-47.06 0-25.9 21.16-47.06 47.06-47.06h117.84c25.9 0 47.06 21.16 47.06 47.06 0 25.9-21.16 47.06-47.06 47.06H283.1z">
+                    </path>
+                </svg>
+            </a>
+            <a href="mailto:bfe-networks@groups.io" target="_blank" rel="noopener" title=""
+                class="md-footer-social__link">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                    <path
+                        d="M502.3 190.8c3.9-3.1 9.7-.2 9.7 4.7V400c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V195.6c0-5 5.7-7.8 9.7-4.7 22.4 17.4 52.1 39.5 154.1 113.6 21.1 15.4 56.7 47.8 92.2 47.6 35.7.3 72-32.8 92.3-47.6 102-74.1 131.6-96.3 154-113.7zM256 320c23.2.4 56.6-29.2 73.4-41.4 132.7-96.3 142.8-104.7 173.4-128.7 5.8-4.5 9.2-11.5 9.2-18.9v-19c0-26.5-21.5-48-48-48H48C21.5 64 0 85.5 0 112v19c0 7.4 3.4 14.3 9.2 18.9 30.6 23.9 40.7 32.4 173.4 128.7 16.8 12.2 50.2 41.8 73.4 41.4z">
+                    </path>
+                </svg>
+            </a>
+        </div>
+    </div>
+</div>
+<script>
+    var x = document.getElementsByClassName('get-year');
+    x[0].innerHTML = new Date().getFullYear();
+    x[1].innerHTML = new Date().getFullYear();
+</script>
+{% endblock %}
+{% block content %}{% endblock %}
+{% block footer %}{% endblock %}

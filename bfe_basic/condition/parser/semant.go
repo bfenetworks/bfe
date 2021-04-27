@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,10 +30,14 @@ var funcProtos = map[string][]Token{
 	"req_proto_secure":           nil,
 	"req_host_in":                {STRING},
 	"req_host_regmatch":          {STRING},
+	"req_host_tag_in":            {STRING},
+	"req_host_suffix_in":         {STRING},
 	"req_path_in":                {STRING, BOOL},
 	"req_path_prefix_in":         {STRING, BOOL},
 	"req_path_suffix_in":         {STRING, BOOL},
+	"req_path_contain":           {STRING, BOOL},
 	"req_path_regmatch":          {STRING},
+	"req_path_element_prefix_in": {STRING, BOOL},
 	"req_query_key_prefix_in":    {STRING},
 	"req_query_key_in":           {STRING},
 	"req_query_exist":            nil,
@@ -69,6 +73,12 @@ var funcProtos = map[string][]Token{
 	"res_header_value_in":        {STRING, STRING, BOOL},
 	"ses_vip_range":              {STRING, STRING},
 	"ses_sip_range":              {STRING, STRING},
+	"ses_tls_sni_in":             {STRING},
+	"ses_tls_client_auth":        nil,
+	"ses_tls_client_ca_in":       {STRING},
+	"req_context_value_in":       {STRING, STRING},
+	"bfe_time_range":             []Token{STRING, STRING},
+	"bfe_periodic_time_range":    []Token{STRING, STRING, STRING},
 }
 
 func prototypeCheck(expr *CallExpr) error {

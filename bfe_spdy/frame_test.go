@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import (
 )
 
 import (
-	http "github.com/baidu/bfe/bfe_http"
+	http "github.com/bfenetworks/bfe/bfe_http"
 )
 
 var HeadersFixture = http.Header{
@@ -538,10 +538,12 @@ func TestMultipleSPDYFrames(t *testing.T) {
 	// Start the goroutines to write the frames.
 	go func() {
 		if err := writer.WriteFrame(&headersFrame); err != nil {
-			t.Fatal("WriteFrame (HEADERS): ", err)
+			t.Log("WriteFrame (HEADERS): ", err)
+			return
 		}
 		if err := writer.WriteFrame(&synStreamFrame); err != nil {
-			t.Fatal("WriteFrame (SYN_STREAM): ", err)
+			t.Log("WriteFrame (SYN_STREAM): ", err)
+			return
 		}
 	}()
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 )
 
@@ -26,8 +27,8 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 var TlsVersionMap = map[string]uint16{
@@ -77,41 +78,16 @@ type ConfigHttpsBasic struct {
 
 	EnableSslv2ClientHello bool // support sslv2 client hello for backward compatibility
 
-	ClientCABaseDir string // client root CAs base directory
-}
-
-func (cfg *ConfigHttpsBasic) SetDefaultConf() {
-	cfg.ServerCertConf = "tls_conf/server_cert_conf.data"
-	cfg.TlsRuleConf = "tls_conf/tls_rule_conf.data"
-
-	cfg.CipherSuites = []string{
-		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
-		"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
-		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
-		"TLS_ECDHE_RSA_WITH_RC4_128_SHA",
-		"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
-		"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-		"TLS_RSA_WITH_RC4_128_SHA",
-		"TLS_RSA_WITH_AES_128_CBC_SHA",
-		"TLS_RSA_WITH_AES_256_CBC_SHA",
-	}
-	cfg.CurvePreferences = []string{
-		"CurveP256",
-	}
-
-	cfg.EnableSslv2ClientHello = true
-
-	cfg.ClientCABaseDir = "tls_conf/client_ca"
+	ClientCABaseDir  string // client root CAs base directory
+	ClientCRLBaseDir string // client cert CRL base directory
 }
 
 func (cfg *ConfigHttpsBasic) Check(confRoot string) error {
-	// check cert file conf
 	err := certConfCheck(cfg, confRoot)
 	if err != nil {
 		return err
 	}
 
-	// check cert rule conf
 	err = certRuleCheck(cfg, confRoot)
 	if err != nil {
 		return err
@@ -122,24 +98,21 @@ func (cfg *ConfigHttpsBasic) Check(confRoot string) error {
 		return err
 	}
 
-	// check CipherSuites
-	for _, cipherGroup := range cfg.CipherSuites {
-		ciphers := strings.Split(cipherGroup, EquivCipherSep)
-		for _, cipher := range ciphers {
-			if _, ok := CipherSuitesMap[cipher]; !ok {
-				return fmt.Errorf("cipher (%s) not support", cipher)
-			}
-		}
+	err = clientCRLConfCheck(cfg, confRoot)
+	if err != nil {
+		return err
 	}
 
-	// check CurvePreferences
-	for _, curve := range cfg.CurvePreferences {
-		if _, ok := CurvesMap[curve]; !ok {
-			return fmt.Errorf("curve (%s) not support", curve)
-		}
+	err = cipherSuitesCheck(cfg)
+	if err != nil {
+		return err
 	}
 
-	// check tls version
+	err = curvePreferencesCheck(cfg)
+	if err != nil {
+		return err
+	}
+
 	err = tlsVersionCheck(cfg)
 	if err != nil {
 		return err
@@ -162,6 +135,51 @@ func certConfCheck(cfg *ConfigHttpsBasic, confRoot string) error {
 	return nil
 }
 
+func cipherSuitesCheck(cfg *ConfigHttpsBasic) error {
+	if len(cfg.CipherSuites) == 0 {
+		log.Logger.Warn("CipherSuites not set, use default value")
+		cfg.CipherSuites = []string{
+			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+			"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+			"TLS_ECDHE_RSA_WITH_RC4_128_SHA",
+			"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+			"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+			"TLS_RSA_WITH_RC4_128_SHA",
+			"TLS_RSA_WITH_AES_128_CBC_SHA",
+			"TLS_RSA_WITH_AES_256_CBC_SHA",
+		}
+	}
+
+	for _, cipherGroup := range cfg.CipherSuites {
+		ciphers := strings.Split(cipherGroup, EquivCipherSep)
+		for _, cipher := range ciphers {
+			if _, ok := CipherSuitesMap[cipher]; !ok {
+				return fmt.Errorf("cipher (%s) not support", cipher)
+			}
+		}
+	}
+
+	return nil
+}
+
+func curvePreferencesCheck(cfg *ConfigHttpsBasic) error {
+	if len(cfg.CurvePreferences) == 0 {
+		log.Logger.Warn("CurvePreferences not set, use default value")
+		cfg.CurvePreferences = []string{
+			"CurveP256",
+		}
+	}
+
+	for _, curve := range cfg.CurvePreferences {
+		if _, ok := CurvesMap[curve]; !ok {
+			return fmt.Errorf("curve (%s) not support", curve)
+		}
+	}
+
+	return nil
+}
+
 func certRuleCheck(cfg *ConfigHttpsBasic, confRoot string) error {
 	if cfg.TlsRuleConf == "" {
 		log.Logger.Warn("TlsRuleConf not set, use default value")
@@ -177,6 +195,20 @@ func clientCABaseDirCheck(cfg *ConfigHttpsBasic, confRoot string) error {
 		cfg.ClientCABaseDir = "tls_conf/client_ca"
 	}
 	cfg.ClientCABaseDir = bfe_util.ConfPathProc(cfg.ClientCABaseDir, confRoot)
+	return nil
+}
+
+func clientCRLConfCheck(cfg *ConfigHttpsBasic, confRoot string) error {
+	if len(cfg.ClientCRLBaseDir) == 0 {
+		log.Logger.Warn("ClientCRLBaseDir not set, use default value")
+		cfg.ClientCRLBaseDir = "tls_conf/client_crl"
+	}
+
+	cfg.ClientCRLBaseDir = bfe_util.ConfPathProc(cfg.ClientCRLBaseDir, confRoot)
+	f, err := os.Stat(cfg.ClientCRLBaseDir)
+	if err != nil || !f.IsDir() {
+		return fmt.Errorf("ClientCRLBaseDir %s not exists", cfg.ClientCRLBaseDir)
+	}
 	return nil
 }
 
@@ -204,7 +236,7 @@ func tlsVersionCheck(cfg *ConfigHttpsBasic) error {
 	return nil
 }
 
-// LoadClientCAFile loades client ca certificate in PEM format
+// LoadClientCAFile loads client ca certificate in PEM format
 func LoadClientCAFile(path string) (*x509.CertPool, error) {
 	roots := x509.NewCertPool()
 	data, err := ioutil.ReadFile(path)

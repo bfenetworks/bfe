@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,15 +25,16 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_basic"
-	"github.com/baidu/bfe/bfe_tls"
-	"github.com/baidu/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_geo"
+	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 type HeaderValueHandler func(req *bfe_basic.Request) string
 
 const (
-	UNKNOWN = "unknown"
+	Unknown = "unknown"
 )
 
 var VariableHandlers = map[string]HeaderValueHandler{
@@ -58,12 +59,27 @@ var VariableHandlers = map[string]HeaderValueHandler{
 	"bfe_backend_info": getBfeBackendInfo,
 
 	// for tls
-	"bfe_ssl_resume":            getBfeSslResume,
-	"bfe_ssl_cipher":            getBfeSslCipher,
-	"bfe_ssl_version":           getBfeSslVersion,
-	"bfe_protocol":              getBfeProtocol,
-	"client_cert_serial_number": getClientCertSerialNumber,
-	"client_cert_subject_title": getClientCertSubjectTitle,
+	"bfe_ssl_resume":                          getBfeSslResume,
+	"bfe_ssl_cipher":                          getBfeSslCipher,
+	"bfe_ssl_version":                         getBfeSslVersion,
+	"bfe_ssl_ja3_raw":                         getBfeSslJa3Raw,
+	"bfe_ssl_ja3_hash":                        getBfeSslJa3Hash,
+	"bfe_protocol":                            getBfeProtocol,
+	"client_cert_serial_number":               getClientCertSerialNumber,
+	"client_cert_subject_title":               getClientCertSubjectTitle,
+	"client_cert_subject_common_name":         getClientCertSubjectCommonName,
+	"client_cert_subject_organization":        getClientCertSubjectOrganization,
+	"client_cert_subject_organizational_unit": getClientCertSubjectOrganizationalUnit,
+	"client_cert_subject_province":            getClientCertSubjectProvince,
+	"client_cert_subject_country":             getClientCertSubjectCountry,
+	"client_cert_subject_locality":            getClientCertSubjectLocality,
+
+	// for geo
+	"bfe_client_geo_country_iso_code":     getClientGeoCountryIsoCode,
+	"bfe_client_geo_subdivision_iso_code": getClientGeoSubdivisionIsoCode,
+	"bfe_client_geo_city_name":            getClientGeoCityName,
+	"bfe_client_geo_latitude":             getClientGeoLatitude,
+	"bfe_client_geo_longitude":            getClientGeoLongitude,
 }
 
 func uint16ToStr(u16 uint16) string {
@@ -170,6 +186,24 @@ func getBfeSslVersion(req *bfe_basic.Request) string {
 	return bfe_tls.VersionTextForOpenSSL(state.Version)
 }
 
+// get tls ja3 string
+func getBfeSslJa3Raw(req *bfe_basic.Request) string {
+	if req.Session.TlsState == nil {
+		return ""
+	}
+	state := req.Session.TlsState
+	return state.JA3Raw
+}
+
+// get tls ja3 hash
+func getBfeSslJa3Hash(req *bfe_basic.Request) string {
+	if req.Session.TlsState == nil {
+		return ""
+	}
+	state := req.Session.TlsState
+	return state.JA3Hash
+}
+
 // get protocol for application level
 func getBfeProtocol(req *bfe_basic.Request) string {
 	return req.Protocol()
@@ -229,6 +263,75 @@ func getClientCertSubjectTitle(req *bfe_basic.Request) string {
 	return ""
 }
 
+func getClientCertSubjectCommonName(req *bfe_basic.Request) string {
+	clientCert := getClientCert(req)
+	if clientCert == nil {
+		return ""
+	}
+
+	return clientCert.Subject.CommonName
+}
+
+func getClientCertSubjectOrganization(req *bfe_basic.Request) string {
+	clientCert := getClientCert(req)
+	if clientCert == nil {
+		return ""
+	}
+
+	if len(clientCert.Subject.Organization) > 0 {
+		return clientCert.Subject.Organization[0]
+	}
+	return ""
+}
+
+func getClientCertSubjectOrganizationalUnit(req *bfe_basic.Request) string {
+	clientCert := getClientCert(req)
+	if clientCert == nil {
+		return ""
+	}
+
+	if len(clientCert.Subject.OrganizationalUnit) > 0 {
+		return clientCert.Subject.OrganizationalUnit[0]
+	}
+	return ""
+}
+
+func getClientCertSubjectProvince(req *bfe_basic.Request) string {
+	clientCert := getClientCert(req)
+	if clientCert == nil {
+		return ""
+	}
+
+	if len(clientCert.Subject.Province) > 0 {
+		return clientCert.Subject.Province[0]
+	}
+	return ""
+}
+
+func getClientCertSubjectCountry(req *bfe_basic.Request) string {
+	clientCert := getClientCert(req)
+	if clientCert == nil {
+		return ""
+	}
+
+	if len(clientCert.Subject.Country) > 0 {
+		return clientCert.Subject.Country[0]
+	}
+	return ""
+}
+
+func getClientCertSubjectLocality(req *bfe_basic.Request) string {
+	clientCert := getClientCert(req)
+	if clientCert == nil {
+		return ""
+	}
+
+	if len(clientCert.Subject.Locality) > 0 {
+		return clientCert.Subject.Locality[0]
+	}
+	return ""
+}
+
 func getClientCertExtVal(req *bfe_basic.Request, oid asn1.ObjectIdentifier) string {
 	clientCert := getClientCert(req)
 	if clientCert == nil {
@@ -252,7 +355,7 @@ func getBfeVip(req *bfe_basic.Request) string {
 		return req.Session.Vip.String()
 	}
 
-	return UNKNOWN
+	return Unknown
 }
 
 func getAddressFetcher(conn net.Conn) bfe_util.AddressFetcher {
@@ -268,16 +371,16 @@ func getAddressFetcher(conn net.Conn) bfe_util.AddressFetcher {
 func getBfeBip(req *bfe_basic.Request) string {
 	f := getAddressFetcher(req.Session.Connection)
 	if f == nil {
-		return UNKNOWN
+		return Unknown
 	}
 
 	baddr := f.BalancerAddr()
 	if baddr == nil {
-		return UNKNOWN
+		return Unknown
 	}
 	bip, _, err := net.SplitHostPort(baddr.String())
 	if err != nil { /* never come here */
-		return UNKNOWN
+		return Unknown
 	}
 
 	return bip
@@ -288,7 +391,7 @@ func getBfeRip(req *bfe_basic.Request) string {
 	raddr := conn.LocalAddr()
 	rip, _, err := net.SplitHostPort(raddr.String())
 	if err != nil { /* never come here */
-		return UNKNOWN
+		return Unknown
 	}
 
 	return rip
@@ -303,7 +406,7 @@ func getBfeBackendInfo(req *bfe_basic.Request) string {
 func getBfeServerName(req *bfe_basic.Request) string {
 	hostname, err := os.Hostname()
 	if err != nil {
-		return UNKNOWN
+		return Unknown
 	}
 
 	return hostname
@@ -315,4 +418,49 @@ func getSessionId(req *bfe_basic.Request) string {
 
 func getLogId(req *bfe_basic.Request) string {
 	return req.LogId
+}
+
+func getClientGeoCountryIsoCode(req *bfe_basic.Request) string {
+	countryIsoCode := req.GetContext(mod_geo.CtxCountryIsoCode)
+	if countryIsoCode == nil {
+		return ""
+	}
+
+	return countryIsoCode.(string)
+}
+
+func getClientGeoSubdivisionIsoCode(req *bfe_basic.Request) string {
+	subdivisionIsoCode := req.GetContext(mod_geo.CtxSubdivisionIsoCode)
+	if subdivisionIsoCode == nil {
+		return ""
+	}
+
+	return subdivisionIsoCode.(string)
+}
+
+func getClientGeoCityName(req *bfe_basic.Request) string {
+	cityName := req.GetContext(mod_geo.CtxCityName)
+	if cityName == nil {
+		return ""
+	}
+
+	return cityName.(string)
+}
+
+func getClientGeoLatitude(req *bfe_basic.Request) string {
+	latitude := req.GetContext(mod_geo.CtxLatitude)
+	if latitude == nil {
+		return ""
+	}
+
+	return latitude.(string)
+}
+
+func getClientGeoLongitude(req *bfe_basic.Request) string {
+	longitude := req.GetContext(mod_geo.CtxLongitude)
+	if longitude == nil {
+		return ""
+	}
+
+	return longitude.(string)
 }

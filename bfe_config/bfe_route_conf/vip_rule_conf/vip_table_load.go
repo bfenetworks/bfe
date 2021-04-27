@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,11 +17,14 @@
 package vip_rule_conf
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"os"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type VipList []string // list of vips
@@ -55,14 +58,14 @@ func (conf *VipTableConf) LoadAndCheck(filename string) (string, error) {
 	}
 
 	// check config
-	if err := VipTableConfCheck(*conf); err != nil {
+	if err := VipTableConfCheck(conf); err != nil {
 		return "", err
 	}
 
 	return conf.Version, nil
 }
 
-func VipTableConfCheck(conf VipTableConf) error {
+func VipTableConfCheck(conf *VipTableConf) error {
 	if conf.Version == "" {
 		return errors.New("no Version")
 	}
@@ -71,8 +74,8 @@ func VipTableConfCheck(conf VipTableConf) error {
 	for product, vipList := range conf.Vips {
 		var formattedVipList VipList
 		for _, vip := range vipList {
-			ip, err := net.ResolveIPAddr("ip", vip)
-			if err != nil {
+			ip := net.ParseIP(vip)
+			if ip == nil {
 				return fmt.Errorf("invalid vip %s for %s", vip, product)
 			}
 
@@ -83,7 +86,7 @@ func VipTableConfCheck(conf VipTableConf) error {
 	return nil
 }
 
-// VipRuleConfLoad loades config of vip table from file.
+// VipRuleConfLoad loads config of vip table from file.
 func VipRuleConfLoad(filename string) (VipConf, error) {
 	var vipConf VipConf
 

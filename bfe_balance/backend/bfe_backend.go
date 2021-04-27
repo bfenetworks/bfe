@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
 )
 
 // BfeBackend is a backend server.
@@ -41,6 +41,8 @@ type BfeBackend struct {
 	succNum      int  // number of consecutive successes of health-check request
 
 	closeChan chan bool // tell health-check to stop
+
+	restarted    bool // indicate if this backend is new bring-up by health-check
 }
 
 func NewBfeBackend() *BfeBackend {
@@ -90,15 +92,28 @@ func (back *BfeBackend) setAvail(avail bool) {
 	}
 }
 
-func (back *BfeBackend) ConnNum() int {
-	back.RLock()
-	conns := back.connNum
-	back.RUnlock()
-
-	return conns
+func (back *BfeBackend) SetRestart(restart bool) {
+	back.Lock()
+	back.restarted = restart
+	back.Unlock()
 }
 
-func (back *BfeBackend) AddConnNum() {
+func (back *BfeBackend) GetRestart() bool {
+	back.RLock()
+	restart := back.restarted
+	back.RUnlock()
+	return restart
+}
+
+func (back *BfeBackend) ConnNum() int {
+	back.RLock()
+	connNum := back.connNum
+	back.RUnlock()
+
+	return connNum
+}
+
+func (back *BfeBackend) IncConnNum() {
 	back.Lock()
 	back.connNum++
 	back.Unlock()

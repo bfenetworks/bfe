@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Baidu, Inc.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package bfe_stream
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"time"
@@ -26,9 +27,11 @@ import (
 )
 
 import (
-	"github.com/baidu/bfe/bfe_balance/backend"
-	http "github.com/baidu/bfe/bfe_http"
-	tls "github.com/baidu/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_balance/backend"
+	http "github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_proxy"
+	tls "github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 type serverConn struct {
@@ -44,6 +47,7 @@ type serverConn struct {
 	serveG          gotrack.GoroutineLock // to verify funcs are on serve()
 	shutdownTimerCh <-chan time.Time      // nil until used
 	shutdownTimer   *time.Timer           // nil until used
+	rule            *Rule
 }
 
 func (sc *serverConn) serve() {
@@ -56,19 +60,24 @@ func (sc *serverConn) serve() {
 	sc.conn.SetDeadline(zero)
 
 	// connect start time
-	var start time.Time
-	start = time.Now()
+	start := time.Now()
 
 	// select and connect to backend
 	bc, back, err := sc.findBackend()
 	if err != nil {
-		log.Logger.Info("bfe_stream: findBackend() fail: %s", err)
+		log.Logger.Info("bfe_stream: findBackend() fail: %v", err)
 		return
 	}
 
 	defer bc.Close()
 	defer back.DecConnNum()
 	log.Logger.Debug("bfe_stream: proxy connection %v to %v", sc.conn.RemoteAddr(), bc.RemoteAddr())
+
+	err = sc.processProxyProtocol(bc)
+	if err != nil {
+		log.Logger.Info("bfe_stream: processProxyProtocol() fail: %v", err)
+		return
+	}
 
 	// copy data between client conn and backend conn
 	fn := sc.srv.proxyHandler()
@@ -99,6 +108,55 @@ func (sc *serverConn) serve() {
 	}
 }
 
+func (sc *serverConn) processProxyProtocol(bc net.Conn) error {
+	if sc.rule == nil || sc.rule.ProxyProtocol == 0 {
+		return nil
+	}
+
+	var virtualAddr net.Addr
+	var destinationIP, sourceIP net.IP
+	var destinationPort, sourcePort int
+	var err error
+
+	netConn := sc.conn.(*tls.Conn).GetNetConn()
+
+	if addressFetcher, ok := netConn.(bfe_util.AddressFetcher); ok {
+		virtualAddr = addressFetcher.VirtualAddr()
+	}
+	if virtualAddr == nil {
+		virtualAddr = sc.conn.LocalAddr()
+		log.Logger.Debug("bfe_stream: get nil virtual addr: %v, using local address: %v", err, sc.conn.LocalAddr())
+	}
+	destinationIP, destinationPort, err = bfe_util.ParseIpAndPort(virtualAddr.String())
+	if err != nil {
+		return fmt.Errorf("parse virtual address error: %v", err)
+	}
+
+	sourceIP, sourcePort, err = bfe_util.ParseIpAndPort(sc.conn.RemoteAddr().String())
+	if err != nil {
+		return fmt.Errorf("parse remote address error: %v", err)
+	}
+
+	proxyHeader := &bfe_proxy.Header{
+		Version:            byte(sc.rule.ProxyProtocol),
+		Command:            bfe_proxy.PROXY,
+		SourceAddress:      sourceIP,
+		DestinationAddress: destinationIP,
+		SourcePort:         uint16(sourcePort),
+		DestinationPort:    uint16(destinationPort),
+	}
+
+	if sourceIP.To4() != nil {
+		proxyHeader.TransportProtocol = bfe_proxy.TCPv4
+	} else {
+		proxyHeader.TransportProtocol = bfe_proxy.TCPv6
+	}
+
+	log.Logger.Debug("bfe_stream: write proxy header[%v] to backend connection", proxyHeader)
+	_, err = proxyHeader.WriteTo(bc)
+	return err
+}
+
 func (sc *serverConn) findBackend() (net.Conn, *backend.BfeBackend, error) {
 	balanceHandler := sc.srv.balanceHandler()
 	if balanceHandler == nil {
@@ -113,7 +171,7 @@ func (sc *serverConn) findBackend() (net.Conn, *backend.BfeBackend, error) {
 			log.Logger.Debug("bfe_stream: balance error: %s ", err)
 			continue
 		}
-		backend.AddConnNum()
+		backend.IncConnNum()
 
 		// establish tcp conn to backend
 		timeout := time.Duration(sc.srv.connectTimeout()) * time.Millisecond
