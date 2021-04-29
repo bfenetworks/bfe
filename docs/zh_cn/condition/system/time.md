@@ -1,4 +1,4 @@
-# 时间相关条件原语
+﻿# 时间相关条件原语
 
 ## bfe_time_range(start_time, end_time)
 * 语义: 判断当前时间是否属于[start_time, end_time]
@@ -16,6 +16,26 @@
 
 ```go
 bfe_time_range("20190204203000H", "20190204204500H")
+```
+
+## bfe_periodic_time_range(start_time, end_time, period)
+* 语义: 判断当前时间是否周期性(period)属于[start_time, end_time],
+*       目前暂不支持指定周期(例如日、周、月、年), 缺省是每日重复
+
+* 参数
+
+| 参数       | 描述                    |
+| ---------- | ----------------------- |
+| start_time | String<br>起始时间      |
+| end_time   | String<br>结束时间      |
+| period     | String<br>周期,目前为空 |
+
+时间格式：hhmmssZ，其中Z代表时区，详见附B说明
+
+* 示例
+
+```go
+bfe_periodic_time_range("203000H", "204500H", "")
 ```
 
 # 附A.时间原语测试

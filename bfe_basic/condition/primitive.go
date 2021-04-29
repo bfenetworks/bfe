@@ -1011,6 +1011,7 @@ type PeriodicTimeMatcher struct {
 	endTime   int
 	offset    int // timezone offset
 }
+
 // time string format: hhmmssZ, example 150405H, Z-> timezone defined in bfe_util.TimeZoneMap
 func NewPeriodicTimeMatcher(startTimeStr, endTimeStr, periodStr string) (*PeriodicTimeMatcher, error) {
 	if periodStr != "" {
@@ -1038,6 +1039,7 @@ func NewPeriodicTimeMatcher(startTimeStr, endTimeStr, periodStr string) (*Period
 		offset:    offset1,
 	}, nil
 }
+
 func (t *PeriodicTimeMatcher) Match(v interface{}) bool {
 	tm, ok := v.(time.Time)
 	if !ok {
