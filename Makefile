@@ -27,6 +27,7 @@ GOTEST       := $(GO) test
 GOVET        := $(GO) vet
 GOGET        := $(GO) get
 GOGEN        := $(GO) generate
+GOCLEAN      := $(GO) clean
 GOFLAGS      := -race
 STATICCHECK  := staticcheck
 
