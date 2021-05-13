@@ -986,6 +986,44 @@ func (f *ContextValueFetcher) Fetch(req *bfe_basic.Request) (interface{}, error)
 	return req.GetContext(f.key), nil
 }
 
+// time range matcher
+type TimeMatcher struct {
+	startTime time.Time
+	endTime   time.Time
+}
+
+func NewTimeMatcher(startTimeStr string, endTimeStr string) (*TimeMatcher, error) {
+	startTime, err := bfe_util.ParseTime(startTimeStr)
+	if err != nil {
+		return nil, fmt.Errorf("startTime format invalid, err:%s", err.Error())
+	}
+	endTime, err := bfe_util.ParseTime(endTimeStr)
+	if err != nil {
+		return nil, fmt.Errorf("endTime format invalid, err:%s", err.Error())
+	}
+	if startTime.After(endTime) {
+		return nil, fmt.Errorf("startTime[%s] must <= endTime[%s]", startTimeStr, endTimeStr)
+	}
+	return &TimeMatcher{
+		startTime: startTime,
+		endTime:   endTime,
+	}, nil
+}
+
+func (t *TimeMatcher) Match(v interface{}) bool {
+	tm, ok := v.(time.Time)
+	if !ok {
+		return false
+	}
+	if tm.Before(t.startTime) {
+		return false
+	}
+	if tm.After(t.endTime) {
+		return false
+	}
+	return true
+}
+
 type BfeTimeFetcher struct{}
 
 // Fetch returns a time in UTC+0 time zone.
@@ -1011,6 +1049,7 @@ type PeriodicTimeMatcher struct {
 	endTime   int
 	offset    int // timezone offset
 }
+
 // time string format: hhmmssZ, example 150405H, Z-> timezone defined in bfe_util.TimeZoneMap
 func NewPeriodicTimeMatcher(startTimeStr, endTimeStr, periodStr string) (*PeriodicTimeMatcher, error) {
 	if periodStr != "" {
@@ -1038,6 +1077,7 @@ func NewPeriodicTimeMatcher(startTimeStr, endTimeStr, periodStr string) (*Period
 		offset:    offset1,
 	}, nil
 }
+
 func (t *PeriodicTimeMatcher) Match(v interface{}) bool {
 	tm, ok := v.(time.Time)
 	if !ok {

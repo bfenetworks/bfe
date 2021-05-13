@@ -256,6 +256,53 @@ func TestPathElementPrefixMatcher(t *testing.T) {
 	}
 }
 
+func TestTimeMatcher(t *testing.T) {
+	matcher, err := NewTimeMatcher("20190204200000H", "20190205010000H")
+	if err != nil {
+		t.Fatalf("NewTimeMatcher() error: %v", err)
+	}
+	tm := time.Date(2019, 2, 4, 19, 59, 59, 0, time.FixedZone("CST", 8*60*60))
+	if matcher.Match(tm) {
+		t.Fatalf("should not match 2019-02-04 19:59:59 H")
+	}
+	tm = time.Date(2019, 2, 4, 11, 59, 59, 0, time.UTC)
+	if matcher.Match(tm) {
+		t.Fatalf("should not match 2019-02-04 11:59:59 Z")
+	}
+	tm = time.Date(2019, 2, 4, 20, 0, 0, 0, time.FixedZone("CST", 8*60*60))
+	if !matcher.Match(tm) {
+		t.Fatalf("should match 2019-02-04 20:00:00 H")
+	}
+	tm = time.Date(2019, 2, 4, 12, 0, 0, 0, time.UTC)
+	if !matcher.Match(tm) {
+		t.Fatalf("should match 2019-02-04 12:00:00 Z")
+	}
+	tm = time.Date(2019, 2, 4, 20, 0, 1, 0, time.FixedZone("CST", 8*60*60))
+	if !matcher.Match(tm) {
+		t.Fatalf("should match 2019-02-04 20:00:01 H")
+	}
+	tm = time.Date(2019, 2, 4, 12, 0, 1, 0, time.UTC)
+	if !matcher.Match(tm) {
+		t.Fatalf("should match 2019-02-04 12:00:01 Z")
+	}
+	tm = time.Date(2019, 2, 5, 1, 0, 0, 0, time.FixedZone("CST", 8*60*60))
+	if !matcher.Match(tm) {
+		t.Fatalf("should match 2019-02-05 01:00:00 H")
+	}
+	tm = time.Date(2019, 2, 4, 17, 0, 0, 0, time.UTC)
+	if !matcher.Match(tm) {
+		t.Fatalf("should match 2019-02-04 17:00:00 Z")
+	}
+	tm = time.Date(2019, 2, 5, 1, 0, 1, 0, time.FixedZone("CST", 8*60*60))
+	if matcher.Match(tm) {
+		t.Fatalf("should not match 2019-02-05 01:00:01 H")
+	}
+	tm = time.Date(2019, 2, 4, 17, 0, 1, 0, time.UTC)
+	if matcher.Match(tm) {
+		t.Fatalf("should not match 2019-02-04 17:00:01 Z")
+	}
+}
+
 func TestPeriodicTimeMatcher(t *testing.T) {
 	matcher, err := NewPeriodicTimeMatcher("200000H", "213000H", "")
 	if err != nil {

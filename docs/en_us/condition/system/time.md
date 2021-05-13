@@ -18,6 +18,25 @@ Time format：yyyymmddhhmmssZ，Z is time zone，detail information is shown in 
 bfe_time_range("20190204203000H", "20190204204500H")
 ```
 
+## bfe_periodic_time_range(start_time, end_time, period)
+* Descrption: Judge if current time is periodly(period) in [start_time, end_time]
+
+* Parameters
+
+| Parameter | Descrption |
+| --------- | ---------- |
+| start_time | String<br>start time |
+| end_time | String<br> end time |
+| period | String<br> period, defualt *Day* |
+
+Time format: hhmmssZ，Z is time zone，detail information is shown in "Appendix B: Time Zone Detail"
+
+* Example
+
+```go
+bfe_periodic_time_range("203000H", "204500H", "")
+```
+
 ## Appendix A: Condition Primitive Test
 
 - In order to test time condition primitive,  **X-Bfe-Debug-Time** can be added in header of request to mock system time

@@ -65,7 +65,7 @@ func HeaderRuleCheck(conf HeaderRuleFile) error {
 	}
 
 	// check Actions
-	if conf.Actions == nil {
+	if conf.Actions == nil || len(*conf.Actions) == 0 {
 		return errors.New("no Actions")
 	}
 
