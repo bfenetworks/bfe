@@ -36,13 +36,13 @@ import (
 )
 
 var (
-	help        *bool   = flag.Bool("h", false, "to show help")
-	confRoot    *string = flag.String("c", "./conf", "root path of configuration")
-	logPath     *string = flag.String("l", "./log", "dir path of log")
-	stdOut      *bool   = flag.Bool("s", false, "to show log in stdout")
-	showVersion *bool   = flag.Bool("v", false, "to show version of bfe")
-	showVerbose *bool   = flag.Bool("V", false, "to show verbose information about bfe")
-	debugLog    *bool   = flag.Bool("d", false, "to show debug log (otherwise >= info)")
+	help        = flag.Bool("h", false, "to show help")
+	confRoot    = flag.String("c", "./conf", "root path of configuration")
+	logPath     = flag.String("l", "./log", "dir path of log")
+	stdOut      = flag.Bool("s", false, "to show log in stdout")
+	showVersion = flag.Bool("v", false, "to show version of bfe")
+	showVerbose = flag.Bool("V", false, "to show verbose information about bfe")
+	debugLog    = flag.Bool("d", false, "to show debug log (otherwise >= info)")
 )
 
 var version string
