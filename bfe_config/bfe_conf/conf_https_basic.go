@@ -82,7 +82,7 @@ type ConfigHttpsBasic struct {
 }
 
 // SetDefaultConf sets default value of ConfigHttpsBasic.
-// DONOT initialize multi-value fields, such as CipherSuites and CurvePreferences.
+// Note: DO NOT initialize multi-value fields (eg. CipherSuites/CurvePreferences)
 func (cfg *ConfigHttpsBasic) SetDefaultConf() {
 	cfg.ServerCertConf = "tls_conf/server_cert_conf.data"
 	cfg.TlsRuleConf = "tls_conf/tls_rule_conf.data"
