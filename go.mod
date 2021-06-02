@@ -1,6 +1,6 @@
 module github.com/bfenetworks/bfe
 
-go 1.13
+go 1.14
 
 require (
 	github.com/abbot/go-http-auth v0.4.1-0.20181019201920-860ed7f246ff
