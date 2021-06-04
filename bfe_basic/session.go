@@ -28,6 +28,11 @@ import (
 	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
+const (
+	SessionNotTrustSource int32 = 0
+	SessionTrustSource    int32 = 1
+)
+
 type Session struct {
 	SessionId string    // session id
 	StartTime time.Time // time of accept the connection
@@ -38,7 +43,6 @@ type Session struct {
 	RemoteAddr *net.TCPAddr // client address
 
 	Use100Continue bool // "expect 100-continue" is used?
-	IsTrustIP      bool // from Trust IP?
 
 	Proto    string                   // protocol for the connection
 	IsSecure bool                     // over tls connection?
@@ -49,14 +53,15 @@ type Session struct {
 	Product string // product name of vip
 	Rtt     uint32 // smoothed RTT for current connection (us)
 
-	lock         sync.Mutex                  // lock for session
-	ReqNum       int64                       // number of total request
-	ReqNumActive int64                       // number of active request
-	ReadTotal    int64                       // total bytes read from client socket
-	WriteTotal   int64                       // total bytes write to client socket
-	ErrCode      error                       // err of the connection
-	ErrMsg       string                      // message of error
-	Context      map[interface{}]interface{} // special session state
+	lock          sync.Mutex                  // lock for session
+	reqNum        int64                       // number of total request
+	reqNumActive  int64                       // number of active request
+	readTotal     int64                       // total bytes read from client socket
+	writeTotal    int64                       // total bytes write to client socket
+	errCode       error                       // err of the connection
+	errMsg        string                      // message of error
+	context       map[interface{}]interface{} // special session state
+	isTrustSource int32                       // from Trust source or not
 }
 
 // NewSession creates and initializes a new session
@@ -71,7 +76,7 @@ func NewSession(conn net.Conn) *Session {
 	}
 
 	s.Use100Continue = false
-	s.Context = make(map[interface{}]interface{})
+	s.context = make(map[interface{}]interface{})
 	return s
 }
 
@@ -85,16 +90,34 @@ func (s *Session) Finish() {
 }
 
 func (s *Session) IncReqNum(count int) int64 {
-	return atomic.AddInt64(&s.ReqNum, int64(count))
+	return atomic.AddInt64(&s.reqNum, int64(count))
+}
+
+func (s *Session) ReqNum() int64 {
+	return atomic.LoadInt64(&s.reqNum)
+}
+
+func (s *Session) SetReqNum(count int) {
+	atomic.StoreInt64(&s.reqNum, int64(count))
+	return
 }
 
 func (s *Session) IncReqNumActive(count int) int64 {
-	return atomic.AddInt64(&s.ReqNumActive, int64(count))
+	return atomic.AddInt64(&s.reqNumActive, int64(count))
+}
+
+func (s *Session) ReqNumActive() int64 {
+	return atomic.LoadInt64(&s.reqNumActive)
+}
+
+func (s *Session) SetReqNumActive(count int) {
+	atomic.StoreInt64(&s.reqNumActive, int64(count))
+	return
 }
 
 func (s *Session) UpdateReadTotal(total int) int {
 	ntotal := int64(total)
-	rtotal := atomic.SwapInt64(&s.ReadTotal, ntotal)
+	rtotal := atomic.SwapInt64(&s.readTotal, ntotal)
 
 	// return diff with last value
 	if ntotal >= rtotal {
@@ -103,9 +126,13 @@ func (s *Session) UpdateReadTotal(total int) int {
 	return 0
 }
 
+func (s *Session) ReadTotal() int {
+	return int(atomic.LoadInt64(&s.readTotal))
+}
+
 func (s *Session) UpdateWriteTotal(total int) int {
 	ntotal := int64(total)
-	wtotal := atomic.SwapInt64(&s.WriteTotal, ntotal)
+	wtotal := atomic.SwapInt64(&s.writeTotal, ntotal)
 
 	// return diff with last value
 	if ntotal >= wtotal {
@@ -114,33 +141,55 @@ func (s *Session) UpdateWriteTotal(total int) int {
 	return 0
 }
 
+func (s *Session) WriteTotal() int {
+	return int(atomic.LoadInt64(&s.writeTotal))
+}
+
 func (s *Session) SetError(errCode error, errMsg string) {
 	s.lock.Lock()
-	s.ErrCode = errCode
-	s.ErrMsg = errMsg
+	s.errCode = errCode
+	s.errMsg = errMsg
 	s.lock.Unlock()
 }
 
 func (s *Session) GetError() (string, error) {
 	s.lock.Lock()
-	errCode := s.ErrCode
-	errMsg := s.ErrMsg
+	errCode := s.errCode
+	errMsg := s.errMsg
 	s.lock.Unlock()
 
 	return errMsg, errCode
 }
 
+// ClearContext clears the old context and makes a new one.
+func (s *Session) ClearContext() {
+	s.context = make(map[interface{}]interface{})
+}
+
 func (s *Session) SetContext(key, val interface{}) {
 	s.lock.Lock()
-	s.Context[key] = val
+	s.context[key] = val
 	s.lock.Unlock()
 }
 
 func (s *Session) GetContext(key interface{}) interface{} {
 	s.lock.Lock()
-	val := s.Context[key]
+	val := s.context[key]
 	s.lock.Unlock()
 	return val
+}
+
+func (s *Session) TrustSource() bool {
+	val := atomic.LoadInt32(&s.isTrustSource)
+	return val == SessionTrustSource
+}
+
+func (s *Session) SetTrustSource(isTrustSource bool) {
+	val := SessionNotTrustSource
+	if isTrustSource {
+		val = SessionTrustSource
+	}
+	atomic.StoreInt32(&s.isTrustSource, val)
 }
 
 func (s *Session) String() string {
