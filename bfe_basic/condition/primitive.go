@@ -31,8 +31,8 @@ import (
 import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
-	"github.com/bfenetworks/bfe/bfe_util/net_util"
 	"github.com/bfenetworks/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_util/net_util"
 	"github.com/spaolacci/murmur3"
 )
 
@@ -637,7 +637,7 @@ func (rf *ResCodeFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
 type TrustedCIpMatcher struct{}
 
 func (m *TrustedCIpMatcher) Match(req *bfe_basic.Request) bool {
-	return req.Session.IsTrustIP
+	return req.Session.TrustSource()
 }
 
 type SecureProtoMatcher struct{}
@@ -1089,4 +1089,3 @@ func (t *PeriodicTimeMatcher) Match(v interface{}) bool {
 	seconds := hour*3600 + minute*60 + second
 	return seconds >= t.startTime && seconds <= t.endTime
 }
-
