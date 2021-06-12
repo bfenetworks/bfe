@@ -58,10 +58,10 @@ type Session struct {
 	reqNumActive  int64                       // number of active request
 	readTotal     int64                       // total bytes read from client socket
 	writeTotal    int64                       // total bytes write to client socket
+	isTrustSource int32                       // from Trust source or not
 	errCode       error                       // err of the connection
 	errMsg        string                      // message of error
 	context       map[interface{}]interface{} // special session state
-	isTrustSource int32                       // from Trust source or not
 }
 
 // NewSession creates and initializes a new session
