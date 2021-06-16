@@ -5,7 +5,7 @@
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | key_list | String<br>a list of cookie keys which are concatenated using &#124; |
 
@@ -21,7 +21,7 @@ req_cookie_key_in("uid|cid|uss")
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | key | String<br>cookie key |
 | value_list | String<br>a list of hash values which are concatenated using &#124; |
@@ -38,7 +38,7 @@ req_cookie_value_in("deviceid", "testid", true)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | key | String<br>cookie key |
 | value_prefix_list | String<br>a list of values which are concatenated using &#124; |
@@ -55,7 +55,7 @@ req_cookie_value_prefix_in("deviceid", "x", true)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | key | String<br>cookie key |
 | value_suffix_list | String<br>a list of values which are concatenated using &#124; |
@@ -72,7 +72,7 @@ req_cookie_value_suffix_in("deviceid", "1", true)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | key | String<br>cookie key |
 | value_list | String<br>a list of hash values which are concatenated using &#124; |
@@ -89,7 +89,7 @@ req_cookie_value_hash_in("uid", "100", true)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | key | String<br>cookie key |
 | value | String<br>a string |

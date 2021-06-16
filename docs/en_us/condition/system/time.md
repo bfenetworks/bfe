@@ -1,11 +1,11 @@
-# Time related primitves
+# Time related primitives
 
 ## bfe_time_range(start_time, end_time)
-* Descrption: Judge if current time is in [start_time, end_time]
+* Description: Judge if current time is in [start_time, end_time]
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | start_time | String<br>start time |
 | end_time | String<br> end time |
@@ -19,11 +19,11 @@ bfe_time_range("20190204203000H", "20190204204500H")
 ```
 
 ## bfe_periodic_time_range(start_time, end_time, period)
-* Descrption: Judge if current time is periodly(period) in [start_time, end_time]
+* Description: Judge if current time is periodly(period) in [start_time, end_time]
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | start_time | String<br>start time |
 | end_time | String<br> end time |

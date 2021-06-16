@@ -5,7 +5,7 @@
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | start_ip| String<br>start ip address | 
 | end_ip| String<br>end ip address | 
@@ -25,7 +25,7 @@ req_cip_range("10.0.0.1", "10.0.0.10")
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | value_list | String<br>a list of hash values which are concatenated using &#124; |
 
@@ -42,7 +42,7 @@ req_cip_hash_in("100-200|1000-1000")
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | vip_list | String<br>a list of vips which are concatenated using &#124; |
 
@@ -57,7 +57,7 @@ req_vip_in("10.0.0.1|10.0.0.2")
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | start_ip| String<br>start ip address | 
 | end_ip| String<br>end ip address | 
