@@ -5,7 +5,7 @@
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | host_list | String<br>a list of hosts keys which are concatenated using &#124;<br>case insensitive |
 
@@ -24,7 +24,7 @@ req_host_in("www.bfe-networks.com | bfe-networks.com")
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | path_list | String<br>a list of paths which are concatenated using &#124; <br>Each path should start with '/' |
 | case_insensitive | Boolean<br>case insensitive |
@@ -40,7 +40,7 @@ req_path_in("/api/search|/api/list", true)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | path_list | String<br>path's substring list which are concatenated with &#124; |
 | case_insensitive | Boolean<br>case insensitive |
@@ -56,7 +56,7 @@ req_path_contain("search|analytics", true)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | prefix_list | String<br>a list of path prefixs which are concatenated using &#124; <br>Each path prefix should start with '/' |
 | case_insensitive | Boolean<br>case insensitive |
@@ -72,7 +72,7 @@ req_path_prefix_in("/api/report|/api/analytics", false)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | suffix_list | String<br>a list of path sufixs which are concatenated using &#124; |
 | case_insensitive | Boolean<br>case insensitive |
@@ -88,7 +88,7 @@ req_path_suffix_in(".php|.jsp", false)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | prefix_list | String<br>a list of path element prefixs which are concatenated using &#124; <br>Each path prefix should start with '/' and end with '/', Automatic add '/' suffix when not end with '/'  |
 | case_insensitive | Boolean<br>case insensitive |
@@ -103,7 +103,7 @@ req_path_element_prefix_in("/api/report/|/api/analytics/", false)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | key_list | String<br>a list of query keys which are concatenated using &#124; |
 
@@ -118,7 +118,7 @@ req_query_key_exist("word|wd")
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | prefix_list | String<br>a list of query key prefixs which are concatenated using &#124; |
 
@@ -134,7 +134,7 @@ req_query_key_prefix_in("rid")
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | key | String<br> query key |
 | value_list | String<br>a list of query values which are concatenated using &#124; |
@@ -151,7 +151,7 @@ req_query_value_in("uid", "x|y|z", true)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | key | String<br> query key |
 | value_list | String<br>a list of query value prefixs which are concatenated using &#124; |
@@ -168,7 +168,7 @@ req_query_value_prefix_in("uid", "100|200", true)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | key | String<br> query key |
 | suffix_list | String<br>a list of query value suffixs which are concatenated using &#124; |
@@ -181,11 +181,11 @@ req_query_value_suffix_in("uid", "1|2|3", true)
 ```
 
 ## req_query_value_hash_in(key, value_list, case_insensitive)
-* Descrption: Judge if the hash value of specified query matches configured patterns (value after hash is 0～9999)
+* Description: Judge if the hash value of specified query matches configured patterns (value after hash is 0～9999)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | key | String<br> query key |
 | value_list | String<br>a list of hash values which are concatenated using &#124; |
@@ -202,7 +202,7 @@ req_query_value_hash_in("cid", "100", true)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | port_list | String<br>a list of ports which are concatenated using &#124; |
 
@@ -218,7 +218,7 @@ req_port_in("80|8080")
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | reg_exp | String<br>a regular expression<br> It is recommended that use `` to avoid from character escaping |
 

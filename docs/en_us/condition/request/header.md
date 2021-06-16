@@ -5,7 +5,7 @@
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | key_list | String<br>a list of header keys which are concatenated using &#124;<br>The header key should be in canonical form |
 
@@ -27,7 +27,7 @@ req_header_key_in("header-Test")
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | header_name | String<br>header name |
 | value_list | String<br>a list of header values which are concatenated using &#124; |
@@ -44,7 +44,7 @@ req_header_value_in("Referer", "https://example.org/login", true)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | header_name | String<br>header name |
 | value_prefix_list | String<br>a list of values which are concatenated using &#124; |
@@ -61,7 +61,7 @@ req_header_prefix_value_in("Referer", "https://example.org", true)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | header_name | String<br>header name |
 | value_suffix_list | String<br>a list of values which are concatenated using &#124; |
@@ -78,7 +78,7 @@ req_header_suffix_value_in("User-Agent", "2.0.4", true)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | header_name | String<br>header name |
 | value_list | String<br>a list of hash values which are concatenated using &#124; |
@@ -95,7 +95,7 @@ req_header_value_hash_in("X-Device-Id", "100-200|400", true)
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | header_name | String<br>header name |
 | value_list | String<br>a list of hash values which are concatenated using &#124; |
