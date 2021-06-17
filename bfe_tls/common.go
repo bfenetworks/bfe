@@ -211,8 +211,8 @@ type ConnectionState struct {
 	HandshakeComplete          bool                  // TLS handshake is complete
 	DidResume                  bool                  // connection resumes a previous TLS connection
 	CipherSuite                uint16                // cipher suite in use (TLS_RSA_WITH_RC4_128_SHA, ...)
-	NegotiatedProtocolIsMutual bool                  // negotiated protocol was advertised by server
 	OcspStaple                 bool                  // use ocsp staple (in server side)
+	NegotiatedProtocolIsMutual bool                  // negotiated protocol was advertised by server
 	NegotiatedProtocol         string                // negotiated next protocol (from Config.NextProtos)
 	ServerName                 string                // server name requested by client, if any (server side only)
 	HandshakeTime              time.Duration         // TLS handshake time (in server side)
