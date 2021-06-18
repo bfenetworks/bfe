@@ -59,7 +59,7 @@ const (
 
 const (
 	// AnyStatusCode is a special status code used in health-check.
-	// If AnyStatusCode is used, any status code is acceptd for health-check response.
+	// If AnyStatusCode is used, any status code is accepted for health-check response.
 	AnyStatusCode = 0
 )
 
@@ -390,9 +390,9 @@ func HashConfCheck(conf *HashConf) error {
 	}
 
 	if *conf.HashStrategy != ClientIdOnly &&
-	   *conf.HashStrategy != ClientIpOnly && 
-	   *conf.HashStrategy != ClientIdPreferred &&
-	   *conf.HashStrategy != RequestURI {
+		*conf.HashStrategy != ClientIpOnly &&
+		*conf.HashStrategy != ClientIdPreferred &&
+		*conf.HashStrategy != RequestURI {
 		return fmt.Errorf("HashStrategy[%d] must be [%d], [%d], [%d] or [%d]",
 			*conf.HashStrategy, ClientIdOnly, ClientIpOnly, ClientIdPreferred, RequestURI)
 	}
