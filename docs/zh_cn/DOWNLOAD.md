@@ -1,11 +1,23 @@
 BFE提供预编译二进制文件供下载。也可在GitHub下载各平台[最新版本BFE](https://github.com/bfenetworks/bfe/releases)。
 
+## bfe v1.2.0
+
+* 2021-06-21 [发布说明](https://github.com/bfenetworks/bfe/releases/tag/v1.2.0)
+
+| 文件名    | 操作系统 | 平台 | 大小 | SHA256检验和 |
+| --------- | -------- | ---- | ---- | ------------ |
+| [bfe_1.2.0_darwin_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.2.0/bfe_1.2.0_darwin_amd64.tar.gz) | darwin | amd    64 | 11.9 MB | 2ebd507dbc469bba3bd3600523aa6c7c4cd306249a015f3af9fe110445243398 |
+| [bfe_1.2.0_linux_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.2.0/bfe_1.2.0_linux_amd64.tar.gz) | linux | amd64     | 12.9 MB | 410eb77e963adeaf0892639d1dfd9ac048027a2fba02f5efc1374aced4134809 |
+| [bfe_1.2.0_linux_arm64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.2.0/bfe_1.2.0_linux_arm64.tar.gz) | linux | arm64     | 11.8 MB | 87c83da7e182fe556f60be951c7c611f9ae144fa04d87986a5c18bcd93d9dde9 |
+| [bfe_1.2.0_windows_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.2.0/bfe_1.2.0_windows_amd64.tar.gz) | windows |     amd64 | 12.1 MB | e1b920fd6d8a4454120822e1640d2fd65c90fd7ec77983a661f426c82918cecd |
+
+
 ## bfe v1.1.0
 
 * 2021-04-08 [发布说明](https://github.com/bfenetworks/bfe/releases/tag/v1.1.0)
 
 | 文件名    | 操作系统 | 平台 | 大小 | SHA256检验和 |
-| --------- | -- | ---- | ---- | --------------- |
+| --------- | -------- | ---- | ---- | ------------ |
 | [bfe_1.1.0_darwin_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.1.0/bfe_1.1.0_darwin_amd64.tar.gz) | darwin | amd64 | 11.9 MB | 95a1cfe762008533886d6fb68b38cc9c492491216d6e39bfb8003785a366e22b |
 | [bfe_1.1.0_linux_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.1.0/bfe_1.1.0_linux_amd64.tar.gz) | linux | amd64 | 12.9 MB | 7dd8fc826c4a4b147b6ca2a19e713ecd9450b099f45e123498fdf63221b59cf2 |
 | [bfe_1.1.0_linux_arm64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.1.0/bfe_1.1.0_linux_arm64.tar.gz) | linux | arm64 | 11.8 MB | a2b6047eb4121a0ff6a0255699384a94b094f9d60553ad9e2a11ee39647320bd |
@@ -16,7 +28,7 @@ BFE提供预编译二进制文件供下载。也可在GitHub下载各平台[最�
 * 2021-01-15 [发布说明](https://github.com/bfenetworks/bfe/releases/tag/v1.0.0)
 
 | 文件名    | 操作系统 | 平台 | 大小 | SHA256检验和 |
-| --------- | -- | ---- | ---- | --------------- |
+| --------- | -------- | ---- | ---- | ------------ |
 | [bfe_1.0.0_darwin_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.0.0/bfe_1.0.0_darwin_amd64.tar.gz) | darwin | amd64 | 7.03 MB | c0d13440d89ab97f52c61610d1b10dec6dcfb47b468a66078d1dd60f0541ec9e |
 | [bfe_1.0.0_linux_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.0.0/bfe_1.0.0_linux_amd64.tar.gz) | linux | amd64 | 6.18 MB | 5ec46c26827d554ba4c76f7f5e12b6b6afb68a9333213065802fa425fb81cbd1 |
 | [bfe_1.0.0_linux_arm64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.0.0/bfe_1.0.0_linux_arm64.tar.gz) | linux | arm64 | 5.63 MB | 47a3730ac90c4700c557d6c5903361c557e169102256bac870cede4eb90ff829 |
