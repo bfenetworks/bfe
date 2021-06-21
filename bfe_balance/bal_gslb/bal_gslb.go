@@ -99,7 +99,7 @@ func (bal *BalanceGslb) SetSlowStart(backendConf cluster_conf.BackendBasic) {
 	bal.lock.Unlock()
 }
 
-// Init inializes gslb cluster with config
+// Init initializes gslb cluster with config
 func (bal *BalanceGslb) Init(gslbConf gslb_conf.GslbClusterConf) error {
 	totalWeight := 0
 
