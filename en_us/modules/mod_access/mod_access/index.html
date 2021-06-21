@@ -1300,6 +1300,26 @@ RU5ErkJggg==" ></image>
     Example
   </a>
   
+    <nav class="md-nav" aria-label="Example">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#save-log-to-a-directory" class="md-nav__link">
+    Save log to a directory
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#save-log-to-a-stdout" class="md-nav__link">
+    Save log to a stdout
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -2786,6 +2806,26 @@ RU5ErkJggg==" ></image>
     Example
   </a>
   
+    <nav class="md-nav" aria-label="Example">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#save-log-to-a-directory" class="md-nav__link">
+    Save log to a directory
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#save-log-to-a-stdout" class="md-nav__link">
+    Save log to a stdout
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -2828,6 +2868,10 @@ RU5ErkJggg==" ></image>
 </thead>
 <tbody>
 <tr>
+<td>Log.LogFile</td>
+<td>String<br>Set file path of log for saving to a single file without rotation</td>
+</tr>
+<tr>
 <td>Log.LogPrefix</td>
 <td>String<br>Filename prefix for log</td>
 </tr>
@@ -2854,6 +2898,7 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="example">Example</h3>
+<h4 id="save-log-to-a-directory">Save log to a directory</h4>
 <div class="codehilite"><pre><span></span><code><span class="k">[Log]</span>
 <span class="c1"># filename prefix for log</span>
 <span class="na">LogPrefix</span> <span class="o">=</span> <span class="s">access</span>
@@ -2866,6 +2911,20 @@ RU5ErkJggg==" ></image>
 
 <span class="c1"># max number of rotated log files</span>
 <span class="na">BackupCount</span> <span class="o">=</span> <span class="s">2</span>
+
+<span class="k">[Template]</span>
+<span class="c1"># template of request log</span>
+<span class="na">RequestTemplate</span> <span class="o">=</span> <span class="s">&quot;REQUEST_LOG $time clientip: $remote_addr serverip: $server_addr host: $host product: $product user_agent: ${User-Agent}req_header status: $status_code error: $error&quot;</span>
+
+<span class="c1"># template of session log</span>
+<span class="na">SessionTemplate</span> <span class="o">=</span> <span class="s">&quot;SESSION_LOG  $time clientip: $ses_clientip start_time: $ses_start_time end_time: $ses_end_time overhead: $ses_overhead read_total: $ses_read_total write_total: $ses_write_total keepalive_num: $ses_keepalive_num error: $ses_error&quot;</span>
+</code></pre></div>
+
+
+<h4 id="save-log-to-a-stdout">Save log to a stdout</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">[Log]</span>
+<span class="c1"># file path for log</span>
+<span class="na">LogFile</span> <span class="o">=</span> <span class="s">/dev/stdout</span>
 
 <span class="k">[Template]</span>
 <span class="c1"># template of request log</span>

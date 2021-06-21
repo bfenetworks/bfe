@@ -3008,12 +3008,26 @@ RU5ErkJggg==" ></image>
 <td>CLOSE</td>
 <td>关闭连接</td>
 </tr>
+<tr>
+<td>ALLOW</td>
+<td>允许请求</td>
+</tr>
 </tbody>
 </table>
 <h3 id="_8">配置示例</h3>
 <div class="codehilite"><pre><span></span><code><span class="p">{</span>
     <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span><span class="p">,</span>
     <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="nt">&quot;global&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="nt">&quot;action&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="nt">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;ALLOW&quot;</span><span class="p">,</span>
+                    <span class="nt">&quot;params&quot;</span><span class="p">:</span> <span class="p">[]</span>
+                <span class="p">},</span>
+                <span class="nt">&quot;cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_host_in(\&quot;n.example.org\&quot;) &amp;&amp; req_path_prefix_in(\&quot;/index/\&quot;, false) &amp;&amp; req_query_key_in(\&quot;space\&quot;)&quot;</span><span class="p">,</span>
+                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;example whiterule&quot;</span>
+            <span class="p">}</span>
+        <span class="p">],</span>
         <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
             <span class="p">{</span>
                 <span class="nt">&quot;action&quot;</span><span class="p">:</span> <span class="p">{</span>

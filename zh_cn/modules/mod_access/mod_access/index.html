@@ -1300,6 +1300,26 @@ RU5ErkJggg==" ></image>
     配置示例
   </a>
   
+    <nav class="md-nav" aria-label="配置示例">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    将日志保存到指定路径
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    将日志输出到标准输出
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -1308,7 +1328,7 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
-  <a href="#_5" class="md-nav__link">
+  <a href="#_7" class="md-nav__link">
     日志变量
   </a>
   
@@ -1316,21 +1336,21 @@ RU5ErkJggg==" ></image>
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#_6" class="md-nav__link">
+  <a href="#_8" class="md-nav__link">
     请求日志变量
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#_7" class="md-nav__link">
+  <a href="#_9" class="md-nav__link">
     会话日志变量
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#_8" class="md-nav__link">
+  <a href="#_10" class="md-nav__link">
     通用日志变量
   </a>
   
@@ -2820,6 +2840,26 @@ RU5ErkJggg==" ></image>
     配置示例
   </a>
   
+    <nav class="md-nav" aria-label="配置示例">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    将日志保存到指定路径
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    将日志输出到标准输出
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -2828,7 +2868,7 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
-  <a href="#_5" class="md-nav__link">
+  <a href="#_7" class="md-nav__link">
     日志变量
   </a>
   
@@ -2836,21 +2876,21 @@ RU5ErkJggg==" ></image>
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#_6" class="md-nav__link">
+  <a href="#_8" class="md-nav__link">
     请求日志变量
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#_7" class="md-nav__link">
+  <a href="#_9" class="md-nav__link">
     会话日志变量
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#_8" class="md-nav__link">
+  <a href="#_10" class="md-nav__link">
     通用日志变量
   </a>
   
@@ -2896,6 +2936,10 @@ RU5ErkJggg==" ></image>
 </thead>
 <tbody>
 <tr>
+<td>Log.LogFile</td>
+<td>String<br>日志文件路径，用来将日志输出到单个文件中（不进行日志切割）</td>
+</tr>
+<tr>
 <td>Log.LogPrefix</td>
 <td>String<br>日志文件前缀名称</td>
 </tr>
@@ -2928,6 +2972,7 @@ RU5ErkJggg==" ></image>
 <li>COMBINED：Combined Log Format; 等价于配置 RequestTemplate = $host - - $request_time \"$request_line\" $status_code $res_len \"${Referer}req_header\" \"${User-Agent}req_header\"</li>
 </ul>
 <h3 id="_4">配置示例</h3>
+<h4 id="_5">将日志保存到指定路径</h4>
 <div class="codehilite"><pre><span></span><code><span class="k">[Log]</span>
 <span class="c1"># filename prefix for log</span>
 <span class="na">LogPrefix</span> <span class="o">=</span> <span class="s">access</span>
@@ -2950,8 +2995,22 @@ RU5ErkJggg==" ></image>
 </code></pre></div>
 
 
-<h2 id="_5">日志变量</h2>
-<h3 id="_6">请求日志变量</h3>
+<h4 id="_6">将日志输出到标准输出</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">[Log]</span>
+<span class="c1"># file path for log</span>
+<span class="na">LogFile</span> <span class="o">=</span> <span class="s">/dev/stdout</span>
+
+<span class="k">[Template]</span>
+<span class="c1"># template of request log</span>
+<span class="na">RequestTemplate</span> <span class="o">=</span> <span class="s">&quot;REQUEST_LOG $time clientip: $remote_addr serverip: $server_addr host: $host product: $product user_agent: ${User-Agent}req_header status: $status_code error: $error&quot;</span>
+
+<span class="c1"># template of session log</span>
+<span class="na">SessionTemplate</span> <span class="o">=</span> <span class="s">&quot;SESSION_LOG  $time clientip: $ses_clientip start_time: $ses_start_time end_time: $ses_end_time overhead: $ses_overhead read_total: $ses_read_total write_total: $ses_write_total keepalive_num: $ses_keepalive_num error: $ses_error&quot;</span>
+</code></pre></div>
+
+
+<h2 id="_7">日志变量</h2>
+<h3 id="_8">请求日志变量</h3>
 <table>
 <thead>
 <tr>
@@ -3098,7 +3157,7 @@ RU5ErkJggg==" ></image>
 </tr>
 </tbody>
 </table>
-<h3 id="_7">会话日志变量</h3>
+<h3 id="_9">会话日志变量</h3>
 <table>
 <thead>
 <tr>
@@ -3157,7 +3216,7 @@ RU5ErkJggg==" ></image>
 </tr>
 </tbody>
 </table>
-<h3 id="_8">通用日志变量</h3>
+<h3 id="_10">通用日志变量</h3>
 <table>
 <thead>
 <tr>

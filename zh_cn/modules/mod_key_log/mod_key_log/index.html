@@ -1420,6 +1420,26 @@ RU5ErkJggg==" ></image>
     配置示例
   </a>
   
+    <nav class="md-nav" aria-label="配置示例">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    将日志保存到指定目录
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    将日志输出到标准输出
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -2786,6 +2806,26 @@ RU5ErkJggg==" ></image>
     配置示例
   </a>
   
+    <nav class="md-nav" aria-label="配置示例">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    将日志保存到指定目录
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    将日志输出到标准输出
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -2830,6 +2870,10 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format</p>
 </thead>
 <tbody>
 <tr>
+<td>Log.LogFile</td>
+<td>String<br>日志文件路径，用来将日志输出到单个文件中（不进行日志切割）</td>
+</tr>
+<tr>
 <td>Log.LogPrefix</td>
 <td>String<br>日志文件前缀名称</td>
 </tr>
@@ -2848,6 +2892,7 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format</p>
 </tbody>
 </table>
 <h3 id="_4">配置示例</h3>
+<h4 id="_5">将日志保存到指定目录</h4>
 <div class="codehilite"><pre><span></span><code><span class="k">[Log]</span>
 <span class="c1"># filename prefix for log </span>
 <span class="na">LogPrefix</span> <span class="o">=</span> <span class="s">key</span>
@@ -2860,6 +2905,13 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format</p>
 
 <span class="c1"># max number of rotated log files</span>
 <span class="na">BackupCount</span> <span class="o">=</span> <span class="s">3</span>
+</code></pre></div>
+
+
+<h4 id="_6">将日志输出到标准输出</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">[Log]</span>
+<span class="c1"># filename prefix for log </span>
+<span class="na">LogFile</span> <span class="o">=</span> <span class="s">/dev/stdout</span>
 </code></pre></div>
                 
               
