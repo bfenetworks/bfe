@@ -506,6 +506,11 @@ func getCientCRL(clientCRLDir, clientCAName string) ([]*pkix.CertificateList, er
 }
 
 func ClientCRLLoad(clientCAMap map[string]*x509.CertPool, clientCRLDir string) (map[string]*bfe_tls.CRLPool, error) {
+	f, err := os.Stat(clientCRLDir)
+	if err != nil || !f.IsDir() {
+		return nil, fmt.Errorf("ClientCRLBaseDir %s not exists", clientCRLDir)
+	}
+
 	clientCRLPoolMap := make(map[string]*bfe_tls.CRLPool)
 	for clientCAName := range clientCAMap {
 		crls, err := getCientCRL(clientCRLDir, clientCAName)

@@ -1,4 +1,4 @@
-# mod_block
+﻿# mod_block
 
 ## 模块简介 
 
@@ -52,12 +52,23 @@ IPBlocklistPath = mod_block/ip_blocklist.data
 | 动作  | 含义     |
 | ----- | -------- |
 | CLOSE | 关闭连接 |
+| ALLOW | 允许请求 |
 
 ### 配置示例
 ```json
 {
     "Version": "20190101000000",
     "Config": {
+        "global": [
+            {
+                "action": {
+                    "cmd": "ALLOW",
+                    "params": []
+                },
+                "cond": "req_host_in(\"n.example.org\") && req_path_prefix_in(\"/index/\", false) && req_query_key_in(\"space\")",
+                "name": "example whiterule"
+            }
+        ],
         "example_product": [
             {
                 "action": {

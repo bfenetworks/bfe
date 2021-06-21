@@ -25,6 +25,7 @@ import (
 import (
 	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/log/log4go"
+	_ "go.uber.org/automaxprocs"
 )
 
 import (
@@ -35,13 +36,13 @@ import (
 )
 
 var (
-	help        *bool   = flag.Bool("h", false, "to show help")
-	confRoot    *string = flag.String("c", "./conf", "root path of configuration")
-	logPath     *string = flag.String("l", "./log", "dir path of log")
-	stdOut      *bool   = flag.Bool("s", false, "to show log in stdout")
-	showVersion *bool   = flag.Bool("v", false, "to show version of bfe")
-	showVerbose *bool   = flag.Bool("V", false, "to show verbose information about bfe")
-	debugLog    *bool   = flag.Bool("d", false, "to show debug log (otherwise >= info)")
+	help        = flag.Bool("h", false, "to show help")
+	confRoot    = flag.String("c", "./conf", "root path of configuration")
+	logPath     = flag.String("l", "./log", "dir path of log")
+	stdOut      = flag.Bool("s", false, "to show log in stdout")
+	showVersion = flag.Bool("v", false, "to show version of bfe")
+	showVerbose = flag.Bool("V", false, "to show verbose information about bfe")
+	debugLog    = flag.Bool("d", false, "to show debug log (otherwise >= info)")
 )
 
 var version string
@@ -99,8 +100,13 @@ func main() {
 		bfe_util.AbnormalExit()
 	}
 
-	// set maximum number of cpus
-	runtime.GOMAXPROCS(config.Server.MaxCpus)
+	// maximum number of CPUs (GOMAXPROCS) defaults to runtime.CPUNUM 
+	// if running on machine, or CPU quota if running on container
+	// (with the help of "go.uber.org/automaxprocs").
+	// here, we change maximum number of cpus if the MaxCpus is positive.
+	if config.Server.MaxCpus > 0 {
+		runtime.GOMAXPROCS(config.Server.MaxCpus)
+	}
 
 	// set log level
 	bfe_debug.SetDebugFlag(config.Server)

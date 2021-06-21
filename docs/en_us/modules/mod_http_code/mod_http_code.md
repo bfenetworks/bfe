@@ -15,5 +15,5 @@ Not required
 | ALL2_X_X             | Counter of 2XX status |
 | ALL3_X_X             | Coutner of 3XX status |
 | ALL4_X_X             | Coutner of 4XX status |
-| ALL4_X_X             | Coutner of 5XX status |
+| ALL5_X_X             | Coutner of 5XX status |
 

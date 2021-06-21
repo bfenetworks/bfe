@@ -46,35 +46,35 @@ func TestAcceptHandler_1(t *testing.T) {
 	// case 1: ip addr is trusted
 	s.RemoteAddr.IP = net_util.ParseIPv4("119.75.215.1")
 	m.acceptHandler(&s)
-	if !s.IsTrustIP {
+	if !s.TrustSource() {
 		t.Error("119.75.215.1 should be trusted")
 	}
 
 	// case 2: ip addr is not trusted
 	s.RemoteAddr.IP = net_util.ParseIPv4("119.76.215.1")
 	m.acceptHandler(&s)
-	if s.IsTrustIP {
+	if s.TrustSource() {
 		t.Error("119.76.215.1 should not be trusted")
 	}
 
 	// case 3: ip addr is trusted
 	s.RemoteAddr.IP = net_util.ParseIPv4("127.0.0.1")
 	m.acceptHandler(&s)
-	if !s.IsTrustIP {
+	if !s.TrustSource() {
 		t.Error("127.0.0.1 should be trusted")
 	}
 
 	// case 4: ip addr is trusted
 	s.RemoteAddr.IP = net.ParseIP("::1")
 	m.acceptHandler(&s)
-	if !s.IsTrustIP {
+	if !s.TrustSource() {
 		t.Error("::1 should be trusted")
 	}
 
 	// case 5: ip addr is not trusted
 	s.RemoteAddr.IP = net.ParseIP("1::")
 	m.acceptHandler(&s)
-	if s.IsTrustIP {
+	if s.TrustSource() {
 		t.Error("1:: should not be trusted")
 	}
 

@@ -15,12 +15,15 @@ conf/mod_key_log/mod_key_log.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
+| Log.LogFile | String<br>Set file path of log for saving to a single file without rotation |
 | Log.LogPrefix | String<br>Filename prefix for log |
 | Log.LogDir | String<br>Directory of log files |
 | Log.RotateWhen | String<br>Inteval to rotate log file |
 | Log.BackupCount | Integer<br>Max number of rotated log files |
 
 ### Example
+
+#### Save log to a directory
 ```ini
 [Log]
 # filename prefix for log 
@@ -38,4 +41,9 @@ RotateWhen = H
 # max number of rotated log files
 BackupCount = 3
 ```
-
+#### Output log to stdout
+```ini
+[Log]
+# filename prefix for log 
+LogFile = /dev/stdout
+```

@@ -51,6 +51,9 @@ func (cfg *ConfigSessionCache) SetDefaultConf() {
 }
 
 func (cfg *ConfigSessionCache) Check(confRoot string) error {
+	if cfg.SessionCacheDisabled {
+		return nil
+	}
 	return ConfSessionCacheCheck(cfg, confRoot)
 }
 

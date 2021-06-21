@@ -5,7 +5,7 @@
 
 * Parameters
 
-| Parameter | Descrption |
+| Parameter | Description |
 | --------- | ---------- |
 | codes | String<br>a list of codes which are concatenated using &#124; |
 

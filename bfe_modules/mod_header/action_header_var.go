@@ -59,16 +59,20 @@ var VariableHandlers = map[string]HeaderValueHandler{
 	"bfe_backend_info": getBfeBackendInfo,
 
 	// for tls
-	"bfe_ssl_resume":                   getBfeSslResume,
-	"bfe_ssl_cipher":                   getBfeSslCipher,
-	"bfe_ssl_version":                  getBfeSslVersion,
-	"bfe_ssl_ja3_raw":                  getBfeSslJa3Raw,
-	"bfe_ssl_ja3_hash":                 getBfeSslJa3Hash,
-	"bfe_protocol":                     getBfeProtocol,
-	"client_cert_serial_number":        getClientCertSerialNumber,
-	"client_cert_subject_title":        getClientCertSubjectTitle,
-	"client_cert_subject_common_name":  getClientCertSubjectCommonName,
-	"client_cert_subject_organization": getClientCertSubjectOrganization,
+	"bfe_ssl_resume":                          getBfeSslResume,
+	"bfe_ssl_cipher":                          getBfeSslCipher,
+	"bfe_ssl_version":                         getBfeSslVersion,
+	"bfe_ssl_ja3_raw":                         getBfeSslJa3Raw,
+	"bfe_ssl_ja3_hash":                        getBfeSslJa3Hash,
+	"bfe_protocol":                            getBfeProtocol,
+	"client_cert_serial_number":               getClientCertSerialNumber,
+	"client_cert_subject_title":               getClientCertSubjectTitle,
+	"client_cert_subject_common_name":         getClientCertSubjectCommonName,
+	"client_cert_subject_organization":        getClientCertSubjectOrganization,
+	"client_cert_subject_organizational_unit": getClientCertSubjectOrganizationalUnit,
+	"client_cert_subject_province":            getClientCertSubjectProvince,
+	"client_cert_subject_country":             getClientCertSubjectCountry,
+	"client_cert_subject_locality":            getClientCertSubjectLocality,
 
 	// for geo
 	"bfe_client_geo_country_iso_code":     getClientGeoCountryIsoCode,
@@ -276,6 +280,54 @@ func getClientCertSubjectOrganization(req *bfe_basic.Request) string {
 
 	if len(clientCert.Subject.Organization) > 0 {
 		return clientCert.Subject.Organization[0]
+	}
+	return ""
+}
+
+func getClientCertSubjectOrganizationalUnit(req *bfe_basic.Request) string {
+	clientCert := getClientCert(req)
+	if clientCert == nil {
+		return ""
+	}
+
+	if len(clientCert.Subject.OrganizationalUnit) > 0 {
+		return clientCert.Subject.OrganizationalUnit[0]
+	}
+	return ""
+}
+
+func getClientCertSubjectProvince(req *bfe_basic.Request) string {
+	clientCert := getClientCert(req)
+	if clientCert == nil {
+		return ""
+	}
+
+	if len(clientCert.Subject.Province) > 0 {
+		return clientCert.Subject.Province[0]
+	}
+	return ""
+}
+
+func getClientCertSubjectCountry(req *bfe_basic.Request) string {
+	clientCert := getClientCert(req)
+	if clientCert == nil {
+		return ""
+	}
+
+	if len(clientCert.Subject.Country) > 0 {
+		return clientCert.Subject.Country[0]
+	}
+	return ""
+}
+
+func getClientCertSubjectLocality(req *bfe_basic.Request) string {
+	clientCert := getClientCert(req)
+	if clientCert == nil {
+		return ""
+	}
+
+	if len(clientCert.Subject.Locality) > 0 {
+		return clientCert.Subject.Locality[0]
 	}
 	return ""
 }

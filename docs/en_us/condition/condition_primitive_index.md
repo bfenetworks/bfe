@@ -50,4 +50,5 @@
 
 ## System Primitive
  * bfe_time_range(start_time, end_time)
+ * bfe_periodic_time_range(start_time, end_time, period)
 
