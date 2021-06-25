@@ -108,7 +108,7 @@ func (s *ServerDataConf) clusterTableLoad(clusterConf string) error {
 
 func (s *ServerDataConf) check() error {
 	// check product consistency in host and route
-	for product1 := range s.HostTable.productRouteTable {
+	for product1 := range s.HostTable.productAdvancedRouteTable {
 		find := false
 		for _, product2 := range s.HostTable.hostTagTable {
 			if product1 == product2 {
@@ -121,11 +121,34 @@ func (s *ServerDataConf) check() error {
 		}
 	}
 
-	// check cluster_name consistency in route and cluster_conf
-	for _, routeRules := range s.HostTable.productRouteTable {
+	for product1 := range s.HostTable.productBasicRouteTree {
+		find := false
+		for _, product2 := range s.HostTable.hostTagTable {
+			if product1 == product2 {
+				find = true
+				break
+			}
+		}
+		if !find {
+			return fmt.Errorf("product[%s] in route should exist in host!", product1)
+		}
+	}
+
+	// check cluster_name of advanced rule in route and cluster_conf
+	for _, routeRules := range s.HostTable.productAdvancedRouteTable {
 		for _, routeRule := range routeRules {
 			if _, err := s.ClusterTable.Lookup(routeRule.ClusterName); err != nil {
-				return fmt.Errorf("cluster[%s] in route should exist in cluster_conf",
+				return fmt.Errorf("cluster[%s] in advanced route should exist in cluster_conf",
+					routeRule.ClusterName)
+			}
+		}
+	}
+
+	// check cluster_name of basic rule table in route and cluster_conf
+	for _, routeRules := range s.HostTable.productBasicRouteTable {
+		for _, routeRule := range routeRules {
+			if _, err := s.ClusterTable.Lookup(routeRule.ClusterName); err != nil {
+				return fmt.Errorf("cluster[%s] in basic route should exist in cluster_conf",
 					routeRule.ClusterName)
 			}
 		}

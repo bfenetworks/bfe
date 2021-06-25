@@ -1,0 +1,20 @@
+{
+    "Version": "685",
+    "BasicRule":{
+  		"example_product" : [
+			{
+				"ClusterName": "cluster_example_1"
+			},
+			{
+				"Hostname": ["www.foo.com",""],
+				"Path":["/a","/b"],
+				"ClusterName": "cluster_example_2"
+			},
+			{
+				"Hostname": ["","www.ddd.com"],
+				"Path":["/a","/b"],
+				"ClusterName": "ADVANCED_MODE"
+			}
+		]
+    }
+}

@@ -26,9 +26,83 @@ func TestLoad(t *testing.T) {
 	rt, err := RouteConfLoad(fn)
 	if err != nil {
 		t.Errorf("route conf load error %s", err)
+		return
 	}
 
-	if len(rt.RuleMap["product-b"]) != 2 {
-		t.Errorf("product-2 condition len is not 2")
+	if len(rt.AdvancedRuleMap["product-b"]) != 2 {
+		t.Errorf("product-b condition len is not 2")
+	}
+}
+func TestLoad1(t *testing.T) {
+	pwd, _ := os.Getwd()
+	fn := fmt.Sprintf("%s/testdata/basic_route_rule1.data", pwd)
+	rt, err := RouteConfLoad(fn)
+	if err != nil {
+		t.Errorf("route conf load error %s", err)
+		return
+	}
+
+	if len(rt.BasicRuleMap["example_product"]) != 3 {
+		t.Errorf("example_product rule number is not 3")
+	}
+}
+func TestLoad2(t *testing.T) {
+	pwd, _ := os.Getwd()
+	fn := fmt.Sprintf("%s/testdata/basic_route_rule2.data", pwd)
+	_, err := RouteConfLoad(fn)
+	if err == nil {
+		t.Errorf("route conf load should failed")
+	}
+
+}
+
+func TestLoad3(t *testing.T) {
+	pwd, _ := os.Getwd()
+	fn := fmt.Sprintf("%s/testdata/basic_route_rule3.data", pwd)
+	rt, err := RouteConfLoad(fn)
+	if err != nil {
+		t.Errorf("route conf load error %s", err)
+		return
+	}
+
+	if len(rt.BasicRuleMap["example_product"]) != 3 {
+		t.Errorf("example_product len is not 3")
+	}
+
+}
+
+func TestLoad4(t *testing.T) {
+	pwd, _ := os.Getwd()
+	fn := fmt.Sprintf("%s/testdata/basic_route_rule4.data", pwd)
+	_, err := RouteConfLoad(fn)
+	if err == nil {
+		t.Errorf("route conf load should fail ")
+	}
+}
+
+func TestLoad5(t *testing.T) {
+	pwd, _ := os.Getwd()
+	fn := fmt.Sprintf("%s/testdata/basic_route_rule5.data", pwd)
+	_, err := RouteConfLoad(fn)
+	if err == nil {
+		t.Errorf("route conf load should fail")
+	}
+}
+
+func TestLoad6(t *testing.T) {
+	pwd, _ := os.Getwd()
+	fn := fmt.Sprintf("%s/testdata/basic_route_rule6.data", pwd)
+	_, err := RouteConfLoad(fn)
+	if err == nil {
+		t.Errorf("route conf load should fail")
+	}
+}
+
+func TestLoad7(t *testing.T) {
+	pwd, _ := os.Getwd()
+	fn := fmt.Sprintf("%s/testdata/basic_route_rule7.data", pwd)
+	_, err := RouteConfLoad(fn)
+	if err == nil {
+		t.Errorf("route conf load should fail")
 	}
 }
