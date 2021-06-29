@@ -42,7 +42,7 @@ type ConfigBasic struct {
 	HttpsPort   int // listen port for https
 	MonitorPort int // web server port for monitor
 	MaxCpus     int // number of max cpus to use
-	AcceptNum   int // number of accept groutine for each listenr, default 1
+	AcceptNum   int // number of accept goroutine for each listener, default 1
 
 	// settings of layer-4 load balancer
 	Layer4LoadBalancer string
