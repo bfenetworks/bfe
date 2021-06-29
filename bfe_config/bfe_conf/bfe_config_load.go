@@ -18,12 +18,6 @@ import (
 	gcfg "gopkg.in/gcfg.v1"
 )
 
-//SubConf is an interface implemented by BfeConfig.Server etc
-type SubConf interface {
-	SetDefaultConf()
-	Check(string) error
-}
-
 type BfeConfig struct {
 	// basic server config
 	Server ConfigBasic
@@ -39,10 +33,10 @@ type BfeConfig struct {
 }
 
 func SetDefaultConf(conf *BfeConfig) {
-	setDefaultConf(&conf.Server)
-	setDefaultConf(&conf.HttpsBasic)
-	setDefaultConf(&conf.SessionCache)
-	setDefaultConf(&conf.SessionTicket)
+	conf.Server.SetDefaultConf()
+	conf.HttpsBasic.SetDefaultConf()
+	conf.SessionCache.SetDefaultConf()
+	conf.SessionTicket.SetDefaultConf()
 }
 
 // BfeConfigLoad loads config from config file.
@@ -59,31 +53,21 @@ func BfeConfigLoad(filePath string, confRoot string) (BfeConfig, error) {
 		return cfg, err
 	}
 
-	if err = check(&cfg.Server, confRoot); err != nil {
+	if err = cfg.Server.Check(confRoot); err != nil {
 		return cfg, err
 	}
 
-	if err = check(&cfg.HttpsBasic, confRoot); err != nil {
+	if err = cfg.HttpsBasic.Check(confRoot); err != nil {
 		return cfg, err
 	}
 
-	if err = check(&cfg.SessionCache, confRoot); err != nil {
+	if err = cfg.SessionCache.Check(confRoot); err != nil {
 		return cfg, err
 	}
 
-	if err = check(&cfg.SessionTicket, confRoot); err != nil {
+	if err = cfg.SessionTicket.Check(confRoot); err != nil {
 		return cfg, err
 	}
 
 	return cfg, nil
-}
-
-//check wraps as func so it can call  SubConf Check func
-func check(sc SubConf, confRoot string) error {
-	return sc.Check(confRoot)
-}
-
-//setDefaultConf wraps as func so it can call  SubConf setDefaultConf func
-func setDefaultConf(sc SubConf) {
-	sc.SetDefaultConf()
 }
