@@ -47,13 +47,23 @@ type ClusterBackend map[string]SubClusterBackend
 type AllClusterBackend map[string]ClusterBackend
 
 func (s SubClusterBackend) Len() int { return len(s) }
+
 func (s SubClusterBackend) Less(i, j int) bool {
 	if *s[i].Addr != *s[j].Addr {
 		return *s[i].Addr < *s[j].Addr
 	}
 
-	return *s[i].Port < *s[j].Port
+	if *s[i].Port != *s[j].Port {
+		return *s[i].Port < *s[j].Port
+	}
+
+	if *s[i].Weight != *s[j].Weight {
+		return *s[i].Weight < *s[j].Weight
+	}
+
+	return *s[i].Name < *s[j].Name
 }
+
 func (s SubClusterBackend) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
 // Sort sorted backends by addr and port
