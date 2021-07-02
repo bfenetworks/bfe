@@ -82,7 +82,7 @@ type _addr6 struct {
 //
 // Note: binary header format:
 // - Signature [1~12]
-// - Version and Commannd [13]
+// - Version and Command [13]
 // - Protocol and Address Family [14]
 // - Address Length [15]
 // - Additional TLVs [optional]
