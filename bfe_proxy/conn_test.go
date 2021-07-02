@@ -241,7 +241,7 @@ func checkAddrEqual(a, b net.Addr) bool {
 
 func checkError(t *testing.T, errWant string, errGot error) {
 	if len(errWant) == 0 && errGot != nil {
-		t.Errorf("Unexpect error: %v", errGot)
+		t.Errorf("Unexpected error: %v", errGot)
 		return
 	}
 	if len(errWant) > 0 && errGot == nil {
