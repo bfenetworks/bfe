@@ -52,7 +52,7 @@ func TestNewBfeCallbacks(t *testing.T) {
 	assert.Len(t, bcb.callbacks, 9)
 }
 
-func TestBfeCallbacks_AddFilter(t *testing.T) {
+func TestBfeCallbacksAddFilter(t *testing.T) {
 	bcb := NewBfeCallbacks()
 	var err error
 	assert.NotNil(t, bcb)
@@ -94,7 +94,7 @@ func TestBfeCallbacks_AddFilter(t *testing.T) {
 
 }
 
-func TestBfeCallbacks_GetHandlerList(t *testing.T) {
+func TestBfeCallbacksGetHandlerList(t *testing.T) {
 	bcb := NewBfeCallbacks()
 	assert.NotNil(t, bcb)
 	assert.Nil(t, bcb.GetHandlerList(-1))
@@ -102,7 +102,7 @@ func TestBfeCallbacks_GetHandlerList(t *testing.T) {
 
 }
 
-func TestBfeCallbacks_ModuleHandlersGetJSON(t *testing.T) {
+func TestBfeCallbacksModuleHandlersGetJSON(t *testing.T) {
 	bcb := NewBfeCallbacks()
 	assert.NotNil(t, bcb)
 	_, err := bcb.ModuleHandlersGetJSON()
