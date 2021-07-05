@@ -43,7 +43,7 @@ type HostTable struct {
 
 	hostTable      host_rule_conf.Host2HostTag    // for get host-tag
 	hostTagTable   host_rule_conf.HostTag2Product // for get product name by hostname
-	vipTable       vip_rule_conf.Vip2Product      // for get proudct name by vip (backup)
+	vipTable       vip_rule_conf.Vip2Product      // for get product name by vip (backup)
 	defaultProduct string                         // default product name
 
 	hostTrie *trie.Trie
