@@ -29,12 +29,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/baidu/go-lib/log"
 	"golang.org/x/net/http2"
+)
 
+import (
 	bfe_cluster_backend "github.com/bfenetworks/bfe/bfe_balance/backend"
-
 	bal_gslb "github.com/bfenetworks/bfe/bfe_balance/bal_gslb"
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
@@ -182,12 +185,8 @@ func (p *ReverseProxy) getTransport(cluster *bfe_cluster.BfeCluster) bfe_http.Ro
 	p.tsMu.RUnlock()
 
 	if !ok {
-		p.tsMu.Lock()
-		if transport, ok = p.transports[cluster.Name]; ok {
-			p.tsMu.Unlock()
-			return transport
-		}
 		transport = createTransport(cluster)
+		p.tsMu.Lock()
 		p.transports[cluster.Name] = transport
 		p.tsMu.Unlock()
 	}
