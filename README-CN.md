@@ -45,7 +45,7 @@ BFE是百度开源的现代化七层负载均衡系统
 ## 社区交流
 - [开源BFE用户论坛](https://github.com/bfenetworks/bfe/discussions)
 
-- **开源BFE微信公众号**及**BFE开源用户社区**，请微信扫码关注加入
+- **开源BFE微信公众号**及**开源BFE用户微信群**，请微信扫码关注加入
 <table>
 <tr>
 <td><img src="./picture/qrcode_for_gh.jpg" width="100"></td>
@@ -53,7 +53,7 @@ BFE是百度开源的现代化七层负载均衡系统
 </tr>
 </table>
 
-- **开源BFE微信开发者群**: [发送邮件](mailto:yangsijie@baidu.com)说明您的微信号及贡献(例如PR/Issue)，我们将及时邀请您加入
+- **开源BFE开发者微信群**: [发送邮件](mailto:yangsijie@baidu.com)说明您的微信号及贡献(例如PR/Issue)，我们将及时邀请您加入
 
 ## 许可
 BFE基于Apache 2.0许可证，详见[LICENSE](LICENSE)文件说明
