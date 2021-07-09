@@ -45,17 +45,13 @@ BFE是百度开源的现代化七层负载均衡系统
 ## 社区交流
 - [BFE用户论坛](https://github.com/bfenetworks/bfe/discussions)
 
-- BFE开源项目微信公众号：请微信扫码关注公众号“BFE开源项目”，后续项目的信息将通过这个公众号定期发布
+- BFE开源项目微信公众号及BFE开源用户社区，请微信扫码关注或加入
 
   ![](picture/qrcode_for_gh.jpg)
 
-
-
-- BFE社区微信交流群：请微信扫描以下群二维码，加入BFE社区交流群
-
   ![](https://bfeopensource.bj.bcebos.com/wechatQRCode.png)
 
-  若二维码失效，请[发送邮件](mailto:songjian13@baidu.com)说明您的微信号及贡献(例如PR/Issue)或使用需求，我们将及时邀请您加入
+- BFE微信开发者群: [发送邮件](mailto:yangsijie@baidu.com)说明您的微信号及贡献(例如PR/Issue)，我们将及时邀请您加入
 
 ## 许可
 BFE基于Apache 2.0许可证，详见[LICENSE](LICENSE)文件说明
