@@ -28,27 +28,24 @@ import (
 func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	// set all available modules
 	bfe_modules.SetModules()
-
+	var err error
 	// create bfe server
 	bfeServer := NewBfeServer(cfg, confRoot, version)
 
 	// initial http
-	err := bfeServer.InitHttp()
-	if err != nil {
+	if err = bfeServer.InitHttp(); err != nil {
 		log.Logger.Error("StartUp(): InitHttp():%s", err.Error())
 		return err
 	}
 
 	// initial https
-	err = bfeServer.InitHttps()
-	if err != nil {
+	if err = bfeServer.InitHttps(); err != nil {
 		log.Logger.Error("StartUp(): InitHttps():%s", err.Error())
 		return err
 	}
 
 	// load data
-	err = bfeServer.InitDataLoad()
-	if err != nil {
+	if err = bfeServer.InitDataLoad(); err != nil {
 		log.Logger.Error("StartUp(): bfeServer.InitDataLoad():%s",
 			err.Error())
 		return err
@@ -61,22 +58,19 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 
 	// init web monitor
 	monitorPort := cfg.Server.MonitorPort
-	err = bfeServer.InitWebMonitor(monitorPort)
-	if err != nil {
+	if err = bfeServer.InitWebMonitor(monitorPort); err != nil {
 		log.Logger.Error("StartUp(): InitWebMonitor():%s", err.Error())
 		return err
 	}
 
 	// register modules
-	err = bfeServer.RegisterModules(cfg.Server.Modules)
-	if err != nil {
+	if err = bfeServer.RegisterModules(cfg.Server.Modules); err != nil {
 		log.Logger.Error("StartUp(): RegisterModules():%s", err.Error())
 		return err
 	}
 
 	// initialize modules
-	err = bfeServer.InitModules()
-	if err != nil {
+	if err = bfeServer.InitModules(); err != nil {
 		log.Logger.Error("StartUp(): bfeServer.InitModules():%s",
 			err.Error())
 		return err
@@ -84,15 +78,13 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	log.Logger.Info("StartUp():bfeServer.InitModules() OK")
 
 	// load plugins
-	err = bfeServer.LoadPlugins(cfg.Server.Plugins)
-	if err != nil {
+	if err = bfeServer.LoadPlugins(cfg.Server.Plugins); err != nil {
 		log.Logger.Error("StartUp():bfeServer.LoadPlugins():%s", err.Error())
 		return err
 	}
 
 	// initialize plugins
-	err = bfeServer.InitPlugins()
-	if err != nil {
+	if err = bfeServer.InitPlugins(); err != nil {
 		log.Logger.Error("StartUp():bfeServer.InitPlugins():%s",
 			err.Error())
 		return err
@@ -100,8 +92,7 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	log.Logger.Info("StartUp():bfeServer.InitPlugins() OK")
 
 	// initialize listeners
-	err = bfeServer.InitListeners(cfg)
-	if err != nil {
+	if err = bfeServer.InitListeners(cfg); err != nil {
 		log.Logger.Error("StartUp(): InitListeners():%v", err)
 		return err
 	}
