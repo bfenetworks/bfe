@@ -34,7 +34,11 @@ BFE是百度开源的现代化七层负载均衡系统
 
 ## 书籍
 
-- [《深入理解BFE》](https://github.com/baidu/bfe-book)
+- [《深入理解BFE》 免费全文阅读](https://github.com/baidu/bfe-book) 
+
+  本书介绍网络接入的相关技术原理、BFE的设计思想和使用，适合想了解、使用BFE的读者，也可供向BFE贡献代码的开发者参考。
+
+  本书采用[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh)许可，稿酬将用于BFE开源社区建设。
 
 ## 参与贡献
 
