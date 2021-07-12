@@ -26,9 +26,11 @@ import (
 )
 
 func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
+	var err error
+
 	// set all available modules
 	bfe_modules.SetModules()
-	var err error
+
 	// create bfe server
 	bfeServer := NewBfeServer(cfg, confRoot, version)
 
