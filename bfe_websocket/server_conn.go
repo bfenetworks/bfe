@@ -39,7 +39,7 @@ type serverConn struct {
 	srv           *Server             // server config for websocket proxy
 	hs            *http.Server        // server config for http
 	req           *http.Request       // handshake request
-	rw            http.ResponseWriter // for hanshake response
+	rw            http.ResponseWriter // for handshake response
 	cconn         net.Conn            // underlying conn to client
 	bconn         net.Conn            // underlying conn to backend
 	bbr           *bufio.Reader       // buffer reader to backend
