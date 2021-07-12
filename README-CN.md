@@ -32,7 +32,12 @@ BFE是百度开源的现代化七层负载均衡系统
 - [英文版](https://www.bfe-networks.net/en_us/ABOUT/)
 - [中文版](https://www.bfe-networks.net/zh_cn/ABOUT/)
 
+## 书籍
+
+- [《深入理解BFE》](https://github.com/baidu/bfe-book) ：介绍网络接入的相关技术原理，说明BFE的设计思想，以及如何基于BFE搭建现代化的网络接入平台。现已开放全文阅读。
+
 ## 参与贡献
+
 - 请首先在[issue列表](http://github.com/bfenetworks/bfe/issues)中创建一个issue
 - 如有必要，请联系项目维护者/负责人进行进一步讨论
 - 请遵循golang编程规范
@@ -45,13 +50,21 @@ BFE是百度开源的现代化七层负载均衡系统
 ## 社区交流
 - [开源BFE用户论坛](https://github.com/bfenetworks/bfe/discussions)
 
-- **开源BFE微信公众号**及**开源BFE用户微信群**，请微信扫码关注加入
-<table>
-<tr>
-<td><img src="./picture/qrcode_for_gh.jpg" width="100"></td>
-<td><img src="https://bfeopensource.bj.bcebos.com/wechatQRCode.png" width="100"></td>
-</tr>
-</table>
+- **开源BFE微信公众号**：扫码关注公众号“BFE开源项目”，及时获取项目最新信息和技术分享
+
+  <table>
+  <tr>
+  <td><img src="./docs/images/qrcode_for_gh.jpg" width="100"></td>
+  </tr>
+  </table>
+
+- **开源BFE用户微信群**：扫码加入，探讨和分享对BFE的建议、使用心得、疑问等
+
+  <table>
+  <tr>
+  <td><img src="https://bfeopensource.bj.bcebos.com/wechatQRCode.png" width="100"></td>
+  </tr>
+  </table>
 
 - **开源BFE开发者微信群**: [发送邮件](mailto:yangsijie@baidu.com)说明您的微信号及贡献(例如PR/Issue)，我们将及时邀请您加入
 
