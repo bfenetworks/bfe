@@ -74,6 +74,19 @@ const (
 	statusNetworkAuthenticationRequired = 511
 )
 
+//Common HTTP methods,Unless otherwise noted, these are defined in RFC 7231 section 4.3.
+const (
+	MethodGet     = "GET"
+	MethodHead    = "HEAD"
+	MethodPost    = "POST"
+	MethodPut     = "PUT"
+	MethodPatch   = "PATCH" // RFC 5789
+	MethodDelete  = "DELETE"
+	MethodConnect = "CONNECT"
+	MethodOptions = "OPTIONS"
+	MethodTrace   = "TRACE"
+)
+
 var StatusText = map[int]string{
 	StatusContinue:           "Continue",
 	StatusSwitchingProtocols: "Switching Protocols",
