@@ -28,5 +28,15 @@ Some of our users include:
 
 * [360](https://www.so.com)
 
+* [国家电网](http://www.sx.sgcc.com.cn)
+
+* [华润润联科技](https://www.crresolink.com.cn)
+
+* [海尔集团](https://www.haier.com/cn/)
+
+* [亿联银行](https://www.yillionbank.com/)
+
+* [中国科学技术大学](https://www.ustc.edu.cn/)
+
   
 
