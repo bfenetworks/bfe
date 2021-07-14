@@ -59,7 +59,7 @@ var respTests = []respTest{
 			Proto:      "HTTP/1.0",
 			ProtoMajor: 1,
 			ProtoMinor: 0,
-			Request:    dummyReq("GET"),
+			Request:    dummyReq(MethodGet),
 			Header: Header{
 				"Connection": {"close"}, // TODO(rsc): Delete?
 			},
@@ -84,7 +84,7 @@ var respTests = []respTest{
 			ProtoMajor:    1,
 			ProtoMinor:    1,
 			Header:        Header{},
-			Request:       dummyReq("GET"),
+			Request:       dummyReq(MethodGet),
 			Close:         true,
 			ContentLength: -1,
 		},
@@ -105,7 +105,7 @@ var respTests = []respTest{
 			ProtoMajor:    1,
 			ProtoMinor:    1,
 			Header:        Header{},
-			Request:       dummyReq("GET"),
+			Request:       dummyReq(MethodGet),
 			Close:         false,
 			ContentLength: 0,
 		},
@@ -127,7 +127,7 @@ var respTests = []respTest{
 			Proto:      "HTTP/1.0",
 			ProtoMajor: 1,
 			ProtoMinor: 0,
-			Request:    dummyReq("GET"),
+			Request:    dummyReq(MethodGet),
 			Header: Header{
 				"Connection":     {"close"},
 				"Content-Length": {"10"},
@@ -157,7 +157,7 @@ var respTests = []respTest{
 			Proto:            "HTTP/1.1",
 			ProtoMajor:       1,
 			ProtoMinor:       1,
-			Request:          dummyReq("GET"),
+			Request:          dummyReq(MethodGet),
 			Header:           Header{},
 			Close:            false,
 			ContentLength:    -1,
@@ -184,7 +184,7 @@ var respTests = []respTest{
 			Proto:            "HTTP/1.1",
 			ProtoMajor:       1,
 			ProtoMinor:       1,
-			Request:          dummyReq("GET"),
+			Request:          dummyReq(MethodGet),
 			Header:           Header{},
 			Close:            false,
 			ContentLength:    -1,
@@ -206,7 +206,7 @@ var respTests = []respTest{
 			Proto:            "HTTP/1.1",
 			ProtoMajor:       1,
 			ProtoMinor:       1,
-			Request:          dummyReq("HEAD"),
+			Request:          dummyReq(MethodHead),
 			Header:           Header{},
 			TransferEncoding: []string{"chunked"},
 			Close:            false,
@@ -228,7 +228,7 @@ var respTests = []respTest{
 			Proto:            "HTTP/1.0",
 			ProtoMajor:       1,
 			ProtoMinor:       0,
-			Request:          dummyReq("HEAD"),
+			Request:          dummyReq(MethodHead),
 			Header:           Header{"Content-Length": {"256"}},
 			TransferEncoding: nil,
 			Close:            true,
@@ -250,7 +250,7 @@ var respTests = []respTest{
 			Proto:            "HTTP/1.1",
 			ProtoMajor:       1,
 			ProtoMinor:       1,
-			Request:          dummyReq("HEAD"),
+			Request:          dummyReq(MethodHead),
 			Header:           Header{"Content-Length": {"256"}},
 			TransferEncoding: nil,
 			Close:            false,
@@ -271,7 +271,7 @@ var respTests = []respTest{
 			Proto:            "HTTP/1.0",
 			ProtoMajor:       1,
 			ProtoMinor:       0,
-			Request:          dummyReq("HEAD"),
+			Request:          dummyReq(MethodHead),
 			Header:           Header{},
 			TransferEncoding: nil,
 			Close:            true,
@@ -293,7 +293,7 @@ var respTests = []respTest{
 			Proto:      "HTTP/1.1",
 			ProtoMajor: 1,
 			ProtoMinor: 1,
-			Request:    dummyReq("GET"),
+			Request:    dummyReq(MethodGet),
 			Header: Header{
 				"Content-Length": {"0"},
 			},
@@ -314,7 +314,7 @@ var respTests = []respTest{
 			Proto:         "HTTP/1.0",
 			ProtoMajor:    1,
 			ProtoMinor:    0,
-			Request:       dummyReq("GET"),
+			Request:       dummyReq(MethodGet),
 			Header:        Header{},
 			Close:         true,
 			ContentLength: -1,
@@ -333,7 +333,7 @@ var respTests = []respTest{
 			Proto:         "HTTP/1.0",
 			ProtoMajor:    1,
 			ProtoMinor:    0,
-			Request:       dummyReq("GET"),
+			Request:       dummyReq(MethodGet),
 			Header:        Header{},
 			Close:         true,
 			ContentLength: -1,
@@ -355,7 +355,7 @@ some body`,
 			Proto:      "HTTP/1.1",
 			ProtoMajor: 1,
 			ProtoMinor: 1,
-			Request:    dummyReq("GET"),
+			Request:    dummyReq(MethodGet),
 			Header: Header{
 				"Content-Type": []string{"multipart/byteranges; boundary=18a75608c8f47cef"},
 			},
@@ -491,7 +491,7 @@ func TestReadResponseCloseInMiddle(t *testing.T) {
 		buf.WriteString("Next Request Here")
 
 		bufr := bfe_bufio.NewReader(&buf)
-		resp, err := ReadResponse(bufr, dummyReq("GET"))
+		resp, err := ReadResponse(bufr, dummyReq(MethodGet))
 		checkErr(err, "ReadResponse")
 		expectedLength := int64(-1)
 		if !test.chunked {
@@ -612,7 +612,7 @@ func TestResponseContentLengthShortBody(t *testing.T) {
 		"Content-Length: 123\r\n" +
 		"\r\n" +
 		shortBody))
-	res, err := ReadResponse(br, &Request{Method: "GET"})
+	res, err := ReadResponse(br, &Request{Method: MethodGet})
 	if err != nil {
 		t.Fatal(err)
 	}
