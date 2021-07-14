@@ -12,7 +12,11 @@ Some of our users include:
 
 * [Duxiaoman Financial](https://www.duxiaoman.com)
 
+* [Haier](https://www.haier.com)
+
 * [Postal Savings Bank of China](https://www.psbc.com)
+
+* [Resolink](https://www.crresolink.com.cn)
 
 * [Safesoft](http://www.safesoftcorp.com)
 
@@ -22,11 +26,14 @@ Some of our users include:
 
 * [SPD Bank](https://www.spdb.com.cn)
 
+* [State Grid](http://www.sgcc.com.cn)
+
 * [Sunbox](http://www.sunboxsoft.com)
+
+* [USTC](https://www.ustc.edu.cn)
 
 * [Xixuetong](http://www.xixuetong.com)
 
+* [Yillion Bank](https://www.yillionbank.com)
+
 * [360](https://www.so.com)
-
-  
-
