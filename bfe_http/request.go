@@ -224,9 +224,6 @@ type RequestState struct {
 	// this field of first request is 1, second is 2, and so on
 	SerialNumber uint32
 
-	// HeaderSize is the size of the request header.
-	HeaderSize uint32
-
 	// Conn is the connection from which request arrived
 	Conn net.Conn
 
@@ -239,6 +236,9 @@ type RequestState struct {
 
 	// ConnectBackendEnd is the time when got a connection(may got from connection pool)
 	ConnectBackendEnd time.Time
+
+	// HeaderSize is the size of the request header.
+	HeaderSize uint32
 
 	// BodySize is the size of request body.
 	BodySize uint32
