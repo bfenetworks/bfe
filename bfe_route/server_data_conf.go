@@ -147,6 +147,10 @@ func (s *ServerDataConf) check() error {
 	// check cluster_name of basic rule table in route and cluster_conf
 	for _, routeRules := range s.HostTable.productBasicRouteTable {
 		for _, routeRule := range routeRules {
+			if routeRule.ClusterName == route_rule_conf.AdvancedMode {
+				continue
+			}
+
 			if _, err := s.ClusterTable.Lookup(routeRule.ClusterName); err != nil {
 				return fmt.Errorf("cluster[%s] in basic route should exist in cluster_conf",
 					routeRule.ClusterName)
