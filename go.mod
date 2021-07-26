@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/abbot/go-http-auth v0.4.1-0.20181019201920-860ed7f246ff
 	github.com/andybalholm/brotli v1.0.0
-	github.com/armon/go-radix v1.0.0 // indirect
+	github.com/armon/go-radix v1.0.0
 	github.com/asergeyev/nradix v0.0.0-20170505151046-3872ab85bb56 // indirect
 	github.com/baidu/go-lib v0.0.0-20200819072111-21df249f5e6a
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
@@ -27,7 +27,7 @@ require (
 	github.com/uber/jaeger-client-go v2.22.1+incompatible
 	github.com/uber/jaeger-lib v2.2.0+incompatible
 	github.com/zmap/go-iptree v0.0.0-20170831022036-1948b1097e25
-	go.elastic.co/apm v1.7.2
+	go.elastic.co/apm v1.11.0
 	go.elastic.co/apm/module/apmot v1.7.2
 	go.uber.org/atomic v1.6.0 // indirect
 	go.uber.org/automaxprocs v1.4.0
