@@ -12,7 +12,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/json-iterator/go v1.1.10
-	github.com/microcosm-cc/bluemonday v1.0.3
+	github.com/microcosm-cc/bluemonday v1.0.5
 	github.com/miekg/dns v1.1.29
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.4.5
