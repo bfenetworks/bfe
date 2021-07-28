@@ -561,7 +561,7 @@ func (t *Transport) dialConn(cm *connectMethod) (*persistConn, error) {
 		}
 	case cm.targetScheme == "https":
 		connectReq := &Request{
-			Method: "CONNECT",
+			Method: MethodConnect,
 			URL:    &url.URL{Opaque: cm.targetAddr},
 			Host:   cm.targetAddr,
 			Header: make(Header),
@@ -820,7 +820,7 @@ func (pc *persistConn) readLoop() {
 				resp, err = ReadResponse(pc.br, rc.req)
 			}
 		}
-		hasBody := resp != nil && rc.req.Method != "HEAD" && resp.ContentLength != 0
+		hasBody := resp != nil && rc.req.Method != MethodHead && resp.ContentLength != 0
 
 		if err != nil {
 			pc.close()
@@ -977,7 +977,7 @@ func (pc *persistConn) roundTrip(req *transportRequest) (resp *Response, err err
 	// uncompress the gzip stream if we were the layer that
 	// requested it.
 	requestedGzip := false
-	if !pc.t.DisableCompression && req.Header.Get("Accept-Encoding") == "" && req.Method != "HEAD" {
+	if !pc.t.DisableCompression && req.Header.Get("Accept-Encoding") == "" && req.Method != MethodHead {
 		// Request gzip only, not deflate. Deflate is ambiguous and
 		// not as universally supported anyway.
 		// See: http://www.gzip.org/zlib/zlib_faq.html#faq38

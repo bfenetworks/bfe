@@ -27,6 +27,7 @@ GOTEST       := $(GO) test
 GOVET        := $(GO) vet
 GOGET        := $(GO) get
 GOGEN        := $(GO) generate
+GOCLEAN      := $(GO) clean
 GOFLAGS      := -race
 STATICCHECK  := staticcheck
 
@@ -57,7 +58,7 @@ prepare-gen:
 # make compile, go build
 compile: test build
 build:
-	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT)"
+	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT) -extldflags=-static"
 
 # make test, test your code
 test: test-case vet-case

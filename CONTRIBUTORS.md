@@ -16,6 +16,7 @@
 | Hao Dong | anotherwriter |
 | Haobin zhang | zhanghaobin |
 | Hui Yu | dblate |
+| Guangze Song | coopersong |
 | Gen Wang | gracewang510 |
 | Jie Liu | freeHackOfJeff |
 | Jie Wan | wanjiecs |
@@ -38,6 +39,7 @@
 | Qing Liu | liuximu |
 | Qingxin Yang | yangqingxin1993 |
 | Quan Zhang | FriendshipBridge |
+| Renzhang Wang | wangrzneu |
 | Shan Xiao | arlingtonroad |
 | Shengnan Yu | goldfish-fish |
 | Shuai Yan | yanshuai615270 |
@@ -50,6 +52,7 @@
 | Wenlong Chen | LeroChen |
 | Wensi Yang | tianxinheihei | 
 | Xiaofei Yu | xiaofei0800 |
+| Xiaogang Zhang | zhangxiaogang01 |
 | Xiaoli Liu | liuxiaoli007 |
 | Xiaonan chen | two |
 | Xiaoye Jiang | kidleaf-jiang |
@@ -58,6 +61,7 @@
 | Yang Liu | dut-yangliu |
 | Yusheng Sun | wodedipanr |
 | Yuan Liu | lewisay |
+| Yufeng Zhu | zyf0411 |
 | Yuqi Xiao | YuqiXiao |
 | Zheng Liu | liuzheng |
 | Zhichao Lin | lxiaozhic |
@@ -66,9 +70,12 @@
 |          | 0xflotus |
 |          | calify |
 |          | Gii16 |
+|          | lancoLiu |
+|          | mingjliu9 |
 |          | MoonShining |
 |          | odidev |
 |          | pirDOL |
+|          | qloog |
 |          | tianlan2011 |
 |          | u5surf |
 |          | xiaocongwjb |

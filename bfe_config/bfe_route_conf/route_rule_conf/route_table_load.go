@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 import (
@@ -27,52 +28,106 @@ import (
 	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
-// RouteRule is composed by a condition and cluster to serve
-type RouteRule struct {
+const (
+	AdvancedMode = "ADVANCED_MODE"
+)
+
+// BasicRouteRule is for host+path routing
+// [host, path] -> cluster
+type BasicRouteRule struct {
+	Hostname    []string
+	Path        []string
+	ClusterName string
+}
+
+// AdvancedRouteRule is composed by a condition and cluster to serve
+type AdvancedRouteRule struct {
 	Cond        condition.Condition
 	ClusterName string
 }
 
-type RouteRuleFile struct {
+type BasicRouteRuleFile struct {
+	Hostname    []string
+	Path        []string
+	ClusterName *string
+}
+
+type AdvancedRouteRuleFile struct {
 	Cond        *string
 	ClusterName *string
 }
 
-// RouteRules is a list of rule.
-type RouteRules []RouteRule
-type RouteRuleFiles []RouteRuleFile
+type BasicRouteRules []BasicRouteRule
+type AdvancedRouteRules []AdvancedRouteRule
 
-// ProductRouteRule holds mapping from product to rules.
-type ProductRouteRule map[string]RouteRules
-type ProductRouteRuleFile map[string]RouteRuleFiles
+type BasicRouteRuleFiles []BasicRouteRuleFile
+type AdvancedRouteRuleFiles []AdvancedRouteRuleFile
+
+type ProductBasicRouteRule map[string]BasicRouteRules
+type ProductBasicRouteTree map[string]*BasicRouteRuleTree
+type ProductAdvancedRouteRule map[string]AdvancedRouteRules
+
+type ProductAdvancedRouteRuleFile map[string]AdvancedRouteRuleFiles
+type ProductBasicRouteRuleFile map[string]BasicRouteRuleFiles
 
 type RouteTableFile struct {
-	Version     *string               // version of the config
-	ProductRule *ProductRouteRuleFile // product => rules
+	Version *string // version of the config
+
+	// product => rules (basic rule)
+	BasicRule *ProductBasicRouteRuleFile
+
+	// product => rules (advanced rule)
+	ProductRule *ProductAdvancedRouteRuleFile
 }
 
 type RouteTableConf struct {
-	Version string // version of the config
-	RuleMap ProductRouteRule
+	Version         string // version of the config
+	BasicRuleMap    ProductBasicRouteRule
+	BasicRuleTree   ProductBasicRouteTree
+	AdvancedRuleMap ProductAdvancedRouteRule
 }
 
 func convert(fileConf *RouteTableFile) (*RouteTableConf, error) {
-	conf := &RouteTableConf{
-		RuleMap: make(ProductRouteRule),
-	}
-
 	if fileConf.Version == nil {
 		return nil, errors.New("no Version")
 	}
 
-	if fileConf.ProductRule == nil {
+	if fileConf.BasicRule == nil && fileConf.ProductRule == nil {
 		return nil, errors.New("no product rule")
+	}
+
+	// convert basic rule
+	productBasicRules, productRuleTree, err := convertBasicRule(fileConf.BasicRule)
+	if err != nil {
+		return nil, err
+	}
+
+	// convert advanced rule
+	productAdvancedRules, err := convertAdvancedRule(fileConf.ProductRule)
+	if err != nil {
+		return nil, err
+	}
+
+	conf := &RouteTableConf{
+		BasicRuleMap:    productBasicRules,
+		BasicRuleTree:   productRuleTree,
+		AdvancedRuleMap: productAdvancedRules,
 	}
 
 	conf.Version = *fileConf.Version
 
-	for product, ruleFiles := range *fileConf.ProductRule {
-		rules := make(RouteRules, len(ruleFiles))
+	return conf, nil
+}
+
+func convertAdvancedRule(ProductRule *ProductAdvancedRouteRuleFile) (ProductAdvancedRouteRule, error) {
+	productRules := make(ProductAdvancedRouteRule)
+	if ProductRule == nil {
+		return productRules, nil
+	}
+
+	// convert advanced rule
+	for product, ruleFiles := range *ProductRule {
+		rules := make(AdvancedRouteRules, len(ruleFiles))
 		for i, ruleFile := range ruleFiles {
 			if ruleFile.ClusterName == nil {
 				return nil, errors.New("no cluster name")
@@ -90,10 +145,94 @@ func convert(fileConf *RouteTableFile) (*RouteTableConf, error) {
 			rules[i].Cond = cond
 		}
 
-		conf.RuleMap[product] = rules
+		productRules[product] = rules
+	}
+	return productRules, nil
+}
+
+func convertBasicRule(ProductRule *ProductBasicRouteRuleFile) (ProductBasicRouteRule, ProductBasicRouteTree, error) {
+	productRuleMap := make(ProductBasicRouteRule)
+	productRuleTree := make(ProductBasicRouteTree)
+
+	if ProductRule == nil {
+		return productRuleMap, productRuleTree, nil
 	}
 
-	return conf, nil
+	for product, ruleFiles := range *ProductRule {
+		ruleTrees := NewBasicRouteRuleTree()
+		ruleList := make(BasicRouteRules, len(ruleFiles))
+
+		for i, ruleFile := range ruleFiles {
+
+			if ruleFile.ClusterName == nil {
+				return nil, nil, fmt.Errorf("no cluster name in basic route rule for (%s, %d)", product, i)
+			}
+
+			if len(ruleFile.Hostname) == 0 && len(ruleFile.Path) == 0 {
+				return nil, nil, fmt.Errorf("no hostname or path in basic route rule for (%s, %d)", product, i)
+			}
+
+			for _, host := range ruleFile.Hostname {
+				if err := checkHostInBasicRule(host); err != nil {
+					return nil, nil, fmt.Errorf("host[%s] is invalid for (%s, %d), err: %s ", host, product, i, err.Error())
+				}
+			}
+
+			for _, path := range ruleFile.Path {
+				if err := checkPathInBasicRule(path); err != nil {
+					return nil, nil, fmt.Errorf("path[%s] is invalid (%s, %d), err: %s ", path, product, i, err.Error())
+				}
+			}
+
+			ruleList[i].Hostname = ruleFile.Hostname
+			ruleList[i].Path = ruleFile.Path
+			ruleList[i].ClusterName = *ruleFile.ClusterName
+
+			if err := ruleTrees.Insert(&ruleFile); err != nil {
+				return nil, nil, err
+			}
+		}
+		productRuleMap[product] = ruleList
+		productRuleTree[product] = ruleTrees
+	}
+
+	return productRuleMap, productRuleTree, nil
+}
+
+// checkHostInBasicRule verify host's wildcard pattern
+// only one * is allowed, eg: *.foo.com
+func checkHostInBasicRule(host string) error {
+	if host == "" {
+		return errors.New("hostname is nil or empty")
+	}
+
+	if strings.Count(host, "*") > 1 {
+		return errors.New("only one * is allowed in a hostname")
+	}
+
+	if strings.Count(host, "*") == 1 {
+		if host != "*" && !strings.HasPrefix(host, "*.") {
+			return errors.New("format error in wildcard host")
+		}
+	}
+
+	return nil
+}
+
+// checkPathInBasicRule verify path's wildcard pattern
+// only one * at end of path is allowed
+func checkPathInBasicRule(path string) error {
+	if path == "" {
+		return errors.New("path is nil or empty")
+	}
+	if strings.Count(path, "*") > 1 {
+		return errors.New("only one * is allowed in path")
+	}
+
+	if strings.Count(path, "*") == 1 && path[len(path)-1] != '*' {
+		return errors.New("* must appear as last character of path")
+	}
+	return nil
 }
 
 func (conf *RouteTableConf) LoadAndCheck(filename string) (string, error) {

@@ -1,4 +1,4 @@
-# 条件原语索引
+﻿# 条件原语索引
 
 ## 请求相关
  * req_cip_hash_in(value_list)
@@ -50,4 +50,5 @@
 
 ## 系统相关
  * bfe_time_range(start_time, end_time)
+ * bfe_periodic_time_range(start_time, end_time, period)
 

@@ -13,12 +13,15 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
 
 | 配置项                | 描述                                        |
 | ----------------------| ------------------------------------------- |
+| Log.LogFile | String<br>日志文件路径，用来将日志输出到单个文件中（不进行日志切割） |
 | Log.LogPrefix | String<br>日志文件前缀名称 |
 | Log.LogDir | String<br>日志文件目录 |
 | Log.RotateWhen | String<br>日志切割时间，支持 M/H/D/MIDNIGHT/NEXTHOUR |
 | Log.BackupCount | Integer<br>最大的日志存储数量 |
 
 ### 配置示例
+
+#### 将日志保存到指定目录
 ```ini
 [Log]
 # filename prefix for log 
@@ -32,4 +35,10 @@ RotateWhen = H
 
 # max number of rotated log files
 BackupCount = 3
+```
+#### 将日志输出到标准输出
+```ini
+[Log]
+# filename prefix for log 
+LogFile = /dev/stdout
 ```

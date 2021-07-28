@@ -99,7 +99,7 @@ func (bal *BalanceGslb) SetSlowStart(backendConf cluster_conf.BackendBasic) {
 	bal.lock.Unlock()
 }
 
-// Init inializes gslb cluster with config
+// Init initializes gslb cluster with config
 func (bal *BalanceGslb) Init(gslbConf gslb_conf.GslbClusterConf) error {
 	totalWeight := 0
 
@@ -284,6 +284,9 @@ func (bal *BalanceGslb) getHashKey(req *bfe_basic.Request) []byte {
 		if hashKey == nil {
 			hashKey = clientIP
 		}
+
+	case cluster_conf.RequestURI:
+		hashKey = []byte(req.HttpRequest.RequestURI)
 	}
 
 	// if hashKey is empty, use random value

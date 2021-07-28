@@ -27,6 +27,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_route_conf/route_rule_conf"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_route_conf/vip_rule_conf"
 	"github.com/bfenetworks/bfe/bfe_route/trie"
+	"github.com/bfenetworks/bfe/bfe_util/string_reverse"
 )
 
 var (
@@ -42,11 +43,15 @@ type HostTable struct {
 
 	hostTable      host_rule_conf.Host2HostTag    // for get host-tag
 	hostTagTable   host_rule_conf.HostTag2Product // for get product name by hostname
-	vipTable       vip_rule_conf.Vip2Product      // for get proudct name by vip (backup)
+	vipTable       vip_rule_conf.Vip2Product      // for get product name by vip (backup)
 	defaultProduct string                         // default product name
 
-	hostTrie          *trie.Trie
-	productRouteTable route_rule_conf.ProductRouteRule // all product's route rules
+	hostTrie *trie.Trie
+
+	productBasicRouteTable    route_rule_conf.ProductBasicRouteRule    // all product's basic route rules list
+	productBasicRouteTree     route_rule_conf.ProductBasicRouteTree    // all product's basic route rules tree
+	productAdvancedRouteTable route_rule_conf.ProductAdvancedRouteRule // all product's advanced route rules
+
 }
 
 type Versions struct {
@@ -56,10 +61,11 @@ type Versions struct {
 }
 
 type Status struct {
-	HostTableSize         int
-	HostTagTableSize      int
-	VipTableSize          int
-	ProductRouteTableSize int
+	HostTableSize              int
+	HostTagTableSize           int
+	VipTableSize               int
+	ProductRouteTableSize      int
+	ProductBasicRouteTableSize int
 }
 
 type route struct {
@@ -90,7 +96,9 @@ func (t *HostTable) updateVipTable(conf vip_rule_conf.VipConf) {
 // updateRouteTable updates product Route Rule
 func (t *HostTable) updateRouteTable(conf *route_rule_conf.RouteTableConf) {
 	t.versions.ProductRoute = conf.Version
-	t.productRouteTable = conf.RuleMap
+	t.productBasicRouteTree = conf.BasicRuleTree
+	t.productBasicRouteTable = conf.BasicRuleMap
+	t.productAdvancedRouteTable = conf.AdvancedRuleMap
 }
 
 // Update updates host table
@@ -133,8 +141,26 @@ func (t *HostTable) LookupHostTagAndProduct(req *bfe_basic.Request) error {
 func (t *HostTable) LookupCluster(req *bfe_basic.Request) error {
 	var clusterName string
 
-	// get route rules
-	rules, ok := t.productRouteTable[req.Route.Product]
+	// match basic route rules
+	basicRules, ok := t.productBasicRouteTree[req.Route.Product]
+	if ok {
+		host := strings.SplitN(req.HttpRequest.Host, ":", 2)[0]
+
+		path := ""
+		if req.HttpRequest.URL != nil {
+			path = req.HttpRequest.URL.Path
+		}
+
+		clusterName, found := basicRules.Get(host, path)
+		if found && clusterName != route_rule_conf.AdvancedMode {
+			// set clusterName
+			req.Route.ClusterName = clusterName
+			return nil
+		}
+	}
+
+	// match advanced route rules
+	rules, ok := t.productAdvancedRouteTable[req.Route.Product]
 	if !ok {
 		req.Route.ClusterName = ""
 		req.Route.Error = ErrNoProductRule
@@ -215,7 +241,8 @@ func (t *HostTable) GetVersions() Versions {
 // GetStatus return status of host table.
 func (t *HostTable) GetStatus() Status {
 	var s Status
-	s.ProductRouteTableSize = len(t.productRouteTable)
+	s.ProductBasicRouteTableSize = len(t.productBasicRouteTable)
+	s.ProductRouteTableSize = len(t.productAdvancedRouteTable)
 	s.HostTableSize = len(t.hostTable)
 	s.HostTagTableSize = len(t.hostTagTable)
 	s.VipTableSize = len(t.vipTable)
@@ -229,7 +256,7 @@ func (t *HostTable) findHostRoute(host string) (route, error) {
 
 	host = strings.ToLower(host)
 	// get host-tag by hostname
-	match, ok := t.hostTrie.Get(strings.Split(reverseFqdnHost(hostnameStrip(host)), "."))
+	match, ok := t.hostTrie.Get(strings.Split(string_reverse.ReverseFqdnHost(hostnameStrip(host)), "."))
 	if ok {
 		// get route success, return
 		return match.(route), nil
@@ -255,28 +282,13 @@ func hostnameStrip(hostname string) string {
 	return strings.Split(hostname, ":")[0]
 }
 
-// reverseFqdnHost reverse host to make prefix tree smaller.
-// i.e.: www.baidu.com news.baidu.com -> moc.udiab.swen moc.udiab.www will have same prefix
-func reverseFqdnHost(host string) string {
-	r := []rune(host)
-	for i, j := 0, len(r)-1; i < j; i, j = i+1, j-1 {
-		r[i], r[j] = r[j], r[i]
-	}
-
-	if len(r) > 0 && r[0] == '.' {
-		r = r[1:]
-	}
-
-	return string(r)
-}
-
 func buildHostRoute(conf host_rule_conf.HostConf) *trie.Trie {
 	hostTrie := trie.NewTrie()
 
 	for host, tag := range conf.HostMap {
 		host = strings.ToLower(host)
 		product := conf.HostTagMap[tag]
-		hostTrie.Set(strings.Split(reverseFqdnHost(host), "."), route{product: product, tag: tag})
+		hostTrie.Set(strings.Split(string_reverse.ReverseFqdnHost(host), "."), route{product: product, tag: tag})
 	}
 
 	return hostTrie

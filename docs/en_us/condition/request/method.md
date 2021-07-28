@@ -1,7 +1,7 @@
 # Request Method Related Primitives
 
 ## req_method_in(method_list)
-* Descrption: Judge if request method matches configured patterns
+* Description: Judge if request method matches configured patterns
 
 * Parameters
 

@@ -762,8 +762,16 @@ response_got:
 	// we must timeout both conns after specified duration.
 	p.setTimeout(bfe_basic.StageWriteClient, basicReq.Connection, req, timeoutWriteClient)
 	writeTimer = time.AfterFunc(timeoutWriteClient, func() {
-		transport := basicReq.Trans.Transport.(*bfe_http.Transport)
-		transport.CancelRequest(basicReq.OutRequest) // force close connection to backend
+		if basicReq.Trans.Transport != nil {
+			// TODO: process bfe_fcgi.Transport & bfe_http2.Transport
+			switch t := basicReq.Trans.Transport.(type) {
+			case *bfe_http.Transport:
+				t.CancelRequest(req)
+			default:
+				// do nothing
+			}
+		}
+
 	})
 	defer writeTimer.Stop()
 

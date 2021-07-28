@@ -89,7 +89,7 @@ func (m *ModuleLogId) sessionIdHandler(session *bfe_basic.Session) int {
 
 func (m *ModuleLogId) requestIdHandler(req *bfe_basic.Request) (int, *bfe_http.Response) {
 	// check if request comes from trusted ip
-	if req.Session.IsTrustIP {
+	if req.Session.TrustSource() {
 		logId := req.HttpRequest.Header.Get(bfe_basic.HeaderBfeLogId)
 		if logId != "" {
 			return bfe_module.BfeHandlerGoOn, nil

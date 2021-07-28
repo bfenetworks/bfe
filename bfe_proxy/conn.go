@@ -46,7 +46,7 @@ const (
 	//   "The sender must ensure that all the protocol header is sent at once. This block
 	//   is always smaller than an MSS, so there is no reason for it to be segmented at
 	//   the beginning of the connection."
-	defualtMaxProxyHeaderBytes int64 = 2048
+	defaultMaxProxyHeaderBytes int64 = 2048
 
 	// noLimit is an effective infinite upper bound for io.LimitedReader
 	noLimit int64 = (1 << 63) - 1
@@ -74,7 +74,7 @@ func NewConn(conn net.Conn, headerTimeout time.Duration, maxProxyHeaderBytes int
 		headerTimeout = defaultProxyHeaderTimeout
 	}
 	if maxProxyHeaderBytes <= 0 {
-		maxProxyHeaderBytes = defualtMaxProxyHeaderBytes
+		maxProxyHeaderBytes = defaultMaxProxyHeaderBytes
 	}
 
 	pConn := new(Conn)
@@ -167,7 +167,6 @@ func (p *Conn) checkProxyHeaderOnce() {
 	p.once.Do(func() {
 		if err := p.checkProxyHeader(); err != nil {
 			log.Logger.Error("bfe_proxy: Failed to read proxy header: %v", err)
-			p.Close()
 		}
 	})
 }
@@ -188,7 +187,7 @@ func (p *Conn) checkProxyHeader() error {
 		return nil
 	}
 	if err != nil {
-		p.conn.Close()
+		p.Close()
 		p.headerErr = err
 		return err
 	}
@@ -197,14 +196,14 @@ func (p *Conn) checkProxyHeader() error {
 	srcAddr := net.JoinHostPort(hdr.SourceAddress.String(), fmt.Sprintf("%d", hdr.SourcePort))
 	p.srcAddr, err = net.ResolveTCPAddr(hdr.TransportProtocol.String(), srcAddr)
 	if err != nil { /* never go here */
-		p.conn.Close()
+		p.Close()
 		return err
 	}
 
 	dstAddr := net.JoinHostPort(hdr.DestinationAddress.String(), fmt.Sprintf("%d", hdr.DestinationPort))
 	p.dstAddr, err = net.ResolveTCPAddr(hdr.TransportProtocol.String(), dstAddr)
 	if err != nil { /* never go here */
-		p.conn.Close()
+		p.Close()
 		return err
 	}
 

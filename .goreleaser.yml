@@ -3,6 +3,9 @@ project_name: bfe
 builds:
   - binary: bfe
     main: ./bfe.go
+    ldflags:
+      - -X main.version={{.Version}} -X main.commit={{.Commit}}
+      - -extldflags=-static
     goos:
       - linux
       - darwin

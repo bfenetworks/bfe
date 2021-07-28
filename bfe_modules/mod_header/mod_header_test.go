@@ -343,7 +343,7 @@ func initTestModuleHeader(t *testing.T, url string, header bfe_http.Header, prod
 	// prepare request
 	req := makeBasicRequest(url)
 	req.Session.IsSecure = isSecure
-	req.Session.IsTrustIP = isTrustIP
+	req.Session.SetTrustSource(isTrustIP)
 	req.Session.Proto = proto
 	req.Route.Product = product
 	if header != nil {

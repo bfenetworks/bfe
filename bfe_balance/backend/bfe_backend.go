@@ -36,13 +36,13 @@ type BfeBackend struct {
 
 	sync.RWMutex      // guards following fields
 	avail        bool // whether the backend is usable
+	restarted    bool // indicate if this backend is new bring-up by health-check
 	connNum      int  // number of connections backend hold
 	failNum      int  // number of consecutive failures of normal requests
 	succNum      int  // number of consecutive successes of health-check request
 
 	closeChan chan bool // tell health-check to stop
 
-	restarted    bool // indicate if this backend is new bring-up by health-check
 }
 
 func NewBfeBackend() *BfeBackend {

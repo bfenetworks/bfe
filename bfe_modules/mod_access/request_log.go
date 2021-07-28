@@ -187,7 +187,7 @@ func onLogFmtIsTrustip(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
 		return errors.New("req is nil")
 	}
 
-	msg := fmt.Sprintf("%v", req.Session.IsTrustIP)
+	msg := fmt.Sprintf("%v", req.Session.TrustSource())
 	buff.WriteString(msg)
 
 	return nil
