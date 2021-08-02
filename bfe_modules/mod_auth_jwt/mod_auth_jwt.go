@@ -24,7 +24,7 @@ import (
 	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/web-monitor/metrics"
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
-	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt"
 )
 
 import (
