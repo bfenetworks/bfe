@@ -21,7 +21,7 @@ import (
 )
 
 import (
-	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt"
 	jose "gopkg.in/square/go-jose.v2"
 )
 
