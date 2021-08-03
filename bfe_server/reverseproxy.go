@@ -161,6 +161,8 @@ func (p *ReverseProxy) setTransports(clusterMap bfe_route.ClusterMap) {
 				(t.ResponseHeaderTimeout != time.Millisecond*time.Duration(*backendConf.TimeoutResponseHeader)) ||
 				(t.ReqWriteBufferSize != conf.ReqWriteBufferSize()) ||
 				(t.ReqFlushInterval != conf.ReqFlushInterval()) {
+				// clear cached connections for old transport
+				t.ClearCachedConns()
 				// create new transport with newConf instead of update transport
 				// update transport needs lock
 				transport = createTransport(conf)
