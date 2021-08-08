@@ -9,7 +9,7 @@ require (
 	github.com/asergeyev/nradix v0.0.0-20170505151046-3872ab85bb56 // indirect
 	github.com/baidu/go-lib v0.0.0-20200819072111-21df249f5e6a
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/json-iterator/go v1.1.10
 	github.com/microcosm-cc/bluemonday v1.0.5
