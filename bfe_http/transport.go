@@ -331,6 +331,16 @@ func (cm *connectMethod) proxyAuth() string {
 	return ""
 }
 
+func (t *Transport) ClearCachedConns() {
+	t.idleMu.Lock()
+	for _, pconns := range t.idleConn {
+		for _, pconn := range pconns {
+			pconn.close()
+		}
+	}
+	t.idleMu.Unlock()
+}
+
 func (t *Transport) releaseConnCnt(cacheKey string) {
 	t.connMu.Lock()
 	if t.connCnt == nil {
