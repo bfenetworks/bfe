@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2902,9 +2902,8 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_4">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
-<span class="na">ProductRulePath</span> <span class="o">=</span> <span class="s">mod_prison/prison.data</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">[Basic]
+ProductRulePath = mod_prison/prison.data</code></pre>
 
 
 <h2 id="_5">规则配置</h2>
@@ -3052,34 +3051,33 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_8">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[{</span>
-            <span class="nt">&quot;Name&quot;</span><span class="p">:</span> <span class="s2">&quot;example_prison&quot;</span><span class="p">,</span>
-            <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_path_prefix_in(\&quot;/prison\&quot;, false)&quot;</span><span class="p">,</span>
-            <span class="nt">&quot;accessSignConf&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="nt">&quot;url&quot;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
-                <span class="nt">&quot;path&quot;</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
-                <span class="nt">&quot;query&quot;</span><span class="p">:</span> <span class="p">[],</span>
-                <span class="nt">&quot;header&quot;</span><span class="p">:</span> <span class="p">[],</span>
-                <span class="nt">&quot;Cookie&quot;</span><span class="p">:</span> <span class="p">[</span>
-                    <span class="s2">&quot;UID&quot;</span>
-                <span class="p">]</span>
-            <span class="p">},</span>
-            <span class="nt">&quot;action&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="nt">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;CLOSE&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;params&quot;</span><span class="p">:</span> <span class="p">[]</span>
-            <span class="p">},</span>
-            <span class="nt">&quot;checkPeriod&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
-            <span class="nt">&quot;stayPeriod&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
-            <span class="nt">&quot;threshold&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
-            <span class="nt">&quot;accessDictSize&quot;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span>
-            <span class="nt">&quot;prisonDictSize&quot;</span><span class="p">:</span> <span class="mi">1000</span>
-        <span class="p">}]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;20190101000000&quot;,
+    &quot;Config&quot;: {
+        &quot;example_product&quot;: [{
+            &quot;Name&quot;: &quot;example_prison&quot;,
+            &quot;Cond&quot;: &quot;req_path_prefix_in(\&quot;/prison\&quot;, false)&quot;,
+            &quot;accessSignConf&quot;: {
+                &quot;url&quot;: false,
+                &quot;path&quot;: false,
+                &quot;query&quot;: [],
+                &quot;header&quot;: [],
+                &quot;Cookie&quot;: [
+                    &quot;UID&quot;
+                ]
+            },
+            &quot;action&quot;: {
+                &quot;cmd&quot;: &quot;CLOSE&quot;,
+                &quot;params&quot;: []
+            },
+            &quot;checkPeriod&quot;: 10,
+            &quot;stayPeriod&quot;: 10,
+            &quot;threshold&quot;: 5,
+            &quot;accessDictSize&quot;: 1000,
+            &quot;prisonDictSize&quot;: 1000
+        }]
+    }
+}</code></pre>
                 
               
               

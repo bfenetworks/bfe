@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2778,8 +2778,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>基于示例配置运行BFE:</li>
 </ul>
-<div class="codehilite"><pre><span></span><code>docker run -p <span class="m">8080</span>:8080 -p <span class="m">8443</span>:8443 -p <span class="m">8421</span>:8421 bfenetworks/bfe
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash">docker run -p 8080:8080 -p 8443:8443 -p 8421:8421 bfenetworks/bfe</code></pre>
 
 
 <p>你可以访问 http://127.0.0.1:8080/ 因为没有匹配的配置，将得到 status code 500
@@ -2787,10 +2786,9 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>自定义配置文件路径</li>
 </ul>
-<div class="codehilite"><pre><span></span><code>// 事先准备好你自己的配置放到 <span class="o">(</span>可以参考 配置 章节<span class="o">)</span> /Users/BFE/conf
+<pre class="codehilite"><code class="language-bash">// 事先准备好你自己的配置放到 (可以参考 配置 章节) /Users/BFE/conf
 
-docker run -p <span class="m">8080</span>:8080 -p <span class="m">8443</span>:8443 -p <span class="m">8421</span>:8421 -v /Users/BFE/Desktop/log:/bfe/log -v /Users/BFE/Desktop/conf:/bfe/conf bfenetworks/bfe
-</code></pre></div>
+docker run -p 8080:8080 -p 8443:8443 -p 8421:8421 -v /Users/BFE/Desktop/log:/bfe/log -v /Users/BFE/Desktop/conf:/bfe/conf bfenetworks/bfe</code></pre>
 
 
 <h2 id="_2">下一步</h2>

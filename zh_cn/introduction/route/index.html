@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -3141,8 +3141,8 @@ RU5ErkJggg==" ></image>
 <li>
 <p>期望的转发条件如下：</p>
 <ul>
-<li>对于host为www.a.com，path为"/a/*"的请求，转发至Demo-A集群</li>
 <li>对于host为www.a.com，path为"/a/b"的请求，转发至Demo-B集群</li>
+<li>对于host为www.a.com，path为"/a/*"的请求，转发至Demo-A集群</li>
 <li>对于host为*.a.com的请求，转发至Demo-C集群</li>
 <li>对于host为www.c.com的请求，转发至Demo-D集群</li>
 <li>针对Demo-D集群，另外开启了一个灰度集群Demo-D1。如果cookie中包含deviceid，且这个cookie的值以“x”开头，则转发至Demo-D1</li>
@@ -3211,7 +3211,7 @@ RU5ErkJggg==" ></image>
 </tr>
 </tbody>
 </table>
-<p>在高级规则表中，多条规则之间是有序的。需要将转发给Demo-D1的规则放在前面。</p>
+<p>在高级规则表中，多条规则之间是有序的。需要将转发给Demo-D1的规则放在转发给Demo-D的规则的前面。</p>
 <p>高级规则表中包含默认规则，对于没有命中其它规则的请求将被转发到Demo-E。</p>
                 
               

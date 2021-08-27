@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2969,8 +2969,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="nx">req_host_in</span><span class="p">(</span><span class="s">&quot;www.bfe-networks.com|bfe-networks.com&quot;</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">req_host_in(&quot;www.bfe-networks.com|bfe-networks.com&quot;)</code></pre>
 
 
 <h2 id="req_path_inpath_list-case_insensitive">req_path_in(path_list, case_insensitive)</h2>
@@ -3003,8 +3002,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="nx">req_path_in</span><span class="p">(</span><span class="s">&quot;/api/search|/api/list&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">req_path_in(&quot;/api/search|/api/list&quot;, true)</code></pre>
 
 
 <h2 id="req_path_containpath_list-case_insensitive">req_path_contain(path_list, case_insensitive)</h2>
@@ -3037,8 +3035,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="nx">req_path_contain</span><span class="p">(</span><span class="s">&quot;search&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">req_path_contain(&quot;search&quot;, true)</code></pre>
 
 
 <h2 id="req_path_prefix_inprefix_list-case_insensitive">req_path_prefix_in(prefix_list, case_insensitive)</h2>
@@ -3071,8 +3068,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="nx">req_path_prefix_in</span><span class="p">(</span><span class="s">&quot;/api/report|/api/analytics&quot;</span><span class="p">,</span> <span class="kc">false</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">req_path_prefix_in(&quot;/api/report|/api/analytics&quot;, false)</code></pre>
 
 
 <h2 id="req_path_element_prefix_inprefix_list-case_insensitive">req_path_element_prefix_in(prefix_list, case_insensitive)</h2>
@@ -3105,8 +3101,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="nx">req_path_element_prefix_in</span><span class="p">(</span><span class="s">&quot;/api/report/|/api/analytics/&quot;</span><span class="p">,</span> <span class="kc">false</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">req_path_element_prefix_in(&quot;/api/report/|/api/analytics/&quot;, false)</code></pre>
 
 
 <h2 id="req_path_suffix_insuffix_list-case_insensitive">req_path_suffix_in(suffix_list, case_insensitive)</h2>
@@ -3135,8 +3130,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="nx">req_path_suffix_in</span><span class="p">(</span><span class="s">&quot;.php|.jsp&quot;</span><span class="p">,</span> <span class="kc">false</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">req_path_suffix_in(&quot;.php|.jsp&quot;, false)</code></pre>
 
 
 <h2 id="req_query_key_inkey_list">req_query_key_in(key_list)</h2>
@@ -3161,8 +3155,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="nx">req_query_key_in</span><span class="p">(</span><span class="s">&quot;word|wd&quot;</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">req_query_key_in(&quot;word|wd&quot;)</code></pre>
 
 
 <h2 id="req_query_key_prefix_inprefix_list">req_query_key_prefix_in(prefix_list)</h2>
@@ -3187,8 +3180,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="nx">req_query_key_prefix_in</span><span class="p">(</span><span class="s">&quot;rid&quot;</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">req_query_key_prefix_in(&quot;rid&quot;)</code></pre>
 
 
 <h2 id="req_query_value_inkey-value_list-case_insensitive">req_query_value_in(key, value_list, case_insensitive)</h2>
@@ -3221,8 +3213,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="nx">req_query_value_in</span><span class="p">(</span><span class="s">&quot;uid&quot;</span><span class="p">,</span> <span class="s">&quot;x|y|z&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">req_query_value_in(&quot;uid&quot;, &quot;x|y|z&quot;, true)</code></pre>
 
 
 <h2 id="req_query_value_prefix_inkey-prefix_list-case_insensitive">req_query_value_prefix_in(key, prefix_list, case_insensitive)</h2>
@@ -3255,8 +3246,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="nx">req_query_value_prefix_in</span><span class="p">(</span><span class="s">&quot;uid&quot;</span><span class="p">,</span> <span class="s">&quot;100|200&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">req_query_value_prefix_in(&quot;uid&quot;, &quot;100|200&quot;, true)</code></pre>
 
 
 <h2 id="req_query_value_suffix_inkey-suffix_list-case_insensitive">req_query_value_suffix_in(key, suffix_list, case_insensitive)</h2>
@@ -3289,8 +3279,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="nx">req_query_value_suffix_in</span><span class="p">(</span><span class="s">&quot;uid&quot;</span><span class="p">,</span> <span class="s">&quot;1|2|3&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">req_query_value_suffix_in(&quot;uid&quot;, &quot;1|2|3&quot;, true)</code></pre>
 
 
 <h2 id="req_query_value_hash_inkey-hash_value_list-case_insensitive">req_query_value_hash_in(key, hash_value_list, case_insensitive)</h2>
@@ -3323,8 +3312,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="nx">req_query_value_hash_in</span><span class="p">(</span><span class="s">&quot;cid&quot;</span><span class="p">,</span> <span class="s">&quot;100&quot;</span><span class="p">,</span> <span class="kc">true</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">req_query_value_hash_in(&quot;cid&quot;, &quot;100&quot;, true)</code></pre>
 
 
 <h2 id="req_port_inport_list">req_port_in(port_list)</h2>
@@ -3349,8 +3337,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="nx">req_port_in</span><span class="p">(</span><span class="s">&quot;80|8080&quot;</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">req_port_in(&quot;80|8080&quot;)</code></pre>
 
 
 <h2 id="req_url_regmatchreg_exp">req_url_regmatch(reg_exp)</h2>
@@ -3378,8 +3365,7 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="nx">req_url_regmatch</span><span class="p">(</span><span class="s">`/s\?word=123`</span><span class="p">)</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-go">req_url_regmatch(`/s\?word=123`)</code></pre>
                 
               
               

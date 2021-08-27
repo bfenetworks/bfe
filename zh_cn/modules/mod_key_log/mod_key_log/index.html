@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2893,26 +2893,24 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format</p>
 </table>
 <h3 id="_4">配置示例</h3>
 <h4 id="_5">将日志保存到指定目录</h4>
-<div class="codehilite"><pre><span></span><code><span class="k">[Log]</span>
-<span class="c1"># filename prefix for log </span>
-<span class="na">LogPrefix</span> <span class="o">=</span> <span class="s">key</span>
+<pre class="codehilite"><code class="language-ini">[Log]
+# filename prefix for log 
+LogPrefix = key
 
-<span class="c1"># log directory </span>
-<span class="na">LogDir</span> <span class="o">=</span> <span class="s">../log</span>
+# log directory 
+LogDir = ../log
 
-<span class="c1"># interval to rotate logs: M/H/D/MIDNIGHT/NEXTHOUR</span>
-<span class="na">RotateWhen</span> <span class="o">=</span> <span class="s">H </span>
+# interval to rotate logs: M/H/D/MIDNIGHT/NEXTHOUR
+RotateWhen = H 
 
-<span class="c1"># max number of rotated log files</span>
-<span class="na">BackupCount</span> <span class="o">=</span> <span class="s">3</span>
-</code></pre></div>
+# max number of rotated log files
+BackupCount = 3</code></pre>
 
 
 <h4 id="_6">将日志输出到标准输出</h4>
-<div class="codehilite"><pre><span></span><code><span class="k">[Log]</span>
-<span class="c1"># filename prefix for log </span>
-<span class="na">LogFile</span> <span class="o">=</span> <span class="s">/dev/stdout</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">[Log]
+# filename prefix for log 
+LogFile = /dev/stdout</code></pre>
                 
               
               

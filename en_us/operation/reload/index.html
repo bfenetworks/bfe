@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2831,18 +2831,16 @@ RU5ErkJggg==" ></image>
 <p>BFE has a built-in feature of configuration hot-reload. A new configuration file can be reload by sending a reload request.</p>
 <h2 id="configure-monitor-port">Configure monitor port</h2>
 <p>Set MonitorPort in BFE core configuration file(conf/bfe.conf)</p>
-<div class="codehilite"><pre><span></span><code><span class="k">[Server]</span>
-<span class="na">MonitorPort</span> <span class="o">=</span> <span class="s">8421</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">[Server]
+MonitorPort = 8421</code></pre>
 
 
 <h2 id="how-to-reload">How to reload</h2>
 <ul>
 <li>Reload APIs only allows to be accessed using localhost（127.0.0.1/::1）and only supports GET requests</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="c1"># reload routing configurations</span>
-$ curl http://localhost:8421/reload/server_data_conf  
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash"># reload routing configurations
+$ curl http://localhost:8421/reload/server_data_conf  </code></pre>
 
 
 <ul>

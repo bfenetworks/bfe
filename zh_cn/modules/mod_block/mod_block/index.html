@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2924,19 +2924,17 @@ RU5ErkJggg==" ></image>
 <li>可以配置单独的 IP，也可配置起始 IP</li>
 <li>全局IP黑名单文件配置示例</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="err">192.168.1.253 192.168.1.254</span>
-<span class="err">192.168.1.250</span>
-</code></pre></div>
+<pre class="codehilite"><code>192.168.1.253 192.168.1.254
+192.168.1.250</code></pre>
 
 
 <h3 id="_4">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
-<span class="c1"># product rule config file path</span>
-<span class="na">ProductRulePath</span> <span class="o">=</span> <span class="s">mod_block/block_rules.data</span>
+<pre class="codehilite"><code class="language-ini">[Basic]
+# product rule config file path
+ProductRulePath = mod_block/block_rules.data
 
-<span class="c1"># global ip blocklist file path</span>
-<span class="na">IPBlocklistPath</span> <span class="o">=</span> <span class="s">mod_block/ip_blocklist.data</span>
-</code></pre></div>
+# global ip blocklist file path
+IPBlocklistPath = mod_block/ip_blocklist.data</code></pre>
 
 
 <h2 id="_5">规则配置</h2>
@@ -3015,32 +3013,31 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="_8">配置示例</h3>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;global&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="p">{</span>
-                <span class="nt">&quot;action&quot;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="nt">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;ALLOW&quot;</span><span class="p">,</span>
-                    <span class="nt">&quot;params&quot;</span><span class="p">:</span> <span class="p">[]</span>
-                <span class="p">},</span>
-                <span class="nt">&quot;cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_host_in(\&quot;n.example.org\&quot;) &amp;&amp; req_path_prefix_in(\&quot;/index/\&quot;, false) &amp;&amp; req_query_key_in(\&quot;space\&quot;)&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;example whiterule&quot;</span>
-            <span class="p">}</span>
-        <span class="p">],</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="p">{</span>
-                <span class="nt">&quot;action&quot;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="nt">&quot;cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;CLOSE&quot;</span><span class="p">,</span>
-                    <span class="nt">&quot;params&quot;</span><span class="p">:</span> <span class="p">[]</span>
-                <span class="p">},</span>
-                <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;example rule&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_path_in(\&quot;/limit\&quot;, false)&quot;</span>            
-            <span class="p">}</span>
-        <span class="p">]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;20190101000000&quot;,
+    &quot;Config&quot;: {
+        &quot;global&quot;: [
+            {
+                &quot;action&quot;: {
+                    &quot;cmd&quot;: &quot;ALLOW&quot;,
+                    &quot;params&quot;: []
+                },
+                &quot;cond&quot;: &quot;req_host_in(\&quot;n.example.org\&quot;) &amp;&amp; req_path_prefix_in(\&quot;/index/\&quot;, false) &amp;&amp; req_query_key_in(\&quot;space\&quot;)&quot;,
+                &quot;name&quot;: &quot;example whiterule&quot;
+            }
+        ],
+        &quot;example_product&quot;: [
+            {
+                &quot;action&quot;: {
+                    &quot;cmd&quot;: &quot;CLOSE&quot;,
+                    &quot;params&quot;: []
+                },
+                &quot;name&quot;: &quot;example rule&quot;,
+                &quot;cond&quot;: &quot;req_path_in(\&quot;/limit\&quot;, false)&quot;            
+            }
+        ]
+    }
+}</code></pre>
 
 
 <h2 id="_9">监控项</h2>

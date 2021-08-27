@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2902,9 +2902,8 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="example">Example</h3>
-<div class="codehilite"><pre><span></span><code><span class="k">[Basic]</span>
-<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_redirect/redirect.data</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">[Basic]
+DataPath = mod_redirect/redirect.data</code></pre>
 
 
 <h2 id="rule-configuration">Rule Configuration</h2>
@@ -2992,24 +2991,23 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h3 id="example_1">Example</h3>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="p">{</span>
-                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_path_prefix_in(\&quot;/redirect\&quot;, false)&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Actions&quot;</span><span class="p">:</span> <span class="p">[</span>
-                    <span class="p">{</span>
-                        <span class="nt">&quot;Cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;URL_SET&quot;</span><span class="p">,</span>
-                        <span class="nt">&quot;Params&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;https://example.org&quot;</span><span class="p">]</span>
-                    <span class="p">}</span>
-                <span class="p">],</span>
-                <span class="nt">&quot;Status&quot;</span><span class="p">:</span> <span class="mi">301</span>
-            <span class="p">}</span>
-        <span class="p">]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;20190101000000&quot;,
+    &quot;Config&quot;: {
+        &quot;example_product&quot;: [
+            {
+                &quot;Cond&quot;: &quot;req_path_prefix_in(\&quot;/redirect\&quot;, false)&quot;,
+                &quot;Actions&quot;: [
+                    {
+                        &quot;Cmd&quot;: &quot;URL_SET&quot;,
+                        &quot;Params&quot;: [&quot;https://example.org&quot;]
+                    }
+                ],
+                &quot;Status&quot;: 301
+            }
+        ]
+    }
+}</code></pre>
                 
               
               

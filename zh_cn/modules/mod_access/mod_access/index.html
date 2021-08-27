@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2973,40 +2973,38 @@ RU5ErkJggg==" ></image>
 </ul>
 <h3 id="_4">配置示例</h3>
 <h4 id="_5">将日志保存到指定路径</h4>
-<div class="codehilite"><pre><span></span><code><span class="k">[Log]</span>
-<span class="c1"># filename prefix for log</span>
-<span class="na">LogPrefix</span> <span class="o">=</span> <span class="s">access</span>
+<pre class="codehilite"><code class="language-ini">[Log]
+# filename prefix for log
+LogPrefix = access
 
-<span class="c1"># access log directory</span>
-<span class="na">LogDir</span> <span class="o">=</span>  <span class="s">../log</span>
+# access log directory
+LogDir =  ../log
 
-<span class="c1"># log rotate interval: M/H/D/MIDNIGHT/NEXTHOUR</span>
-<span class="na">RotateWhen</span> <span class="o">=</span> <span class="s">NEXTHOUR</span>
+# log rotate interval: M/H/D/MIDNIGHT/NEXTHOUR
+RotateWhen = NEXTHOUR
 
-<span class="c1"># max number of rotated log files</span>
-<span class="na">BackupCount</span> <span class="o">=</span> <span class="s">2</span>
+# max number of rotated log files
+BackupCount = 2
 
-<span class="k">[Template]</span>
-<span class="c1"># template of request log</span>
-<span class="na">RequestTemplate</span> <span class="o">=</span> <span class="s">&quot;REQUEST_LOG $time clientip: $remote_addr serverip: $server_addr host: $host product: $product user_agent: ${User-Agent}req_header status: $status_code error: $error&quot;</span>
+[Template]
+# template of request log
+RequestTemplate = &quot;REQUEST_LOG $time clientip: $remote_addr serverip: $server_addr host: $host product: $product user_agent: ${User-Agent}req_header status: $status_code error: $error&quot;
 
-<span class="c1"># template of session log</span>
-<span class="na">SessionTemplate</span> <span class="o">=</span> <span class="s">&quot;SESSION_LOG  $time clientip: $ses_clientip start_time: $ses_start_time end_time: $ses_end_time overhead: $ses_overhead read_total: $ses_read_total write_total: $ses_write_total keepalive_num: $ses_keepalive_num error: $ses_error&quot;</span>
-</code></pre></div>
+# template of session log
+SessionTemplate = &quot;SESSION_LOG  $time clientip: $ses_clientip start_time: $ses_start_time end_time: $ses_end_time overhead: $ses_overhead read_total: $ses_read_total write_total: $ses_write_total keepalive_num: $ses_keepalive_num error: $ses_error&quot;</code></pre>
 
 
 <h4 id="_6">将日志输出到标准输出</h4>
-<div class="codehilite"><pre><span></span><code><span class="k">[Log]</span>
-<span class="c1"># file path for log</span>
-<span class="na">LogFile</span> <span class="o">=</span> <span class="s">/dev/stdout</span>
+<pre class="codehilite"><code class="language-ini">[Log]
+# file path for log
+LogFile = /dev/stdout
 
-<span class="k">[Template]</span>
-<span class="c1"># template of request log</span>
-<span class="na">RequestTemplate</span> <span class="o">=</span> <span class="s">&quot;REQUEST_LOG $time clientip: $remote_addr serverip: $server_addr host: $host product: $product user_agent: ${User-Agent}req_header status: $status_code error: $error&quot;</span>
+[Template]
+# template of request log
+RequestTemplate = &quot;REQUEST_LOG $time clientip: $remote_addr serverip: $server_addr host: $host product: $product user_agent: ${User-Agent}req_header status: $status_code error: $error&quot;
 
-<span class="c1"># template of session log</span>
-<span class="na">SessionTemplate</span> <span class="o">=</span> <span class="s">&quot;SESSION_LOG  $time clientip: $ses_clientip start_time: $ses_start_time end_time: $ses_end_time overhead: $ses_overhead read_total: $ses_read_total write_total: $ses_write_total keepalive_num: $ses_keepalive_num error: $ses_error&quot;</span>
-</code></pre></div>
+# template of session log
+SessionTemplate = &quot;SESSION_LOG  $time clientip: $ses_clientip start_time: $ses_start_time end_time: $ses_end_time overhead: $ses_overhead read_total: $ses_read_total write_total: $ses_write_total keepalive_num: $ses_keepalive_num error: $ses_error&quot;</code></pre>
 
 
 <h2 id="_7">日志变量</h2>

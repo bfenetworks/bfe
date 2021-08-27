@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2828,22 +2828,21 @@ RU5ErkJggg==" ></image>
 </tbody>
 </table>
 <h2 id="example">Example</h2>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;20190101000000&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;ProductRule&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="p">{</span>
-                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_host_in(\&quot;example.org\&quot;)&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;ClusterName&quot;</span><span class="p">:</span> <span class="s2">&quot;cluster_example1&quot;</span>
-            <span class="p">},</span>
-            <span class="p">{</span>
-                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;default_t()&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;ClusterName&quot;</span><span class="p">:</span> <span class="s2">&quot;cluster_example2&quot;</span>
-            <span class="p">}</span>
-        <span class="p">]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;20190101000000&quot;,
+    &quot;ProductRule&quot;: {
+        &quot;example_product&quot;: [
+            {
+                &quot;Cond&quot;: &quot;req_host_in(\&quot;example.org\&quot;)&quot;,
+                &quot;ClusterName&quot;: &quot;cluster_example1&quot;
+            },
+            {
+                &quot;Cond&quot;: &quot;default_t()&quot;,
+                &quot;ClusterName&quot;: &quot;cluster_example2&quot;
+            }
+        ]
+    }
+}</code></pre>
                 
               
               

@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2784,28 +2784,25 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>Step 1. Generate root certificate</li>
 </ul>
-<div class="codehilite"><pre><span></span><code>openssl genrsa -out root.key <span class="m">2048</span>
+<pre class="codehilite"><code class="language-bash">openssl genrsa -out root.key 2048
 
-openssl req -new -x509 -days <span class="m">365</span> -key root.key -out root.crt
-</code></pre></div>
+openssl req -new -x509 -days 365 -key root.key -out root.crt</code></pre>
 
 
 <ul>
 <li>Step 2. Create a client certificate signing request</li>
 </ul>
-<div class="codehilite"><pre><span></span><code>openssl genrsa -out client.key <span class="m">2048</span>
+<pre class="codehilite"><code class="language-bash">openssl genrsa -out client.key 2048
 
-openssl req -new -out client.csr -key client.key  
-</code></pre></div>
+openssl req -new -out client.csr -key client.key  </code></pre>
 
 
 <ul>
 <li>Step 3. Generate client certificate</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="nb">echo</span> <span class="s2">&quot;extendedKeyUsage = clientAuth&quot;</span> &gt; openssl.cnf
+<pre class="codehilite"><code class="language-bash">echo &quot;extendedKeyUsage = clientAuth&quot; &gt; openssl.cnf
 
-openssl x509 -req -in client.csr -out client.crt -signkey client.key -CA root.crt -CAkey root.key  -days <span class="m">365</span>  -extfile openssl.cnf
-</code></pre></div>
+openssl x509 -req -in client.csr -out client.crt -signkey client.key -CA root.crt -CAkey root.key  -days 365  -extfile openssl.cnf</code></pre>
 
 
 <ul>
@@ -2814,88 +2811,82 @@ In this example, HAproxy is used as the layer 4 load balancing service, and VIP 
 HAproxy can be installed through "apt install haproxy" on Ubuntu system. For more details, see <a href="http://www.haproxy.org">www.haproxy.org</a>.</li>
 </ul>
 <p>Configuration file(haproxy.cfg) example：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">global</span>
+<pre class="codehilite"><code>global
 
-<span class="k">defaults</span>
-        <span class="k">mode</span>    <span class="n">tcp</span>
-        <span class="n">balance</span> <span class="n">leastconn</span>
-        <span class="n">timeout</span> <span class="n">client</span>      <span class="mi">3000</span><span class="n">ms</span>
-        <span class="n">timeout</span> <span class="n">server</span>      <span class="mi">3000</span><span class="n">ms</span>
-        <span class="n">timeout</span> <span class="k">connect</span>     <span class="mi">3000</span><span class="n">ms</span>
+defaults
+        mode    tcp
+        balance leastconn
+        timeout client      3000ms
+        timeout server      3000ms
+        timeout connect     3000ms
 
-<span class="n">frontend</span> <span class="n">fr_server_http</span>
-        <span class="n">bind</span> <span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">:</span><span class="mi">7080</span>
-        <span class="n">default_backend</span> <span class="n">bk_server_http</span>
+frontend fr_server_http
+        bind 0.0.0.0:7080
+        default_backend bk_server_http
 
-<span class="n">backend</span> <span class="n">bk_server_http</span>
-        <span class="n">server</span> <span class="n">srv1</span> <span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">:</span><span class="mi">8080</span> <span class="n">maxconn</span> <span class="mi">2048</span> <span class="n">send</span><span class="o">-</span><span class="n">proxy</span>
+backend bk_server_http
+        server srv1 0.0.0.0:8080 maxconn 2048 send-proxy
 
-<span class="n">frontend</span> <span class="n">fr_server_https</span>
-        <span class="n">bind</span> <span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">:</span><span class="mi">7443</span>
-        <span class="n">default_backend</span> <span class="n">bk_server_https</span>
+frontend fr_server_https
+        bind 0.0.0.0:7443
+        default_backend bk_server_https
 
-<span class="n">backend</span> <span class="n">bk_server_https</span>
-        <span class="n">server</span> <span class="n">srv1</span> <span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">:</span><span class="mi">8443</span> <span class="n">maxconn</span> <span class="mi">2048</span> <span class="n">send</span><span class="o">-</span><span class="n">proxy</span>
-</code></pre></div>
+backend bk_server_https
+        server srv1 0.0.0.0:8443 maxconn 2048 send-proxy</code></pre>
 
 
 <p>Run HAproxy</p>
-<div class="codehilite"><pre><span></span><code>haproxy -f haproxy.cfg
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash">haproxy -f haproxy.cfg</code></pre>
 
 
 <ul>
 <li>Step 5. Configure BFE.
 Copy root.crt to tls_conf/client_ca directory(note: the suffix of root certificate should be ".crt").</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="k">[server]</span>
-<span class="na">...</span>
-<span class="na">Layer4LoadBalancer</span> <span class="o">=</span> <span class="s">&quot;PROXY&quot;</span>
-<span class="na">...</span>
+<pre class="codehilite"><code class="language-ini">[server]
+...
+Layer4LoadBalancer = &quot;PROXY&quot;
+...
 
-<span class="k">[HttpsBasic]</span>
-<span class="na">...</span>
-<span class="na">clientCABaseDir</span> <span class="o">=</span> <span class="s">tls_conf/client_ca</span>
-<span class="na">...</span>
-</code></pre></div>
+[HttpsBasic]
+...
+clientCABaseDir = tls_conf/client_ca
+...</code></pre>
 
 
 <p>Modify conf/tls_conf_rule.data and set "ClientAuth" to true and "ClientCAName" to name of the root certificate.</p>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;12&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;DefaultNextProtos&quot;</span><span class="p">:</span> <span class="p">[</span>
-        <span class="s2">&quot;http/1.1&quot;</span>
-    <span class="p">],</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="nt">&quot;VipConf&quot;</span><span class="p">:</span> <span class="p">[</span>
-                <span class="s2">&quot;127.0.0.1&quot;</span>
-            <span class="p">],</span>
-            <span class="nt">&quot;SniConf&quot;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
-            <span class="nt">&quot;CertName&quot;</span><span class="p">:</span> <span class="s2">&quot;example.org&quot;</span><span class="p">,</span>
-            <span class="nt">&quot;NextProtos&quot;</span><span class="p">:</span> <span class="p">[</span>
-                <span class="s2">&quot;h2;rate=0;isw=65535;mcs=200;level=0&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;http/1.1&quot;</span>
-            <span class="p">],</span>
-            <span class="nt">&quot;Grade&quot;</span><span class="p">:</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span>
-            <span class="nt">&quot;ClientAuth&quot;</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-            <span class="nt">&quot;ClientCAName&quot;</span><span class="p">:</span> <span class="s2">&quot;root&quot;</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;12&quot;,
+    &quot;DefaultNextProtos&quot;: [
+        &quot;http/1.1&quot;
+    ],
+    &quot;Config&quot;: {
+        &quot;example_product&quot;: {
+            &quot;VipConf&quot;: [
+                &quot;127.0.0.1&quot;
+            ],
+            &quot;SniConf&quot;: null,
+            &quot;CertName&quot;: &quot;example.org&quot;,
+            &quot;NextProtos&quot;: [
+                &quot;h2;rate=0;isw=65535;mcs=200;level=0&quot;,
+                &quot;http/1.1&quot;
+            ],
+            &quot;Grade&quot;: &quot;C&quot;,
+            &quot;ClientAuth&quot;: true,
+            &quot;ClientCAName&quot;: &quot;root&quot;
+        }
+    }
+}</code></pre>
 
 
 <p>Run BFE.</p>
-<div class="codehilite"><pre><span></span><code>./bfe -c ../conf
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash">./bfe -c ../conf</code></pre>
 
 
 <ul>
 <li>Step 6. Verify configuration</li>
 </ul>
-<div class="codehilite"><pre><span></span><code>openssl s_client -connect <span class="m">127</span>.0.0.1:7443 -cert client.crt -key client.key -state -quiet
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash">openssl s_client -connect 127.0.0.1:7443 -cert client.crt -key client.key -state -quiet</code></pre>
                 
               
               

@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2785,44 +2785,40 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>Step 1. modify conf/bfe.conf and enable mod_redirect</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="na">Modules</span> <span class="o">=</span> <span class="s">mod_redirect</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">Modules = mod_redirect</code></pre>
 
 
 <ul>
 <li>Step 2. modify mod_redirect basic configuration (conf/mod_redirect/mod_redirect.conf)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="k">[basic]</span>
-<span class="na">DataPath</span> <span class="o">=</span> <span class="s">mod_redirect/redirect.data</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">[basic]
+DataPath = mod_redirect/redirect.data</code></pre>
 
 
 <ul>
 <li>Step 3. modify redirect rule configuration (conf/mod_redirect/redirect.data), and add following rules.</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[{</span>
-            <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;!req_proto_secure() &amp;&amp; req_host_in(\&quot;example.org\&quot;)&quot;</span><span class="p">,</span>
-            <span class="nt">&quot;Actions&quot;</span><span class="p">:</span> <span class="p">[{</span>
-                <span class="nt">&quot;Cmd&quot;</span><span class="p">:</span> <span class="s2">&quot;SCHEME_SET&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Params&quot;</span><span class="p">:</span> <span class="p">[</span>
-                    <span class="s2">&quot;https&quot;</span>
-                <span class="p">]</span>
-            <span class="p">}],</span>
-            <span class="nt">&quot;Status&quot;</span><span class="p">:</span> <span class="mi">301</span>
-        <span class="p">}]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;init version&quot;,
+    &quot;Config&quot;: {
+        &quot;example_product&quot;: [{
+            &quot;Cond&quot;: &quot;!req_proto_secure() &amp;&amp; req_host_in(\&quot;example.org\&quot;)&quot;,
+            &quot;Actions&quot;: [{
+                &quot;Cmd&quot;: &quot;SCHEME_SET&quot;,
+                &quot;Params&quot;: [
+                    &quot;https&quot;
+                ]
+            }],
+            &quot;Status&quot;: 301
+        }]
+    }
+}</code></pre>
 
 
 <ul>
 <li>Step 4. Verify configured rules</li>
 </ul>
-<div class="codehilite"><pre><span></span><code>curl -H <span class="s2">&quot;host: example.org&quot;</span> <span class="s2">&quot;http://127.1:8080/test&quot;</span>  
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash">curl -H &quot;host: example.org&quot; &quot;http://127.1:8080/test&quot;  </code></pre>
 
 
 <p>The repsonse stuatus code should be 301, and the value of Location response Header should be "https://example.org/test".</p>

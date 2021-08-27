@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -648,15 +648,70 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
-  <a href="#forwarding-table" class="md-nav__link">
-    Forwarding Table
+  <a href="#composition-of-forwarding-table" class="md-nav__link">
+    Composition of Forwarding Table
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
-    Example
+  <a href="#steps-of-search" class="md-nav__link">
+    Steps of search
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#basic-rule-table" class="md-nav__link">
+    Basic Rule Table
+  </a>
+  
+    <nav class="md-nav" aria-label="Basic Rule Table">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    Introduction
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conditions-of-basic-rule-table" class="md-nav__link">
+    Conditions of Basic Rule Table
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#search-in-basic-rule-table" class="md-nav__link">
+    Search in Basic Rule Table
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    Examples
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-rule-table" class="md-nav__link">
+    Advanced Rule Table
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples_1" class="md-nav__link">
+    Examples
   </a>
   
 </li>
@@ -2756,15 +2811,70 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
-  <a href="#forwarding-table" class="md-nav__link">
-    Forwarding Table
+  <a href="#composition-of-forwarding-table" class="md-nav__link">
+    Composition of Forwarding Table
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
-    Example
+  <a href="#steps-of-search" class="md-nav__link">
+    Steps of search
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#basic-rule-table" class="md-nav__link">
+    Basic Rule Table
+  </a>
+  
+    <nav class="md-nav" aria-label="Basic Rule Table">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    Introduction
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conditions-of-basic-rule-table" class="md-nav__link">
+    Conditions of Basic Rule Table
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#search-in-basic-rule-table" class="md-nav__link">
+    Search in Basic Rule Table
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    Examples
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-rule-table" class="md-nav__link">
+    Advanced Rule Table
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples_1" class="md-nav__link">
+    Examples
   </a>
   
 </li>
@@ -2792,41 +2902,318 @@ RU5ErkJggg==" ></image>
                 <h1 id="traffic-routing">Traffic Routing</h1>
 <h2 id="overview">Overview</h2>
 <ul>
-<li>In BFE <a href="../forward_model/">forwarding model</a>, after "product name" for one request is determined, the destionation cluster should be identified.</li>
+<li>In BFE <a href="../forward_model/">forwarding model</a>, after "product name" for one request is determined, the destination cluster should be specified.</li>
 <li>A Forwarding Table is provided for each product inside BFE.</li>
-<li>For each request, the forwarding table for the determined product is searched, and destination cluster is identified.</li>
+<li>For each request, the forwarding table for the determined product is searched, and destination cluster is specified.</li>
 </ul>
-<h2 id="forwarding-table">Forwarding Table</h2>
+<h2 id="composition-of-forwarding-table">Composition of Forwarding Table</h2>
+<p>A Forwarding Table is composed of two parts:</p>
 <ul>
-<li>Forwarding table is composed by one or more "forwarding rules".</li>
-<li>Each forwarding rule has two parts: condition(for matching the request), destionation cluster.</li>
-<li>Condition is expressed in <a href="../condition">Condition Expression</a>.</li>
-<li>For a request, multiple rules in forwarding table are searched up to down.(i.e., the order of forwarding rules is very important.) The procedure will stop if some rule is matched.</li>
-<li>There must be one Default Rule in the forwarding table. If no other rules is matched for a request, the destionation cluster defined in Default Rule is returned.</li>
+<li><strong>Basic Rule Table</strong>, consists of  "Basic Rules". BFE searches "host" and/or "path" conditions to match a Basic Rule.  </li>
+<li><strong>Advanced Rule Table</strong>,  consists of  "Advanced Rules". It's searched in listed order (from up to down). Various request contents can be used in search to match conditions in advanced rules. A Default Rule should be configured in Advanced Rule Table, as the last resort.</li>
 </ul>
-<h2 id="example">Example</h2>
+<p>Basic Rule Table uses tree search and can be searched fast, even with large amount (thousands, for example) of rules configured. Advanced Rule Table has more powerful condition  description capability, but its search performance may degrades when number of rules is large ( &gt;100 rules, for example).</p>
+<h2 id="steps-of-search">Steps of search</h2>
 <ul>
-<li>
-<p>A product "demo" has three clusters:</p>
+<li>BFE will search in Basic Rule Table first, then Advanced Rule Table, to specify the destination cluster for a request.</li>
+<li>If required, destination cluster of a Basic Rule can be set to "ADVANCED_MODE". If such a rule is hit, BFE will continue to search in the Advanced Rule Table for this request.</li>
+<li>Detailed steps of search are described as below.</li>
+</ul>
+<p><img alt="route table" src="../../images/route-tables-en.png" /></p>
+<h2 id="basic-rule-table">Basic Rule Table</h2>
+<h3 id="introduction">Introduction</h3>
+<p><strong>Basic Rule Table</strong> consists of several "Basic Rules".</p>
+<p>Each Basic Rule includes two conditions:  Host and Path.</p>
+<p>Destination Cluster is specified by a cluster name, or keyword "ADVANCED_MODE" which indicates to continue searching in Advanced Rule Table.</p>
+<p>There's no order among Basic Rules.  The matched rule with most specific condition will take precedence. See details in "Search in Basic Rule Table".</p>
+<h3 id="conditions-of-basic-rule-table">Conditions of Basic Rule Table</h3>
+<p>For each Basic Rule, at least one of two conditions (Host and Path) should be configured.</p>
+<p><strong>Host</strong> condition description's syntax is as follow: </p>
 <ul>
-<li>demo-static：serve static content </li>
-<li>demo-post：serve post request</li>
-<li>demo-main: serve other traffic</li>
+<li>Use "." to split labels within a host name</li>
+<li>Support "Exact Match", "Wildcard Match", "Any Match"</li>
+<li>Exact Match: An exact hostname (for example "www.test1.com")</li>
+<li>Wildcard Match: A host name with first label set to "*". The "*" can only appear once in a hostname and only covers a single label (for example "*.test1.com"). Incorrect example of host condition descriptions includes "*est.com" and "*.*.com".</li>
+<li>Any Match: A special Wildcard Match. Leaving the Host condition description empty or set to standalone "*" makes the rule can match any host. (A standalone "*" here can cover a hostname with multiple labels, which is different from Wildcard Match.) </li>
+<li>Host condition of a Basic Rule supports multiple host condition descriptions, split by a "," (for example: "www.test1.com, *.example.com").</li>
+</ul>
+<p><strong>Examples:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Host Condition</th>
+<th>Host in a request</th>
+<th>Match？</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>null or *</td>
+<td>www.test1.com</td>
+<td>Match</td>
+</tr>
+<tr>
+<td>*.test1.com</td>
+<td>host.test1.com</td>
+<td>Match</td>
+</tr>
+<tr>
+<td>*.test1.com</td>
+<td>vip.host.test1.com</td>
+<td>No Match, "*" only covers a single label</td>
+</tr>
+<tr>
+<td>*.test1.com</td>
+<td>example.com</td>
+<td>No Match</td>
+</tr>
+<tr>
+<td>*.test1.com</td>
+<td>test1.com</td>
+<td>No Match</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Path</strong> condition description's syntax is as follow: </p>
+<ul>
+<li>Use "/" to split elements within a path</li>
+<li>Start with "/", except for Any Match.</li>
+<li>Support "Exact Match", "Prefix Match", "Any Match"</li>
+<li>Exact Match: An exact path (for example "/path")</li>
+<li>Prefix Match: A path prefix followed by a "*" means it's a prefix match. It compares element by element from the left. The "*" can only appear once, and can covers one or multiple consecutive path elements (for example both "/*" and "/foo/*" can match "/foo/bar"). Incorrect examples of path condition descriptions include "/fo*" and "/*/*".</li>
+<li>Any Match: A special prefix match. Leaving the Path condition description empty or set to wildcard "*" means this rule can match any path. </li>
+<li>Path condition of a Basic Rule supports multiple path condition descriptions, split by a "," (for example: "/foo/bar, /foo/cell/*").</li>
+</ul>
+<p><strong>Examples:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Path Condition</th>
+<th>Path in the request</th>
+<th>Match?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Empty or *</td>
+<td>Empty</td>
+<td>Match</td>
+</tr>
+<tr>
+<td>Empty or *</td>
+<td>/</td>
+<td>Match</td>
+</tr>
+<tr>
+<td>Empty or *</td>
+<td>/a/b</td>
+<td>Match</td>
+</tr>
+<tr>
+<td>/</td>
+<td>Empty</td>
+<td>No match</td>
+</tr>
+<tr>
+<td>/</td>
+<td>/</td>
+<td>Match</td>
+</tr>
+<tr>
+<td>/</td>
+<td>/a</td>
+<td>No match</td>
+</tr>
+<tr>
+<td>/*</td>
+<td>Empty</td>
+<td>No match</td>
+</tr>
+<tr>
+<td>/*</td>
+<td>/</td>
+<td>Match, * can match null</td>
+</tr>
+<tr>
+<td>/*</td>
+<td>/a</td>
+<td>Match</td>
+</tr>
+<tr>
+<td>/*</td>
+<td>/a/b</td>
+<td>Match, * covers multiple consecutive path elements</td>
+</tr>
+<tr>
+<td>/*</td>
+<td>/a/</td>
+<td>Match, ignores trailing slash</td>
+</tr>
+<tr>
+<td>/a/b/*</td>
+<td>/a/b/c</td>
+<td>Match</td>
+</tr>
+<tr>
+<td>/a/b/*</td>
+<td>/a/b/c/d</td>
+<td>Match, * covers multiple consecutive path elements</td>
+</tr>
+<tr>
+<td>/a/b/*</td>
+<td>/a/b</td>
+<td>Match, ignores trailing slash and * covers multiple consecutive path elements</td>
+</tr>
+<tr>
+<td>/a/b/*</td>
+<td>/a/c</td>
+<td>No match</td>
+</tr>
+<tr>
+<td>/a/b/*</td>
+<td>/a/</td>
+<td>No match</td>
+</tr>
+</tbody>
+</table>
+<h3 id="search-in-basic-rule-table">Search in Basic Rule Table</h3>
+<p>When search in Basic Rule Table, BFE will search the host condition first, then search the path condition in rules that match the host.</p>
+<p>Detailed steps of search in Basic Rule Table are described below:</p>
+<ol>
+<li>First, search host condition using <strong>Exact Match</strong></li>
+<li>For rules that match (may be one or multiple rules), search path condition of them;<ul>
+<li>If a rule matches the path, the rule is hit;</li>
+<li>If no rule matches path, then search in Basic Rule Table ends and BFE will continue to search in Advanced Rule Table.</li>
 </ul>
 </li>
-<li>
-<p>The expected scenarios:</p>
+<li>If no rule matches as Exact Match, search host condition using <strong>Wildcard Match</strong></li>
+<li>For rules that match (may be one or multiple rules), search path condition of them;<ul>
+<li>If a rule matches the path, the rule is hit;</li>
+<li>If no rule matches path, then search in Basic Rule Table ends and BFE will continue to search in Advanced Rule Table.</li>
+</ul>
+</li>
+<li>If no rule matches as Wildcard Match, search host condition using <strong>Any Match</strong></li>
+<li>For rules that match (may be one or multiple rules), search path condition of them;<ul>
+<li>If a rule matches the path, the rule is hit;</li>
+<li>If no rule matches path, then search in Basic Rule Table ends and BFE will continue to search in Advanced Rule Table.</li>
+</ul>
+</li>
+<li>Search in Basic Rule Table ends. If no rule matches, BFE will continue to search in Advanced Rule Table.</li>
+</ol>
+<p>Among above steps, when searching path condition in rules that has matches the host:</p>
+<ol>
+<li>Search path condition using <strong>Exact Match</strong></li>
+<li>If no rule matches as Exact Match, search path condition using <strong>Prefix Match</strong>. Precedence will be given to the longest matching path. So if more than one rule matches the path in the request, the rule with most matching path elements is hit. </li>
+<li>If no rule matched as Prefix Match, search path condition using <strong>Any Match</strong>. </li>
+</ol>
+<h3 id="examples">Examples</h3>
+<p>Four Basic Rules are configured, as below:</p>
 <ul>
-<li>Requests with path prefixed with "/static" will be forwarded to cluster demo-static.</li>
-<li>Request using method "POST" and prefixed with "/setting" will be forwarded to cluster "demo-post". </li>
-<li>Other request will be forwarded to cluster "demo-main".</li>
+<li>Rule1：<strong>host condition</strong>：*.test1.com，<strong>path condition</strong>：empty，<strong>Destination Cluster</strong>：StaticCluster</li>
+<li>Rule2：<strong>host condition</strong>：*.b.test1.com，<strong>path condition</strong>：/interface/* ，<strong>Destination Cluster</strong>：PhpCluster</li>
+<li>Rule3：<strong>host condition</strong>：*.b.test1.com， <strong>path condition</strong>：/*， <strong>Destination Cluster</strong>：StaticCluster</li>
+<li>Rule4：<strong>host condition</strong>：www.test1.com， <strong>path condition</strong>：/interface/d， <strong>Destination Cluster</strong>：PhpCluster</li>
 </ul>
+<p>A request arrives, with its URL="vip.b.test1.com/interface/d"</p>
+<p>BFE searches host condition first：</p>
+<p>1.<strong>Exact Match</strong> for host, no match</p>
+<p>2.<strong>Wildcard Match</strong> for host, both Rule2 and Rule3 match host (vip.b.test1.com) of the request</p>
+<p>Then BFE searches path condition：</p>
+<p>1.<strong>Exact Match</strong> for path, no match</p>
+<p>2.<strong>Prefix Match</strong> for path, both Rule2 and Rule3 match the path (/interface/d) of the request. And Rule2 has precedence as it has more matching path elements than Rule3.</p>
+<p>Search ends and Rule2 is hit. Request will be forwarded to cluster PhpCluster as specified in Rule2.</p>
+<h2 id="advanced-rule-table">Advanced Rule Table</h2>
+<p>Advanced Rule Table consists of one or more "Advanced Rules" which have an order.</p>
+<ul>
+<li>Condition of a Advanced Rule is described using a pseudocode description called "<a href="https://www.bfe-networks.net/en_us/condition/condition_grammar/">Condition Expression</a>".</li>
+<li>Destination Cluster is specified by a cluster name.</li>
+</ul>
+<p>When searching in Advanced Rule Table, the rules are searched from up to down, in listed order: </p>
+<ul>
+<li>Try to match the condition of the rule with information in the HTTP request. If it  matches, the rule is hit.</li>
+<li>If a rule is hit, the search stops. </li>
+<li>A Default Rule must be configured in the Advanced Rule Table. If no other rules match a request, the Default Rule is hit.</li>
+</ul>
+<h2 id="examples_1">Examples</h2>
+<ul>
+<li>
+<p>A product "demo" has several clusters: Demo-A, Demo-B, Demo-C, Demo-D，Demo-E</p>
 </li>
 <li>
-<p>The corresponding forwarding table is shown as follows.</p>
+<p>The expected route is as below:</p>
+</li>
+<li>Requests with host=www.a.com and path="/a/*" (except "/a/b"), forwarded to  Demo-A</li>
+<li>Requests with host=www.a.com and path="/a/b", forwarded to Demo-B</li>
+<li>Other requests with host=*.a.com, forwarded to Demo-C</li>
+<li>Requests with host=www.c.com, forwarded to Demo-D</li>
+<li>For Demo-D, another cluster Demo-D1 is created for a canary release.  For requests with host=www.c.com and cookie "deviceid" with its value starting with "x", forwarded to cluster Demo-D1</li>
+<li>
+<p>All the other requests, forward to Demo-E</p>
+</li>
+<li>
+<p>In this case, the <strong>Basic Rule Table</strong> can be configured as below:</p>
 </li>
 </ul>
-<p><img alt="Forwarding Table" src="../../images/bfe-forwarding-table.png" /></p>
+<table>
+<thead>
+<tr>
+<th>Host condition</th>
+<th>Path condition</th>
+<th>Destination Cluster</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>www.a.com</td>
+<td>/a/*</td>
+<td>Demo-A</td>
+</tr>
+<tr>
+<td>www.a.com</td>
+<td>/a/b</td>
+<td>Demo-B</td>
+</tr>
+<tr>
+<td>*.a.com</td>
+<td>*</td>
+<td>Demo-C</td>
+</tr>
+<tr>
+<td>www.c.com</td>
+<td>*</td>
+<td>ADVANCED_MODE</td>
+</tr>
+</tbody>
+</table>
+<p>There's no order for Basic Rules. Refer to "Search in Basic Rule Table" above.</p>
+<p>For the canary release of cluster Demo-D1 that depends on cookie information, the rule uses ADVANCED_MODE to do further search in Advanced Rule Table for related requests. If canary release is not required, the Destination Cluster of this rule can be set to Demo-D.</p>
+<ul>
+<li>The <strong>Advanced Rule Table</strong> can be configured as below:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Conditions</th>
+<th>Destination Cluster</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>req_host_in ("www.c.com") &amp;&amp; req_cookie_value_prefix_in ("deviceid", "x", false)</td>
+<td>Demo-D1</td>
+</tr>
+<tr>
+<td>req_host_in ("www.c.com")</td>
+<td>Demo-D</td>
+</tr>
+<tr>
+<td>default</td>
+<td>Demo-E</td>
+</tr>
+</tbody>
+</table>
+<p>Advanced Rules are searched from up to down. Rule for Demo-D1 should be placed before rule for Demo-D.</p>
+<p>Default Rule is configured in Advanced Rule Table. Requests that do not hit any other rule will be forwarded to Demo-E.</p>
                 
               
               

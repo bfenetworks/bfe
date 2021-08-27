@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2788,147 +2788,140 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>Step 1. Config path of forward rules in conf/bfe.conf</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="na">hostRuleConf</span> <span class="o">=</span> <span class="s">server_data_conf/host_rule.data</span>
-<span class="na">routeRuleConf</span> <span class="o">=</span> <span class="s">server_data_conf/route_rule.data</span>
-<span class="na">clusterConf</span> <span class="o">=</span> <span class="s">server_data_conf/cluster_conf.data</span>
+<pre class="codehilite"><code class="language-ini">hostRuleConf = server_data_conf/host_rule.data
+routeRuleConf = server_data_conf/route_rule.data
+clusterConf = server_data_conf/cluster_conf.data
 
-<span class="na">clusterTableConf</span> <span class="o">=</span> <span class="s">cluster_conf/cluster_table.data</span>
-<span class="na">gslbConf</span> <span class="o">=</span> <span class="s">cluster_conf/gslb.data  </span>
-</code></pre></div>
+clusterTableConf = cluster_conf/cluster_table.data
+gslbConf = cluster_conf/gslb.data  </code></pre>
 
 
 <ul>
 <li>Step 2. Config host rules (conf/server_data_conf/host_rule.data)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;DefaultProduct&quot;</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
-    <span class="nt">&quot;Hosts&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;exampleTag&quot;</span><span class="p">:[</span>
-            <span class="s2">&quot;example.org&quot;</span> <span class="err">//</span> <span class="err">host</span> <span class="err">name:</span> <span class="err">example.org=&gt;host</span> <span class="err">tag:</span> <span class="err">exampleTag</span>
-        <span class="p">]</span>
-    <span class="p">},</span>
-    <span class="nt">&quot;HostTags&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:[</span>
-            <span class="s2">&quot;exampleTag&quot;</span> <span class="err">//</span> <span class="err">host</span> <span class="err">tag:</span> <span class="err">exampleTag=&gt;product</span> <span class="err">name:</span> <span class="err">example_product</span>
-        <span class="p">]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;init version&quot;,
+    &quot;DefaultProduct&quot;: null,
+    &quot;Hosts&quot;: {
+        &quot;exampleTag&quot;:[
+            &quot;example.org&quot; // host name: example.org=&gt;host tag: exampleTag
+        ]
+    },
+    &quot;HostTags&quot;: {
+        &quot;example_product&quot;:[
+            &quot;exampleTag&quot; // host tag: exampleTag=&gt;product name: example_product
+        ]
+    }
+}</code></pre>
 
 
 <ul>
 <li>Step 3. Config cluster configuration (conf/server_data_conf/cluster_conf.data)
 Note: Set backend conf params and use default value for other params</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;cluster_demo_http&quot;</span><span class="p">:</span> <span class="p">{</span>                   
-            <span class="nt">&quot;BackendConf&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="nt">&quot;TimeoutConnSrv&quot;</span><span class="p">:</span> <span class="mi">2000</span><span class="p">,</span>
-                <span class="nt">&quot;TimeoutResponseHeader&quot;</span><span class="p">:</span> <span class="mi">50000</span><span class="p">,</span>
-                <span class="nt">&quot;MaxIdleConnsPerHost&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-                <span class="nt">&quot;RetryLevel&quot;</span><span class="p">:</span> <span class="mi">0</span>
-            <span class="p">}</span>
-        <span class="p">},</span>
-        <span class="nt">&quot;cluster_demo_fcgi&quot;</span><span class="p">:</span> <span class="p">{</span>                    
-            <span class="nt">&quot;BackendConf&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="nt">&quot;Protocol&quot;</span><span class="p">:</span> <span class="s2">&quot;fcgi&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;TimeoutConnSrv&quot;</span><span class="p">:</span> <span class="mi">2000</span><span class="p">,</span>
-                <span class="nt">&quot;TimeoutResponseHeader&quot;</span><span class="p">:</span> <span class="mi">50000</span><span class="p">,</span>
-                <span class="nt">&quot;MaxIdleConnsPerHost&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-                <span class="nt">&quot;RetryLevel&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-                <span class="nt">&quot;FCGIConf&quot;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="nt">&quot;Root&quot;</span><span class="p">:</span> <span class="s2">&quot;/home/work&quot;</span><span class="p">,</span>
-                    <span class="nt">&quot;EnvVars&quot;</span><span class="p">:</span> <span class="p">{</span>
-                        <span class="nt">&quot;VarKey&quot;</span><span class="p">:</span> <span class="s2">&quot;VarVal&quot;</span>
-                    <span class="p">}</span>    
-                <span class="p">}</span>
-            <span class="p">}</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;init version&quot;,
+    &quot;Config&quot;: {
+        &quot;cluster_demo_http&quot;: {                   
+            &quot;BackendConf&quot;: {
+                &quot;TimeoutConnSrv&quot;: 2000,
+                &quot;TimeoutResponseHeader&quot;: 50000,
+                &quot;MaxIdleConnsPerHost&quot;: 0,
+                &quot;RetryLevel&quot;: 0
+            }
+        },
+        &quot;cluster_demo_fcgi&quot;: {                    
+            &quot;BackendConf&quot;: {
+                &quot;Protocol&quot;: &quot;fcgi&quot;,
+                &quot;TimeoutConnSrv&quot;: 2000,
+                &quot;TimeoutResponseHeader&quot;: 50000,
+                &quot;MaxIdleConnsPerHost&quot;: 0,
+                &quot;RetryLevel&quot;: 0,
+                &quot;FCGIConf&quot;: {
+                    &quot;Root&quot;: &quot;/home/work&quot;,
+                    &quot;EnvVars&quot;: {
+                        &quot;VarKey&quot;: &quot;VarVal&quot;
+                    }    
+                }
+            }
+        }
+    }
+}</code></pre>
 
 
 <ul>
 <li>Step 4. Config instances of cluster (conf/cluster_conf/cluster_table.data)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Config&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;cluster_demo_fcgi&quot;</span><span class="p">:</span> <span class="p">{</span>         <span class="err">//</span> <span class="err">cluster</span> <span class="err">=&gt;</span> <span class="err">sub_cluster</span> <span class="err">=&gt;</span> <span class="err">instance</span> <span class="err">list</span>
-            <span class="nt">&quot;demo_fcgi.all&quot;</span><span class="p">:</span> <span class="p">[{</span>        <span class="err">//</span> <span class="err">subcluster:</span> <span class="err">demo_fcgi.all</span>
-                <span class="nt">&quot;Addr&quot;</span><span class="p">:</span> <span class="s2">&quot;10.0.0.1&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Name&quot;</span><span class="p">:</span> <span class="s2">&quot;fcgi.A&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Port&quot;</span><span class="p">:</span> <span class="mi">8001</span><span class="p">,</span>
-                <span class="nt">&quot;Weight&quot;</span><span class="p">:</span> <span class="mi">1</span>
-            <span class="p">}]</span>
-        <span class="p">},</span>
-        <span class="nt">&quot;cluster_demo_http&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="nt">&quot;demo_http.all&quot;</span><span class="p">:</span> <span class="p">[{</span>
-                <span class="nt">&quot;Addr&quot;</span><span class="p">:</span> <span class="s2">&quot;10.0.0.1&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Name&quot;</span><span class="p">:</span> <span class="s2">&quot;http.A&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;Port&quot;</span><span class="p">:</span> <span class="mi">8002</span><span class="p">,</span>
-                <span class="nt">&quot;Weight&quot;</span><span class="p">:</span> <span class="mi">1</span>
-            <span class="p">}]</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;init version&quot;,
+    &quot;Config&quot;: {
+        &quot;cluster_demo_fcgi&quot;: {         // cluster =&gt; sub_cluster =&gt; instance list
+            &quot;demo_fcgi.all&quot;: [{        // subcluster: demo_fcgi.all
+                &quot;Addr&quot;: &quot;10.0.0.1&quot;,
+                &quot;Name&quot;: &quot;fcgi.A&quot;,
+                &quot;Port&quot;: 8001,
+                &quot;Weight&quot;: 1
+            }]
+        },
+        &quot;cluster_demo_http&quot;: {
+            &quot;demo_http.all&quot;: [{
+                &quot;Addr&quot;: &quot;10.0.0.1&quot;,
+                &quot;Name&quot;: &quot;http.A&quot;,
+                &quot;Port&quot;: 8002,
+                &quot;Weight&quot;: 1
+            }]
+        }
+    }
+}</code></pre>
 
 
 <ul>
 <li>Step 5. Config gslb configuration (conf/cluster_conf/gslb.data)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Hostname&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Ts&quot;</span><span class="p">:</span> <span class="s2">&quot;0&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;Clusters&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;cluster_demo_fcgi&quot;</span><span class="p">:</span> <span class="p">{</span>   <span class="err">//</span> <span class="err">cluster</span> <span class="err">=&gt;</span> <span class="err">weight</span> <span class="err">of</span> <span class="err">subcluster</span>
-            <span class="nt">&quot;GSLB_BLACKHOLE&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>   <span class="err">//</span> <span class="err">GSLB_BLACKHOLE</span> <span class="err">==</span> <span class="err">0</span> <span class="err">means</span> <span class="err">do</span> <span class="err">not</span> <span class="err">discard</span> <span class="err">traffic</span>
-            <span class="nt">&quot;demo_fcgi.all&quot;</span><span class="p">:</span> <span class="mi">100</span> <span class="err">//</span> <span class="err">weight</span> <span class="mi">100</span> <span class="err">means</span> <span class="err">all</span> <span class="err">traffic</span> <span class="err">routes</span> <span class="err">to</span> <span class="err">demo_fcgi.all</span>
-        <span class="p">},</span>
-        <span class="nt">&quot;cluster_demo_http&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="nt">&quot;GSLB_BLACKHOLE&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-            <span class="nt">&quot;demo_http.all&quot;</span><span class="p">:</span> <span class="mi">100</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Hostname&quot;: &quot;&quot;,
+    &quot;Ts&quot;: &quot;0&quot;,
+    &quot;Clusters&quot;: {
+        &quot;cluster_demo_fcgi&quot;: {   // cluster =&gt; weight of subcluster
+            &quot;GSLB_BLACKHOLE&quot;: 0,   // GSLB_BLACKHOLE == 0 means do not discard traffic
+            &quot;demo_fcgi.all&quot;: 100 // weight 100 means all traffic routes to demo_fcgi.all
+        },
+        &quot;cluster_demo_http&quot;: {
+            &quot;GSLB_BLACKHOLE&quot;: 0,
+            &quot;demo_http.all&quot;: 100
+        }
+    }
+}</code></pre>
 
 
 <ul>
 <li>Step 6. Config route rules (conf/server_data_conf/route_rule.data)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="nt">&quot;Version&quot;</span><span class="p">:</span> <span class="s2">&quot;init version&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;ProductRule&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;example_product&quot;</span><span class="p">:</span> <span class="p">[</span>    <span class="err">//</span> <span class="err">product</span> <span class="err">=&gt;</span> <span class="err">route</span> <span class="err">rules</span>
-            <span class="p">{</span>
-                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;req_path_prefix_in(\&quot;/fcgi\&quot;, false)&quot;</span><span class="p">,</span>  
-                <span class="nt">&quot;ClusterName&quot;</span><span class="p">:</span> <span class="s2">&quot;cluster_demo_fcgi&quot;</span>
-            <span class="p">},</span>
-            <span class="p">{</span>
-                <span class="nt">&quot;Cond&quot;</span><span class="p">:</span> <span class="s2">&quot;default_t()&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;ClusterName&quot;</span><span class="p">:</span> <span class="s2">&quot;cluster_demo_http&quot;</span>
-            <span class="p">}</span>
-        <span class="p">]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;init version&quot;,
+    &quot;ProductRule&quot;: {
+        &quot;example_product&quot;: [    // product =&gt; route rules
+            {
+                &quot;Cond&quot;: &quot;req_path_prefix_in(\&quot;/fcgi\&quot;, false)&quot;,  
+                &quot;ClusterName&quot;: &quot;cluster_demo_fcgi&quot;
+            },
+            {
+                &quot;Cond&quot;: &quot;default_t()&quot;,
+                &quot;ClusterName&quot;: &quot;cluster_demo_http&quot;
+            }
+        ]
+    }
+}</code></pre>
 
 
 <ul>
 <li>Step 7. Verify configured rules</li>
 </ul>
-<div class="codehilite"><pre><span></span><code>curl -H <span class="s2">&quot;host: example.org&quot;</span> <span class="s2">&quot;http://127.1:8080/fcgi/test&quot;</span>  
-<span class="c1"># request will route to 10.0.0.1:8001</span>
+<pre class="codehilite"><code class="language-bash">curl -H &quot;host: example.org&quot; &quot;http://127.1:8080/fcgi/test&quot;  
+# request will route to 10.0.0.1:8001
 
-curl -H <span class="s2">&quot;host: example.org&quot;</span> <span class="s2">&quot;http://127.1:8080/http/test&quot;</span>  
-<span class="c1"># request will route to 10.0.0.1:8002</span>
-</code></pre></div>
+curl -H &quot;host: example.org&quot; &quot;http://127.1:8080/http/test&quot;  
+# request will route to 10.0.0.1:8002</code></pre>
                 
               
               

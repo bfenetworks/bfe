@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2817,8 +2817,7 @@ RU5ErkJggg==" ></image>
 <p>利用抓包及分析工具定位分析复杂的网络问题</p>
 <h2 id="_2">流量抓取</h2>
 <p>使用tcpdump抓取示例：</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># tcpdump tcp port 8443 -i any -s -w test.pcap</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash"># tcpdump tcp port 8443 -i any -s -w test.pcap</code></pre>
 
 
 <h2 id="_3">流量分析</h2>
@@ -2830,9 +2829,8 @@ RU5ErkJggg==" ></image>
 <li>Step1: 在bfe开启mod_key_log模块，保存TLS会话密钥到key.log日志文件中</li>
 <li>注：修改bfe.conf文件，增加启用mod_key_log模块, 模块配置详见<a href="../../modules/mod_key_log/mod_key_log/">mod_key_log</a></li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="k">[Server]</span>
-<span class="na">Modules</span> <span class="o">=</span> <span class="s">mod_key_log</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">[Server]
+Modules = mod_key_log</code></pre>
 
 
 <ul>

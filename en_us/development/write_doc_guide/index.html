@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2929,24 +2929,21 @@ RU5ErkJggg==" ></image>
 <h3 id="install-its-dependencies">Install its dependencies</h3>
 <p>Before doing this, please make sure your operating system has gitbook installed.</p>
 <p>Take the ubuntu system as an example, run:</p>
-<div class="codehilite"><pre><span></span><code>$ sudo apt-get update <span class="o">&amp;&amp;</span> apt-get install -y npm
-$ sudo npm install -g gitbook-cli
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash">$ sudo apt-get update &amp;&amp; apt-get install -y npm
+$ sudo npm install -g gitbook-cli</code></pre>
 
 
 <h3 id="clone-related-repository">Clone related repository:</h3>
 <p>First download the full repository:</p>
-<div class="codehilite"><pre><span></span><code>$ git clone https://github.com/bfenetworks/bfe
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash">$ git clone https://github.com/bfenetworks/bfe</code></pre>
 
 
 <h3 id="run-document-site-locally">Run document site locally</h3>
 <p>Change to base directory of documents which you want to load and build(docs/LANG), run:</p>
-<div class="codehilite"><pre><span></span><code>$ <span class="nb">cd</span> docs/en_us/
-$ gitbook serve --port <span class="m">8000</span>
+<pre class="codehilite"><code class="language-bash">$ cd docs/en_us/
+$ gitbook serve --port 8000
 ...
-Serving book on http://localhost:8000
-</code></pre></div>
+Serving book on http://localhost:8000</code></pre>
 
 
 <p>Then: open your browser and navigate to http://localhost:8000.</p>
@@ -2966,9 +2963,8 @@ Serving book on http://localhost:8000
 <ul>
 <li>Run the preview tool in base directory of documents (docs/LANG)</li>
 </ul>
-<div class="codehilite"><pre><span></span><code>$ <span class="nb">cd</span> docs/en_us/
-$ gitbook serve --port <span class="m">8000</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash">$ cd docs/en_us/
+$ gitbook serve --port 8000</code></pre>
 
 
 <h3 id="preview-modification">Preview modification</h3>

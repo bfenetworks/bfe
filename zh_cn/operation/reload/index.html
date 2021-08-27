@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
     
     
       
@@ -2831,18 +2831,16 @@ RU5ErkJggg==" ></image>
 <p>BFE内置配置热加载功能，通过请求Reload HTTP API能够加载新的配置文件。</p>
 <h2 id="_2">配置管理端口</h2>
 <p>在BFE核心配置文件(conf/bfe.conf)中, 配置MonitorPort</p>
-<div class="codehilite"><pre><span></span><code><span class="k">[Server]</span>
-<span class="na">MonitorPort</span> <span class="o">=</span> <span class="s">8421</span>
-</code></pre></div>
+<pre class="codehilite"><code class="language-ini">[Server]
+MonitorPort = 8421</code></pre>
 
 
 <h2 id="_3">使用方式</h2>
 <ul>
 <li>reload接口仅允许使用localhost访问（127.0.0.1/::1）, 仅支持GET请求, 示例:</li>
 </ul>
-<div class="codehilite"><pre><span></span><code><span class="c1"># 重加载分流转发配置</span>
-$ curl http://localhost:8421/reload/server_data_conf 
-</code></pre></div>
+<pre class="codehilite"><code class="language-bash"># 重加载分流转发配置
+$ curl http://localhost:8421/reload/server_data_conf </code></pre>
 
 
 <ul>
