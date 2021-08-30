@@ -202,7 +202,7 @@ path条件的描述语法遵循以下规则：
         "demo": [
             {
                 "Hostname": ["www.a.com"],
-				        "Path": ["/a/*"], 
+                "Path": ["/a/*"], 
                 "ClusterName": "Demo-A"
             },
             {
