@@ -190,3 +190,51 @@ Advanced Rules are searched from up to down. Rule for Demo-D1 should be placed b
 
 Default Rule is configured in Advanced Rule Table. Requests that do not hit any other rule will be forwarded to Demo-E.
 
+For above configuration, configuration file (/conf/server_data_conf/route_rule.conf) is as follows:
+
+```
+{
+    "Version": "1.0",
+    "BasicRule": {
+        "demo": [
+            {
+                "Hostname": ["www.a.com"],
+                "Path": ["/a/*"], 
+                "ClusterName": "Demo-A"
+            },
+            {
+                "Hostname": ["www.a.com"],
+                "Path": ["/a/b"],
+                "ClusterName": "Demo-B"
+            },
+            {
+                "Hostname": ["*.a.com"],
+                "Path": "*",
+                "ClusterName": "Demo-C"
+            },
+            {
+                "Hostname": ["www.c.com"],
+                "Path": "*",
+                "ClusterName": "ADVANCED_MODE"
+            }
+        ]
+    },
+    "ProductRule": {
+        "demo": [
+            {
+                "Cond": " req_host_in(\"www.c.com\") && req_cookie_value_prefix_in(\"deviceid\", \"x\", false)",
+                "ClusterName": "Demo-D1"
+            },
+            {
+                "Cond": " req_host_in(\"www.c.com\")",
+                "ClusterName": "Demo-D"
+            },
+            {
+                "Cond": "default_t()",
+                "ClusterName": "Demo-E"
+            }
+        ]
+    }    
+}
+```
+

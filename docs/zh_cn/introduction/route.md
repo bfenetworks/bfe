@@ -193,3 +193,50 @@ path条件的描述语法遵循以下规则：
 在高级规则表中，多条规则之间是有序的。需要将转发给Demo-D1的规则放在转发给Demo-D的规则的前面。
 
 高级规则表中包含默认规则，对于没有命中其它规则的请求将被转发到Demo-E。
+
+以上配置信息，对应的配置文件（/conf/server_data_conf/route_rule.conf）如下：
+```
+{
+    "Version": "1.0",
+    "BasicRule": {
+        "demo": [
+            {
+                "Hostname": ["www.a.com"],
+                "Path": ["/a/*"], 
+                "ClusterName": "Demo-A"
+            },
+            {
+                "Hostname": ["www.a.com"],
+                "Path": ["/a/b"],
+                "ClusterName": "Demo-B"
+            },
+            {
+                "Hostname": ["*.a.com"],
+                "Path": "*",
+                "ClusterName": "Demo-C"
+            },
+            {
+                "Hostname": ["www.c.com"],
+                "Path": "*",
+                "ClusterName": "ADVANCED_MODE"
+            }
+        ]
+    },
+    "ProductRule": {
+        "demo": [
+            {
+                "Cond": " req_host_in(\"www.c.com\") && req_cookie_value_prefix_in(\"deviceid\", \"x\", false)",
+                "ClusterName": "Demo-D1"
+            },
+            {
+                "Cond": " req_host_in(\"www.c.com\")",
+                "ClusterName": "Demo-D"
+            },
+            {
+                "Cond": "default_t()",
+                "ClusterName": "Demo-E"
+            }
+        ]
+    }    
+}
+```
