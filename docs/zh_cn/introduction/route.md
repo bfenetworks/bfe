@@ -162,8 +162,8 @@ path条件的描述语法遵循以下规则：
 - 产品线demo，包含多种服务集群：Demo-A, Demo-B, Demo-C, Demo-D，Demo-E
 
 - 期望的转发条件如下：
-    + 对于host为www.a.com，path为"/a/*"的请求，转发至Demo-A集群
     + 对于host为www.a.com，path为"/a/b"的请求，转发至Demo-B集群
+    + 对于host为www.a.com，path为"/a/*"的请求，转发至Demo-A集群
     + 对于host为\*.a.com的请求，转发至Demo-C集群
     + 对于host为www.c.com的请求，转发至Demo-D集群
     + 针对Demo-D集群，另外开启了一个灰度集群Demo-D1。如果cookie中包含deviceid，且这个cookie的值以“x”开头，则转发至Demo-D1
@@ -190,9 +190,53 @@ path条件的描述语法遵循以下规则：
 | req_host_in("www.c.com")                 | Demo-D              |
 | default                                  | Demo-E              |
 
-在高级规则表中，多条规则之间是有序的。需要将转发给Demo-D1的规则放在前面。
+在高级规则表中，多条规则之间是有序的。需要将转发给Demo-D1的规则放在转发给Demo-D的规则的前面。
 
 高级规则表中包含默认规则，对于没有命中其它规则的请求将被转发到Demo-E。
 
-
-
+以上配置信息，对应的配置文件（/conf/server_data_conf/route_rule.conf）如下：
+```
+{
+    "Version": "1.0",
+    "BasicRule": {
+        "demo": [
+            {
+                "Hostname": ["www.a.com"],
+                "Path": ["/a/*"], 
+                "ClusterName": "Demo-A"
+            },
+            {
+                "Hostname": ["www.a.com"],
+                "Path": ["/a/b"],
+                "ClusterName": "Demo-B"
+            },
+            {
+                "Hostname": ["*.a.com"],
+                "Path": "*",
+                "ClusterName": "Demo-C"
+            },
+            {
+                "Hostname": ["www.c.com"],
+                "Path": "*",
+                "ClusterName": "ADVANCED_MODE"
+            }
+        ]
+    },
+    "ProductRule": {
+        "demo": [
+            {
+                "Cond": " req_host_in(\"www.c.com\") && req_cookie_value_prefix_in(\"deviceid\", \"x\", false)",
+                "ClusterName": "Demo-D1"
+            },
+            {
+                "Cond": " req_host_in(\"www.c.com\")",
+                "ClusterName": "Demo-D"
+            },
+            {
+                "Cond": "default_t()",
+                "ClusterName": "Demo-E"
+            }
+        ]
+    }    
+}
+```
