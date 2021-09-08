@@ -2,7 +2,7 @@
 
 ## Introduction
 
-mod_auth_basic supports sending request to the specified service for authentication.
+mod_auth_request supports sending request to the specified service for authentication.
 
 ## Module Configuration
 

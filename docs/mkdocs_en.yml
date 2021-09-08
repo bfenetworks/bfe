@@ -98,6 +98,7 @@ nav:
       - 'mod_access': 'modules/mod_access/mod_access.md'
       - 'mod_auth_basic': 'modules/mod_auth_basic/mod_auth_basic.md'
       - 'mod_auth_jwt': 'modules/mod_auth_jwt/mod_auth_jwt.md'
+      - 'mod_auth_request': 'modules/mod_auth_request/mod_auth_request.md'
       - 'mod_block': 'modules/mod_block/mod_block.md'
       - 'mod_compress': 'modules/mod_compress/mod_compress.md'
       - 'mod_doh': 'modules/mod_doh/mod_doh.md'
