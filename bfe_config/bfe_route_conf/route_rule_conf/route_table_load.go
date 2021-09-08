@@ -87,7 +87,7 @@ type RouteTableConf struct {
 	AdvancedRuleMap ProductAdvancedRouteRule
 }
 
-func convert(fileConf *RouteTableFile) (*RouteTableConf, error) {
+func Convert(fileConf *RouteTableFile) (*RouteTableConf, error) {
 	if fileConf.Version == nil {
 		return nil, errors.New("no Version")
 	}
@@ -251,7 +251,7 @@ func (conf *RouteTableConf) LoadAndCheck(filename string) (string, error) {
 		return "", err
 	}
 
-	pConf, err := convert(&fileConf)
+	pConf, err := Convert(&fileConf)
 	if err != nil {
 		return "", err
 	}
