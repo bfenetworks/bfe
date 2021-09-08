@@ -164,7 +164,7 @@ path条件的描述语法遵循以下规则：
     + 对于host为www.a.com，且path为"/a/b"的请求，转发至Demo-B集群
     + 对于其他host为\*.a.com的请求，转发至Demo-C集群
     + 对于host为www.c.com的请求，转发至Demo-D集群
-    + 针对host为www.c.com的请求，另外开启了一个灰度集群Demo-D1。如果cookie中包含deviceid，且这个cookie的值以“x”开头，则转发至Demo-D1
+    + 针对Demo-D集群，另外开启了一个灰度集群Demo-D1。如果cookie中包含deviceid，且这个cookie的值以“x”开头，则转发至Demo-D1
     + 其它请求，都发往Demo-E
 
 - 对应以上要求，**基础规则表**的配置为：
@@ -178,7 +178,7 @@ path条件的描述语法遵循以下规则：
 
 在基础规则表中，规则之间没有前后顺序。见前面关于“基础规则匹配顺序”的说明。
 
-针对www.c.com的灰度发布，由于需要使用cookie中的信息，所以使用ADVANCED_MODE将满足条件的请求透传到高级规则表继续处理；在不需要灰度发布的时候，在基础规则表中www.c.com对应规则的目标集群写为Demo-D即可。
+针对Demo-D集群上应用的灰度发布，由于需要使用cookie中的信息，所以使用ADVANCED_MODE将满足条件的请求透传到高级规则表继续处理；在不需要灰度发布的时候，在基础规则表中www.c.com对应规则的目标集群写为Demo-D即可。
 
 - **高级规则表**的配置为：
 

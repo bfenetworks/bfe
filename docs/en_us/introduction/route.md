@@ -45,7 +45,7 @@ For each Basic Rule, at least one of two conditions (Host and Path) should be co
 - Support "Exact Match", "Wildcard Match", "Any Match"
   - Exact Match: An exact hostname (for example "www.test1.com")
   - Wildcard Match: A host name with first label set to "\*". The "\*" can only appear once in a hostname and only covers a single label (for example "\*.test1.com"). Examples of invalid host condition description include "\*est.com" and "\*.\*.com".
-  - Any Match: A special Wildcard Match. Set Host condition to standalone "\*" makes the rule can match any host. (A standalone "\*" here can cover a hostname with multiple labels, which is different from Wildcard Match.) 
+  - Any Match: A special Wildcard Match. Standalone "\*" can match any host. (A standalone "\*" here can cover a hostname with multiple labels, which is different from Wildcard Match.) 
 - Host condition of a Basic Rule supports multiple host condition descriptions (for example: "www.test1.com,","\*.example.com").
 
 **Examples:**
@@ -160,7 +160,7 @@ When searching in Advanced Rule Table, the rules are searched from up to down, i
   + Requests with host=www.a.com and path="/a/b", forwarded to Demo-B
   + Other requests with host=\*.a.com, forwarded to Demo-C
   + Requests with host=www.c.com, forwarded to Demo-D
-  + For www.c.com, another cluster Demo-D1 is created for a canary release.  For requests with host=www.c.com and cookie "deviceid" with its value starting with "x", forwarded to cluster Demo-D1
+  + For Demo-D, another cluster Demo-D1 is created for a canary release.  For requests with host=www.c.com and cookie "deviceid" with its value starting with "x", forwarded to cluster Demo-D1
   + All the other requests, forward to Demo-E
 
 - In this case, the **Basic Rule Table** can be configured as below:
@@ -174,7 +174,7 @@ When searching in Advanced Rule Table, the rules are searched from up to down, i
 
 There's no order for Basic Rules. Refer to "Search in Basic Rule Table" above.
 
-For the canary release of www.c.com that depends on cookie information, the rule uses ADVANCED_MODE to do further search in Advanced Rule Table for related requests. If canary release is not required, the Destination Cluster of this rule can be set to Demo-D.
+As cookie information is need for the canary release of applications on Demo-D, the rule uses ADVANCED_MODE to do further search in Advanced Rule Table for related requests. If canary release is not required, the Destination Cluster of this rule can be set to Demo-D.
 
 - The **Advanced Rule Table** can be configured as below:
 
