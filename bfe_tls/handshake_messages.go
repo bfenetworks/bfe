@@ -68,10 +68,24 @@ func (m *clientHelloMsg) equal(i interface{}) bool {
 		eqStrings(m.alpnProtocols, m1.alpnProtocols)
 }
 
+// GREASE reserves a set of TLS protocol values that may be advertised to ensure
+// peers correctly handle unknown values.
+// See: https://datatracker.ietf.org/doc/html/rfc8701#section-2
+func isGreaseVal(val uint16) bool {
+	return val&0x0F0F == 0x0A0A
+}
+
 // JA3String returns a JA3 fingerprint string for TLS client.
 // For more information, see https://github.com/salesforce/ja3
 func (m *clientHelloMsg) JA3String() string {
 	var buf bytes.Buffer
+
+	// The client may advertise one or more GREASE values of cipher suite/extension
+	// named group/signature algorithm/version/PskKeyExchangeMode/ALPN identifiers.
+	// JA3 should ignores these values completely to ensure that programs utilizing
+	// GREASE can still be identified with a single JA3 hash.
+	// See: https://datatracker.ietf.org/doc/html/rfc8701#section-3.1
+
 	// version
 	fmt.Fprintf(&buf, "%d,", m.vers)
 	// cipher surites
@@ -81,11 +95,16 @@ func (m *clientHelloMsg) JA3String() string {
 	writeJA3Uint16Values(&buf, m.extensionIds)
 	fmt.Fprintf(&buf, ",")
 	// elliptic curves
-	for i, curve := range m.supportedCurves {
-		fmt.Fprintf(&buf, "%d", curve)
-		if i != len(m.supportedCurves)-1 {
+	dashFlag := false
+	for _, curve := range m.supportedCurves {
+		if isGreaseVal(uint16(curve)) {
+			continue
+		}
+		if dashFlag {
 			fmt.Fprintf(&buf, "-")
 		}
+		fmt.Fprintf(&buf, "%d", curve)
+		dashFlag = true
 	}
 	fmt.Fprintf(&buf, ",")
 	// elliptic curves point formats
@@ -99,11 +118,16 @@ func (m *clientHelloMsg) JA3String() string {
 }
 
 func writeJA3Uint16Values(buf *bytes.Buffer, values []uint16) {
-	for i, value := range values {
-		fmt.Fprintf(buf, "%d", value)
-		if i != len(values)-1 {
+	dashFlag := false
+	for _, value := range values {
+		if isGreaseVal(value) {
+			continue
+		}
+		if dashFlag {
 			fmt.Fprintf(buf, "-")
 		}
+		fmt.Fprintf(buf, "%d", value)
+		dashFlag = true
 	}
 }
 
