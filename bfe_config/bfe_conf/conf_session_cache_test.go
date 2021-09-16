@@ -49,8 +49,8 @@ func TestConfSessionCacheLoad(t *testing.T) {
 	}
 	scacheConf := conf.SessionCache
 
-	if !scacheConf.SessionCacheDisabled {
-		t.Errorf("wrong SessionCacheDisabled, expect true")
+	if scacheConf.SessionCacheDisabled {
+		t.Errorf("wrong SessionCacheDisabled, expect false")
 	}
 
 	serverExpect := "10.1.2.3:9000"

@@ -36,6 +36,10 @@ func (cfg *ConfigSessionTicket) SetDefaultConf() {
 }
 
 func (cfg *ConfigSessionTicket) Check(confRoot string) error {
+	if cfg.SessionTicketsDisabled {
+		return nil
+	}
+
 	return ConfSessionTicketCheck(cfg, confRoot)
 }
 

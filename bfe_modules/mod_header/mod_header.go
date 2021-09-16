@@ -118,7 +118,7 @@ func (m *ModuleHeader) applyProductRule(request *bfe_basic.Request, headerType i
 func (m *ModuleHeader) setDefaultHeader(request *bfe_basic.Request) {
 	if openDebug {
 		log.Logger.Debug("setDefaultHeader():src ip=%s, isTrustIP=%t",
-			request.RemoteAddr.String(), request.Session.IsTrustIP)
+			request.RemoteAddr.String(), request.Session.TrustSource())
 	}
 
 	// set client addr

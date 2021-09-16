@@ -76,7 +76,9 @@ var funcProtos = map[string][]Token{
 	"ses_tls_sni_in":             {STRING},
 	"ses_tls_client_auth":        nil,
 	"ses_tls_client_ca_in":       {STRING},
-	"req_context_value_in":       {STRING, STRING},
+	"req_context_value_in":       {STRING, STRING, BOOL},
+	"bfe_time_range":             []Token{STRING, STRING},
+	"bfe_periodic_time_range":    []Token{STRING, STRING, STRING},
 }
 
 func prototypeCheck(expr *CallExpr) error {

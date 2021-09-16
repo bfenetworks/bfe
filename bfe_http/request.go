@@ -384,7 +384,7 @@ func (req *Request) write(w io.Writer, usingProxy bool, extraHeaders Header) err
 	ruri := req.URL.RequestURI()
 	if usingProxy && req.URL.Scheme != "" && req.URL.Opaque == "" {
 		ruri = req.URL.Scheme + "://" + host + ruri
-	} else if req.Method == "CONNECT" && req.URL.Path == "" {
+	} else if req.Method == MethodConnect && req.URL.Path == "" {
 		// CONNECT requests normally give just the host and port, not a full URL.
 		ruri = host
 	} else {
@@ -654,7 +654,7 @@ func ReadRequest(b *bfe_bufio.Reader, maxUriBytes int) (req *Request, err error)
 	// that starts with a slash. It can be parsed with the regular URL parser,
 	// and the path will end up in req.URL.Path, where it needs to be in order for
 	// RPC to work.
-	justAuthority := req.Method == "CONNECT" && !strings.HasPrefix(rawurl, "/")
+	justAuthority := req.Method == MethodConnect && !strings.HasPrefix(rawurl, "/")
 	if justAuthority {
 		rawurl = "http://" + rawurl
 	}
@@ -832,7 +832,7 @@ func parsePostForm(r *Request) (vs url.Values, err error) {
 func (r *Request) ParseForm() error {
 	var err error
 	if r.PostForm == nil {
-		if r.Method == "POST" || r.Method == "PUT" {
+		if r.Method == MethodPost || r.Method == MethodPut {
 			r.PostForm, err = parsePostForm(r)
 		}
 		if r.PostForm == nil {

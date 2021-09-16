@@ -151,7 +151,7 @@ func (m *ModuleTrustClientIP) acceptHandler(session *bfe_basic.Session) int {
 	if trusted {
 		m.state.ConnTrustClientip.Inc(1)
 	}
-	session.IsTrustIP = trusted
+	session.SetTrustSource(trusted)
 
 	// TODO: modify counting policy for ipv6
 	// state for internal remote ip
@@ -164,7 +164,7 @@ func (m *ModuleTrustClientIP) acceptHandler(session *bfe_basic.Session) int {
 
 	if openDebug {
 		log.Logger.Debug("mod_trust_clientip:src ip = %s, trusted = %t",
-			session.RemoteAddr.IP, session.IsTrustIP)
+			session.RemoteAddr.IP, session.TrustSource())
 	}
 
 	return bfe_module.BfeHandlerGoOn

@@ -2,9 +2,11 @@
 
 ## BFE社区
 
-**BFE Slack社区**: [登陆](https://join.slack.com/t/bfe-networks/shared_invite/zt-cn04xsqr-j7LDFmPkCuCZ39OLcHlMBA)并关注你感兴趣的话题。
+**BFE用户论坛**: 前往[Github Discussions](https://github.com/bfenetworks/bfe/discussions)讨论。
 
 **BFE开发者微信群**: [发送申请邮件](mailto:bfe-osc@baidu.com)并注明您的微信账号及贡献(例如提交的PR/Issue链接)，我们将立即邀请您加入。
+
+**BFE Slack社区**: [登陆](https://slack.cncf.io/)CNCF Slack并关注bfe频道。
 
 **Twitter**: [@BFE-Networks](https://twitter.com/BfeNetworks)
 

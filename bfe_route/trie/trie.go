@@ -44,15 +44,15 @@ func NewTrie() *Trie {
 //     }
 func (t *Trie) Get(path []string) (entry interface{}, ok bool) {
 	if len(path) == 0 {
-		return t.getentry()
+		return t.getEntry()
 	}
 
 	key := path[0]
-	newpath := path[1:]
+	newPath := path[1:]
 
 	res, ok := t.Children[key]
 	if ok {
-		entry, ok = res.Get(newpath)
+		entry, ok = res.Get(newPath)
 	}
 
 	if entry == nil && t.SplatEntry != nil {
@@ -69,7 +69,7 @@ func (t *Trie) Get(path []string) (entry interface{}, ok bool) {
 // and an arbitrary value (interface{}) to use as the leaf data.
 func (t *Trie) Set(path []string, value interface{}) error {
 	if len(path) == 0 {
-		t.setentry(value)
+		t.setEntry(value)
 		return nil
 	}
 
@@ -81,7 +81,7 @@ func (t *Trie) Set(path []string, value interface{}) error {
 	}
 
 	key := path[0]
-	newpath := path[1:]
+	newPath := path[1:]
 
 	res, ok := t.Children[key]
 	if !ok {
@@ -90,13 +90,13 @@ func (t *Trie) Set(path []string, value interface{}) error {
 		t.Children[key] = res
 	}
 
-	return res.Set(newpath, value)
+	return res.Set(newPath, value)
 }
 
-func (t *Trie) setentry(value interface{}) {
+func (t *Trie) setEntry(value interface{}) {
 	t.Entry = value
 }
 
-func (t *Trie) getentry() (entry interface{}, ok bool) {
+func (t *Trie) getEntry() (entry interface{}, ok bool) {
 	return t.Entry, t.Entry != nil
 }

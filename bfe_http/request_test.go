@@ -37,7 +37,7 @@ import (
 )
 
 func TestQuery(t *testing.T) {
-	req := &Request{Method: "GET"}
+	req := &Request{Method: MethodGet}
 	req.URL, _ = url.Parse("http://www.google.com/search?q=foo&q=bar")
 	if q := req.FormValue("q"); q != "foo" {
 		t.Errorf(`req.FormValue("q") = %q, want "foo"`, q)
@@ -45,7 +45,7 @@ func TestQuery(t *testing.T) {
 }
 
 func TestPostQuery(t *testing.T) {
-	req, _ := NewRequest("POST", "http://www.google.com/search?q=foo&q=bar&both=x&prio=1&empty=not",
+	req, _ := NewRequest(MethodPost, "http://www.google.com/search?q=foo&q=bar&both=x&prio=1&empty=not",
 		strings.NewReader("z=post&both=y&prio=2&empty="))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
 
@@ -92,7 +92,7 @@ var parseContentTypeTests = []parseContentTypeTest{
 func TestParseFormUnknownContentType(t *testing.T) {
 	for i, test := range parseContentTypeTests {
 		req := &Request{
-			Method: "POST",
+			Method: MethodPost,
 			Header: Header(test.contentType),
 			Body:   ioutil.NopCloser(bytes.NewBufferString("body")),
 		}
@@ -107,10 +107,10 @@ func TestParseFormUnknownContentType(t *testing.T) {
 }
 
 func TestParseFormInitializeOnError(t *testing.T) {
-	nilBody, _ := NewRequest("POST", "http://www.google.com/search?q=foo", nil)
+	nilBody, _ := NewRequest(MethodPost, "http://www.google.com/search?q=foo", nil)
 	tests := []*Request{
 		nilBody,
-		{Method: "GET", URL: nil},
+		{Method: MethodGet, URL: nil},
 	}
 	for i, req := range tests {
 		err := req.ParseForm()
@@ -125,7 +125,7 @@ func TestParseFormInitializeOnError(t *testing.T) {
 
 func TestMultipartReader(t *testing.T) {
 	req := &Request{
-		Method: "POST",
+		Method: MethodPost,
 		Header: Header{"Content-Type": {`multipart/form-data; boundary="foo123"`}},
 		Body:   ioutil.NopCloser(new(bytes.Buffer)),
 	}
@@ -142,7 +142,7 @@ func TestMultipartReader(t *testing.T) {
 }
 
 func TestSetBasicAuth(t *testing.T) {
-	r, _ := NewRequest("GET", "http://example.com/", nil)
+	r, _ := NewRequest(MethodGet, "http://example.com/", nil)
 	r.SetBasicAuth("Aladdin", "open sesame")
 	if g, e := r.Header.Get("Authorization"), "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ=="; g != e {
 		t.Errorf("got header %q, want %q", g, e)
@@ -180,7 +180,7 @@ func TestMultipartRequestAuto(t *testing.T) {
 func TestEmptyMultipartRequest(t *testing.T) {
 	// Test that FormValue and FormFile automatically invoke
 	// ParseMultipartForm and return the right values.
-	req, err := NewRequest("GET", "/", nil)
+	req, err := NewRequest(MethodGet, "/", nil)
 	if err != nil {
 		t.Errorf("NewRequest err = %q", err)
 	}
@@ -218,7 +218,7 @@ func TestReadRequestErrors(t *testing.T) {
 }
 
 func TestNewRequestHost(t *testing.T) {
-	req, err := NewRequest("GET", "http://localhost:1234/", nil)
+	req, err := NewRequest(MethodGet, "http://localhost:1234/", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +246,7 @@ func TestNewRequestContentLength(t *testing.T) {
 		{readByte(io.NewSectionReader(strings.NewReader("xy"), 0, 6)), 0},
 	}
 	for _, tt := range tests {
-		req, err := NewRequest("POST", "http://localhost/", tt.r)
+		req, err := NewRequest(MethodPost, "http://localhost/", tt.r)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -308,7 +308,7 @@ var getBasicAuthTests = []struct {
 
 func TestGetBasicAuth(t *testing.T) {
 	for _, tt := range getBasicAuthTests {
-		r, _ := NewRequest("GET", "http://example.com/", nil)
+		r, _ := NewRequest(MethodGet, "http://example.com/", nil)
 		r.SetBasicAuth(tt.username, tt.password)
 		username, password, ok := r.BasicAuth()
 		if ok != tt.ok || username != tt.username || password != tt.password {
@@ -317,7 +317,7 @@ func TestGetBasicAuth(t *testing.T) {
 		}
 	}
 	// Unauthenticated request.
-	r, _ := NewRequest("GET", "http://example.com/", nil)
+	r, _ := NewRequest(MethodGet, "http://example.com/", nil)
 	username, password, ok := r.BasicAuth()
 	if ok {
 		t.Errorf("expected false from BasicAuth when the request is unauthenticated")
@@ -350,7 +350,7 @@ var parseBasicAuthTests = []struct {
 
 func TestParseBasicAuth(t *testing.T) {
 	for _, tt := range parseBasicAuthTests {
-		r, _ := NewRequest("GET", "http://example.com/", nil)
+		r, _ := NewRequest(MethodGet, "http://example.com/", nil)
 		r.Header.Set("Authorization", tt.header)
 		username, password, ok := r.BasicAuth()
 		if ok != tt.ok || username != tt.username || password != tt.password {
@@ -377,7 +377,7 @@ func (l logWrites) Write(p []byte) (n int, err error) {
 
 func TestRequestWriteBufferedWriter(t *testing.T) {
 	got := []string{}
-	req, _ := NewRequest("GET", "http://foo.com/", nil)
+	req, _ := NewRequest(MethodGet, "http://foo.com/", nil)
 	req.State = &RequestState{}
 	req.Write(logWrites{t, &got})
 	want := []string{
@@ -406,7 +406,7 @@ func testMissingFile(t *testing.T, req *Request) {
 
 func newTestMultipartRequest(t *testing.T) *Request {
 	b := bytes.NewBufferString(strings.Replace(message, "\n", "\r\n", -1))
-	req, err := NewRequest("POST", "/", b)
+	req, err := NewRequest(MethodPost, "/", b)
 	if err != nil {
 		t.Fatal("NewRequest:", err)
 	}

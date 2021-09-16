@@ -53,7 +53,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_http"
 )
 
-// RequestFilter filters incomming requests and return a response or nil.
+// RequestFilter filters incoming requests and return a response or nil.
 // Filters are chained together into a HandlerList.
 type RequestFilter interface {
 	FilterRequest(request *bfe_basic.Request) (int, *bfe_http.Response)

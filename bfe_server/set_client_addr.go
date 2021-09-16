@@ -27,7 +27,7 @@ import (
 // setClientAddr set real client addr from headers.
 func setClientAddr(req *bfe_basic.Request) {
 	// use remote addr
-	if !req.Session.IsTrustIP { // request not from upstream bfe server
+	if !req.Session.TrustSource() { // request not from upstream bfe server
 		req.ClientAddr = req.RemoteAddr
 		return
 	}

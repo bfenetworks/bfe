@@ -1,0 +1,20 @@
+{
+    "Version": "685",
+    "ProductRule": {
+        "example_product": [
+            {
+                "ClusterName": "cluster_example",
+                "Cond": "default_t()"
+            }
+        ]
+    },
+    "BasicRule":{
+  		"example_product" : [
+			{
+				"Hostname": ["*.foo.com"],
+				"Path":["/a/*/*","/b"],
+				"ClusterName": "cluster_example_1"
+			}
+		]
+    }
+}

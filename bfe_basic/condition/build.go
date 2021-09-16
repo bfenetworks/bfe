@@ -522,7 +522,31 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			name:    node.Fun.Name,
 			node:    node,
 			fetcher: &ContextValueFetcher{node.Args[0].Value},
-			matcher: NewInMatcher(node.Args[1].Value, false),
+			matcher: NewInMatcher(node.Args[1].Value, node.Args[2].ToBool()),
+		}, nil
+
+	case "bfe_time_range":
+		matcher, err := NewTimeMatcher(node.Args[0].Value, node.Args[1].Value)
+		if err != nil {
+			return nil, err
+		}
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &BfeTimeFetcher{},
+			matcher: matcher,
+		}, nil
+
+	case "bfe_periodic_time_range":
+		matcher, err := NewPeriodicTimeMatcher(node.Args[0].Value, node.Args[1].Value, node.Args[2].Value)
+		if err != nil {
+			return nil, err
+		}
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &BfeTimeFetcher{},
+			matcher: matcher,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported primitive %s", node.Fun.Name)

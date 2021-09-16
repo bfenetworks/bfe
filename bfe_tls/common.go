@@ -211,11 +211,11 @@ type ConnectionState struct {
 	HandshakeComplete          bool                  // TLS handshake is complete
 	DidResume                  bool                  // connection resumes a previous TLS connection
 	CipherSuite                uint16                // cipher suite in use (TLS_RSA_WITH_RC4_128_SHA, ...)
-	NegotiatedProtocol         string                // negotiated next protocol (from Config.NextProtos)
+	OcspStaple                 bool                  // use ocsp staple (in server side)
 	NegotiatedProtocolIsMutual bool                  // negotiated protocol was advertised by server
+	NegotiatedProtocol         string                // negotiated next protocol (from Config.NextProtos)
 	ServerName                 string                // server name requested by client, if any (server side only)
 	HandshakeTime              time.Duration         // TLS handshake time (in server side)
-	OcspStaple                 bool                  // use ocsp staple (in server side)
 	PeerCertificates           []*x509.Certificate   // certificate chain presented by remote peer
 	VerifiedChains             [][]*x509.Certificate // verified chains built from PeerCertificates
 	ClientRandom               []byte                // random in client hello

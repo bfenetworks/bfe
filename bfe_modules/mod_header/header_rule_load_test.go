@@ -18,6 +18,48 @@ import (
 	"testing"
 )
 
+// abnormal type
+const (
+	abnormalTypeNilCondition = iota
+	abnormalTypeNilActions
+	abnormalTypeEmptyActions // actions is empty slice but not nil
+	abnormalTypeNilLast
+)
+
+func makeHeaderRuleFile() HeaderRuleFile {
+	cond := "condition"
+	last := false
+	cmd := "REQ_HEADER_ADD"
+	action := ActionFile{
+		Cmd:    &cmd,
+		Params: []string{"header1", "value1"},
+	}
+
+	return HeaderRuleFile{
+		Cond:    &cond,
+		Actions: &ActionFileList{action},
+		Last:    &last,
+	}
+}
+
+func makeAbnormalHeaderRuleFile(abnormalType int) HeaderRuleFile {
+	headerRule := makeHeaderRuleFile()
+	switch abnormalType {
+	case abnormalTypeNilCondition:
+		headerRule.Cond = nil
+	case abnormalTypeNilActions:
+		headerRule.Actions = nil
+	case abnormalTypeEmptyActions:
+		actions := make(ActionFileList, 0)
+		headerRule.Actions = &actions
+	case abnormalTypeNilLast:
+		headerRule.Last = nil
+	default:
+		return HeaderRuleFile{}
+	}
+	return headerRule
+}
+
 func TestHeaderConfLoad(t *testing.T) {
 	_, err := HeaderConfLoad("./testdata/mod_header/header_rule.data")
 	if err != nil {
@@ -28,5 +70,42 @@ func TestHeaderConfLoad(t *testing.T) {
 	_, err = HeaderConfLoad("./testdata/not_exist.conf")
 	if err == nil {
 		t.Error("HeaderConfLoad() failed for not exist conf file")
+	}
+}
+
+// normal case
+func TestHeaderRuleCheckCase1(t *testing.T) {
+	headerRule := makeHeaderRuleFile()
+
+	// invoke HeaderRuleCheck()
+	err := HeaderRuleCheck(headerRule)
+
+	// verify
+	if err != nil {
+		t.Errorf("HeaderRuleCheck(): %s, with Cond=%+v, Action=%+v, Last=%+v",
+			err, headerRule.Cond, headerRule.Actions, headerRule.Last)
+	}
+}
+
+// abnormal cases
+func TestHeaderRuleCheckCase2(t *testing.T) {
+	testCases := []int{
+		abnormalTypeNilCondition,
+		abnormalTypeNilActions,
+		abnormalTypeEmptyActions,
+		abnormalTypeNilLast,
+	}
+
+	for _, abnormalType := range testCases {
+		headerRule := makeAbnormalHeaderRuleFile(abnormalType)
+
+		// invoke HeaderRuleCheck()
+		err := HeaderRuleCheck(headerRule)
+
+		// verify
+		if err == nil {
+			t.Errorf("HeaderRuleCheck() should fail, with Cond=%+v, Action=%+v, Last=%+v",
+				headerRule.Cond, headerRule.Actions, headerRule.Last)
+		}
 	}
 }

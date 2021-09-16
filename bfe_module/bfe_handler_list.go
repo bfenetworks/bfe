@@ -32,20 +32,30 @@ import (
 
 // HandlerList type.
 const (
-	HandlersAccept   = 0 // for AcceptFilter
-	HandlersRequest  = 1 // for RequestFilter
-	HandlersForward  = 2 // for ForwardFilter
-	HandlersResponse = 3 // for ResponseFilter
-	HandlersFinish   = 4 // for FinishFilter
+	// for AcceptFilter
+	HandlersAccept = iota
+	// for RequestFilter
+	HandlersRequest
+	// for ForwardFilter
+	HandlersForward
+	// for ResponseFilter
+	HandlersResponse
+	// for FinishFilter
+	HandlersFinish
 )
 
 // Return value of handler.
 const (
-	BfeHandlerFinish   = 0 // to close the connection after response
-	BfeHandlerGoOn     = 1 // to go on next handler
-	BfeHandlerRedirect = 2 // to redirect
-	BfeHandlerResponse = 3 // to send response
-	BfeHandlerClose    = 4 // to close the connection directly, with no data sent.
+	// to close the connection after response
+	BfeHandlerFinish = iota
+	// to go on next handler
+	BfeHandlerGoOn
+	// to redirect
+	BfeHandlerRedirect
+	// to send response
+	BfeHandlerResponse
+	// to close the connection directly, with no data sent.
+	BfeHandlerClose
 )
 
 type HandlerList struct {

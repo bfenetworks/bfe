@@ -950,7 +950,7 @@ func (c *Conn) choosePlaintextSize() int {
 func (c *Conn) writeRecord(typ recordType, data []byte) (n int, err error) {
 	// choose appropriate size for record
 	// Note: Some IE browsers fail to parse fragmented TLS/SSL handshake message,
-	// we just choose dynamic record size for applicate data message. For more informaction,
+	// we just choose dynamic record size for application data message. For more information,
 	// see https://support.microsoft.com/en-us/kb/2541763
 	plaintextSize := maxPlaintext
 	if typ == recordTypeApplicationData {

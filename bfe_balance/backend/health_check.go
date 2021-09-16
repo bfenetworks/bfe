@@ -37,7 +37,7 @@ func UpdateStatus(backend *BfeBackend, cluster string) bool {
 	// get conf of health check, which is separately stored for each cluster
 	checkConf := getCheckConf(cluster)
 	if checkConf == nil {
-		// just ingore if not found health check conf
+		// just ignore if not found health check conf
 		return false
 	}
 
@@ -66,7 +66,7 @@ loop:
 		default:
 		}
 
-		// get lastest conf for health check
+		// get the latest conf to do health check
 		checkConf := getCheckConf(cluster)
 		if checkConf == nil {
 			// never come here

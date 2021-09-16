@@ -18,6 +18,25 @@
 bfe_time_range("20190204203000H", "20190204204500H")
 ```
 
+## bfe_periodic_time_range(start_time, end_time, period)
+* 语义: 判断当前时间是否周期性属于[start_time, end_time]
+
+* 参数
+
+| 参数       | 描述                    |
+| ---------- | ----------------------- |
+| start_time | String<br>起始时间      |
+| end_time   | String<br>结束时间      |
+| period     | String<br>周期, 缺省代表日 |
+
+时间格式：hhmmssZ，其中Z代表时区，详见附B说明
+
+* 示例
+
+```go
+bfe_periodic_time_range("203000H", "204500H", "")
+```
+
 # 附A.时间原语测试
 
 - 为便于测试条件时间原语，可以在请求中增加 **X-Bfe-Debug-Time** 头部携带时间，来mock系统时间

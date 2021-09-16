@@ -34,6 +34,7 @@ type BfeConfig struct {
 
 func SetDefaultConf(conf *BfeConfig) {
 	conf.Server.SetDefaultConf()
+	conf.HttpsBasic.SetDefaultConf()
 	conf.SessionCache.SetDefaultConf()
 	conf.SessionTicket.SetDefaultConf()
 }
