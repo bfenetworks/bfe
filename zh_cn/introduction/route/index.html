@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.1.2, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#_1" class="md-skip">
+        <a href="../../#_1" class="md-skip">
           跳转至
         </a>
       
@@ -1378,6 +1378,18 @@ RU5ErkJggg==" ></image>
   <li class="md-nav__item">
     <a href="../../modules/mod_auth_jwt/mod_auth_jwt/" title="mod_auth_jwt" class="md-nav__link">
       mod_auth_jwt
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../modules/mod_auth_request/mod_auth_request/" title="mod_auth_request" class="md-nav__link">
+      mod_auth_request
     </a>
   </li>
 
@@ -2903,19 +2915,19 @@ RU5ErkJggg==" ></image>
 <h2 id="_2">概述</h2>
 <ul>
 <li>在BFE的<a href="../forward_model/">接入转发流程</a>中，在确定产品线后，要进一步确定处理该请求的目标集群</li>
-<li>在BFE内，为每个产品线维护一张“转发表”</li>
+<li>BFE为每个产品线维护一张“转发表”</li>
 <li>对每个属于该产品线的请求，查询转发表，获得目标集群</li>
 </ul>
 <h2 id="_3">转发表的组成</h2>
 <p>转发表包括2部分：</p>
 <ul>
-<li><strong>基础规则表</strong>：可使用域名(Host)和路径(Path)作为匹配条件。支持最长匹配原则。</li>
-<li><strong>高级规则表</strong>：支持使用请求中的多种信息做匹配。支持顺序匹配。在高级规则表中可以设置默认规则。</li>
+<li><strong>基础规则表</strong>：由基础规则组成。使用域名(Host)和路径(Path)作为匹配条件，基础规则表中的规则按最长匹配原则进行匹配。</li>
+<li><strong>高级规则表</strong>：由高级规则组成。使用请求中的多种信息（如host、path、header、cookie、method等）进行匹配，高级规则表中的规则按先后顺序进行顺序匹配。在高级规则表中可以设置默认规则。</li>
 </ul>
 <p>基础规则表使用树形查找，匹配速度快，可以支持较大数量（几千甚至上万）转发规则的快速查找；高级规则表支持更强大的条件描述能力，但是在规则数量较多（超过100条）时会有明显的性能下降。</p>
 <h2 id="_4">匹配顺序</h2>
 <p>BFE会按照基础规则表、高级规则表的顺序来查找，以确定目标集群。</p>
-<p>在基础规则表中，也可以将某条规则的目标集群设置为“ADVANCED_MODE”(高级模式)。如果在基础规则表中匹配到这条规则，则转至高级规则表进一步匹配。</p>
+<p>在基础规则表中，也可以将某条规则的目标集群设置为“ADVANCED_MODE”(高级模式)，命中此规则的请求将转至高级规则表进一步匹配。</p>
 <p>详细的匹配顺序见下图。</p>
 <p><img alt="route table" src="../../images/route-tables-cn.png" /></p>
 <h2 id="_5">基础规则表</h2>
@@ -2925,30 +2937,30 @@ RU5ErkJggg==" ></image>
 <li>基础规则的匹配条件包括域名(host)和路径(path)两个部分。</li>
 <li>目的集群通过集群名称来指定，也可以设置为“ADVANCED_MODE”转至高级规则表继续匹配。</li>
 </ul>
-<p>多条基础规则之间没有前后顺序关系，而是基于精确优先的原则。详细的匹配方式见后面的“基础规则匹配顺序”。</p>
+<p>基础规则没有前后顺序关系，而是基于精确优先、最长匹配的原则。详细的匹配方式见后面的“基础规则匹配顺序”。</p>
 <h3 id="_7">基础规则匹配条件</h3>
-<p>一条基础规则的host条件和path条件，需要至少有一个不为空值。</p>
+<p>一条基础规则可以指定host条件或path条件，或者同时指定host条件和path条件。</p>
 <p>host条件的描述语法遵循以下规则：</p>
 <ul>
 <li>以"."作为域名标签元素的分割符（域名标签元素指的是由 "."分隔的host中的标签。）</li>
-<li>支持“精确匹配”、“通配符匹配”、“任意匹配”</li>
+<li>支持“精确匹配”、“通配符匹配”和“任意匹配”</li>
 <li>精确匹配：完整的域名，如：www.test1.com</li>
-<li>通配符匹配：第一个域名标签元素为通配符"*"表示这个描述为通配符匹配。 "*"仅能出现一次，且仅可以表示一个域名标签元素，例如*.test.com。而*est.com和*.*.com均不符合语法</li>
-<li>任意匹配：一种特殊的通配符匹配，可以通过空值或者填写通配符"*"来表示匹配任意的host值（与通配符匹配不同，单独的*作为任意匹配，可以匹配包含多个域名标签元素的host）</li>
-<li>一条规则的host条件，支持逗号分割的多个host描述，如：www.test1.com, *.example.com</li>
+<li>通配符匹配：第一个域名标签元素为通配符"*"表示这个描述为通配符匹配。 "*"仅能出现一次，且仅可以表示一个域名标签元素，例如*.test.com。而*est.com和*.*.com均不符合语法。</li>
+<li>任意匹配：一种特殊的通配符匹配，可以填写单独的通配符"*"来表示匹配任意的host值（与通配符匹配不同，任意匹配的*可以匹配包含多个域名标签元素的host）</li>
+<li>一条规则的host条件，支持多个host描述，如："www.test1.com", "*.example.com"</li>
 </ul>
 <p>示例：</p>
 <table>
 <thead>
 <tr>
-<th>host条件</th>
+<th>host描述</th>
 <th>请求的host</th>
 <th>是否匹配？</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>空值 或者 *</td>
+<td>*</td>
 <td>www.test1.com</td>
 <td>匹配</td>
 </tr>
@@ -2960,7 +2972,7 @@ RU5ErkJggg==" ></image>
 <tr>
 <td>*.test1.com</td>
 <td>vip.host.test1.com</td>
-<td>不匹配，*只匹配一个域名标签元素</td>
+<td>不匹配，* 只匹配一个域名标签元素</td>
 </tr>
 <tr>
 <td>*.test1.com</td>
@@ -2978,46 +2990,36 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>以"/"作为路径元素的分割符（路径元素指的是由 "/" 分隔符分隔的路径中的标签。）</li>
 <li>除了任意匹配，均以"/"开始</li>
-<li>支持“精确匹配”、“前缀匹配”、“任意匹配”</li>
+<li>支持“精确匹配”和“前缀匹配”</li>
 <li>精确匹配：完整的路径，如/path</li>
-<li>前缀匹配：在路径前缀后面使用"*"来表示这个描述为前缀匹配，即从左开始对path中的路径元素逐个匹配。 "*"仅能出现一次，且可以表示一个或多个连续的路径元素，如/foo/bar这个path，被 /* 和 /foo/* 均能匹配到。而/fo*和/*/*均不符合path描述的语法。</li>
-<li>任意匹配：一种特殊的前缀匹配，可以通过空值或者填写通配符*来表示匹配任意的path值</li>
-<li>一条规则的path条件，支持逗号分割的多个path描述，如：/foo/bar, /foo/cell/*</li>
+<li>前缀匹配：在路径前缀后面使用"*"来表示这个描述为前缀匹配，即从左开始对path中的路径元素逐个匹配。 "*"仅能出现一次，且可以表示一个或多个连续的路径元素。前缀匹配的描述也可以是一个单独的"*"。举例如下：<ul>
+<li>/foo/bar 这个path，条件 /* 和 /foo/* 均能匹配到；</li>
+<li>/foo/* 和 /foo* 是等价的；</li>
+<li>/foo/bar 这个path，不能被条件 /foo/b* 匹配到；</li>
+<li>/*/* 不符合path描述的语法</li>
 </ul>
-<p>示例：</p>
+</li>
+<li>一条规则的path条件，支持多个path描述，如："/foo/bar", "/foo/cell/*"</li>
+</ul>
+<p>更多示例：</p>
 <table>
 <thead>
 <tr>
-<th>path条件</th>
+<th>path描述</th>
 <th>请求的path</th>
 <th>是否匹配</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>空值 或者 *</td>
-<td>空值</td>
-<td>匹配</td>
-</tr>
-<tr>
-<td>空值 或者 *</td>
-<td>/</td>
-<td>匹配</td>
-</tr>
-<tr>
-<td>空值 或者 *</td>
-<td>/a/b</td>
+<td>*</td>
+<td>任何path值</td>
 <td>匹配</td>
 </tr>
 <tr>
 <td>/</td>
 <td>空值</td>
 <td>不匹配</td>
-</tr>
-<tr>
-<td>/</td>
-<td>/</td>
-<td>匹配</td>
 </tr>
 <tr>
 <td>/</td>
@@ -3036,48 +3038,43 @@ RU5ErkJggg==" ></image>
 </tr>
 <tr>
 <td>/*</td>
-<td>/a</td>
-<td>匹配</td>
-</tr>
-<tr>
-<td>/*</td>
-<td>/a/b</td>
-<td>匹配，*可以匹配多个路径元素</td>
-</tr>
-<tr>
-<td>/*</td>
 <td>/a/</td>
 <td>匹配，忽略尾部斜线</td>
 </tr>
 <tr>
-<td>/a/b/*</td>
+<td>/a/b/* (与 /a/b* 等价)</td>
 <td>/a/b/c</td>
 <td>匹配</td>
 </tr>
 <tr>
-<td>/a/b/*</td>
+<td>/a/b/* (与 /a/b* 等价)</td>
 <td>/a/b/c/d</td>
 <td>匹配，*可以匹配多个路径元素</td>
 </tr>
 <tr>
-<td>/a/b/*</td>
+<td>/a/b/* (与 /a/b* 等价)</td>
 <td>/a/b</td>
-<td>匹配，忽略尾部斜线，*可以匹配多个路径元素</td>
+<td>匹配，忽略尾部斜线，*可以匹配空值</td>
 </tr>
 <tr>
-<td>/a/b/*</td>
+<td>/a/b/* (与 /a/b* 等价)</td>
 <td>/a/c</td>
 <td>不匹配</td>
 </tr>
 <tr>
-<td>/a/b/*</td>
-<td>/a/</td>
+<td>/a/b/* (与 /a/b* 等价)</td>
+<td>/a</td>
+<td>不匹配</td>
+</tr>
+<tr>
+<td>/a/b*</td>
+<td>/a/bacon</td>
 <td>不匹配</td>
 </tr>
 </tbody>
 </table>
 <h3 id="_8">基础规则匹配顺序</h3>
-<p>基础规则中，host条件和path条件优先级不同，按照如下顺序匹配：</p>
+<p>在基础规则表中查找时，先host条件匹配，符合host条件的规则，再进行path条件匹配：</p>
 <ol>
 <li>首先对host进行<strong>精确匹配</strong></li>
 <li>对匹配到的规则（可能是一条或多条），再尝试匹配这些规则的path条件；<ul>
@@ -3085,13 +3082,13 @@ RU5ErkJggg==" ></image>
 <li>若匹配path条件未成功，则判定为未命中基础规则，转由高级规则进行匹配</li>
 </ul>
 </li>
-<li>精确匹配未成功的，对host进行<strong>通配符匹配</strong></li>
+<li>host精确匹配未成功的，对host进行<strong>通配符匹配</strong></li>
 <li>对匹配到的规则（可能是一条或多条），再尝试匹配这些规则的path条件；<ul>
 <li>若匹配path条件成功，即为命中规则；</li>
 <li>若匹配path条件未成功，则判定为未命中基础规则，转由高级规则进行匹配</li>
 </ul>
 </li>
-<li>通配符匹配未成功的，对host进行<strong>任意匹配</strong></li>
+<li>host通配符匹配未成功的，对host进行<strong>任意匹配</strong></li>
 <li>对匹配到的规则（可能是一条或多条），再尝试匹配这些规则的path条件；<ul>
 <li>若匹配path条件成功，即为命中规则；</li>
 <li>若匹配path条件未成功，则判定为未命中基础规则，转由高级规则进行匹配</li>
@@ -3099,11 +3096,10 @@ RU5ErkJggg==" ></image>
 </li>
 <li>基础规则匹配结束，未命中的，转由高级规则进行匹配</li>
 </ol>
-<p>其中，对于上面步骤中，对host条件匹配到的规则，进行匹配path条件时的匹配顺序如下：</p>
+<p>其中，对于上面步骤中，对host条件匹配到的规则，进行匹配path条件时的匹配逻辑如下：</p>
 <ol>
 <li>首先对path进行精确匹配</li>
 <li>精确匹配未成功的，对path进行前缀匹配。前缀匹配使用最长匹配原则，即若请求的path符合多条规则的path条件，匹配到从左开始有最多路径元素的那条规则（只会是一条规则）</li>
-<li>前缀匹配未成功的，对path进行任意匹配</li>
 </ol>
 <h3 id="_9">基础规则匹配示例</h3>
 <p>有四条基础规则，分别为：</p>
@@ -3116,7 +3112,7 @@ RU5ErkJggg==" ></image>
 <p>收到一个请求，请求URL为vip.b.test1.com/interface/d</p>
 <p>首先对host匹配：</p>
 <p>1.host<strong>精确匹配</strong>，未匹配成功</p>
-<p>2.host<strong>通配符匹配</strong>，发现请求的host(vip.b.test1.com)可以满足规则2，3的host条件。</p>
+<p>2.host<strong>通配符匹配</strong>，发现请求的host(vip.b.test1.com)可以满足规则2，3的host条件（注意，规则1不匹配该请求，因为通配符"*"只能匹配一个域名标签元素）。</p>
 <p>继续进行path匹配：</p>
 <p>1.path<strong>精确匹配</strong>，未匹配成功</p>
 <p>2.path<strong>前缀匹配</strong>，发现请求的path(/interface/d)可以满足规则2和规则3的path条件，根据最长匹配原则，匹配到从左开始有最多路径元素的那条规则，即规则2。</p>
@@ -3139,11 +3135,11 @@ RU5ErkJggg==" ></image>
 <p>产品线demo，包含多种服务集群：Demo-A, Demo-B, Demo-C, Demo-D，Demo-E</p>
 </li>
 <li>
-<p>期望的转发条件如下：</p>
+<p>期望的集群间分流如下：</p>
 <ul>
-<li>对于host为www.a.com，path为"/a/b"的请求，转发至Demo-B集群</li>
-<li>对于host为www.a.com，path为"/a/*"的请求，转发至Demo-A集群</li>
-<li>对于host为*.a.com的请求，转发至Demo-C集群</li>
+<li>对于host为www.a.com，且path为"/a/*" (除了"/a/b") 的请求，转发至Demo-A集群</li>
+<li>对于host为www.a.com，且path为"/a/b"的请求，转发至Demo-B集群</li>
+<li>对于其他host为*.a.com的请求，转发至Demo-C集群</li>
 <li>对于host为www.c.com的请求，转发至Demo-D集群</li>
 <li>针对Demo-D集群，另外开启了一个灰度集群Demo-D1。如果cookie中包含deviceid，且这个cookie的值以“x”开头，则转发至Demo-D1</li>
 <li>其它请求，都发往Demo-E</li>
@@ -3184,8 +3180,8 @@ RU5ErkJggg==" ></image>
 </tr>
 </tbody>
 </table>
-<p>在基础规则表中，多条规则之间是无序的。匹配顺序见上面关于“基础规则匹配顺序”的说明。</p>
-<p>针对Demo-D1集群的灰度发布，由于需要使用cookie中的信息，所以使用ADVANCED_MODE将满足条件的请求透传到高级规则表继续处理；在不需要灰度发布的时候，在基础规则表中目标集群可以写为Demo-D。</p>
+<p>在基础规则表中，规则之间没有前后顺序。见前面关于“基础规则匹配顺序”的说明。</p>
+<p>针对Demo-D集群上应用的灰度发布，由于需要使用cookie中的信息，所以使用ADVANCED_MODE将满足条件的请求透传到高级规则表继续处理；在不需要灰度发布的时候，在基础规则表中www.c.com对应规则的目标集群写为Demo-D即可。</p>
 <ul>
 <li><strong>高级规则表</strong>的配置为：</li>
 </ul>
@@ -3213,6 +3209,50 @@ RU5ErkJggg==" ></image>
 </table>
 <p>在高级规则表中，多条规则之间是有序的。需要将转发给Demo-D1的规则放在转发给Demo-D的规则的前面。</p>
 <p>高级规则表中包含默认规则，对于没有命中其它规则的请求将被转发到Demo-E。</p>
+<p>以上配置信息，对应的配置文件（/conf/server_data_conf/route_rule.conf）如下：</p>
+<pre class="codehilite"><code>{
+    &quot;Version&quot;: &quot;1.0&quot;,
+    &quot;BasicRule&quot;: {
+        &quot;demo&quot;: [
+            {
+                &quot;Hostname&quot;: [&quot;www.a.com&quot;],
+                &quot;Path&quot;: [&quot;/a/*&quot;], 
+                &quot;ClusterName&quot;: &quot;Demo-A&quot;
+            },
+            {
+                &quot;Hostname&quot;: [&quot;www.a.com&quot;],
+                &quot;Path&quot;: [&quot;/a/b&quot;],
+                &quot;ClusterName&quot;: &quot;Demo-B&quot;
+            },
+            {
+                &quot;Hostname&quot;: [&quot;*.a.com&quot;],
+                &quot;Path&quot;: &quot;*&quot;,
+                &quot;ClusterName&quot;: &quot;Demo-C&quot;
+            },
+            {
+                &quot;Hostname&quot;: [&quot;www.c.com&quot;],
+                &quot;Path&quot;: &quot;*&quot;,
+                &quot;ClusterName&quot;: &quot;ADVANCED_MODE&quot;
+            }
+        ]
+    },
+    &quot;ProductRule&quot;: {
+        &quot;demo&quot;: [
+            {
+                &quot;Cond&quot;: &quot; req_host_in(\&quot;www.c.com\&quot;) &amp;&amp; req_cookie_value_prefix_in(\&quot;deviceid\&quot;, \&quot;x\&quot;, false)&quot;,
+                &quot;ClusterName&quot;: &quot;Demo-D1&quot;
+            },
+            {
+                &quot;Cond&quot;: &quot; req_host_in(\&quot;www.c.com\&quot;)&quot;,
+                &quot;ClusterName&quot;: &quot;Demo-D&quot;
+            },
+            {
+                &quot;Cond&quot;: &quot;default_t()&quot;,
+                &quot;ClusterName&quot;: &quot;Demo-E&quot;
+            }
+        ]
+    }    
+}</code></pre>
                 
               
               
@@ -3317,7 +3357,7 @@ RU5ErkJggg==" ></image>
     </div>
     
       <script src="../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
+      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "ja", "clipboard.copy": "\u590d\u5236", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "\u5df2\u590d\u5236", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
       
       <script>
         app = initialize({
