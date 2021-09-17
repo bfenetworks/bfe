@@ -3,6 +3,7 @@
 ## Prerequisites
 - golang 1.13+
 - git 2.0+
+- glibc-static 2.17+
 
 ## Download source code
 ```bash
