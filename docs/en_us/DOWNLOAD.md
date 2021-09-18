@@ -1,5 +1,18 @@
 We provide precompiled binaries for bfe components. [Download the latest release](https://github.com/bfenetworks/bfe/releases) of BFE for your platform.
 
+## bfe v1.3.0
+
+* 2021-09-16 [Release notes](https://github.com/bfenetworks/bfe/releases/tag/v1.3.0)
+
+| File name | OS | Arch | Size | SHA256 Checksum |
+| --------- | -------- | ---- | ---- | ------------ |
+| [bfe_1.3.0_darwin_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.3.0/bfe_1.3.0_darwin_amd64.tar.gz) | darwin | amd    64 | 9.2M | fc14494b466a79328c3a614545ee2fe9ee6963cfc22a2fb35345a47c35ea623a |
+| [bfe_1.3.0_linux_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.3.0/bfe_1.3.0_linux_amd64.tar.gz) | linux | amd64     | 9.45 MB | 2b0d484a9fcf56cc68edb7dce0357c446ba64fd2672b079b041c178da998d59a |
+| [bfe_1.3.0_linux_arm64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.3.0/bfe_1.3.0_linux_arm64.tar.gz) | linux | arm64     | 8.72 MB | 43e9fdf9e909af6365727ee88c2b78d9e825f8828d5b2050f4cb8c6b6fb0add2 |
+| [bfe_1.3.0_windows_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.3.0/bfe_1.3.0_windows_amd64.tar.gz) | windows |     amd64 | 9.48 MB | 87cdadbfa5e7bbd413b1fc853c0824971fdb2777c111c3dea22893c3a48363b8 |
+
+
+
 ## bfe v1.2.0
 
 * 2021-06-21 [Release notes](https://github.com/bfenetworks/bfe/releases/tag/v1.2.0)
