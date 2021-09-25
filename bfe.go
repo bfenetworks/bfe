@@ -43,6 +43,7 @@ var (
 	showVersion = flag.Bool("v", false, "to show version of bfe")
 	showVerbose = flag.Bool("V", false, "to show verbose information about bfe")
 	debugLog    = flag.Bool("d", false, "to show debug log (otherwise >= info)")
+	testConf    = flag.Bool("t", false, "test configuration and exit")
 )
 
 var version string
@@ -74,7 +75,12 @@ func main() {
 		logSwitch = "DEBUG"
 		bfe_debug.DebugIsOpen = true
 	} else {
-		logSwitch = "INFO"
+		// ignore under ERROR level
+		if *testConf {
+			logSwitch = "ERROR"
+		} else {
+			logSwitch = "INFO"
+		}
 		bfe_debug.DebugIsOpen = false
 	}
 
@@ -84,7 +90,7 @@ func main() {
 	log4go.SetLogFormat(log4go.FORMAT_DEFAULT_WITH_PID)
 	log4go.SetSrcLineForBinLog(false)
 
-	err = log.Init("bfe", logSwitch, *logPath, *stdOut, "midnight", 7)
+	err = log.Init("bfe", logSwitch, *logPath, *stdOut || *testConf, "midnight", 7)
 	if err != nil {
 		fmt.Printf("bfe: err in log.Init():%s\n", err.Error())
 		bfe_util.AbnormalExit()
@@ -97,10 +103,13 @@ func main() {
 	config, err = bfe_conf.BfeConfigLoad(confPath, *confRoot)
 	if err != nil {
 		log.Logger.Error("main(): in BfeConfigLoad():%s", err.Error())
+		if *testConf {
+			fmt.Printf("bfe: configuration file %s test failed\n", confPath)
+		}
 		bfe_util.AbnormalExit()
 	}
 
-	// maximum number of CPUs (GOMAXPROCS) defaults to runtime.CPUNUM 
+	// maximum number of CPUs (GOMAXPROCS) defaults to runtime.CPUNUM
 	// if running on machine, or CPU quota if running on container
 	// (with the help of "go.uber.org/automaxprocs").
 	// here, we change maximum number of cpus if the MaxCpus is positive.
@@ -112,11 +121,22 @@ func main() {
 	bfe_debug.SetDebugFlag(config.Server)
 
 	// start and serve
-	if err = bfe_server.StartUp(config, version, *confRoot); err != nil {
+	if err = bfe_server.StartUp(config, version, *confRoot, *testConf); err != nil {
 		log.Logger.Error("main(): bfe_server.StartUp(): %s", err.Error())
 	}
 
 	// waiting for logger finish jobs
 	time.Sleep(1 * time.Second)
 	log.Logger.Close()
+
+	// output final configuration test result
+	if *testConf {
+		if err != nil {
+			fmt.Printf("bfe: configuration file %s test failed\n", confPath)
+			bfe_util.AbnormalExit()
+		} else {
+			fmt.Printf("bfe: configuration file %s test is successful\n", confPath)
+			bfe_util.NormalExit()
+		}
+	}
 }
