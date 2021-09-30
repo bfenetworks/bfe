@@ -81,7 +81,7 @@ $ gitbook serve --port 8000
 
 ## 提交修改
 
-修改文档, 提交修改与PR的步骤可以参考[如何贡献代码](../development/local_dev_guide)
+修改文档, 提交修改与PR的步骤可以参考[如何贡献代码](../development/local_dev_guide.md)
 
 
 ## 帮助改进预览工具
