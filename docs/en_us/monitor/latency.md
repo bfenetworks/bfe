@@ -21,3 +21,15 @@
 | Current      | Latency histgram for current statistics   |
 | PastTime     | Start time of last statistics             |
 | Past         | Latency histgram for last statistics      |
+
+## Special Notes for Prometheus format
+
+BFE can expose metrics in various formats. 
+
+Unlike other formats, in the Prometheus format latency histogram, counter for a bucket with lager upper bound will include the number of events in buckets with smaller upper bound.  See [Prometheus definition of "Histogram" ](https://prometheus.io/docs/concepts/metric_types/#histogram) for more detail.  
+
+Example:
+
+- proxy_handshake_delay_Past_bucket{le="1000"} is counter of handshakes with <= 1000 ms delay in last statistic interval
+- proxy_handshake_delay_Past_bucket{le="2000"} is counter of handshakes with <= 2000 ms delay (includes those with <=1000 ms delay) in last statistic interval
+- proxy_handshake_delay_Past_bucket{le="+Inf"} is counter of handshakes with less than infinity (equals total count) in last statistic interval. It is equal to proxy_handshake_delay_Past_count.

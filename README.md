@@ -44,7 +44,7 @@ BFE is a modern layer 7 load balancer from baidu.
 
 ## Communication
 - BFE community on Slack: [Sign up](https://slack.cncf.io/) CNCF Slack and join bfe channel.
-- BFE developer group on WeChat: [Send a request mail](mailto:yangsijie@baidu.com) with your WeChat ID and a contribution you've made to BFE(such as a PR/Issue). We will invite you right away.
+- BFE developer group on WeChat: [Send a request mail](mailto:zhangmiao02@baidu.com) with your WeChat ID and a contribution you've made to BFE(such as a PR/Issue). We will invite you right away.
 
 ## License
 BFE is under the Apache 2.0 license. See the [LICENSE](LICENSE) file for details.
