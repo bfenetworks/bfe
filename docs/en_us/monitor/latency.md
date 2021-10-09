@@ -26,7 +26,7 @@
 
 BFE can expose metrics in various formats. 
 
-Unlike other formats, in the Prometheus format latency histogram, counter for a bucket with lager upper bound will include the number of events in buckets with smaller upper bound.  See [Prometheus definition of "Histogram" ](https://prometheus.io/docs/concepts/metric_types/#histogram) for more detail.  
+Unlike other formats, in the Prometheus format latency histogram, counter for a bucket with lager upper bound will include the number of events in buckets with smaller upper bound.  See [Histogram](https://prometheus.io/docs/concepts/metric_types/#histogram) in Prometheus document for more detail.  
 
 Example:
 
