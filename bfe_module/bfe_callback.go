@@ -30,15 +30,15 @@ import (
 
 // Callback point.
 const (
-	HandleAccept         = 0
-	HandleHandshake      = 1
-	HandleBeforeLocation = 2
-	HandleFoundProduct   = 3
-	HandleAfterLocation  = 4
-	HandleForward        = 5
-	HandleReadResponse   = 6
-	HandleRequestFinish  = 7
-	HandleFinish         = 8
+	HandleAccept = iota
+	HandleHandshake
+	HandleBeforeLocation
+	HandleFoundProduct
+	HandleAfterLocation
+	HandleForward
+	HandleReadResponse
+	HandleRequestFinish
+	HandleFinish
 )
 
 func CallbackPointName(point int) string {
@@ -137,7 +137,7 @@ func (bcb *BfeCallbacks) GetHandlerList(point int) *HandlerList {
 	return hl
 }
 
-// ModuleHandlersGetJSON get info of hanlders
+// ModuleHandlersGetJSON get info of handlers
 func (bcb *BfeCallbacks) ModuleHandlersGetJSON() ([]byte, error) {
 	cbs := make(map[string][]string)
 

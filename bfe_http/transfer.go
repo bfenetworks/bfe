@@ -42,8 +42,8 @@ type transferWriter struct {
 	Body             io.Reader
 	BodyCloser       io.Closer
 	ResponseToHEAD   bool
-	ContentLength    int64 // -1 means unknown, 0 means exactly none
 	Close            bool
+	ContentLength    int64 // -1 means unknown, 0 means exactly none
 	TransferEncoding []string
 	Header           Header
 	Trailer          Header
@@ -131,7 +131,7 @@ func newTransferWriter(r interface{}) (t *transferWriter, err error) {
 }
 
 func noBodyExpected(requestMethod string) bool {
-	return requestMethod == "HEAD"
+	return requestMethod == MethodHead
 }
 
 func (t *transferWriter) shouldSendContentLength() bool {
@@ -262,11 +262,11 @@ type transferReader struct {
 // permits a body.  See RFC2616, section 4.4.
 func bodyAllowedForStatus(status int) bool {
 	switch {
-	case status >= 100 && status <= 199:
+	case status >= StatusContinue && status <= 199:
 		return false
-	case status == 204:
+	case status == StatusNoContent:
 		return false
-	case status == 304:
+	case status == StatusNotModified:
 		return false
 	}
 	return true
@@ -274,7 +274,7 @@ func bodyAllowedForStatus(status int) bool {
 
 // msg is *Request or *Response.
 func readTransfer(msg interface{}, r *bfe_bufio.Reader) (err error) {
-	t := &transferReader{RequestMethod: "GET"}
+	t := &transferReader{RequestMethod: MethodGet}
 
 	// Unify input
 	isResponse := false
@@ -295,7 +295,7 @@ func readTransfer(msg interface{}, r *bfe_bufio.Reader) (err error) {
 		t.ProtoMinor = rr.ProtoMinor
 		// Transfer semantics for Requests are exactly like those for
 		// Responses with status code 200, responding to a GET method
-		t.StatusCode = 200
+		t.StatusCode = StatusOK
 	default:
 		panic("unexpected type")
 	}
@@ -315,7 +315,7 @@ func readTransfer(msg interface{}, r *bfe_bufio.Reader) (err error) {
 	if err != nil {
 		return err
 	}
-	if isResponse && t.RequestMethod == "HEAD" {
+	if isResponse && t.RequestMethod == MethodHead {
 		if n, err := parseContentLength(t.Header.GetDirect("Content-Length")); err != nil {
 			return err
 		} else {
@@ -448,7 +448,7 @@ func fixLength(isResponse bool, status int, requestMethod string, header Header,
 		return 0, nil
 	}
 	switch status {
-	case 204, 304:
+	case StatusNoContent, StatusNotModified:
 		return 0, nil
 	}
 
@@ -469,7 +469,7 @@ func fixLength(isResponse bool, status int, requestMethod string, header Header,
 		header.Del("Content-Length")
 	}
 
-	if !isResponse && requestMethod == "GET" {
+	if !isResponse && requestMethod == MethodGet {
 		// RFC 2616 doesn't explicitly permit nor forbid an
 		// entity-body on a GET request so we permit one if
 		// declared, but we default to 0 here (not -1 below)

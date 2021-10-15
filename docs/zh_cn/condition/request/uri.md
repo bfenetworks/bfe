@@ -28,6 +28,21 @@ req_host_in("www.bfe-networks.com|bfe-networks.com")
 req_path_in("/api/search|/api/list", true)
 ```
 
+## req_path_contain(path_list, case_insensitive)
+* 含义： 判断http的path是否包含path_list中的子串
+
+* 参数
+
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| path_list | String<br> path子串列表，多个列表之间使用‘&#124;’连接|
+| case_insensitive | Boolean<br>是否忽略大小写 |  
+
+* 示例
+```go
+req_path_contain("search", true)
+```
+
 ## req_path_prefix_in(prefix_list, case_insensitive)
 * 含义： 判断http的path是否前缀匹配prefix_list之一
 
@@ -41,6 +56,21 @@ req_path_in("/api/search|/api/list", true)
 * 示例
 ```go
 req_path_prefix_in("/api/report|/api/analytics", false)
+```
+
+## req_path_element_prefix_in(prefix_list, case_insensitive)
+* 含义：判断http的path element是否前缀匹配prefix_list之一
+
+* 参数
+
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| prefix_list | String<br>path element prefix列表, 多个之间使用‘&#124;’连接 <br>每个path prefix应以"/"开头且以"/"结尾，非"/"结尾时会自动补充"/" |  
+| case_insensitive | Boolean<br>是否忽略大小写 |  
+
+* 示例
+```go
+req_path_element_prefix_in("/api/report/|/api/analytics/", false)
 ```
 
 ## req_path_suffix_in(suffix_list, case_insensitive)

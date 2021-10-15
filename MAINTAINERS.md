@@ -6,17 +6,18 @@ This file lists who are the maintainers of the BFE project. The responsibilities
 | Name | GitHub ID | Affiliation |
 | ---- | --------- | ----------- |
 | [Miao Zhang](mailto:zhangmiao02@baidu.com) | [mileszhang2016](https://github.com/mileszhang2016) | Baidu |
-| [Sijie Yang](mailto:yangsijie@baidu.com)   | [iyangsj](https://github.com/iyangsj) | Baidu |
+| [Sijie Yang](mailto:iyangsj@gmail.com)   | [iyangsj](https://github.com/iyangsj) | Baidu |
 
 ## Senior Maintainers
 | Name | GitHub ID | Affiliation |
 | ---- | --------- | ----------- |
-| [Sijie Yang](mailto:yangsijie@baidu.com)   | [iyangsj](https://github.com/iyangsj) | Baidu |
+| [Sijie Yang](mailto:iyangsj@gmail.com)   | [iyangsj](https://github.com/iyangsj) | Baidu |
 
 ## Maintainers
 | Name | GitHub ID | Affiliation |
 | ---- | --------- | ----------- |
 | [Derek Zheng](mailto:shanhu5739@gmail.com) | [shanhuhai5739](https://github.com/shanhuhai5739) | Kuaishou |
 | [Xiaofei Yu](mailto:nemo_00o@hotmail.com) | [xiaofei0800](https://github.com/xiaofei0800) | Baidu |
-| [Wensi Yang](mailto:tianxinheihei@gmail.com) | [tianxinheihei](https://github.com/tianxinheihei) | Baidu |
+| [Wensi Yang](mailto:tianxinheihei@gmail.com) | [tianxinheihei](https://github.com/tianxinheihei) | ByteDance |
 | [Kaiyu Zheng](mailto:412674752@qq.com) | [kaiyuzheng](https://github.com/kaiyuzheng) | ByteDance |
+| [Yuqi Xiao](mailto:xiao19910705@163.com) | [Yuqi Xiao](https://github.com/YuqiXiao) | Baidu |

@@ -33,6 +33,13 @@ const (
 	RetryGet     = 1 // retry if forward GET request fail (plus RetryConnect)
 )
 
+// DefaultTimeout
+const (
+	DefaultReadClientTimeout      = 30000
+	DefaultWriteClientTimeout     = 60000
+	DefaultReadClientAgainTimeout = 60000
+)
+
 // HashStrategy for subcluster-level load balance (GSLB).
 // Note:
 //  - CLIENTID is a special request header which represents a unique client,
@@ -41,6 +48,7 @@ const (
 	ClientIdOnly      = iota // use CLIENTID to hash
 	ClientIpOnly             // use CLIENTIP to hash
 	ClientIdPreferred        // use CLIENTID to hash, otherwise use CLIENTIP
+	RequestURI               // use request URI to hash
 )
 
 // BALANCE_MODE used for GslbBasicConf.
@@ -51,7 +59,7 @@ const (
 
 const (
 	// AnyStatusCode is a special status code used in health-check.
-	// If AnyStatusCode is used, any status code is acceptd for health-check response.
+	// If AnyStatusCode is used, any status code is accepted for health-check response.
 	AnyStatusCode = 0
 )
 
@@ -75,19 +83,21 @@ type FCGIConf struct {
 
 // BackendBasic is conf of backend basic
 type BackendBasic struct {
-	Protocol              *string // backend protocol
-	TimeoutConnSrv        *int    // timeout for connect backend, in ms
-	TimeoutResponseHeader *int    // timeout for read header from backend, in ms
-	MaxIdleConnsPerHost   *int    // max idle conns for each backend
-	RetryLevel            *int    // retry level if request fail
-
+	Protocol                 *string // backend protocol
+	TimeoutConnSrv           *int    // timeout for connect backend, in ms
+	TimeoutResponseHeader    *int    // timeout for read header from backend, in ms
+	MaxIdleConnsPerHost      *int    // max idle conns for each backend
+	MaxConnsPerHost          *int    // max conns for each backend (zero means unrestricted)
+	RetryLevel               *int    // retry level if request fail
+	SlowStartTime            *int    // time for backend increases the weight to the full value, in seconds
+	OutlierDetectionHttpCode *string // outlier detection http status code
 	// protocol specific configurations
 	FCGIConf *FCGIConf
 }
 
 type HashConf struct {
 	// HashStrategy is hash strategy for subcluster-level load balance.
-	// ClientIdOnly, ClientIpOnly, ClientIdPreferred.
+	// ClientIdOnly, ClientIpOnly, ClientIdPreferred, RequestURI.
 	HashStrategy *int
 
 	// HashHeader is an optional request header which represents a unique client.
@@ -165,9 +175,28 @@ func BackendBasicCheck(conf *BackendBasic) error {
 		conf.MaxIdleConnsPerHost = &defaultIdle
 	}
 
+	if conf.MaxConnsPerHost == nil || *conf.MaxConnsPerHost < 0 {
+		defaultConns := 0
+		conf.MaxConnsPerHost = &defaultConns
+	}
+
 	if conf.RetryLevel == nil {
 		retryLevel := RetryConnect
 		conf.RetryLevel = &retryLevel
+	}
+
+	if conf.OutlierDetectionHttpCode == nil {
+		outlierDetectionCode := ""
+		conf.OutlierDetectionHttpCode = &outlierDetectionCode
+	} else {
+		httpCode := *conf.OutlierDetectionHttpCode
+		httpCode = strings.ToLower(httpCode)
+		conf.OutlierDetectionHttpCode = &httpCode
+	}
+
+	if conf.SlowStartTime == nil {
+		defaultSlowStartTime := 0
+		conf.SlowStartTime = &defaultSlowStartTime
 	}
 
 	if conf.FCGIConf == nil {
@@ -361,9 +390,11 @@ func HashConfCheck(conf *HashConf) error {
 	}
 
 	if *conf.HashStrategy != ClientIdOnly &&
-		*conf.HashStrategy != ClientIpOnly && *conf.HashStrategy != ClientIdPreferred {
-		return fmt.Errorf("HashStrategy[%d] must be [%d], [%d] or [%d]",
-			*conf.HashStrategy, ClientIdOnly, ClientIpOnly, ClientIdPreferred)
+		*conf.HashStrategy != ClientIpOnly &&
+		*conf.HashStrategy != ClientIdPreferred &&
+		*conf.HashStrategy != RequestURI {
+		return fmt.Errorf("HashStrategy[%d] must be [%d], [%d], [%d] or [%d]",
+			*conf.HashStrategy, ClientIdOnly, ClientIpOnly, ClientIdPreferred, RequestURI)
 	}
 	if *conf.HashStrategy == ClientIdOnly || *conf.HashStrategy == ClientIdPreferred {
 		if conf.HashHeader == nil || len(*conf.HashHeader) == 0 {
@@ -380,17 +411,17 @@ func HashConfCheck(conf *HashConf) error {
 // ClusterBasicConfCheck check ClusterBasicConf.
 func ClusterBasicConfCheck(conf *ClusterBasicConf) error {
 	if conf.TimeoutReadClient == nil {
-		timeoutReadClient := 30000
+		timeoutReadClient := DefaultReadClientTimeout
 		conf.TimeoutReadClient = &timeoutReadClient
 	}
 
 	if conf.TimeoutWriteClient == nil {
-		timoutWriteClient := 60000
+		timoutWriteClient := DefaultWriteClientTimeout
 		conf.TimeoutWriteClient = &timoutWriteClient
 	}
 
 	if conf.TimeoutReadClientAgain == nil {
-		timeoutReadClientAgain := 60000
+		timeoutReadClientAgain := DefaultReadClientAgainTimeout
 		conf.TimeoutReadClientAgain = &timeoutReadClientAgain
 	}
 

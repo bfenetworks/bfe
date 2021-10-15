@@ -102,9 +102,14 @@ BFE支持如下一系列变量并在处理请求阶段求值。关于变量的�
 | %bfe_ssl_resume | 是否TLS/SSL会话复用 |
 | %bfe_ssl_cipher | TLS/SSL加密套件 |
 | %bfe_ssl_version | TLS/SSL协议版本 |
+| %bfe_ssl_ja3_raw | TLS/SSL客户端JA3算法指纹数据 |
+| %bfe_ssl_ja3_hash | TLS/SSL客户端JA3算法指纹哈希值 |
 | %bfe_protocol | 访问协议 |
 | %client_cert_serial_number | 客户端证书序列号 |
 | %client_cert_subject_title | 客户端证书Subject title |
 | %client_cert_subject_common_name | 客户端证书Subject Common Name |
 | %client_cert_subject_organization | 客户端证书Subject Organization |
-
+| %client_cert_subject_organizational_unit | 客户端证书Subject Organizational Unit |
+| %client_cert_subject_province | 客户端证书Subject Province |
+| %client_cert_subject_country | 客户端证书Subject Country |
+| %client_cert_subject_locality | 客户端证书Subject Locality |

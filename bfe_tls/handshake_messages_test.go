@@ -19,6 +19,8 @@
 package bfe_tls
 
 import (
+	"crypto/md5"
+	"fmt"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -262,4 +264,45 @@ func (*sessionState) Generate(rand *rand.Rand, size int) reflect.Value {
 		s.certificates[i] = randomBytes(rand.Intn(10)+1, rand)
 	}
 	return reflect.ValueOf(s)
+}
+
+var ja3HashTests = []struct {
+	vers            uint16
+	cipherSuites    []uint16
+	extensionIds    []uint16
+	supportedCurves []CurveID
+	supportedPoints []uint8
+	ja3Hash         string
+}{
+	{769, []uint16{47, 53, 5, 10, 49161, 49162, 49171, 49172, 50, 56, 19, 4},
+		[]uint16{0, 10, 11}, []CurveID{23, 24, 25}, []uint8{0},
+		"ada70206e40642a3e4461f35503241d5"},
+	{769, []uint16{4, 5, 10, 9, 100, 98, 3, 6, 19, 18, 99},
+		[]uint16{}, []CurveID{}, []uint8{},
+		"de350869b8c85de67a350c8d186f11e6"},
+	{771, []uint16{56026, 4865, 4866, 4867, 49195, 49199, 49196, 49200, 52393, 52392, 49171, 49172, 156, 157, 47, 53},
+		[]uint16{60138, 0, 23, 65281, 10, 11, 35, 16, 5, 13, 18, 51, 45, 43, 27, 17513, 56026, 21},
+		[]CurveID{10794, 29, 23, 24},
+		[]uint8{0},
+		"cd08e31494f9531f560d64c695473da9"},
+	{771, []uint16{4865, 4866, 4867, 49195, 49199, 49196, 49200, 52393, 52392, 49171, 49172, 156, 157, 47, 53},
+		[]uint16{0, 23, 65281, 10, 11, 35, 16, 5, 13, 18, 51, 45, 43, 27, 17513, 56026, 21},
+		[]CurveID{29, 23, 24},
+		[]uint8{0},
+		"cd08e31494f9531f560d64c695473da9"},
+}
+
+func TestJA3Hash(t *testing.T) {
+	for i, d := range ja3HashTests {
+		msg := clientHelloMsg{}
+		msg.vers = d.vers
+		msg.cipherSuites = d.cipherSuites
+		msg.extensionIds = d.extensionIds
+		msg.supportedCurves = d.supportedCurves
+		msg.supportedPoints = d.supportedPoints
+		ja3Value := md5.Sum([]byte(msg.JA3String()))
+		if d.ja3Hash != fmt.Sprintf("%x", ja3Value) {
+			t.Errorf("#%d: unexpected ja3 value", i)
+		}
+	}
 }

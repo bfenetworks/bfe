@@ -116,7 +116,7 @@ clang-formater.......................................(no files to check)Skipped
 # 触发develop分支的CI单测
 $ git commit -m "test=develop"
 
-# 触发release/1.1分支的CI单侧
+# 触发release/1.1分支的CI单测
 $ git commit -m "test=release/1.1"
 ```
 

@@ -16,7 +16,6 @@ package bfe_conf
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 )
 
@@ -43,7 +42,7 @@ type ConfigBasic struct {
 	HttpsPort   int // listen port for https
 	MonitorPort int // web server port for monitor
 	MaxCpus     int // number of max cpus to use
-	AcceptNum   int // number of accept groutine for each listenr, default 1
+	AcceptNum   int // number of accept goroutine for each listener, default 1
 
 	// settings of layer-4 load balancer
 	Layer4LoadBalancer string
@@ -151,9 +150,6 @@ func basicConfCheck(cfg *ConfigBasic) error {
 	// check MaxCpus
 	if cfg.MaxCpus < 0 {
 		return fmt.Errorf("MaxCpus[%d] is too small", cfg.MaxCpus)
-	} else if cfg.MaxCpus == 0 {
-		// use all logical CPUs on local machine
-		cfg.MaxCpus = runtime.NumCPU()
 	}
 
 	// check Layer4LoadBalancer

@@ -1,0 +1,46 @@
+{
+    "Version": "685",
+    "ProductRule": {
+        "product-a": [
+            {
+                "ClusterName": "cluster_a",
+                "Cond": "default_t()"
+            }
+        ],
+        "product-b": [
+            {
+                "ClusterName": "cluster_b1",
+                "Cond": "req_header_key_in(\"X-Bd-Bwsc\")"
+            },
+            {
+                "ClusterName": "cluster_b2",
+                "Cond": "default_t()"
+            }
+        ],
+        "example_product": [
+            {
+                "ClusterName": "cluster_example",
+                "Cond": "default_t()"
+            }
+        ]
+    },
+    "BasicRule":{
+       "example_product" : [
+     	{
+     		"Hostname": ["www.a.com","www.b.com"],
+		    "Path":["/a","/b"],
+		    "ClusterName": "cluster_example_1"
+	    },
+        {
+	       "Hostname": ["*.foo.com","www.bar.com"],
+	       "Path":["/a","/b"],
+	       "ClusterName": "cluster_example_2"
+       },
+       {
+	       "Hostname": ["*.ccc.com","www.ddd.com"],
+	       "Path":["/a","/b"],
+	       "ClusterName": "ADVANCED_MODE"
+       }
+       ]
+    }
+}

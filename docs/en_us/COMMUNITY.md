@@ -2,7 +2,9 @@ We are very interested in building a community around BFE. If you are interested
 
 ## COMMUNITY 
 
-**BFE community on Slack**: [Sign up](https://join.slack.com/t/bfe-networks/shared_invite/zt-cn04xsqr-j7LDFmPkCuCZ39OLcHlMBA) and join channels on topics that interest you.
+**BFE user forum**: [Github Discussions](https://github.com/bfenetworks/bfe/discussions).
+
+**BFE community on Slack**: [Sign up](https://slack.cncf.io/) CNCF Slack and join bfe channel.
 
 **WeChat developer group**: [Send a request mail](mailto:bfe-osc@baidu.com) with your WeChat ID and a contribution you have made to BFE(such as a PR/Issue). We will invite you right away.
 

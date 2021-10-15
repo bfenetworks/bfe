@@ -1,0 +1,13 @@
+{
+    "Version": "2019-12-11184356",
+    "Config": {
+        "unittest": [
+            {
+                "Cond": "default_t()",
+                "CheckRules": [
+										"RuleBashCmd"
+                ]
+            }
+        ]
+    }
+}

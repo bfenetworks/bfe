@@ -365,7 +365,7 @@
                     d="M6 20a6 6 0 01-6-6c0-3.09 2.34-5.64 5.35-5.96A7.496 7.496 0 0112 4a7.5 7.5 0 017.35 6A5.02 5.02 0 0124 15a5 5 0 01-5 5H6M9.09 8.4L4.5 13l4.59 4.6 1.41-1.42L7.32 13l3.18-3.18L9.09 8.4m5.82 0L13.5 9.82 16.68 13l-3.18 3.18 1.41 1.42L19.5 13l-4.59-4.6z" />
             </svg>Multiple protocols
         </h2>
-        <p>BFE supports HTTP, HTTPS, SPDY, HTTP2, WebSocket, TLS, FastCGI, etc. Future support is planned for gRPC and
+        <p>BFE supports HTTP, HTTPS, SPDY, HTTP2, gRPC, WebSocket, TLS, FastCGI, etc. Future support is planned for
             HTTP/3.</p>
     </div>
     <div class="feature-item">
@@ -445,7 +445,9 @@
     </div>
 </div>
 <!-- 合作伙伴开始 -->
-<div class="text-center">Some of our users include:</div>
+<div class="text-center" id="users">
+    Some of our users include:
+</div>
 <div class="top-hr hr-logos">
     <div class="logos">
         <a href="https://www.baidu.com" target="_black">
@@ -456,9 +458,6 @@
         </a>
         <a href="https://www.cctv.com/" target="_black">
             <img src="assets/images/cctv.png" alt="">
-        </a>
-        <a href="http://www.cebbank.com/" target="_black">
-            <img src="assets/images/china_everbright_bank.jpg" alt="">
         </a>
         <a href="https://www.chinalife.com.cn/chinalife/index/" target="_black">
             <img src="assets/images/china_life.jpg" alt="">
@@ -472,6 +471,12 @@
         <a href="https://www.spdb.com.cn/" target="_black">
             <img src="assets/images/spd_bank.jpeg" alt="">
         </a>
+        <a href="http://www.psbc.com/cn/index.html" target="_black">
+            <img src="assets/images/post.jpg" alt="">
+        </a>
+        <a href="http://www.szse.cn/" target="_black">
+            <img src="assets/images/shenzhen.png" alt="">
+        </a>
     </div>
 </div>
 <!-- 合作伙伴结束 -->
@@ -479,10 +484,11 @@
     <div class="md-footer-meta__inner md-grid">
         <div class="md-footer-copyright">
             <div class="md-footer-copyright__highlight">
-                Copyright © 2020 The BFE Authors | Documentation Distributed under CC-BY-4.0
+                Copyright © <span class="get-year"></span> The BFE Authors | Documentation Distributed under CC-BY-4.0
             </div>
             <div class="md-footer-copyright__highlight">
-                Copyright © 2020 The Linux Foundation. All rights reserved. The Linux Foundation has registered
+                Copyright © <span class="get-year"></span> The Linux Foundation. All rights reserved. The Linux
+                Foundation has registered
                 trademarks and
                 uses trademarks
             </div>
@@ -509,15 +515,16 @@
                     </path>
                 </svg>
             </a>
-            <a href="https://slack.cncf.io"
-                target="_blank" rel="noopener" title="join.slack.com" class="md-footer-social__link">
+            <a href="https://slack.cncf.io" target="_blank" rel="noopener" title="join.slack.com"
+                class="md-footer-social__link">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
                     <path
                         d="M94.12 315.1c0 25.9-21.16 47.06-47.06 47.06S0 341 0 315.1c0-25.9 21.16-47.06 47.06-47.06h47.06v47.06zm23.72 0c0-25.9 21.16-47.06 47.06-47.06s47.06 21.16 47.06 47.06v117.84c0 25.9-21.16 47.06-47.06 47.06s-47.06-21.16-47.06-47.06V315.1zm47.06-188.98c-25.9 0-47.06-21.16-47.06-47.06S139 32 164.9 32s47.06 21.16 47.06 47.06v47.06H164.9zm0 23.72c25.9 0 47.06 21.16 47.06 47.06s-21.16 47.06-47.06 47.06H47.06C21.16 243.96 0 222.8 0 196.9s21.16-47.06 47.06-47.06H164.9zm188.98 47.06c0-25.9 21.16-47.06 47.06-47.06 25.9 0 47.06 21.16 47.06 47.06s-21.16 47.06-47.06 47.06h-47.06V196.9zm-23.72 0c0 25.9-21.16 47.06-47.06 47.06-25.9 0-47.06-21.16-47.06-47.06V79.06c0-25.9 21.16-47.06 47.06-47.06 25.9 0 47.06 21.16 47.06 47.06V196.9zM283.1 385.88c25.9 0 47.06 21.16 47.06 47.06 0 25.9-21.16 47.06-47.06 47.06-25.9 0-47.06-21.16-47.06-47.06v-47.06h47.06zm0-23.72c-25.9 0-47.06-21.16-47.06-47.06 0-25.9 21.16-47.06 47.06-47.06h117.84c25.9 0 47.06 21.16 47.06 47.06 0 25.9-21.16 47.06-47.06 47.06H283.1z">
                     </path>
                 </svg>
             </a>
-            <a href="mailto:bfe-networks@groups.io" target="_blank" rel="noopener" title="" class="md-footer-social__link">
+            <a href="mailto:bfe-networks@groups.io" target="_blank" rel="noopener" title=""
+                class="md-footer-social__link">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
                     <path
                         d="M502.3 190.8c3.9-3.1 9.7-.2 9.7 4.7V400c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V195.6c0-5 5.7-7.8 9.7-4.7 22.4 17.4 52.1 39.5 154.1 113.6 21.1 15.4 56.7 47.8 92.2 47.6 35.7.3 72-32.8 92.3-47.6 102-74.1 131.6-96.3 154-113.7zM256 320c23.2.4 56.6-29.2 73.4-41.4 132.7-96.3 142.8-104.7 173.4-128.7 5.8-4.5 9.2-11.5 9.2-18.9v-19c0-26.5-21.5-48-48-48H48C21.5 64 0 85.5 0 112v19c0 7.4 3.4 14.3 9.2 18.9 30.6 23.9 40.7 32.4 173.4 128.7 16.8 12.2 50.2 41.8 73.4 41.4z">
@@ -527,7 +534,11 @@
         </div>
     </div>
 </div>
-
+<script>
+    var x = document.getElementsByClassName('get-year');
+    x[0].innerHTML = new Date().getFullYear();
+    x[1].innerHTML = new Date().getFullYear();
+</script>
 {% endblock %}
 {% block content %}{% endblock %}
 {% block footer %}{% endblock %}

@@ -76,6 +76,8 @@ type Conn struct {
 	serverRandom        []byte   // random in server hello msg
 	masterSecret        []byte   // master secret for conn
 	clientCiphers       []uint16 // ciphers supported by client
+	ja3Raw              string   // JA3 fingerprint string for TLS Client
+	ja3Hash             string   // JA3 fingerprint hash for TLS Client
 
 	clientProtocol         string
 	clientProtocolFallback bool
@@ -948,7 +950,7 @@ func (c *Conn) choosePlaintextSize() int {
 func (c *Conn) writeRecord(typ recordType, data []byte) (n int, err error) {
 	// choose appropriate size for record
 	// Note: Some IE browsers fail to parse fragmented TLS/SSL handshake message,
-	// we just choose dynamic record size for applicate data message. For more informaction,
+	// we just choose dynamic record size for application data message. For more information,
 	// see https://support.microsoft.com/en-us/kb/2541763
 	plaintextSize := maxPlaintext
 	if typ == recordTypeApplicationData {
@@ -1276,6 +1278,8 @@ func (c *Conn) ConnectionState() ConnectionState {
 			state.ClientAuth = true
 		}
 		state.ClientCAName = c.clientCAName
+		state.JA3Raw = c.ja3Raw
+		state.JA3Hash = c.ja3Hash
 	}
 
 	return state

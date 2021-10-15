@@ -51,7 +51,6 @@ type ModuleBlockState struct {
 	ConnAccept   *metrics.Counter // connection passed
 	ConnRefuse   *metrics.Counter // connection refused
 	ReqTotal     *metrics.Counter // all request in
-	ReqToCheck   *metrics.Counter // request to check
 	ReqAccept    *metrics.Counter // request accepted
 	ReqRefuse    *metrics.Counter // request refused
 	WrongCommand *metrics.Counter // request with condition satisfied, but wrong command
@@ -159,8 +158,16 @@ func (m *ModuleBlock) productBlockHandler(request *bfe_basic.Request) (
 	}
 	m.state.ReqTotal.Inc(1)
 
-	// find block rules for given request
-	rules, ok := m.ruleTable.Search(request.Route.Product)
+	// check global rules for given request
+	rules, ok := m.ruleTable.Search(bfe_basic.GlobalProduct)
+	if ok { // rules found
+		retVal, isMatch, resp := m.productRulesProcess(request, rules)
+		if isMatch {
+			return retVal, resp
+		}
+	}
+	// check product rules for given request
+	rules, ok = m.ruleTable.Search(request.Route.Product)
 	if !ok { // no rules found
 		if openDebug {
 			log.Logger.Debug("%s product %s not found, just pass",
@@ -169,12 +176,15 @@ func (m *ModuleBlock) productBlockHandler(request *bfe_basic.Request) (
 		return bfe_module.BfeHandlerGoOn, nil
 	}
 
-	m.state.ReqToCheck.Inc(1)
-	return m.productRulesProcess(request, rules)
+	retVal, isMatch, resp := m.productRulesProcess(request, rules)
+	if !isMatch {
+		m.state.ReqAccept.Inc(1)
+	}
+	return retVal, resp
 }
 
 func (m *ModuleBlock) productRulesProcess(req *bfe_basic.Request, rules *blockRuleList) (
-	int, *bfe_http.Response) {
+	int, bool, *bfe_http.Response) {
 	for _, rule := range *rules {
 		if openDebug {
 			log.Logger.Debug("%s process rule: %v", m.name, rule)
@@ -187,12 +197,18 @@ func (m *ModuleBlock) productRulesProcess(req *bfe_basic.Request, rules *blockRu
 			req.SetContext(CtxBlockInfo, blockInfo)
 
 			switch rule.Action.Cmd {
+			case "ALLOW":
+				if openDebug {
+					log.Logger.Debug("%s accept request", m.name)
+				}
+				m.state.ReqAccept.Inc(1)
+				return bfe_module.BfeHandlerGoOn, true, nil
 			case "CLOSE":
 				req.ErrCode = ErrBlock
 				log.Logger.Debug("%s block connection (rule:%v, remote:%s)",
 					m.name, rule, req.RemoteAddr)
 				m.state.ReqRefuse.Inc(1)
-				return bfe_module.BfeHandlerClose, nil
+				return bfe_module.BfeHandlerClose, true, nil
 			default:
 				if openDebug {
 					log.Logger.Debug("%s unknown block command (%s), just pass",
@@ -206,8 +222,7 @@ func (m *ModuleBlock) productRulesProcess(req *bfe_basic.Request, rules *blockRu
 	if openDebug {
 		log.Logger.Debug("%s accept request", m.name)
 	}
-	m.state.ReqAccept.Inc(1)
-	return bfe_module.BfeHandlerGoOn, nil
+	return bfe_module.BfeHandlerGoOn, false, nil
 }
 
 func (m *ModuleBlock) getState(params map[string][]string) ([]byte, error) {

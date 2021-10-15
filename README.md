@@ -1,5 +1,8 @@
 # BFE
 
+English | [中文](README-CN.md)
+
+
 [![GitHub](https://img.shields.io/github/license/bfenetworks/bfe)](https://github.com/bfenetworks/bfe/blob/develop/LICENSE)
 [![Travis](https://img.shields.io/travis/com/bfenetworks/bfe)](https://travis-ci.com/bfenetworks/bfe)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bfenetworks/bfe)](https://goreportcard.com/report/github.com/bfenetworks/bfe)
@@ -40,7 +43,7 @@ BFE is a modern layer 7 load balancer from baidu.
 - Contributors: [CONTRIBUTORS](CONTRIBUTORS.md)
 
 ## Communication
-- BFE community on Slack: [Sign up](https://join.slack.com/t/bfe-networks/shared_invite/zt-cn04xsqr-j7LDFmPkCuCZ39OLcHlMBA) and join channels on topics that interest you.
+- BFE community on Slack: [Sign up](https://slack.cncf.io/) CNCF Slack and join bfe channel.
 - BFE developer group on WeChat: [Send a request mail](mailto:yangsijie@baidu.com) with your WeChat ID and a contribution you've made to BFE(such as a PR/Issue). We will invite you right away.
 
 ## License

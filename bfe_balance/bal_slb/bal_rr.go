@@ -89,10 +89,13 @@ func (s BackendListSorter) Less(i, j int) bool {
 
 type BalanceRR struct {
 	sync.Mutex
-	Name     string
-	backends BackendList // list of BackendRR
-	sorted   bool        // list of BackeneRR sorted or not
-	next     int         // next backend to schedule
+	Name          string
+	backends      BackendList // list of BackendRR
+	sorted        bool        // list of BackeneRR sorted or not
+	next          int         // next backend to schedule
+
+	slowStartNum  int         // number of backends in slow_start phase
+	slowStartTime int         // time for backend increases the weight to the full value, in seconds
 }
 
 func NewBalanceRR(name string) *BalanceRR {
@@ -111,6 +114,27 @@ func (brr *BalanceRR) Init(conf cluster_table_conf.SubClusterBackend) {
 	}
 	brr.sorted = false
 	brr.next = 0
+}
+
+func (brr *BalanceRR) SetSlowStart(ssTime int) {
+	brr.Lock()
+	brr.slowStartTime = ssTime
+	brr.Unlock()
+}
+
+func (brr *BalanceRR) checkSlowStart() {
+	brr.Lock()
+	defer brr.Unlock()
+	if brr.slowStartTime > 0 {
+		for _, backendRR := range brr.backends {
+			backend := backendRR.backend
+			if backend.GetRestart() {
+				backend.SetRestart(false)
+				backendRR.initSlowStart(brr.slowStartTime)
+			}
+			backendRR.updateSlowStart()
+		}
+	}
 }
 
 // Release releases backend list.
@@ -162,6 +186,8 @@ func (brr *BalanceRR) Update(conf cluster_table_conf.SubClusterBackend) {
 	for _, bkConf := range confMap {
 		backendRR := NewBackendRR()
 		backendRR.Init(brr.Name, bkConf)
+		backend := backendRR.backend
+		backend.SetRestart(true)
 		// add to backendsNew
 		backendsNew = append(backendsNew, backendRR)
 	}
@@ -195,6 +221,10 @@ func (brr *BalanceRR) ensureSortedUnlocked() {
 
 // Balance select one backend from sub cluster in round robin manner.
 func (brr *BalanceRR) Balance(algor int, key []byte) (*backend.BfeBackend, error) {
+	// Slow start is not supported when session sticky is enabled
+	if algor != WrrSticky {
+		brr.checkSlowStart()
+	}
 	switch algor {
 	case WrrSimple:
 		return brr.simpleBalance()

@@ -283,8 +283,8 @@ func (c *conn) serve() {
 		if err := recover(); err != nil {
 			log.Logger.Warn("panic: conn.serve(): %v, readTotal=%d,writeTotal=%d,reqNum=%d,%v\n%s",
 				c.remoteAddr,
-				c.session.ReadTotal, c.session.WriteTotal,
-				c.session.ReqNum,
+				c.session.ReadTotal(), c.session.WriteTotal(),
+				c.session.ReqNum(),
 				err, gotrack.CurrentStackTrace(0))
 
 			proxyState.PanicClientConnServe.Inc(1)
@@ -300,7 +300,7 @@ func (c *conn) serve() {
 		if len(session.Proto) > 0 {
 			proxyState.ClientConnActiveDec(session.Proto, 1)
 		}
-		if session.ReqNumActive != 0 {
+		if session.ReqNumActive() != 0 {
 			proxyState.ClientConnUnfinishedReq.Inc(1)
 		}
 	}()

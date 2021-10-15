@@ -21,6 +21,7 @@ package bfe_tls
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/md5"
 	"crypto/rsa"
 	"crypto/subtle"
 	"crypto/x509"
@@ -72,6 +73,10 @@ func (c *Conn) serverHandshake() error {
 		state.TlsHandshakeReadClientHelloErr.Inc(1)
 		return err
 	}
+
+	// Record JA3 fingerpint for TLS client
+	c.ja3Raw = hs.clientHello.JA3String()
+	c.ja3Hash = fmt.Sprintf("%x", md5.Sum([]byte(c.ja3Raw)))
 
 	// For an overview of TLS handshaking, see https://tools.ietf.org/html/rfc5246#section-7.3
 	if isResume {

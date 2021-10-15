@@ -24,7 +24,7 @@ theme:
     logo: logo
   favicon: assets/favicon.png
 
-copyright: 'Copyright © 2020 BFE作者 | 文档发布基于CC-BY-4.0授权许可 <br/>Copyright © 2020
+copyright: 'Copyright © 2021 BFE作者 | 文档发布基于CC-BY-4.0授权许可 <br/>Copyright © 2021
             Linux基金会。保留所有权利。Linux基金会已注册并使用商标<br/>如需了解Linux基金会的商标列表，
             请<a target="_blank" href="https://www.linuxfoundation.org/trademark-usage">访问商标使用页面 </a>'
 
@@ -69,12 +69,14 @@ nav:
         - '重定向': 'example/redirect.md'
         - '重写': 'example/rewrite.md'
         - 'TLS客户端认证': 'example/client_auth.md'
+        - 'FastCGI': 'example/fastcgi.md'
     - '安装说明': 
       - '安装概述': 'installation/install.md'
       - '源码编译安装': 'installation/install_from_source.md'
       - '二进制文件下载安装': 'installation/install_using_binaries.md'
       - 'go方式安装': 'installation/install_using_go.md'
       - 'snap方式安装': 'installation/install_using_snap.md'
+      - 'docker方式安装': 'installation/install_using_docker.md'
     - '配置说明':
       - '配置概述': 'configuration/config.md'
       - '核心配置': 'configuration/bfe.conf.md'
@@ -96,6 +98,7 @@ nav:
       - 'mod_access': 'modules/mod_access/mod_access.md'
       - 'mod_auth_basic': 'modules/mod_auth_basic/mod_auth_basic.md'
       - 'mod_auth_jwt': 'modules/mod_auth_jwt/mod_auth_jwt.md'
+      - 'mod_auth_request': 'modules/mod_auth_request/mod_auth_request.md'
       - 'mod_block': 'modules/mod_block/mod_block.md'
       - 'mod_compress': 'modules/mod_compress/mod_compress.md'
       - 'mod_doh': 'modules/mod_doh/mod_doh.md'

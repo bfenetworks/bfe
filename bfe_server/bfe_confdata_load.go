@@ -56,10 +56,11 @@ func (srv *BfeServer) InitDataLoad() error {
 		return fmt.Errorf("InitDataLoad():balTableInit Error %s", err)
 	}
 
-	// set gslb retry config
+	// set gslb retry config, slow_start config
 	if srv.ServerConf != nil {
 		ct := srv.ServerConf.ClusterTable
 		srv.balTable.SetGslbBasic(ct)
+		srv.balTable.SetSlowStart(ct)
 	}
 	log.Logger.Info("init bal table success")
 
@@ -116,6 +117,8 @@ func (srv *BfeServer) serverDataConfReload(hostFile, vipFile, routeFile, cluster
 
 	// set gslb basic
 	srv.balTable.SetGslbBasic(newServerConf.ClusterTable)
+	// set slow_start config
+	srv.balTable.SetSlowStart(newServerConf.ClusterTable)
 
 	return nil
 }
@@ -152,6 +155,8 @@ func (srv *BfeServer) gslbDataConfReload(gslbFile, clusterTableFile string) erro
 	serverConf := srv.ServerConf
 	srv.confLock.Unlock()
 	srv.balTable.SetGslbBasic(serverConf.ClusterTable)
+	// set slow_start config
+	srv.balTable.SetSlowStart(serverConf.ClusterTable)
 
 	return nil
 }

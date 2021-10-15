@@ -1,4 +1,4 @@
-# 条件原语索引
+﻿# 条件原语索引
 
 ## 请求相关
  * req_cip_hash_in(value_list)
@@ -21,8 +21,10 @@
  * req_proto_secure()
  * req_tag_match(tagName, tagValue)
  * req_path_in(path_list, case_insensitive)
+ * req_path_contain(path_list, case_insensitive)
  * req_path_prefix_in(prefix_list, case_insensitive)
  * req_path_suffix_in(suffix_list, case_insensitive)
+ * req_path_element_suffix_in(suffix_list, case_insensitive)
  * req_query_key_in(key_list)
  * req_query_key_prefix_in(prefix_list)
  * req_query_value_in(key,  value_list, case_insensitive)
@@ -48,4 +50,5 @@
 
 ## 系统相关
  * bfe_time_range(start_time, end_time)
+ * bfe_periodic_time_range(start_time, end_time, period)
 

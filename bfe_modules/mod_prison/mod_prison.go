@@ -66,7 +66,6 @@ type ModulePrison struct {
 	state           ModulePrisonState // module state
 	metrics         metrics.Metrics
 	productConfPath string            // path for prodct rule
-	conf            ProductRuleConf   // config for prison
 	productTable    *productRuleTable // product rule table
 }
 

@@ -21,7 +21,9 @@
  * req_proto_secure()
  * req_tag_match(tagName, tagValue)
  * req_path_in(path_list, case_insensitive)
+ * req_path_contain(path_list, case_insensitive)
  * req_path_prefix_in(prefix_list, case_insensitive)
+ * req_path_element_prefix_in(prefix_list, case_insensitive)
  * req_path_suffix_in(suffix_list, case_insensitive)
  * req_query_key_in(key_list)
  * req_query_key_prefix_in(prefix_list)
@@ -48,4 +50,5 @@
 
 ## System Primitive
  * bfe_time_range(start_time, end_time)
+ * bfe_periodic_time_range(start_time, end_time, period)
 

@@ -25,11 +25,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
+	"github.com/bfenetworks/bfe/bfe_util"
 	"github.com/bfenetworks/bfe/bfe_util/net_util"
 	"github.com/spaolacci/murmur3"
 )
@@ -461,6 +463,51 @@ func NewPrefixInMatcher(patterns string, foldCase bool) *PrefixInMatcher {
 	}
 }
 
+type PathElementPrefixMatcher struct {
+	patterns []string
+	foldCase bool
+}
+
+func (p *PathElementPrefixMatcher) Match(v interface{}) bool {
+	vs, ok := v.(string)
+	if !ok {
+		return false
+	}
+
+	if !strings.HasSuffix(vs, "/") {
+		vs += "/"
+	}
+
+	if p.foldCase {
+		vs = strings.ToUpper(vs)
+	}
+
+	return prefixIn(vs, p.patterns)
+}
+
+func NewPathElementPrefixMatcher(patterns string, foldCase bool) *PathElementPrefixMatcher {
+	p := strings.Split(patterns, "|")
+
+	elementPatterns := make([]string, len(p))
+
+	for i, v := range p {
+		if !strings.HasSuffix(v, "/") {
+			v += "/"
+		}
+		if foldCase {
+			elementPatterns[i] = strings.ToUpper(v)
+		} else {
+			elementPatterns[i] = v
+		}
+
+	}
+
+	return &PathElementPrefixMatcher{
+		patterns: elementPatterns,
+		foldCase: foldCase,
+	}
+}
+
 type SuffixInMatcher struct {
 	patterns []string
 	foldCase bool
@@ -590,7 +637,7 @@ func (rf *ResCodeFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
 type TrustedCIpMatcher struct{}
 
 func (m *TrustedCIpMatcher) Match(req *bfe_basic.Request) bool {
-	return req.Session.IsTrustIP
+	return req.Session.TrustSource()
 }
 
 type SecureProtoMatcher struct{}
@@ -925,4 +972,120 @@ func (fetcher *ClientCANameFetcher) Fetch(req *bfe_basic.Request) (interface{}, 
 	}
 
 	return req.Session.TlsState.ClientCAName, nil
+}
+
+type ContextValueFetcher struct {
+	key string
+}
+
+func (f *ContextValueFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
+	if req == nil || req.HttpRequest == nil || req.Context == nil || f.key == "" {
+		return nil, fmt.Errorf("fetcher: nil pointer")
+	}
+
+	return req.GetContext(f.key), nil
+}
+
+// time range matcher
+type TimeMatcher struct {
+	startTime time.Time
+	endTime   time.Time
+}
+
+func NewTimeMatcher(startTimeStr string, endTimeStr string) (*TimeMatcher, error) {
+	startTime, err := bfe_util.ParseTime(startTimeStr)
+	if err != nil {
+		return nil, fmt.Errorf("startTime format invalid, err:%s", err.Error())
+	}
+	endTime, err := bfe_util.ParseTime(endTimeStr)
+	if err != nil {
+		return nil, fmt.Errorf("endTime format invalid, err:%s", err.Error())
+	}
+	if startTime.After(endTime) {
+		return nil, fmt.Errorf("startTime[%s] must <= endTime[%s]", startTimeStr, endTimeStr)
+	}
+	return &TimeMatcher{
+		startTime: startTime,
+		endTime:   endTime,
+	}, nil
+}
+
+func (t *TimeMatcher) Match(v interface{}) bool {
+	tm, ok := v.(time.Time)
+	if !ok {
+		return false
+	}
+	if tm.Before(t.startTime) {
+		return false
+	}
+	if tm.After(t.endTime) {
+		return false
+	}
+	return true
+}
+
+type BfeTimeFetcher struct{}
+
+// Fetch returns a time in UTC+0 time zone.
+func (f *BfeTimeFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
+	if req == nil || req.HttpRequest == nil {
+		return time.Now().In(time.UTC), nil
+	}
+	values, ok := req.HttpRequest.Header["X-Bfe-Debug-Time"]
+	if !ok {
+		return time.Now().In(time.UTC), nil
+	}
+	debugTimeStr := values[0]
+	debugTime, err := bfe_util.ParseTime(debugTimeStr)
+	if err != nil {
+		return nil, fmt.Errorf("debugTimeStr have invalid format, debugTimeStr:%s, :%s", debugTimeStr, err.Error())
+	}
+	return debugTime, nil
+}
+
+// periodic time range matcher
+type PeriodicTimeMatcher struct {
+	startTime int // in seconds of a day
+	endTime   int
+	offset    int // timezone offset
+}
+
+// time string format: hhmmssZ, example 150405H, Z-> timezone defined in bfe_util.TimeZoneMap
+func NewPeriodicTimeMatcher(startTimeStr, endTimeStr, periodStr string) (*PeriodicTimeMatcher, error) {
+	if periodStr != "" {
+		return nil, fmt.Errorf("periodStr is not supported, should not be set!")
+	}
+	ts1, offset1, err := bfe_util.ParseTimeOfDay(startTimeStr)
+	if err != nil {
+		return nil, fmt.Errorf("startTime format invalid, err:%s", err.Error())
+	}
+	startTime := ts1.Hour()*3600 + ts1.Minute()*60 + ts1.Second()
+	ts2, offset2, err := bfe_util.ParseTimeOfDay(endTimeStr)
+	if err != nil {
+		return nil, fmt.Errorf("endTime format invalid, err:%s", err.Error())
+	}
+	endTime := ts2.Hour()*3600 + ts2.Minute()*60 + ts2.Second()
+	if startTime > endTime {
+		return nil, fmt.Errorf("startTime[%s] must <= endTime[%s]", startTimeStr, endTimeStr)
+	}
+	if offset1 != offset2 {
+		return nil, fmt.Errorf("timezone of startime and endtime should be same!")
+	}
+	return &PeriodicTimeMatcher{
+		startTime: startTime,
+		endTime:   endTime,
+		offset:    offset1,
+	}, nil
+}
+
+func (t *PeriodicTimeMatcher) Match(v interface{}) bool {
+	tm, ok := v.(time.Time)
+	if !ok {
+		return false
+	}
+	// tm in UTC, convert it to correct time zone
+	tm = tm.In(time.FixedZone("zone", t.offset))
+	hour, minute, second := tm.Clock()
+	seconds := hour*3600 + minute*60 + second
+	return seconds >= t.startTime && seconds <= t.endTime
 }

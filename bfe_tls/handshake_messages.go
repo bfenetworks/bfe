@@ -20,6 +20,7 @@ package bfe_tls
 
 import (
 	"bytes"
+	"fmt"
 )
 
 type clientHelloMsg struct {
@@ -40,6 +41,7 @@ type clientHelloMsg struct {
 	secureRenegotiation bool
 	alpnProtocols       []string
 	padding             bool
+	extensionIds        []uint16
 }
 
 func (m *clientHelloMsg) equal(i interface{}) bool {
@@ -64,6 +66,69 @@ func (m *clientHelloMsg) equal(i interface{}) bool {
 		eqSignatureAndHashes(m.signatureAndHashes, m1.signatureAndHashes) &&
 		m.secureRenegotiation == m1.secureRenegotiation &&
 		eqStrings(m.alpnProtocols, m1.alpnProtocols)
+}
+
+// GREASE reserves a set of TLS protocol values that may be advertised to ensure
+// peers correctly handle unknown values.
+// See: https://datatracker.ietf.org/doc/html/rfc8701#section-2
+func isGreaseVal(val uint16) bool {
+	return val&0x0F0F == 0x0A0A
+}
+
+// JA3String returns a JA3 fingerprint string for TLS client.
+// For more information, see https://github.com/salesforce/ja3
+func (m *clientHelloMsg) JA3String() string {
+	var buf bytes.Buffer
+
+	// The client may advertise one or more GREASE values of cipher suite/extension
+	// named group/signature algorithm/version/PskKeyExchangeMode/ALPN identifiers.
+	// JA3 should ignores these values completely to ensure that programs utilizing
+	// GREASE can still be identified with a single JA3 hash.
+	// See: https://datatracker.ietf.org/doc/html/rfc8701#section-3.1
+
+	// version
+	fmt.Fprintf(&buf, "%d,", m.vers)
+	// cipher surites
+	writeJA3Uint16Values(&buf, m.cipherSuites)
+	fmt.Fprintf(&buf, ",")
+	// extensions
+	writeJA3Uint16Values(&buf, m.extensionIds)
+	fmt.Fprintf(&buf, ",")
+	// elliptic curves
+	dashFlag := false
+	for _, curve := range m.supportedCurves {
+		if isGreaseVal(uint16(curve)) {
+			continue
+		}
+		if dashFlag {
+			fmt.Fprintf(&buf, "-")
+		}
+		fmt.Fprintf(&buf, "%d", curve)
+		dashFlag = true
+	}
+	fmt.Fprintf(&buf, ",")
+	// elliptic curves point formats
+	for i, point := range m.supportedPoints {
+		fmt.Fprintf(&buf, "%d", point)
+		if i != len(m.supportedPoints)-1 {
+			fmt.Fprintf(&buf, "-")
+		}
+	}
+	return buf.String()
+}
+
+func writeJA3Uint16Values(buf *bytes.Buffer, values []uint16) {
+	dashFlag := false
+	for _, value := range values {
+		if isGreaseVal(value) {
+			continue
+		}
+		if dashFlag {
+			fmt.Fprintf(buf, "-")
+		}
+		fmt.Fprintf(buf, "%d", value)
+		dashFlag = true
+	}
 }
 
 func (m *clientHelloMsg) marshal() []byte {
@@ -344,6 +409,7 @@ func (m *clientHelloMsg) unmarshal(data []byte) bool {
 	m.signatureAndHashes = nil
 	m.alpnProtocols = nil
 
+	m.extensionIds = make([]uint16, 0)
 	if len(data) == 0 {
 		// ClientHello is optionally followed by extension data
 		return true
@@ -369,6 +435,7 @@ func (m *clientHelloMsg) unmarshal(data []byte) bool {
 			return false
 		}
 
+		m.extensionIds = append(m.extensionIds, extension)
 		switch extension {
 		case extensionServerName:
 			if length < 2 {

@@ -42,6 +42,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trace"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trust_clientip"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_userid"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_waf"
 )
 
 // list of all modules, the order is very important
@@ -86,6 +87,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_secure_link
 	mod_secure_link.NewModuleSecureLink(),
+
+	// mod_waf
+	mod_waf.NewModuleWaf(),
 
 	// mod_doh
 	mod_doh.NewModuleDoh(),

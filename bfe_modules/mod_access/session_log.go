@@ -90,7 +90,7 @@ func onLogFmtSesKeepAliveNum(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.B
 		return errors.New("session is nil")
 	}
 
-	msg := fmt.Sprintf("%d", session.ReqNum)
+	msg := fmt.Sprintf("%d", session.ReqNum())
 	buff.WriteString(msg)
 
 	return nil
@@ -114,7 +114,7 @@ func onLogFmtSesReadTotal(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buff
 		return errors.New("session is nil")
 	}
 
-	msg := fmt.Sprintf("%d", session.ReadTotal)
+	msg := fmt.Sprintf("%d", session.ReadTotal())
 	buff.WriteString(msg)
 
 	return nil
@@ -168,7 +168,7 @@ func onLogFmtSesWriteTotal(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buf
 		return errors.New("session is nil")
 	}
 
-	msg := fmt.Sprintf("%d", session.WriteTotal)
+	msg := fmt.Sprintf("%d", session.WriteTotal())
 	buff.WriteString(msg)
 
 	return nil

@@ -59,6 +59,15 @@ func (h Header) Get(key string) string {
 	return textproto.MIMEHeader(h).Get(key)
 }
 
+// Values returns all values associated with the given key.
+// It is case insensitive; textproto.CanonicalMIMEHeaderKey is
+// used to canonicalize the provided key. To use non-canonical
+// keys, access the map directly.
+// The returned slice is not a copy.
+func (h Header) Values(key string) []string {
+	return textproto.MIMEHeader(h).Values(key)
+}
+
 // GetDirect gets the value associated with the given key
 // in CanonicalHeaderKey form.
 func (h Header) GetDirect(key string) string {

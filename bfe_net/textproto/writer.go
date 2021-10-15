@@ -75,7 +75,8 @@ type dotWriter struct {
 }
 
 const (
-	wstateBeginLine = iota // beginning of line; initial state; must be zero
+	wstateBegin     = iota // initial state; must be zero
+	wstateBeginLine        // beginning of line
 	wstateCR               // wrote \r (possibly at end of line)
 	wstateData             // writing data in middle of line
 )
@@ -85,7 +86,7 @@ func (d *dotWriter) Write(b []byte) (n int, err error) {
 	for n < len(b) {
 		c := b[n]
 		switch d.state {
-		case wstateBeginLine:
+		case wstateBegin, wstateBeginLine:
 			d.state = wstateData
 			if c == '.' {
 				// escape leading dot

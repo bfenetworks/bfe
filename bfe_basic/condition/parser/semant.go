@@ -35,7 +35,9 @@ var funcProtos = map[string][]Token{
 	"req_path_in":                {STRING, BOOL},
 	"req_path_prefix_in":         {STRING, BOOL},
 	"req_path_suffix_in":         {STRING, BOOL},
+	"req_path_contain":           {STRING, BOOL},
 	"req_path_regmatch":          {STRING},
+	"req_path_element_prefix_in": {STRING, BOOL},
 	"req_query_key_prefix_in":    {STRING},
 	"req_query_key_in":           {STRING},
 	"req_query_exist":            nil,
@@ -74,6 +76,9 @@ var funcProtos = map[string][]Token{
 	"ses_tls_sni_in":             {STRING},
 	"ses_tls_client_auth":        nil,
 	"ses_tls_client_ca_in":       {STRING},
+	"req_context_value_in":       {STRING, STRING, BOOL},
+	"bfe_time_range":             []Token{STRING, STRING},
+	"bfe_periodic_time_range":    []Token{STRING, STRING, STRING},
 }
 
 func prototypeCheck(expr *CallExpr) error {

@@ -18,7 +18,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"strings"
 )
 
@@ -82,38 +81,22 @@ type ConfigHttpsBasic struct {
 	ClientCRLBaseDir string // client cert CRL base directory
 }
 
+// SetDefaultConf sets default value of ConfigHttpsBasic.
+// Note: DO NOT initialize multi-value fields (eg. CipherSuites/CurvePreferences)
 func (cfg *ConfigHttpsBasic) SetDefaultConf() {
 	cfg.ServerCertConf = "tls_conf/server_cert_conf.data"
 	cfg.TlsRuleConf = "tls_conf/tls_rule_conf.data"
-
-	cfg.CipherSuites = []string{
-		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
-		"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
-		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
-		"TLS_ECDHE_RSA_WITH_RC4_128_SHA",
-		"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
-		"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-		"TLS_RSA_WITH_RC4_128_SHA",
-		"TLS_RSA_WITH_AES_128_CBC_SHA",
-		"TLS_RSA_WITH_AES_256_CBC_SHA",
-	}
-	cfg.CurvePreferences = []string{
-		"CurveP256",
-	}
-
 	cfg.EnableSslv2ClientHello = true
-
 	cfg.ClientCABaseDir = "tls_conf/client_ca"
+	cfg.ClientCRLBaseDir = "tls_conf/client_crl"
 }
 
 func (cfg *ConfigHttpsBasic) Check(confRoot string) error {
-	// check cert file conf
 	err := certConfCheck(cfg, confRoot)
 	if err != nil {
 		return err
 	}
 
-	// check cert rule conf
 	err = certRuleCheck(cfg, confRoot)
 	if err != nil {
 		return err
@@ -124,12 +107,64 @@ func (cfg *ConfigHttpsBasic) Check(confRoot string) error {
 		return err
 	}
 
+	err = cipherSuitesCheck(cfg)
+	if err != nil {
+		return err
+	}
+
+	err = curvePreferencesCheck(cfg)
+	if err != nil {
+		return err
+	}
+
+	err = tlsVersionCheck(cfg)
+	if err != nil {
+		return err
+	}
+
 	err = clientCRLConfCheck(cfg, confRoot)
 	if err != nil {
 		return err
 	}
 
-	// check CipherSuites
+	return nil
+}
+
+func clientCRLConfCheck(cfg *ConfigHttpsBasic, confRoot string) error {
+	if len(cfg.ClientCRLBaseDir) == 0 {
+		cfg.ClientCRLBaseDir = "tls_conf/client_crl"
+		log.Logger.Warn("ClientCRLBaseDir not set, use default value [%s]", cfg.ClientCRLBaseDir)
+	}
+
+	cfg.ClientCRLBaseDir = bfe_util.ConfPathProc(cfg.ClientCRLBaseDir, confRoot)
+	return nil
+}
+
+func certConfCheck(cfg *ConfigHttpsBasic, confRoot string) error {
+	if cfg.ServerCertConf == "" {
+		cfg.ServerCertConf = "tls_conf/server_cert_conf.data"
+		log.Logger.Warn("ServerCertConf not set, use default value [%s]", cfg.ServerCertConf)
+	}
+	cfg.ServerCertConf = bfe_util.ConfPathProc(cfg.ServerCertConf, confRoot)
+	return nil
+}
+
+func cipherSuitesCheck(cfg *ConfigHttpsBasic) error {
+	if len(cfg.CipherSuites) == 0 {
+		cfg.CipherSuites = []string{
+			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+			"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+			"TLS_ECDHE_RSA_WITH_RC4_128_SHA",
+			"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+			"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+			"TLS_RSA_WITH_RC4_128_SHA",
+			"TLS_RSA_WITH_AES_128_CBC_SHA",
+			"TLS_RSA_WITH_AES_256_CBC_SHA",
+		}
+		log.Logger.Warn("CipherSuites not set, use default value %v", cfg.CipherSuites)
+	}
+
 	for _, cipherGroup := range cfg.CipherSuites {
 		ciphers := strings.Split(cipherGroup, EquivCipherSep)
 		for _, cipher := range ciphers {
@@ -139,40 +174,30 @@ func (cfg *ConfigHttpsBasic) Check(confRoot string) error {
 		}
 	}
 
-	// check CurvePreferences
+	return nil
+}
+
+func curvePreferencesCheck(cfg *ConfigHttpsBasic) error {
+	if len(cfg.CurvePreferences) == 0 {
+		cfg.CurvePreferences = []string{
+			"CurveP256",
+		}
+		log.Logger.Warn("CurvePreferences not set, use default value %v", cfg.CurvePreferences)
+	}
+
 	for _, curve := range cfg.CurvePreferences {
 		if _, ok := CurvesMap[curve]; !ok {
 			return fmt.Errorf("curve (%s) not support", curve)
 		}
 	}
 
-	// check tls version
-	err = tlsVersionCheck(cfg)
-	if err != nil {
-		return err
-	}
-
-	// check client CA certificate base dir
-	if len(cfg.ClientCABaseDir) == 0 {
-		return fmt.Errorf("ClientCABaseDir empty")
-	}
-
-	return nil
-}
-
-func certConfCheck(cfg *ConfigHttpsBasic, confRoot string) error {
-	if cfg.ServerCertConf == "" {
-		log.Logger.Warn("ServerCertConf not set, use default value")
-		cfg.ServerCertConf = "tls_conf/server_cert_conf.data"
-	}
-	cfg.ServerCertConf = bfe_util.ConfPathProc(cfg.ServerCertConf, confRoot)
 	return nil
 }
 
 func certRuleCheck(cfg *ConfigHttpsBasic, confRoot string) error {
 	if cfg.TlsRuleConf == "" {
-		log.Logger.Warn("TlsRuleConf not set, use default value")
 		cfg.TlsRuleConf = "tls_conf/tls_rule_conf.data"
+		log.Logger.Warn("TlsRuleConf not set, use default value [%s]", cfg.TlsRuleConf)
 	}
 	cfg.TlsRuleConf = bfe_util.ConfPathProc(cfg.TlsRuleConf, confRoot)
 	return nil
@@ -180,24 +205,10 @@ func certRuleCheck(cfg *ConfigHttpsBasic, confRoot string) error {
 
 func clientCABaseDirCheck(cfg *ConfigHttpsBasic, confRoot string) error {
 	if cfg.ClientCABaseDir == "" {
-		log.Logger.Warn("ClientCABaseDir not set, use default value")
 		cfg.ClientCABaseDir = "tls_conf/client_ca"
+		log.Logger.Warn("ClientCABaseDir not set, use default value [%s]", cfg.ClientCABaseDir)
 	}
 	cfg.ClientCABaseDir = bfe_util.ConfPathProc(cfg.ClientCABaseDir, confRoot)
-	return nil
-}
-
-func clientCRLConfCheck(cfg *ConfigHttpsBasic, confRoot string) error {
-	if len(cfg.ClientCRLBaseDir) == 0 {
-		log.Logger.Warn("ClientCRLBaseDir not set, use default value")
-		cfg.ClientCRLBaseDir = "tls_conf/client_crl"
-	}
-
-	cfg.ClientCRLBaseDir = bfe_util.ConfPathProc(cfg.ClientCRLBaseDir, confRoot)
-	f, err := os.Stat(cfg.ClientCRLBaseDir)
-	if err != nil || !f.IsDir() {
-		return fmt.Errorf("ClientCRLBaseDir %s not exists", cfg.ClientCRLBaseDir)
-	}
 	return nil
 }
 
