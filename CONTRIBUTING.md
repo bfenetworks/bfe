@@ -1,9 +1,6 @@
 # Contribute Code
 
-You are welcome to contribute to project BFE. To contribute to BFE, you have to agree with the 
-[Contributor License Agreement](https://cla-assistant.io/bfenetworks/bfe).
-
-We sincerely appreciate your contribution. This document explains our workflow and work style.
+You are welcome to contribute to project BFE. This document explains our workflow and work style.
 
 ## Workflow
 
@@ -44,8 +41,15 @@ BFE uses this [Git branching model](http://nvie.com/posts/a-successful-git-branc
    Once installed, `pre-commit` checks the style of code and documentation in every commit: 
 
    ```
-   $ git commit
+   $ git commit 
    ```
+   
+	Note: You should add a line to every git commit message, e.g.
+   ```
+   Signed-off-by: Sijie Yang <iyangsj@gmail.com>
+   ```
+	Please use your real name (sorry, no pseudonyms or anonymous contributions). The signoff line at the end of the commit message certifies that you wrote it 
+or otherwise have the right to pass it on as an open-source patch. The rules are pretty simple: if you can certify the [Developer Certificate of Origin](https://developercertificate.org/).
 
 	NOTE: The `yapf` installed by `pip install pre-commit` and `conda install -c conda-forge pre-commit` is slightly different. BFE developers use `pip install pre-commit`.
 
