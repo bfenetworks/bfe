@@ -65,7 +65,7 @@ BFE是百度开源的现代化七层负载均衡系统
   </tr>
   </table>
 
-- **开源BFE开发者微信群**: [发送邮件](mailto:yangsijie@baidu.com)说明您的微信号及贡献(例如PR/Issue)，我们将及时邀请您加入
+- **开源BFE开发者微信群**: [发送邮件](mailto:iyangsj@gmail.com)说明您的微信号及贡献(例如PR/Issue)，我们将及时邀请您加入
 
 ## 许可
 BFE基于Apache 2.0许可证，详见[LICENSE](LICENSE)文件说明
