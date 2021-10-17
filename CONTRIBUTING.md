@@ -41,7 +41,7 @@ BFE uses this [Git branching model](http://nvie.com/posts/a-successful-git-branc
    Once installed, `pre-commit` checks the style of code and documentation in every commit: 
 
    ```
-   $ git commit 
+   $ git commit -s
    ```
    
 	NOTE: You should add a line to every git commit message, e.g.
