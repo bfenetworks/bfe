@@ -44,7 +44,7 @@ BFE uses this [Git branching model](http://nvie.com/posts/a-successful-git-branc
    $ git commit 
    ```
    
-	Note: You should add a line to every git commit message, e.g.
+	NOTE: You should add a line to every git commit message, e.g.
    ```
    Signed-off-by: Sijie Yang <iyangsj@gmail.com>
    ```
