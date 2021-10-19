@@ -3,6 +3,7 @@
 ## 环境准备
 - golang 1.13+
 - git 2.0+
+- glibc-static 2.17+
 
 ## 源码下载
 ```bash
