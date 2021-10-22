@@ -19,13 +19,14 @@ BFE开源项目包含多个组件，可以搭建完整的七层负载均衡和�
 
 BFE系统包括数据平面和控制平面：
 
-- 数据平面：负责处理用户的流量，包含下列组件
+- 数据平面：负责用户流量的转发，包含下列组件
   - BFE Server：BFE 核心转发引擎，即为本项目（bfenetworks/bfe）。BFE Server 将用户流量经过内容路由、负载均衡，最终转发给合适的后端业务集群
 - 控制平面：负责BFE系统的配置和管理等，包含下列组件
   - [API-Server](https://github.com/bfenetworks/api-server)：对外提供 Open API 接口，完成 BFE 配置的变更、存储和生成
   - [Conf-Agent](https://github.com/bfenetworks/conf-agent)：配置加载组件，从API-Server获取最新配置，并触发 BFE Server 进行配置热加载
   - [Dashboard](https://github.com/bfenetworks/dashboard)：为用户提供了图形化操作界面，以可视化的方式对 BFE 的主要配置进行管理和查看
-- 架构说明见 BFE 的[概览](docs/zh_cn/introduction/overview.md)文档
+
+BFE的架构说明见[概览](docs/zh_cn/introduction/overview.md)文档
 
 此外，我们也基于 BFE 实现了 [BFE Ingress Controller](https://github.com/bfenetworks/ingress-bfe)，用于支持在 Kubernetes 中使用 Ingress
 
