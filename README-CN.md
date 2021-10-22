@@ -15,13 +15,15 @@ BFE是百度开源的现代化、企业级的七层负载均衡系统
 
 ## 简介
 
-BFE开源项目包含多个组件，可以搭建完整包含数据平面和控制平面的七层负载均衡和流量接入解决方案。详细的架构说明见BFE的[概览](docs/zh_cn/introduction/overview.md)文档
+BFE开源项目包含多个组件，可以搭建完整的包含数据平面和控制平面的七层负载均衡和流量接入解决方案。详细的架构说明见BFE的[概览](docs/zh_cn/introduction/overview.md)文档
 
 - 数据平面的BFE核心转发引擎，即为本项目（bfenetworks/bfe）
 - 控制平面的核心组件包括API-Server、Conf-Agent和Dashboard，均已开源，项目地址如下：
   - [API-Server](https://github.com/bfenetworks/api-server)
   - [Conf-Agent](https://github.com/bfenetworks/conf-agent)
   - [Dashboard](https://github.com/bfenetworks/dashboard)
+
+另外，此外我们也基于 BFE 实现了 Ingress Controller：[BFE Ingress Controller](https://github.com/bfenetworks/ingress-bfe)。关于BFE Ingress Controller项目的信息，在项目 [bfenetworks/ingress-bfe](https://github.com/bfenetworks/ingress-bfe) 的仓库中单独提供和维护。
 
 ## 特性及优点
 
