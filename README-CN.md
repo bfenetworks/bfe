@@ -11,18 +11,32 @@
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fbfenetworks%2Fbfe.svg?type=shield)](https://app.fossa.com/reports/1f05f9f0-ac3d-486e-8ba9-ad95dabd4768)
 [![Slack Widget](https://img.shields.io/badge/join-us%20on%20slack-gray.svg?longCache=true&logo=slack&colorB=green)](https://slack.cncf.io)
 
-BFE是百度开源的现代化七层负载均衡系统
+BFE是百度开源的现代化、企业级的七层负载均衡系统
+
+## 简介
+
+BFE开源项目包含多个组件，可以搭建完整包含数据平面和控制平面的七层负载均衡和流量接入解决方案。详细的架构说明见BFE的[概览](docs/zh_cn/introduction/overview.md)文档
+
+- 数据平面的BFE核心转发引擎，即为本项目（bfenetworks/bfe）
+- 控制平面的核心组件包括API-Server、Conf-Agent和Dashboard，均已开源，项目地址如下：
+  - [API-Server](https://github.com/bfenetworks/api-server)
+  - [Conf-Agent](https://github.com/bfenetworks/conf-agent)
+  - [Dashboard](https://github.com/bfenetworks/dashboard)
 
 ## 特性及优点
+
 - 丰富协议支持：支持HTTP、HTTPS、SPDY、HTTP/2、WebSocket、TLS、gRPC、FastCGI等
 - 基于请求内容的路由：支持高级条件表达式定制转发规则，转发规则易于理解及维护
 - 高级负载均衡：支持全局/分布式负载均衡，实现就近访问、跨可用区容灾及过载保护等
 - 灵活的模块框架：支持高效率定制开发第三方扩展模块
+- 高效易用的管理：支持转发集群配置集中管理，提供Dashboard和RESTful API
 - 一流的可见性：提供丰富详尽的监控指标，提供各类日志供问题诊断、数据分析及可视化
 [了解更多详情](https://www.bfe-networks.net/zh_cn/introduction/overview/)
 
 ## 开始使用
-- [编译及运行](docs/zh_cn/installation/install_from_source.md)
+
+- 数据平面：BFE核心转发引擎的[编译及运行](docs/zh_cn/installation/install_from_source.md)
+- 控制平面：请参考控制平面的[部署说明](https://github.com/bfenetworks/api-server/blob/develop/docs/zh_cn/deploy.md)
 
 ## 运行测试
 - 请参考[编译及运行](docs/zh_cn/installation/install_from_source.md)
