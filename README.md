@@ -14,15 +14,35 @@ English | [中文](README-CN.md)
 
 BFE is a modern layer 7 load balancer from baidu.
 
+## Introduction
+
+BFE opensource project includes several components, which can be used together as a integrated layer 7 load balancer and traffic management solution.
+
+BFE system consists of data plane and control plane:
+
+- Data plane：responsible for forwarding user's traffic, including below component: 
+  - BFE Server：BFE forward engine (this porject, bfenetworks/bfe). BFE Server performs content based routing, load balancing and forwards the traffic to back-end clusters.
+- Control plane：responsible for management and configuration of BFE system, including below components:
+  - [API-Server](https://github.com/bfenetworks/api-server)：provides API interface and handles change, storage and generation of BFE config
+  - [Conf-Agent](https://github.com/bfenetworks/conf-agent)：component for loading config, fetches latest config from API-Server and triggers BFE Server to reload it
+  - [Dashboard](https://github.com/bfenetworks/dashboard)：provides a graphic interface and visualization for user to manage and view major config of BFE
+
+Refer to [Overview](docs/en_us/introduction/overview.md) in BFE document for more information
+
+Besides, we also implement [BFE Ingress Controller](https://github.com/bfenetworks/ingress-bfe) based on BFE, to fulfill Ingress in Kubernetes  
+
 ## Advantages
+
 - Multiple protocols supported, including HTTP, HTTPS, SPDY, HTTP2, WebSocket, TLS, FastCGI, etc.
 - Content based routing, support user-defined routing rule in advanced domain-specific language.
 - Support multiple load balancing policies.
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly.
+- Efficient, easy and centralized management, with RESTful API and Dashboard support.
 - Detailed built-in metrics available for service status monitor.
 
 ## Getting Started
-- [Build and run](docs/en_us/installation/install_from_source.md)
+- Data plane: BFE Server [build and run](docs/en_us/installation/install_from_source.md)
+- Control plane: English document coming soon.  [Chinese version](https://github.com/bfenetworks/api-server/blob/develop/docs/zh_cn/deploy.md) 
 
 ## Running the tests
 - See [Build and run](docs/en_us/installation/install_from_source.md)
