@@ -21,10 +21,10 @@ BFE opensource project includes several components, which can be used together a
 BFE system consists of data plane and control plane:
 
 - Data plane：responsible for forwarding user's traffic, including below component: 
-  - BFE Server：BFE forward enging (this porject, bfenetworks/bfe). BFE Server performs content based routing, load balancing and forward the traffic to backend clusters.
+  - BFE Server：BFE forward engine (this porject, bfenetworks/bfe). BFE Server performs content based routing, load balancing and forwards the traffic to back-end clusters.
 - Control plane：responsible for management and configuration of BFE system, including below components:
-  - [API-Server](https://github.com/bfenetworks/api-server)：provides API interface and handles change, store and generate of BFE config 、存储和生成
-  - [Conf-Agent](https://github.com/bfenetworks/conf-agent)：config loading component, fetch latest config from API-Server and trigger BFE Server to reload it
+  - [API-Server](https://github.com/bfenetworks/api-server)：provides API interface and handles change, storage and generation of BFE config
+  - [Conf-Agent](https://github.com/bfenetworks/conf-agent)：component for loading config, fetches latest config from API-Server and triggers BFE Server to reload it
   - [Dashboard](https://github.com/bfenetworks/dashboard)：provides a graphic interface and visualization for user to manage and view major config of BFE
 
 Refer to [Overview](docs/en_us/introduction/overview.md) in BFE document for more information
