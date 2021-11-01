@@ -15,7 +15,7 @@
 project_name: bfe
 
 builds:
-  - binary: bfe
+  - binary: bin/bfe
     main: ./bfe.go
     ldflags:
       - -X main.version={{.Version}} -X main.commit={{.Commit}}
@@ -26,6 +26,7 @@ builds:
       - windows
     goarch:
       - amd64
+      - arm
       - arm64
     ignore:
       - goos: windows
@@ -45,7 +46,7 @@ archives:
       - LICENSE
       - README.md
       - CHANGELOG.md
-      - conf/**/*
+      - conf/*
 
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
