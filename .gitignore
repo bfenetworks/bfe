@@ -24,3 +24,5 @@ profile.out
 coverage.txt
 .idea/*
 .vscode/*
+bfe
+dist/*
