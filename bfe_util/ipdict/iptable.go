@@ -22,7 +22,7 @@ import (
 )
 
 type IPTable struct {
-	lock    sync.Mutex
+	lock    sync.RWMutex
 	ipItems *IPItems
 }
 
@@ -32,9 +32,9 @@ func NewIPTable() *IPTable {
 }
 
 func (t *IPTable) Version() string {
-	t.lock.Lock()
+	t.lock.RLock()
 	ipItems := t.ipItems
-	t.lock.Unlock()
+	t.lock.RUnlock()
 
 	if ipItems != nil {
 		return ipItems.Version
@@ -52,9 +52,9 @@ func (t *IPTable) Update(items *IPItems) {
 // Search provides for binary search IP in dict
 func (t *IPTable) Search(srcIP net.IP) bool {
 	var hit bool
-	t.lock.Lock()
+	t.lock.RLock()
 	ipItems := t.ipItems
-	t.lock.Unlock()
+	t.lock.RUnlock()
 
 	// check ipItems
 	if ipItems == nil {
