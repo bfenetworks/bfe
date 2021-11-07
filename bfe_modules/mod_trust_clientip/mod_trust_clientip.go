@@ -119,7 +119,7 @@ func ipItemsMake(conf TrustIPConf) (*ipdict.IPItems, error) {
 	return ipItems, nil
 }
 
-func (m *ModuleTrustClientIP) loadConfData(query url.Values) error {
+func (m *ModuleTrustClientIP) LoadConfData(query url.Values) error {
 	// get file path
 	path := query.Get("path")
 	if path == "" {
@@ -212,8 +212,8 @@ func (m *ModuleTrustClientIP) init(cfg *ConfModTrustClientIP, cbs *bfe_module.Bf
 	m.trustTable = ipdict.NewIPTable()
 
 	// load from config file to trust-table
-	if err := m.loadConfData(nil); err != nil {
-		return fmt.Errorf("err in loadConfData(): %s", err.Error())
+	if err := m.LoadConfData(nil); err != nil {
+		return fmt.Errorf("err in LoadConfData(): %s", err.Error())
 	}
 
 	// register handler
@@ -230,9 +230,9 @@ func (m *ModuleTrustClientIP) init(cfg *ConfModTrustClientIP, cbs *bfe_module.Bf
 	}
 
 	// register web handler for reload
-	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
+	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.LoadConfData)
 	if err != nil {
-		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %s", m.name, err.Error())
+		return fmt.Errorf("%s.Init(): RegisterHandler(m.LoadConfData): %s", m.name, err.Error())
 	}
 
 	return nil

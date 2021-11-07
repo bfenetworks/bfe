@@ -34,22 +34,22 @@ const (
 	expectProduct = "example_product"
 )
 
-func TestLoadRuleData(t *testing.T) {
+func TestLoadConfData(t *testing.T) {
 	m := NewModuleCors()
 
 	query := url.Values{
 		"path": []string{"testdata/mod_cors/cors_rule.data"},
 	}
 
-	expectModVersion := "cors_rule.data=20200508210000"
-	modVersion, err := m.loadRuleData(query)
+	//expectModVersion := "cors_rule.data=20200508210000"
+	 err := m.LoadConfData(query)
 	if err != nil {
 		t.Fatalf("should have no error, but error is %v", err)
 	}
 
-	if modVersion != expectModVersion {
-		t.Fatalf("version shoule be %s, but it's %s", expectModVersion, modVersion)
-	}
+	//if modVersion != expectModVersion {
+	//	t.Fatalf("version shoule be %s, but it's %s", expectModVersion, modVersion)
+	//}
 
 	expectVersion := "20200508210000"
 	if m.ruleTable.version != expectVersion {

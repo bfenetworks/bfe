@@ -67,7 +67,7 @@ func (m *ModuleAuthBasic) Name() string {
 	return m.name
 }
 
-func (m *ModuleAuthBasic) loadConfData(query url.Values) error {
+func (m *ModuleAuthBasic) LoadConfData(query url.Values) error {
 	path := query.Get("path")
 	if path == "" {
 		path = m.configPath
@@ -170,8 +170,8 @@ func (m *ModuleAuthBasic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.We
 	m.configPath = cfg.Basic.DataPath
 	openDebug = cfg.Log.OpenDebug
 
-	if err = m.loadConfData(nil); err != nil {
-		return fmt.Errorf("err in loadConfData(): %v", err)
+	if err = m.LoadConfData(nil); err != nil {
+		return fmt.Errorf("err in LoadConfData(): %v", err)
 	}
 
 	err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.authBasicHandler)
@@ -184,9 +184,9 @@ func (m *ModuleAuthBasic) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.We
 		return fmt.Errorf("%s.Init():RegisterHandlers(m.monitorHandlers): %v", m.name, err)
 	}
 
-	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
+	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.LoadConfData)
 	if err != nil {
-		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %v", m.name, err)
+		return fmt.Errorf("%s.Init(): RegisterHandler(m.LoadConfData): %v", m.name, err)
 	}
 
 	return nil

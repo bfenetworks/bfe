@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"sync"
 	"syscall"
@@ -345,7 +346,7 @@ func (srv *BfeServer) InitSignalTable() {
 	/* register signal handlers */
 	srv.SignalTable.Register(syscall.SIGQUIT, srv.ShutdownHandler)
 	srv.SignalTable.Register(syscall.SIGTERM, signal_table.TermHandler)
-	srv.SignalTable.Register(syscall.SIGHUP, signal_table.IgnoreHandler)
+	srv.SignalTable.Register(syscall.SIGHUP, srv.SighubHandler)
 	srv.SignalTable.Register(syscall.SIGILL, signal_table.IgnoreHandler)
 	srv.SignalTable.Register(syscall.SIGTRAP, signal_table.IgnoreHandler)
 	srv.SignalTable.Register(syscall.SIGABRT, signal_table.IgnoreHandler)
@@ -398,6 +399,17 @@ Loop:
 	// shutdown server
 	log.Logger.Close()
 	os.Exit(0)
+}
+
+// SighubHandler is signal handler for reload conf
+func (srv *BfeServer) SighubHandler(s os.Signal) {
+	query:=make(url.Values)
+	log.Logger.Info("SighubHandler(): receive signal[%v], Sighub.", s)
+	for _, name := range bfe_module.ModulesAll{
+		module:= bfe_module.ModuleMap[name]
+		module.LoadConfData(query)
+	}
+	log.Logger.Info("SighubHandler(): reload success[%v], Sighub.", s)
 }
 
 // CheckGracefulShutdown check wether the server is in graceful shutdown state.

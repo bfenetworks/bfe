@@ -17,11 +17,16 @@ package bfe_module
 import (
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
 	"github.com/stretchr/testify/assert"
+	"net/url"
 	"testing"
 )
 
 //mock module
 type testModule struct {
+}
+
+func (tm testModule) LoadConfData(query url.Values) error {
+	panic("implement me")
 }
 
 func (tm testModule) Name() string {

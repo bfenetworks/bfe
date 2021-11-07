@@ -81,7 +81,7 @@ func (m *ModuleGeo) Name() string {
 	return m.name
 }
 
-func (m *ModuleGeo) loadConfData(query url.Values) error {
+func (m *ModuleGeo) LoadConfData(query url.Values) error {
 	// get file path
 	path := query.Get("path")
 	if path == "" {
@@ -189,7 +189,7 @@ func (m *ModuleGeo) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandl
 	openDebug = conf.Log.OpenDebug
 
 	// read geolocation database
-	if err = m.loadConfData(nil); err != nil {
+	if err = m.LoadConfData(nil); err != nil {
 		return fmt.Errorf("%s: geolocation database load err %s", m.name, err.Error())
 	}
 
@@ -200,9 +200,9 @@ func (m *ModuleGeo) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandl
 	}
 
 	// register web handler for reload
-	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
+	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.LoadConfData)
 	if err != nil {
-		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %s", m.name, err.Error())
+		return fmt.Errorf("%s.Init(): RegisterHandler(m.LoadConfData): %s", m.name, err.Error())
 	}
 	// register web handler for monitor
 	err = whs.RegisterHandler(web_monitor.WebHandleMonitor, m.name, m.getState)

@@ -33,7 +33,7 @@ const (
 	expectProduct = "example_product"
 )
 
-func TestLoadRuleData(t *testing.T) {
+func TestLoadConfData(t *testing.T) {
 	m := new(ModuleTag)
 	m.ruleTable = new(TagRuleTable)
 
@@ -41,15 +41,13 @@ func TestLoadRuleData(t *testing.T) {
 		"path": []string{"testdata/mod_tag/tag_rule.data"},
 	}
 
-	expectModVersion := "tag_rule.data=20200218210000"
-	modVersion, err := m.loadRuleData(query)
+	//expectModVersion := "tag_rule.data=20200218210000"
+    err := m.LoadConfData(query)
 	if err != nil {
 		t.Fatalf("should have no error, but error is %v", err)
 	}
 
-	if modVersion != expectModVersion {
-		t.Fatalf("version shoule be %s, but it's %s", expectModVersion, modVersion)
-	}
+
 
 	expectVersion := "20200218210000"
 	if m.ruleTable.version != expectVersion {
@@ -121,7 +119,7 @@ func TestTagHandlerCase2(t *testing.T) {
 	m.ruleTable = new(TagRuleTable)
 
 	query := url.Values{"path": []string{"testdata/mod_tag/tag_rule.data3"}}
-	_, err := m.loadRuleData(query)
+	err := m.LoadConfData(query)
 	if err != nil {
 		t.Fatalf("should have no error, but error is %v", err)
 	}
@@ -160,7 +158,7 @@ func TestTagHandlerCase3(t *testing.T) {
 	m.ruleTable = new(TagRuleTable)
 
 	query := url.Values{"path": []string{"testdata/mod_tag/tag_rule.data4"}}
-	_, err := m.loadRuleData(query)
+	err := m.LoadConfData(query)
 	if err != nil {
 		t.Fatalf("should have no error, but error is %v", err)
 	}

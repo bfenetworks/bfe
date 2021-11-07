@@ -17,6 +17,7 @@ package mod_access
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 )
 
 import (
@@ -48,6 +49,10 @@ func NewModuleAccess() *ModuleAccess {
 
 func (m *ModuleAccess) Name() string {
 	return m.name
+}
+
+func (m *ModuleAccess) LoadConfData(query url.Values) error {
+	return nil
 }
 
 func (m *ModuleAccess) ParseConfig(conf *ConfModAccess) error {

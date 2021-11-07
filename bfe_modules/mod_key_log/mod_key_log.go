@@ -18,7 +18,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/url"
-	"path/filepath"
 )
 
 import (
@@ -112,8 +111,8 @@ func (m *ModuleKeyLog) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	m.dataConfigPath = conf.Basic.DataPath
 
 	// load from data config file to rule table
-	if _, err := m.loadConfData(nil); err != nil {
-		return fmt.Errorf("err in loadConfData(): %s", err.Error())
+	if err := m.LoadConfData(nil); err != nil {
+		return fmt.Errorf("err in LoadConfData(): %s", err.Error())
 	}
 
 	// init logger
@@ -129,15 +128,15 @@ func (m *ModuleKeyLog) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	}
 
 	// register web handler for reload
-	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
+	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.LoadConfData)
 	if err != nil {
-		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %s", m.name, err.Error())
+		return fmt.Errorf("%s.Init(): RegisterHandler(m.LoadConfData): %s", m.name, err.Error())
 	}
 
 	return nil
 }
 
-func (m *ModuleKeyLog) loadConfData(query url.Values) (string, error) {
+func (m *ModuleKeyLog) LoadConfData(query url.Values) error{
 	// get file path
 	path := query.Get("path")
 	if path == "" {
@@ -148,12 +147,12 @@ func (m *ModuleKeyLog) loadConfData(query url.Values) (string, error) {
 	// load from config file
 	conf, err := keyLogConfLoad(path)
 	if err != nil {
-		return "", fmt.Errorf("err in keyLogConfLoad(%s):%s", path, err.Error())
+		return fmt.Errorf("err in keyLogConfLoad(%s):%s", path, err.Error())
 	}
 
 	// update to rule table
 	m.ruleTable.Update(conf)
 
-	_, fileName := filepath.Split(path)
-	return fmt.Sprintf("%s=%s", fileName, conf.Version), nil
+	//_, fileName := filepath.Split(path)
+	return  nil
 }

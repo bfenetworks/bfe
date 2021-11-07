@@ -8,7 +8,7 @@
                     {
                         "Cmd": "RETURN",
                         "Params": [
-                            "200", "text/html", "../conf/mod_errors/404.html"
+                            "200", "text/html", "./conf/mod_errors/404.html"
                         ]
                     }
                 ]

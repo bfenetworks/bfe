@@ -55,7 +55,7 @@ func (m *ModuleErrors) Name() string {
 	return m.name
 }
 
-func (m *ModuleErrors) loadConfData(query url.Values) error {
+func (m *ModuleErrors) LoadConfData(query url.Values) error {
 	// get file path
 	path := query.Get("path")
 	if path == "" {
@@ -111,8 +111,8 @@ func (m *ModuleErrors) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	m.configPath = cfg.Basic.DataPath
 
 	// load from config file to rule table
-	if err = m.loadConfData(nil); err != nil {
-		return fmt.Errorf("err in loadConfData(): %s", err.Error())
+	if err = m.LoadConfData(nil); err != nil {
+		return fmt.Errorf("err in LoadConfData(): %s", err.Error())
 	}
 
 	// register handler
@@ -122,9 +122,9 @@ func (m *ModuleErrors) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	}
 
 	// register web handler for reload
-	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
+	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.LoadConfData)
 	if err != nil {
-		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %s", m.name, err.Error())
+		return fmt.Errorf("%s.Init(): RegisterHandler(m.LoadConfData): %s", m.name, err.Error())
 	}
 
 	return nil

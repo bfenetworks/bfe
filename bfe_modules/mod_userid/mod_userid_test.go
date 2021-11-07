@@ -39,7 +39,7 @@ func TestModuleUserIDName(t *testing.T) {
 
 func modFactory() *ModuleUserID {
 	m := NewModuleUserID()
-	m.loadConfData(url.Values{
+	m.LoadConfData(url.Values{
 		"path": []string{"./testdata/mod_userid/userid_rule.data"},
 	})
 	return m

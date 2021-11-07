@@ -57,11 +57,12 @@ type ModuleMarkdownState struct {
 }
 
 type ModuleMarkdown struct {
-	name      string              //module name
-	conf      *ConfModMarkdown    //module conf
-	ruleTable *MarkdownRuleTable  // module rule table
-	state     ModuleMarkdownState // module state
-	metrics   metrics.Metrics     //module metrics
+	name       string              //module name
+	configPath string
+	conf       *ConfModMarkdown    //module conf
+	ruleTable  *MarkdownRuleTable  // module rule table
+	state      ModuleMarkdownState // module state
+	metrics    metrics.Metrics     //module metrics
 }
 
 func NewModuleMarkdown() *ModuleMarkdown {
@@ -76,10 +77,10 @@ func (m *ModuleMarkdown) Name() string {
 	return m.name
 }
 
-func (m *ModuleMarkdown) loadProductRuleConf(query url.Values) error {
+func (m *ModuleMarkdown) LoadConfData(query url.Values) error {
 	path := query.Get("path")
 	if path == "" {
-		path = m.conf.Basic.ProductRulePath
+		path = m.configPath
 	}
 
 	conf, err := ProductRuleConfLoad(path)
@@ -186,7 +187,7 @@ func (m *ModuleMarkdown) monitorHandlers() map[string]interface{} {
 
 func (m *ModuleMarkdown) reloadHandlers() map[string]interface{} {
 	handlers := map[string]interface{}{
-		m.name: m.loadProductRuleConf,
+		m.name: m.LoadConfData,
 	}
 	return handlers
 }
@@ -199,9 +200,10 @@ func (m *ModuleMarkdown) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.Web
 		return fmt.Errorf("%s: conf load err %v", m.name, err)
 	}
 	openDebug = m.conf.Log.OpenDebug
+    m.configPath=m.conf.Basic.ProductRulePath
 
-	if err = m.loadProductRuleConf(nil); err != nil {
-		return fmt.Errorf("%s: loadProductRuleConf() err %v", m.Name(), err)
+	if err = m.LoadConfData(nil); err != nil {
+		return fmt.Errorf("%s: LoadConfData() err %v", m.Name(), err)
 	}
 
 	err = cbs.AddFilter(bfe_module.HandleReadResponse, m.renderMarkDownHandler)

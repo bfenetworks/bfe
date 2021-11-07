@@ -106,8 +106,8 @@ func (m *ModuleBlock) loadGlobalIPTable(query url.Values) error {
 	return nil
 }
 
-// loadProductRuleConf load from config file.
-func (m *ModuleBlock) loadProductRuleConf(query url.Values) error {
+// LoadConfData load from config file.
+func (m *ModuleBlock) LoadConfData(query url.Values) error {
 	// get path
 	path := query.Get("path")
 	if path == "" {
@@ -246,7 +246,7 @@ func (m *ModuleBlock) monitorHandlers() map[string]interface{} {
 func (m *ModuleBlock) reloadHandlers() map[string]interface{} {
 	handlers := map[string]interface{}{
 		m.name + ".global_ip_table":    m.loadGlobalIPTable,
-		m.name + ".product_rule_table": m.loadProductRuleConf,
+		m.name + ".product_rule_table": m.LoadConfData,
 	}
 	return handlers
 }
@@ -270,8 +270,8 @@ func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 	if err = m.loadGlobalIPTable(nil); err != nil {
 		return fmt.Errorf("%s: loadGlobalIPTable() err %s", m.name, err.Error())
 	}
-	if err = m.loadProductRuleConf(nil); err != nil {
-		return fmt.Errorf("%s: loadProductRuleConf() err %s", m.name, err.Error())
+	if err = m.LoadConfData(nil); err != nil {
+		return fmt.Errorf("%s: LoadConfData() err %s", m.name, err.Error())
 	}
 
 	// register handler

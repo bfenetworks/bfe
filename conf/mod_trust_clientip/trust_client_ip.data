@@ -1,9 +1,9 @@
 {
-    "Version": "init version",
+    "Version": "one version",
     "Config": {
         "inner-idc": [
             {
-                "Begin": "10.0.0.0",
+                "Begin": "10.0.10.8",
                 "End": "10.255.255.255"
             }
         ]

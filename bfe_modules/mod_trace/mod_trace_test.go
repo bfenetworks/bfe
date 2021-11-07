@@ -29,7 +29,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_module"
 )
 
-func TestLoadRuleData(t *testing.T) {
+func TestLoadConfData(t *testing.T) {
 	m := new(ModuleTrace)
 	m.ruleTable = new(TraceRuleTable)
 
@@ -37,15 +37,15 @@ func TestLoadRuleData(t *testing.T) {
 		"path": []string{"testdata/mod_trace/trace_rule.data"},
 	}
 
-	expectModVersion := "trace_rule.data=20200316215500"
-	modVersion, err := m.loadRuleData(query)
+	//expectModVersion := "trace_rule.data=20200316215500"
+	 err := m.LoadConfData(query)
 	if err != nil {
 		t.Fatalf("should have no error, but error is %v", err)
 	}
 
-	if modVersion != expectModVersion {
-		t.Fatalf("version shoule be %s, but it's %s", expectModVersion, modVersion)
-	}
+	//if modVersion != expectModVersion {
+	//	t.Fatalf("version shoule be %s, but it's %s", expectModVersion, modVersion)
+	//}
 
 	expectVersion := "20200316215500"
 	if m.ruleTable.version != expectVersion {

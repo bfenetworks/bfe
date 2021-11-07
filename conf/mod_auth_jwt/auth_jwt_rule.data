@@ -3,7 +3,7 @@
         "example_product": [
             {
                 "Cond": "req_host_in(\"www.example.org\")",
-                "KeyFile": "../conf/mod_auth_jwt/key_file",
+                "KeyFile": "./conf/mod_auth_jwt/key_file",
                 "Realm": "example_product"
             }
         ]

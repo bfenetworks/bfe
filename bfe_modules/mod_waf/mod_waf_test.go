@@ -68,7 +68,7 @@ func TestModuleWafHandleWaf(t *testing.T) {
 	}
 
 	queryV := map[string][]string{"path": {"./testdata/mod_waf/waf_rule_check.data"}}
-	err := mw.loadProductRuleConf(queryV)
+	err := mw.LoadConfData(queryV)
 	if err != nil {
 		t.Errorf("reload waf rule err=%s", err)
 		t.FailNow()

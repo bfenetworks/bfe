@@ -81,8 +81,8 @@ func (m *ModuleSecureLink) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.W
 
 	m.configPath = cfg.Basic.DataPath
 	// load from config file to rule table
-	if err := m.loadConfData(nil); err != nil {
-		return fmt.Errorf("err in loadConfData(): %s", err.Error())
+	if err := m.LoadConfData(nil); err != nil {
+		return fmt.Errorf("err in LoadConfData(): %s", err.Error())
 	}
 
 	// register handler
@@ -92,9 +92,9 @@ func (m *ModuleSecureLink) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.W
 	}
 
 	// register web handler for reload
-	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
+	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.LoadConfData)
 	if err != nil {
-		return fmt.Errorf("%s.Init(): RegisterHandler(m.loadConfData): %s", m.name, err.Error())
+		return fmt.Errorf("%s.Init(): RegisterHandler(m.LoadConfData): %s", m.name, err.Error())
 	}
 
 	return nil
@@ -138,7 +138,7 @@ func (m *ModuleSecureLink) validateHandler(request *bfe_basic.Request) (int, *bf
 	return bfe_module.BfeHandlerGoOn, nil
 }
 
-func (m *ModuleSecureLink) loadConfData(query url.Values) error {
+func (m *ModuleSecureLink) LoadConfData(query url.Values) error {
 	// get file path
 	path := query.Get("path")
 	if path == "" {

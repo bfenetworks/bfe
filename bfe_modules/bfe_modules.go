@@ -72,6 +72,7 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_block
 	// Requirement: After mod_logid
+	//  这里存在两个load
 	mod_block.NewModuleBlock(),
 
 	// mod_prison
@@ -88,7 +89,7 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_secure_link
 	mod_secure_link.NewModuleSecureLink(),
 
-	// mod_waf
+	//mod_waf
 	mod_waf.NewModuleWaf(),
 
 	// mod_doh
@@ -113,7 +114,7 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_errors
 	mod_errors.NewModuleErrors(),
 
-	// mod_markdown
+	//mod_markdown
 	mod_markdown.NewModuleMarkdown(),
 
 	// mod_compress
@@ -123,9 +124,11 @@ var moduleList = []bfe_module.BfeModule{
 	mod_key_log.NewModuleKeyLog(),
 
 	// mod_http_code
+	// load nil
 	mod_http_code.NewModuleHttpCode(),
 
 	// mod_access
+	// load nil
 	mod_access.NewModuleAccess(),
 }
 

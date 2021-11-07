@@ -57,11 +57,12 @@ type ModuleCompressState struct {
 }
 
 type ModuleCompress struct {
-	name      string
-	conf      *ConfModCompress
-	ruleTable *CompressRuleTable
-	state     ModuleCompressState
-	metrics   metrics.Metrics
+	name        string
+	configPath  string
+	conf        *ConfModCompress
+	ruleTable   *CompressRuleTable
+	state       ModuleCompressState
+	metrics     metrics.Metrics
 }
 
 func NewModuleCompress() *ModuleCompress {
@@ -76,10 +77,10 @@ func (m *ModuleCompress) Name() string {
 	return m.name
 }
 
-func (m *ModuleCompress) loadProductRuleConf(query url.Values) error {
+func (m *ModuleCompress) LoadConfData(query url.Values) error {
 	path := query.Get("path")
 	if path == "" {
-		path = m.conf.Basic.ProductRulePath
+		path = m.configPath
 	}
 
 	conf, err := ProductRuleConfLoad(path)
@@ -203,7 +204,7 @@ func (m *ModuleCompress) monitorHandlers() map[string]interface{} {
 
 func (m *ModuleCompress) reloadHandlers() map[string]interface{} {
 	handlers := map[string]interface{}{
-		m.name: m.loadProductRuleConf,
+		m.name: m.LoadConfData,
 	}
 	return handlers
 }
@@ -217,9 +218,10 @@ func (m *ModuleCompress) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.Web
 		return fmt.Errorf("%s: conf load err %v", m.name, err)
 	}
 	openDebug = m.conf.Log.OpenDebug
+    m.configPath=m.conf.Basic.ProductRulePath
 
-	if err = m.loadProductRuleConf(nil); err != nil {
-		return fmt.Errorf("%s: loadProductRuleConf() err %v", m.name, err)
+	if err = m.LoadConfData(nil); err != nil {
+		return fmt.Errorf("%s: LoadConfData() err %v", m.name, err)
 	}
 
 	err = cbs.AddFilter(bfe_module.HandleReadResponse, m.compressHandler)

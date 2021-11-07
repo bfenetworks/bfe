@@ -34,12 +34,12 @@ type ConfModUserID struct {
 }
 
 func ConfLoad(filePath, confRoot string) (*ConfModUserID, error) {
-	cfg := &ConfModUserID{}
+	var cfg ConfModUserID
 
 	// read config from file
-	err := gcfg.ReadFileInto(cfg, filePath)
+	err := gcfg.ReadFileInto(&cfg, filePath)
 	if err != nil {
-		return nil, err
+		return &cfg, err
 	}
 
 	if cfg.Basic.DataPath == "" {
@@ -49,5 +49,5 @@ func ConfLoad(filePath, confRoot string) (*ConfModUserID, error) {
 
 	cfg.Basic.DataPath = bfe_util.ConfPathProc(cfg.Basic.DataPath, confRoot)
 
-	return cfg, nil
+	return &cfg, nil
 }

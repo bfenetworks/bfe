@@ -16,6 +16,7 @@ package mod_doh
 
 import (
 	"fmt"
+	"net/url"
 )
 
 import (
@@ -62,6 +63,10 @@ func NewModuleDoh() *ModuleDoh {
 
 func (m *ModuleDoh) Name() string {
 	return m.name
+}
+
+func (m *ModuleDoh) LoadConfData(query url.Values) error {
+	return nil
 }
 
 func (m *ModuleDoh) getState(params map[string][]string) ([]byte, error) {

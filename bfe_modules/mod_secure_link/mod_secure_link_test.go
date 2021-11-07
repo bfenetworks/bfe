@@ -27,7 +27,7 @@ import (
 
 func TestModuleSecureLink(t *testing.T) {
 	mod := NewModuleSecureLink()
-	err := mod.loadConfData(url.Values{
+	err := mod.LoadConfData(url.Values{
 		"path": {"testdata/mod_secure_link/secure_link_rule.data"},
 	})
 	if err != nil {

@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"path/filepath"
 	"time"
 )
 
@@ -145,7 +144,7 @@ func (m *ModulePrison) getStateDiff(params map[string][]string) ([]byte, error) 
 	return s.Format(params)
 }
 
-func (m *ModulePrison) loadProductRuleTable(query url.Values) (string, error) {
+func (m *ModulePrison) LoadConfData(query url.Values) error {
 	// get reload file path
 	path := query.Get("path")
 	if path == "" {
@@ -155,15 +154,16 @@ func (m *ModulePrison) loadProductRuleTable(query url.Values) (string, error) {
 	// load and update rules
 	productConf, err := productRuleConfLoad(path)
 	if err != nil {
-		return "", fmt.Errorf("%s: load product rule err %s", m.name, err.Error())
+		return fmt.Errorf("%s: load product rule err %s", m.name, err.Error())
 	}
 	if err = m.productTable.load(productConf); err != nil {
-		return "", fmt.Errorf("%s: load prison err %s", m.name, err.Error())
+		return fmt.Errorf("%s: load prison err %s", m.name, err.Error())
 	}
 
-	version := *productConf.Version
-	_, fileName := filepath.Split(path)
-	return fmt.Sprintf("%s=%s", fileName, version), nil
+	//version := *productConf.Version
+	//_, fileName := filepath.Split(path)
+	//fmt.Sprintf("%s=%s", fileName, version),
+	return  nil
 }
 
 func (m *ModulePrison) monitorHandlers() map[string]interface{} {
@@ -186,8 +186,8 @@ func (m *ModulePrison) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	openDebug = conf.Log.OpenDebug
 
 	// load product rule table
-	if _, err := m.loadProductRuleTable(nil); err != nil {
-		return fmt.Errorf("%s.Init():loadProductRuleTable(): %s", m.name, err.Error())
+	if  err := m.LoadConfData(nil); err != nil {
+		return fmt.Errorf("%s.Init():LoadConfData(): %s", m.name, err.Error())
 	}
 
 	// register handler for prison
@@ -203,7 +203,7 @@ func (m *ModulePrison) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	}
 
 	// register web handler for reload
-	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadProductRuleTable)
+	err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.LoadConfData)
 	if err != nil {
 		return fmt.Errorf("%s.Init():RegisterHandlers(m.reloadHandlers): %s", m.name, err.Error())
 	}

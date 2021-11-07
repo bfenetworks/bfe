@@ -17,7 +17,6 @@ package mod_trace
 import (
 	"fmt"
 	"net/url"
-	"path/filepath"
 	"strings"
 )
 
@@ -75,7 +74,7 @@ func (m *ModuleTrace) Name() string {
 	return m.name
 }
 
-func (m *ModuleTrace) loadRuleData(query url.Values) (string, error) {
+func (m *ModuleTrace) LoadConfData(query url.Values) error {
 	// get file path
 	path := query.Get("path")
 	if path == "" {
@@ -86,14 +85,15 @@ func (m *ModuleTrace) loadRuleData(query url.Values) (string, error) {
 	// load from config file
 	conf, err := TraceRuleFileLoad(path)
 	if err != nil {
-		return "", fmt.Errorf("%s: TraceRuleFileLoad(%s) error: %v", m.name, path, err)
+		return   fmt.Errorf("%s: TraceRuleFileLoad(%s) error: %v", m.name, path, err)
 	}
 
 	// update to rule table
 	m.ruleTable.Update(conf)
 
-	_, fileName := filepath.Split(path)
-	return fmt.Sprintf("%s=%s", fileName, conf.Version), nil
+	//_, fileName := filepath.Split(path)
+	//fmt.Sprintf("%s=%s", fileName, conf.Version),
+	return  nil
 }
 
 func (m *ModuleTrace) startTrace(request *bfe_basic.Request) (int, *bfe_http.Response) {
@@ -188,7 +188,7 @@ func (m *ModuleTrace) monitorHandlers() map[string]interface{} {
 
 func (m *ModuleTrace) reloadHandlers() map[string]interface{} {
 	handlers := map[string]interface{}{
-		m.name: m.loadRuleData,
+		m.name: m.LoadConfData,
 	}
 	return handlers
 }
@@ -201,7 +201,7 @@ func (m *ModuleTrace) init(conf *ConfModTrace, cbs *bfe_module.BfeCallbacks, whs
 		return err
 	}
 
-	_, err = m.loadRuleData(nil)
+	err = m.LoadConfData(nil)
 	if err != nil {
 		return err
 	}

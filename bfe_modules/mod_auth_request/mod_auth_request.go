@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"path/filepath"
 	"time"
 )
 
@@ -63,9 +62,10 @@ type ModuleAuthRequestState struct {
 }
 
 type ModuleAuthRequest struct {
-	name      string
-	conf      *ConfModAuthRequest
-	ruleTable *AuthRequestRuleTable
+	name       string
+	configPath string
+	conf       *ConfModAuthRequest
+	ruleTable  *AuthRequestRuleTable
 
 	authClient http.Client // auth client, use default roundtrip
 
@@ -93,25 +93,26 @@ func (m *ModuleAuthRequest) Name() string {
 	return m.name
 }
 
-func (m *ModuleAuthRequest) loadRuleData(query url.Values) (string, error) {
+func (m *ModuleAuthRequest) LoadConfData(query url.Values) error {
 	// get file path
 	path := query.Get("path")
 	if path == "" {
 		// use default
-		path = m.conf.Basic.DataPath
+		path = m.configPath
 	}
 
 	// load from config file
 	conf, err := AuthRequestRuleFileLoad(path)
 	if err != nil {
-		return "", fmt.Errorf("%s: AuthRequestRuleFileLoad(%s) error: %v", m.name, path, err)
+		return fmt.Errorf("%s: AuthRequestRuleFileLoad(%s) error: %v", m.name, path, err)
 	}
 
 	// update to rule table
 	m.ruleTable.Update(conf)
 
-	_, fileName := filepath.Split(path)
-	return fmt.Sprintf("%s=%s", fileName, conf.Version), nil
+	//_, fileName := filepath.Split(path)
+	//fmt.Sprintf("%s=%s", fileName, conf.Version),
+	return  nil
 }
 
 func removeHopHeaders(headers http.Header) {
@@ -234,7 +235,7 @@ func (m *ModuleAuthRequest) authRequestHandler(req *bfe_basic.Request) (int, *bf
 
 func (m *ModuleAuthRequest) reloadHandlers() map[string]interface{} {
 	handlers := map[string]interface{}{
-		m.name: m.loadRuleData,
+		m.name: m.LoadConfData,
 	}
 	return handlers
 }
@@ -267,7 +268,7 @@ func (m *ModuleAuthRequest) monitorHandlers() map[string]interface{} {
 func (m *ModuleAuthRequest) init(conf *ConfModAuthRequest, cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers) error {
 	var err error
 
-	_, err = m.loadRuleData(nil)
+	err = m.LoadConfData(nil)
 	if err != nil {
 		return err
 	}
@@ -301,7 +302,7 @@ func (m *ModuleAuthRequest) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.
 
 	m.conf = conf
 	openDebug = conf.Log.OpenDebug
-
+	m.configPath =conf.Basic.DataPath
 	m.authClient = http.Client{
 		CheckRedirect: func(*http.Request, []*http.Request) error {
 			// disable redirect

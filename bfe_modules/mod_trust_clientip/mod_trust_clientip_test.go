@@ -33,9 +33,9 @@ func TestAcceptHandler_1(t *testing.T) {
 
 	// load conf from file
 	m.configPath = "./testdata/trust_ip_1.conf"
-	err = m.loadConfData(nil)
+	err = m.LoadConfData(nil)
 	if err != nil {
-		t.Errorf("get err from m.loadConfData():%s", err.Error())
+		t.Errorf("get err from m.LoadConfData():%s", err.Error())
 		return
 	}
 

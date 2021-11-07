@@ -50,7 +50,7 @@ func TestLoadModGeoConfigData(t *testing.T) {
 	m := NewModuleGeo()
 
 	// load conf data failed
-	err := m.loadConfData(url.Values{})
+	err := m.LoadConfData(url.Values{})
 	if err == nil {
 		t.Error("the return value of load mod_geo data is err, expect err")
 	}
@@ -60,7 +60,7 @@ func TestLoadModGeoConfigData(t *testing.T) {
 	testQuery.Add("path", "./test_data/mod_geo/geo.db")
 
 	// load conf data success
-	err = m.loadConfData(testQuery)
+	err = m.LoadConfData(testQuery)
 	if err != nil {
 		t.Errorf("load mod_geo conf data err: %s", err.Error())
 	}

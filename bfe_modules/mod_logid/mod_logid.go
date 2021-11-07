@@ -20,6 +20,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 )
 
 import (
@@ -78,6 +79,10 @@ func (m *ModuleLogId) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 		return fmt.Errorf("%s.Init(): RegisterHandler(m.getState): %s", m.name, err.Error())
 	}
 
+	return nil
+}
+
+func (m *ModuleLogId) LoadConfData(query url.Values) error {
 	return nil
 }
 

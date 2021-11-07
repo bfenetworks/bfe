@@ -6,7 +6,7 @@
                 "Action": {
                     "Cmd": "BROWSE",
                     "Params": [
-                        "../conf/mod_static",
+                        "./conf/mod_static",
                         "index.html"
                     ]
                 }

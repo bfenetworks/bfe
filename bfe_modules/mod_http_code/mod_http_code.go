@@ -62,6 +62,10 @@ func (m *ModuleHttpCode) Name() string {
 	return m.name
 }
 
+func (m *ModuleHttpCode) LoadConfData(query url.Values) error {
+	return nil
+}
+
 func (m *ModuleHttpCode) getState(query url.Values) ([]byte, error) {
 	d := m.metrics.GetAll()
 	return d.Format(query)
