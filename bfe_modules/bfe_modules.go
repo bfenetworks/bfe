@@ -89,7 +89,7 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_secure_link
 	mod_secure_link.NewModuleSecureLink(),
 
-	//mod_waf
+	// mod_waf
 	mod_waf.NewModuleWaf(),
 
 	// mod_doh
@@ -114,7 +114,7 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_errors
 	mod_errors.NewModuleErrors(),
 
-	//mod_markdown
+	// mod_markdown
 	mod_markdown.NewModuleMarkdown(),
 
 	// mod_compress

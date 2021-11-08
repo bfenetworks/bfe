@@ -35,6 +35,7 @@ type BfeModule interface {
 	// Name return name of module.
 	Name() string
 
+	// Load module conf
 	LoadConfData(query url.Values) error
 
 	// Init initializes the module.
