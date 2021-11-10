@@ -51,6 +51,18 @@ $ pip install pre-commit
 $ pre-commit install
 ```
 
+## Use `license-eye` tool
+
+[license-eye](http://github.com/apache/skywalking-eyes) helps us check and fix file's license header declaration. All files' license header should be done before committing.
+
+The `license-eye` check is part of the Github-Action. A PR that check failed cannot be submmitted to BFE. Install `license-eye` and do check or fix:
+
+```bash
+$ go install github.com/apache/skywalking-eyes/cmd/license-eye@latest
+$ license-eye header check
+$ license-eye header fix
+```
+
 BFE modify the format of golang source code with `gofmt` .
 
 ## Start development
