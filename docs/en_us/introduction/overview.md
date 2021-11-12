@@ -49,11 +49,11 @@ BFE is easily integrated with mainstream layer 4 load balancing solution, and ot
 BFE system consists of components in both data plane and control plane:
 
 - Data plane：
-  - BFE Server：BFE forward engine. BFE Server performs content based routing, load balancing and forwards the traffic to back-end servers.
+  - BFE Server：BFE forward engine. BFE Server performs content based routing, load balancing and forwards the traffic to backend servers.
 - Control plane：
-  - [BFE API Server](https://github.com/bfenetworks/api-server)：provides API interface and handles change, storage and generation of BFE config
+  - [BFE API Server](https://github.com/bfenetworks/api-server)：provides API and handles update, storage and generation of BFE config
   - [BFE Conf Agent](https://github.com/bfenetworks/conf-agent)：component for loading config, fetches latest config from API-Server and triggers BFE Server to reload it
-  - [BFE Dashboard](https://github.com/bfenetworks/dashboard)：provides a graphic interface and visualization for user to manage and view major config of BFE
+  - [BFE Dashboard](https://github.com/bfenetworks/dashboard)：provides a graphic interface for user to manage and view major config of BFE
 
 
 ## Architecture overview
@@ -68,4 +68,4 @@ The incoming user traffic reaches the BFE server through the Layer 4 load balanc
 
 ### Control plane
 
-The control plane is responsible for management and configuration of BFE system, which can be maintained via BFE Dashboard or RESTful API by the administrator.
+The control plane is responsible for management and configuration of BFE system, which can be maintained via BFE Dashboard or RESTful API. BFE Conf Agent will trigger BFE Server to load the latest configuration.

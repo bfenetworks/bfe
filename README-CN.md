@@ -24,7 +24,7 @@ BFE系统包括数据平面和控制平面：
 - 控制平面：负责BFE系统的配置和管理等，包含下列组件
   - [API-Server](https://github.com/bfenetworks/api-server)：对外提供 API 接口，完成 BFE 配置的变更、存储和生成
   - [Conf-Agent](https://github.com/bfenetworks/conf-agent)：配置加载组件，从API-Server获取最新配置，并触发 BFE Server 进行配置热加载
-  - [Dashboard](https://github.com/bfenetworks/dashboard)：为用户提供了图形化操作界面，以可视化的方式对 BFE 的主要配置进行管理和查看
+  - [Dashboard](https://github.com/bfenetworks/dashboard)：为用户提供了图形化操作界面，以对 BFE 的主要配置进行管理和查看
 
 BFE的架构说明见[概览](docs/zh_cn/introduction/overview.md)文档
 
