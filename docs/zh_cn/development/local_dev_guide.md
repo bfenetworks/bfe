@@ -47,6 +47,9 @@ $ pip install pre-commit
 $ pre-commit install
 ```
 
+BFE 使用 `gofmt` 来调整 golang源代码格式。
+
+
 ## 使用 `license-eye` 工具
 
 [license-eye](http://github.com/apache/skywalking-eyes) 工具可以帮助我们检查和修复所有文件的证书声明，在提交 (commit) 前证书声明都应该先完成。
@@ -59,7 +62,6 @@ $ license-eye header check
 $ license-eye header fix
 ```
 
-BFE 使用 `gofmt` 来调整 golang源代码格式。
 
 ## 开始开发
 
