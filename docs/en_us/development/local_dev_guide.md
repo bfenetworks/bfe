@@ -51,6 +51,9 @@ $ pip install pre-commit
 $ pre-commit install
 ```
 
+BFE modify the format of golang source code with `gofmt` .
+
+
 ## Use `license-eye` tool
 
 [license-eye](http://github.com/apache/skywalking-eyes) helps us check and fix file's license header declaration. All files' license header should be done before committing.
@@ -63,7 +66,6 @@ $ license-eye header check
 $ license-eye header fix
 ```
 
-BFE modify the format of golang source code with `gofmt` .
 
 ## Start development
 
