@@ -29,10 +29,10 @@ import (
     "Product1": [{
       "VipConf": ["1.1.1.1", "1.1.1.2"],
       "KeepAliveParam": {
-		"Disable": false,
+        "Disable": false,
         "KeepIdle" : 70,
         "KeepIntvl" : 15,
-		"KeepCnt": 9
+        "KeepCnt": 9
       }
     }]
   }
@@ -55,18 +55,18 @@ type ProductRuleFile struct {
   "Version": "x",
   "Config": {
     "Product1": {
-	  "1.1.1.1": {
-		"Disable": false,
+      "1.1.1.1": {
+      "Disable": false,
         "KeepIdle" : 70,
         "KeepIntvl" : 15,
-		"KeepCnt": 9
-	  },
-	  "1.1.1.2": {
-		"Disable": false,
+        "KeepCnt": 9
+      },
+      "1.1.1.2": {
+        "Disable": false,
         "KeepIdle" : 70,
         "KeepIntvl" : 15,
-		"KeepCnt": 9
-	  }
+        "KeepCnt": 9
+      }
     }
   }
 }
@@ -78,10 +78,10 @@ type ProductRuleData struct {
 }
 
 type KeepAliveParam struct {
-	Disable   bool
-	KeepIdle  int
-	KeepIntvl int
-	KeepCnt   int
+	Disable   bool // close the TCP-KeepAlive heartbeat message sending strategy
+	KeepIdle  int  // period to send heartbeat message since there is no data transport in tcp connection
+	KeepIntvl int  // period to send heartbeat message again when last message is not applied
+	KeepCnt   int  // count to resend heartbeat message when last message is not applied
 }
 type KeepAliveRules map[string]KeepAliveParam
 type ProductRules map[string]KeepAliveRules
