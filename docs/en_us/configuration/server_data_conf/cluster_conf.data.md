@@ -44,8 +44,8 @@ CheckConf is config of backend check.
 | Uri           | String<br>Uri used in health check (HTTP only). Default value is "/health_check". |
 | Host          | String<br>Host used in health check (HTTP only). Default value is "". |
 | StatusCode    | Int<br>Expected response code (HTTP only). Default value is 200. And 0 means any response code is considered expected. |
-| FailNum       | Int<br>Failure threshold (consecutive failures of forwarded requests ), which will trigger BFE to set backend instance as failed state and start health check. |
-| SuccNum       | Int<br>Healthy threshold (consecutive successes of health check request), which will trigger BFE to set backend instance as healthy state and stop health check. |
+| FailNum       | Int<br>Failure threshold (consecutive failures of forwarded requests ), which will trigger BFE to set backend instance to unavailable state and start the health check. |
+| SuccNum       | Int<br>Healthy threshold (consecutive successes of health check request), which will trigger BFE to set backend instance to available state and stop the health check. |
 | CheckTimeout  | Int<br>Timeout for health check, in ms. Default value is 0, which means no timeout. |
 | CheckInterval | Int<br>Interval of health check, in ms. Default value is 1000. |
 

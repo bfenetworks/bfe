@@ -55,7 +55,7 @@ cluster_conf.data为集群转发配置文件。
 | GslbBasic.RetryMax               | Integer<br>子集群内最大重试次数<br>默认值2                   |
 | GslbBasic.BalanceMode            | String<br>负载均衡模式(WRR: 加权轮询; WLC: 加权最小连接数)<br>默认值WRR |
 | GslbBasic.HashConf               | Object<br>会话保持的HASH策略配置                             |
-| GslbBasic.HashConf.HashStrategy  | Integer<br>会话保持的哈希策。0：ClientIdOnly, 1：ClientIpOnly, 2：ClientIdPreferred，3：RequestURI<br>默认值为0(ClientIpOnly) |
+| GslbBasic.HashConf.HashStrategy  | Integer<br>会话保持的哈希策略。0：ClientIdOnly, 1：ClientIpOnly, 2：ClientIdPreferred，3：RequestURI<br>默认值为0(ClientIpOnly) |
 | GslbBasic.HashConf.HashHeader    | String<br>会话保持的hash请求头。可选参数。可配置为能用于唯一区分一个客户端的Header。如果是一个cookie header, 格式为："Cookie:key" |
 | GslbBasic.HashConf.SessionSticky | Boolean<br>是否开启会话保持（开启后，可以保证来源于同一个用户的请求可以发送到同一个后端）<br>默认值False。设为False时，会话保持级别为子集群级别。 |
 
