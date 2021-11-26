@@ -1,6 +1,13 @@
 # 配置概述
 
+## 说明
+
+本文档是关于对 BFE Server 进行配置的概述。
+
+在 [BFE API Server](https://github.com/bfenetworks/api-server) 和 [BFE Dashboard](https://github.com/bfenetworks/dashboard) 的文档中，说明了如何通过 BFE 控制面来进行 BFE 的配置。
+
 ## BFE配置分类
+
 - 常规配置：在运行期间修改，需重启生效。
 - 动态配置：在运行期间修改，热加载生效。
 
@@ -21,5 +28,4 @@ BFE的核心配置是bfe.conf (conf/bfe.conf)，为便于维护, 配置按功能
 
 ## BFE配置热加载
 详见[配置热加载](../operation/reload.md)
-
 

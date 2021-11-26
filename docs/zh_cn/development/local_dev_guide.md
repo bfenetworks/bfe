@@ -49,6 +49,20 @@ $ pre-commit install
 
 BFE 使用 `gofmt` 来调整 golang源代码格式。
 
+
+## 使用 `license-eye` 工具
+
+[license-eye](http://github.com/apache/skywalking-eyes) 工具可以帮助我们检查和修复所有文件的证书声明，在提交 (commit) 前证书声明都应该先完成。
+
+`license-eye` 检查是 Github-Action 中检测的一部分，检测不通过的 PR 不能被提交到 BFE，安装使用它：
+
+```bash
+$ go install github.com/apache/skywalking-eyes/cmd/license-eye@latest
+$ license-eye header check
+$ license-eye header fix
+```
+
+
 ## 开始开发
 
 在本例中，我删除了 README.md 中的一行，并创建了一个新文件。
