@@ -2907,15 +2907,24 @@ RU5ErkJggg==" ></image>
 <tbody>
 <tr>
 <td>Version</td>
-<td>String<br>Verson of config file</td>
+<td>String<br>Version of config file</td>
 </tr>
 <tr>
 <td>Config</td>
 <td>Struct<br>Map data, key is cluster name, value is cluster config detail</td>
 </tr>
+<tr>
+<td>Config[k]</td>
+<td>String<br>Cluster name</td>
+</tr>
+<tr>
+<td>Config[v]</td>
+<td>Object<br>Cluster's routing config</td>
+</tr>
 </tbody>
 </table>
 <h3 id="cluster-config-detail">Cluster Config Detail</h3>
+<p>Notice: the following configs are in namespace Config[v].</p>
 <h4 id="backend-config">Backend Config</h4>
 <p>BackendConf is config for backend.</p>
 <table>
@@ -2928,31 +2937,31 @@ RU5ErkJggg==" ></image>
 <tbody>
 <tr>
 <td>Protocol</td>
-<td>String<br>Protocol for conect backend, supported http and fcgi, default is http</td>
+<td>String<br>Protocol for connecting backend. http and fcgi are supported. Default value is http.</td>
 </tr>
 <tr>
 <td>TimeoutConnSrv</td>
-<td>Int<br>Timeout for connect backend, in ms</td>
+<td>Int<br>Timeout for connecting backend, in ms. Default value is 2000.</td>
 </tr>
 <tr>
 <td>TimeoutResponseHeader</td>
-<td>Int<br>Timeout for read response header, in ms</td>
+<td>Int<br>Timeout for reading response header, in ms. Default value is 60000.</td>
 </tr>
 <tr>
 <td>MaxIdleConnsPerHost</td>
-<td>Int<br>Max idle conns to each backend</td>
+<td>Int<br>Max idle connections to each backend per BFE. Default value is 2.</td>
 </tr>
 <tr>
 <td>MaxConnsPerHost</td>
-<td>Int<br>Max number of concurrent conns to each backend</td>
+<td>Int<br>Max number of concurrent connections to each backend per BFE. 0 means no limitation. Default value is 0.</td>
 </tr>
 <tr>
 <td>RetryLevel</td>
-<td>Int<br>Retry level if request fail</td>
+<td>Int<br>Retry level if request fail. 0: retry after connecting backend fails; 1: retry after connecting backend fails or forwarding GET request fails. Default value is 0.</td>
 </tr>
 <tr>
 <td>BackendConf.OutlierDetectionHttpCode</td>
-<td>String<br> Http status code that represent error status of backend</td>
+<td>String<br>Backend HTTP status code status detection. <br>"" means disable detection, "500" means "500" is considered as backend failure. <br>Status code uses format "[0-9]{3}"(e.g "500"). Multiple status codes are seperated by "|".<br>Default value is "", which means disable the detection.</td>
 </tr>
 <tr>
 <td>FCGIConf</td>
@@ -2960,11 +2969,11 @@ RU5ErkJggg==" ></image>
 </tr>
 <tr>
 <td>FCGIConf.Root</td>
-<td>String<br>the root folder to the site</td>
+<td>String<br>The root folder of the website</td>
 </tr>
 <tr>
 <td>FCGIConf.EnvVars</td>
-<td>Map[string]string<br>extra environment variable</td>
+<td>Map[string]string<br>Extra environment variable</td>
 </tr>
 </tbody>
 </table>
@@ -2980,35 +2989,35 @@ RU5ErkJggg==" ></image>
 <tbody>
 <tr>
 <td>Schem</td>
-<td>String<br>Protocol for health check (HTTP/TCP)</td>
+<td>String<br>Protocol for health check (HTTP/TCP). Default value is http.</td>
 </tr>
 <tr>
 <td>Uri</td>
-<td>String<br>Uri used in health check (HTTP)</td>
+<td>String<br>Uri used in health check (HTTP only). Default value is "/health_check".</td>
 </tr>
 <tr>
 <td>Host</td>
-<td>String<br>If check request use special host header (HTTP)</td>
+<td>String<br>Host used in health check (HTTP only). Default value is "".</td>
 </tr>
 <tr>
 <td>StatusCode</td>
-<td>Int<br>Expected response code, default value is 200 (HTTP)</td>
+<td>Int<br>Expected response code (HTTP only). Default value is 200. And 0 means any response code is considered valid.</td>
 </tr>
 <tr>
 <td>FailNum</td>
-<td>Int<br>Unhealthy threshold (consecutive failures of check request)</td>
+<td>Int<br>Failure threshold (consecutive failures of forwarded requests), which will trigger BFE to set the backend instance to unavailable state and start the health check.</td>
 </tr>
 <tr>
 <td>SuccNum</td>
-<td>Int<br>Healthy threshold (consecutive successes of normal request)</td>
+<td>Int<br>Healthy threshold (consecutive successes of health check request), which will trigger BFE to set the backend instance to available state and stop the health check.</td>
 </tr>
 <tr>
 <td>CheckTimeout</td>
-<td>Int<br>Timeout for health check, in ms</td>
+<td>Int<br>Timeout for health check, in ms. Default value is 0, which means no timeout.</td>
 </tr>
 <tr>
 <td>CheckInterval</td>
-<td>Int<br>Interval of health check, in ms</td>
+<td>Int<br>Interval of health check, in ms. Default value is 1000.</td>
 </tr>
 </tbody>
 </table>
@@ -3024,19 +3033,31 @@ RU5ErkJggg==" ></image>
 <tbody>
 <tr>
 <td>CrossRetry</td>
-<td>Int<br>Cross sub-clusters retry times</td>
+<td>Int<br>Max cross sub-clusters retry times. Default value is 0.</td>
 </tr>
 <tr>
 <td>RetryMax</td>
-<td>Int<br>Inner cluster retry times</td>
+<td>Int<br>Max retry times within same sub-cluster. Default value is 2.</td>
 </tr>
 <tr>
 <td>BalanceMode</td>
-<td>String<br>BalanceMode, default WRR</td>
+<td>String<br>Load Balance Mode. Supported mode: WRR(Weighted Round Robin), WLC(Weighted Least Connection). Default value is WRR.</td>
 </tr>
 <tr>
 <td>HashConf</td>
-<td>Struct<br>Hash config about load balabnce<br>- HashStrategy: HashStrategy is hash strategy for subcluster-level load balance. Such as ClientIdOnly, ClientIpOnly, ClientIdPreferred<br>- HashHeader: HashHeader is an optional request header which represents a unique client. Format for speicial cookie header is "Cookie:Key"<br>- SessionSticky: SessionSticky enable sticky session (ensures that all requests from the user during the session are sent to the same backend)</td>
+<td>Struct<br>Hash config of session persistence<br></td>
+</tr>
+<tr>
+<td>HashConf.HashStrategy</td>
+<td>Int<br>Hash Strategy of session persistence. Supported strategies: 0: ClientIdOnly, 1: ClientIpOnly, 2: ClientIdPreferred, 3: RequestURI. Default value is 1 (ClientIpOnly).<br></td>
+</tr>
+<tr>
+<td>HashConf.HashHeader</td>
+<td>String<br>HashHeader is an optional request header which represents a unique client. Format for speicial cookie header is "Cookie:Key"<br></td>
+</tr>
+<tr>
+<td>HashConf.SessonSticky</td>
+<td>Boolean<br>Set SessionSticky to "true" enable sticky session (ensures that all requests from the user during the session are sent to the same backend). If set to "false", the session persistence will be at sub-cluster level.</td>
 </tr>
 </tbody>
 </table>
@@ -3052,31 +3073,31 @@ RU5ErkJggg==" ></image>
 <tbody>
 <tr>
 <td>TimeoutReadClient</td>
-<td>Int<br>Timeout for read client body in ms</td>
+<td>Int<br>Timeout for read client body in ms. Default value is 30000.</td>
 </tr>
 <tr>
 <td>TimeoutWriteClient</td>
-<td>Int<br>Timeout for write response to client</td>
+<td>Int<br>Timeout for write response to client. Default value is 60000.</td>
 </tr>
 <tr>
 <td>TimeoutReadClientAgain</td>
-<td>Int<br>Timeout for read client again in ms</td>
+<td>Int<br>Timeout for read client again in ms. Default value is 60000.</td>
 </tr>
 <tr>
 <td>ReqWriteBufferSize</td>
-<td>Int<br>Write buffer size for request in byte</td>
+<td>Int<br>Write buffer size for request in byte. Default and recommended value is 512.</td>
 </tr>
 <tr>
 <td>ReqFlushInterval</td>
-<td>Int<br>Interval to flush request in ms. if zero, disable periodic flush</td>
+<td>Int<br>Interval to flush request in ms. Default and recommended value is 0, means disable periodic flush.</td>
 </tr>
 <tr>
 <td>ResFlushInterval</td>
-<td>Int<br>Interval to flush response in ms. if zero, disable periodic flush</td>
+<td>Int<br>Interval to flush response in ms. Default and recommended value is -1, means not to cache response. 0 means disable periodic flush.</td>
 </tr>
 <tr>
 <td>CancelOnClientClose</td>
-<td>Bool<br>Cancel blocking operation on server if client connection disconnected</td>
+<td>Bool<br>During reading response from backend, cancel the blocking status if client connection disconnected. Default and recommended value is false.</td>
 </tr>
 </tbody>
 </table>
@@ -3113,7 +3134,7 @@ RU5ErkJggg==" ></image>
             &quot;ClusterBasic&quot;: {
                 &quot;TimeoutReadClient&quot;: 30000,
                 &quot;TimeoutWriteClient&quot;: 60000,
-                &quot;TimeoutReadClientAgain&quot;: 30000,
+                &quot;TimeoutReadClientAgain&quot;: 60000,
                 &quot;ReqWriteBufferSize&quot;: 512,
                 &quot;ReqFlushInterval&quot;: 0,
                 &quot;ResFlushInterval&quot;: -1,
@@ -3154,7 +3175,7 @@ RU5ErkJggg==" ></image>
             &quot;ClusterBasic&quot;: {
                 &quot;TimeoutReadClient&quot;: 30000,
                 &quot;TimeoutWriteClient&quot;: 60000,
-                &quot;TimeoutReadClientAgain&quot;: 30000,
+                &quot;TimeoutReadClientAgain&quot;: 60000,
                 &quot;ReqWriteBufferSize&quot;: 512,
                 &quot;ReqFlushInterval&quot;: 0,
                 &quot;ResFlushInterval&quot;: -1,

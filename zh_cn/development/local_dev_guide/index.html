@@ -1756,6 +1756,13 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
+  <a href="#license-eye" class="md-nav__link">
+    使用 license-eye 工具
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_4" class="md-nav__link">
     开始开发
   </a>
@@ -2845,6 +2852,13 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
+  <a href="#license-eye" class="md-nav__link">
+    使用 license-eye 工具
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#_4" class="md-nav__link">
     开始开发
   </a>
@@ -2933,6 +2947,14 @@ $ pre-commit install</code></pre>
 
 
 <p>BFE 使用 <code>gofmt</code> 来调整 golang源代码格式。</p>
+<h2 id="license-eye">使用 <code>license-eye</code> 工具</h2>
+<p><a href="http://github.com/apache/skywalking-eyes">license-eye</a> 工具可以帮助我们检查和修复所有文件的证书声明，在提交 (commit) 前证书声明都应该先完成。</p>
+<p><code>license-eye</code> 检查是 Github-Action 中检测的一部分，检测不通过的 PR 不能被提交到 BFE，安装使用它：</p>
+<pre class="codehilite"><code class="language-bash">$ go install github.com/apache/skywalking-eyes/cmd/license-eye@latest
+$ license-eye header check
+$ license-eye header fix</code></pre>
+
+
 <h2 id="_4">开始开发</h2>
 <p>在本例中，我删除了 README.md 中的一行，并创建了一个新文件。</p>
 <p>通过 <code>git status</code> 查看当前状态，这会提示当前目录的一些变化，同时也可以通过 <code>git diff</code> 查看文件具体被修改的内容。</p>

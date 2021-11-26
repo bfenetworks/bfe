@@ -1756,6 +1756,13 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
+  <a href="#use-license-eye-tool" class="md-nav__link">
+    Use license-eye tool
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#start-development" class="md-nav__link">
     Start development
   </a>
@@ -2845,6 +2852,13 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
+  <a href="#use-license-eye-tool" class="md-nav__link">
+    Use license-eye tool
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#start-development" class="md-nav__link">
     Start development
   </a>
@@ -2933,6 +2947,14 @@ $ pre-commit install</code></pre>
 
 
 <p>BFE modify the format of golang source code with <code>gofmt</code> .</p>
+<h2 id="use-license-eye-tool">Use <code>license-eye</code> tool</h2>
+<p><a href="http://github.com/apache/skywalking-eyes">license-eye</a> helps us check and fix file's license header declaration. All files' license header should be done before committing.</p>
+<p>The <code>license-eye</code> check is part of the Github-Action. A PR that check failed cannot be submmitted to BFE. Install <code>license-eye</code> and do check or fix:</p>
+<pre class="codehilite"><code class="language-bash">$ go install github.com/apache/skywalking-eyes/cmd/license-eye@latest
+$ license-eye header check
+$ license-eye header fix</code></pre>
+
+
 <h2 id="start-development">Start development</h2>
 <p>I delete a line of README.md and create a new file in the case.</p>
 <p>View the current state via <code>git status</code> , which will prompt some changes to the current directory, and you can also view the file's specific changes via <code>git diff</code> .</p>

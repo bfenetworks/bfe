@@ -2894,40 +2894,22 @@ RU5ErkJggg==" ></image>
 </ul>
 <p>BFE is easily integrated with mainstream layer 4 load balancing solution, and other ecosystem projects(e.g. Kubernetes、Prometheus、Jaeger、Fluentd etc).</p>
 <h2 id="components">Components</h2>
-<p>The BFE ecosystem consists of multiple components, many of which are optional:</p>
+<p>BFE system consists of components in both data plane and control plane:</p>
 <ul>
-<li>
-<p>BFE-Server: The Layer 7 Load Balancer for data plane (open source）</p>
-</li>
-<li>
-<p>BFE-Reader: The Log analyzer is deployed locally with BFE-Server and aggregates logs to reduce the data size of subsequent processing on BFE-Aggregator.</p>
-</li>
-<li>
-<p>BFE-API Server: The API server is the front end for the BFE control plane.</p>
-</li>
-<li>
-<p>BFE-Aggregator: The Log aggregator aggregates data from BFE-Reader in real time.</p>
-</li>
-<li>
-<p>BFE-Scheduler: The GSLB scheduler automatically computes GSLB policies based on incoming traffic, backend capacity, network topology and quality.</p>
-</li>
-<li>
-<p>BFE-Controller: BFE cluster controller for normal management tasks (e.g. anomaly detection and alerting).</p>
-</li>
-<li>
-<p>BFE-Web UI: Web console for BFE.</p>
-</li>
-<li>
-<p>Various support systems, eg. cache service, asymmetric cryptographic service etc.</p>
-</li>
+<li>Data plane：</li>
+<li>BFE Server：BFE forward engine. BFE Server performs content based routing, load balancing and forwards the traffic to backend servers.</li>
+<li>Control plane：</li>
+<li><a href="https://github.com/bfenetworks/api-server">BFE API Server</a>：provides API and handles update, storage and generation of BFE config</li>
+<li><a href="https://github.com/bfenetworks/conf-agent">BFE Conf Agent</a>：component for loading config, fetches latest config from API-Server and triggers BFE Server to reload it</li>
+<li><a href="https://github.com/bfenetworks/dashboard">BFE Dashboard</a>：provides a graphic interface for user to manage and view major config of BFE</li>
 </ul>
 <h2 id="architecture-overview">Architecture overview</h2>
 <p>This diagram illustrates the architecture of BFE and some of its ecosystem components:</p>
 <p><img alt="BFE Architecture" src="../../images/bfe-arch.png" /></p>
 <h3 id="data-plane">Data plane</h3>
-<p>The incoming user traffic reaches the BFE server through the Layer 4 load balancing facilities. During the processing of user traffic, BFE may interact with various dependent services. BFE routes each HTTP request to a target cluster based on request content (URI, header, cookie, etc), and then choose the best backend instance from the target cluster based on the load balancing policy. For more details about traffic forwarding process, see <a href="../forward_model/">Traffic forwarding model</a>.</p>
+<p>The incoming user traffic reaches the BFE server through the Layer 4 load balancing facilities. During the processing of user traffic, BFE routes each HTTP request to a target cluster based on request content (URI, header, cookie, etc), and then choose the best backend server instance from the target cluster based on the load balancing policy. For more details about traffic forwarding process, see <a href="../forward_model/">Traffic forwarding model</a>.</p>
 <h3 id="control-plane">Control plane</h3>
-<p>The control plane provides policies and configurations of data plane, which are maintained via BFE-Web UI or BFE-API by the administrator. The control plane also makes global decisions about the cluster (for example, scheduling), as well as cluster level management tasks (for example, detecting and responding to cluster abnormal events).</p>
+<p>The control plane is responsible for management and configuration of BFE system, which can be maintained via BFE Dashboard or RESTful API. BFE Conf Agent will trigger BFE Server to load the latest configuration.</p>
                 
               
               

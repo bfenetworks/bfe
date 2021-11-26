@@ -2292,6 +2292,13 @@ RU5ErkJggg==" ></image>
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#special-notes-for-prometheus-format" class="md-nav__link">
+    Special Notes for Prometheus format
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2767,6 +2774,13 @@ RU5ErkJggg==" ></image>
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#special-notes-for-prometheus-format" class="md-nav__link">
+    Special Notes for Prometheus format
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2858,6 +2872,15 @@ RU5ErkJggg==" ></image>
 </tr>
 </tbody>
 </table>
+<h2 id="special-notes-for-prometheus-format">Special Notes for Prometheus format</h2>
+<p>BFE can expose metrics in various formats. </p>
+<p>Unlike other formats, in the Prometheus format latency histogram, counter for a bucket with lager upper bound will include the number of events in buckets with smaller upper bound.  See <a href="https://prometheus.io/docs/concepts/metric_types/#histogram">Histogram</a> in Prometheus document for more detail.  </p>
+<p>Example:</p>
+<ul>
+<li>proxy_handshake_delay_Past_bucket{le="1000"} is counter of handshakes with &lt;= 1000 ms delay in last statistic interval</li>
+<li>proxy_handshake_delay_Past_bucket{le="2000"} is counter of handshakes with &lt;= 2000 ms delay (includes those with &lt;=1000 ms delay) in last statistic interval</li>
+<li>proxy_handshake_delay_Past_bucket{le="+Inf"} is counter of handshakes with less than infinity (equals total count) in last statistic interval. It is equal to proxy_handshake_delay_Past_count.</li>
+</ul>
                 
               
               

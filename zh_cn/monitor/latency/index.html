@@ -2292,6 +2292,13 @@ RU5ErkJggg==" ></image>
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#prometheus" class="md-nav__link">
+    Prometheus格式的特别说明
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2767,6 +2774,13 @@ RU5ErkJggg==" ></image>
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#prometheus" class="md-nav__link">
+    Prometheus格式的特别说明
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2858,6 +2872,15 @@ RU5ErkJggg==" ></image>
 </tr>
 </tbody>
 </table>
+<h2 id="prometheus">Prometheus格式的特别说明</h2>
+<p>BFE可以暴露多种格式的监控指标。</p>
+<p>与其他格式不同，Prometheus格式的延时统计中，有较高的上界的Bucket的计数值，会包含了有更小的上界的Bucket中的事件数。详见Prometheus官方文档中<a href="https://prometheus.io/docs/concepts/metric_types/#histogram">Histogram</a>的相关说明。</p>
+<p>示例:</p>
+<ul>
+<li>proxy_handshake_delay_Past_bucket{le="1000"} 是上一个统计周期中，延时小于等于 1000 ms 的握手的数量。</li>
+<li>proxy_handshake_delay_Past_bucket{le="2000"} 是上一个统计周期中，延时小于等于 2000 ms 的握手的数量 (包含延时小于等于 1000 ms 的握手数量)。</li>
+<li>proxy_handshake_delay_Past_bucket{le="+Inf"} 是上一个统计周期中，延时小于等于“无穷大” 的握手的数量（即是总的握手数量）这也等于proxy_handshake_delay_Past_count。</li>
+</ul>
                 
               
               

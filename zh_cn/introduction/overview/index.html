@@ -2892,42 +2892,24 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>兼容适配主流生态项目</li>
 </ul>
-<p>兼容适配主流四层负载均衡方案，及其它生态项目如Kubernetes、Prometheus、Jaeger、Fluentd等。</p>
+<p>兼容适配主流四层负载均衡方案，及其它生态项目如 Kubernetes、Prometheus、Jaeger、Fluentd 等。</p>
 <h2 id="_3">功能组件</h2>
-<p>BFE包含了多个组件，部分是可选的:</p>
+<p>BFE开源项目包含数据平面和控制平面的多个组件：</p>
 <ul>
-<li>
-<p>BFE Server: BFE数据平面核心转发模块(必选，已开源）</p>
-</li>
-<li>
-<p>BFE-Reader: BFE日志分析模块，与BFE Server部署在一起，用于对BFE日志进行本地汇聚计算，降低后续计算处理的数据规模。</p>
-</li>
-<li>
-<p>BFE-API Server: BFE控制平面API Server，其它控制平面模块以BFE-API Server为核心协同工作。</p>
-</li>
-<li>
-<p>BFE-Aggregator: BFE日志数据实时聚合计算模块。</p>
-</li>
-<li>
-<p>BFE-Scheduler: BFE流量调度器，基于流量、容量、网络距离及质量，自动计算全局负载均衡(GSLB)策略。</p>
-</li>
-<li>
-<p>BFE-Controller: BFE集群控制器，执行常规控制任务，例如异常巡检及报警。</p>
-</li>
-<li>
-<p>BFE-Web UI: BFE Web控制台。</p>
-</li>
-<li>
-<p>其它周边依赖系统, 例如缓存服务、非对称密码学算法计算服务等。</p>
-</li>
+<li>数据平面：</li>
+<li>BFE Server：BFE 核心转发引擎，BFE Server 将用户流量经过内容路由、负载均衡，最终转发给合适的后端业务集群</li>
+<li>控制平面：</li>
+<li><a href="https://github.com/bfenetworks/api-server">API-Server</a>：对外提供 API 接口，完成 BFE 配置的变更、存储和生成</li>
+<li><a href="https://github.com/bfenetworks/conf-agent">Conf-Agent</a>：配置加载组件，从 API-Server 获取最新配置，并触发 BFE Server 进行配置热加载</li>
+<li><a href="https://github.com/bfenetworks/dashboard">Dashboard</a>：为用户提供了图形化操作界面，以对 BFE 的主要配置进行管理和查看</li>
 </ul>
 <h2 id="_4">架构介绍</h2>
 <p>下图展示了BFE的架构及BFE生态中的一些依赖系统。</p>
 <p><img alt="BFE架构" src="../../images/bfe-arch.png" /></p>
 <h3 id="_5">数据平面</h3>
-<p>用户流量经四层负载均衡设施达到BFE Server。BFE Server在转发流量过程中，可能会访问多个依赖的服务。并经过内容路由、负载均衡，最终转发给合适的后端集群。关于流量接入转发的详细过程，可以进一步阅读<a href="../forward_model/">流量接入转发模型</a> 。</p>
+<p>用户流量经四层负载均衡设施达到 BFE Server。BFE Server 进行内容路由、负载均衡，将流量转发给合适的后端集群。关于流量接入转发的详细过程，可以进一步阅读<a href="../forward_model/">流量接入转发模型</a> 。</p>
 <h3 id="_6">控制平面</h3>
-<p>BFE租户通过BFE-Web UI或BFE-API管理流量接入及转发策略。此外，控制平面还负责执行全局性决策（例如全局负载均衡策略计算）及集群级别其它管理工作（例如集群级别异常巡检及处理等）。</p>
+<p>BFE 用户可通过 BFE Dashboard 或 RESTful API 管理流量接入和转发策略配置。BFE Conf Agent 会触发 BFE Server 加载最新配置。 </p>
                 
               
               

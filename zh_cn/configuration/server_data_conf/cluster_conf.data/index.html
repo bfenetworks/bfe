@@ -2955,11 +2955,11 @@ RU5ErkJggg==" ></image>
 </tr>
 <tr>
 <td>BackendConf.TimeoutConnSrv</td>
-<td>Integer<br>连接后端的超时时间，单位是毫秒<br>默认值2</td>
+<td>Integer<br>连接后端的超时时间，单位是毫秒<br>默认值2000</td>
 </tr>
 <tr>
 <td>BackendConf.TimeoutResponseHeader</td>
-<td>Integer<br>从后端读响应头的超时时间，单位是毫秒<br>默认值60</td>
+<td>Integer<br>从后端读响应头的超时时间，单位是毫秒<br>默认值60000</td>
 </tr>
 <tr>
 <td>BackendConf.MaxIdleConnsPerHost</td>
@@ -3006,7 +3006,7 @@ RU5ErkJggg==" ></image>
 </tr>
 <tr>
 <td>CheckConf.Uri</td>
-<td>String<br>健康检查请求URI (仅HTTP)<br>默认值 /health_check</td>
+<td>String<br>健康检查请求URI (仅HTTP)<br>默认值 "/health_check"</td>
 </tr>
 <tr>
 <td>CheckConf.Host</td>
@@ -3014,7 +3014,7 @@ RU5ErkJggg==" ></image>
 </tr>
 <tr>
 <td>CheckConf.StatusCode</td>
-<td>Integer<br>期待返回的响应状态码 (仅HTTP)<br>默认值 0，代表任意状态码</td>
+<td>Integer<br>期待返回的响应状态码 (仅HTTP)<br>默认值 200。也可以配置为0，代表任意状态码均符合预期。</td>
 </tr>
 <tr>
 <td>CheckConf.FailNum</td>
@@ -3030,7 +3030,7 @@ RU5ErkJggg==" ></image>
 </tr>
 <tr>
 <td>CheckConf.CheckInterval</td>
-<td>Integer<br>健康检查的间隔时间，单位是毫秒<br>默认值1</td>
+<td>Integer<br>健康检查的间隔时间，单位是毫秒<br>默认值1000</td>
 </tr>
 </tbody>
 </table>
@@ -3061,15 +3061,15 @@ RU5ErkJggg==" ></image>
 </tr>
 <tr>
 <td>GslbBasic.HashConf.HashStrategy</td>
-<td>Integer<br>会话保持的哈希策(ClientIdOnly, ClientIpOnly, ClientIdPreferred)<br>默认值ClientIpOnly</td>
+<td>Integer<br>会话保持的哈希策略。0：ClientIdOnly, 1：ClientIpOnly, 2：ClientIdPreferred，3：RequestURI<br>默认值为0(ClientIpOnly)</td>
 </tr>
 <tr>
 <td>GslbBasic.HashConf.HashHeader</td>
-<td>String<br>会话保持的hash请求头</td>
+<td>String<br>会话保持的hash请求头。可选参数。可配置为能用于唯一区分一个客户端的Header。如果是一个cookie header, 格式为："Cookie:key"</td>
 </tr>
 <tr>
 <td>GslbBasic.HashConf.SessionSticky</td>
-<td>Boolean<br>是否开启会话保持（开启后，可以保证来源于同一个用户的请求可以发送到同一个后端）<br>默认值False</td>
+<td>Boolean<br>是否开启会话保持（开启后，可以保证来源于同一个用户的请求可以发送到同一个后端）<br>默认值False。设为False时，会话保持级别为子集群级别。</td>
 </tr>
 </tbody>
 </table>
@@ -3084,15 +3084,31 @@ RU5ErkJggg==" ></image>
 <tbody>
 <tr>
 <td>ClusterBasic.TimeoutReadClient</td>
-<td>Integer<br>读用户请求body的超时时间，单位为毫秒<br>默认值30</td>
+<td>Integer<br>读用户请求body的超时时间，单位为毫秒<br>默认值30000</td>
 </tr>
 <tr>
 <td>ClusterBasic.TimeoutWriteClient</td>
-<td>Integer<br>写响应的超时时间，单位为毫秒<br>默认值60</td>
+<td>Integer<br>写响应的超时时间，单位为毫秒<br>默认值60000</td>
 </tr>
 <tr>
 <td>ClusterBasic.TimeoutReadClientAgain</td>
-<td>Integer<br>连接闲置超时时间，单位为毫秒<br>默认值60</td>
+<td>Integer<br>连接闲置超时时间，单位为毫秒<br>默认值60000</td>
+</tr>
+<tr>
+<td>ClusterBasic.ReqWriteBufferSize</td>
+<td>Integer<br>请求的写buffer大小，单位为Bytes。默认值512。建议使用默认值。</td>
+</tr>
+<tr>
+<td>ClusterBasic.ReqFlushInterval</td>
+<td>Integer<br>刷新请求的间隔时间，单位是毫秒。默认值为0，表示不进行周期性刷新</td>
+</tr>
+<tr>
+<td>ClusterBasic.ResFlushInterval</td>
+<td>Integer<br>刷新响应的间隔时间，单位是毫秒。默认值为-1，表示不对响应进行缓存。设置为0表示不进行周期性刷新。建议使用默认值。</td>
+</tr>
+<tr>
+<td>ClusterBasic.CancelOnClientClose</td>
+<td>Boolean<br>当服务端正在读后端响应时，如果客户端断连，是否取消该阻塞状态。默认值为false。建议使用默认值。</td>
 </tr>
 </tbody>
 </table>
@@ -3128,7 +3144,7 @@ RU5ErkJggg==" ></image>
             &quot;ClusterBasic&quot;: {
                 &quot;TimeoutReadClient&quot;: 30000,
                 &quot;TimeoutWriteClient&quot;: 60000,
-                &quot;TimeoutReadClientAgain&quot;: 30000,
+                &quot;TimeoutReadClientAgain&quot;: 60000,
             }
         },
         &quot;fcgi_cluster_example&quot;: {
@@ -3166,7 +3182,7 @@ RU5ErkJggg==" ></image>
             &quot;ClusterBasic&quot;: {
                 &quot;TimeoutReadClient&quot;: 30000,
                 &quot;TimeoutWriteClient&quot;: 60000,
-                &quot;TimeoutReadClientAgain&quot;: 30000,
+                &quot;TimeoutReadClientAgain&quot;: 60000,
                 &quot;ReqWriteBufferSize&quot;: 512,
                 &quot;ReqFlushInterval&quot;: 0,
                 &quot;ResFlushInterval&quot;: -1,
