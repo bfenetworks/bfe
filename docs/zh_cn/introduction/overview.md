@@ -41,28 +41,19 @@ BFE是基于百度统一接入前端开源的七层流量接入系统。
 
 * 兼容适配主流生态项目
 
-兼容适配主流四层负载均衡方案，及其它生态项目如Kubernetes、Prometheus、Jaeger、Fluentd等。
+兼容适配主流四层负载均衡方案，及其它生态项目如 Kubernetes、Prometheus、Jaeger、Fluentd 等。
 
 
 ## 功能组件
 
-BFE包含了多个组件，部分是可选的:
+BFE开源项目包含数据平面和控制平面的多个组件：
 
-* BFE Server: BFE数据平面核心转发模块(必选，已开源）
-
-* BFE-Reader: BFE日志分析模块，与BFE Server部署在一起，用于对BFE日志进行本地汇聚计算，降低后续计算处理的数据规模。
-
-* BFE-API Server: BFE控制平面API Server，其它控制平面模块以BFE-API Server为核心协同工作。
-
-* BFE-Aggregator: BFE日志数据实时聚合计算模块。
-
-* BFE-Scheduler: BFE流量调度器，基于流量、容量、网络距离及质量，自动计算全局负载均衡(GSLB)策略。
-
-* BFE-Controller: BFE集群控制器，执行常规控制任务，例如异常巡检及报警。
-
-* BFE-Web UI: BFE Web控制台。
-
-* 其它周边依赖系统, 例如缓存服务、非对称密码学算法计算服务等。
+- 数据平面：
+  - BFE Server：BFE 核心转发引擎，BFE Server 将用户流量经过内容路由、负载均衡，最终转发给合适的后端业务集群
+- 控制平面：
+  - [API-Server](https://github.com/bfenetworks/api-server)：对外提供 API 接口，完成 BFE 配置的变更、存储和生成
+  - [Conf-Agent](https://github.com/bfenetworks/conf-agent)：配置加载组件，从 API-Server 获取最新配置，并触发 BFE Server 进行配置热加载
+  - [Dashboard](https://github.com/bfenetworks/dashboard)：为用户提供了图形化操作界面，以对 BFE 的主要配置进行管理和查看
 
 
 ## 架构介绍
@@ -73,9 +64,8 @@ BFE包含了多个组件，部分是可选的:
 
 ### 数据平面
 
-用户流量经四层负载均衡设施达到BFE Server。BFE Server在转发流量过程中，可能会访问多个依赖的服务。并经过内容路由、负载均衡，最终转发给合适的后端集群。关于流量接入转发的详细过程，可以进一步阅读[流量接入转发模型](forward_model.md) 。
+用户流量经四层负载均衡设施达到 BFE Server。BFE Server 进行内容路由、负载均衡，将流量转发给合适的后端集群。关于流量接入转发的详细过程，可以进一步阅读[流量接入转发模型](forward_model.md) 。
 
 ### 控制平面
 
-BFE租户通过BFE-Web UI或BFE-API管理流量接入及转发策略。此外，控制平面还负责执行全局性决策（例如全局负载均衡策略计算）及集群级别其它管理工作（例如集群级别异常巡检及处理等）。
-
+BFE 用户可通过 BFE Dashboard 或 RESTful API 管理流量接入和转发策略配置。BFE Conf Agent 会触发 BFE Server 加载最新配置。 
