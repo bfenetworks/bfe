@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 - repo: git://github.com/dnephin/pre-commit-golang
-  rev: master
+  rev: v0.4.0
   hooks:
     - id: go-fmt
     - id: go-vet
