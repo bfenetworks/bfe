@@ -29,10 +29,10 @@ BackendConf is config for backend.
 | MaxIdleConnsPerHost   | Int<br>Max idle connections to each backend per BFE. Default value is 2. |
 | MaxConnsPerHost   | Int<br>Max number of concurrent connections to each backend per BFE. 0 means no limitation. Default value is 0. |
 | RetryLevel            | Int<br>Retry level if request fail. 0: retry after connecting backend fails; 1: retry after connecting backend fails or forwarding GET request fails. Default value is 0. |
-| BackendConf.OutlierDetectionHttpCode            | String<br>Backend HTTP status code status detection. <br>"" means disable detection, "500" means "500" is considered as backend failure. <br>Status code uses format "[0-9]{3}"(e.g "500"). Multiple status codes are seperated by "\|".<br>Default value is "", which means disable the detection. |
+| BackendConf.OutlierDetectionHttpCode            | String<br>Backend HTTP status code abnormal detection. <br>"" means disable detection, "500" means "500" is considered as backend failure. <br>Supports two formats: "\[0-5\]\[0-9\]{2}"(e.g "500"), and "\[0-5\]xx"(e.g "4xx"). Multiple status codes are seperated by "\|".<br>Default value is "", which means disable the detection. |
 | FCGIConf              | Object<br>Conf for FastCGI Protocol                |
 | FCGIConf.Root         | String<br>The root folder of the website       |
-| FCGIConf.EnvVars      | Map[string]string<br>Extra environment variable    |
+| FCGIConf.EnvVars      | Map\[string\]string<br>Extra environment variable  |
 
 #### Health Check Config
 
@@ -144,7 +144,7 @@ ClusterBasic is basic config for cluster.
                 "CrossRetry": 0,
                 "RetryMax": 2,
                 "HashConf": {
-                    "HashStrategy": 0,
+                    "HashStrategy": 1,
                     "HashHeader": "Cookie:UID",
                     "SessionSticky": false
                 }
