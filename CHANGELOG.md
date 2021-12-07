@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unrelease]
+## [v1.3.0] - 2021-09-16
 
 ### Added
 - Support basic route rules that are similar to k8s ingress rules
@@ -262,7 +262,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
-[Unrelease]: https://github.com/bfenetworks/bfe/compare/v1.2.0...HEAD
+[v1.3.0]: https://github.com/bfenetworks/bfe/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/bfenetworks/bfe/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/bfenetworks/bfe/compare/v1.0.0...v1.1.0
 [v1.0.0]: https://github.com/bfenetworks/bfe/compare/v0.12.0...v1.0.0
