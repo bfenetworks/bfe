@@ -11,7 +11,7 @@
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fbfenetworks%2Fbfe.svg?type=shield)](https://app.fossa.com/reports/1f05f9f0-ac3d-486e-8ba9-ad95dabd4768)
 [![Slack Widget](https://img.shields.io/badge/join-us%20on%20slack-gray.svg?longCache=true&logo=slack&colorB=green)](https://slack.cncf.io)
 
-BFE是百度开源的现代化、企业级的七层负载均衡系统
+BFE（Beyond Front End）是百度开源的现代化、企业级的七层负载均衡系统
 
 ## 简介
 
