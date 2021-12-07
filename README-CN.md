@@ -13,6 +13,8 @@
 
 BFE（Beyond Front End）是百度开源的现代化、企业级的七层负载均衡系统
 
+![bfe logo](https://github.com/mileszhang2016/bfe/blob/develop/docs/images/logo/horizontal/color/bfe-horizontal-color.png)
+
 ## 简介
 
 BFE开源项目包含多个组件，可以搭建完整的七层负载均衡和流量接入解决方案
