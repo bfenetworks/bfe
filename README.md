@@ -14,6 +14,8 @@ English | [中文](README-CN.md)
 
 BFE (Beyond Front End) is a modern layer 7 load balancer from baidu.
 
+![bfe logo](https://github.com/mileszhang2016/bfe/blob/develop/docs/images/logo/horizontal/color/bfe-horizontal-color.png)
+
 ## Introduction
 
 BFE opensource project includes several components, which can be used together as a integrated layer 7 load balancer and traffic management solution.
