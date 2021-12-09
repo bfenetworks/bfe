@@ -29,10 +29,10 @@ cluster_conf.data为集群转发配置文件。
 | BackendConf.MaxIdleConnsPerHost   | Integer<br>BFE实例与每个后端的最大空闲长连接数<br>默认值2 |
 | BackendConf.MaxConnsPerHost   | Integer<br>BFE实例与每个后端的最大长连接数，0代表无限制<br>默认值0 |
 | BackendConf.RetryLevel            | Integer<br>请求重试级别。0：连接后端失败时，进行重试；1：连接后端失败、转发GET请求失败时均进行重试<br>默认值0 |
-| BackendConf.OutlierDetectionHttpCode            | String<br>后端响应状态码检查，""代表不开启检查，"500"表示后端返回500则认为后端失败，失败计数加一<br>状态码支持"dxx"格式，例如"5xx";多个状态码之间使用'&#124;'连接<br>默认值""，不开启后端响应状态码错误检查 |
+| BackendConf.OutlierDetectionHttpCode            | String<br>后端响应状态码异常检查，""代表不开启检查，"500"表示后端返回500则认为后端失败<br>支持两种格式："\[0-9\]{3}"（如"500"）和"\[0-9\]xx"（如"4xx"）;多个状态码之间使用'&#124;'连接<br>默认值""，不开启后端响应状态码异常检查 |
 | BackendConf.FCGIConf              | Object<br>FastCGI 协议的配置                              |
 | BackendConf.FCGIConf.Root         | String<br>网站的Root文件夹位置                            |
-| BackendConf.FCGIConf.EnvVars      | Map[string]string<br>拓展的环境变量                       |
+| BackendConf.FCGIConf.EnvVars      | Map\[string\]string<br>拓展的环境变量                     |
 
 #### 健康检查配置
 
@@ -55,7 +55,7 @@ cluster_conf.data为集群转发配置文件。
 | GslbBasic.RetryMax               | Integer<br>子集群内最大重试次数<br>默认值2                   |
 | GslbBasic.BalanceMode            | String<br>负载均衡模式(WRR: 加权轮询; WLC: 加权最小连接数)<br>默认值WRR |
 | GslbBasic.HashConf               | Object<br>会话保持的HASH策略配置                             |
-| GslbBasic.HashConf.HashStrategy  | Integer<br>会话保持的哈希策略。0：ClientIdOnly, 1：ClientIpOnly, 2：ClientIdPreferred，3：RequestURI<br>默认值为0(ClientIpOnly) |
+| GslbBasic.HashConf.HashStrategy  | Integer<br>会话保持的哈希策略。0：ClientIdOnly, 1：ClientIpOnly, 2：ClientIdPreferred，3：RequestURI<br>默认值为1(ClientIpOnly) |
 | GslbBasic.HashConf.HashHeader    | String<br>会话保持的hash请求头。可选参数。可配置为能用于唯一区分一个客户端的Header。如果是一个cookie header, 格式为："Cookie:key" |
 | GslbBasic.HashConf.SessionSticky | Boolean<br>是否开启会话保持（开启后，可以保证来源于同一个用户的请求可以发送到同一个后端）<br>默认值False。设为False时，会话保持级别为子集群级别。 |
 
@@ -135,7 +135,7 @@ cluster_conf.data为集群转发配置文件。
                 "CrossRetry": 0,
                 "RetryMax": 2,
                 "HashConf": {
-                    "HashStrategy": 0,
+                    "HashStrategy": 1,
                     "HashHeader": "Cookie:UID",
                     "SessionSticky": false
                 }
