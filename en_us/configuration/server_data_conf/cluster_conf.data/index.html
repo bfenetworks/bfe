@@ -2961,7 +2961,7 @@ RU5ErkJggg==" ></image>
 </tr>
 <tr>
 <td>BackendConf.OutlierDetectionHttpCode</td>
-<td>String<br>Backend HTTP status code status detection. <br>"" means disable detection, "500" means "500" is considered as backend failure. <br>Status code uses format "[0-9]{3}"(e.g "500"). Multiple status codes are seperated by "|".<br>Default value is "", which means disable the detection.</td>
+<td>String<br>Backend HTTP status code outlier detection. <br>"" means disable detection, "500" means "500" is considered as backend failure. <br>Supports two formats: "[0-9]{3}"(e.g "500"), and "[0-9]xx"(e.g "4xx"). Multiple status codes are seperated by "|".<br>Default value is "", which means disable the detection.</td>
 </tr>
 <tr>
 <td>FCGIConf</td>
@@ -3167,7 +3167,7 @@ RU5ErkJggg==" ></image>
                 &quot;CrossRetry&quot;: 0,
                 &quot;RetryMax&quot;: 2,
                 &quot;HashConf&quot;: {
-                    &quot;HashStrategy&quot;: 0,
+                    &quot;HashStrategy&quot;: 1,
                     &quot;HashHeader&quot;: &quot;Cookie:UID&quot;,
                     &quot;SessionSticky&quot;: false
                 }

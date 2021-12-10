@@ -2975,7 +2975,7 @@ RU5ErkJggg==" ></image>
 </tr>
 <tr>
 <td>BackendConf.OutlierDetectionHttpCode</td>
-<td>String<br>后端响应状态码检查，""代表不开启检查，"500"表示后端返回500则认为后端失败，失败计数加一<br>状态码支持"dxx"格式，例如"5xx";多个状态码之间使用'&#124;'连接<br>默认值""，不开启后端响应状态码错误检查</td>
+<td>String<br>后端响应状态码异常检查，""代表不开启检查，"500"表示后端返回500则认为后端失败<br>支持两种格式："[0-9]{3}"（如"500"）和"[0-9]xx"（如"4xx"）;多个状态码之间使用'&#124;'连接<br>默认值""，不开启后端响应状态码异常检查</td>
 </tr>
 <tr>
 <td>BackendConf.FCGIConf</td>
@@ -3061,7 +3061,7 @@ RU5ErkJggg==" ></image>
 </tr>
 <tr>
 <td>GslbBasic.HashConf.HashStrategy</td>
-<td>Integer<br>会话保持的哈希策略。0：ClientIdOnly, 1：ClientIpOnly, 2：ClientIdPreferred，3：RequestURI<br>默认值为0(ClientIpOnly)</td>
+<td>Integer<br>会话保持的哈希策略。0：ClientIdOnly, 1：ClientIpOnly, 2：ClientIdPreferred，3：RequestURI<br>默认值为1(ClientIpOnly)</td>
 </tr>
 <tr>
 <td>GslbBasic.HashConf.HashHeader</td>
@@ -3174,7 +3174,7 @@ RU5ErkJggg==" ></image>
                 &quot;CrossRetry&quot;: 0,
                 &quot;RetryMax&quot;: 2,
                 &quot;HashConf&quot;: {
-                    &quot;HashStrategy&quot;: 0,
+                    &quot;HashStrategy&quot;: 1,
                     &quot;HashHeader&quot;: &quot;Cookie:UID&quot;,
                     &quot;SessionSticky&quot;: false
                 }
