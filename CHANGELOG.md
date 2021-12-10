@@ -10,6 +10,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.4.0] - 2021-12-10
+
+### Added
+
+- Documents optimization
+
+### Changed
+
+- Upgrade golang version from 1.13 to 1.17
+- mod_markdown: upgrade bluemonday version to 1.0.16
+- Optimize mutex
+- Improve Makefile and pre-commit
+
 ## [v1.3.0] - 2021-09-16
 
 ### Added
@@ -262,6 +275,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
+[v1.4.0]: https://github.com/bfenetworks/bfe/compare/v1.3.0...v1.4.0
 [v1.3.0]: https://github.com/bfenetworks/bfe/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/bfenetworks/bfe/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/bfenetworks/bfe/compare/v1.0.0...v1.1.0
