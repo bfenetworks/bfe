@@ -30,6 +30,7 @@ GOGEN        := $(GO) generate
 GOCLEAN      := $(GO) clean
 GOFLAGS      := -race
 STATICCHECK  := staticcheck
+LICENSEEYE   := license-eye
 
 # init arch
 ARCH := $(shell getconf LONG_BIT)
@@ -48,6 +49,9 @@ BFE_PKGS := $(shell go list ./...)
 # make, make all
 all: prepare compile package
 
+# make, make strip
+strip: prepare compile-strip package
+
 # make prepare, download dependencies
 prepare: prepare-dep prepare-gen
 prepare-dep:
@@ -59,6 +63,11 @@ prepare-gen:
 compile: test build
 build:
 	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT) -extldflags=-static"
+
+# make compile-strip, go build without symbols and DWARFs
+compile-strip: test build-strip
+build-strip:
+	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT) -extldflags=-static -s -w"
 
 # make test, test your code
 test: test-case vet-case
@@ -82,6 +91,11 @@ package:
 check:
 	$(GO) get honnef.co/go/tools/cmd/staticcheck
 	$(STATICCHECK) ./...
+
+# make license-check, check code file's license declearation
+license-check:
+	$(GO) install github.com/apache/skywalking-eyes/cmd/license-eye@latest
+	$(LICENSEEYE) header check
 
 # make docker
 docker:
