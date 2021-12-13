@@ -12,7 +12,8 @@ English | [中文](README-CN.md)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fbfenetworks%2Fbfe.svg?type=shield)](https://app.fossa.com/reports/1f05f9f0-ac3d-486e-8ba9-ad95dabd4768)
 [![Slack Widget](https://img.shields.io/badge/join-us%20on%20slack-gray.svg?longCache=true&logo=slack&colorB=green)](https://slack.cncf.io)
 
-BFE is a modern layer 7 load balancer from baidu.
+BFE (Beyond Front End) is a modern layer 7 load balancer from baidu.
+![bfe logo](./docs/images/logo/horizontal/color/bfe-horizontal-color.png)
 
 ## Introduction
 
