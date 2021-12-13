@@ -1,7 +1,7 @@
 # 安装常见问题
 
 ## 安装时遇到go get超时错误
-- 设置GOPROXY环境变量(go1.17及以上版本)
+- 设置GOPROXY环境变量(go1.13及以上版本)
 ```bash
 $ go env -w GO111MODULE=on
 $ go env -w GOPROXY=https://goproxy.cn,direct
