@@ -1,7 +1,7 @@
 # 源码编译安装
 
 ## 环境准备
-- golang 1.13+
+- golang 1.17+
 - git 2.0+
 - glibc-static 2.17+
 
