@@ -39,6 +39,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_secure_link"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_static"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_tag"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_tcp_keepalive"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trace"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trust_clientip"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_userid"
@@ -53,6 +54,9 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_logid
 	// Requirement: After mod_trust_clientip
 	mod_logid.NewModuleLogId(),
+
+	// mod_tcp_keepalive
+	mod_tcp_keepalive.NewModuleTcpKeepAlive(),
 
 	// mode_userid
 	mod_userid.NewModuleUserID(),
