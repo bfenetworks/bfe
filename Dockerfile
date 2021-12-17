@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM golang:1.13.11-alpine AS build
+FROM golang:1.17.5-alpine3.15 AS build
 
 WORKDIR /bfe
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=`cat VERSION`"
 
-FROM alpine:3.10 AS run
+FROM alpine:3.15 AS run
 RUN apk update && apk add --no-cache ca-certificates
 COPY --from=build /bfe/bfe /bfe/bin/
 COPY conf /bfe/conf/
