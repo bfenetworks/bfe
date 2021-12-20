@@ -2,9 +2,9 @@
 
 ## Introduction
 
-mod_tcp_keepalive set tcp connection keepalive message sending strategy based on defined rules.
+mod_tcp_keepalive is used to set strategy of sending keepalive message in tcp connection.
 
-In some situation, like smart watch, which is sensitive to power consumption, may need to close the TCP-KeepAlive heartbeat message or increase the interval to send TCP-KeepAlive heartbeat message, mod_tcp_keepalive can help handle situation like this.
+In some situation, like smart watch, the device is sensitive to power consumption, it may be necessary to close the TCP-KeepAlive heartbeat message or increase the interval of sending TCP-KeepAlive heartbeat message. mod_tcp_keepalive can help to handle situation like this.
 
 ## Module Configuration
 
@@ -37,7 +37,7 @@ OpenDebug = false
 | Config{k} | String<br>Product name |
 | Config{v} | Array<br>A list of rules |
 | Config{v}[] | Object<br>A specific rule |
-| Config{v}[].VipConf | Array<br>The IP list to set the keepalive message strategy  |
+| Config{v}[].VipConf | Array<br>The list of virtual IPs to set the keepalive message strategy  |
 | Config{v}[].KeepAliveParam | Object<br>The specific keepalive message strategy|
 | Config{v}[].KeepaliveParam.Disable | Bool<br>Disable sending keepalive message or not, default false |
 | Config{v}[].KeepaliveParam.KeepIdle | Int<br>Period to send heartbeat message since there is no data transport in tcp connection |

@@ -35,9 +35,9 @@ OpenDebug = false
 | Version | String<br>配置文件版本 |
 | Config | Object<br>各产品线（租户）的TCP心跳包管理规则 |
 | Config{k} | String<br>产品线名称 |
-| Config{v} | Array<br>产品线下规则列表 |
+| Config{v} | Array<br>产品线的规则列表 |
 | Config{v}[] | Object<br>某一条规则详细信息 |
-| Config{v}[].VipConf | Array<br>需要配置的IP数组，数组中的IP共用以下同一套策略 |
+| Config{v}[].VipConf | Array<br>需要配置的VIP（Virtual IP）数组，数组中的VIP共用以下同一套策略 |
 | Config{v}[].KeepAliveParam | Object<br>TCP长连接心跳包发送策略 |
 | Config{v}[].KeepaliveParam.Disable | Bool<br>是否关闭心跳包发送，默认false |
 | Config{v}[].KeepaliveParam.KeepIdle | Int<br>长连接中多长时间无数据发送后，开始发送心跳包 |
