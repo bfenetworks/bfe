@@ -1,6 +1,4 @@
-<img src="./docs/images/logo/horizontal/color/bfe-horizontal-color.png" alt="bfe logo" width="500" />
-
-------
+# BFE
 
 [![GitHub](https://img.shields.io/github/license/bfenetworks/bfe)](https://github.com/bfenetworks/bfe/blob/develop/LICENSE)
 [![Travis](https://img.shields.io/travis/com/bfenetworks/bfe)](https://travis-ci.com/bfenetworks/bfe)
@@ -13,9 +11,11 @@
 
 English | [中文](README-CN.md)
 
-------
+
 
 BFE (Beyond Front End) is a modern layer 7 load balancer from baidu.
+
+<img src="./docs/images/logo/horizontal/color/bfe-horizontal-color.png" alt="bfe logo" width="300" />
 
 BFE is a sandbox project of the [Cloud Native Computing Foundation](https://cncf.io/) (CNCF). 
 

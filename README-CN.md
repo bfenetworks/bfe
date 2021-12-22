@@ -1,7 +1,5 @@
 # BFE
 
-[English](README.md) | 中文
-
 [![GitHub](https://img.shields.io/github/license/bfenetworks/bfe)](https://github.com/bfenetworks/bfe/blob/develop/LICENSE)
 [![Travis](https://img.shields.io/travis/com/bfenetworks/bfe)](https://travis-ci.com/bfenetworks/bfe)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bfenetworks/bfe)](https://goreportcard.com/report/github.com/bfenetworks/bfe)
@@ -11,9 +9,17 @@
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fbfenetworks%2Fbfe.svg?type=shield)](https://app.fossa.com/reports/1f05f9f0-ac3d-486e-8ba9-ad95dabd4768)
 [![Slack Widget](https://img.shields.io/badge/join-us%20on%20slack-gray.svg?longCache=true&logo=slack&colorB=green)](https://slack.cncf.io)
 
+[English](README.md) | 中文
+
+
+
 BFE (Beyond Front End) 是百度开源的现代化、企业级的七层负载均衡系统
 
-<img src="./docs/images/logo/horizontal/color/bfe-horizontal-color.png" alt="bfe logo" align=left width="300" />
+<img src="./docs/images/logo/horizontal/color/bfe-horizontal-color.png" alt="bfe logo" width="300" />
+
+BFE is a sandbox project of the [Cloud Native Computing Foundation](https://cncf.io/) (CNCF). 
+
+![](./docs/images/cncf-logo.png)
 
 
 
