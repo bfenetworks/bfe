@@ -17,8 +17,7 @@ BFE (Beyond Front End) is a modern layer 7 load balancer from baidu.
 
 <img src="./docs/images/logo/horizontal/color/bfe-horizontal-color.png" alt="bfe logo" width="300" />
 
-BFE is a sandbox project of the [Cloud Native Computing Foundation](https://cncf.io/) (CNCF). 
-
+BFE is a [Cloud Native Computing Foundation](https://cncf.io/) (CNCF) sandbox project. 
 ![](./docs/images/cncf-logo.png)
 
 
