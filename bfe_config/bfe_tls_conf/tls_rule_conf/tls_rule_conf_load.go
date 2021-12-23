@@ -255,7 +255,12 @@ func CheckValidProto(protoConf string) error {
 }
 
 func ParseNextProto(protoConf string) (proto string, params NextProtosParams, err error) {
-	items := strings.SplitN(protoConf, ";", 2)
+	// Note: replace ';' separator by '&'
+	// Go 1.17 refuse ';' in query string (see https://github.com/golang/go/issues/25192)
+	// For forward compatibility, proto accept both "a=b;c=d" and "a=b&c=d" now.
+	protoConf = strings.ReplaceAll(protoConf, ";", "&")
+
+	items := strings.SplitN(protoConf, "&", 2)
 	if len(items) == 1 { // eg: h2
 		proto = protoConf
 		params = GetDefaultNextProtosParams()

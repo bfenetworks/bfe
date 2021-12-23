@@ -1,5 +1,17 @@
 We provide precompiled binaries for bfe components. [Download the latest release](https://github.com/bfenetworks/bfe/releases) of BFE for your platform.
 
+## bfe v1.4.0
+
+* 2021-12-10 [Release notes](https://github.com/bfenetworks/bfe/releases/tag/v1.4.0)
+
+| File name | OS | Arch | Size | SHA256 Checksum |
+| --------- | -------- | ---- | ---- | ------------ |
+| [bfe_1.4.0_darwin_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.4.0/bfe_1.4.0_darwin_amd64.tar.gz) | darwin  | amd    64 | 9.26M   | 03940a193b3e6a18b9f0f0f0ad344110e362f511c7582d21f39c4b4581ff6fd1 |
+| [bfe_1.4.0_linux_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.4.0/bfe_1.4.0_linux_amd64.tar.gz) | linux   | amd64     | 9.51 MB | 62535dd2025be9bd5484d92bb991c6f8080c7e7d69911fd7eef4fd5235cf61ab |
+| [bfe_1.4.0_linux_arm64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.4.0/bfe_1.4.0_linux_arm64.tar.gz) | linux   | arm64     | 8.8 MB  | 33de43a45fd6c6414b4359aa2c3e1141d2299ee07ad6dfb48d2afd1af1561734 |
+| [bfe_1.4.0_windows_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.4.0/bfe_1.4.0_windows_amd64.tar.gz) | windows | amd64     | 9.59 MB | c637b5917a428850dde470e915eaac3076707da8959392d38bce70eee2190767 |
+
+
 ## bfe v1.3.0
 
 * 2021-09-16 [Release notes](https://github.com/bfenetworks/bfe/releases/tag/v1.3.0)
@@ -68,5 +80,4 @@ We provide precompiled binaries for bfe components. [Download the latest release
 | [bfe_0.9.0_darwin_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v0.9.0/bfe_0.9.0_darwin_amd64.tar.gz) | darwin | amd64 | 9.75 MB | 3bdbb80cc4946bc85b7295fc86ca86800e7811d20f37b36037aadfc7df718ad9 |
 | [bfe_0.9.0_linux_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v0.9.0/bfe_0.9.0_linux_amd64.tar.gz) | linux | amd64 | 10.90 MB | 9b6aaac88651d88e86e67835b5ae0bdbe1c76076382b198f0aeb0b94b7572887 |
 | [bfe_0.9.0_windows_amd64.zip](https://github.com/bfenetworks/bfe/releases/download/v0.9.0/bfe_0.9.0_windows_amd64.zip) | windows | amd64 | 9.75 MB | 4079f97b544b3070bec3ad65a28ccb816290890a278a51c88c81c15405c1f8cf |
-
 
