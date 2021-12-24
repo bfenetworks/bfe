@@ -1,7 +1,7 @@
 # Install using go
 
 ## Prerequisites
-- golang 1.13+
+- golang 1.15+
 
 ## Installation 
 - Get the source code and install
