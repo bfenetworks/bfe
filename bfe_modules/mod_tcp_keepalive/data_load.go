@@ -15,11 +15,14 @@
 package mod_tcp_keepalive
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"os"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 /*
