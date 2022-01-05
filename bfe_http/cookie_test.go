@@ -19,11 +19,14 @@
 package bfe_http
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
 	"time"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 var writeSetCookiesTests = []struct {

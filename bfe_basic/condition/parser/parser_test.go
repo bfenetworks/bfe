@@ -15,8 +15,11 @@
 package parser
 
 import (
-	"encoding/json"
 	"testing"
+)
+
+import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 func TestParserParse(t *testing.T) {
