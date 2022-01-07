@@ -26,6 +26,7 @@ import (
 	"crypto/subtle"
 	"crypto/x509"
 	"encoding/asn1"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -76,7 +77,8 @@ func (c *Conn) serverHandshake() error {
 
 	// Record JA3 fingerpint for TLS client
 	c.ja3Raw = hs.clientHello.JA3String()
-	c.ja3Hash = fmt.Sprintf("%x", md5.Sum([]byte(c.ja3Raw)))
+	sum := md5.Sum([]byte(c.ja3Raw))
+	c.ja3Hash = hex.EncodeToString(sum[:])
 
 	// For an overview of TLS handshaking, see https://tools.ietf.org/html/rfc5246#section-7.3
 	if isResume {

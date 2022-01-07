@@ -1,6 +1,13 @@
 # Configuration overview
 
+## Notes
+
+This document explain how to configure BFE Server directly.
+
+For guide of configure BFE via BFE control plane components, see documents of [BFE API Server](https://github.com/bfenetworks/api-server) and [BFE Dashboard](https://github.com/bfenetworks/dashboard).
+
 ## Configuration types
+
 - Normal configuration: For changes to the configuration file to take effect, you must restart the bfe process.
 - Dynamic configuration: For changes to the configuration file to take effect, you can either restart or reload the bfe process.
 

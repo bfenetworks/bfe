@@ -53,7 +53,7 @@ type Session struct {
 	Product string // product name of vip
 	Rtt     uint32 // smoothed RTT for current connection (us)
 
-	lock          sync.Mutex                  // lock for session
+	lock          sync.RWMutex                  // lock for session
 	reqNum        int64                       // number of total request
 	reqNumActive  int64                       // number of active request
 	readTotal     int64                       // total bytes read from client socket
@@ -153,10 +153,10 @@ func (s *Session) SetError(errCode error, errMsg string) {
 }
 
 func (s *Session) GetError() (string, error) {
-	s.lock.Lock()
+	s.lock.RLock()
 	errCode := s.errCode
 	errMsg := s.errMsg
-	s.lock.Unlock()
+	s.lock.RUnlock()
 
 	return errMsg, errCode
 }
@@ -173,9 +173,9 @@ func (s *Session) SetContext(key, val interface{}) {
 }
 
 func (s *Session) GetContext(key interface{}) interface{} {
-	s.lock.Lock()
+	s.lock.RLock()
 	val := s.context[key]
-	s.lock.Unlock()
+	s.lock.RUnlock()
 	return val
 }
 
@@ -193,8 +193,8 @@ func (s *Session) SetTrustSource(isTrustSource bool) {
 }
 
 func (s *Session) String() string {
-	s.lock.Lock()
+	s.lock.RLock()
 	val := s.SessionId
-	s.lock.Unlock()
+	s.lock.RUnlock()
 	return fmt.Sprintf("session id: %s", val)
 }

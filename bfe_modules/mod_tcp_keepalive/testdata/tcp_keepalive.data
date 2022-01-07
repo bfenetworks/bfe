@@ -1,0 +1,30 @@
+{
+    "Config": {
+        "product1": [
+            {
+                "VipConf": ["10.1.1.1", "10.1.1.2"],
+                "KeepAliveParam": {
+                    "KeepIdle": 70,
+                    "KeepIntvl": 15,
+                    "KeepCnt": 9
+                }
+            },
+            {
+                "VipConf": ["10.1.1.3"],
+                "KeepAliveParam": {
+                    "Disable": true
+                }
+            }
+        ],
+        "product2": [
+            {
+                "VipConf": ["10.2.1.1"],
+                "KeepAliveParam": {
+                    "KeepIdle": 20,
+                    "KeepIntvl": 15
+                }
+            }
+        ]
+    },
+    "Version": "2021-06-25 14:31:05"
+}
