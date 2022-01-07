@@ -38,11 +38,12 @@ const (
 )
 
 type ConfigBasic struct {
-	HttpPort    int // listen port for http
-	HttpsPort   int // listen port for https
-	MonitorPort int // web server port for monitor
-	MaxCpus     int // number of max cpus to use
-	AcceptNum   int // number of accept goroutine for each listener, default 1
+	HttpPort       int  // listen port for http
+	HttpsPort      int  // listen port for https
+	MonitorPort    int  // web server port for monitor
+	MaxCpus        int  // number of max cpus to use
+	AcceptNum      int  // number of accept goroutine for each listener, default 1
+	MonitorEnabled bool // web server for monitor enable or not
 
 	// settings of layer-4 load balancer
 	Layer4LoadBalancer string
@@ -84,6 +85,7 @@ func (cfg *ConfigBasic) SetDefaultConf() {
 	cfg.HttpPort = 8080
 	cfg.HttpsPort = 8443
 	cfg.MonitorPort = 8421
+	cfg.MonitorEnabled = true
 	cfg.MaxCpus = 0
 
 	cfg.TlsHandshakeTimeout = 30
@@ -141,8 +143,8 @@ func basicConfCheck(cfg *ConfigBasic) error {
 			cfg.HttpsPort)
 	}
 
-	// check MonitorPort
-	if cfg.MonitorPort < 1 || cfg.MonitorPort > 65535 {
+	// check MonitorPort if MonitorEnabled enabled
+	if cfg.MonitorEnabled && (cfg.MonitorPort < 1 || cfg.MonitorPort > 65535) {
 		return fmt.Errorf("MonitorPort[%d] should be in [1, 65535]",
 			cfg.MonitorPort)
 	}

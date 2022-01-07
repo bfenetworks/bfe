@@ -29,7 +29,7 @@ func TestBfeConfigLoadNormal(t *testing.T) {
 		t.Errorf("config.HttpPort should be 80")
 	}
 
-	if config.Server.MonitorPort != 8080 {
+	if config.Server.MonitorEnabled && config.Server.MonitorPort != 8080 {
 		t.Errorf("config.MonitorPort should be 8080")
 	}
 
@@ -90,7 +90,7 @@ func TestBfeConfigLoadUsingDefault(t *testing.T) {
 		t.Errorf("config.HttpPort should be 8080")
 	}
 
-	if config.Server.MonitorPort != 8421 {
+	if config.Server.MonitorEnabled && config.Server.MonitorPort != 8421 {
 		t.Errorf("config.MonitorPort should be 8421")
 	}
 
