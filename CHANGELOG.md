@@ -10,14 +10,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v1.4.0] - 2021-12-10
+## [v1.5.0] - 2022-01-11
 
 ### Added
-
+- Add mod_tcp_keepalive to support custom TCP KeepAlive configuration
 - Documents optimization
 
 ### Changed
+- Change JSON parser: use json-iterator to replace encoding/json
+- Optimize error handling in io.Write
 
+### Fixed
+- Fix issue in go.mod which may cause build error (Issue #933)
+
+### Security
+- Fix http security issue (Issue #940)
+- Fix http security issue (Issue #941)
+
+## [v1.4.0] - 2021-12-10
+
+### Added
+- Documents optimization
+
+### Changed
 - Upgrade golang version from 1.13 to 1.17
 - mod_markdown: upgrade bluemonday version to 1.0.16
 - Optimize mutex
