@@ -20,7 +20,6 @@ import (
 	"net/url"
 	"os"
 	"reflect"
-	"syscall"
 
 	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/web-monitor/metrics"
@@ -140,10 +139,6 @@ func (m *ModuleTcpKeepAlive) disableKeepAlive(tcpConn *net.TCPConn) error {
 
 	m.state.ConnDisableKeepAlive.Inc(1)
 	return nil
-}
-
-func setNonblock(fd int) error {
-	return os.NewSyscallError("setsockopt", syscall.SetNonblock(fd, true))
 }
 
 func (m *ModuleTcpKeepAlive) setKeepAliveParam(conn *net.TCPConn, p KeepAliveParam) error {

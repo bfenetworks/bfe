@@ -36,3 +36,7 @@ func setCount(fd int, n int) error {
 func setInterval(fd int, secs int) error {
 	return os.NewSyscallError("setsockopt", syscall.SetsockoptInt(fd, syscall.IPPROTO_TCP, _TCP_KEEPINTVL, secs))
 }
+
+func setNonblock(fd int) error {
+	return os.NewSyscallError("setsockopt", syscall.SetNonblock(fd, true))
+}
