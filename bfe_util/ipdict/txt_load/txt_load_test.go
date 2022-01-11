@@ -156,6 +156,20 @@ func TestCheckLine_Case0(t *testing.T) {
 		err != nil {
 		t.Error("TestCheckLine():", err)
 	}
+	line = "192.168.1.1/20"
+	startIP, endIP, err = checkLine(line)
+	if !startIP.Equal(net.ParseIP("192.168.0.0"))||
+		!endIP.Equal(net.ParseIP("192.168.15.255"))||
+		err != nil {
+		t.Error("TestCheckLine():", err)
+	}
+	line = "fdbd:ff1:ce00:443:8f5:1f05:2f9d:b6d0/20"
+	startIP, endIP, err = checkLine(line)
+	if !startIP.Equal(net.ParseIP("fdbd:0000:0000:0000:0000:0000:0000:0000"))||
+		!endIP.Equal(net.ParseIP("fdbd:0fff:ffff:ffff:ffff:ffff:ffff:ffff"))||
+		err != nil {
+		t.Error("TestCheckLine():", err)
+	}
 }
 
 func TestNewTxtFileLoader(t *testing.T) {
