@@ -15,22 +15,37 @@
 package mod_tcp_keepalive
 
 import (
-	"os"
-	"syscall"
+	"github.com/baidu/go-lib/log"
 )
 
 func setIdle(fd int, secs int) error {
-	return os.NewSyscallError("setsockopt", syscall.SetsockoptInt(fd, syscall.IPPROTO_TCP, syscall.TCP_KEEPIDLE, secs))
+	if openDebug {
+		log.Logger.Debug("mod[mod_tcp_keepalive] setIdle not implemented")
+	}
+
+	return nil
 }
 
 func setCount(fd int, n int) error {
-	return os.NewSyscallError("setsockopt", syscall.SetsockoptInt(fd, syscall.IPPROTO_TCP, syscall.TCP_KEEPCNT, n))
+	if openDebug {
+		log.Logger.Debug("mod[mod_tcp_keepalive] setCount not implemented")
+	}
+
+	return nil
 }
 
 func setInterval(fd int, secs int) error {
-	return os.NewSyscallError("setsockopt", syscall.SetsockoptInt(fd, syscall.IPPROTO_TCP, syscall.TCP_KEEPINTVL, secs))
+	if openDebug {
+		log.Logger.Debug("mod[mod_tcp_keepalive] setInterval not implemented")
+	}
+
+	return nil
 }
 
 func setNonblock(fd int) error {
-	return os.NewSyscallError("setsockopt", syscall.SetNonblock(fd, true))
+	if openDebug {
+		log.Logger.Debug("mod[mod_tcp_keepalive] setNonblock not implemented")
+	}
+
+	return nil
 }
