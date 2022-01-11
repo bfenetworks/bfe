@@ -100,7 +100,7 @@ func (srv *BfeServer) Serve(l net.Listener, raw net.Listener, proto string) erro
 		// start go-routine for new connection
 		go func(rwc net.Conn, srv *BfeServer) {
 			// create data structure for new connection
-			c, err := newConn(rw, srv)
+			c, err := newConn(rwc, srv)
 			if err != nil {
 				// current, here is unreachable
 				return

@@ -1,0 +1,14 @@
+{
+    "Config": {
+        "product1": [
+            {
+                "VipConf": ["10.1"],
+                "KeepAliveParam": {
+                    "KeepIdle": 20,
+                    "KeepIntvl": 15
+                }
+            }
+        ]
+    },
+    "Version": "2021-06-25 14:31:05"
+}

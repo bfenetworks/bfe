@@ -15,6 +15,7 @@
 package bfe_util
 
 import (
+	"errors"
 	"io"
 	"sync"
 )
@@ -24,6 +25,9 @@ import (
 )
 
 var copyPool sync.Pool
+
+// errInvalidWrite means that a writer returned an impossible count.
+var errInvalidWrite = errors.New("invalid write result")
 
 func newByteBuf() []byte {
 	if v := copyPool.Get(); v != nil {
@@ -45,9 +49,13 @@ func CopyWithoutBuffer(wf bfe_http.WriteFlusher, src io.Reader) (written int64, 
 			nw, ew := wf.Write(buf[0:nr])
 			// flush immediately regardless of write result.
 			ef := wf.Flush()
-			if nw > 0 {
-				written += int64(nw)
+			if nw < 0 || nr < nw {
+				nw = 0
+				if ew == nil {
+					ew = errInvalidWrite
+				}
 			}
+			written += int64(nw)
 			if ew != nil {
 				err = ew
 				break

@@ -451,6 +451,7 @@ func (c *conn) serve() {
 			if req.ProtoAtLeast(1, 1) {
 				// Wrap the Body reader with one that replies on the connection
 				req.Body = &expectContinueReader{readCloser: req.Body, resp: w}
+				w.canWriteContinue.setTrue()
 			}
 			if req.ContentLength == 0 {
 				session.SetError(bfe_basic.ErrClientZeroContentlen, "content length is zero")
