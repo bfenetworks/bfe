@@ -26,3 +26,5 @@ coverage.txt
 .vscode/*
 bfe
 dist/*
+
+.DS_Store

@@ -58,6 +58,7 @@ require (
 	go.elastic.co/apm/module/apmhttp v1.7.2 // indirect
 	go.elastic.co/fastjson v1.1.0 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
+	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/grpc v1.22.1 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 	howett.net/plist v0.0.0-20181124034731-591f970eefbb // indirect
