@@ -290,6 +290,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
+[v1.5.0]: https://github.com/bfenetworks/bfe/compare/v1.4.0...v1.5.0
 [v1.4.0]: https://github.com/bfenetworks/bfe/compare/v1.3.0...v1.4.0
 [v1.3.0]: https://github.com/bfenetworks/bfe/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/bfenetworks/bfe/compare/v1.1.0...v1.2.0
