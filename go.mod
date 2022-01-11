@@ -32,9 +32,9 @@ require (
 	go.uber.org/atomic v1.6.0 // indirect
 	go.uber.org/automaxprocs v1.4.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d
-	golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e
-	golang.org/x/tools v0.1.7 // indirect
+	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e
+	golang.org/x/tools v0.1.8 // indirect
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/square/go-jose.v2 v2.4.1
 	gopkg.in/warnings.v0 v0.1.2 // indirect
@@ -58,7 +58,6 @@ require (
 	go.elastic.co/apm/module/apmhttp v1.7.2 // indirect
 	go.elastic.co/fastjson v1.1.0 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/text v0.3.6 // indirect
 	google.golang.org/grpc v1.22.1 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 	howett.net/plist v0.0.0-20181124034731-591f970eefbb // indirect

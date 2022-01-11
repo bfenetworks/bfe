@@ -1,18 +1,27 @@
 # BFE
 
-English | [中文](README-CN.md)
-
-
 [![GitHub](https://img.shields.io/github/license/bfenetworks/bfe)](https://github.com/bfenetworks/bfe/blob/develop/LICENSE)
 [![Travis](https://img.shields.io/travis/com/bfenetworks/bfe)](https://travis-ci.com/bfenetworks/bfe)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bfenetworks/bfe)](https://goreportcard.com/report/github.com/bfenetworks/bfe)
 [![GoDoc](https://godoc.org/github.com/bfenetworks/bfe?status.svg)](https://godoc.org/github.com/bfenetworks/bfe/bfe_module)
-[![Snap Status](https://build.snapcraft.io/badge/bfenetworks/bfe.svg)](https://build.snapcraft.io/user/bfenetworks/bfe)
+[![Snap Status](https://snapcraft.io/bfe/badge.svg)](https://snapcraft.io/bfe)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/3209/badge)](https://bestpractices.coreinfrastructure.org/projects/3209)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fbfenetworks%2Fbfe.svg?type=shield)](https://app.fossa.com/reports/1f05f9f0-ac3d-486e-8ba9-ad95dabd4768)
 [![Slack Widget](https://img.shields.io/badge/join-us%20on%20slack-gray.svg?longCache=true&logo=slack&colorB=green)](https://slack.cncf.io)
 
-BFE is a modern layer 7 load balancer from baidu.
+English | [中文](README-CN.md)
+
+
+
+BFE (Beyond Front End) is a modern layer 7 load balancer from baidu.
+
+<img src="./docs/images/logo/horizontal/color/bfe-horizontal-color.png" alt="bfe logo" width="300" />
+
+BFE is a [Cloud Native Computing Foundation](https://cncf.io/) (CNCF) sandbox project. 
+
+![](./docs/images/cncf-logo.png)
+
+
 
 ## Introduction
 
