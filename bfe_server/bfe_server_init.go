@@ -58,11 +58,13 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	bfeServer.InitSignalTable()
 	log.Logger.Info("StartUp():bfeServer.InitSignalTable() OK")
 
-	// init web monitor
-	monitorPort := cfg.Server.MonitorPort
-	if err = bfeServer.InitWebMonitor(monitorPort); err != nil {
-		log.Logger.Error("StartUp(): InitWebMonitor():%s", err.Error())
-		return err
+	// init web monitor if enabled
+	if cfg.Server.MonitorEnabled {
+		monitorPort := cfg.Server.MonitorPort
+		if err = bfeServer.InitWebMonitor(monitorPort); err != nil {
+			log.Logger.Error("StartUp(): InitWebMonitor():%s", err.Error())
+			return err
+		}
 	}
 
 	// register modules
