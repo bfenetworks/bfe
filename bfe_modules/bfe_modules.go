@@ -25,6 +25,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_block"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_compress"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_cors"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_degrade"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_doh"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_errors"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_geo"
@@ -131,6 +132,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_access
 	mod_access.NewModuleAccess(),
+
+	// mod_degrade
+	mod_degrade.NewModuleDegrade(),
 }
 
 // init modules list

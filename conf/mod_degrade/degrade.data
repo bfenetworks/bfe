@@ -1,0 +1,42 @@
+{
+	"Version": "20190101000000",
+	"Config": {
+		"example_product": [{
+			"Name": "example_degrade_return",
+			"Cond": "req_path_prefix_in(\"/degrade/return\", false)",
+			"Action": {
+                    "Cmd": "RETURN",
+                    "StatusLine": "HTTP/1.1 200 OK",
+                    "Header": {
+                        "Content-Type": ["application/json; charset=utf-8"],
+                        "Pragma": ["no-cache"]
+                    },
+                    "Body": "{\"hello\":\"world\", \"name\":\"chenchen\"}"
+            },
+			"DegradeRate": 100,
+			"Enable": true
+		},
+		{
+            "Name": "example_degrade_close",
+            "Cond": "req_path_prefix_in(\"/degrade/close\", false)",
+            "Action": {
+                    "Cmd": "CLOSE"
+            },
+            "DegradeRate": 100,
+            "Enable": true
+        },
+        {
+            "Name": "example_degrade_redirect",
+            "Cond": "req_path_prefix_in(\"/degrade/redirect\", false)",
+            "Action": {
+                    "Cmd": "RETURN",
+                    "StatusLine": "HTTP/1.1 301",
+                    "Header": {
+                        "Location": ["http://www.baidu.com"]
+                    }
+            },
+            "DegradeRate": 100,
+            "Enable": true
+        }]
+	}
+}
