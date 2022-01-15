@@ -13,6 +13,7 @@ bfe.conf is the core configuration file of BFE.
 | Basic.HttpPort                | Integer<br>Listen port for HTTP<br>Default 8080 |
 | Basic.HttpsPort               | Integer<br>Listen port for HTTPS<br>Default 8443 |
 | Basic.MonitorPort             | Integer<br>Listen port for monitor<br>Default 8421 |
+| Basic.MonitorEnabled          | Boolean<br>If false, monitor server is disabled<br>Default True |
 | Basic.MaxCpus                 | Integer<br>Max number of CPUs to use (0 to use all CPUs)<br>Default 0 |
 | Basic.Layer4LoadBalancer      | String<br>Type of layer-4 load balancer (PROXY/NONE)<br>Default NONE |
 | Basic.TlsHandshakeTimeout     | Integer<br>TLS handshake timeout, in seconds<br>Default 30 |
