@@ -57,9 +57,9 @@ BFE 使用 `gofmt` 来调整 golang源代码格式。
 `license-eye` 检查是 Github-Action 中检测的一部分，检测不通过的 PR 不能被提交到 BFE，安装使用它：
 
 ```bash
-$ go install github.com/apache/skywalking-eyes/cmd/license-eye@latest
-$ license-eye header check
-$ license-eye header fix
+$ make license-eye-install
+$ make license-check
+$ make license-fix
 ```
 
 
