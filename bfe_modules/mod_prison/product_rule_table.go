@@ -25,7 +25,7 @@ type productRuleTable struct {
 
 func newProductRuleTable() *productRuleTable {
 	return &productRuleTable{
-		ruleTable: make(map[string]*prisonRules, 0),
+		ruleTable: make(map[string]*prisonRules),
 	}
 }
 
@@ -54,7 +54,7 @@ func (p *productRuleTable) getTable() map[string]*prisonRules {
 func (p *productRuleTable) newRuleTable(config ProductRuleConf) (map[string]*prisonRules, error) {
 	oldRuleTable := p.getTable()
 
-	ruleTable := make(map[string]*prisonRules, 0)
+	ruleTable := make(map[string]*prisonRules)
 	for product, ruleConfList := range *config.Config {
 		// create new Prison Rule
 		rules, err := newPrisonRules(*ruleConfList)

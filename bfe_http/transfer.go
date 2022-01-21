@@ -540,10 +540,7 @@ func shouldClose(major, minor int, header Header) bool {
 	if major < 1 {
 		return true
 	} else if major == 1 && minor == 0 {
-		if !strings.Contains(strings.ToLower(header.GetDirect("Connection")), "keep-alive") {
-			return true
-		}
-		return false
+		return !strings.Contains(strings.ToLower(header.GetDirect("Connection")), "keep-alive")
 	} else {
 		// TODO: Should split on commas, toss surrounding white space,
 		// and check each field.

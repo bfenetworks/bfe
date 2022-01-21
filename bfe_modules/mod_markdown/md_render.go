@@ -27,8 +27,7 @@ func Render(src []byte) ([]byte, error) {
 	if len(src) == 0 {
 		return nil, fmt.Errorf("Render(): render empty src")
 	}
-	var dst []byte
-	dst = render(src)
+	dst := render(src)
 	return dst, nil
 }
 

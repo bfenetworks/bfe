@@ -69,7 +69,7 @@ func NewIpLocationTable(maxSize uint32, locLen uint32) (*IpLocationTable, error)
 	ipLocTable.maxSize = maxSize
 	ipLocTable.offset = 0
 	ipLocTable.LocLen = locLen
-	ipLocTable.locations = make([]byte, (HEADER_LEN+locLen)*maxSize, (HEADER_LEN+locLen)*maxSize)
+	ipLocTable.locations = make([]byte, (HEADER_LEN+locLen)*maxSize)
 	return ipLocTable, nil
 }
 

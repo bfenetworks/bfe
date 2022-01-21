@@ -828,11 +828,11 @@ type HashValueMatcher struct {
 func (matcher *HashValueMatcher) Match(v interface{}) bool {
 	var rawValue string
 
-	switch v.(type) {
+	switch value := v.(type) {
 	case string:
-		rawValue = v.(string)
+		rawValue = value
 	case net.IP:
-		rawValue = v.(net.IP).String()
+		rawValue = value.String()
 	default:
 		return false
 	}

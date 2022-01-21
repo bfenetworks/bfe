@@ -185,7 +185,7 @@ func (f TxtFileLoader) CheckAndLoad(curVersion string) (*ipdict.IPItems, error) 
 		}
 
 		// insert start ip and end ip into dict
-		if bytes.Compare(startIP, endIP) == 0 {
+		if bytes.Equal(startIP, endIP) {
 			// startIp == endIP insert single
 			err = ipItems.InsertSingle(startIP)
 			singleIPCounter += 1
