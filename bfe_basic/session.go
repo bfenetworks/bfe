@@ -53,7 +53,7 @@ type Session struct {
 	Product string // product name of vip
 	Rtt     uint32 // smoothed RTT for current connection (us)
 
-	lock          sync.RWMutex                  // lock for session
+	lock          sync.RWMutex                // lock for session
 	reqNum        int64                       // number of total request
 	reqNumActive  int64                       // number of active request
 	readTotal     int64                       // total bytes read from client socket
@@ -99,7 +99,6 @@ func (s *Session) ReqNum() int64 {
 
 func (s *Session) SetReqNum(count int) {
 	atomic.StoreInt64(&s.reqNum, int64(count))
-	return
 }
 
 func (s *Session) IncReqNumActive(count int) int64 {
@@ -112,7 +111,6 @@ func (s *Session) ReqNumActive() int64 {
 
 func (s *Session) SetReqNumActive(count int) {
 	atomic.StoreInt64(&s.reqNumActive, int64(count))
-	return
 }
 
 func (s *Session) UpdateReadTotal(total int) int {

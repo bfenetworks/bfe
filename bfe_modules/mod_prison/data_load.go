@@ -116,7 +116,7 @@ func PrisonRuleCheck(conf *PrisonRuleConf) error {
 // PrisonRuleListCheck check prisonRuleList
 func PrisonRuleListCheck(conf *PrisonRuleConfList) error {
 	// create a rule map
-	ruleMap := make(map[string]bool, 0)
+	ruleMap := make(map[string]bool)
 	for index, rule := range *conf {
 		if err := PrisonRuleCheck(rule); err != nil {
 			return fmt.Errorf("prisonRule:%d, %s", index, err.Error())
