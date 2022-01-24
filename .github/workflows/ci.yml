@@ -52,6 +52,12 @@ jobs:
     - name: Check License Header
       uses: apache/skywalking-eyes@main
 
+    # Setup golang sdk
+    - name: Setup Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.17
+
     # Build
     - name: Build
       shell: bash
