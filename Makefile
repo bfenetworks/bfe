@@ -28,6 +28,7 @@ GOVET        := $(GO) vet
 GOGET        := $(GO) get
 GOGEN        := $(GO) generate
 GOCLEAN      := $(GO) clean
+GOINSTALL    := $(GO) install
 GOFLAGS      := -race
 STATICCHECK  := staticcheck
 LICENSEEYE   := license-eye
@@ -46,6 +47,15 @@ GIT_COMMIT ?= $(shell git rev-parse HEAD)
 # init bfe packages
 BFE_PKGS := $(shell go list ./...)
 
+# go install package
+# $(1) package name
+# $(2) package address
+define INSTALL_PKG
+	@echo installing $(1)
+	$(GOINSTALL) $(2)
+	@echo $(1) installed
+endef
+
 # make, make all
 all: prepare compile package
 
@@ -55,7 +65,7 @@ strip: prepare compile-strip package
 # make prepare, download dependencies
 prepare: prepare-dep prepare-gen
 prepare-dep:
-	$(GO) get golang.org/x/tools/cmd/goyacc
+	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc)
 prepare-gen:
 	cd "bfe_basic/condition/parser" && $(GOGEN)
 
@@ -87,21 +97,22 @@ package:
 	mv bfe  $(OUTDIR)/bin
 	cp -r conf $(OUTDIR)
 
+# make deps
+deps:
+	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc)
+	$(call INSTALL_PKG, staticcheck, honnef.co/go/tools/cmd/staticcheck)
+	$(call INSTALL_PKG, license-eye, github.com/apache/skywalking-eyes/cmd/license-eye@latest)
+
 # make check
 check:
-	$(GO) get honnef.co/go/tools/cmd/staticcheck
 	$(STATICCHECK) ./...
 
-# make license-eye-install
-license-eye-install:
-	$(GO) install github.com/apache/skywalking-eyes/cmd/license-eye@latest
-
 # make license-check, check code file's license declaration
-license-check: license-eye-install
+license-check:
 	$(LICENSEEYE) header check
 
 # make license-fix, fix code file's license declaration
-license-fix: license-eye-install
+license-fix:
 	$(LICENSEEYE) header fix
 
 # make docker
