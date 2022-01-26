@@ -32,6 +32,8 @@ GOINSTALL    := $(GO) install
 GOFLAGS      := -race
 STATICCHECK  := staticcheck
 LICENSEEYE   := license-eye
+PIP          := pip3
+PIPINSTALL   := $(PIP) install
 
 # init arch
 ARCH := $(shell getconf LONG_BIT)
@@ -53,6 +55,12 @@ BFE_PKGS := $(shell go list ./...)
 define INSTALL_PKG
 	@echo installing $(1)
 	$(GOINSTALL) $(2)
+	@echo $(1) installed
+endef
+
+define PIP_INSTALL_PKG
+	@echo installing $(1)
+	$(PIPINSTALL) $(1)
 	@echo $(1) installed
 endef
 
@@ -99,9 +107,15 @@ package:
 
 # make deps
 deps:
+	$(call PIP_INSTALL_PKG, pre-commit)
 	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc)
 	$(call INSTALL_PKG, staticcheck, honnef.co/go/tools/cmd/staticcheck)
 	$(call INSTALL_PKG, license-eye, github.com/apache/skywalking-eyes/cmd/license-eye@latest)
+
+# make precommit, enable autoupdate and install with hooks
+precommit:
+	pre-commit autoupdate
+	pre-commit install --install-hooks
 
 # make check
 check:
