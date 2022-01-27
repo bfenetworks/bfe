@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"net/url"
-	"strings"
 )
 
 import (
@@ -153,9 +152,8 @@ func (m *ModuleTrustClientIP) acceptHandler(session *bfe_basic.Session) int {
 	}
 	session.SetTrustSource(trusted)
 
-	// TODO: modify counting policy for ipv6
 	// state for internal remote ip
-	if strings.HasPrefix(session.RemoteAddr.IP.String(), "10.") {
+	if session.RemoteAddr.IP.IsPrivate() {
 		m.state.ConnAddrInternal.Inc(1)
 		if !trusted {
 			m.state.ConnAddrInternalNotTrust.Inc(1)
