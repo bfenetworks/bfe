@@ -1,5 +1,5 @@
 * This is the list of people who have contributed code/doc to the BFE repository.
-* Please keep the list sorted by **name**. 
+* Please keep the list sorted by **name**.
 
 | Name | Github Account |
 | ---- | -------------- |
@@ -22,7 +22,7 @@
 | Jie Wan | wanjiecs |
 | Jin Tong | cumirror |
 | Jiyang Zhang | scriptkids |
-| Kaiyu Zheng | kaiyuzheng | 
+| Kaiyu Zheng | kaiyuzheng |
 | Lidong Chang | changlidong68 |
 | Lihua Chen | clh651188968 |
 | Liujia Wei | weiliujia |
@@ -50,7 +50,7 @@
 | Weiqiang Zheng | wrayzheng |
 | Wenjie Tian | WJTian |
 | Wenlong Chen | LeroChen |
-| Wensi Yang | tianxinheihei | 
+| Wensi Yang | tianxinheihei |
 | Xiaofei Yu | xiaofei0800 |
 | Xiaogang Zhang | zhangxiaogang01 |
 | Xiaoli Liu | liuxiaoli007 |
