@@ -98,7 +98,7 @@ type BfeServer struct {
 	Version string // version of bfe server
 }
 
-// NewBfeModules create a new instance of BfeServer.
+// NewBfeServer create a new instance of BfeServer.
 func NewBfeServer(cfg bfe_conf.BfeConfig, confRoot string,
 	version string) *BfeServer {
 
