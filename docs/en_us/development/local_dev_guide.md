@@ -39,33 +39,39 @@ $ git checkout -b my-cool-stuff
 
 It is worth noting that before the checkout, you need to keep the current branch directory clean, otherwise the untracked file will be brought to the new branch, which can be viewed by  `git status` .
 
+## Install dependent tools
 
-## Use `pre-commit` hook
+`make deps` install all the dependent tools, include `pre-commit` `goyacc` `license-eye` `staticcheck`.
+
+### Use `pre-commit` hook
 
 BFE developers use the [pre-commit](http://pre-commit.com/) tool to manage Git pre-commit hooks. It helps us format the source code and automatically check some basic things before committing (such as having only one EOL per file, not adding large files in Git, etc.).
 
 The `pre-commit` test is part of the unit test in Travis-CI. A PR that does not satisfy the hook cannot be submitted to BFE. Install `pre-commit` first and then run it in current directory：
 
 ```bash
-$ pip install pre-commit
-$ pre-commit install
+# ensure installed pre-commit
+$ make deps
+# enable autoupdate and install hooks
+$ make precommit
 ```
 
 BFE modify the format of golang source code with `gofmt` .
 
-
-## Use `license-eye` tool
+### Use `license-eye` tool
 
 [license-eye](http://github.com/apache/skywalking-eyes) helps us check and fix file's license header declaration. All files' license header should be done before committing.
 
 The `license-eye` check is part of the Github-Action. A PR that check failed cannot be submitted to BFE. Install `license-eye` and do check or fix:
 
 ```bash
-$ make license-eye-install
+# ensure installed license-eye
+$ make deps
+# check the license header
 $ make license-check
+# fix the license header
 $ make license-fix
 ```
-
 
 ## Start development
 

@@ -36,32 +36,39 @@ $ git checkout -b my-cool-stuff
 
 值得注意的是，在 checkout 之前，需要保持当前分支目录 clean，否则会把 untracked 的文件也带到新分支上，这可以通过 `git status` 查看。
 
-## 使用 `pre-commit` 钩子
+### 安装工具集
+
+`make deps` 一键安装所有依赖工具，包括 `pre-commit` `goyacc` `license-eye` `staticcheck`。
+
+### 使用 `pre-commit` 钩子
 
 BFE 开发人员使用 [pre-commit](http://pre-commit.com/) 工具来管理 Git 预提交钩子。 它可以帮助我们格式化源代码，在提交（commit）前自动检查一些基本事宜（如每个文件只有一个 EOL，Git 中不要添加大文件等）。
 
 `pre-commit`测试是 Travis-CI 中单元测试的一部分，不满足钩子的 PR 不能被提交到 BFE，首先安装并在当前目录运行它：
 
 ```bash
-$ pip install pre-commit
-$ pre-commit install
+# 确保安装pre-commit
+$ make deps
+# 开启自动更新以及安装钩子
+$ make precommit
 ```
 
 BFE 使用 `gofmt` 来调整 golang源代码格式。
 
-
-## 使用 `license-eye` 工具
+### 使用 `license-eye` 工具
 
 [license-eye](http://github.com/apache/skywalking-eyes) 工具可以帮助我们检查和修复所有文件的证书声明，在提交 (commit) 前证书声明都应该先完成。
 
 `license-eye` 检查是 Github-Action 中检测的一部分，检测不通过的 PR 不能被提交到 BFE，安装使用它：
 
 ```bash
-$ make license-eye-install
+# 确保安装license-eye
+$ make deps
+# 检查所有证书声明
 $ make license-check
+# 修复所有证书声明
 $ make license-fix
 ```
-
 
 ## 开始开发
 
