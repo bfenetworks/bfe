@@ -32,8 +32,11 @@ GOINSTALL    := $(GO) install
 GOFLAGS      := -race
 STATICCHECK  := staticcheck
 LICENSEEYE   := license-eye
+MDLINT       := markdownlint
 PIP          := pip3
 PIPINSTALL   := $(PIP) install
+NPM          := npm
+NPMINSTALL   := $(NPM) install
 
 # init arch
 ARCH := $(shell getconf LONG_BIT)
@@ -61,6 +64,12 @@ endef
 define PIP_INSTALL_PKG
 	@echo installing $(1)
 	$(PIPINSTALL) $(1)
+	@echo $(1) installed
+endef
+
+define NPM_INSTALL_PKG
+	@echo installing $(1)
+	$(NPMINSTALL) $(1)
 	@echo $(1) installed
 endef
 
@@ -107,6 +116,7 @@ package:
 
 # make deps
 deps:
+	$(call NPM_INSTALL_PKG, markdownlint-cli)
 	$(call PIP_INSTALL_PKG, pre-commit)
 	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc)
 	$(call INSTALL_PKG, staticcheck, honnef.co/go/tools/cmd/staticcheck)
@@ -116,6 +126,14 @@ deps:
 precommit:
 	pre-commit autoupdate
 	pre-commit install --install-hooks
+
+# make mdlint
+mdlint:
+	$(MDLINT) $(WORKROOT)
+
+# make mdlint-fix
+mdlint-fix:
+	$(MDLINT) --fix $(WORKROOT)
 
 # make check
 check:

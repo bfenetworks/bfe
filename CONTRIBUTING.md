@@ -38,24 +38,26 @@ BFE uses this [Git branching model](http://nvie.com/posts/a-successful-git-branc
 
    Our pre-commit configuration requires gofmt for auto-formating golang code.
 
-   Once installed, `pre-commit` checks the style of code and documentation in every commit: 
+   Once installed, `pre-commit` checks the style of code and documentation in every commit:
 
    ```
    $ git commit -s
    ```
-   
+
 	NOTE: You should add a line to every git commit message, e.g.
+
    ```
    Signed-off-by: Sijie Yang <iyangsj@gmail.com>
    ```
-	Please use your real name (sorry, no pseudonyms or anonymous contributions). The signoff line at the end of the commit message certifies that you wrote it 
+
+	Please use your real name (sorry, no pseudonyms or anonymous contributions). The signoff line at the end of the commit message certifies that you wrote it
 or otherwise have the right to pass it on as an open-source patch. The rules are pretty simple: if you can certify the [Developer Certificate of Origin](https://developercertificate.org/).
 
 	NOTE: The `yapf` installed by `pip install pre-commit` and `conda install -c conda-forge pre-commit` is slightly different. BFE developers use `pip install pre-commit`.
 
 1. Build and test
 
-   Users can build BFE natively on Linux. 
+   Users can build BFE natively on Linux.
 
    ```bash
    make
@@ -86,7 +88,6 @@ or otherwise have the right to pass it on as an open-source patch. The rules are
 
    Please remember to specify some reviewers for your pull request. If you don't know who are the right ones, please follow Github's recommendation.
 
-
 1. Delete local and remote branches
 
    To keep your local workspace and your fork clean, you might want to remove merged branches:
@@ -100,7 +101,7 @@ or otherwise have the right to pass it on as an open-source patch. The rules are
 
 ### Code Review
 
--  Please feel free to ping your reviewers by sending them the URL of your pull request via IM or email. Please do this after your pull request passes the CI.
+- Please feel free to ping your reviewers by sending them the URL of your pull request via IM or email. Please do this after your pull request passes the CI.
 
 - Please answer reviewers' every comment. If you are to follow the comment, please write "Done"; please give a reason otherwise.
 
@@ -108,14 +109,13 @@ or otherwise have the right to pass it on as an open-source patch. The rules are
 
 - Reduce the unnecessary commits.  Some developers commit often.  It is recommended to append a sequence of small changes into one commit by running `git commit --amend` instead of `git commit`.
 
-
 ## Coding Standard
 
 ### Code Style
 
 Our Golang code follows the [Golang style guide](https://github.com/golang/go/wiki/Style).
 
-Our build process helps to check the code style. 
+Our build process helps to check the code style.
 
 Please install pre-commit, which automatically reformat the changes to Golang code whenever we run `git commit`.  
 
@@ -124,4 +124,3 @@ Please install pre-commit, which automatically reformat the changes to Golang co
 Please remember to add related unit tests.
 
 - For Golang code, please use [Golang's standard `testing` package](https://golang.org/pkg/testing/).
-
