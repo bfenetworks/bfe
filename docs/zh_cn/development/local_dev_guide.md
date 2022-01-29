@@ -64,9 +64,9 @@ BFE 使用 `gofmt` 来调整 golang源代码格式。
 ```bash
 # 确保安装license-eye
 $ make deps
-# 检查所有证书声明
+# 检查所有许可证
 $ make license-check
-# 修复所有证书声明
+# 修复所有许可证
 $ make license-fix
 ```
 
