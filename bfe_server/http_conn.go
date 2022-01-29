@@ -81,7 +81,7 @@ func (sr *liveSwitchReader) Read(p []byte) (n int, err error) {
 	return r.Read(p)
 }
 
-// A conn represents the server side of an HTTP/HTTPS connection.
+// conn represents the server side of an HTTP/HTTPS connection.
 type conn struct {
 	// immutable:
 	remoteAddr string             // network address of remote side
