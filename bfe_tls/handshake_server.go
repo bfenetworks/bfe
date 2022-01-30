@@ -288,7 +288,7 @@ Curves:
 	}
 
 	if tlsMultiCertificate != nil {
-		// select certificate by thirdparty policy
+		// select certificate by third party policy
 		if cert := tlsMultiCertificate.Get(c); cert != nil {
 			hs.cert = cert
 		}

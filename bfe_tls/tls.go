@@ -16,7 +16,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package tls partially implements TLS 1.2, as specified in RFC 5246.
+// Package bfe_tls partially implements TLS 1.2, as specified in RFC 5246.
 package bfe_tls
 
 import (
@@ -81,6 +81,7 @@ func NewListener(inner net.Listener, config *Config) net.Listener {
 	return l
 }
 
+// UpdateListener
 /* UpdateListener - update config for tls listener
  *
  * Params:
