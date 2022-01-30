@@ -60,7 +60,7 @@ func (h Header) Get(key string) string {
 }
 
 // Values returns all values associated with the given key.
-// It is case insensitive; textproto.CanonicalMIMEHeaderKey is
+// It is case-insensitive; textproto.CanonicalMIMEHeaderKey is
 // used to canonicalize the provided key. To use non-canonical
 // keys, access the map directly.
 // The returned slice is not a copy.

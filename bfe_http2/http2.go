@@ -556,7 +556,7 @@ type ServerRule interface {
 	GetHTTP2Rule(conn *tls.Conn) *Rule
 }
 
-// customized http2 config for specific conn in server side
+// Rule customized http2 config for specific conn in server side
 type Rule struct {
 	// MaxConcurrentStreams optionally specifies the number of
 	// concurrent streams for current conn
