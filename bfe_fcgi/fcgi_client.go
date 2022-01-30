@@ -42,7 +42,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_net/textproto"
 )
 
-// FCGIListenSockFileno describes listen socket file number.
+// FCGIListenSockFileNo describes listen socket file number.
 const FCGIListenSockFileNo uint8 = 0
 
 // FCGIHeaderLen describes header length.
@@ -98,7 +98,7 @@ const (
 )
 
 const (
-	// FCGIResponder is the responder flag.
+	// FCGIResponser is the responder flag.
 	FCGIResponser uint8 = iota + 1
 
 	// FCGIAuthorizer is the authorizer flag.
@@ -112,10 +112,10 @@ const (
 	// FCGIRequestComplete is the completed request flag.
 	FCGIRequestComplete uint8 = iota
 
-	// FCGICantMultiplexConns is the multiplexed connections flag.
+	// FCGICantMpxConn is the multiplexed connections flag.
 	FCGICantMpxConn
 
-	// FCGIOverloaded is the overloaded flag.
+	// FCGIOverLoaded is the overloaded flag.
 	FCGIOverLoaded
 
 	// FCGIUnknownRole is the unknown role flag.
@@ -123,13 +123,13 @@ const (
 )
 
 const (
-	// MaxConns is the maximum connections flag.
+	// FCGIMaxConns is the maximum connections flag.
 	FCGIMaxConns string = "MAX_CONNS"
 
-	// MaxRequests is the maximum requests flag.
+	// FCGIMaxReqs is the maximum requests flag.
 	FCGIMaxReqs string = "MAX_REQS"
 
-	// MultiplexConns is the multiplex connections flag.
+	// FCGIMpxsConns is the multiplex connections flag.
 	FCGIMpxsConns string = "MPXS_CONNS"
 )
 
