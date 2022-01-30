@@ -184,7 +184,7 @@ func NewPipeFromBufferPool(pool *sync.Pool) *Pipe {
 	return p
 }
 
-// Release() releases underlying fixed buffer
+// Release releases underlying fixed buffer
 func (p *Pipe) Release(pool *sync.Pool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

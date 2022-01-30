@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	// reference: https://en.wikipedia.org/wiki/List_of_military_time_zones
+	// TimeZoneMap reference: https://en.wikipedia.org/wiki/List_of_military_time_zones
 	TimeZoneMap = map[string]int{ // alphabet => time offset
 		"Y": -12 * 3600, // UTC-12
 		"X": -11 * 3600,
