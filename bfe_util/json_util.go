@@ -49,7 +49,7 @@ func DumpJson(jsonObject interface{}, filePath string, perm os.FileMode) error {
 		return fmt.Errorf("marshal err %s", err)
 	}
 
-	// mkdirall dir
+	// mkdir all dir
 	dirPath := path.Dir(filePath)
 	if err = os.MkdirAll(dirPath, 0755); err != nil {
 		return fmt.Errorf("MkdirALl err %s", err.Error())
