@@ -98,7 +98,7 @@ func (st *ServerTester) Write(data []byte) error {
 	return err
 }
 
-// client read and check message
+// WantData client read and check message
 func (st *ServerTester) WantData(data []byte) {
 	buf := make([]byte, len(data))
 	if err := st.Read(buf); err != nil {
@@ -110,7 +110,7 @@ func (st *ServerTester) WantData(data []byte) {
 	}
 }
 
-// client read and check error
+// WantError client read and check error
 func (st *ServerTester) WantError(e string) {
 	err := st.Read(make([]byte, 256))
 	if err == nil {
