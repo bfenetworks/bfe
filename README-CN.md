@@ -17,7 +17,7 @@ BFE (Beyond Front End) 是百度开源的现代化、企业级的七层负载均
 
 BFE 是 [云原生计算基金会 (Cloud Native Computing Foundation, CNCF)](https://cncf.io/) 的一个沙箱项目
 
-![](./docs/images/cncf-logo.png)
+![cncf-logo](./docs/images/cncf-logo.png)
 
 ## 简介
 
