@@ -129,11 +129,11 @@ precommit:
 
 # make mdlint
 mdlint:
-	$(MDLINT) $(WORKROOT)
+	$(MDLINT) --ignore $(WORKROOT)/**/testdata/**/*.md $(WORKROOT)
 
 # make mdlint-fix
 mdlint-fix:
-	$(MDLINT) --fix $(WORKROOT)
+	$(MDLINT) --fix --ignore $(WORKROOT)/**/testdata/**/*.md $(WORKROOT)
 
 # make check
 check:
