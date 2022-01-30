@@ -22,7 +22,7 @@ package textproto
 // keys to sets of values.
 type MIMEHeader map[string][]string
 
-// MIMEKyes represents keys of header in original order
+// MIMEKeys represents keys of header in original order
 type MIMEKeys []string
 
 // Add adds the key, value pair to the header.
@@ -55,7 +55,7 @@ func (h MIMEHeader) Get(key string) string {
 }
 
 // Values returns all values associated with the given key.
-// It is case insensitive; CanonicalMIMEHeaderKey is
+// It is case-insensitive; CanonicalMIMEHeaderKey is
 // used to canonicalize the provided key. To use non-canonical
 // keys, access the map directly.
 // The returned slice is not a copy.
