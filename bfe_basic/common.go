@@ -47,7 +47,7 @@ const (
 	GlobalProduct = "global"
 )
 
-// Hop-by-hop headers. These are removed when sent to the backend.
+// HopHeaders Hop-by-hop headers. These are removed when sent to the backend.
 // http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
 var HopHeaders = []string{
 	"Connection",
@@ -80,7 +80,7 @@ func CreateInternalResp(request *Request, code int) *bfe_http.Response {
 	return res
 }
 
-// this interface is used for lookup config for each request
+// ServerDataConfInterface this interface is used for lookup config for each request
 type ServerDataConfInterface interface {
 	ClusterTableLookup(clusterName string) (*bfe_cluster.BfeCluster, error)
 	HostTableLookup(hostname string) (string, error)
