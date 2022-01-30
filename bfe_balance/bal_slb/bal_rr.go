@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// weighted round robin balance
+// weighted round-robin balance
 //
 // Algorithm:
 //   smooth Weighted Round Robin algorithm is as follows: on each backend selection,
@@ -54,7 +54,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_debug"
 )
 
-// implementation versions of weighted round robin algorithm
+// implementation versions of weighted round-robin algorithm
 const (
 	WrrSimple = 0
 	WrrSmooth = 1
@@ -89,13 +89,13 @@ func (s BackendListSorter) Less(i, j int) bool {
 
 type BalanceRR struct {
 	sync.Mutex
-	Name          string
-	backends      BackendList // list of BackendRR
-	sorted        bool        // list of BackeneRR sorted or not
-	next          int         // next backend to schedule
+	Name     string
+	backends BackendList // list of BackendRR
+	sorted   bool        // list of BackendRR sorted or not
+	next     int         // next backend to schedule
 
-	slowStartNum  int         // number of backends in slow_start phase
-	slowStartTime int         // time for backend increases the weight to the full value, in seconds
+	slowStartNum  int // number of backends in slow_start phase
+	slowStartTime int // time for backend increases the weight to the full value, in seconds
 }
 
 func NewBalanceRR(name string) *BalanceRR {
@@ -177,7 +177,7 @@ func (brr *BalanceRR) Update(conf cluster_table_conf.SubClusterBackend) {
 			backendsNew = append(backendsNew, backendRR)
 			delete(confMap, backendKey)
 		} else {
-			// tell healthcheck to stop
+			// tell health-check to stop
 			backendRR.Release()
 		}
 	}
@@ -219,7 +219,7 @@ func (brr *BalanceRR) ensureSortedUnlocked() {
 	}
 }
 
-// Balance select one backend from sub cluster in round robin manner.
+// Balance select one backend from sub cluster in round-robin manner.
 func (brr *BalanceRR) Balance(algor int, key []byte) (*backend.BfeBackend, error) {
 	// Slow start is not supported when session sticky is enabled
 	if algor != WrrSticky {
@@ -259,7 +259,7 @@ func smoothBalance(backs BackendList) (*backend.BfeBackend, error) {
 			continue
 		}
 
-		// select backend with greatest current weight
+		// select backend with the greatest current weight
 		if best == nil || backendRR.current > max {
 			best = backendRR
 			max = backendRR.current
@@ -412,7 +412,7 @@ func (brr *BalanceRR) simpleBalance() (*backend.BfeBackend, error) {
 		next = moveToNext(next, backends)
 
 		if next == brr.next {
-			// all backends have been check
+			// all backends have been checked
 			if allBackendDown {
 				if bfe_debug.DebugBal {
 					log.Logger.Debug("rr_bal:all backend is down")
@@ -480,7 +480,7 @@ func (brr *BalanceRR) stickyBalance(key []byte) (*backend.BfeBackend, error) {
 // result will be 0 if a == b, -1 if a < b, +1 if a > b
 func compLCWeight(a, b *BackendRR) int {
 	// compare a.backend.ConnNum() / a.weight and b.backend.ConnNum() / b.weight
-	// to avoid compare floating num, both multipli a.weight * b.weight
+	// to avoid compare floating num, both multiple a.weight * b.weight
 	ret := a.backend.ConnNum()*b.weight - b.backend.ConnNum()*a.weight
 
 	// a.backend.ConnNum() / a.weight > b.backend.ConnNum() / b.weight
