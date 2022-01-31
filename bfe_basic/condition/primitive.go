@@ -986,7 +986,7 @@ func (f *ContextValueFetcher) Fetch(req *bfe_basic.Request) (interface{}, error)
 	return req.GetContext(f.key), nil
 }
 
-// time range matcher
+// TimeMatcher is time range matcher
 type TimeMatcher struct {
 	startTime time.Time
 	endTime   time.Time
@@ -1043,14 +1043,14 @@ func (f *BfeTimeFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
 	return debugTime, nil
 }
 
-// periodic time range matcher
+// PeriodicTimeMatcher is periodic time range matcher
 type PeriodicTimeMatcher struct {
 	startTime int // in seconds of a day
 	endTime   int
 	offset    int // timezone offset
 }
 
-// time string format: hhmmssZ, example 150405H, Z-> timezone defined in bfe_util.TimeZoneMap
+// NewPeriodicTimeMatcher follows time string format: hhmmssZ, example 150405H, Z-> timezone defined in bfe_util.TimeZoneMap
 func NewPeriodicTimeMatcher(startTimeStr, endTimeStr, periodStr string) (*PeriodicTimeMatcher, error) {
 	if periodStr != "" {
 		return nil, fmt.Errorf("periodStr is not supported, should not be set!")
