@@ -15,6 +15,7 @@
 // Copyright 2010 The Go Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+
 package bfe_http
 
 import (
@@ -157,7 +158,7 @@ func (c ConnState) String() string {
 	return stateName[c]
 }
 
-// Objects implementing the Handler interface can be
+// The Handler Objects implementing the Handler interface can be
 // registered to serve a particular path or subtree
 // in the HTTP server.
 //
@@ -350,10 +351,10 @@ func (e TransportBrokenError) Error() string {
 }
 
 type FlowLimiter interface {
-	// check whether current connection should be accept or not
+	// AcceptConn check whether current connection should be accept or not
 	AcceptConn() bool
 
-	// check whether current request should be accept or not
+	// AcceptRequest check whether current request should be accept or not
 	AcceptRequest() bool
 }
 
@@ -401,7 +402,7 @@ func (w *CloseWatcher) Stop() {
 	w.done <- true
 }
 
-// common interface for peeking data
+// Peeker is common interface for peeking data
 type Peeker interface {
 	Peek(n int) ([]byte, error)
 }
