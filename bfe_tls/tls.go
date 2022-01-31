@@ -16,7 +16,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package tls partially implements TLS 1.2, as specified in RFC 5246.
+// Package bfe_tls partially implements TLS 1.2, as specified in RFC 5246.
 package bfe_tls
 
 import (
@@ -81,8 +81,8 @@ func NewListener(inner net.Listener, config *Config) net.Listener {
 	return l
 }
 
-/* UpdateListener - update config for tls listener
- *
+// UpdateListener updates config for tls listener
+/*
  * Params:
  *     - ln  : a tls listener
  *     - conf: a tls config
@@ -95,7 +95,7 @@ func NewListener(inner net.Listener, config *Config) net.Listener {
  * to accepted Connection.
  *     2. tls.Conn will just read tls.Config during handshake and
  * data transfer phase
- *     3. MUST specified a new tls.config when called
+ *     3. MUST specify a new tls.config when called
  */
 func UpdateListener(ln net.Listener, conf *Config) error {
 	l, ok := ln.(*listener)
@@ -220,7 +220,7 @@ func Dial(network, addr string, config *Config) (*Conn, error) {
 // LoadX509KeyPair reads and parses a public/private key pair from a pair of
 // files. The files must contain PEM encoded data.
 func LoadX509KeyPair(certFile, keyFile string) (cert Certificate, err error) {
-	// try thirdparty loader
+	// try third party loader
 	if keyPairLoader != nil {
 		return keyPairLoader.LoadX509KeyPair(certFile, keyFile)
 	}

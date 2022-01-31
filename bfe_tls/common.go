@@ -570,9 +570,9 @@ func (c *Config) mutualVersion(vers uint16) (uint16, bool) {
 	return vers, true
 }
 
-// followed the rule definded in www.ssllabs.com:
+// followed the rule defined in www.ssllabs.com:
 // in Grade "A+", ssl version older than tls1.2 is not allowed
-// in Grade "A", ssl verion older than tls1.0 is not allowed
+// in Grade "A", ssl version older than tls1.0 is not allowed
 func (c *Config) checkVersionGrade(vers uint16, grade string) (uint16, bool) {
 	// ssl ver older than tls1.0 is not allowed for Grade A
 	if grade == GradeA && vers < VersionTLS10 {
