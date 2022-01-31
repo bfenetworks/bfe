@@ -402,7 +402,7 @@ func (w *CloseWatcher) Stop() {
 	w.done <- true
 }
 
-// Peeker common interface for peeking data
+// Peeker is common interface for peeking data
 type Peeker interface {
 	Peek(n int) ([]byte, error)
 }
