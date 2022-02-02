@@ -1,4 +1,4 @@
-# Cluster Configuration 
+# Cluster Configuration
 
 ## Introduction
 
@@ -78,6 +78,7 @@ ClusterBasic is basic config for cluster.
 | CancelOnClientClose    | Bool<br>During reading response from backend, cancel the blocking status if client connection disconnected. Default and recommended value is false. |
 
 ## Example
+
 ```json
 {
     "Version": "20190101000000",

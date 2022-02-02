@@ -2,7 +2,7 @@
 
 ## Introduction
 
-route_rule.data records route rule config for each product. 
+route_rule.data records route rule config for each product.
 
 ## Configuration
 

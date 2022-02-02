@@ -58,7 +58,6 @@ bfe.conf is the core configuration file of BFE.
 | SessionTicket.SessionTicketsDisabled | Boolean<br>Disable tls session ticket or not<br>Default True |
 | SessionTicket.SessionTicketKeyFile   | String<br>Path of [session ticket key config](tls_conf/session_ticket_key.data.md)<br>Default tls_conf/session_ticket_key.data |
 
-
 ## Example
 
 ```ini

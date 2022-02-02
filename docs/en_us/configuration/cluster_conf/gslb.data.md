@@ -2,7 +2,7 @@
 
 ## Introduction
 
-gslb.data records the load balancing config between sub-clusters. 
+gslb.data records the load balancing config between sub-clusters.
 
 ## Configuration
 
@@ -17,6 +17,7 @@ gslb.data records the load balancing config between sub-clusters.
 | Ts          | String<br>Timestamp of config file                                     |
 
 ## Example
+
 ```json
 {
     "Clusters": {
