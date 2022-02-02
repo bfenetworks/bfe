@@ -1,6 +1,7 @@
 # 时间相关条件原语
 
 ## bfe_time_range(start_time, end_time)
+
 * 语义: 判断当前时间是否属于[start_time, end_time]
 
 * 参数
@@ -19,6 +20,7 @@ bfe_time_range("20190204203000H", "20190204204500H")
 ```
 
 ## bfe_periodic_time_range(start_time, end_time, period)
+
 * 语义: 判断当前时间是否周期性属于[start_time, end_time]
 
 * 参数
@@ -37,11 +39,11 @@ bfe_time_range("20190204203000H", "20190204204500H")
 bfe_periodic_time_range("203000H", "204500H", "")
 ```
 
-# 附A.时间原语测试
+## 附A.时间原语测试
 
 - 为便于测试条件时间原语，可以在请求中增加 **X-Bfe-Debug-Time** 头部携带时间，来mock系统时间
 
-# 附B.时区字符编码
+## 附B.时区字符编码
 
 | **Time zone name** | **Letter** | **Offset**                                             | **说明**         |
 | :----------------- | :--------- | :----------------------------------------------------- | :--------------- |

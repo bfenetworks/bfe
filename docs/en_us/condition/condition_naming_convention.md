@@ -17,9 +17,10 @@ BFE adopts the following naming convention for condition primitives.
     - e.g. bfe_time_range()
 
 ## Name of comparison operations
+
 - **match**: exact match
     - eg. req_tag_match()
-    
+
 - **in**: whether an element exists in a set or not
     - eg. req_host_in()
 
@@ -44,9 +45,9 @@ BFE adopts the following naming convention for condition primitives.
 - **range**: range match
     - eg. req_cip_range()
 
-- **regmatch**: use regular expression to match 
+- **regmatch**: use regular expression to match
     - eg. req_url_regmatch()
     - Warning:  Inappropriate use can significantly affect performance
-    
+
 - **contain**: string match
     - eg. req_cookie_value_contain()
