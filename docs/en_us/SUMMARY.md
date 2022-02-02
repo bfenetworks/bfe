@@ -11,7 +11,7 @@
     * [Traffic balancing](introduction/balance.md)
   * [Getting help](introduction/getting_help.md)
   * [Version History](https://github.com/bfenetworks/bfe/blob/master/CHANGELOG.md)
-* Getting Started 
+* Getting Started
   * [Install](installation/install_from_source.md)
   * [User Guides](example/guide.md)
     * [Traffic forwarding](example/route.md)
@@ -91,7 +91,7 @@
   * [Performance](faq/performance.md)
   * [Development](faq/development.md)
 * Appendix A: Monitor
-  * Protocol 
+  * Protocol
     * [TLS](monitor/tls_state.md)
     * [HTTP](monitor/http_state.md)
     * [HTTP2](monitor/http2_state.md)
