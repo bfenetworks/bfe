@@ -20,3 +20,8 @@ repos:
     - id: go-vet
     - id: go-unit-tests
     - id: go-build
+
+- repo: git://github.com/crate-ci/typos
+  rev: v1.3.9
+  hooks:
+    - id: typos
