@@ -1,6 +1,7 @@
 # 响应头部相关条件原语
 
 ## res_header_key_in(key_list)
+
 * 语义: 判断响应头部中key是否满足key_list之一
 
 * 参数
@@ -16,6 +17,7 @@ res_header_key_in("X-Bfe-Debug")
 ```
 
 ## res_header_value_in(key, value_list, case_insensitive)
+
 * 语义: 判断header中key值是否满足value_list之一
 
 * 参数
