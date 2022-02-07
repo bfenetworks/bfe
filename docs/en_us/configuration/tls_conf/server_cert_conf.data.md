@@ -19,6 +19,7 @@ server_cert_conf.data records the config for server certificate and private key
 | Config.CertConf{v}.OcspResponseFile  | String<br>Path of OCSP Stple (optional) |
 
 ## Example
+
 ```json
 {
     "Version": "20190101000000",

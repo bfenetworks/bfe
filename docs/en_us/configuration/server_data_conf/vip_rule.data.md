@@ -2,7 +2,7 @@
 
 ## Introduction
 
-vip_rule.data records vip lists for each product. 
+vip_rule.data records vip lists for each product.
 
 ## Configuration
 
@@ -25,6 +25,3 @@ vip_rule.data records vip lists for each product.
     }
 }
 ```
-
-
-
