@@ -91,7 +91,7 @@
   * [性能相关](faq/performance.md)
   * [开发相关](faq/development.md)
 * 附录A: 监控
-  * 协议 
+  * 协议
     * [TLS](monitor/tls_state.md)
     * [HTTP](monitor/http_state.md)
     * [HTTP2](monitor/http2_state.md)
