@@ -81,7 +81,7 @@ Note: For the meaning of type int in the return value below, please refer to "Re
     + HandleReadResponse
     + HandleRequestFinish
 - Function prototype:
-    + handler(req *bfe_basic.Request, res*bfe_http.Response) int
+    + handler(req *bfe_basic.Request, res *bfe_http.Response) int
 
 ### HandlersFinish
 

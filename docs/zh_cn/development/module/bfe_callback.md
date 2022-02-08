@@ -81,7 +81,7 @@ BFE转发过程中的回调点如下图所示。
     + HandleReadResponse
     + HandleRequestFinish
 - 回调函数形式：
-    + handler(req *bfe_basic.Request, res*bfe_http.Response) int
+    + handler(req *bfe_basic.Request, res *bfe_http.Response) int
 
 ### HandlersFinish
 
