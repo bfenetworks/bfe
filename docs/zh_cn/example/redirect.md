@@ -6,6 +6,7 @@
   * 域名：example.org
 
 ## 配置说明
+
 在样例配置(conf/)上添加一些新的配置，就可以实现上述重定向行为
 
 * Step 1. bfe启用mod_redirect模块 (conf/bfe.conf)
@@ -47,4 +48,5 @@ DataPath = mod_redirect/redirect.data
 ```bash
 curl -H "host: example.org" "http://127.1:8080/test"
 ```
+
 将返回301响应，响应Location头部为https://example.org/test
