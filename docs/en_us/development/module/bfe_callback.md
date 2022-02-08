@@ -57,7 +57,7 @@ Note: For the meaning of type int in the return value below, please refer to "Re
     + HandleAccept
     + HandleHandshake
 - Function prototype:
-    + handler(session *bfe_basic.Session) int
+    + `handler(session *bfe_basic.Session) int`
 
 ### HandlersRequest
 
@@ -66,14 +66,14 @@ Note: For the meaning of type int in the return value below, please refer to "Re
     + HandleFoundProduct
     + HandleAfterLocation
 - Function prototype:
-    + handler(req *bfe_basic.Request) (int,*bfe_http.Response)
+    + `handler(req *bfe_basic.Request) (int, *bfe_http.Response)`
 
 ### HandlersForward
 
 - Applicable callback point:
     + HandleForward
 - Function prototype:
-    + handler(req *bfe_basic.Request) int
+    + `handler(req *bfe_basic.Request) int`
 
 ### HandlersResponse
 
@@ -81,11 +81,11 @@ Note: For the meaning of type int in the return value below, please refer to "Re
     + HandleReadResponse
     + HandleRequestFinish
 - Function prototype:
-    + handler(req *bfe_basic.Request, res *bfe_http.Response) int
+    + `handler(req *bfe_basic.Request, res *bfe_http.Response) int`
 
 ### HandlersFinish
 
 - Applicable callback point:
     + HandleFinish
 - Function prototype:
-    + handler(session *bfe_basic.Session) int
+    + `handler(session *bfe_basic.Session) int`
