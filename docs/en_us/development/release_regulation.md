@@ -1,4 +1,5 @@
 # BFE Release Regulation
+
 BFE development follows git-flow branching model and [Semantic Versioning](http://semver.org/).
 
 ## Branch Regulation
@@ -25,7 +26,6 @@ BFE development follows [git-flow](http://nvie.com/posts/a-successful-git-branch
 
     * In addition, the 'bugfix' branch is also maintained in the developer's forked repository. Different from the feature branch, developers should submit 'Pull Request' from the 'bugfix' branch to 'master', 'develop' and possibly 'release/vX.Y.Z' branches of the official repository respectively.
 
-
 ## Release Regulation
 
 Follow the following procedures to release a new version:
@@ -38,7 +38,7 @@ Follow the following procedures to release a new version:
 
     * Modify version information in 'VERSION' file.
 
-    * Test the functional correctness of the version. If it fails, fixing all the bugs in the 'release/vX.Y.Z' branch, and return to the second step with patch number added by 1. 
+    * Test the functional correctness of the version. If it fails, fixing all the bugs in the 'release/vX.Y.Z' branch, and return to the second step with patch number added by 1.
 
 1. Complete the writing of [Release Note](https://github.com/bfenetworks/bfe/blob/develop/CHANGELOG.md).
 

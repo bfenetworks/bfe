@@ -3,12 +3,14 @@
 本文将指导您如何在本地进行代码开发
 
 ## 代码要求
+
 - 代码注释请遵守 golang 代码规范
 - 所有代码必须具有单元测试
 - 通过所有单元测试
 - 请遵循[提交代码的一些约定](submit_pr_guide.md)
 
 以下教程将指导您提交代码。
+
 ## [Fork](https://help.github.com/articles/fork-a-repo/)
 
 跳转到[BFE](https://github.com/bfenetworks/bfe) GitHub首页，然后单击 `Fork` 按钮，生成自己目录下的仓库，比如 <https://github.com/USERNAME/bfe>
@@ -125,7 +127,7 @@ Check for merge conflicts................................................Passed
 Check for broken symlinks................................................Passed
 Detect Private Key...................................(no files to check)Skipped
 Fix End of Files.....................................(no files to check)Skipped
-clang-formater.......................................(no files to check)Skipped
+clang-formatter.......................................(no files to check)Skipped
 [my-cool-stuff c703c041] add test file
  1 file changed, 0 insertions(+), 0 deletions(-)
  create mode 100644 233

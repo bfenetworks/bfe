@@ -3,13 +3,14 @@
 You will learn how to develop BFE in local environment under the guidelines of this document.
 
 ## Requirements of coding
+
 - Please refer to the coding format of golang
 - Unit test is needed for all codes.
 - Pass through all unit tests.
 - Please follow [regulations of submmiting codes](submit_pr_guide.md)
   
-
 The following guidiance tells you how to submit code.
+
 ## [Fork](https://help.github.com/articles/fork-a-repo/)
 
 Transfer to the home page of Github [BFE](https://github.com/bfenetworks/bfe) ,and then click button `Fork`  to generate the git under your own file directory,such as <https://github.com/USERNAME/bfe>
@@ -23,7 +24,6 @@ $ git clone https://github.com/USERNAME/bfe
 $ cd bfe
 ```
 
-
 ## Create local branch
 
 At present [Git stream branch model](http://nvie.com/posts/a-successful-git-branching-model/)  is applied to BFE to undergo task of development,test,release and maintenance.Please refer to [branch regulation of BFE](release_regulation.md) about details。
@@ -31,7 +31,6 @@ At present [Git stream branch model](http://nvie.com/posts/a-successful-git-bran
 All development tasks of feature and bug fix should be finished in a new branch which is extended from `develop` branch.
 
 Create and switch to a new branch with command `git checkout -b`.
-
 
 ```bash
 $ git checkout -b my-cool-stuff
@@ -79,7 +78,6 @@ I delete a line of README.md and create a new file in the case.
 
 View the current state via `git status` , which will prompt some changes to the current directory, and you can also view the file's specific changes via `git diff` .
 
-
 ```bash
 $ git status
 On branch test
@@ -123,7 +121,7 @@ Check for merge conflicts................................................Passed
 Check for broken symlinks................................................Passed
 Detect Private Key...................................(no files to check)Skipped
 Fix End of Files.....................................(no files to check)Skipped
-clang-formater.......................................(no files to check)Skipped
+clang-formatter.......................................(no files to check)Skipped
 [my-cool-stuff c703c041] add test file
  1 file changed, 0 insertions(+), 0 deletions(-)
  create mode 100644 233
