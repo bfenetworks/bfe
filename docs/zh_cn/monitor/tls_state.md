@@ -24,4 +24,3 @@
 | TLS_HANDSHAKE_SSLV2_NOT_SUPPORT            | 不支持SSLv2版本握手的次数                          |
 | TLS_HANDSHAKE_ZERO_DATA                    | 客户端建立连接后未发送消息的错误数                 |
 | TLS_STATUS_REQUEST_EXT_COUNT               | ClientHello携带Certificate Status Request扩展的次数|
-
