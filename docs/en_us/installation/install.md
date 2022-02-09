@@ -15,6 +15,7 @@ For guide of installation of BFE control plane components, see deploy document o
 - [Install using docker](install_using_docker.md)
 
 ## Supported platform
+
 | Operating System | Description |
 | ---------- | ------------------ |
 | Linux OS   | Support<br>*Recommended development and deployment system* |

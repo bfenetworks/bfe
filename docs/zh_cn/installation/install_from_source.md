@@ -1,16 +1,19 @@
 # 源码编译安装
 
 ## 环境准备
+
 - golang 1.17+
 - git 2.0+
 - glibc-static 2.17+
 
 ## 源码下载
+
 ```bash
 $ git clone https://github.com/bfenetworks/bfe
 ```
 
 ## 编译
+
 - 执行如下命令编译:
 
 ```bash
@@ -44,5 +47,6 @@ $ ./bfe -c ../conf -l ../log
 ```
 
 ## 下一步
+
 * 了解[命令行参数](../operation/command.md)
 * 了解[基本功能配置使用](../example/guide.md)
