@@ -1,12 +1,12 @@
 # Comparison to similar systems
 
-Here comparion will be made between BFE and several similar system.
+Here comparison will be made between BFE and several similar system.
 
 NOTE: Most of the projects below are under active development. Thus some of the information may become out of date. If that is the case please feedback to https://github.com/bfenetworks/bfe/issues.
 
 ## Briefs of BFE and similar systems
 
-The brief decriptions of several systems are as follows:
+The brief descriptions of several systems are as follows:
 
 + BFE: BFE is an open-source layer 7 load balancer.
 + [Nginx](http://nginx.org/en/): nginx is an HTTP and reverse proxy server, a mail proxy server, and a generic TCP/UDP proxy server.
@@ -63,7 +63,7 @@ Due to difference in language, cost for new features is lower for BFE and Traefi
 
 ### Resilience to exception
 
-With recovery mechanism of Golang, Panic can be caught in BFE and Traefik. Both system are immune to sudden crash. 
+With recovery mechanism of Golang, Panic can be caught in BFE and Traefik. Both system are immune to sudden crash.
 
 While Nginx and Envoy can do nothing with wrong memory usage. Debugging such a bug is very time-consuming.
 
@@ -71,7 +71,7 @@ While Nginx and Envoy can do nothing with wrong memory usage. Debugging such a b
 
 ### Observability
 
-+ BFE provides [rich internal status](../operation/monitor.md) for external observation. 
++ BFE provides [rich internal status](../operation/monitor.md) for external observation.
 + Nginx and Traefik provide less internal status.
 + Envoy also provides quite a lot internal status.
 
@@ -81,5 +81,3 @@ While Nginx and Envoy can do nothing with wrong memory usage. Debugging such a b
 + In Nginx, process must be restarted for the configuration to take effect, while active connections are terminated.
 
 NOTE: Nginx Plus supports hot-reload of configuration, with no process restart.
-
-
