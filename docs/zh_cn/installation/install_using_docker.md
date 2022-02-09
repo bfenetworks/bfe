@@ -1,6 +1,5 @@
 # docker安装
 
-
 ## 安装 && 运行
 
 - 基于示例配置运行BFE:
@@ -21,5 +20,6 @@ docker run -p 8080:8080 -p 8443:8443 -p 8421:8421 -v /Users/BFE/Desktop/log:/bfe
 ```
 
 ## 下一步
+
 * 了解[命令行参数](../operation/command.md)
 * 了解[基本功能配置使用](../example/guide.md)
