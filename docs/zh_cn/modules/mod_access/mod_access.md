@@ -1,10 +1,13 @@
 # mod_access
 
-## 模块简介 
+## 模块简介
+
 mod_access以指定格式记录请求日志和会话日志。
 
 ## 基础配置
+
 ### 配置描述
+
 模块配置文件: conf/mod_access/mod_access.conf
 
 | 配置项                | 描述                                        |
@@ -25,6 +28,7 @@ mod_access以指定格式记录请求日志和会话日志。
 ### 配置示例
 
 #### 将日志保存到指定路径
+
 ```ini
 [Log]
 # filename prefix for log
@@ -48,6 +52,7 @@ SessionTemplate = "SESSION_LOG  $time clientip: $ses_clientip start_time: $ses_s
 ```
 
 #### 将日志输出到标准输出
+
 ```ini
 [Log]
 # file path for log
@@ -90,7 +95,7 @@ SessionTemplate = "SESSION_LOG  $time clientip: $ses_clientip start_time: $ses_s
 | server_addr           | 连接本地地址                                |
 | backend               | 请求转发后端信息(集群、子集群、实例)        |
 | cluster_name          | 请求转发集群名称                            |
-| subcluster            | 请求转发子集群名称                          | 
+| subcluster            | 请求转发子集群名称                          |
 | retry_num             | 请求转发重试次数                            |
 | all_time              | 请求总处理时间                              |
 | read_req_duration     | 读请求头持续时间                            |
@@ -102,7 +107,6 @@ SessionTemplate = "SESSION_LOG  $time clientip: $ses_clientip start_time: $ses_s
 | last_backend_duration | 从请求后端到接收到响应头部持续时间          |
 | readwrite_serve_time  | 从请求后端到完成响应转发持续时间            |
 | since_ses_start_time  | 接收到请求时当前会话持续时间                |
-
 
 ### 会话日志变量
 
@@ -121,10 +125,8 @@ SessionTemplate = "SESSION_LOG  $time clientip: $ses_clientip start_time: $ses_s
 | ses_use100            | 是否出现Expect: 100-continue请求            |
 | ses_keepalive_num     | 会话总处理请求数                            |
 
-
 ### 通用日志变量
 
 | 变量名                | 含义                                        |
 | --------------------- | ------------------------------------------- |
 | time                  | 日志记录时间                                |
-

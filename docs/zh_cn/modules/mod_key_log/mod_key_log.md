@@ -8,7 +8,9 @@ mod_key_log以NSS key log格式记录TLS会话密钥, 便于基于第三方工�
 https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
 
 ## 基础配置
+
 ### 配置描述
+
 模块配置文件: conf/mod_key_log/mod_key_log.conf
 
 | 配置项                | 描述                                        |
@@ -22,6 +24,7 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
 ### 配置示例
 
 #### 将日志保存到指定目录
+
 ```ini
 [Log]
 # filename prefix for log 
@@ -36,7 +39,9 @@ RotateWhen = H
 # max number of rotated log files
 BackupCount = 3
 ```
+
 #### 将日志输出到标准输出
+
 ```ini
 [Log]
 # filename prefix for log 

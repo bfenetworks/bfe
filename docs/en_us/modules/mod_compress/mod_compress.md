@@ -7,6 +7,7 @@ mod_compress compresses responses based on specified rules.
 ## Module Configuration
 
 ### Description
+
 conf/mod_compress/mod_compress.conf
 
 | Config Item          | Description                                 |
@@ -27,9 +28,10 @@ OpenDebug = false
 ## Rule Configuration
 
 ### Description
+
 | Config Item | Description                                                |
 | ----------- | -------------------------------------------------------------- |
-| Version | String<br>Vesion of config file |
+| Version | String<br>Version of config file |
 | Config | Object<br>Compress rule for each product |
 | Config{k} | String<br>Product name |
 | Config{v} | Object<br>A list of compress rules |
@@ -42,12 +44,13 @@ OpenDebug = false
 
 ### Module Actions
 
-| Action                  | Descrition                          |
+| Action                  | Description                          |
 | ------------------------| ------------------------------------|
 | GZIP                    | Compress response using gzip method |
 | BROTLI                  | Compress response using brotli method |
 
 ### Example
+
 ```json
 {
     "Config": {

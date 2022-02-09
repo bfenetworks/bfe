@@ -1,20 +1,22 @@
 # mod_block
 
-## Introduction 
+## Introduction
 
 mod_block blocks incoming connections/requests based on defined rules.
 
 ## Module Configuration
 
 ### Description
+
 conf/mod_block/mod_block.conf
 
-| Config Item | Description | 
+| Config Item | Description |
 | ----------- | ----------- |
 | Basic.ProductRulePath | Path of product rule configuration |
 | Basic.IPBlocklistPath | Path of ip blocklist file |
 
 ### Example
+
 ```ini
 [Basic]
 # product rule config file path
@@ -39,7 +41,7 @@ conf/mod_block/block_rules.data
 
 | Config Item | Description                                                  |
 | ----------- | ------------------------------------------------------------ |
-| Version     | String<br>Verson of config file |
+| Version     | String<br>Version of config file |
 | Config      | Struct<br>Block rules for each product |
 | Config{k}   | String<br>Product name |
 | Config{v}   | Object<br>A list of rules |
@@ -100,4 +102,3 @@ conf/mod_block/block_rules.data
 | REQ_TOTAL     | Counter for all request in                                   |
 | REQ_TO_CHECK  | Counter for request to check                                 |
 | WRONG_COMMAND | Counter for request with condition satisfied, but wrong command |
-

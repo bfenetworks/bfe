@@ -18,6 +18,7 @@ mod_tcp_keepalive管理TCP长连接心跳包的发送策略。
 | Log.OpenDebug | Boolean<br>是否开启debug模式 |
 
 ### 配置示例
+
 ```ini
 [Basic]
 DataPath = ../data/mod_tcp_keepalive/tcp_keepalive.data
