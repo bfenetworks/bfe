@@ -1,8 +1,8 @@
 # mod_logid
 
-## Introduction 
+## Introduction
 
-mod_logid generates log ids for sessions/requests. 
+mod_logid generates log ids for sessions/requests.
 
 ## Module Configuration
 
@@ -13,4 +13,3 @@ Not required
 | Metric               | Description                         |
 | -------------------- | ----------------------------------- |
 | LOGID_CONVERT_FAILED | Counter for old logid convert error |
-

@@ -1,21 +1,22 @@
 # mod_trace
 
-## Introduction 
+## Introduction
 
 mod_trace enables tracing for requests based on defined rules.
 
 ## Module Configuration
 
 ### Description
+
  conf/mod_trace/mod_trace.conf
- 
+
 #### Basic Configuration
 
 | Config Item                   | Description                     |
 | ------------------------------| --------------------------------|
-| Basic.DataPath                | String<br>Path of rule configuraiton |
+| Basic.DataPath                | String<br>Path of rule configuration |
 | Basic.ServiceName             | String<br>Service name |
-| Basic.TraceAgent              | String<br>Which trace agent to use (jaeger/zipkin) | 
+| Basic.TraceAgent              | String<br>Which trace agent to use (jaeger/zipkin) |
 | Log.OpenDebug                 | Boolean<br>Debug flag of module |
 
 #### Configuration about Zipkin
@@ -34,7 +35,7 @@ mod_trace enables tracing for requests based on defined rules.
 | Jaeger.SamplingServerURL      | String<br>The address of jaeger-agent's HTTP sampling server |
 | Jaeger.SamplingType           | String<br>The type of the sampler: const, probabilistic, rateLimiting, or remote |
 | Jaeger.SamplingParam          | Float<br>Param passed to the sampler |
-| Jaeger.LocalAgentHostPort     | String<br>The address of jaeger-agent which recives spans |
+| Jaeger.LocalAgentHostPort     | String<br>The address of jaeger-agent which receives spans |
 | Jaeger.Propagation            | String<br>Which propagation format to use (jaeger/b3) |
 | Jaeger.Gen128Bit              | Boolean<br>Whether to use 128 bit root span IDs |
 | Jaeger.TraceContextHeaderName | String<br>The http header name used to propagate tracing context |
@@ -48,7 +49,6 @@ mod_trace enables tracing for requests based on defined rules.
 | ------------------------------| --------------------------------|
 | Elastic.ServerURL             | String<br>Set the URL of the Elastic APM server |
 | Elastic.SecretToken           | String<br>Set the token used to connect to Elastic APM Server |
-
 
 ### Example
 
@@ -161,11 +161,12 @@ SecretToken = ""
 ## Rule Configuration
 
 ### Description
+
 conf/mod_trace/trace_rule.data
 
 | Config Item                | Description                                  |
 | -------------------------- | -------------------------------------------- |
-| Version                    | String<br>Verson of the config file          |
+| Version                    | String<br>Version of the config file          |
 | Config                     | Object<br>Trace rules for each product       |
 | Config[k]                  | String<br>Product name                       |
 | Config[v]                  | Object<br>A list of trace rules              |

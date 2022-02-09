@@ -7,6 +7,7 @@ mod_auth_jwt支持JWT([JSON Web Token](https://tools.ietf.org/html/rfc7519))认�
 ## 基础配置
 
 ### 配置描述
+
 模块配置文件: conf/mod_auth_jwt/mod_auth_jwt.conf
 
 | Config Item | Description                             |
@@ -24,6 +25,7 @@ DataPath = mod_auth_jwt/auth_jwt_rule.data
 ## 规则配置
 
 ### 配置描述
+
 conf/mod_auth_jwt/auth_jwt_rule.data
 
 | Config Item | Description                                                  |

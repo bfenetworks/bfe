@@ -1,11 +1,13 @@
 # mod_header
 
-## 模块简介 
+## 模块简介
 
 mod_header根据自定义条件，修改请求或响应的头部。
 
 ## 基础配置
+
 ### 配置描述
+
 模块配置文件: conf/mod_header/mod_header.conf
 
 | 配置项                | 描述                                        |
@@ -14,13 +16,16 @@ mod_header根据自定义条件，修改请求或响应的头部。
 | Log.OpenDebug           | Boolean<br>是否开启 debug 日志<br>默认值False |
 
 ### 配置示例
+
 ```ini
 [Basic]
 DataPath = mod_header/header_rule.data
 ```
 
 ## 规则配置
+
 ### 配置描述
+
 | 配置项  | 描述                                                           |
 | ------- | -------------------------------------------------------------- |
 | Version | String<br>配置文件版本 |
@@ -39,7 +44,7 @@ DataPath = mod_header/header_rule.data
 
 | 动作名称        | 含义       | 参数列表说明 |
 | -------------- | ---------- | --------- |
-| REQ_HEADER_SET | 设置请求头 | HeaderName, HeaderValue | 
+| REQ_HEADER_SET | 设置请求头 | HeaderName, HeaderValue |
 | REQ_HEADER_ADD | 添加请求头 | HeaderName, HeaderValue |
 | REQ_HEADER_DEL | 删除请求头 | HeaderName |
 | RSP_HEADER_SET | 设置响应头 | HeaderName, HeaderValue |
@@ -47,6 +52,7 @@ DataPath = mod_header/header_rule.data
 | RSP_HEADER_DEL | 删除响应头 | HeaderName |
 
 ### 配置示例
+
 ```json
 {
     "Version": "20190101000000",
@@ -85,6 +91,7 @@ DataPath = mod_header/header_rule.data
 ```
   
 ## 内置变量说明
+
 BFE支持如下一系列变量并在处理请求阶段求值。关于变量的使用参见如上配置示例。
 
 | 变量名         | 含义       |

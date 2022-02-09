@@ -7,6 +7,7 @@ mod_auth_request supports sending request to the specified service for authentic
 ## Module Configuration
 
 ### Description
+
 conf/mod_auth_request/mod_auth_request.conf
 
 | Config Item       | Description                                            |
@@ -31,6 +32,7 @@ OpenDebug = false
 ## Rule Configuration
 
 ### Description
+
 | Config Item        | Description                                                  |
 | ------------------ | ------------------------------------------------------------ |
 | Version            | String<br>Version of config file                             |
@@ -42,6 +44,7 @@ OpenDebug = false
 | Config{v}[].Enable | Boolean<br>Whether enable request auth rule                  |
 
 ### Example
+
 ```json
 {
     "Config": {
@@ -83,6 +86,3 @@ For example_product, for request to path /auth_request (e.g., www.example.com/au
   * Delete following headers: Content-Length/Connection/Keep-Alive/Proxy-Authenticate/Proxy-Authorization/Te/Trailers/Transfer-Encoding/Upgrade
   * Add following headers: X-Forwarded-Method(Original Request Method）、X-Forwarded-Uri（Original Request URI）
 * Body: Body of HTTP Request created by BFE is **null**
-
-
-
