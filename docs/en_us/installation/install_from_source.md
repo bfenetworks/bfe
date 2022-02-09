@@ -1,16 +1,19 @@
 # Install from source code
 
 ## Prerequisites
+
 - golang 1.17+
 - git 2.0+
 - glibc-static 2.17+
 
 ## Download source code
+
 ```bash
 $ git clone https://github.com/bfenetworks/bfe
 ```
 
 ## Build
+
 - Execute the following command to build bfe:
 
 ```bash
@@ -44,6 +47,6 @@ $ ./bfe -c ../conf -l ../log
 ```
 
 ## Further reading
+
 - Get familiar with [Command options](../operation/command.md)
 - Get started with [Beginner's Guide](../example/guide.md)
-                                           
