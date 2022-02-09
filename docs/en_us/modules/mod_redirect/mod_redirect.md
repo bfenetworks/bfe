@@ -1,17 +1,18 @@
 # mod_redirect
 
-## Introduction 
+## Introduction
 
 mod_redirect redirects HTTP requests based on defined rules.
 
 ## Module Configuration
 
 ### Description
+
 conf/mod_redirect/mod_redirect.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>Path of rule configuraiton |
+| Basic.DataPath | String<br>Path of rule configuration |
 
 ### Example
 
@@ -23,11 +24,12 @@ DataPath = mod_redirect/redirect.data
 ## Rule Configuration
 
 ### Description
+
 conf/mod_redirect/redirect.data
 
 | Config Item | Description                                                  |
 | ----------- | ------------------------------------------------------------ |
-| Version     | String<br>Verson of config file                                        |
+| Version     | String<br>Version of config file                                        |
 | Config      | Struct<br>Redirect rules for each product. |
 | Config{k}   | String<br>Product name |
 | Config{v}   | Object<br>A ordered list of redirect rules |
@@ -40,6 +42,7 @@ conf/mod_redirect/redirect.data
 | Config{v}[].Status | Integer<br>Status code |
 
 ### Actions
+
 | Action         | Description                                                                         |
 | -------------- | ----------------------------------------------------------------------------------- |
 | URL_SET        | Redirect to specified URL                                                           |

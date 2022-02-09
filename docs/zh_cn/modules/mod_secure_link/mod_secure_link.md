@@ -7,6 +7,7 @@ mod_secure_link 校验请求链接是否授权，保护链接不被未授权访�
 ## 基础配置
 
 ### 配置描述
+
 模块基础配置文件: conf/mod_secure_link/mod_secure_link.conf
 
 | 配置项         | 描述                             |
@@ -27,6 +28,7 @@ OpenDebug = true
 ## 规则配置
 
 ### 配置描述
+
 模块规则配置文件：conf/mod_secure_link/secure_link_rule.data
 
 | 配置项                              | 描述                                                                          |
@@ -42,8 +44,8 @@ OpenDebug = true
 | Config[v][].ExpressionNodes[].Type  | String<br>参与签名的数据节点的类型，参考Node Type                             |
 | Config[v][].ExpressionNodes[].Param | String<br>参与签名的数据节点的取值使用的key                                   |
 
-
 ### Node Type
+
 当前支持的类型和取值规则有：
 
 | type        | 取值逻辑               |
@@ -55,8 +57,8 @@ OpenDebug = true
 | uri         | req.RequestURI         |
 | remote_addr | req.RemoteAddr         |
 
-
 ### 配置示例
+
 ```json
 {
     "Version": "2019-12-10184356",
@@ -86,6 +88,7 @@ OpenDebug = true
 ```
 
 ### Link生成逻辑
+
 以上述配置举例，Path的生成逻辑为：
 
 ```
@@ -112,6 +115,7 @@ func WrapSecureLinkParam (req *http.Request) {
 ```
 
 step2 的逻辑用shell命令表示为：
+
 ```
 echo -n $origin | openssl md5 -binary | openssl base64 | tr +/ -_ | tr -d =
 

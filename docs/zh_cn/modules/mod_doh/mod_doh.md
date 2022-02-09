@@ -1,11 +1,13 @@
 # mod_doh
 
-## 模块简介 
+## 模块简介
 
 mod_doh支持DNS over HTTPS。
 
 ## 基础配置
+
 ### 配置描述
+
 模块配置文件: conf/mod_doh/mod_doh.conf
 
 | 配置项               | 描述                                        |

@@ -5,7 +5,9 @@
 mod_auth_request支持请求发送至指定的服务进行认证。
 
 ## 基础配置
+
 ### 配置描述
+
 模块配置文件: conf/mod_auth_request/mod_auth_request.conf
 
 | 配置项            | 描述                                            |
@@ -28,7 +30,9 @@ OpenDebug = false
 ```
 
 ## 规则配置
+
 ### 配置描述
+
 | 配置项             | 描述                                                         |
 | ------------------ | ------------------------------------------------------------ |
 | Version            | String<br>配置文件版本                                       |
@@ -74,7 +78,6 @@ OpenDebug = false
 | AUTH_REQUEST_UNAUTHORIZED | 未通过认证的请求数       |
 | AUTH_REQUEST_FAIL         | 认证失败的请求数         |
 | AUTH_REQUEST_UNCERTAIN    | 认证状态不确定的请求数   |
-
 
 ## BFE构造请求的说明
 

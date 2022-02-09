@@ -7,6 +7,7 @@ mod_auth_basic implements the HTTP basic authentication.
 ## Module Configuration
 
 ### Description
+
 conf/mod_auth_basic/mod_auth_basic.conf
 
 | Config Item         | Description                                 |
@@ -27,6 +28,7 @@ OpenDebug = false
 ## Rule Configuration
 
 ### Description
+
 | Config Item          | Description                                 |
 | ---------------------| ------------------------------------------- |
 | Version | String<br>Version of config file |
@@ -41,7 +43,7 @@ OpenDebug = false
 Description about password configuration:
 
 * The password configuration can be generated using htpasswd or openssl
-* Generated using openssl: 
+* Generated using openssl:
 
 ```
 printf "user1:$(openssl passwd -apr1 123456)\n" >> ./userfile
@@ -56,6 +58,7 @@ user2:{SHA}fEqNCco3Yq9h5ZUglD3CZJT4lBs=:user2, 123456
 ```
 
 ### Example
+
 ```json
 {
     "Config": {

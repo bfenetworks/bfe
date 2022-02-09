@@ -1,20 +1,22 @@
 # mod_userid
 
-## Introduction 
+## Introduction
 
 mod_userid generates user id for client identification.
 
 ## Module Configuration
 
 ### Description
+
 conf/mod_userid/mod_userid.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>Path of rule configuraiton |
+| Basic.DataPath | String<br>Path of rule configuration |
 | Log.OpenDebug | Boolean<br>Debug flag of module |
 
 ### Example
+
 ```ini
 [Basic]
 DataPath = mod_userid/userid_rule.data
@@ -26,11 +28,12 @@ OpenDebug = true
 ## Rule Configuration
 
 ### Description
+
 conf/mod_userid/userid_rule.data
 
 | Config Item | Description                                             |
 | ----------- | ------------------------------------------------------- |
-| Version     | String<br>Verson of config file |
+| Version     | String<br>Version of config file |
 | Config | Object<br>Rules for each product |
 | Config{k} | String<br>Product name |
 | Config{v} | Object<br>A list of rules |
@@ -42,6 +45,7 @@ conf/mod_userid/userid_rule.data
 | Config{v}[].Params.MaxAge | Integer<br>The cookie max age     |
 
 ### Example
+
 ```json
 {
     "Version": "2019-12-10184356",

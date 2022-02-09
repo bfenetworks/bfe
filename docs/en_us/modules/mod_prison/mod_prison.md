@@ -1,17 +1,18 @@
 # mod_prison
 
-## Introduction 
+## Introduction
 
 mod_prison limits the amount of requests a user can make in a given period of time based on defined rules.
 
 ## Module Configuration
 
 ### Description
+
 conf/mod_prison/mod_prison.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
-| Basic.ProductRulePath | String<br>path of rule configuraiton |
+| Basic.ProductRulePath | String<br>path of rule configuration |
 
 ### Example
 
@@ -23,11 +24,12 @@ ProductRulePath = mod_prison/prison.data
 ## Rule Configuration
 
 ### Description
+
 conf/mod_prison/prison.data
 
 | Config Item | Description                                                  |
 | ----------- | ------------------------------------------------------------ |
-| Version     | String<br>Verson of config file |
+| Version     | String<br>Version of config file |
 | Config      | Object<br>Prison rules for each product |
 | Config{k}   | String<br>Product name |
 | Config{v}   | Array<br>A ordered list of prison rules |
@@ -41,10 +43,10 @@ conf/mod_prison/prison.data
 | Config{v}[].AccessSignConf.UseHost | Boolean<br>Whether using host to generate access sign |
 | Config{v}[].AccessSignConf.UsePath | Boolean<br>Whether using path to generate access sign |
 | Config{v}[].AccessSignConf.UseHeaders | Boolean<br>Whether using headers to generate access sign |
-| Config{v}[].AccessSignConf.UrlRegexp | String<br>Substrings in url matching UrlRegexp which are used for generating acess sign |
-| Config{v}[].AccessSignConf.[]Qeury | Array<br>Qeury keys used for generating acess sign |
-| Config{v}[].AccessSignConf.[]Header | Array<br>Header keys used for generating acess sign |
-| Config{v}[].AccessSignConf.[]Cookie | Array<br>Cookie keys used for generating acess sign |
+| Config{v}[].AccessSignConf.UrlRegexp | String<br>Substrings in url matching UrlRegexp which are used for generating access sign |
+| Config{v}[].AccessSignConf.[]Qeury | Array<br>Qeury keys used for generating access sign |
+| Config{v}[].AccessSignConf.[]Header | Array<br>Header keys used for generating access sign |
+| Config{v}[].AccessSignConf.[]Cookie | Array<br>Cookie keys used for generating access sign |
 | Config{v}[].Action | Object<br>Prison action if visits exceed the limit |
 | Config{v}[].Action.Cmd | String<br>Name of prison action |
 | Config{v}[].Action.Params | Array<br>Parameters of prison action |
@@ -54,8 +56,8 @@ conf/mod_prison/prison.data
 | Config{v}[].AccessDictSize | Integer<br>Size of LRU cache for access records |
 | Config{v}[].PrisonDictSize | Integer<br>Size of LRU cache for prison records |
 
-
 ### Actions
+
 | Action         | Description                                  |
 | -------------- | -------------------------------------------- |
 | CLOSE          | Close the connection                         |
@@ -94,4 +96,3 @@ conf/mod_prison/prison.data
 	}
 }
 ```
-
