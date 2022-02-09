@@ -24,9 +24,11 @@ Which contains stackcollpase-go.pl and flamegraph.pl tools
 ## Step
 
 * Get performance sampling data
+
 ```bash
 $ go tool pprof -seconds=60 -raw -output=bfe.pprof  http://<addr>:<port>/debug/pprof/profile
 ```
+
 Note: seconds=60 means capturing 60 seconds of stack samples
 
 * Transform and draw FlameGraph
