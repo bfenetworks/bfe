@@ -1,20 +1,22 @@
 # mod_tag
 
-## Introduction 
+## Introduction
 
 mod_tag sets tags for requests based on defined rules.
 
 ## Module Configuration
 
 ### Description
+
 conf/mod_tag/mod_tag.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>Path of rule configuraiton |
+| Basic.DataPath | String<br>Path of rule configuration |
 | Log.OpenDebug | Boolean<br>Debug flag of module |
 
 ### Example
+
 ```ini
 [Basic]
 DataPath = mod_tag/tag_rule.data
@@ -26,11 +28,12 @@ OpenDebug = true
 ## Rule Configuration
 
 ### Description
+
 conf/mod_tag/tag_rule.data
 
 | Config Item | Description                                             |
 | ----------- | ------------------------------------------------------- |
-| Version     | String<br>Verson of the config file |
+| Version     | String<br>Version of the config file |
 | Config      | Object<br>Tag rules for each product |
 | Config{k}   | String<br>Product name |
 | Config{v}   | Object<br>A list of tag rules |

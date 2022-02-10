@@ -1,12 +1,13 @@
 # mod_static
 
-## 模块简介 
+## 模块简介
 
 mod_static支持返回静态文件作为响应。
 
 ## 基础配置
 
 ### 配置描述
+
 模块配置文件: conf/mod_static/mod_static.conf
 
 | 配置项         | 描述                               |
@@ -15,6 +16,7 @@ mod_static支持返回静态文件作为响应。
 | Basic.MimeTypePath | String<br>MIME配置文件路径     |
 
 ### 配置示例
+
 ```ini
 [Basic]
 DataPath = mod_static/static_rule.data
@@ -25,6 +27,7 @@ MimeTypePath = mod_static/mime_type.data
 ## 规则配置
 
 ### 配置描述
+
 规则配置文件: conf/mod_static/static_rule.data
 
 | 配置项                      | 描述                                         |
@@ -42,6 +45,7 @@ MimeTypePath = mod_static/mime_type.data
 | Config[v][].Action.Param[1] | String<br>第二个参数为默认静态文件名         |
 
 ### 配置示例
+
 ```json
 {
     "Config": {
@@ -63,7 +67,9 @@ MimeTypePath = mod_static/mime_type.data
 ```
 
 ## MIME配置
+
 ### 配置描述
+
 MIME配置文件: conf/mod_static/mime_type.data
 
 | 配置项                      | 描述                                  |
@@ -74,6 +80,7 @@ MIME配置文件: conf/mod_static/mime_type.data
 | Config[v]                   | String<br>MIME类型                    |
 
 ### 配置示例
+
 ```json
 {
     "Config": {
@@ -92,4 +99,3 @@ MIME配置文件: conf/mod_static/mime_type.data
 | FILE_CURRENT_OPENED     |统计当前打开的文件数                  |
 | FILE_BROWSE_NOT_EXIST   |文件不存在请求数                     |
 | FILE_BROWSE_SIZE        |已处理文件总大小                     |
-
