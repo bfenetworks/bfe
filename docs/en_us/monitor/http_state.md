@@ -16,4 +16,3 @@ The endpoint `/monitor/http_state` exposes metrics about HTTP protocol.
 | HTTP_PANIC_BACKEND_WRITE     | Counter for writing backend panic                            |
 | HTTP_PANIC_CLIENT_FLUSH_LOOP | Counter for client flushing loop panic                       |
 | HTTP_PANIC_CLIENT_WATCH_LOOP | Counter for client watching loop panic                       |
-
