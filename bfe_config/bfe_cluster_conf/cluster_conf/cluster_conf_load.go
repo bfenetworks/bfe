@@ -371,7 +371,7 @@ func GslbBasicConfCheck(conf *GslbBasicConf) error {
 	case BalanceModeWrr:
 	case BalanceModeWlc:
 	default:
-		return fmt.Errorf("unsupport bal mode %s", *conf.BalanceMode)
+		return fmt.Errorf("unsupported bal mode %s", *conf.BalanceMode)
 	}
 
 	return nil
@@ -416,8 +416,8 @@ func ClusterBasicConfCheck(conf *ClusterBasicConf) error {
 	}
 
 	if conf.TimeoutWriteClient == nil {
-		timoutWriteClient := DefaultWriteClientTimeout
-		conf.TimeoutWriteClient = &timoutWriteClient
+		timeoutWriteClient := DefaultWriteClientTimeout
+		conf.TimeoutWriteClient = &timeoutWriteClient
 	}
 
 	if conf.TimeoutReadClientAgain == nil {
