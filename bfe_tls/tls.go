@@ -100,7 +100,7 @@ func NewListener(inner net.Listener, config *Config) net.Listener {
 func UpdateListener(ln net.Listener, conf *Config) error {
 	l, ok := ln.(*listener)
 	if !ok {
-		return errors.New("tls.UpdateListener: type not tls.listner")
+		return errors.New("tls.UpdateListener: type not tls.listener")
 	}
 
 	l.lock.Lock()
