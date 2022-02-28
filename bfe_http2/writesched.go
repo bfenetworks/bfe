@@ -166,7 +166,7 @@ func (ws *writeScheduler) take() (wm frameWriteMsg, ok bool) {
 	return ws.takeFrom(q.streamID(), q)
 }
 
-// zeroCanSend is defered from take.
+// zeroCanSend is deferred from take.
 func (ws *writeScheduler) zeroCanSend() {
 	for i := range ws.canSend {
 		ws.canSend[i] = nil
