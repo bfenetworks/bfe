@@ -55,10 +55,10 @@ func TestIPv4StrToUint32(t *testing.T) {
 	if ipInt, err := IPv4StrToUint32(testStr); err != nil {
 		t.Errorf("err in convert %s to uint 32: %v", testStr, err)
 	} else {
-		comfirmInt := uint32(1)
-		if ipInt != comfirmInt {
+		confirmInt := uint32(1)
+		if ipInt != confirmInt {
 			t.Errorf("ip %s should be converted to %d, but %d get",
-				testStr, ipInt, comfirmInt)
+				testStr, ipInt, confirmInt)
 		}
 	}
 
@@ -66,10 +66,10 @@ func TestIPv4StrToUint32(t *testing.T) {
 	if ipInt, err := IPv4StrToUint32(testStr); err != nil {
 		t.Errorf("err in convert %s to uint 32: %v", testStr, err)
 	} else {
-		comfirmInt := uint32(1)<<8 + uint32(1)
-		if ipInt != comfirmInt {
+		confirmInt := uint32(1)<<8 + uint32(1)
+		if ipInt != confirmInt {
 			t.Errorf("ip %s should be converted to %d, but %d get",
-				testStr, ipInt, comfirmInt)
+				testStr, ipInt, confirmInt)
 		}
 	}
 
@@ -77,10 +77,10 @@ func TestIPv4StrToUint32(t *testing.T) {
 	if ipInt, err := IPv4StrToUint32(testStr); err != nil {
 		t.Errorf("err in convert %s to uint 32: %v", testStr, err)
 	} else {
-		comfirmInt := uint32(1)<<16 + uint32(1)<<8 + uint32(1)
-		if ipInt != comfirmInt {
+		confirmInt := uint32(1)<<16 + uint32(1)<<8 + uint32(1)
+		if ipInt != confirmInt {
 			t.Errorf("ip %s should be converted to %d, but %d get",
-				testStr, ipInt, comfirmInt)
+				testStr, ipInt, confirmInt)
 		}
 	}
 
@@ -88,10 +88,10 @@ func TestIPv4StrToUint32(t *testing.T) {
 	if ipInt, err := IPv4StrToUint32(testStr); err != nil {
 		t.Errorf("err in convert %s to uint 32: %v", testStr, err)
 	} else {
-		comfirmInt := uint32(1)<<24 + uint32(1)<<16 + uint32(1)<<8 + uint32(1)
-		if ipInt != comfirmInt {
+		confirmInt := uint32(1)<<24 + uint32(1)<<16 + uint32(1)<<8 + uint32(1)
+		if ipInt != confirmInt {
 			t.Errorf("ip %s should be converted to %d, but %d get",
-				testStr, ipInt, comfirmInt)
+				testStr, ipInt, confirmInt)
 		}
 	}
 

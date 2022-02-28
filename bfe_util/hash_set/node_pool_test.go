@@ -90,8 +90,8 @@ func TestGetFreeNode(t *testing.T) {
 	if node != 0 || err != nil {
 		t.Error("get node error")
 	}
-	//case after recyleNode
-	np.recyleNode(3)
+	//case after recycleNode
+	np.recycleNode(3)
 	node, err = np.getFreeNode()
 	if node != 3 || err != nil {
 		t.Error("get node error")
