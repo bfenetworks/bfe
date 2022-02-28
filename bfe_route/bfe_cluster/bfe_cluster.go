@@ -43,7 +43,7 @@ type BfeCluster struct {
 
 	reqWriteBufferSize  int           // write buffer size for request
 	reqFlushInterval    time.Duration // interval to flush request
-	resFlushInterval    time.Duration // interval to flush resposne
+	resFlushInterval    time.Duration // interval to flush response
 	cancelOnClientClose bool          // cancel blocking operation in server if client conn gone
 }
 
