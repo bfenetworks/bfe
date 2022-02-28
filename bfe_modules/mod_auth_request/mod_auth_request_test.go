@@ -50,12 +50,12 @@ func TestLoadRuleData(t *testing.T) {
 	}
 
 	if modVersion != expectModVersion {
-		t.Fatalf("version shoule be %s, but it's %s", expectModVersion, modVersion)
+		t.Fatalf("version should be %s, but it's %s", expectModVersion, modVersion)
 	}
 
 	expectVersion := "auth_request_rule_version"
 	if m.ruleTable.version != expectVersion {
-		t.Fatalf("version shoule be %s, but it's %s", expectVersion, m.ruleTable.version)
+		t.Fatalf("version should be %s, but it's %s", expectVersion, m.ruleTable.version)
 	}
 
 	ruleList, ok := m.ruleTable.productRule[expectProduct]
@@ -112,7 +112,7 @@ func TestCreateAuthRequest(t *testing.T) {
 func TestCheckAuthForbidden(t *testing.T) {
 	m := NewModuleAuthRequest()
 
-	req, _ := bfe_http.NewRequest(http.MethodGet, "http://exapmle.org", nil)
+	req, _ := bfe_http.NewRequest(http.MethodGet, "http://example.org", nil)
 	basicReq := bfe_basic.NewRequest(req, nil, nil, nil, nil)
 	resp := new(http.Response)
 	resp.Header = make(http.Header)

@@ -21,12 +21,12 @@ import (
 func TestConfLoadCase1(t *testing.T) {
 	cfg, err := ConfLoad("testdata/mod_cors/mod_cors.conf", "testdata")
 	if err != nil {
-		t.Fatalf("shoule have no error, but error is %v", err)
+		t.Fatalf("should have no error, but error is %v", err)
 	}
 
 	expectDataPath := "testdata/mod_cors/cors_rule.data"
 	if cfg.Basic.DataPath != expectDataPath {
-		t.Fatalf("cfg.Basic.DataPath shoule %s, but it's %s", expectDataPath, cfg.Basic.DataPath)
+		t.Fatalf("cfg.Basic.DataPath should %s, but it's %s", expectDataPath, cfg.Basic.DataPath)
 	}
 
 	if cfg.Log.OpenDebug != false {
