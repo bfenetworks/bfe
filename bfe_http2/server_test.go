@@ -2366,7 +2366,7 @@ func testServerWritesTrailers(t *testing.T, withFlush bool) {
 		w.Header().Set("Server-Trailer-A", "valuea")
 		w.Header().Set("Server-Trailer-C", "valuec") // skipping B
 		// After a flush, random keys like Server-Surprise shouldn't show up:
-		w.Header().Set("Server-Surpise", "surprise! this isn't predeclared!")
+		w.Header().Set("Server-Surprise", "surprise! this isn't predeclared!")
 		// But we do permit promoting keys to trailers after a
 		// flush if they start with the magic
 		// otherwise-invalid "Trailer:" prefix:
