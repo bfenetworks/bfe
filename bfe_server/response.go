@@ -180,7 +180,7 @@ func srcIsRegularFile(src io.Reader) (isRegular bool, err error) {
 }
 
 // SetSigner set signature calculator for response
-func (w *response) SetSigner(signer bfe_http.SignCalculater) {
+func (w *response) SetSigner(signer bfe_http.SignCalculator) {
 	w.cw.Signer = signer
 }
 

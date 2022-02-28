@@ -287,7 +287,7 @@ func (srv *BfeServer) initTLSRule(httpsConf bfe_conf.ConfigHttpsBasic) error {
 		return fmt.Errorf("createTlsConfig get default Cert error")
 	}
 
-	// Note: config.Certficates must be initialized, but we just use config.MultiCert
+	// Note: config.Certificates must be initialized, but we just use config.MultiCert
 	// for server certificates
 	srv.TLSConfig.Certificates = make([]bfe_tls.Certificate, 1)
 	srv.TLSConfig.Certificates[0] = *cert
@@ -400,7 +400,7 @@ Loop:
 	os.Exit(0)
 }
 
-// CheckGracefulShutdown check wether the server is in graceful shutdown state.
+// CheckGracefulShutdown check whether the server is in graceful shutdown state.
 func (srv *BfeServer) CheckGracefulShutdown() bool {
 	select {
 	case <-srv.CloseNotifyCh:
