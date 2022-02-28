@@ -75,7 +75,7 @@ func (c *Conn) serverHandshake() error {
 		return err
 	}
 
-	// Record JA3 fingerpint for TLS client
+	// Record JA3 fingerprint for TLS client
 	c.ja3Raw = hs.clientHello.JA3String()
 	sum := md5.Sum([]byte(c.ja3Raw))
 	c.ja3Hash = hex.EncodeToString(sum[:])
