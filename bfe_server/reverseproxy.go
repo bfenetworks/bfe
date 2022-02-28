@@ -367,7 +367,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 		//  2. read client request body error(POST/PUT)
 		//  3. write backend error
 		//     a. haven't write any byte
-		//     b. aleady write part of data
+		//     b. already write part of data
 		//  4. read backend error
 		//  5. other error
 		allowRetry := false
@@ -442,7 +442,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 // sendResponse send http response to client.
 func (p *ReverseProxy) sendResponse(rw bfe_http.ResponseWriter, res *bfe_http.Response,
 	flushInterval time.Duration, cancelOnClientClose bool) error {
-	// prepare SignCalculater for response
+	// prepare SignCalculator for response
 	p.prepareSigner(rw, res)
 
 	bfe_http.CopyHeader(rw.Header(), res.Header)
@@ -478,7 +478,7 @@ func (p *ReverseProxy) sendResponse(rw bfe_http.ResponseWriter, res *bfe_http.Re
 	return nil
 }
 
-// prepareSigner prepare SignCalculater for response.
+// prepareSigner prepare SignCalculator for response.
 func (p *ReverseProxy) prepareSigner(rw bfe_http.ResponseWriter, res *bfe_http.Response) {
 	// not need to add signature for respsone
 	if res.Signer == nil {
