@@ -39,7 +39,7 @@ func (p *FixedPool) GetBlock() []byte {
 
 // PutBlock releases a byte slice to pool
 func (p *FixedPool) PutBlock(block []byte) {
-	// just ingore block with mismatched size
+	// just ignore block with mismatched size
 	if len(block) != p.size {
 		return
 	}

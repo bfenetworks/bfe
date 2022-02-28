@@ -42,7 +42,7 @@ func GetVipPort(conn net.Conn) (net.IP, int, error) {
 		return ParseIpAndPort(vaddr.String())
 	}
 
-	return nil, 0, fmt.Errorf("cann`t get vip and port when Layer4LoadBalancer is not set")
+	return nil, 0, fmt.Errorf("can`t get vip and port when Layer4LoadBalancer is not set")
 }
 
 // GetVip return vip for given conn
