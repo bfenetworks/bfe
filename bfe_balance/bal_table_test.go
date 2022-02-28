@@ -80,7 +80,7 @@ func TestGslbInit(t *testing.T) {
 	}
 
 	if err = balTable.gslbInit(gslbConf); err != nil {
-		t.Errorf("GslbInit: case 1 should retun nil.")
+		t.Errorf("GslbInit: case 1 should return nil.")
 		return
 	}
 
