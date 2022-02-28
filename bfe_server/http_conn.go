@@ -358,7 +358,7 @@ func (c *conn) serve() {
 		// upgrade to negotiated protocol
 		proto := tlsState.NegotiatedProtocol
 		if mandatoryProtocol, ok := c.getMandatoryProtocol(tlsConn); ok {
-			// Note: if mandatory protocol configed, use it anyway
+			// Note: if mandatory protocol configured, use it anyway
 			proto = mandatoryProtocol
 		}
 		if validNPN(proto) {
