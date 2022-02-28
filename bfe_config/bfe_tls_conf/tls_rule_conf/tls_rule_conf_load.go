@@ -63,11 +63,11 @@ import (
 // Notes about `SniConf`:
 //  * SniConf represents an optional list of server names (hostname)
 //  * When vip of incoming conn is missing or unknown:
-//   - If SniConf is configed, server will select tls rule conf by name (from tls sni extension)
-//   - Even through SniConf is not configed, server will try to select cert by name
+//   - If SniConf is configured, server will select tls rule conf by name (from tls sni extension)
+//   - Even through SniConf is not configured, server will try to select cert by name
 //
 // Notes about`ClientCAName`:
-//  * The CA certificate file is <ClientCAName>.crt under ClientCABaseDir configed in bfe.conf
+//  * The CA certificate file is <ClientCAName>.crt under ClientCABaseDir configured in bfe.conf
 
 // application level protocols over tls
 const (

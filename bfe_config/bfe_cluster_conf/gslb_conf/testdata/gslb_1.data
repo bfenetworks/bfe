@@ -2,10 +2,10 @@
     "clusters": {
         "c1": {
             "GSLB_BLACKHOLE": 0, 
-            "c1.exmaple.a": 0, 
-            "c1.exmaple.b": 50, 
-            "c1.exmaple.c": 20, 
-            "c1.exmaple.d": 30
+            "c1.example.a": 0,
+            "c1.example.b": 50,
+            "c1.example.c": 20,
+            "c1.example.d": 30
         }, 
         "c2": {
             "GSLB_BLACKHOLE": 0, 
