@@ -31,8 +31,8 @@ type ConfModAccess struct {
 	Log access_log.LogConfig
 
 	Template struct {
-		RequestTemplate string // access log formate string
-		SessionTemplate string // session finish log formate string
+		RequestTemplate string // access log format string
+		SessionTemplate string // session finish log format string
 	}
 }
 

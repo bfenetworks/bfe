@@ -31,7 +31,7 @@ func TestKeepAliveDataLoad_1(t *testing.T) {
 	}
 
 	if len(data.Config["product1"]) != 3 {
-		t.Errorf("len(data.Config[product1]) shoule be 3, but is %d", len(data.Config["product1"]))
+		t.Errorf("len(data.Config[product1]) should be 3, but is %d", len(data.Config["product1"]))
 		return
 	}
 }

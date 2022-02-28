@@ -38,7 +38,7 @@ type AuthRequestRuleConf struct {
 
 type AuthRequestRuleRaw struct {
 	Cond   string // condition
-	Enable bool   // whether enable auth reqeust
+	Enable bool   // whether enable auth request
 }
 
 type ProductRuleRawList map[string]RuleRawList // product => raw rule list

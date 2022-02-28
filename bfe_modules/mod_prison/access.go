@@ -43,7 +43,7 @@ func (s *AccessSigner) Sign(label string, req *bfe_basic.Request) (AccessSign, e
 		return AccessSign{}, err
 	}
 
-	// caculate signature
+	// calculate signature
 	return AccessSign(md5.Sum(data)), nil
 }
 
@@ -133,7 +133,7 @@ func buildKeyValue(dst *bytes.Buffer, key string, val string) {
 	dst.WriteString(val)
 }
 
-// buildQueryValues builds value from equivalent querys (separate by |, eg q1|q2)
+// buildQueryValues builds value from equivalent queries (separate by |, eg q1|q2)
 func buildQueryValues(dst *bytes.Buffer, query url.Values, keys string) bool {
 	// Note: output format &q1|q2=v1v2 (instead of &q1=v1&q2=v2)
 	existQuery := false

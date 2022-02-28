@@ -44,7 +44,7 @@ var (
 
 type ModuleTrustClientIPState struct {
 	ConnTotal                *metrics.Counter // all connnetion checked
-	ConnTrustClientip        *metrics.Counter // connnection from trust addr
+	ConnTrustClientip        *metrics.Counter // connection from trust addr
 	ConnAddrInternal         *metrics.Counter // connection from internal
 	ConnAddrInternalNotTrust *metrics.Counter // connection from internal and not trust
 }
@@ -53,7 +53,7 @@ type ModuleTrustClientIP struct {
 	name       string                   // name of module
 	configPath string                   // path of config file
 	state      ModuleTrustClientIPState // module state
-	metrics    metrics.Metrics          // diff counter of moudle state
+	metrics    metrics.Metrics          // diff counter of module state
 	trustTable *ipdict.IPTable          // table for storing trust-ip
 }
 
@@ -70,7 +70,7 @@ func (m *ModuleTrustClientIP) Name() string {
 }
 
 func ipItemsMake(conf TrustIPConf) (*ipdict.IPItems, error) {
-	// calucate singleIPNum and pairIPNum
+	// calculate singleIPNum and pairIPNum
 	singleIPNum, pairIPNum := 0, 0
 	for _, addrScopeList := range conf.Config {
 		for _, AddrScope := range *addrScopeList {

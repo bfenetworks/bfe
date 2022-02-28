@@ -128,7 +128,7 @@ func TestRuleConvertWrongCredentials(t *testing.T) {
 		t.Fatalf("should have error")
 	}
 
-	if !strings.Contains(err.Error(), "AccessControlAllowCredentials can not be ture when AccessControlAllowOrigins is *") {
+	if !strings.Contains(err.Error(), "AccessControlAllowCredentials can not be true when AccessControlAllowOrigins is *") {
 		t.Fatalf("error is not expected, %v", err)
 	}
 }
