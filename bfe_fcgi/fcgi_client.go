@@ -98,8 +98,8 @@ const (
 )
 
 const (
-	// FCGIResponser is the responder flag.
-	FCGIResponser uint8 = iota + 1
+	// FCGIResponder is the responder flag.
+	FCGIResponder uint8 = iota + 1
 
 	// FCGIAuthorizer is the authorizer flag.
 	FCGIAuthorizer
@@ -218,7 +218,7 @@ func Dial(network, address string) (fcgi *FCGIClient, err error) {
 	return
 }
 
-// Close closes fcgi connnection
+// Close closes fcgi connection
 func (client *FCGIClient) Close() {
 	client.rwc.Close()
 }
@@ -397,7 +397,7 @@ func (w *streamReader) Read(p []byte) (n int, err error) {
 // Do made the request and returns a io.Reader that translates the data read
 // from fcgi responder out of fcgi packet before returning it.
 func (client *FCGIClient) Do(p map[string]string, req io.Reader) (r io.Reader, err error) {
-	err = client.writeBeginRequest(uint16(FCGIResponser), 0)
+	err = client.writeBeginRequest(uint16(FCGIResponder), 0)
 	if err != nil {
 		return
 	}
