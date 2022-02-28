@@ -753,9 +753,9 @@ func checkHostAndToUpper(patterns []string) ([]string, error) {
 	upper := make([]string, len(patterns))
 
 	for i, v := range patterns {
-		// port shoud not be included in host
+		// port should not be included in host
 		if strings.Contains(v, ":") {
-			return nil, fmt.Errorf("port shoud not be included in host(%s)", v)
+			return nil, fmt.Errorf("port should not be included in host(%s)", v)
 		}
 
 		upper[i] = strings.ToUpper(v)
