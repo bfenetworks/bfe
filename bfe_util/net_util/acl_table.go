@@ -136,5 +136,5 @@ func parseAclDataLine(line string) (string, error) {
 		return ip, nil
 	}
 
-	return ip, errors.New("formate error:" + line)
+	return ip, errors.New("format error:" + line)
 }

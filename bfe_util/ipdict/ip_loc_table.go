@@ -140,11 +140,11 @@ func (t *IpLocationTable) Search(cip net.IP) (string, error) {
 		})
 
 	// get idx corresponding ip section's first ip
-	var fristIp net.IP
+	var firstIp net.IP
 	if uint32(idx) <= indexLen-1 {
 		s := uint32(idx) * (HEADER_LEN + t.LocLen)
 		e := uint32(idx)*(HEADER_LEN+t.LocLen) + IP_SIZE
-		fristIp = t.locations[s:e]
+		firstIp = t.locations[s:e]
 	}
 
 	var preIdx uint32
@@ -152,9 +152,9 @@ func (t *IpLocationTable) Search(cip net.IP) (string, error) {
 	if uint32(idx) == indexLen {
 		// consider ipAdd last element(uint32(idx) == indexLen)
 		preIdx = indexLen - 1
-	} else if fristIp.Equal(ipAddr16) || idx == 0 {
-		// consider ipAdd locate in frist section (idx == 0)
-		// consider ipAdd is first ip in ip's section(fristIp == ipAddr16)
+	} else if firstIp.Equal(ipAddr16) || idx == 0 {
+		// consider ipAdd locate in first section (idx == 0)
+		// consider ipAdd is first ip in ip's section(firstIp == ipAddr16)
 		preIdx = uint32(idx)
 	} else {
 		// other think ipAdd location previous section

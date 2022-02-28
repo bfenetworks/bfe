@@ -58,7 +58,7 @@ func (f *TxtFileLoader) SetMaxLine(maxLine int) {
 
 /*
    checkSplit checks line split format
-   legal start ip and end ip is seprated by space[s]/tab[s]
+   legal start ip and end ip is separated by space[s]/tab[s]
 */
 func checkSplit(line string, sep string) (net.IP, net.IP, error) {
 	var startIPStr, endIPStr string
