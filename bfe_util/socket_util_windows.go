@@ -24,5 +24,5 @@ import (
 // GetsockoptMultiByte returns the value of the socket option opt for the
 // socket associated with fd at the given socket level.
 func GetsockoptMultiByte(fd, level, opt int) ([]byte, error) {
-	return nil, errors.New("GetsockoptMultiByte is not supported on Windows OS.")
+	return nil, errors.New("GetsockoptMultiByte is not supported on Windows OS")
 }
