@@ -21,16 +21,16 @@ import (
 
 func TestNewConfigFromFile(t *testing.T) {
 	tests := []struct {
-		name        string
-		fileName    string
-		want        *Config
-		valdateFunc func(a *Config) bool
-		wantErr     bool
+		name         string
+		fileName     string
+		want         *Config
+		validateFunc func(a *Config) bool
+		wantErr      bool
 	}{
 		{
 			name:     "case:succ",
 			fileName: "./testdata/mod_userid/userid_rule.data",
-			valdateFunc: func(a *Config) bool {
+			validateFunc: func(a *Config) bool {
 				return a != nil && len(a.Products) == 1
 			},
 			wantErr: false,
@@ -49,8 +49,8 @@ func TestNewConfigFromFile(t *testing.T) {
 				return
 			}
 
-			if tt.valdateFunc != nil {
-				if !tt.valdateFunc(got) {
+			if tt.validateFunc != nil {
+				if !tt.validateFunc(got) {
 					t.Errorf("NewConfigFromFile() = %v, want %v", got, nil)
 				}
 			} else if !reflect.DeepEqual(got, tt.want) {

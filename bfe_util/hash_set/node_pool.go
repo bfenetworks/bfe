@@ -57,7 +57,7 @@ func newNodePool(elemNum, elemSize int, isFixedKeylen bool) *nodePool {
 	for i := 0; i < elemNum-1; i += 1 {
 		np.array[i].next = int32(i + 1) // link to the next node
 	}
-	np.array[elemNum-1].next = -1 //intial value == -1, means end of the list
+	np.array[elemNum-1].next = -1 //initial value == -1, means end of the list
 
 	np.freeNode = 0 //free node start from 0
 	np.capacity = elemNum
@@ -116,7 +116,7 @@ func (np *nodePool) del(head int32, key []byte) int32 {
 	// check at the head of List
 	if np.compare(key, head) == 0 {
 		newHead = np.array[head].next
-		np.recyleNode(head) //recyle the node
+		np.recycleNode(head) //recycle the node
 		return newHead
 	}
 
@@ -129,7 +129,7 @@ func (np *nodePool) del(head int32, key []byte) int32 {
 		}
 		if np.compare(key, index) == 0 {
 			np.array[pindex].next = np.array[index].next
-			np.recyleNode(index) //recyle the node
+			np.recycleNode(index) //recycle the node
 			return head
 		}
 		pindex = index
@@ -138,7 +138,7 @@ func (np *nodePool) del(head int32, key []byte) int32 {
 }
 
 /* del the node, add the node into freeNode list */
-func (np *nodePool) recyleNode(node int32) {
+func (np *nodePool) recycleNode(node int32) {
 	index := np.freeNode
 	np.freeNode = node
 	np.array[node].next = index

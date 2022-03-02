@@ -48,12 +48,12 @@ func TestLoadRuleData(t *testing.T) {
 	}
 
 	if modVersion != expectModVersion {
-		t.Fatalf("version shoule be %s, but it's %s", expectModVersion, modVersion)
+		t.Fatalf("version should be %s, but it's %s", expectModVersion, modVersion)
 	}
 
 	expectVersion := "20200508210000"
 	if m.ruleTable.version != expectVersion {
-		t.Fatalf("version shoule be %s, but it's %s", expectVersion, m.ruleTable.version)
+		t.Fatalf("version should be %s, but it's %s", expectVersion, m.ruleTable.version)
 	}
 
 	ruleList, ok := m.ruleTable.productRule[expectProduct]
@@ -164,7 +164,7 @@ func TestSetRespCorsHeader(t *testing.T) {
 		t.Fatalf("response header %s is not expected", HeaderAccessControlMaxAge)
 	}
 
-	// preflight is ture
+	// preflight is true
 	m.setRespHeaderForPreflght(req, rspHeader, &rule)
 
 	if rspHeader.Get(HeaderAccessControlAllowMethods) != http.MethodPut {

@@ -81,7 +81,7 @@ func (p *ProtocolHandler) ServeHTTP(rw bfe_http.ResponseWriter, request *bfe_htt
 	}
 }
 
-// CheckSupportMultiplex checkes whether protocol support request multiplexing on a conn.
+// CheckSupportMultiplex checks whether protocol support request multiplexing on a conn.
 func CheckSupportMultiplex(proto string) bool {
 	switch proto {
 	case tls_rule_conf.SPDY31:

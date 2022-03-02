@@ -89,7 +89,7 @@ func (c *ServerSessionCache) dial() (redis.Conn, error) {
 	c.serversLock.RLock()
 	if len(c.Servers) == 0 {
 		c.serversLock.RUnlock()
-		return nil, fmt.Errorf("no available connnection in pool")
+		return nil, fmt.Errorf("no available connection in pool")
 	}
 	server := c.Servers[rand.Intn(len(c.Servers))]
 	c.serversLock.RUnlock()

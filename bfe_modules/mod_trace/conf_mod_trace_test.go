@@ -21,7 +21,7 @@ import (
 func TestConfLoadCase1(t *testing.T) {
 	cfg, err := ConfLoad("testdata/mod_trace/mod_trace.conf", "testdata")
 	if err != nil {
-		t.Fatalf("shoule have no error, but error is %v", err)
+		t.Fatalf("should have no error, but error is %v", err)
 	}
 
 	expectDataPath := "testdata/mod_trace/trace_rule_test.data"

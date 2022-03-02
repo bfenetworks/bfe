@@ -116,7 +116,7 @@ func ruleConvert(rawRule CorsRuleRaw) (*CorsRule, error) {
 	// 	  			 the value tells browsers to allow requesting code from any origin to access the resource.
 	//    			 Attempting to use the wildcard with credentials will result in an error.
 	// null: 		 Specifies the origin "null".
-	// %origin: 	 Specifies the orign from the request header "Origin"
+	// %origin: 	 Specifies the origin from the request header "Origin"
 	for _, allowOrigin := range rawRule.AccessControlAllowOrigins {
 		if strings.HasPrefix(allowOrigin, "%") && allowOrigin != "%origin" {
 			return nil, fmt.Errorf("AccessControlAllowOrigins %s is not supported", allowOrigin)
@@ -127,7 +127,7 @@ func ruleConvert(rawRule CorsRuleRaw) (*CorsRule, error) {
 		}
 
 		if allowOrigin == "*" && rawRule.AccessControlAllowCredentials {
-			return nil, fmt.Errorf("AccessControlAllowCredentials can not be ture when AccessControlAllowOrigins is *")
+			return nil, fmt.Errorf("AccessControlAllowCredentials can not be true when AccessControlAllowOrigins is *")
 		}
 
 		if (allowOrigin == "null" || allowOrigin == "*") && len(rawRule.AccessControlAllowOrigins) != 1 {
