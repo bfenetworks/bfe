@@ -413,6 +413,7 @@ func (s *Server) ServeConn(c net.Conn, opts *ServeConnOpts) {
 			return
 		}
 
+		//lint:ignore SA9003 empty branch
 		if sc.tlsState.ServerName == "" {
 			// Client must use SNI, but we don't enforce that anymore,
 			// since it was causing problems when connecting to bare IP
