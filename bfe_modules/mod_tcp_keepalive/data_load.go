@@ -25,7 +25,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
-// ProductRuleConf
+// ProductRuleConf match the original tcp_keepalive.data
 /*
 {
   "Version": "x",
@@ -42,7 +42,6 @@ import (
   }
 }
 */
-// ProductRuleConf match the original tcp_keepalive.data
 type ProductRuleConf struct {
 	Version string
 	Config  map[string]ProductRulesFile
@@ -54,7 +53,7 @@ type ProductRuleFile struct {
 	KeepAliveParam KeepAliveParam
 }
 
-// ProductRuleData
+// ProductRuleData contains data convert from ProductRuleConf
 /*
 {
   "Version": "x",
@@ -76,7 +75,6 @@ type ProductRuleFile struct {
   }
 }
 */
-// ProductRuleData contains data convert from ProductRuleConf
 type ProductRuleData struct {
 	Version string
 	Config  ProductRules
