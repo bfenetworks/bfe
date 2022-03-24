@@ -112,7 +112,7 @@ func TestMarshalToString(t *testing.T) {
 		Hello: "Hello",
 		World: "World",
 	}
-	var want string = "{\"Hello\":\"Hello\",\"World\":\"World\"}"
+	var want = "{\"Hello\":\"Hello\",\"World\":\"World\"}"
 	ret, _ := MarshalToString(s)
 	if ret != want {
 		t.Errorf("MarshalToString() = %v, want %v", ret, want)
@@ -129,7 +129,7 @@ func TestUnmarshalFromString(t *testing.T) {
 		Hello: "Hello",
 		World: "World",
 	}
-	var want string = "{\"Hello\":\"Hello\",\"World\":\"World\"}"
+	var want = "{\"Hello\":\"Hello\",\"World\":\"World\"}"
 	UnmarshalFromString(want, &s1)
 	if !reflect.DeepEqual(s1, s2) {
 		t.Errorf("UnmarshalFromString() = %v, want %v", s1, s2)

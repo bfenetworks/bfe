@@ -47,7 +47,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_websocket"
 )
 
-// BfeServer
+// BfeServer bfe server
 type BfeServer struct {
 	bfe_http.Server
 

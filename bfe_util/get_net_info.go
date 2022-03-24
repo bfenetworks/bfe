@@ -101,6 +101,6 @@ func NativeUint16(data []byte) uint16 {
 // IsBigEndian check machine is big endian or not
 func IsBigEndian() bool {
 	var i int32 = 0x12345678
-	var b byte = byte(i)
+	var b = byte(i)
 	return b == 0x12
 }

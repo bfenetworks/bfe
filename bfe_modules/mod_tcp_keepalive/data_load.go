@@ -25,6 +25,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
+// ProductRuleConf
 /*
 {
   "Version": "x",
@@ -53,6 +54,7 @@ type ProductRuleFile struct {
 	KeepAliveParam KeepAliveParam
 }
 
+// ProductRuleData
 /*
 {
   "Version": "x",
@@ -187,10 +189,10 @@ func KeepAliveDataLoad(filename string) (ProductRuleData, error) {
 
 	// open the file
 	file, err := os.Open(filename)
-	defer file.Close()
 	if err != nil {
 		return data, err
 	}
+	defer file.Close()
 
 	// decode the file
 	decoder := json.NewDecoder(file)

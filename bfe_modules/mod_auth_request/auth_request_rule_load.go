@@ -24,13 +24,13 @@ import (
 	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
-// rule loaded from file
+// AuthRequestRuleFile rule loaded from file
 type AuthRequestRuleFile struct {
 	Version string
 	Config  ProductRuleRawList // product => raw rule list
 }
 
-// rule conf parsed from rule file
+// AuthRequestRuleConf rule conf parsed from rule file
 type AuthRequestRuleConf struct {
 	Version string
 	Config  ProductRuleList // product => rule list
