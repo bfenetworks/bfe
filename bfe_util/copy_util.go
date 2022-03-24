@@ -37,6 +37,7 @@ func newByteBuf() []byte {
 }
 
 func putByteBuf(buf []byte) {
+	//lint:ignore SA6002 should be pointer-like to avoid allocations
 	copyPool.Put(buf)
 }
 
