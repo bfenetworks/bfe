@@ -149,6 +149,7 @@ func DialWithDialer(dialer *net.Dialer, network, addr string, config *Config) (*
 	timeout := dialer.Timeout
 
 	if !dialer.Deadline.IsZero() {
+		//lint:ignore S1024 should use time.Until
 		deadlineTimeout := dialer.Deadline.Sub(time.Now())
 		if timeout == 0 || deadlineTimeout < timeout {
 			timeout = deadlineTimeout
