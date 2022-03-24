@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package mod_userid generate user identity to trace one user in deffient request
+//lint:file-ignore U1000 Ignore var is unused
+
+// Package mod_userid generate user identity to trace one user in different request
 // this mod will auto set user id for request if user id not exited in cookie to cookie
 package mod_userid
 

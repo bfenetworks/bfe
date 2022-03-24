@@ -16,6 +16,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//lint:file-ignore U1000 Ignore type func is unused
+
 // HTTP client. See RFC 2616.
 //
 // This is the high-level Client interface.

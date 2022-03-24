@@ -34,6 +34,8 @@
 //      9 -1 -1  a selected; 9-7+5 -1+1  -1+1  -> 7  0  0
 //      7  0  0  a selected; 7-7+5 0+1   0+1   -> 5  1  1
 
+//lint:file-ignore U1000 Ignore field is unused
+
 package bal_slb
 
 import (

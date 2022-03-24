@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//lint:file-ignore SA4006 Ignore this value of c is never used
+
 package route_rule_conf
 
 import (
