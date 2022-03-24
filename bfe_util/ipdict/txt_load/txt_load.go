@@ -185,6 +185,7 @@ func (f TxtFileLoader) CheckAndLoad(curVersion string) (*ipdict.IPItems, error) 
 		}
 
 		// insert start ip and end ip into dict
+		//lint:ignore SA1021 use net.IP.Equal to compare fixme
 		if bytes.Equal(startIP, endIP) {
 			// startIp == endIP insert single
 			err = ipItems.InsertSingle(startIP)
