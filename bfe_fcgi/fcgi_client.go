@@ -182,7 +182,8 @@ func (rec *record) read(r io.Reader) (buf []byte, err error) {
 	if len(rec.rbuf) < n {
 		rec.rbuf = make([]byte, n)
 	}
-	if n, err = io.ReadFull(r, rec.rbuf[:n]); err != nil {
+	// return n never used
+	if _, err = io.ReadFull(r, rec.rbuf[:n]); err != nil {
 		return
 	}
 	buf = rec.rbuf[:int(rec.h.ContentLength)]

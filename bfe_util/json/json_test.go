@@ -44,6 +44,9 @@ func TestNewDecoder(t *testing.T) {
 	var gb1 GslbBasicTestConf
 	var gb2 GslbBasicTestConf
 	file1, err := os.Open("./testdata/gb.json")
+	if err != nil {
+		t.FailNow()
+	}
 	file2, err := os.Open("./testdata/gb.json")
 	if err != nil {
 		t.FailNow()
