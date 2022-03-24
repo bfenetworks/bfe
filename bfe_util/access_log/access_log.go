@@ -159,8 +159,7 @@ func LoggerInitWithSvr(progName string, loggerName string,
 // loggerInitWithFilePath initialize logger with a single file name and output logs to file simply.
 func loggerInitWithFilePath(filePath, format string) (log4go.Logger, error) {
 	// create logger
-	var logger log4go.Logger
-	logger = make(log4go.Logger)
+	var logger = make(log4go.Logger)
 	logWriter := log4go.NewFileLogWriter(filePath, false)
 	if logWriter == nil {
 		return nil, fmt.Errorf("error in log4go.NewFileLogWriter(%s)", filePath)
