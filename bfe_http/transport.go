@@ -468,6 +468,8 @@ func (t *Transport) checkAndIncConnCnt(cacheKey string, maxValue int) bool {
 	t.connMu.Lock()
 	if t.connCnt == nil {
 		t.connCnt = make(map[string]int)
+		t.connMu.Unlock()
+		return false
 	}
 	if val, ok := t.connCnt[cacheKey]; ok && val >= maxValue {
 		t.connMu.Unlock()
