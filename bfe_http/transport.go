@@ -380,10 +380,16 @@ func (t *Transport) putIdleConn(pconn *persistConn) bool {
 	if t.idleConn == nil {
 		t.idleConn = make(map[string][]*persistConn)
 	}
+	// if t.idleConn's length >= t.maxIdleConnsPerHost, will close the oldest connection.
+	// when a TCP socket is unused for a while the congestion window is reset, and next time it is used, it will
+	// be in slow start mode. So a recently used connection is likely to have a larger window size, and allow
+	// faster transmission, than one which has been idle for a long time.
 	if len(t.idleConn[key]) >= max {
+		oldest := t.idleConn[key][0]
+		t.idleConn[key] = append(t.idleConn[key][1:], pconn)
 		t.idleMu.Unlock()
-		pconn.close()
-		return false
+		oldest.close()
+		return true
 	}
 	for _, exist := range t.idleConn[key] {
 		if exist == pconn {
