@@ -16,8 +16,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//lint:file-ignore U1000 Ignore type filed is unused
-
 // HTTP server.  See RFC 2616.
 
 package bfe_server

@@ -16,8 +16,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//lint:file-ignore U1000 Ignore func is unused
-
 // HTTP Request reading and parsing.
 
 package bfe_http

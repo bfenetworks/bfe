@@ -16,8 +16,6 @@
 // Use of client source code is governed by a BSD-style
 // Part of source code is from Go fcgi package
 
-//lint:file-ignore U1000 Ignore const value func is unused
-
 package bfe_fcgi
 
 import (

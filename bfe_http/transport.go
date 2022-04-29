@@ -16,8 +16,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//lint:file-ignore U1000 Ignore var func is unused
-
 // HTTP client implementation. See RFC 2616.
 //
 // This is the low-level Transport implementation of RoundTripper.

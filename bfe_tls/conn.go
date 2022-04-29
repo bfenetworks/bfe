@@ -18,8 +18,6 @@
 
 // TLS low level connection and record layer
 
-//lint:file-ignore U1000 Ignore func is unused
-
 package bfe_tls
 
 import (

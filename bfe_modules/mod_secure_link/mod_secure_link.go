@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//lint:file-ignore U1000 Ignore var is unused
-
 package mod_secure_link
 
 import (

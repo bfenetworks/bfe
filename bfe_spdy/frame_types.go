@@ -16,7 +16,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//lint:file-ignore U1000 Ignore field is unused
 //lint:file-ignore SA9004 only the first constant in this group has an explicit type
 
 package bfe_spdy

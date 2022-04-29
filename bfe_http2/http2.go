@@ -16,8 +16,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//lint:file-ignore U1000 Ignore var func is unused
-
 // Package bfe_http2 implements the HTTP/2 protocol.
 //
 // This package is low-level and intended to be used directly by very
