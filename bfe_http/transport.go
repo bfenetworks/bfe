@@ -113,6 +113,12 @@ type Transport struct {
 	//  to per-host.  If less than or equal zero, transport will ignore this value.
 	MaxConnsPerHost int
 
+	// IdleConnTimeout is the maximum amount of time an idle
+	// (keep-alive) connection will remain idle before closing
+	// itself.
+	// Zero means no limit.
+	IdleConnTimeout time.Duration
+
 	// ResponseHeaderTimeout, if non-zero, specifies the amount of
 	// time to wait for a server's response headers after fully
 	// writing the request (including its body, if any). This
@@ -391,7 +397,18 @@ func (t *Transport) putIdleConn(pconn *persistConn) bool {
 		}
 	}
 	t.idleConn[key] = append(t.idleConn[key], pconn)
+
+	// Set idle timer
+	if t.IdleConnTimeout > 0 {
+		if pconn.idleTimer != nil {
+			pconn.idleTimer.Reset(t.IdleConnTimeout)
+		} else {
+			pconn.idleTimer = time.AfterFunc(t.IdleConnTimeout, pconn.closeConnIfStillIdle)
+		}
+	}
+
 	t.idleMu.Unlock()
+
 	return true
 }
 
@@ -438,9 +455,56 @@ func (t *Transport) getIdleConn(cm *connectMethod) (pconn *persistConn) {
 			t.idleConn[key] = pconns[0 : len(pconns)-1]
 		}
 		if !pconn.isBroken() {
+			if pconn.idleTimer != nil {
+				pconn.idleTimer.Stop()
+			}
 			return
 		}
 	}
+}
+
+// removeIdleConn delete pconn from idleConn.
+func (t *Transport) removeIdleConn(pconn *persistConn) bool {
+	if t.DisableKeepAlives || t.MaxIdleConnsPerHost < 0 {
+		return false
+	}
+
+	t.idleMu.Lock()
+	defer t.idleMu.Unlock()
+	return t.removeIdleConnLocked(pconn)
+}
+
+// t.idleMu must be held.
+func (t *Transport) removeIdleConnLocked(pconn *persistConn) bool {
+	if pconn.idleTimer != nil {
+		pconn.idleTimer.Stop()
+	}
+
+	key := pconn.cacheKey
+	pconns := t.idleConn[key]
+	var removed bool
+	switch len(pconns) {
+	case 0:
+		// Nothing
+	case 1:
+		if pconns[0] == pconn {
+			delete(t.idleConn, key)
+			removed = true
+		}
+	default:
+		for i, v := range pconns {
+			if v != pconn {
+				continue
+			}
+			// Slide down, keeping most recently-used
+			// conns at the end.
+			copy(pconns[i:], pconns[i+1:])
+			t.idleConn[key] = pconns[:len(pconns)-1]
+			removed = true
+			break
+		}
+	}
+	return removed
 }
 
 func (t *Transport) setReqConn(r *Request, pc *persistConn) {
@@ -750,6 +814,9 @@ type persistConn struct {
 	closech  chan struct{}       // broadcast close when readLoop (TCP connection) closes
 	isProxy  bool
 
+	// Guarded by Transport.idleMu:
+	idleTimer *time.Timer // holding an AfterFunc to close it
+
 	lk                   sync.Mutex // guards following 3 fields
 	numExpectedResponses int
 	broken               bool // an error has happened on this connection; marked broken so it's not reused.
@@ -785,6 +852,7 @@ func (pc *persistConn) readLoop() {
 			log.Logger.Warn("panic:persistConn.readLoop():%v\n%s", err, gotrack.CurrentStackTrace(0))
 
 			pc.close()
+			pc.t.removeIdleConn(pc)
 			state.HttpPanicBackendRead.Inc(1)
 		}
 	}()
@@ -802,6 +870,7 @@ func (pc *persistConn) readLoop() {
 				log.Logger.Info("Unsolicited response received on idle HTTP channel starting with %q; err=%v",
 					string(pb), err)
 			}
+			pc.t.removeIdleConn(pc)
 			return
 		}
 		pc.lk.Unlock()
@@ -1083,6 +1152,18 @@ func (pc *persistConn) closeLocked() {
 		pc.t.releaseConnCnt(pc.cacheKey)
 	}
 	pc.mutateHeaderFunc = nil
+}
+
+// closeConnIfStillIdle closes the connection if it's still sitting idle.
+// This is what's called by the persistConn's idleTimer, and is run in its
+// own goroutine.
+func (pc *persistConn) closeConnIfStillIdle() {
+	t := pc.t
+	t.idleMu.Lock()
+	defer t.idleMu.Unlock()
+
+	t.removeIdleConnLocked(pc)
+	pc.close()
 }
 
 var portMap = map[string]string{
