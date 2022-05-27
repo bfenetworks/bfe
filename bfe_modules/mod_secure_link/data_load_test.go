@@ -19,7 +19,6 @@ import (
 )
 
 func TestDataLoad(t *testing.T) {
-	// return data never used
 	_, err := DataLoad("testdata/mod_secure_link/secure_link_rule1.data")
 	if err == nil {
 		t.Errorf("want err, got nil")
