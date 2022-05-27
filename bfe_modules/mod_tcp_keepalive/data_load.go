@@ -25,23 +25,6 @@ import (
 	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
-// ProductRuleConf match the original tcp_keepalive.data
-/*
-{
-  "Version": "x",
-  "Config": {
-    "Product1": [{
-      "VipConf": ["1.1.1.1", "1.1.1.2"],
-      "KeepAliveParam": {
-        "Disable": false,
-        "KeepIdle" : 70,
-        "KeepIntvl" : 15,
-        "KeepCnt": 9
-      }
-    }]
-  }
-}
-*/
 type ProductRuleConf struct {
 	Version string
 	Config  map[string]ProductRulesFile
@@ -53,28 +36,6 @@ type ProductRuleFile struct {
 	KeepAliveParam KeepAliveParam
 }
 
-// ProductRuleData contains data convert from ProductRuleConf
-/*
-{
-  "Version": "x",
-  "Config": {
-    "Product1": {
-      "1.1.1.1": {
-      "Disable": false,
-        "KeepIdle" : 70,
-        "KeepIntvl" : 15,
-        "KeepCnt": 9
-      },
-      "1.1.1.2": {
-        "Disable": false,
-        "KeepIdle" : 70,
-        "KeepIntvl" : 15,
-        "KeepCnt": 9
-      }
-    }
-  }
-}
-*/
 type ProductRuleData struct {
 	Version string
 	Config  ProductRules
