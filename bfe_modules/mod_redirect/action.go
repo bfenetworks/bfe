@@ -36,7 +36,6 @@ type Action struct {
 
 type ActionFileList []ActionFile
 
-// exclusive action set
 var EXCLUSIVE_ACTIONS = map[string]interface{}{
 	"SCHEME_SET":     nil,
 	"URL_SET":        nil,

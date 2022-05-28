@@ -79,8 +79,8 @@ const (
  *     http://chimera.labs.oreilly.com/books/1230000000545/ch04.html#TLS_RECORD_SIZE
  */
 var (
-	initPlaintext   int           = minPlaintext                   // initial length of plaintext payload
-	bytesThreshold  int           = 1024 * 1024                    // 1 MB
+	initPlaintext  int = minPlaintext // initial length of plaintext payload
+	bytesThreshold int = 1024 * 1024  // 1 MB
 	inactiveSeconds time.Duration = time.Duration(1 * time.Second) // 1 second
 )
 

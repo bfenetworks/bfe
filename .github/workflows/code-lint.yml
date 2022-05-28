@@ -12,24 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-name: Docs Lint
+name: Code Lint
 
 on:
   pull_request:
     branches: [ develop ]
-    paths:
+    paths-ignore:
+      - 'docs/**'
       - '**/*.md'
 
 jobs:
-  markdownlint:
-    name: Markdown
+  lint:
+    name: Code lint
     runs-on: ubuntu-latest
-    timeout-minutes: 1
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v3
-      - name: Use Node.js
-        uses: actions/setup-node@v2.5.1
+      - uses: dominikh/staticcheck-action@v1.0.0
         with:
-          node-version: '12.x'
-      - run: npm install -g markdownlint-cli@0.25.0
-      - run: markdownlint --ignore ./**/testdata/**/*.md '**/*.md'
+          version: "2021.1.1"
+      - run: "go vet ./..."
