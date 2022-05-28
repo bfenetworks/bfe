@@ -67,7 +67,6 @@ func (c *Conn) serverHandshake() error {
 	}
 
 	isResume, err := hs.readClientHello()
-	//lint:ignore ST1017 don't use Yoda conditions
 	if err == io.EOF && 0 == c.readFromUntilLen {
 		state.TlsHandshakeZeroData.Inc(1)
 	}
