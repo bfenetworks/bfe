@@ -81,7 +81,6 @@ const (
 var (
 	initPlaintext  int = minPlaintext // initial length of plaintext payload
 	bytesThreshold int = 1024 * 1024  // 1 MB
-	//lint:ignore ST1011 don't use unit-specific suffix "Seconds"
 	inactiveSeconds time.Duration = time.Duration(1 * time.Second) // 1 second
 )
 
