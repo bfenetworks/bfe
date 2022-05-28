@@ -43,6 +43,5 @@ func (p *FixedPool) PutBlock(block []byte) {
 	if len(block) != p.size {
 		return
 	}
-	//lint:ignore SA6002 should be pointer-like to avoid allocations
 	p.pool.Put(block)
 }
