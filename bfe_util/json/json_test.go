@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package json
 
 import (
@@ -41,6 +42,9 @@ func TestNewDecoder(t *testing.T) {
 	var gb1 GslbBasicTestConf
 	var gb2 GslbBasicTestConf
 	file1, err := os.Open("./testdata/gb.json")
+	if err != nil {
+		t.FailNow()
+	}
 	file2, err := os.Open("./testdata/gb.json")
 	if err != nil {
 		t.FailNow()
@@ -112,7 +116,7 @@ func TestMarshalToString(t *testing.T) {
 		Hello: "Hello",
 		World: "World",
 	}
-	var want string = "{\"Hello\":\"Hello\",\"World\":\"World\"}"
+	var want = "{\"Hello\":\"Hello\",\"World\":\"World\"}"
 	ret, _ := MarshalToString(s)
 	if ret != want {
 		t.Errorf("MarshalToString() = %v, want %v", ret, want)
@@ -129,7 +133,7 @@ func TestUnmarshalFromString(t *testing.T) {
 		Hello: "Hello",
 		World: "World",
 	}
-	var want string = "{\"Hello\":\"Hello\",\"World\":\"World\"}"
+	var want = "{\"Hello\":\"Hello\",\"World\":\"World\"}"
 	UnmarshalFromString(want, &s1)
 	if !reflect.DeepEqual(s1, s2) {
 		t.Errorf("UnmarshalFromString() = %v, want %v", s1, s2)
