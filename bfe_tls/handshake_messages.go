@@ -689,7 +689,6 @@ func (m *serverHelloMsg) marshal() []byte {
 		l -= 1
 		z[6] = byte(l)
 		copy(z[7:], []byte(m.alpnProtocol))
-		//lint:ignore SA4006 z is never used
 		z = z[7+alpnLen:]
 	}
 
