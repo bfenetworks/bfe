@@ -75,7 +75,7 @@ type BackendCheck struct {
 	CheckInterval *int    // interval of health check, in ms
 }
 
-// FastCGI related configurations
+// FCGIConf are FastCGI related configurations
 type FCGIConf struct {
 	EnvVars map[string]string // the vars which will send to backend
 	Root    string            // the server root

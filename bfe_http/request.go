@@ -55,7 +55,7 @@ const (
 // is either not present in the request or not a file field.
 var ErrMissingFile = errors.New("http: no such file")
 
-// HTTP request parsing errors.
+// ProtocolError is the error found during HTTP request parsing.
 type ProtocolError struct {
 	ErrorString string
 }

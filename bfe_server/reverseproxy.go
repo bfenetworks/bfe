@@ -32,13 +32,14 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/log"
 	"golang.org/x/net/http2"
+
+	"github.com/baidu/go-lib/log"
 )
 
 import (
 	bfe_cluster_backend "github.com/bfenetworks/bfe/bfe_balance/backend"
-	bal_gslb "github.com/bfenetworks/bfe/bfe_balance/bal_gslb"
+	"github.com/bfenetworks/bfe/bfe_balance/bal_gslb"
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_debug"
