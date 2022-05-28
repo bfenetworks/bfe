@@ -26,8 +26,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//lint:file-ignore ST1017 don't use Yoda conditions
-
 package bfe_proxy
 
 // ProtocolVersionAndCommand represents proxy protocol version and command.
