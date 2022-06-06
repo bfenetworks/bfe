@@ -131,7 +131,7 @@ func buildMetaValsAndMethod(r *http.Request, root string, envVars map[string]str
 
 	// https://tools.ietf.org/html/rfc3875#section-4.1.18
 	for key, val := range r.Header {
-		header := strings.Replace(strings.ToUpper(key), "-", "_", -1)
+		header := strings.ReplaceAll(strings.ToUpper(key), "-", "_")
 		metaHeader.Add("HTTP_"+header, strings.Join(val, ", "))
 	}
 
