@@ -26,6 +26,7 @@ BackendConf is config for backend.
 | Protocol              | String<br>Protocol for connecting backend. http and fcgi are supported. Default value is http. |
 | TimeoutConnSrv        | Int<br>Timeout for connecting backend, in ms. Default value is 2000. |
 | TimeoutResponseHeader | Int<br>Timeout for reading response header, in ms. Default value is 60000. |
+| TimeoutIdleConn       | Int<br>Timeout for closing idle connection to backend, in ms. Default value is 90000. |
 | MaxIdleConnsPerHost   | Int<br>Max idle connections to each backend per BFE. Default value is 2. |
 | MaxConnsPerHost   | Int<br>Max number of concurrent connections to each backend per BFE. 0 means no limitation. Default value is 0. |
 | RetryLevel            | Int<br>Retry level if request fail. 0: retry after connecting backend fails; 1: retry after connecting backend fails or forwarding GET request fails. Default value is 0. |

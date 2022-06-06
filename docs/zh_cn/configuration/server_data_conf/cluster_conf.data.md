@@ -26,6 +26,7 @@ cluster_conf.data为集群转发配置文件。
 | BackendConf.Protocol              | String<br>后端服务的协议，当前支持http和fcgi, 默认值http |
 | BackendConf.TimeoutConnSrv        | Integer<br>连接后端的超时时间，单位是毫秒<br>默认值2000 |
 | BackendConf.TimeoutResponseHeader | Integer<br>从后端读响应头的超时时间，单位是毫秒<br>默认值60000 |
+| BackendConf.TimeoutIdleConn       | Integer<br>与后端建立的连接的空闲时长，超时后关闭连接，单位是毫秒<br>默认值90000 |
 | BackendConf.MaxIdleConnsPerHost   | Integer<br>BFE实例与每个后端的最大空闲长连接数<br>默认值2 |
 | BackendConf.MaxConnsPerHost   | Integer<br>BFE实例与每个后端的最大长连接数，0代表无限制<br>默认值0 |
 | BackendConf.RetryLevel            | Integer<br>请求重试级别。0：连接后端失败时，进行重试；1：连接后端失败、转发GET请求失败时均进行重试<br>默认值0 |

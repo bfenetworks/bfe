@@ -86,6 +86,7 @@ type BackendBasic struct {
 	Protocol                 *string // backend protocol
 	TimeoutConnSrv           *int    // timeout for connect backend, in ms
 	TimeoutResponseHeader    *int    // timeout for read header from backend, in ms
+	TimeoutIdleConn          *int    // timeout for idle connection to backend, in ms
 	MaxIdleConnsPerHost      *int    // max idle conns for each backend
 	MaxConnsPerHost          *int    // max conns for each backend (zero means unrestricted)
 	RetryLevel               *int    // retry level if request fail
@@ -163,6 +164,11 @@ func BackendBasicCheck(conf *BackendBasic) error {
 	if conf.TimeoutConnSrv == nil {
 		defaultTimeConnSrv := 2000
 		conf.TimeoutConnSrv = &defaultTimeConnSrv
+	}
+
+	if conf.TimeoutIdleConn == nil {
+		defaultTimeoutIdleConn := 90000
+		conf.TimeoutIdleConn = &defaultTimeoutIdleConn
 	}
 
 	if conf.TimeoutResponseHeader == nil {
