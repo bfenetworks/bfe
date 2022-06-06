@@ -341,5 +341,5 @@ func TestEncoderSetMaxDynamicTableSizeLimit(t *testing.T) {
 }
 
 func removeSpace(s string) string {
-	return strings.Replace(s, " ", "", -1)
+	return strings.ReplaceAll(s, " ", "")
 }

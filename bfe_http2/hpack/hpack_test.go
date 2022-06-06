@@ -556,7 +556,7 @@ func TestHuffmanDecode(t *testing.T) {
 	}
 	for i, tt := range tests {
 		var buf bytes.Buffer
-		in, err := hex.DecodeString(strings.Replace(tt.inHex, " ", "", -1))
+		in, err := hex.DecodeString(strings.ReplaceAll(tt.inHex, " ", ""))
 		if err != nil {
 			t.Errorf("%d. hex input error: %v", i, err)
 			continue
@@ -589,7 +589,7 @@ func TestAppendHuffmanString(t *testing.T) {
 	}
 	for i, tt := range tests {
 		buf := []byte{}
-		want := strings.Replace(tt.want, " ", "", -1)
+		want := strings.ReplaceAll(tt.want, " ", "")
 		buf = AppendHuffmanString(buf, tt.in)
 		if got := hex.EncodeToString(buf); want != got {
 			t.Errorf("%d. encode = %q; want %q", i, got, want)
@@ -758,8 +758,8 @@ func TestHuffmanFuzzCrash(t *testing.T) {
 }
 
 func dehex(s string) []byte {
-	s = strings.Replace(s, " ", "", -1)
-	s = strings.Replace(s, "\n", "", -1)
+	s = strings.ReplaceAll(s, " ", "")
+	s = strings.ReplaceAll(s, "\n", "")
 	b, err := hex.DecodeString(s)
 	if err != nil {
 		panic(err)
