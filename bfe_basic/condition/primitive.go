@@ -875,7 +875,7 @@ func parserHashSectionConf(section string) (int, int, error) {
 	// checkt numbers
 	var start, end int
 	for i, numberRawStr := range numbers {
-		numberStr := strings.Replace(numberRawStr, " ", "", -1)
+		numberStr := strings.ReplaceAll(numberRawStr, " ", "")
 		number, err := strconv.Atoi(numberStr)
 		if err != nil {
 			return 0, 0, fmt.Errorf("hash value check section %s number %s err %s",

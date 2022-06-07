@@ -109,7 +109,7 @@ func ReqQueryRename(req *bfe_basic.Request, oldName string, newName string) {
 	// rename keys
 	srcKey := "&" + oldName + "="
 	dstKey := "&" + newName + "="
-	rawQuery = strings.Replace(rawQuery, srcKey, dstKey, -1)
+	rawQuery = strings.ReplaceAll(rawQuery, srcKey, dstKey)
 
 	// remove prefix "&"
 	req.HttpRequest.URL.RawQuery = rawQuery[1:]
