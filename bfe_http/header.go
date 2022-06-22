@@ -99,7 +99,7 @@ func (h Header) Clone() Header {
 
 // Keys get all keys from header
 func (h Header) Keys() []string {
-	keys := make([]string, 0)
+	keys := make([]string, 0, len(h))
 	for key := range h {
 		keys = append(keys, key)
 	}
