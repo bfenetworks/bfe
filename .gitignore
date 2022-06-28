@@ -20,9 +20,12 @@ output
 .*.swo
 /**/y.output
 /**/*.log
+/**/*.log.*
 profile.out
 coverage.txt
 .idea/*
 .vscode/*
 bfe
 dist/*
+
+.DS_Store

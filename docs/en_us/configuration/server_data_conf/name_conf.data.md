@@ -2,7 +2,7 @@
 
 ## Introduction
 
-name_conf.data records the mapping between service name and service instances. 
+name_conf.data records the mapping between service name and service instances.
 
 ## Configuration
 

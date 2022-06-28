@@ -1,12 +1,13 @@
 # mod_trace
 
-## 模块简介 
+## 模块简介
 
 mod_trace根据自定义的条件，为请求开启分布式跟踪。
 
 ## 基础配置
 
 ### 配置描述
+
 模块配置文件: conf/mod_trace/mod_trace.conf
 
 #### 基础配置项
@@ -15,7 +16,7 @@ mod_trace根据自定义的条件，为请求开启分布式跟踪。
 | ------------------------------| -------------------------|
 | Basic.DataPath                | String<br>规则配置文件路径 |
 | Basic.ServiceName             | String<br>服务名 |
-| Basic.TraceAgent              | String<br>设置trace组件，可选值：jaeger和zipkin | 
+| Basic.TraceAgent              | String<br>设置trace组件，可选值：jaeger和zipkin |
 | Log.OpenDebug                 | Boolean<br>是否启用模块调试日志开关 |
 
 #### Zipkin配置项
@@ -81,6 +82,7 @@ SampleRate = 1.0
 ```
 
 #### 基于Jaeger示例
+
 ```ini
 [Basic]
 DataPath = mod_trace/trace_rule.data
@@ -134,6 +136,7 @@ CollectorPassword = ""
 ```
 
 #### 基于Elastic示例
+
 ```ini
 [Basic]
 DataPath = mod_trace/trace_rule.data
@@ -158,6 +161,7 @@ SecretToken = ""
 ## 规则配置
 
 ### 配置描述
+
 规则配置文件: conf/mod_trace/trace_rule.data
 
 | 配置项                      | 描述                                         |
@@ -171,6 +175,7 @@ SecretToken = ""
 | Config[v][].Enable         | Boolean<br>是否开启trace                      |
   
 ### 配置示例
+
 ```json
 {
   "Version": "20200218210000",

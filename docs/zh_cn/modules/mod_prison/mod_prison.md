@@ -1,12 +1,13 @@
 # mod_prison
 
-## 模块简介 
+## 模块简介
 
 mod_prison根据自定义的条件，限定单位时间用户的访问次数。
 
 ## 基础配置
 
 ### 配置描述
+
 模块配置文件: conf/mod_prison/mod_prison.conf
 
 | 配置项                | 描述                       |
@@ -14,6 +15,7 @@ mod_prison根据自定义的条件，限定单位时间用户的访问次数。
 | Basic.ProductRulePath | String<br>规则配置文件路径 |
 
 ### 配置示例
+
 ```ini
 [Basic]
 ProductRulePath = mod_prison/prison.data
@@ -22,6 +24,7 @@ ProductRulePath = mod_prison/prison.data
 ## 规则配置
 
 ### 配置描述
+
 规则配置文件: conf/mod_prison/prison.data
 
 | 配置项                   | 描述                                                         |
@@ -54,6 +57,7 @@ ProductRulePath = mod_prison/prison.data
 | Config{v}[].PrisonDictSize | Integer<br>访问封禁表大小 |
 
 ### 模块动作
+
 | 动作                      | 描述                               |
 | ------------------------- | ---------------------------------- |
 | CLOSE                     | 关闭用户连接                     |
@@ -62,6 +66,7 @@ ProductRulePath = mod_prison/prison.data
 | REQ_HEADER_SET            | 修改请求头部                   |
 
 ### 配置示例
+
 ```json
 {
 	"Version": "20190101000000",
@@ -91,4 +96,3 @@ ProductRulePath = mod_prison/prison.data
 	}
 }
 ```
-

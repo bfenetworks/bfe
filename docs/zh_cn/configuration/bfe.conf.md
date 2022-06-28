@@ -13,6 +13,7 @@ bfe.conf是BFE的核心配置
 | Server.HttpPort                | Integer<br>HTTP监听端口<br>默认值8080 |
 | Server.HttpsPort               | Integer<br>HTTPS(TLS)监听端口<br>默认值8443 |
 | Server.MonitorPort             | Integer<br>Monitor监听端口<br>默认值8421 |
+| Server.MonitorEnabled          | Boolean<br>Monitor服务器是否开启<br>默认值True |
 | Server.MaxCpus                 | Integer<br>最大使用CPU核数; 0代表使用所有CPU核<br>默认值0 |
 | Server.Layer4LoadBalancer      | String<br>四层负载均衡器类型(PROXY/NONE)<br>默认值NONE |
 | Server.TlsHandshakeTimeout     | Integer<br>TLS握手超时时间，单位为秒<br>默认值30 |

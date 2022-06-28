@@ -275,6 +275,9 @@ NextCandidate:
 			return nil, errors.New("failed to sign ECDHE parameters: " + err.Error())
 		}
 		sig, err = asn1.Marshal(ecdsaSignature{r, s})
+		if err != nil {
+			return nil, errors.New("failed to sign ECDHE asn1 marshal: " + err.Error())
+		}
 	case signatureRSA:
 		privKey, ok := cert.PrivateKey.(*rsa.PrivateKey)
 		if !ok {

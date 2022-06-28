@@ -26,6 +26,8 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -66,12 +68,28 @@ type switchWriter struct {
 	io.Writer
 }
 
+type atomicBool int32
+
+func (b *atomicBool) isSet() bool { return atomic.LoadInt32((*int32)(b)) != 0 }
+func (b *atomicBool) setTrue()    { atomic.StoreInt32((*int32)(b), 1) }
+func (b *atomicBool) setFalse()   { atomic.StoreInt32((*int32)(b), 0) }
+
 // A response represents the server side of an HTTP response.
 type response struct {
 	conn          *conn
 	req           *bfe_http.Request // request for this response
 	wroteHeader   bool              // reply header has been (logically) written
 	wroteContinue bool              // 100 Continue response was written
+
+	// canWriteContinue is a boolean value accessed as an atomic int32
+	// that says whether or not a 100 Continue header can be written
+	// to the connection.
+	// writeContinueMu must be held while writing the header.
+	// These two fields together synchronize the body reader
+	// (the expectContinueReader, which wants to write 100 Continue)
+	// against the main writer.
+	canWriteContinue atomicBool
+	writeContinueMu  sync.Mutex
 
 	w  *bfe_bufio.Writer // buffers output in chunks to chunkWriter
 	cw chunkWriter
@@ -161,8 +179,8 @@ func srcIsRegularFile(src io.Reader) (isRegular bool, err error) {
 	}
 }
 
-// set signature calculator for response
-func (w *response) SetSigner(signer bfe_http.SignCalculater) {
+// SetSigner set signature calculator for response
+func (w *response) SetSigner(signer bfe_http.SignCalculator) {
 	w.cw.Signer = signer
 }
 
@@ -307,6 +325,16 @@ func (w *response) WriteString(data string) (n int, err error) {
 
 // either dataB or dataS is non-zero.
 func (w *response) write(lenData int, dataB []byte, dataS string) (n int, err error) {
+	if w.canWriteContinue.isSet() {
+		// Body reader wants to write 100 Continue but hasn't yet.
+		// Tell it not to. The store must be done while holding the lock
+		// because the lock makes sure that there is not an active write
+		// this very moment.
+		w.writeContinueMu.Lock()
+		w.canWriteContinue.setFalse()
+		w.writeContinueMu.Unlock()
+	}
+
 	if !w.wroteHeader {
 		w.WriteHeader(bfe_http.StatusOK)
 	}

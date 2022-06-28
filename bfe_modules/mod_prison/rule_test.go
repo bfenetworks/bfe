@@ -16,7 +16,6 @@ package mod_prison
 
 import (
 	"crypto/md5"
-	"encoding/json"
 	"testing"
 	"time"
 )
@@ -27,6 +26,7 @@ import (
 
 import (
 	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 func newPrisonRuleConfTest() (*PrisonRuleConf, error) {

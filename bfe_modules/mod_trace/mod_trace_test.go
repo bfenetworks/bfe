@@ -44,12 +44,12 @@ func TestLoadRuleData(t *testing.T) {
 	}
 
 	if modVersion != expectModVersion {
-		t.Fatalf("version shoule be %s, but it's %s", expectModVersion, modVersion)
+		t.Fatalf("version should be %s, but it's %s", expectModVersion, modVersion)
 	}
 
 	expectVersion := "20200316215500"
 	if m.ruleTable.version != expectVersion {
-		t.Fatalf("version shoule be %s, but it's %s", expectVersion, m.ruleTable.version)
+		t.Fatalf("version should be %s, but it's %s", expectVersion, m.ruleTable.version)
 	}
 
 	ruleList, ok := m.ruleTable.productRule[expectProduct]

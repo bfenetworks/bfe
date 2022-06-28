@@ -55,7 +55,7 @@ const (
 // is either not present in the request or not a file field.
 var ErrMissingFile = errors.New("http: no such file")
 
-// HTTP request parsing errors.
+// ProtocolError is the error found during HTTP request parsing.
 type ProtocolError struct {
 	ErrorString string
 }
@@ -552,7 +552,7 @@ func (r *Request) BasicAuth() (username, password string, ok bool) {
 // "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==" returns ("Aladdin", "open sesame", true).
 func parseBasicAuth(auth string) (username, password string, ok bool) {
 	const prefix = "Basic "
-	// Case insensitive prefix match. See Issue 22736.
+	// Case-insensitive prefix match. See Issue 22736.
 	if len(auth) < len(prefix) || !strings.EqualFold(auth[:len(prefix)], prefix) {
 		return
 	}

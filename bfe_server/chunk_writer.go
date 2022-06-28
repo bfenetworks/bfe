@@ -128,8 +128,8 @@ type chunkWriter struct {
 	// total bytes of body written
 	length int
 
-	// Signer calcuates signature for current response
-	Signer bfe_http.SignCalculater
+	// Signer calculates signature for current response
+	Signer bfe_http.SignCalculator
 }
 
 var (
@@ -341,6 +341,10 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 	}
 
 	if !w.conn.server.DoKeepAlives() {
+		w.closeAfterReply = true
+	}
+
+	if ecr, ok := w.req.Body.(*expectContinueReader); ok && !ecr.sawEOF.isSet() {
 		w.closeAfterReply = true
 	}
 

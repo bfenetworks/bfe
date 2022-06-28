@@ -2,7 +2,7 @@
 
 ## Introduction
 
-host_rule.data records the domain names for each product. 
+host_rule.data records the domain names for each product.
 
 ## Configuration
 
@@ -35,6 +35,3 @@ host_rule.data records the domain names for each product.
     }
 }
 ```
-
-
-

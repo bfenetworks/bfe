@@ -24,4 +24,3 @@ The endpoint `/monitor/tls_state` exposes metrics about TLS protocol.
 | TLS_HANDSHAKE_SSLV2_NOT_SUPPORT            | Counter for unsupported SSLv2 handshake received             |
 | TLS_HANDSHAKE_ZERO_DATA                    | Counter for zero data                                        |
 | TLS_STATUS_REQUEST_EXT_COUNT               | Counter for request extensions                               |
-

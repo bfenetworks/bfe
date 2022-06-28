@@ -22,7 +22,6 @@ Green ticks after all tests means that your commit has passed all unit tests.
 
 Red cross after the tests means your commit hasn't passed certain unit test. Please click detail to view bug details and make a screenshot of bug, then add it as a comment in your Pull Request. Our stuff will help you check it.
 
-
 ## Delete remote branch
 
 We can delete branches of remote repository in PR page after your PR is successfully merged into master repository.
@@ -45,7 +44,6 @@ $ git branch -D my-cool-stuff # delete my-cool-stuff branch
 
 And now we finish a full process of code contribution
 
-
 ## Certain regulations about submitting code
 
 In order that reviewers focus on code in the code review, please follow these rules every time you submit your code:
@@ -64,7 +62,6 @@ Suggestion：Keep commit concise as much as possible at every submit. You can ma
 
 3）If you have tackled with problems of an Issue, please add `fix #issue_number` to the *first* comment area of PULL Request.Then the corresponding Issue will be closed automatically after the merge of PULL Request. Keywords are including:close, closes, closed, fix, fixes, fixed, resolve, resolves, resolved. Please select appropriate word. Please refer to [Closing issues via commit messages](https://help.github.com/articles/closing-issues-via-commit-messages) for more details.
 
-
 In addition, please follow the following regulations in response to the suggestion of reviewers:
 
 1）A reply to every comment of reviewers（It's a fundamental complimentary conduct in open source community.An expression of appreciation is a need for help from others):
@@ -78,4 +75,3 @@ In addition, please follow the following regulations in response to the suggesti
    - Please show general modification
 
    - Please follow [start a review](https://help.github.com/articles/reviewing-proposed-changes-in-a-pull-request/) to give your reply,instead of directly replying for that every comment will result in sending an email causing email disaster.
-

@@ -5,7 +5,9 @@
 Module doh supports DNS over HTTPS.
 
 ## Module configuration
+
 ### Description
+
 conf/mod_doh/mod_doh.conf
 
 | Config Item         | Description                                 |

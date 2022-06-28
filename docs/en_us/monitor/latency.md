@@ -2,7 +2,7 @@
 
 ## Introduction
 
-| Endpoint                              | Description       | 
+| Endpoint                              | Description       |
 | ------------------------------------- | ----------------- |
 | /monitor/proxy_handshake_delay        | Latency of the TLS handshake |
 | /monitor/proxy_handshake_full_delay   | Latency of the TLS full handshake |
@@ -18,13 +18,13 @@
 | ProgramName  | Program name                              |
 | KeyPrefix    | Key prefix                                |
 | CurrTime     | Start time of current statistics          |
-| Current      | Latency histgram for current statistics   |
+| Current      | Latency histogram for current statistics   |
 | PastTime     | Start time of last statistics             |
-| Past         | Latency histgram for last statistics      |
+| Past         | Latency histogram for last statistics      |
 
 ## Special Notes for Prometheus format
 
-BFE can expose metrics in various formats. 
+BFE can expose metrics in various formats.
 
 Unlike other formats, in the Prometheus format latency histogram, counter for a bucket with lager upper bound will include the number of events in buckets with smaller upper bound.  See [Histogram](https://prometheus.io/docs/concepts/metric_types/#histogram) in Prometheus document for more detail.  
 

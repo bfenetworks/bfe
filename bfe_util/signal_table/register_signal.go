@@ -18,7 +18,7 @@ import (
 	"syscall"
 )
 
-// register signal handlers
+// RegisterSignalHandlers register signal handlers
 func RegisterSignalHandlers(signalTable *SignalTable) {
 	// term handlers
 	signalTable.Register(syscall.SIGTERM, TermHandler)

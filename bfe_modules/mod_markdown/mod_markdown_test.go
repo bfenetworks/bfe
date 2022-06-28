@@ -131,6 +131,9 @@ func TestModuleMarkdown_renderMarkDownHandler(t *testing.T) {
 				t.Errorf("ModuleMarkdown.TestModuleMarkdown_renderMarkDownHandler() error = %v", err)
 			}
 			want, err := ioutil.ReadFile(targetPath)
+			if err != nil {
+				t.Errorf("ModuleMarkdown.TestModuleMarkdown_renderMarkDownHandler() error = %v", err)
+			}
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("ModuleMarkdown.TestModuleMarkdown_renderMarkDownHandler(), got[%s], want[%s]", string(got), string(want))
 			}

@@ -17,4 +17,3 @@ The endpoint `/monitor/websocket_state` exposes metrics about WebSocket.
 | WEB_SOCKET_ERR_PROXY          | Counter for finding backend           |
 | WEB_SOCKET_ERR_TRANSFER       | Counter for transfer error            |
 | WEB_SOCKET_PANIC_CONN         | Counter for connection panic          |
-

@@ -451,7 +451,7 @@ func (sc *serverConn) serve() {
 // hand timeout event for stream timeout, stream timeout, rst stream
 func (sc *serverConn) handleTimeout(ch timeoutEventElem) {
 	tag := ch.tag
-	log.Logger.Debug("bfe_spdy: %s timeout, reseting frame id[%d] from %v",
+	log.Logger.Debug("bfe_spdy: %s timeout, resetting frame id[%d] from %v",
 		tag.String(), ch.streamID, sc.conn.RemoteAddr())
 	// stream timeout, rst the stream
 	errRst := StreamError{ch.streamID, ProtocolError}

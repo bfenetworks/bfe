@@ -2,7 +2,7 @@
 
 ## Download binaries
 
-- [Download the latest release](https://github.com/bfenetworks/bfe/releases) of BFE for your platfrom.
+- [Download the latest release](https://github.com/bfenetworks/bfe/releases) of BFE for your platform.
 
 ## Installation
 
@@ -22,6 +22,6 @@ $ ./bfe -c ../conf -l ../log
 ```
 
 ## Further reading
+
 - Get familiar with [Command options](../operation/command.md)
 - Get started with [Beginner's Guide](../example/guide.md)
-

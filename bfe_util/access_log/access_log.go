@@ -16,10 +16,11 @@ package access_log
 
 import (
 	"fmt"
-	"github.com/bfenetworks/bfe/bfe_util"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 import (
@@ -28,8 +29,8 @@ import (
 
 type LogConfig struct {
 	// Log directly to a single file (eg. /dev/stdout)
-	LogFile     string // log file path
-	
+	LogFile string // log file path
+
 	// Log with rotation under specified directory
 	LogPrefix   string // log file prefix
 	LogDir      string // log file dir
@@ -157,9 +158,8 @@ func LoggerInitWithSvr(progName string, loggerName string,
 
 // loggerInitWithFilePath initialize logger with a single file name and output logs to file simply.
 func loggerInitWithFilePath(filePath, format string) (log4go.Logger, error) {
-	var logger log4go.Logger
 	// create logger
-	logger = make(log4go.Logger)
+	var logger = make(log4go.Logger)
 	logWriter := log4go.NewFileLogWriter(filePath, false)
 	if logWriter == nil {
 		return nil, fmt.Errorf("error in log4go.NewFileLogWriter(%s)", filePath)

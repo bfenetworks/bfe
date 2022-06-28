@@ -87,7 +87,7 @@ func (m *TLSServerRuleMap) GetHTTP2Rule(c *bfe_tls.Conn) *bfe_http2.Rule {
 	return &r.H2Rule
 }
 
-//  GetStreamRule returns stream rule for given connection.
+// GetStreamRule returns stream rule for given connection.
 func (m *TLSServerRuleMap) GetStreamRule(c *bfe_tls.Conn) *bfe_stream.Rule {
 	r := m.getRule(c)
 	return &r.StreamRule

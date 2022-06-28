@@ -14,6 +14,7 @@ req_host_in("bfe-networks.com|bfe-networks.org")
 - BFE支持一系列预定义的内置[条件原语](condition_primitive_index.md)
 
 ### 条件表达式
+
 - 条件表达式是多个条件原语与操作符(例如与、或、非)的组合
 
 ```go
@@ -33,6 +34,7 @@ bfe_host = req_host_in("bfe-networks.com")
 ```
 
 ### 高级条件表达式
+
 - 高级条件表达式是多个条件原语和条件变量与操作符(例如与、或、非)的组合
 
 - 在高级条件表达式中，条件变量以$前缀作为标示

@@ -23,7 +23,6 @@ package bfe_server
 import (
 	"errors"
 	"io"
-	"sync"
 )
 
 import (
@@ -35,62 +34,64 @@ import (
 type expectContinueReader struct {
 	resp       *response
 	readCloser io.ReadCloser
-	closed     bool
-	mu         sync.Mutex
+	closed     atomicBool
+	sawEOF     atomicBool
 }
 
 func (ecr *expectContinueReader) tryWriteContinue() {
-	if !ecr.resp.wroteContinue {
-		ecr.resp.wroteContinue = true
-		ecr.resp.conn.buf.WriteString("HTTP/1.1 100 Continue\r\n\r\n")
-		ecr.resp.conn.buf.Flush()
+	w := ecr.resp
+
+	if !w.wroteContinue && w.canWriteContinue.isSet() {
+		w.wroteContinue = true
+		w.writeContinueMu.Lock()
+		if w.canWriteContinue.isSet() {
+			ecr.resp.conn.buf.WriteString("HTTP/1.1 100 Continue\r\n\r\n")
+			ecr.resp.conn.buf.Flush()
+			w.canWriteContinue.setFalse()
+		}
+		w.writeContinueMu.Unlock()
 	}
 }
 
 func (ecr *expectContinueReader) Read(p []byte) (n int, err error) {
-	ecr.mu.Lock()
-	defer ecr.mu.Unlock()
-
-	if ecr.closed {
+	if ecr.closed.isSet() {
 		return 0, bfe_http.ErrBodyReadAfterClose
 	}
 
 	ecr.tryWriteContinue()
-	return ecr.readCloser.Read(p)
+	n, err = ecr.readCloser.Read(p)
+	if err == io.EOF {
+		ecr.sawEOF.setTrue()
+	}
+	return
 }
 
 func (ecr *expectContinueReader) Close() error {
-	ecr.mu.Lock()
-	defer ecr.mu.Unlock()
-
-	ecr.closed = true
+	ecr.closed.setTrue()
 	return ecr.readCloser.Close()
 }
 
 var ErrExpectContinueReaderPeek = errors.New("http: expect continue reader peek failed")
 
-// add peek function which is used by access log module
+// Peek add peek function which is used by access log module
 func (ecr *expectContinueReader) Peek(n int) ([]byte, error) {
-	ecr.mu.Lock()
-	defer ecr.mu.Unlock()
-
-	if ecr.closed {
+	if ecr.closed.isSet() {
 		return nil, bfe_http.ErrBodyReadAfterClose
 	}
 
 	// Ensure that "100-continue" has been written before peeking
 	ecr.tryWriteContinue()
 	if p, ok := ecr.readCloser.(bfe_http.Peeker); ok {
-		return p.Peek(n)
+		n, err := p.Peek(n)
+		if err == io.EOF {
+			ecr.sawEOF.setTrue()
+		}
+		return n, err
 	}
 	return nil, ErrExpectContinueReaderPeek
 }
 
-// check whether expectContinueReader has sent 100-Continue response
+// WroteContinue check whether expectContinueReader has sent 100-Continue response
 func (ecr *expectContinueReader) WroteContinue() bool {
-	ecr.mu.Lock()
-	wroteContinue := ecr.resp.wroteContinue
-	ecr.mu.Unlock()
-
-	return wroteContinue
+	return ecr.resp.wroteContinue
 }

@@ -39,13 +39,13 @@ There's no order among Basic Rules.  The matched rule with most specific conditi
 
 For each Basic Rule, at least one of two conditions (Host and Path) should be configured.
 
-**Host** condition description's syntax is as follow: 
+**Host** condition description's syntax is as follow:
 
 - Use "." to split labels within a host name
 - Support "Exact Match", "Wildcard Match", "Any Match"
   - Exact Match: An exact hostname (for example "www.test1.com")
   - Wildcard Match: A host name with first label set to "\*". The "\*" can only appear once in a hostname and only covers a single label (for example "\*.test1.com"). Examples of invalid host condition description include "\*est.com" and "\*.\*.com".
-  - Any Match: A special Wildcard Match. Standalone "\*" can match any host. (A standalone "\*" here can cover a hostname with multiple labels, which is different from Wildcard Match.) 
+  - Any Match: A special Wildcard Match. Standalone "\*" can match any host. (A standalone "\*" here can cover a hostname with multiple labels, which is different from Wildcard Match.)
 - Host condition of a Basic Rule supports multiple host condition descriptions (for example: "www.test1.com,","\*.example.com").
 
 **Examples:**
@@ -58,7 +58,7 @@ For each Basic Rule, at least one of two conditions (Host and Path) should be co
 | \*.test1.com   | example.com        | No Match                                  |
 | \*.test1.com   | test1.com          | No Match                                  |
 
-**Path** condition description's syntax is as follow: 
+**Path** condition description's syntax is as follow:
 
 - Use "/" to split elements within a path
 - Start with "/", except for a standalone "\*".
@@ -111,7 +111,7 @@ Detailed steps of search in Basic Rule Table are described below:
 Among above steps, when searching path condition in rules that has matches the host:
 
 1. Search path condition using **Exact Match**
-2. If no rule matches as Exact Match, search path condition using **Prefix Match**. Precedence will be given to the longest matching path. So if more than one rule matches the path in the request, the rule with most matching path elements is hit. 
+2. If no rule matches as Exact Match, search path condition using **Prefix Match**. Precedence will be given to the longest matching path. So if more than one rule matches the path in the request, the rule with most matching path elements is hit.
 
 ### Examples
 
@@ -145,10 +145,10 @@ Advanced Rule Table consists of one or more "Advanced Rules" which have an order
 - Condition of a Advanced Rule is described using a pseudocode description called "[Condition Expression](https://www.bfe-networks.net/en_us/condition/condition_grammar/)".
 - Destination Cluster is specified by a cluster name.
 
-When searching in Advanced Rule Table, the rules are searched from up to down, in listed order: 
+When searching in Advanced Rule Table, the rules are searched from up to down, in listed order:
 
 - Try to match the condition of the rule with information in the HTTP request (such as host，path，query，cookie，method). If it  matches, the rule is hit.  
-- If a rule is hit, the search stops. 
+- If a rule is hit, the search stops.
 - A Default Rule must be configured in the Advanced Rule Table. If no other rule matches a request, the Default Rule is hit.
 
 ## Examples
@@ -235,4 +235,3 @@ For above configuration, configuration file (/conf/server_data_conf/route_rule.c
     }    
 }
 ```
-

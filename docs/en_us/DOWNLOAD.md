@@ -11,7 +11,6 @@ We provide precompiled binaries for bfe components. [Download the latest release
 | [bfe_1.4.0_linux_arm64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.4.0/bfe_1.4.0_linux_arm64.tar.gz) | linux   | arm64     | 8.8 MB  | 33de43a45fd6c6414b4359aa2c3e1141d2299ee07ad6dfb48d2afd1af1561734 |
 | [bfe_1.4.0_windows_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.4.0/bfe_1.4.0_windows_amd64.tar.gz) | windows | amd64     | 9.59 MB | c637b5917a428850dde470e915eaac3076707da8959392d38bce70eee2190767 |
 
-
 ## bfe v1.3.0
 
 * 2021-09-16 [Release notes](https://github.com/bfenetworks/bfe/releases/tag/v1.3.0)
@@ -22,8 +21,6 @@ We provide precompiled binaries for bfe components. [Download the latest release
 | [bfe_1.3.0_linux_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.3.0/bfe_1.3.0_linux_amd64.tar.gz) | linux | amd64     | 9.45 MB | 2b0d484a9fcf56cc68edb7dce0357c446ba64fd2672b079b041c178da998d59a |
 | [bfe_1.3.0_linux_arm64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.3.0/bfe_1.3.0_linux_arm64.tar.gz) | linux | arm64     | 8.72 MB | 43e9fdf9e909af6365727ee88c2b78d9e825f8828d5b2050f4cb8c6b6fb0add2 |
 | [bfe_1.3.0_windows_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.3.0/bfe_1.3.0_windows_amd64.tar.gz) | windows |     amd64 | 9.48 MB | 87cdadbfa5e7bbd413b1fc853c0824971fdb2777c111c3dea22893c3a48363b8 |
-
-
 
 ## bfe v1.2.0
 
@@ -36,7 +33,6 @@ We provide precompiled binaries for bfe components. [Download the latest release
 | [bfe_1.2.0_linux_arm64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.2.0/bfe_1.2.0_linux_arm64.tar.gz) | linux | arm64 | 11.8 MB | 87c83da7e182fe556f60be951c7c611f9ae144fa04d87986a5c18bcd93d9dde9 |
 | [bfe_1.2.0_windows_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.2.0/bfe_1.2.0_windows_amd64.tar.gz) | windows | amd64 | 12.1 MB | e1b920fd6d8a4454120822e1640d2fd65c90fd7ec77983a661f426c82918cecd |
 
-
 ## bfe v1.1.0
 
 * 2021-04-08 [Release notes](https://github.com/bfenetworks/bfe/releases/tag/v1.1.0)
@@ -48,7 +44,6 @@ We provide precompiled binaries for bfe components. [Download the latest release
 | [bfe_1.1.0_linux_arm64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.1.0/bfe_1.1.0_linux_arm64.tar.gz) | linux | arm64 | 11.8 MB | a2b6047eb4121a0ff6a0255699384a94b094f9d60553ad9e2a11ee39647320bd |
 | [bfe_1.1.0_windows_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.1.0/bfe_1.1.0_windows_amd64.tar.gz) | windows | amd64 | 12.1 MB | e2c49b49c45db9fb89ffcf7688de08f6c73c58035021763bd9b61b7e0dbe7771 |
 
-
 ## bfe v1.0.0
 
 * 2021-01-15 [Release notes](https://github.com/bfenetworks/bfe/releases/tag/v1.0.0)
@@ -59,7 +54,6 @@ We provide precompiled binaries for bfe components. [Download the latest release
 | [bfe_1.0.0_linux_arm64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.0.0/bfe_1.0.0_linux_arm64.tar.gz) | linux | arm64 | 5.63 MB | 47a3730ac90c4700c557d6c5903361c557e169102256bac870cede4eb90ff829 |
 | [bfe_1.0.0_linux_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.0.0/bfe_1.0.0_linux_amd64.tar.gz) | linux | amd64 | 6.18 MB | 5ec46c26827d554ba4c76f7f5e12b6b6afb68a9333213065802fa425fb81cbd1 |
 | [bfe_1.0.0_windows_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.0.0/bfe_1.0.0_windows_amd64.tar.gz) | windows | amd64 | 6.15 MB | 95ba788d0335ac536036c77e39249ce1629b2d159c942293077fd57ddc487f29 |
-
 
 ## bfe v0.10.0
 
@@ -80,4 +74,3 @@ We provide precompiled binaries for bfe components. [Download the latest release
 | [bfe_0.9.0_darwin_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v0.9.0/bfe_0.9.0_darwin_amd64.tar.gz) | darwin | amd64 | 9.75 MB | 3bdbb80cc4946bc85b7295fc86ca86800e7811d20f37b36037aadfc7df718ad9 |
 | [bfe_0.9.0_linux_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v0.9.0/bfe_0.9.0_linux_amd64.tar.gz) | linux | amd64 | 10.90 MB | 9b6aaac88651d88e86e67835b5ae0bdbe1c76076382b198f0aeb0b94b7572887 |
 | [bfe_0.9.0_windows_amd64.zip](https://github.com/bfenetworks/bfe/releases/download/v0.9.0/bfe_0.9.0_windows_amd64.zip) | windows | amd64 | 9.75 MB | 4079f97b544b3070bec3ad65a28ccb816290890a278a51c88c81c15405c1f8cf |
-

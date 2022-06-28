@@ -17,4 +17,3 @@ The endpoint `/monitor/bal_table_status` exposes metrics about backend clusters.
 | ------------ | ------------------------------------------------------------ |
 | SubClusters  | State of sub-cluster, it is map data, key is sub-cluster name, value is number of sub-cluster backend |
 | BackendNum   | Number of sub-cluster backend                                |
-

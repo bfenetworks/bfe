@@ -72,7 +72,7 @@ func BackupFile(path string, bakPath string) error {
 	return nil
 }
 
-// check local file
+// CheckStaticFile check local file
 func CheckStaticFile(filename string, sizeLimit int64) error {
 	stat, err := os.Stat(filename)
 	if err != nil {

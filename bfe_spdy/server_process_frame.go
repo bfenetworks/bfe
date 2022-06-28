@@ -254,7 +254,7 @@ func (sc *serverConn) processSynStream(f *SynStreamFrame) error {
 		// "If the client is initiating the stream, the Stream-ID must
 		// be even. [...] The stream-id MUST increase with each new stream.
 		// If an endpoint receives a SYN_STREAM with a stream id which is
-		// less than any previously recevied SYN_STREAM, it MUST issue a
+		// less than any previously received SYN_STREAM, it MUST issue a
 		// session error with the status PROTOCOL_ERROR. See Section 2.3.2"
 		state.SpdyErrInvalidSynStream.Inc(1)
 		return ConnectionError(ProtocolError)

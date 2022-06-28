@@ -2,8 +2,7 @@
 
 ## What is BFE
 
-BFE is an open-source layer 7 load balancer derived from proprietary Baidu Front End. 
-
+BFE is an open-source layer 7 load balancer derived from proprietary Baidu Front End.
 
 ## Features and Advantages
 
@@ -11,7 +10,7 @@ BFE is an open-source layer 7 load balancer derived from proprietary Baidu Front
 
 BFE is written in a memory safety language and immune to Buffer Overflow vulnerability; BFE recovers from the runtime panics and handles them appropriately without killing the BFE process; BFE runs on Linux, Windows, Mac OS and almost anything to which Go compiles.
 
-* Flexible plugin framework 
+* Flexible plugin framework
 
 BFE has a builtin plugin framework that makes it possible to develop new features rapidly by writing plugins.
 
@@ -25,13 +24,13 @@ BFE supports HTTP, HTTPS, SPDY, HTTP2, WebSocket, TLS, gRPC, FastCGI, etc. Futur
 
 * Content based routing
 
-BFE provides an [advanced domain-specific language](../condition/condition_grammar.md) to describe routing rules which are easy to understand and maintain. 
+BFE provides an [advanced domain-specific language](../condition/condition_grammar.md) to describe routing rules which are easy to understand and maintain.
 
 * Advanced load balancing
 
-BFE supports global load balancing and distributed load balancing for zone aware balancing, zone level failure resilience, overload protection etc. 
+BFE supports global load balancing and distributed load balancing for zone aware balancing, zone level failure resilience, overload protection etc.
 
-* A rich set of builtin plugins 
+* A rich set of builtin plugins
 
 BFE provides a rich set of plugins for traffic management, security, observability, etc.
 
@@ -43,7 +42,6 @@ BFE includes detailed built-in metrics for all subsystems. BFE writes various lo
 
 BFE is easily integrated with mainstream layer 4 load balancing solution, and other ecosystem projects(e.g. Kubernetes、Prometheus、Jaeger、Fluentd etc).
 
-
 ## Components
 
 BFE system consists of components in both data plane and control plane:
@@ -54,7 +52,6 @@ BFE system consists of components in both data plane and control plane:
   - [BFE API Server](https://github.com/bfenetworks/api-server)：provides API and handles update, storage and generation of BFE config
   - [BFE Conf Agent](https://github.com/bfenetworks/conf-agent)：component for loading config, fetches latest config from API-Server and triggers BFE Server to reload it
   - [BFE Dashboard](https://github.com/bfenetworks/dashboard)：provides a graphic interface for user to manage and view major config of BFE
-
 
 ## Architecture overview
 

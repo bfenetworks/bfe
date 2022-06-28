@@ -32,7 +32,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-// bfe_fileter.go define filter for various scenarios.
+// bfe_filter.go define filter for various scenarios.
 //  AcceptFilter: filter after accept connection from client
 //  RequestFilter: filter after get http request from client
 //  ForwardFilter: filter before forward http request to backend

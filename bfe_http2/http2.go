@@ -16,7 +16,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package http2 implements the HTTP/2 protocol.
+// Package bfe_http2 implements the HTTP/2 protocol.
 //
 // This package is low-level and intended to be used directly by very
 // few people. Most users will use it indirectly through the automatic
@@ -556,7 +556,7 @@ type ServerRule interface {
 	GetHTTP2Rule(conn *tls.Conn) *Rule
 }
 
-// customized http2 config for specific conn in server side
+// Rule is customized http2 config for specific conn in server side
 type Rule struct {
 	// MaxConcurrentStreams optionally specifies the number of
 	// concurrent streams for current conn

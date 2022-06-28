@@ -29,7 +29,7 @@ func TestStaticConfLoadCase1(t *testing.T) {
 		t.Errorf("Length of static rule should be 5 not %d", len(*staticConf.Config["unittest"]))
 	}
 	if (*staticConf.Config["unittest"])[0].Action.Params[1] != "" {
-		t.Errorf("default file of first rule shoule be empty")
+		t.Errorf("default file of first rule should be empty")
 	}
 }
 

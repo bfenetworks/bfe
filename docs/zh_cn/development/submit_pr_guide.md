@@ -22,7 +22,6 @@
 
 如果所需的测试后出现了红色叉号，代表您本次的commit未通过某项单元测试，在这种情况下，请您点击detail查看报错详情，并将报错原因截图，以评论的方式添加在您的Pull Request中，我们的工作人员将帮您查看
 
-
 ## 删除远程分支
 
 在 PR 被 merge 进主仓库后，我们可以在 PR 的页面删除远程仓库的分支。
@@ -61,6 +60,7 @@ $ git branch -D my-cool-stuff # 删除 my-cool-stuff 分支
 - 请注意每个commit的名称：应能反映当前commit的内容，不能太随意。
 
 3）如果解决了某个Issue的问题，请在该Pull Request的**第一个**评论框中加上：`fix #issue_number`，这样当该PUll Request被合并后，会自动关闭对应的Issue。
+
 - 关键词包括：close, closes, closed, fix, fixes, fixed, resolve, resolves, resolved，请选择合适的词汇。
 - 详细可参考[Closing issues via commit messages](https://help.github.com/articles/closing-issues-via-commit-messages)。
 
@@ -77,4 +77,3 @@ $ git branch -D my-cool-stuff # 删除 my-cool-stuff 分支
    - 请给出总体的修改情况。
 
    - 请采用[start a review](https://help.github.com/articles/reviewing-proposed-changes-in-a-pull-request/)进行回复，而非直接回复的方式。原因是每个回复都会发送一封邮件，会造成邮件灾难。
-   

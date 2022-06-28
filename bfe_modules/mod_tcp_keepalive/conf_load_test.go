@@ -31,7 +31,7 @@ func TestConfModTcpKeepAlive_1(t *testing.T) {
 	}
 
 	if config.Log.OpenDebug != true {
-		t.Error("Log.OpenDebug shoule be true")
+		t.Error("Log.OpenDebug should be true")
 		return
 	}
 }
@@ -45,7 +45,7 @@ func TestConfModTcpKeepAlive_2(t *testing.T) {
 
 	// use default value
 	if config.Basic.DataPath != "mod_tcp_keepalive/tcp_keepalive.data" {
-		t.Error("DataPath shoule be mod_tcp_keepalive/tcp_keepalive.data")
+		t.Error("DataPath should be mod_tcp_keepalive/tcp_keepalive.data")
 		return
 	}
 }

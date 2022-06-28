@@ -73,8 +73,7 @@ func wafRuleConvert(ruleFile *wafRuleFile) (*wafRule, error) {
 }
 
 func productWafRuleConvert(prf *productWafRuleFile) (productWafRule, error) {
-	var wr productWafRule
-	wr = make(productWafRule)
+	wr := make(productWafRule)
 	if prf == nil {
 		return nil, fmt.Errorf("ruleConvert(), err= empty productWafRuleFile")
 	}
