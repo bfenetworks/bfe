@@ -275,6 +275,7 @@ func (c *conn) serve() {
 	var hl *bfe_module.HandlerList
 	var retVal int
 	session := c.session
+	c.session.Proto = "http" // init proto
 	c.server.connWaitGroup.Add(1)
 	serverStatus := c.server.serverStatus
 	proxyState := serverStatus.ProxyState
@@ -316,6 +317,7 @@ func (c *conn) serve() {
 	}
 
 	if tlsConn, ok := c.rwc.(*bfe_tls.Conn); ok {
+		c.session.Proto = "https" // update proto
 		proxyState.TlsHandshakeAll.Inc(1)
 		var d time.Duration
 		// set tls handshake timeout
@@ -366,7 +368,7 @@ func (c *conn) serve() {
 				log.Logger.Debug("conn.serve(): Use negotiated protocol %s over TLS", proto)
 				proxyState.ClientConnServedInc(proto, 1) // Note: counter for negotiated protocol
 				proxyState.ClientConnActiveInc(proto, 1)
-				c.session.Proto = proto
+				c.session.Proto = proto	// update proto
 
 				// process protocol over TLS connection (spdy, http2, etc)
 				handler := NewProtocolHandler(c, proto)
@@ -379,12 +381,6 @@ func (c *conn) serve() {
 		}
 	}
 
-	// process requests from http/https protocol
-	if _, ok := c.rwc.(*bfe_tls.Conn); ok {
-		c.session.Proto = "https"
-	} else {
-		c.session.Proto = "http"
-	}
 	proxyState.ClientConnServedInc(c.session.Proto, 1) // Note: counter for http/https protocol
 	proxyState.ClientConnActiveInc(c.session.Proto, 1)
 
