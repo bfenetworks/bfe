@@ -47,7 +47,8 @@ type ProxyState struct {
 	// backend side errors
 	ErrBkConnectBackend    *metrics.Counter
 	ErrBkRequestBackend    *metrics.Counter
-	ErrBkWriteRequest      *metrics.Counter
+	ErrBkWriteRequestByBackend      *metrics.Counter
+	ErrBkWriteRequestByClient      *metrics.Counter
 	ErrBkReadRespHeader    *metrics.Counter
 	ErrBkRespHeaderTimeout *metrics.Counter
 	ErrBkTransportBroken   *metrics.Counter
