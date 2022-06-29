@@ -40,7 +40,8 @@ var (
 	ErrBkNoBackend         = errors.New("BK_NO_BACKEND")           // no backend found
 	ErrBkRequestBackend    = errors.New("BK_REQUEST_BACKEND")      // forward request to backend error
 	ErrBkConnectBackend    = errors.New("BK_CONNECT_BACKEND")      // connect backend error
-	ErrBkWriteRequest      = errors.New("BK_WRITE_REQUEST")        // write request error (caused by bk or client)
+	ErrBkWriteRequestByBackend      = errors.New("BK_WRITE_REQUEST_CAUSED_BY_BACKEND")       // write request error (caused by backend)
+	ErrBkWriteRequestByClient      	= errors.New("BK_WRITE_REQUEST_CAUSED_BY_CLIENT")        // write request error (caused by client)
 	ErrBkReadRespHeader    = errors.New("BK_READ_RESP_HEADER")     // read response error
 	ErrBkRespHeaderTimeout = errors.New("BK_RESP_HEADER_TIMEOUT")  // read response timeout
 	ErrBkTransportBroken   = errors.New("BK_TRANSPORT_BROKEN")     // conn broken

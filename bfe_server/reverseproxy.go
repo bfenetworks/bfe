@@ -382,14 +382,16 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 			backend.OnFail(cluster.Name)
 
 		case bfe_http.WriteRequestError, bfe_fcgi.WriteRequestError:
-			request.ErrCode = bfe_basic.ErrBkWriteRequest
+			request.ErrCode = bfe_basic.ErrBkWriteRequestByClient
 			request.ErrMsg = err.Error()
-			p.proxyState.ErrBkWriteRequest.Inc(1)
+			p.proxyState.ErrBkWriteRequestByClient.Inc(1)
 			allowRetry = checkAllowRetry(cluster.RetryLevel(), outreq)
 
 			// if error is caused by backend server
 			rerr := err.(bfe_http.WriteRequestError)
 			if !rerr.CheckTargetError(request.RemoteAddr) {
+				request.ErrCode = bfe_basic.ErrBkWriteRequestByBackend
+				p.proxyState.ErrBkWriteRequestByBackend.Inc(1)
 				backend.OnFail(cluster.Name)
 			}
 
