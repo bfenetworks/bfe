@@ -50,7 +50,7 @@ jobs:
 
     # Check license header
     - name: Check License Header
-      uses: apache/skywalking-eyes@main
+      uses: apache/skywalking-eyes/header@v0.4.0
 
     # Setup golang sdk
     - name: Setup Go
