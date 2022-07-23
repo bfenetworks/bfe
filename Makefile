@@ -95,6 +95,7 @@ ifeq ($(OS),darwin)
 else
 	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT) -extldflags=-static -s -w"
 endif
+
 # make test, test your code
 test: test-case vet-case
 test-case:
