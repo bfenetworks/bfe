@@ -15,6 +15,7 @@
 # init project path
 WORKROOT := $(shell pwd)
 OUTDIR   := $(WORKROOT)/output
+OS		 := $(shell go env GOOS)
 
 # init environment variables
 export PATH        := $(shell go env GOPATH)/bin:$(PATH)
@@ -80,13 +81,20 @@ prepare-gen:
 # make compile, go build
 compile: test build
 build:
+ifeq ($(OS),darwin)
+	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT)"
+else
 	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT) -extldflags=-static"
+endif
 
 # make compile-strip, go build without symbols and DWARFs
 compile-strip: test build-strip
 build-strip:
+ifeq ($(OS),darwin)
+	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT) -s -w"
+else
 	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT) -extldflags=-static -s -w"
-
+endif
 # make test, test your code
 test: test-case vet-case
 test-case:
