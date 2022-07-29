@@ -345,6 +345,12 @@ func leastConnsBalance(backs BackendList) (BackendList, error) {
 			singleBackend = true
 		} else if ret == 0 {
 			singleBackend = false
+			if len(candidates) > 0 {
+				candidates = append(candidates, backendRR)
+			} else {
+				candidates = append(candidates, best, backendRR)
+			}
+
 		}
 	}
 
@@ -354,22 +360,10 @@ func leastConnsBalance(backs BackendList) (BackendList, error) {
 
 	// single backend, return directly
 	if singleBackend {
-		candidates = append(candidates, best)
-		return candidates, nil
+		return BackendList{best}, nil
 	}
-
 	// more than one backend have same connections/weight,
 	// return all the candidates
-	for _, backendRR := range backs {
-		if !backendRR.backend.Avail() || backendRR.weight <= 0 {
-			continue
-		}
-
-		if ret := compLCWeight(best, backendRR); ret == 0 {
-			candidates = append(candidates, backendRR)
-		}
-	}
-
 	return candidates, nil
 }
 
