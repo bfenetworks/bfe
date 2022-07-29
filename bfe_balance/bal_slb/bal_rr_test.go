@@ -64,9 +64,58 @@ func prepareBalanceRR() *BalanceRR {
 	return rr
 }
 
+func prepareBalanceRRLcw() *BalanceRR {
+	b1 := populateBackend("b1", "127.0.0.1", 80, true)
+	b2 := populateBackend("b2", "127.0.0.1", 81, true)
+	b3 := populateBackend("b3", "127.0.0.1", 82, true)
+	b4 := populateBackend("b4", "127.0.0.1", 83, true)
+
+	rr := &BalanceRR{
+		backends: []*BackendRR{
+			{
+				weight:  300,
+				current: 300,
+				backend: b1,
+			},
+			{
+				weight:  200,
+				current: 200,
+				backend: b2,
+			},
+			{
+				weight:  100,
+				current: 100,
+				backend: b3,
+			},
+			{
+				weight:  50,
+				current: 50,
+				backend: b4,
+			},
+		},
+	}
+	return rr
+}
+
 func processBalance(t *testing.T, label string, algor int, key []byte, rr *BalanceRR, result []string) {
 	var l []string
 	for i := 1; i < 10; i++ {
+		r, err := rr.Balance(algor, key)
+		if err != nil {
+			t.Errorf("should not error")
+		}
+		r.IncConnNum()
+		l = append(l, r.Name)
+	}
+
+	if !reflect.DeepEqual(l, result) {
+		t.Errorf("balance error [%s] %v, expect %v", label, l, result)
+	}
+}
+
+func processBalancLoopTwenty(t *testing.T, label string, algor int, key []byte, rr *BalanceRR, result []string) {
+	var l []string
+	for i := 1; i < 20; i++ {
 		r, err := rr.Balance(algor, key)
 		if err != nil {
 			t.Errorf("should not error")
@@ -176,6 +225,12 @@ func TestBalance(t *testing.T) {
 	rr = prepareBalanceRR()
 	expectResult = []string{"b1", "b2", "b3", "b1", "b2", "b1", "b3", "b1", "b2"}
 	processBalance(t, "case 7", WlcSmooth, []byte{1}, rr, expectResult)
+
+	// case 8, lcw balance same weight
+	rr = prepareBalanceRRLcw()
+	expectResult = []string{"b1", "b2", "b3", "b4", "b1", "b2", "b1", "b1", "b2", "b3", "b1", "b2", "b1",
+		"b1", "b2", "b3", "b4", "b1", "b2"}
+	processBalancLoopTwenty(t, "case 8", WlcSmooth, []byte{1}, rr, expectResult)
 }
 
 func TestUpdate(t *testing.T) {
@@ -281,6 +336,15 @@ func BenchmarkSimpleBalance(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rr.simpleBalance()
+	}
+}
+
+func BenchmarkWlcBalance(b *testing.B) {
+	rr := prepareBalanceRRForBench()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		rr.leastConnsSmoothBalance()
 	}
 }
 
