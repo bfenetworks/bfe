@@ -234,7 +234,6 @@ func TestContextValueFetcher(t *testing.T) {
 	contextVal, err := hf.Fetch(req)
 	if err != nil {
 		t.Fatalf("Fetch(): %v", err)
-		t.FailNow()
 	}
 
 	// check
