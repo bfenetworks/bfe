@@ -88,12 +88,11 @@ func TestNewFingerprintPriorityFrame(t *testing.T) {
 	priorities := []string{}
 	var i uint32
 	for i = 1; i < 4; i++ {
-		priorities = append(priorities, fmt.Sprintf("%d:%d:%d:%d", i, func() uint8 {
-			if i%2 == 1 {
-				return 1
-			}
-			return 0
-		}(), i-1, uint8(i)*10))
+		exclusive := 0
+		if i%2 == 1 {
+			exclusive = 1
+		}
+		priorities = append(priorities, fmt.Sprintf("%d:%d:%d:%d", i, exclusive, i-1, uint8(i)*10))
 		fr.WritePriority(i, PriorityParam{
 			StreamDep: i - 1,
 			Exclusive: i%2 == 1,
@@ -130,9 +129,10 @@ func TestNewFingerprintMetaHeadersFrame(t *testing.T) {
 	}
 
 	tests := [...]struct {
-		name string
-		w    func(*Framer)
-		want string
+		name   string
+		w      func(*Framer)
+		want   string
+		hasErr bool
 	}{
 		{
 			name: "firefox headers",
@@ -172,6 +172,21 @@ func TestNewFingerprintMetaHeadersFrame(t *testing.T) {
 			},
 			want: "|00|1:0:2:22|m,s,p,a",
 		},
+		{
+			name: "safari headers with illegal Pseudo Heade",
+			w: func(f *Framer) {
+				var he hpackEncoder
+				all := he.encodeHeaderRaw(t,
+					":method", "GET", ":scheme", "https", ":path", "/", ":authority", "", ":auth", "empty")
+				write(f, PriorityParam{
+					StreamDep: 2,
+					Exclusive: false,
+					Weight:    22,
+				}, all)
+			},
+			want:   "|00|0|",
+			hasErr: true,
+		},
 	}
 	for _, tt := range tests {
 		buf := new(bytes.Buffer)
@@ -180,15 +195,136 @@ func TestNewFingerprintMetaHeadersFrame(t *testing.T) {
 		tt.w(f)
 
 		got, err := f.ReadFrame()
-		if err != nil {
+		if err != nil && !tt.hasErr {
 			t.Fatal(err)
 			t.Errorf("%s: %v\n", tt.name, err)
 		}
 
 		fp := newFingerprint()
-		fp.ProcessFrame(readFrameResult{got, nil, func() {}})
+		fp.ProcessFrame(readFrameResult{got, err, func() {}})
 		if got, want := fp.Calculate(), tt.want; got != want {
 			t.Errorf("Calculate result = %s; want %s", got, want)
+		}
+	}
+}
+
+func TestNewFingerprintWithFakeBrowsers(t *testing.T) {
+	writeHeaders := func(
+		f *Framer, streamId uint32, priority PriorityParam, frags ...[]byte,
+	) {
+		for i, frag := range frags {
+			end := (i == len(frags)-1)
+			if i == 0 {
+				err := f.WriteHeaders(HeadersFrameParam{
+					StreamID:      streamId,
+					BlockFragment: frag,
+					EndHeaders:    end,
+					Priority:      priority,
+				})
+				if err != nil {
+					t.Errorf("%s", err)
+				}
+			} else {
+				if err := f.WriteContinuation(1, end, frag); err != nil {
+					t.Errorf("%s", err)
+				}
+			}
+		}
+	}
+
+	newSetting := func(settings []Setting) readFrameResult {
+		fr, _ := testFramer()
+		fr.WriteSettings(settings...)
+		f, err := fr.ReadFrame()
+		return readFrameResult{f, err, func() {}}
+	}
+
+	newWindowUpdate := func(streamID uint32, incr uint32) readFrameResult {
+		fr, _ := testFramer()
+		fr.WriteWindowUpdate(streamID, incr)
+		f, err := fr.ReadFrame()
+		return readFrameResult{f, err, func() {}}
+	}
+
+	newPriority := func(streamID, streamDep uint32, exclusive bool, weight uint8) readFrameResult {
+		fr, _ := testFramer()
+		fr.WritePriority(streamID, PriorityParam{
+			StreamDep: streamDep,
+			Exclusive: exclusive,
+			Weight:    weight,
+		})
+		f, err := fr.ReadFrame()
+		return readFrameResult{f, err, func() {}}
+	}
+
+	newHeader := func(
+		streamID uint32, headers []string, priorityParam PriorityParam,
+	) readFrameResult {
+		buf := new(bytes.Buffer)
+		f := NewFramer(buf, buf)
+		f.AllowIllegalWrites = true
+		f.ReadMetaHeaders = hpack.NewDecoder(initialHeaderTableSize, nil)
+
+		var he hpackEncoder
+		all := he.encodeHeaderRaw(t, headers...)
+		writeHeaders(f, streamID, priorityParam, all)
+
+		got, err := f.ReadFrame()
+		return readFrameResult{got, err, func() {}}
+	}
+
+	tests := [...]struct {
+		name   string
+		frames []readFrameResult
+		want   string
+		hasErr bool
+	}{
+		{
+			name: "firefox",
+			frames: []readFrameResult{
+				newSetting([]Setting{{1, 65536}, {4, 131072}, {5, 16384}}),
+				newWindowUpdate(0, 12517377),
+				newPriority(3, 0, false, 200),
+				newPriority(5, 0, false, 100),
+				newPriority(7, 0, false, 0),
+				newPriority(9, 7, false, 0),
+				newPriority(11, 3, false, 0),
+				newPriority(13, 0, false, 240),
+				newHeader(
+					15,
+					[]string{":method", "GET", ":path", "/", ":authority", "", ":scheme", "https"},
+					PriorityParam{
+						StreamDep: 13,
+						Exclusive: false,
+						Weight:    41,
+					}),
+			},
+			want: "1:65536;4:131072;5:16384|12517377|3:0:0:200,5:0:0:100,7:0:0:0,9:0:7:0,11:0:3:0,13:0:0:240,15:0:13:41|m,p,a,s",
+		},
+		{
+			name: "edge",
+			frames: []readFrameResult{
+				newSetting([]Setting{{1, 65536}, {3, 1000}, {4, 6291456}, {6, 262144}}),
+				newWindowUpdate(0, 15663105),
+				newHeader(
+					1,
+					[]string{":method", "GET", ":authority", "", ":scheme", "https", ":path", "/"},
+					PriorityParam{
+						StreamDep: 0,
+						Exclusive: true,
+						Weight:    255,
+					}),
+			},
+			want: "1:65536;3:1000;4:6291456;6:262144|15663105|1:1:0:255|m,a,s,p",
+		},
+	}
+	for _, tt := range tests {
+		fp := newFingerprint()
+		for _, f := range tt.frames {
+			fp.ProcessFrame(f)
+		}
+		if got, want := fp.Calculate(), tt.want; got != want {
+			t.Errorf("Calculate (%s) result = %s; want %s", tt.name, got, want)
 		}
 	}
 }

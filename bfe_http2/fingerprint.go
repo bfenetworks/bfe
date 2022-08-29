@@ -22,22 +22,30 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"sync"
 )
 
 type fingerprint struct {
-	// serverConn are reused in stream and needs to prevent duplicate parsing.
-	calculated bool
+	lock sync.RWMutex
 
+	// serverConn are reused in stream and needs to prevent duplicate parsing.
+	calculated   bool
+	windowUpdate uint32
+
+	settingKeys   []SettingID
 	settings      map[SettingID]uint32
-	windowUpdate  uint32
 	priorities    []string
 	pseudoHeaders []byte
+
+	// the final value of the fingerprint.
+	value string
 }
 
 func newFingerprint() *fingerprint {
 	return &fingerprint{
 		// the average number of settings here may be 6.
-		settings: make(map[SettingID]uint32, 6),
+		settingKeys: make([]SettingID, 0, 6),
+		settings:    make(map[SettingID]uint32, 6),
 		// the average number of priority frame here may be 5.
 		priorities: make([]string, 0, 5),
 		// any legitimate request will have 3-4 headers.
@@ -47,15 +55,17 @@ func newFingerprint() *fingerprint {
 
 // the readFrameResult will no longer exist if readFrames again,
 // so it is necessary to save the fingerprint information with plain value.
-func (fpp *fingerprint) ProcessFrame(res readFrameResult) {
+func (fp *fingerprint) ProcessFrame(res readFrameResult) {
+	fp.lock.Lock()
+	defer fp.lock.Unlock()
+
 	// once the fingerprint is used, we should not process frame again.
-	if fpp.calculated {
+	if fp.calculated {
 		return
 	}
 
 	// if error occured, the frame will also discard by h2.
-	err := res.err
-	if err != nil {
+	if res.err != nil {
 		return
 	}
 
@@ -63,74 +73,96 @@ func (fpp *fingerprint) ProcessFrame(res readFrameResult) {
 	case *SettingsFrame:
 		var sk SettingID
 		for sk = 1; sk <= 6; sk++ {
-			if sv, ok := f.Value(sk); ok {
-				fpp.settings[sk] = sv
+			sv, ok := f.Value(sk)
+			if !ok {
+				continue
 			}
+			// if there are multiple occurrences,
+			// we only take the first as the order of the setting key.
+			if _, ok = fp.settings[sk]; !ok {
+				fp.settingKeys = append(fp.settingKeys, sk)
+			}
+			// use the final setting value as the fingerprint.
+			fp.settings[sk] = sv
 		}
 	case *WindowUpdateFrame:
-		if fpp.windowUpdate > 0 {
+		if fp.windowUpdate > 0 {
 			break
 		}
-		fpp.windowUpdate = f.Increment
+		fp.windowUpdate = f.Increment
 	case *PriorityFrame:
-		fpp.processPriority(f.StreamID, f.PriorityParam)
+		fp.processPriority(f.StreamID, f.PriorityParam)
 	case *MetaHeadersFrame:
 		if f.HasPriority() {
-			fpp.processPriority(f.StreamID, f.Priority)
+			fp.processPriority(f.StreamID, f.Priority)
 		}
 		for _, field := range f.Fields {
-			if strings.Contains(":method:authority:scheme:path", field.Name) {
-				fpp.pseudoHeaders = append(fpp.pseudoHeaders, field.Name[1])
+			switch field.Name {
+			case ":method", ":path", ":scheme", ":authority":
+				fp.pseudoHeaders = append(fp.pseudoHeaders, field.Name[1])
+			default:
+				continue
 			}
 		}
 	default:
+		return
 	}
 }
 
-func (fpp *fingerprint) processPriority(sid uint32, f PriorityParam) {
-	fpp.priorities = append(fpp.priorities, fmt.Sprintf("%d:%d:%d:%d", sid, func() uint8 {
-		if f.Exclusive {
-			return 1
-		}
-		return 0
-	}(), f.StreamDep, f.Weight))
+func (fp *fingerprint) processPriority(sid uint32, f PriorityParam) {
+	exclusive := 0
+	if f.Exclusive {
+		exclusive = 1
+	}
+
+	fp.priorities = append(
+		fp.priorities,
+		fmt.Sprintf("%d:%d:%d:%d", sid, exclusive, f.StreamDep, f.Weight),
+	)
 }
 
-func (fpp *fingerprint) Calculate() string {
-	fpp.calculated = true
+func (fp *fingerprint) Calculate() string {
+	fp.lock.Lock()
+	defer fp.lock.Unlock()
+
+	if fp.calculated {
+		return fp.value
+	}
 
 	buf := bytes.NewBuffer([]byte{})
 	var sk SettingID
-	for sk = 1; sk <= 6; sk++ {
-		if sv, ok := fpp.settings[sk]; ok {
+	for _, sk = range fp.settingKeys {
+		if sv, ok := fp.settings[sk]; ok {
 			fmt.Fprintf(buf, "%d:%d;", sk, sv)
 		}
 	}
-	if len(fpp.settings) > 0 {
+	if len(fp.settings) > 0 {
 		buf.Truncate(buf.Len() - 1)
 	}
 
 	buf.WriteByte('|')
-	if fpp.windowUpdate == 0 {
+	if fp.windowUpdate == 0 {
 		buf.WriteString("00")
 	} else {
-		fmt.Fprintf(buf, "%d", fpp.windowUpdate)
+		fmt.Fprintf(buf, "%d", fp.windowUpdate)
 	}
 
 	buf.WriteByte('|')
-	if len(fpp.priorities) == 0 {
+	if len(fp.priorities) == 0 {
 		buf.WriteByte('0')
 	} else {
-		buf.WriteString(strings.Join(fpp.priorities, ","))
+		buf.WriteString(strings.Join(fp.priorities, ","))
 	}
 
 	buf.WriteByte('|')
-	for k, v := range fpp.pseudoHeaders {
+	for k, v := range fp.pseudoHeaders {
 		buf.WriteByte(v)
-		if k < len(fpp.pseudoHeaders)-1 {
+		if k < len(fp.pseudoHeaders)-1 {
 			buf.WriteByte(',')
 		}
 	}
 
-	return buf.String()
+	fp.calculated = true
+	fp.value = buf.String()
+	return fp.value
 }
