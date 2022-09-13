@@ -114,6 +114,7 @@ See the **Example** above.
 | %bfe_ssl_version | TLS/SSL version |
 | %bfe_ssl_ja3_raw | JA3 fingerprint string for TLS/SSL client |
 | %bfe_ssl_ja3_hash | JA3 fingerprint hash for TLS/SSL client |
+| %bfe_http2_fingerprint | HTTP/2 fingerprint |
 | %bfe_protocol | Application level protocol |
 | %client_cert_serial_number | Serial number of client certificate |
 | %client_cert_subject_title | Subject title of client certificate |
