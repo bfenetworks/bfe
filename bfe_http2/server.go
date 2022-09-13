@@ -2058,7 +2058,7 @@ func (sc *serverConn) runHandler(rw *responseWriter, req *http.Request, handler 
 		}
 		rw.handlerDone()
 	}()
-	req.State.H2Fingerprint = sc.fingerprint.Calculate()
+	req.State.H2Fingerprint = sc.fingerprint.Get()
 	handler(rw, req)
 	didPanic = false
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The BFE Authors.
+// Copyright (c) 2022 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,10 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-// Copyright 2014 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
 
 package bfe_http2
 
@@ -32,8 +28,7 @@ type fingerprint struct {
 	calculated   bool
 	windowUpdate uint32
 
-	settingKeys   []SettingID
-	settings      map[SettingID]uint32
+	settings      []Setting
 	priorities    []string
 	pseudoHeaders []byte
 
@@ -43,9 +38,9 @@ type fingerprint struct {
 
 func newFingerprint() *fingerprint {
 	return &fingerprint{
-		// the average number of settings here may be 6.
-		settingKeys: make([]SettingID, 0, 6),
-		settings:    make(map[SettingID]uint32, 6),
+		// the average number of settings here may be 6,
+		// but with repeated settings, it could more than 6.
+		settings: make([]Setting, 0, 6),
 		// the average number of priority frame here may be 5.
 		priorities: make([]string, 0, 5),
 		// any legitimate request will have 3-4 headers.
@@ -71,20 +66,10 @@ func (fp *fingerprint) ProcessFrame(res readFrameResult) {
 
 	switch f := res.f.(type) {
 	case *SettingsFrame:
-		var sk SettingID
-		for sk = 1; sk <= 6; sk++ {
-			sv, ok := f.Value(sk)
-			if !ok {
-				continue
-			}
-			// if there are multiple occurrences,
-			// we only take the first as the order of the setting key.
-			if _, ok = fp.settings[sk]; !ok {
-				fp.settingKeys = append(fp.settingKeys, sk)
-			}
-			// use the final setting value as the fingerprint.
-			fp.settings[sk] = sv
-		}
+		f.ForeachSetting(func(s Setting) error {
+			fp.settings = append(fp.settings, s)
+			return nil
+		})
 	case *WindowUpdateFrame:
 		if fp.windowUpdate > 0 {
 			break
@@ -130,11 +115,32 @@ func (fp *fingerprint) Calculate() string {
 	}
 
 	buf := bytes.NewBuffer([]byte{})
-	var sk SettingID
-	for _, sk = range fp.settingKeys {
-		if sv, ok := fp.settings[sk]; ok {
-			fmt.Fprintf(buf, "%d:%d;", sk, sv)
+
+	// if there are multiple occurrences,
+	// we only take the first as the order of the setting key.
+	finalSettingVals := make(map[SettingID]uint32, 6)
+	// use the final setting value as the fingerprint.
+	finalSettingSet := make([]SettingID, 0, 6)
+	settingExist := func(id SettingID) bool {
+		for _, fid := range finalSettingSet {
+			if fid == id {
+				return true
+			}
 		}
+		return false
+	}
+	for _, setting := range fp.settings {
+		// we just pick legal SettingID
+		if _, ok := settingName[setting.ID]; !ok {
+			continue
+		}
+		finalSettingVals[setting.ID] = setting.Val
+		if !settingExist(setting.ID) {
+			finalSettingSet = append(finalSettingSet, setting.ID)
+		}
+	}
+	for _, fid := range finalSettingSet {
+		fmt.Fprintf(buf, "%d:%d;", fid, finalSettingVals[fid])
 	}
 	if len(fp.settings) > 0 {
 		buf.Truncate(buf.Len() - 1)
@@ -165,4 +171,15 @@ func (fp *fingerprint) Calculate() string {
 	fp.calculated = true
 	fp.value = buf.String()
 	return fp.value
+}
+
+func (fp *fingerprint) Get() string {
+	fp.lock.RLock()
+	value, ok := fp.value, fp.calculated
+	fp.lock.RUnlock()
+	if ok {
+		return value
+	}
+
+	return fp.Calculate()
 }

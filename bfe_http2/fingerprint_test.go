@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The BFE Authors.
+// Copyright (c) 2022 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,10 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-// Copyright 2014 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
 
 package bfe_http2
 
@@ -51,14 +47,16 @@ func TestNewFingerprintWithCalculate(t *testing.T) {
 func TestNewFingerprintSettingsFrame(t *testing.T) {
 	fp := newFingerprint()
 	fr, _ := testFramer()
-	settings := []Setting{{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7}, {7, 8}, {8, 9}}
+	settings := []Setting{
+		{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7}, {7, 8}, {1, 10},
+	}
 	fr.WriteSettings(settings...)
 	f, err := fr.ReadFrame()
 	if err != nil {
 		t.Fatal(err)
 	}
 	fp.ProcessFrame(readFrameResult{f, nil, func() {}})
-	if got, want := fp.Calculate(), "1:2;2:3;3:4;4:5;5:6;6:7|00|0|"; got != want {
+	if got, want := fp.Calculate(), "1:10;2:3;3:4;4:5;5:6;6:7|00|0|"; got != want {
 		t.Errorf("Calculate result = %s; want %s", got, want)
 	}
 }
