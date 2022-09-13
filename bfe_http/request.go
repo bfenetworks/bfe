@@ -242,6 +242,8 @@ type RequestState struct {
 
 	// BodySize is the size of request body.
 	BodySize uint32
+
+	H2Fingerprint string
 }
 
 // ProtoAtLeast reports whether the HTTP protocol used
