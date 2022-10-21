@@ -10,7 +10,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v1.6.0] - 2022-01-11
+## [v1.6.0] - 2022-10-21
+
+### Added
+
+- Allow user to disable monitor port ([Issue #936](https://github.com/bfenetworks/bfe/issues/936))
+- Support HTTP2 fingerprint ([Issue #1071](https://github.com/bfenetworks/bfe/issues/1071))
+- Documents optimization
+
+### Changed
+
+- Optimize idle connection handling  ([Pull #1044](https://github.com/bfenetworks/bfe/pull/1044))
+- Performance optimize in smooth least connection balancing algorithm([Pull#1062](https://github.com/bfenetworks/bfe/pull/1062))
+- Miscellaneous golang dependency updates
+- Miscellaneous improvements in makefile and other CI tools
+
+### Fixed
+
+- mod_trust_clientip: fix incorrect private IP address range ([Issue #856](https://github.com/bfenetworks/bfe/issues/856))
+- arm build error in golang 1.18
+
 
 ## [v1.5.0] - 2022-01-11
 
@@ -329,6 +348,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
+[v1.6.0]: https://github.com/bfenetworks/bfe/compare/v1.5.0...v1.6.0
 [v1.5.0]: https://github.com/bfenetworks/bfe/compare/v1.4.0...v1.5.0
 [v1.4.0]: https://github.com/bfenetworks/bfe/compare/v1.3.0...v1.4.0
 [v1.3.0]: https://github.com/bfenetworks/bfe/compare/v1.2.0...v1.3.0
