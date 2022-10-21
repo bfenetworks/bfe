@@ -88,7 +88,7 @@ var buildPrimitiveTests = []struct {
 		true,
 	},
 	{
-		"testWrongVriable",
+		"testWrongVariable",
 		"a && b",
 		nil,
 		true,

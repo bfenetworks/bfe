@@ -1,6 +1,7 @@
 # TLS相关条件原语
 
 ## ses_tls_sni_in(host_list)
+
 * 语义: 判断TLS握手中的sni字段是否为host_list之一
 
 * 参数
@@ -16,9 +17,11 @@ ses_tls_sni_in("example.com|example.org")
 ```
 
 ## ses_tls_client_auth()
+
 * 语义: 判断是否启用TLS双向认证
 
 ## ses_tls_client_ca_in(ca_list)
+
 * 语义: 判断是否启用TLS双向认证且客户端证书签发根CA为ca_list之一
 
 * 参数
@@ -26,7 +29,6 @@ ses_tls_sni_in("example.com|example.org")
 | 参数      | 描述                   |
 | --------- | ---------------------- |
 | ca_list | String<br>CA标识列表, 多个CA标识之间使用&#124;分隔 |
-
 
 * 示例
 

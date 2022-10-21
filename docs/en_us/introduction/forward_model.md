@@ -18,7 +18,7 @@
     - In this scenario, assume the selected cluster is "demo-static".
     - See [Traffic routing](route.md)
 
-- Step 7-8：Based on balacing policies of product "demo", BFE selects a sub cluster and an instance within cluster "demo-static" 
+- Step 7-8：Based on balancing policies of product "demo", BFE selects a sub cluster and an instance within cluster "demo-static"
     - In this scenario, assume the selected sub cluster is "demo-static.idc1" and the selected instance is "demo-static-01.idc1" .
     - See [Traffic balancing](balance.md)
 

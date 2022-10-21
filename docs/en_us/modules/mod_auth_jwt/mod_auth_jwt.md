@@ -1,17 +1,18 @@
 # mod_auth_jwt
 
-## Introduction 
+## Introduction
 
 mod_auth_jwt implements JWT([JSON Web Token](https://tools.ietf.org/html/rfc7519)).
 
 ## Module Configuration
 
 ### Description
+
 conf/mod_auth_jwt/mod_auth_jwt.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>Path of rule configuraiton |
+| Basic.DataPath | String<br>Path of rule configuration |
 | Log.OpenDebug | Boolean<br>Debug flag of module |
 
 ### Example
@@ -24,11 +25,12 @@ DataPath = mod_auth_jwt/auth_jwt_rule.data
 ## Rule Configuration
 
 ### Description
+
 conf/mod_auth_jwt/auth_jwt_rule.data
 
 | Config Item | Description                                                  |
 | ----------- | ------------------------------------------------------------ |
-| Version     | String<br>Verson of config file |
+| Version     | String<br>Version of config file |
 | Config      | Struct<br>JWT rules for each product |
 | Config{k}   | String<br>Product name |
 | Config{v}   | Object<br>A ordered list of rules |

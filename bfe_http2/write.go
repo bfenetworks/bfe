@@ -260,7 +260,7 @@ func (wu *writeWindowUpdate) String() string {
 }
 
 func encodeHeaders(enc *hpack.Encoder, h http.Header, keys []string) int {
-	headerSize := 0 // orignal header size
+	headerSize := 0 // original header size
 	if keys == nil {
 		sorter := sorterPool.Get().(*sorter)
 		// Using defer here, since the returned keys from the

@@ -36,7 +36,6 @@ type Action struct {
 
 type ActionFileList []ActionFile
 
-// exclusive action set
 var EXCLUSIVE_ACTIONS = map[string]interface{}{
 	"SCHEME_SET":     nil,
 	"URL_SET":        nil,
@@ -108,7 +107,7 @@ func actionConvert(actionFile ActionFile) Action {
 }
 
 func actionsConvert(actionFiles ActionFileList) []Action {
-	actions := make([]Action, 0)
+	actions := make([]Action, 0, len(actionFiles))
 
 	for _, actionFile := range actionFiles {
 		action := actionConvert(actionFile)

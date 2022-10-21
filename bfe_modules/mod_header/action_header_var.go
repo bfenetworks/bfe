@@ -74,6 +74,9 @@ var VariableHandlers = map[string]HeaderValueHandler{
 	"client_cert_subject_country":             getClientCertSubjectCountry,
 	"client_cert_subject_locality":            getClientCertSubjectLocality,
 
+	// for http2
+	"bfe_http2_fingerprint": getBfeHTTP2Fingerprint,
+
 	// for geo
 	"bfe_client_geo_country_iso_code":     getClientGeoCountryIsoCode,
 	"bfe_client_geo_subdivision_iso_code": getClientGeoSubdivisionIsoCode,
@@ -463,4 +466,8 @@ func getClientGeoLongitude(req *bfe_basic.Request) string {
 	}
 
 	return longitude.(string)
+}
+
+func getBfeHTTP2Fingerprint(req *bfe_basic.Request) string {
+	return req.HttpRequest.State.H2Fingerprint
 }

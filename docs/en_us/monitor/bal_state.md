@@ -13,4 +13,3 @@ The endpoint `/monitor/bal_state` exposes metrics about subcluster level load ba
 | ERR_BK_NO_SUB_CLUSTER_CROSS | Counter for no cross sub-cluster found |
 | ERR_BK_RETRY_TOO_MANY       | Counter for reaching retry max times   |
 | ERR_GSLB_BLACKHOLE          | Counter for denying by blackhole       |
-

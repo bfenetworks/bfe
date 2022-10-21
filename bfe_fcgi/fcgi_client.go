@@ -42,7 +42,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_net/textproto"
 )
 
-// FCGIListenSockFileno describes listen socket file number.
+// FCGIListenSockFileNo describes listen socket file number.
 const FCGIListenSockFileNo uint8 = 0
 
 // FCGIHeaderLen describes header length.
@@ -99,7 +99,7 @@ const (
 
 const (
 	// FCGIResponder is the responder flag.
-	FCGIResponser uint8 = iota + 1
+	FCGIResponder uint8 = iota + 1
 
 	// FCGIAuthorizer is the authorizer flag.
 	FCGIAuthorizer
@@ -112,10 +112,10 @@ const (
 	// FCGIRequestComplete is the completed request flag.
 	FCGIRequestComplete uint8 = iota
 
-	// FCGICantMultiplexConns is the multiplexed connections flag.
+	// FCGICantMpxConn is the multiplexed connections flag.
 	FCGICantMpxConn
 
-	// FCGIOverloaded is the overloaded flag.
+	// FCGIOverLoaded is the overloaded flag.
 	FCGIOverLoaded
 
 	// FCGIUnknownRole is the unknown role flag.
@@ -123,13 +123,13 @@ const (
 )
 
 const (
-	// MaxConns is the maximum connections flag.
+	// FCGIMaxConns is the maximum connections flag.
 	FCGIMaxConns string = "MAX_CONNS"
 
-	// MaxRequests is the maximum requests flag.
+	// FCGIMaxReqs is the maximum requests flag.
 	FCGIMaxReqs string = "MAX_REQS"
 
-	// MultiplexConns is the multiplex connections flag.
+	// FCGIMpxsConns is the multiplex connections flag.
 	FCGIMpxsConns string = "MPXS_CONNS"
 )
 
@@ -180,7 +180,7 @@ func (rec *record) read(r io.Reader) (buf []byte, err error) {
 	if len(rec.rbuf) < n {
 		rec.rbuf = make([]byte, n)
 	}
-	if n, err = io.ReadFull(r, rec.rbuf[:n]); err != nil {
+	if _, err = io.ReadFull(r, rec.rbuf[:n]); err != nil {
 		return
 	}
 	buf = rec.rbuf[:int(rec.h.ContentLength)]
@@ -218,7 +218,7 @@ func Dial(network, address string) (fcgi *FCGIClient, err error) {
 	return
 }
 
-// Close closes fcgi connnection
+// Close closes fcgi connection
 func (client *FCGIClient) Close() {
 	client.rwc.Close()
 }
@@ -397,7 +397,7 @@ func (w *streamReader) Read(p []byte) (n int, err error) {
 // Do made the request and returns a io.Reader that translates the data read
 // from fcgi responder out of fcgi packet before returning it.
 func (client *FCGIClient) Do(p map[string]string, req io.Reader) (r io.Reader, err error) {
-	err = client.writeBeginRequest(uint16(FCGIResponser), 0)
+	err = client.writeBeginRequest(uint16(FCGIResponder), 0)
 	if err != nil {
 		return
 	}

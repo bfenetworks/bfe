@@ -11,17 +11,13 @@
 
 [English](README.md) | 中文
 
-
-
 BFE (Beyond Front End) 是百度开源的现代化、企业级的七层负载均衡系统
 
 <img src="./docs/images/logo/horizontal/color/bfe-horizontal-color.png" alt="bfe logo" width="300" />
 
-BFE 是 [云原生计算基金会 (Cloud Native Computing Foundation, CNCF)](https://cncf.io/) 的一个沙箱项目 
+BFE 是 [云原生计算基金会 (Cloud Native Computing Foundation, CNCF)](https://cncf.io/) 的一个沙箱项目
 
-![](./docs/images/cncf-logo.png)
-
-
+![cncf-logo](./docs/images/cncf-logo.png)
 
 ## 简介
 
@@ -56,9 +52,11 @@ BFE的架构说明见[概览](docs/zh_cn/introduction/overview.md)文档
 - 控制平面：请参考控制平面的[部署说明](https://github.com/bfenetworks/api-server/blob/develop/docs/zh_cn/deploy.md)
 
 ## 运行测试
+
 - 请参考[编译及运行](docs/zh_cn/installation/install_from_source.md)
 
 ## 文档
+
 - [英文版](https://www.bfe-networks.net/en_us/ABOUT/)
 - [中文版](https://www.bfe-networks.net/zh_cn/ABOUT/)
 
@@ -74,10 +72,12 @@ BFE的架构说明见[概览](docs/zh_cn/introduction/overview.md)文档
 - 详情请参阅[参与贡献指南](CONTRIBUTING.md)
 
 ## 作者
+
 - 项目维护者: [MAINTAINERS](MAINTAINERS.md)
 - 项目贡献者: [CONTRIBUTORS](CONTRIBUTORS.md)
 
 ## 社区交流
+
 - [开源BFE用户论坛](https://github.com/bfenetworks/bfe/discussions)
 
 - **开源BFE微信公众号**：扫码关注公众号“BFE开源项目”，及时获取项目最新信息和技术分享
@@ -99,4 +99,5 @@ BFE的架构说明见[概览](docs/zh_cn/introduction/overview.md)文档
 - **开源BFE开发者微信群**: [发送邮件](mailto:iyangsj@gmail.com)说明您的微信号及贡献(例如PR/Issue)，我们将及时邀请您加入
 
 ## 许可
+
 BFE基于Apache 2.0许可证，详见[LICENSE](LICENSE)文件说明

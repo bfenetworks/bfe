@@ -33,7 +33,7 @@ import (
 	"github.com/baidu/go-lib/log"
 )
 
-import (	
+import (
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_http"
 )
@@ -128,8 +128,8 @@ type chunkWriter struct {
 	// total bytes of body written
 	length int
 
-	// Signer calcuates signature for current response
-	Signer bfe_http.SignCalculater
+	// Signer calculates signature for current response
+	Signer bfe_http.SignCalculator
 }
 
 var (
@@ -347,7 +347,7 @@ func (cw *chunkWriter) writeHeader(p []byte) {
 	if ecr, ok := w.req.Body.(*expectContinueReader); ok && !ecr.sawEOF.isSet() {
 		w.closeAfterReply = true
 	}
-	
+
 	// Per RFC 2616, we should consume the request body before
 	// replying, if the handler hasn't already done so.  But we
 	// don't want to do an unbounded amount of reading here for

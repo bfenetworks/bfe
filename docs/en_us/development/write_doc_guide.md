@@ -14,7 +14,6 @@ Our documentation supports contributions in format of [Markdown](https://guides.
 
 Once the document is written, you can use the preview tool to check how the document appears to verify that your document is displayed correctly on the official website.
 
-
 ## How to use the preview tool
 
 ### Install its dependencies
@@ -27,7 +26,6 @@ Take the ubuntu system as an example, run:
 $ sudo apt-get update && apt-get install -y npm
 $ sudo npm install -g gitbook-cli
 ```
-
 
 ### Clone related repository:
 
@@ -52,11 +50,9 @@ Then: open your browser and navigate to http://localhost:8000.
 
 >* The site may take a few seconds to load because the building takes a certain amount of time*
 
-
 ## Contriubute documents
 
 All content should be written in [Markdown](https://guides.github.com/features/mastering-markdown/) (GitHub style).
-
 
 ### Contribute new documents
 
@@ -78,11 +74,9 @@ Open your browser and navigate to http://localhost:8000 .
 
 On the page to be updated, click Refresh Content at the top right corner.
 
-
 ## Pull Request for your changes
 
 The steps to submit changes and PR can refer to [How to contribute code](../development/local_dev_guide.md)
-
 
 ## Help improve preview tool
 

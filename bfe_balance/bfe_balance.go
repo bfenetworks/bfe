@@ -25,16 +25,16 @@ import (
 )
 
 type BfeBalance interface {
-	// initialize
+	// Init initialize
 	Init(backendConf cluster_table_conf.ClusterBackend,
 		gslbBasic cluster_conf.GslbBasicConf,
 		gslbConf gslb_conf.GslbClusterConf) error
-	// reload config
+	// Reload reload config
 	Reload(backendConf cluster_table_conf.ClusterBackend,
 		gslbBasic cluster_conf.GslbBasicConf,
 		gslbConf gslb_conf.GslbClusterConf) error
-	// load balance for request
+	// Balance load balance for request
 	Balance(req *bfe_basic.Request) (*backend.BfeBackend, error)
-	// release
+	// Release releases
 	Release()
 }

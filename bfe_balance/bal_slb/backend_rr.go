@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// backend with round robin
+// backend with round-robin
 
 package bal_slb
 
@@ -26,17 +26,17 @@ import (
 )
 
 type WeightSS struct {
-	final          int        // final target weight after slow-start
-	slowStartTime  int        // time for backend increases the weight to the full value, in seconds
-	startTime      time.Time  // time of the first request
+	final         int       // final target weight after slow-start
+	slowStartTime int       // time for backend increases the weight to the full value, in seconds
+	startTime     time.Time // time of the first request
 }
 
 type BackendRR struct {
-	weight       int                 // weight of this backend
-	current      int                 // current weight
-	backend      *backend.BfeBackend // point to BfeBackend
-	inSlowStart  bool                // indicate if in slow-start phase
-	weightSS     WeightSS            // slow_start related parameters
+	weight      int                 // weight of this backend
+	current     int                 // current weight
+	backend     *backend.BfeBackend // point to BfeBackend
+	inSlowStart bool                // indicate if in slow-start phase
+	weightSS    WeightSS            // slow_start related parameters
 }
 
 func NewBackendRR() *BackendRR {

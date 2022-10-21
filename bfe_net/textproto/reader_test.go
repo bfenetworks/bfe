@@ -288,7 +288,7 @@ func TestCommonHeaders(t *testing.T) {
 	}
 }
 
-var clientHeaders = strings.Replace(`Host: golang.org
+var clientHeaders = strings.ReplaceAll(`Host: golang.org
 Connection: keep-alive
 Cache-Control: max-age=0
 Accept: application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5
@@ -299,9 +299,9 @@ Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3
 COOKIE: __utma=000000000.0000000000.0000000000.0000000000.0000000000.00; __utmb=000000000.0.00.0000000000; __utmc=000000000; __utmz=000000000.0000000000.00.0.utmcsr=code.google.com|utmccn=(referral)|utmcmd=referral|utmcct=/p/go/issues/detail
 Non-Interned: test
 
-`, "\n", "\r\n", -1)
+`, "\n", "\r\n")
 
-var serverHeaders = strings.Replace(`Content-Type: text/html; charset=utf-8
+var serverHeaders = strings.ReplaceAll(`Content-Type: text/html; charset=utf-8
 Content-Encoding: gzip
 Date: Thu, 27 Sep 2012 09:03:33 GMT
 Server: Google Frontend
@@ -311,7 +311,7 @@ VIA: 1.1 proxy.example.com:80 (XXX/n.n.n-nnn)
 Connection: Close
 Non-Interned: test
 
-`, "\n", "\r\n", -1)
+`, "\n", "\r\n")
 
 func BenchmarkReadMIMEHeader(b *testing.B) {
 	b.ReportAllocs()

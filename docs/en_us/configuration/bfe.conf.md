@@ -13,6 +13,7 @@ bfe.conf is the core configuration file of BFE.
 | Basic.HttpPort                | Integer<br>Listen port for HTTP<br>Default 8080 |
 | Basic.HttpsPort               | Integer<br>Listen port for HTTPS<br>Default 8443 |
 | Basic.MonitorPort             | Integer<br>Listen port for monitor<br>Default 8421 |
+| Basic.MonitorEnabled          | Boolean<br>If false, monitor server is disabled<br>Default True |
 | Basic.MaxCpus                 | Integer<br>Max number of CPUs to use (0 to use all CPUs)<br>Default 0 |
 | Basic.Layer4LoadBalancer      | String<br>Type of layer-4 load balancer (PROXY/NONE)<br>Default NONE |
 | Basic.TlsHandshakeTimeout     | Integer<br>TLS handshake timeout, in seconds<br>Default 30 |
@@ -56,7 +57,6 @@ bfe.conf is the core configuration file of BFE.
 | SessioCache.SessionExpire          | Integer<br>Expire time for tls session state (second)<br>Default 3600 |
 | SessionTicket.SessionTicketsDisabled | Boolean<br>Disable tls session ticket or not<br>Default True |
 | SessionTicket.SessionTicketKeyFile   | String<br>Path of [session ticket key config](tls_conf/session_ticket_key.data.md)<br>Default tls_conf/session_ticket_key.data |
-
 
 ## Example
 

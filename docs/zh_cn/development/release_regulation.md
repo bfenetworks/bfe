@@ -2,7 +2,6 @@
 
 BFE使用git-flow branching model做分支管理，使用[Semantic Versioning](http://semver.org/)标准表示BFE版本号。
 
-
 ## 分支规范说明
 
 BFE开发过程使用[git-flow](http://nvie.com/posts/a-successful-git-branching-model/)分支规范，并适应github的特性做了一些区别。
@@ -15,10 +14,9 @@ BFE开发过程使用[git-flow](http://nvie.com/posts/a-successful-git-branching
 * 开发者的fork版本库并不需要严格遵守[git-flow](http://nvie.com/posts/a-successful-git-branching-model/)分支规范，所有fork的版本库的所有分支都相当于特性分支。具体建议如下：
 	* 开发者fork的版本库使用`develop`分支同步主版本库的`develop`分支。
 	* 开发者fork的版本库中，再基于`develop`版本fork出自己的功能分支。
-	* 当功能分支开发完毕后，向BFE的主版本库提交`Pull Reuqest`，进而进行代码评审。
+	* 当功能分支开发完毕后，向BFE的主版本库提交`Pull Request`，进而进行代码评审。
 	* 在评审过程中，开发者修改自己的代码，可以继续在自己的功能分支提交代码。
 	* 另外，`bugfix`分支也是在开发者自己的fork版本库维护，与功能分支不同的是，`bugfix`分支需要分别给主版本库的`master`、`develop`与可能有的`release/vX.Y.Z`分支，同时提起`Pull Request`。
-
 
 ## 版本发布流程
 

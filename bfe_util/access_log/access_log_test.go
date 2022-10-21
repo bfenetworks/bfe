@@ -39,6 +39,7 @@ func TestFileLogger(t *testing.T) {
 	var c LogConfig
 	c.LogFile = "test_file"
 	confRoot, err := ioutil.TempDir("", "test_file_logger*")
+	assert.NoError(t, err)
 	err = c.Check(confRoot)
 	assert.NoError(t, err)
 	logger, err := LoggerInit(c)

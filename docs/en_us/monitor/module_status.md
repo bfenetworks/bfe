@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The endpoint `/monitor/modules` exposes informations about modules.
+The endpoint `/monitor/modules` exposes information about modules.
 
 ## Metrics
 
@@ -12,4 +12,3 @@ The endpoint `/monitor/modules` exposes informations about modules.
 | enabled      | List of enable modules    |
 
 For more details about metrics of each module, see [BFE modules](../modules/modules.md).
-

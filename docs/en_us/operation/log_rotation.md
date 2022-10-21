@@ -3,7 +3,7 @@
 ## Introdution
 
 As time passes, the size of log files increases and occupies more and more disk space.
-BFE has a built-in feature of log file rotation which can automatically rotate log files, 
+BFE has a built-in feature of log file rotation which can automatically rotate log files,
 remove old ones and retain the recent ones.
 
 ## Description

@@ -14,7 +14,7 @@ mod_block is used as an example for ease of understanding.（[/bfe_modules/mod_b
 
 ### Types of configuration
 
-For a given module, there are 2 types of configuration: 
+For a given module, there are 2 types of configuration:
 
 - Static configuration: be loaded when BFE starts
     + There is only one such configuration file for each module
@@ -30,7 +30,6 @@ For a given module, there are 2 types of configuration:
 
 - The configuration files of the modules should be placed in [/conf/{module_name}](https://github.com/bfenetworks/bfe/tree/master/conf)
 - Example: Configuration files of mod_block are located in [/conf/mod_block](https://github.com/bfenetworks/bfe/tree/master/conf/mod_block)
-
 
 ### Verification of configuration
 
@@ -101,7 +100,7 @@ func (m *ModuleBlock) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 
 For each BFE module, it is strongly recommended to expose enough internal states.
 
-To expose internal states of a module, do the following 3 steps: 
+To expose internal states of a module, do the following 3 steps:
 
 - Define state variables
 - Register callback function for exposing internal states

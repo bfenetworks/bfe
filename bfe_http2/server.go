@@ -371,6 +371,8 @@ func (s *Server) ServeConn(c net.Conn, opts *ServeConnOpts) {
 		readClientAgainTimeout: defaultReadClientAgainTimeout,
 		timeoutEventCh:         make(chan timeoutEventElem, s.maxConcurrentStreams(r)),
 		timeoutValueCh:         make(chan timeoutValueElem, s.maxConcurrentStreams(r)),
+
+		fingerprint: newFingerprint(),
 	}
 	sc.flow.add(initialWindowSize)
 	sc.inflow.add(initialWindowSize)
@@ -411,6 +413,7 @@ func (s *Server) ServeConn(c net.Conn, opts *ServeConnOpts) {
 			return
 		}
 
+		//lint:ignore SA9003 empty branch
 		if sc.tlsState.ServerName == "" {
 			// Client must use SNI, but we don't enforce that anymore,
 			// since it was causing problems when connecting to bare IP
@@ -472,7 +475,7 @@ func isBadCipher(cipher uint16) bool {
 func (sc *serverConn) rejectConn(err ErrCode, debug string) {
 	log.Logger.Info("http2: server rejecting conn: %v, %s", err, debug)
 	// ignoring errors. hanging up anyway.
-	// The last stream indentifier can be set to 0 if no streams were
+	// The last stream identifier can be set to 0 if no streams were
 	// processed. See RFC 7540 Section 6.8
 	sc.framer.WriteGoAway(0, err, []byte(debug))
 	sc.bw.Flush()
@@ -544,6 +547,9 @@ type serverConn struct {
 	// when save timeout, ServeHTTP() routine write to chan
 	// main routine read from chan
 	timeoutValueCh chan timeoutValueElem
+
+	// the parts to calculate fingerprint
+	fingerprint *fingerprint
 }
 
 // timeout event
@@ -884,6 +890,8 @@ func (sc *serverConn) serve() {
 			if !sc.processFrameFromReader(res) {
 				return
 			}
+			// collect HTTP/2 fingerprint infomation.
+			sc.fingerprint.ProcessFrame(res)
 			res.readMore()
 			if settingsTimer.C != nil {
 				settingsTimer.Stop()
@@ -925,7 +933,7 @@ func (sc *serverConn) serve() {
 // hand timeout event for stream timeout, stream timeout, rst stream
 func (sc *serverConn) handleTimeout(ch timeoutEventElem) {
 	tag := ch.tag
-	errMsg := fmt.Sprintf("%s timeout, reseting frame id[%d] from %v",
+	errMsg := fmt.Sprintf("%s timeout, resetting frame id[%d] from %v",
 		tag.String(), ch.streamID, sc.conn.RemoteAddr())
 	// stream timeout, rst the stream
 	errRst := StreamError{ch.streamID, ErrCodeProtocol, errMsg}
@@ -1659,7 +1667,7 @@ func (sc *serverConn) processData(f *DataFrame) error {
 func (st *stream) stopTimeoutTimer() {
 	// stop readTimeoutTimer in case of some abnormal cases where
 	// endStream() can not be called()
-	// e.g. 1.POST request && 2.bfe NOT recevied all body && 3.stream rst by BFE
+	// e.g. 1.POST request && 2.bfe NOT received all body && 3.stream rst by BFE
 	if t := st.readTimeoutTimer; t != nil {
 		t.Stop()
 	}
@@ -2050,6 +2058,7 @@ func (sc *serverConn) runHandler(rw *responseWriter, req *http.Request, handler 
 		}
 		rw.handlerDone()
 	}()
+	req.State.H2Fingerprint = sc.fingerprint.Get()
 	handler(rw, req)
 	didPanic = false
 }
@@ -2396,7 +2405,7 @@ const TrailerPrefix = "Trailer:"
 // trailers. That worked for a while, until we found the first major
 // user of Trailers in the wild: gRPC (using them only over http2),
 // and gRPC libraries permit setting trailers mid-stream without
-// predeclarnig them. So: change of plans. We still permit the old
+// predeclaring them. So: change of plans. We still permit the old
 // way, but we also permit this hack: if a Header() key begins with
 // "Trailer:", the suffix of that key is a Trailer. Because ':' is an
 // invalid token byte anyway, there is no ambiguity. (And it's already
@@ -2511,7 +2520,7 @@ func cloneHeader(h http.Header) http.Header {
 //
 // * Handler calls w.Write or w.WriteString ->
 // * -> rws.bw (*bufio.Writer) ->
-// * (Handler migth call Flush)
+// * (Handler might call Flush)
 // * -> chunkWriter{rws}
 // * -> responseWriterState.writeChunk(p []byte)
 // * -> responseWriterState.writeChunk (most of the magic; see comment there)

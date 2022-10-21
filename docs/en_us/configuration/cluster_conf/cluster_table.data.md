@@ -7,6 +7,7 @@ cluster_table.data records the load balancing config among instances.
 ## Configuration
 
 ### Basic configuration
+
 | Config Item           | Description                     |
 | --------------------- | ------------------------------- |
 | Version               | String<br>Verson of config file |
@@ -17,6 +18,7 @@ cluster_table.data records the load balancing config among instances.
 | Config{v}{v}          | Object<br>config of subcluster(a list of instance) |
 
 ### Instance configuraton
+
 | Config Item           | Description                     |
 | --------------------- | ------------------------------- |
 | Addr                  | String<br>ip address of instance |
@@ -25,6 +27,7 @@ cluster_table.data records the load balancing config among instances.
 | Weight                | String<br>weight of instance |
 
 ## Example
+
 ```json
 {
     "Config": {

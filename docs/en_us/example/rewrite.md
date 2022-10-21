@@ -49,4 +49,3 @@ curl -H "host: example.org" "http://127.1:8080/service"
 ```
 
 The final path of request received by service 'cluster_demo_dynamic' is 'v1/service'.
-

@@ -17,4 +17,3 @@
 | WEB_SOCKET_ERR_PROXY          | 无可用后端错误数                    |
 | WEB_SOCKET_ERR_TRANSFER       | 数据传输的错误数                    |
 | WEB_SOCKET_PANIC_CONN         | 连接PANIC的异常数                   |
-

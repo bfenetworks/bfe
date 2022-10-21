@@ -1,6 +1,5 @@
 # Concept and Grammar
 
-
 ## Basic Concepts
 
 ### Condition Primitive
@@ -59,7 +58,6 @@ func_name(params)
 - **params** are the  parameters condition primitive
 - The type of return value is **bool**
 
-
 ### Condition Expression Grammar
 
 Condition Expression(CE) grammar is defined as follows:
@@ -95,5 +93,3 @@ The precedence and associativity of operators are similar to the C language. The
 | 2          | !        | logical NOT            | Right-to-left |
 | 3          | &&       | logical AND            | Left-to-right |
 | 4          | \|\|     | logical OR             | Left-to-right |
-
-

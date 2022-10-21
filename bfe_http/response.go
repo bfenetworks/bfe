@@ -41,8 +41,8 @@ var respExcludeHeader = map[string]bool{
 	"Trailer":           true,
 }
 
-// The SignCalculater interface is used to calculate signature for response
-type SignCalculater interface {
+// The SignCalculator interface is used to calculate signature for response
+type SignCalculator interface {
 	CalcSign(feature string) string
 }
 
@@ -86,7 +86,7 @@ type Response struct {
 	TransferEncoding []string
 
 	// Signer calculate signature for response
-	Signer SignCalculater
+	Signer SignCalculator
 
 	// Close records whether the header directed that the connection be
 	// closed after reading Body.  The value is advice for clients: neither

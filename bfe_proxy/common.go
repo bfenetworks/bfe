@@ -32,7 +32,7 @@ import (
 	"github.com/baidu/go-lib/web-monitor/metrics"
 )
 
-// State for Proxy
+// ProxyState is State for Proxy
 type ProxyState struct {
 	ProxyErrReadHeader      *metrics.Counter // connection with io err while read header
 	ProxyErrNoProxyProtocol *metrics.Counter // connection with signature unmatched

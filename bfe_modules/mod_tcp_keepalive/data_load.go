@@ -25,23 +25,6 @@ import (
 	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
-/*
-{
-  "Version": "x",
-  "Config": {
-    "Product1": [{
-      "VipConf": ["1.1.1.1", "1.1.1.2"],
-      "KeepAliveParam": {
-        "Disable": false,
-        "KeepIdle" : 70,
-        "KeepIntvl" : 15,
-        "KeepCnt": 9
-      }
-    }]
-  }
-}
-*/
-// ProductRuleConf match the original tcp_keepalive.data
 type ProductRuleConf struct {
 	Version string
 	Config  map[string]ProductRulesFile
@@ -53,28 +36,6 @@ type ProductRuleFile struct {
 	KeepAliveParam KeepAliveParam
 }
 
-/*
-{
-  "Version": "x",
-  "Config": {
-    "Product1": {
-      "1.1.1.1": {
-      "Disable": false,
-        "KeepIdle" : 70,
-        "KeepIntvl" : 15,
-        "KeepCnt": 9
-      },
-      "1.1.1.2": {
-        "Disable": false,
-        "KeepIdle" : 70,
-        "KeepIntvl" : 15,
-        "KeepCnt": 9
-      }
-    }
-  }
-}
-*/
-// ProductRuleData contains data convert from ProductRuleConf
 type ProductRuleData struct {
 	Version string
 	Config  ProductRules
@@ -187,10 +148,10 @@ func KeepAliveDataLoad(filename string) (ProductRuleData, error) {
 
 	// open the file
 	file, err := os.Open(filename)
-	defer file.Close()
 	if err != nil {
 		return data, err
 	}
+	defer file.Close()
 
 	// decode the file
 	decoder := json.NewDecoder(file)

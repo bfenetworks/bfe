@@ -54,12 +54,12 @@ type ConnFetcher interface {
 
 // GetTCPConn returns underlying TCPConn of given conn.
 func GetTCPConn(conn net.Conn) (*net.TCPConn, error) {
-	switch conn.(type) {
+	switch value := conn.(type) {
 	case *bfe_tls.Conn:
-		c := conn.(*bfe_tls.Conn).GetNetConn()
+		c := value.GetNetConn()
 		return c.(*net.TCPConn), nil
 	case *net.TCPConn:
-		return conn.(*net.TCPConn), nil
+		return value, nil
 	default:
 		return nil, fmt.Errorf("GetTCPConn(): conn type not support %s", reflect.TypeOf(conn))
 	}
@@ -101,6 +101,5 @@ func NativeUint16(data []byte) uint16 {
 // IsBigEndian check machine is big endian or not
 func IsBigEndian() bool {
 	var i int32 = 0x12345678
-	var b byte = byte(i)
-	return b == 0x12
+	return byte(i) == 0x12
 }

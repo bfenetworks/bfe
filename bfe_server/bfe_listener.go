@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// BfeListener is a wapper of TCP listener which accept connections behind
+// BfeListener is a wrapper of TCP listener which accept connections behind
 // a load balancer (PROXY/NONE)
 //
 //  Note: The TLS listener is wired together like:

@@ -14,6 +14,7 @@ MonitorPort = 8421
 ## 使用方式
 
 * reload接口仅允许使用localhost访问（127.0.0.1/::1）, 仅支持GET请求, 示例:
+
 ```bash
 # 重加载分流转发配置
 $ curl http://localhost:8421/reload/server_data_conf 

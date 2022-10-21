@@ -48,12 +48,12 @@ func TestLoadRuleData(t *testing.T) {
 	}
 
 	if modVersion != expectModVersion {
-		t.Fatalf("version shoule be %s, but it's %s", expectModVersion, modVersion)
+		t.Fatalf("version should be %s, but it's %s", expectModVersion, modVersion)
 	}
 
 	expectVersion := "20200218210000"
 	if m.ruleTable.version != expectVersion {
-		t.Fatalf("version shoule be %s, but it's %s", expectVersion, m.ruleTable.version)
+		t.Fatalf("version should be %s, but it's %s", expectVersion, m.ruleTable.version)
 	}
 
 	ruleList, ok := m.ruleTable.productRule[expectProduct]
@@ -100,7 +100,7 @@ func TestTagHandlerCase1(t *testing.T) {
 
 	expectTagValue := "bfe_test1"
 	if tagValue[0] != expectTagValue {
-		t.Fatalf("TagValue shoule be %s, but it's %s", expectTagValue, req.Tags.TagTable[expectTagName][0])
+		t.Fatalf("TagValue should be %s, but it's %s", expectTagValue, req.Tags.TagTable[expectTagName][0])
 	}
 
 	expectTagName = "tag_test2"
@@ -112,7 +112,7 @@ func TestTagHandlerCase1(t *testing.T) {
 
 	expectTagValue = "bfe_test2"
 	if tagValue[0] != expectTagValue {
-		t.Fatalf("TagValue shoule be %s, but it's %s", expectTagValue, req.Tags.TagTable[expectTagName][0])
+		t.Fatalf("TagValue should be %s, but it's %s", expectTagValue, req.Tags.TagTable[expectTagName][0])
 	}
 }
 
@@ -151,7 +151,7 @@ func TestTagHandlerCase2(t *testing.T) {
 
 	expectTagValue := "bfe31"
 	if tagValue[0] != expectTagValue {
-		t.Fatalf("TagValue shoule be %s, but it's %s", expectTagValue, req.Tags.TagTable[expectTagName][0])
+		t.Fatalf("TagValue should be %s, but it's %s", expectTagValue, req.Tags.TagTable[expectTagName][0])
 	}
 }
 
@@ -190,11 +190,11 @@ func TestTagHandlerCase3(t *testing.T) {
 
 	expectTagValue1 := "bfe41"
 	if tagValue[0] != expectTagValue1 {
-		t.Fatalf("value shoule be %s, but it's %s", expectTagValue1, tagValue[0])
+		t.Fatalf("value should be %s, but it's %s", expectTagValue1, tagValue[0])
 	}
 
 	expectTagValue2 := "bfe42"
 	if tagValue[1] != expectTagValue2 {
-		t.Fatalf("value shoule be %s, but it's %s", expectTagValue2, tagValue[1])
+		t.Fatalf("value should be %s, but it's %s", expectTagValue2, tagValue[1])
 	}
 }

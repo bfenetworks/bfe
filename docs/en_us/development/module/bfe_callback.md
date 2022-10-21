@@ -6,14 +6,15 @@ The Callback Points in the forwarding process are shown below.
 ![BFECallbacks](../../../images/bfe-callback.png)
 
 ## List of Callback Points
+
 There are 9 callback points in BFE:
 
 - HandleAccept: after TCP connection with client is established.
 - HandleHandshake: after SSL/TLS handshake with client is finished.
 - HandleBeforeLocation: before the destination product for the request is identified.
 - HandleFoundProduct: after the destination product is identified.
-- HandleAfterLocation: after the destionation cluster is identified.
-- HandleForward: after the destionation subcluster is identified, and before the request is forwarded.
+- HandleAfterLocation: after the destination cluster is identified.
+- HandleForward: after the destination subcluster is identified, and before the request is forwarded.
 - HandleReadResponse: after response from backend is received by BFE.
 - HandleRequestFinish: after response from backend is forwarded by BFE.
 - HandleFinish: after connection with client is closed.
@@ -52,39 +53,39 @@ Note: For the meaning of type int in the return value below, please refer to "Re
 
 ### HandlersAccept
 
-- Applicable callback points: 
+- Applicable callback points:
     + HandleAccept
     + HandleHandshake
 - Function prototype:
-    + handler(session *bfe_basic.Session) int
+    + `handler(session *bfe_basic.Session) int`
 
 ### HandlersRequest
 
-- Applicable callback point: 
+- Applicable callback point:
     + HandleBeforeLocation
     + HandleFoundProduct
     + HandleAfterLocation
 - Function prototype:
-    + handler(req *bfe_basic.Request) (int, *bfe_http.Response) 
+    + `handler(req *bfe_basic.Request) (int, *bfe_http.Response)`
 
 ### HandlersForward
 
-- Applicable callback point: 
+- Applicable callback point:
     + HandleForward
 - Function prototype:
-    + handler(req *bfe_basic.Request) int 
+    + `handler(req *bfe_basic.Request) int`
 
 ### HandlersResponse
 
-- Applicable callback point: 
+- Applicable callback point:
     + HandleReadResponse
     + HandleRequestFinish
 - Function prototype:
-    + handler(req *bfe_basic.Request, res *bfe_http.Response) int 
+    + `handler(req *bfe_basic.Request, res *bfe_http.Response) int`
 
 ### HandlersFinish
 
-- Applicable callback point: 
+- Applicable callback point:
     + HandleFinish
 - Function prototype:
-    + handler(session *bfe_basic.Session) int 
+    + `handler(session *bfe_basic.Session) int`

@@ -9,4 +9,3 @@ see [Installing bfe](../installation/install.md).
 * [Request redirect](redirect.md)
 * [Request rewrite](rewrite.md)
 * [TLS mutual authentication](client_auth.md)
-

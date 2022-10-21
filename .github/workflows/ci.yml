@@ -35,7 +35,7 @@ jobs:
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         # Must fetch at least the immediate parents so that if this is
         # a pull request then we can checkout the head of the pull request.
@@ -50,7 +50,13 @@ jobs:
 
     # Check license header
     - name: Check License Header
-      uses: apache/skywalking-eyes@main
+      uses: apache/skywalking-eyes/header@v0.4.0
+
+    # Setup golang sdk
+    - name: Setup Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.17
 
     # Build
     - name: Build

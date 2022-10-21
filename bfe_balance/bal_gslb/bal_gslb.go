@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// subcluster level load balance using gslb
+// sub-cluster level load balance using gslb
 
 package bal_gslb
 
@@ -359,7 +359,7 @@ func (bal *BalanceGslb) Balance(req *bfe_basic.Request) (*bal_backend.BfeBackend
 
 	// after get the distribution subcluster
 
-	// blackhole
+	// black hole
 	if current.sType == TypeGslbBlackhole {
 		state.ErrGslbBlackhole.Inc(1)
 		req.ErrCode = bfe_basic.ErrGslbBlackhole

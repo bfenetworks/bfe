@@ -1,17 +1,18 @@
 # mod_header
 
-## Introduction 
+## Introduction
 
 mod_header modifies header of HTTP request/response based on defined rules.
 
 ## Module Configuration
 
 ### Description
+
 conf/mod_header/mod_header.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>Path of rule configuraiton |
+| Basic.DataPath | String<br>Path of rule configuration |
 | Log.OpenDebug | Boolean<br>Debug flag of module |
 
 ### Example
@@ -24,11 +25,12 @@ DataPath = mod_header/header_rule.data
 ## Rule Configuration
 
 ### Description
+
 conf/mod_header/header_rule.data
 
 | Config Item | Description                                                  |
 | ----------- | ------------------------------------------------------------ |
-| Version     | String<br>Verson of config file |
+| Version     | String<br>Version of config file |
 | Config      | Struct<br>Header rules for each product |
 | Config{k}   | String<br>Product name |
 | Config{v}   | Object<br>A ordered list of rules |
@@ -41,6 +43,7 @@ conf/mod_header/header_rule.data
 | Config{v}[].Actions.Params[] | String<br>A parameter |
 
 ### Actions
+
 | Action         | Description            | Parameters |
 | -------------- | ---------------------- | ---------- |
 | REQ_HEADER_SET | Set request header     | HeaderName, HeaderValue |
@@ -90,6 +93,7 @@ conf/mod_header/header_rule.data
 ```
 
 ## Builtin Variables
+
 BFE provides a list of variables which are evaluated in the runtime during the processing of each request.
 See the **Example** above.
 
@@ -110,6 +114,7 @@ See the **Example** above.
 | %bfe_ssl_version | TLS/SSL version |
 | %bfe_ssl_ja3_raw | JA3 fingerprint string for TLS/SSL client |
 | %bfe_ssl_ja3_hash | JA3 fingerprint hash for TLS/SSL client |
+| %bfe_http2_fingerprint | HTTP/2 fingerprint |
 | %bfe_protocol | Application level protocol |
 | %client_cert_serial_number | Serial number of client certificate |
 | %client_cert_subject_title | Subject title of client certificate |

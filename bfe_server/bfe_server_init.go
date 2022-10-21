@@ -99,8 +99,10 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 		return err
 	}
 
-	// start embedded web server
-	bfeServer.Monitor.Start()
+	// start embedded web server if enabled
+	if cfg.Server.MonitorEnabled {
+		bfeServer.Monitor.Start()
+	}
 
 	serveChan := make(chan error)
 
