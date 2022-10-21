@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Optimize idle connection handling  ([Pull #1044](https://github.com/bfenetworks/bfe/pull/1044))
-- Performance optimize in smooth least connection balancing algorithm([Pull#1062](https://github.com/bfenetworks/bfe/pull/1062))
+- Performance optimize in smooth least connection balancing algorithm([Pull #1062](https://github.com/bfenetworks/bfe/pull/1062))
 - Miscellaneous golang dependency updates
 - Miscellaneous improvements in makefile and other CI tools
 
