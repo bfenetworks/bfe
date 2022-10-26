@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../#traffic-balancing" class="md-skip">
+        <a href="#traffic-balancing" class="md-skip">
           Skip to content
         </a>
       
@@ -1554,6 +1554,18 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
+    <a href="../../modules/mod_tcp_keepalive/mod_tcp_keepalive/" title="mod_tcp_keepalive" class="md-nav__link">
+      mod_tcp_keepalive
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
     <a href="../../modules/mod_trace/mod_trace/" title="mod_trace" class="md-nav__link">
       mod_trace
     </a>
@@ -2527,6 +2539,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../condition/request/context/" title="Context" class="md-nav__link">
+      Context
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -2888,7 +2912,7 @@ RU5ErkJggg==" ></image>
 <h3 id="overview">Overview</h3>
 <ul>
 <li>
-<p>Usually one cluster has more than one sub clusters. In BFE, it is supported to 
+<p>Usually one cluster has more than one sub clusters. In BFE, it is supported to
 define weights for distributing traffic to each sub cluster.</p>
 </li>
 <li>
@@ -2899,7 +2923,7 @@ define weights for distributing traffic to each sub cluster.</p>
 </ul>
 </li>
 <li>
-<p>Load balance between sub clusters, it is a very important feature for BFE. 
+<p>Load balance between sub clusters, it is a very important feature for BFE.
 This feature is very useful in multi-IDCs scenario.</p>
 </li>
 </ul>
@@ -2930,8 +2954,8 @@ This feature is very useful in multi-IDCs scenario.</p>
 <p><img alt="Forwarding Table" src="../../images/bfe-gslb.png" /></p>
 <h2 id="instance-level-load-balance">Instance level load balance</h2>
 <ul>
-<li>Usually, a sub cluster is composed of multiple instances. </li>
-<li>Within sub cluster, several policies is provided for distributing traffic among instances. e.g., <ul>
+<li>Usually, a sub cluster is composed of multiple instances.</li>
+<li>Within sub cluster, several policies is provided for distributing traffic among instances. e.g.,<ul>
 <li>WRR(Weighted Round Robin)</li>
 <li>WLC(Weighted Least Connection)</li>
 </ul>
@@ -2940,16 +2964,22 @@ This feature is very useful in multi-IDCs scenario.</p>
 </ul>
 <h2 id="health-check">Health check</h2>
 <p>BFE supports health check for each backend instance.</p>
-<p>BFE maintains a state machine for each instance, with two states: </p>
+<p>BFE maintains a state machine for each instance, with two states:</p>
 <ul>
 <li>NORMAL：the instance acts normally in processing request.</li>
-<li>CHECKING：the instance fails to process request and response to BFE. BFE starts health check for this instance, until it acts normally again. </li>
+<li>CHECKING：the instance fails to process request and response to BFE. BFE starts health check for this instance, until it acts normally again.</li>
 </ul>
-<p>The condition for switching between states:
-- NORMAL to CHECKING, when：
-    - Number of consecutive failures, in connecting or sending request to the instance, exceeds a threshhod.</p>
+<p>The condition for switching between states:</p>
 <ul>
-<li>CHECKING to NORMAL, when：<ul>
+<li>
+<p>NORMAL to CHECKING, when：</p>
+<ul>
+<li>Number of consecutive failures, in connecting or sending request to the instance, exceeds a threshhod.</li>
+</ul>
+</li>
+<li>
+<p>CHECKING to NORMAL, when：</p>
+<ul>
 <li>BFE receives correct response for health check request from the instance.</li>
 </ul>
 </li>
@@ -2991,12 +3021,16 @@ This feature is very useful in multi-IDCs scenario.</p>
 </ul>
 <h2 id="session-stickiness">Session stickiness</h2>
 <p>BFE supports session stickiness.</p>
-<p>Session could be defined based on following infos of the request:
-- Source IP
-- Field in request header, cookie etc.</p>
-<p>Session stickiness is supported for the following two levels:
-- Sub cluster level: requests of the same session are forwarded to the same sub cluster (may be different instances in this sub cluster).
-- Instance level: requests of the same session are fowarded to the same instance.</p>
+<p>Session could be defined based on following infos of the request:</p>
+<ul>
+<li>Source IP</li>
+<li>Field in request header, cookie etc.</li>
+</ul>
+<p>Session stickiness is supported for the following two levels:</p>
+<ul>
+<li>Sub cluster level: requests of the same session are forwarded to the same sub cluster (may be different instances in this sub cluster).</li>
+<li>Instance level: requests of the same session are forwarded to the same instance.</li>
+</ul>
                 
               
               
@@ -3101,7 +3135,7 @@ This feature is very useful in multi-IDCs scenario.</p>
     </div>
     
       <script src="../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "en", "clipboard.copy": "Copy to clipboard", "search.result.none": "No matching documents", "search.result.other": "# matching documents", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "Copied to clipboard", "search.result.one": "1 matching document"}</script>
+      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({

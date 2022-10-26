@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../../#mod_trust_clientip" class="md-skip">
+        <a href="#mod_trust_clientip" class="md-skip">
           Skip to content
         </a>
       
@@ -1455,6 +1455,18 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
+    <a href="../../mod_tcp_keepalive/mod_tcp_keepalive/" title="mod_tcp_keepalive" class="md-nav__link">
+      mod_tcp_keepalive
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
     <a href="../../mod_trace/mod_trace/" title="mod_trace" class="md-nav__link">
       mod_trace
     </a>
@@ -1536,11 +1548,11 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
-  <a href="#rule-configuraiton" class="md-nav__link">
-    Rule Configuraiton
+  <a href="#rule-configuration" class="md-nav__link">
+    Rule Configuration
   </a>
   
-    <nav class="md-nav" aria-label="Rule Configuraiton">
+    <nav class="md-nav" aria-label="Rule Configuration">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2531,6 +2543,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/request/context/" title="Context" class="md-nav__link">
+      Context
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -2840,11 +2864,11 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
-  <a href="#rule-configuraiton" class="md-nav__link">
-    Rule Configuraiton
+  <a href="#rule-configuration" class="md-nav__link">
+    Rule Configuration
   </a>
   
-    <nav class="md-nav" aria-label="Rule Configuraiton">
+    <nav class="md-nav" aria-label="Rule Configuration">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2895,7 +2919,7 @@ RU5ErkJggg==" ></image>
                 
                 <h1 id="mod_trust_clientip">mod_trust_clientip</h1>
 <h2 id="introduction">Introduction</h2>
-<p>mod_trust_clientip checkes the client IP of incoming request/connnection against trusted ip dictionary. If matched, the request/connection is marked as trusted.</p>
+<p>mod_trust_clientip checks the client IP of incoming request/connnection against trusted ip dictionary. If matched, the request/connection is marked as trusted.</p>
 <h2 id="module-configuration">Module Configuration</h2>
 <h3 id="description">Description</h3>
 <p>conf/mod_trust_clientip/mod_trust_clientip.conf</p>
@@ -2909,16 +2933,16 @@ RU5ErkJggg==" ></image>
 <tbody>
 <tr>
 <td>Basic.DataPath</td>
-<td>String<br>Path of rule configuraiton</td>
+<td>String<br>Path of rule configuration</td>
 </tr>
 </tbody>
 </table>
 <h3 id="example">Example</h3>
 <pre class="codehilite"><code class="language-ini">[Basic]
-DataPath = mod_trust_clientip/trust_client_ip.data</code></pre>
+DataPath = mod_trust_clientip/trust_client_ip.data
+</code></pre>
 
-
-<h2 id="rule-configuraiton">Rule Configuraiton</h2>
+<h2 id="rule-configuration">Rule Configuration</h2>
 <h3 id="description_1">Description</h3>
 <p>conf/mod_trust_clientip/trust_client_ip.data</p>
 <table>
@@ -2933,7 +2957,7 @@ DataPath = mod_trust_clientip/trust_client_ip.data</code></pre>
 <tr>
 <td>Version</td>
 <td>String</td>
-<td>Verson of config file</td>
+<td>Version of config file</td>
 </tr>
 <tr>
 <td>Config</td>
@@ -2978,8 +3002,8 @@ DataPath = mod_trust_clientip/trust_client_ip.data</code></pre>
             }
         ]
     }
-}</code></pre>
-
+}
+</code></pre>
 
 <h2 id="metrics">Metrics</h2>
 <table>
@@ -3004,7 +3028,7 @@ DataPath = mod_trust_clientip/trust_client_ip.data</code></pre>
 </tr>
 <tr>
 <td>CONN_TRUST_CLIENTIP</td>
-<td>Counter for connnection from trust address</td>
+<td>Counter for connection from trust address</td>
 </tr>
 </tbody>
 </table>
@@ -3112,7 +3136,7 @@ DataPath = mod_trust_clientip/trust_client_ip.data</code></pre>
     </div>
     
       <script src="../../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "en", "clipboard.copy": "Copy to clipboard", "search.result.none": "No matching documents", "search.result.other": "# matching documents", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "Copied to clipboard", "search.result.one": "1 matching document"}</script>
+      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({

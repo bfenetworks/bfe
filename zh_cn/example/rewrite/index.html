@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../#_1" class="md-skip">
+        <a href="#_1" class="md-skip">
           跳转至
         </a>
       
@@ -1506,6 +1506,18 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
+    <a href="../../modules/mod_tcp_keepalive/mod_tcp_keepalive/" title="mod_tcp_keepalive" class="md-nav__link">
+      mod_tcp_keepalive
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
     <a href="../../modules/mod_trace/mod_trace/" title="mod_trace" class="md-nav__link">
       mod_trace
     </a>
@@ -2479,6 +2491,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../condition/request/context/" title="Context" class="md-nav__link">
+      Context
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -2799,15 +2823,15 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>Step 1. bfe启用mod_rewrite模块（conf/bfe.conf)</li>
 </ul>
-<pre class="codehilite"><code class="language-ini">Modules = mod_rewrite  #启用mod_rewrite</code></pre>
-
+<pre class="codehilite"><code class="language-ini">Modules = mod_rewrite  #启用mod_rewrite
+</code></pre>
 
 <ul>
 <li>Step 2. 配置rewrite规则文件的存储路径 (conf/mod_rewrite/mod_rewrite.conf)</li>
 </ul>
 <pre class="codehilite"><code class="language-ini">[Basic]
-DataPath = mod_rewrite/rewrite.data</code></pre>
-
+DataPath = mod_rewrite/rewrite.data
+</code></pre>
 
 <ul>
 <li>Step 3. 配置rewrite规则</li>
@@ -2827,14 +2851,14 @@ DataPath = mod_rewrite/rewrite.data</code></pre>
             &quot;Last&quot;: true
         }]
     }
-}</code></pre>
-
+}
+</code></pre>
 
 <ul>
 <li>Step 4. 验证配置规则</li>
 </ul>
-<pre class="codehilite"><code class="language-bash">curl -H &quot;host: example.org&quot; &quot;http://127.1:8080/service&quot;</code></pre>
-
+<pre class="codehilite"><code class="language-bash">curl -H &quot;host: example.org&quot; &quot;http://127.1:8080/service&quot;
+</code></pre>
 
 <p>对应后端服务集群cluster_demo_dynamic收到的请求PATH为"v1/service"</p>
                 
@@ -2941,7 +2965,7 @@ DataPath = mod_rewrite/rewrite.data</code></pre>
     </div>
     
       <script src="../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "ja", "clipboard.copy": "\u590d\u5236", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "\u5df2\u590d\u5236", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
+      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
       
       <script>
         app = initialize({

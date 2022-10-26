@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../#openbsdbfe" class="md-skip">
+        <a href="#openbsdbfe" class="md-skip">
           跳转至
         </a>
       
@@ -1449,6 +1449,18 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
+    <a href="../../modules/mod_tcp_keepalive/mod_tcp_keepalive/" title="mod_tcp_keepalive" class="md-nav__link">
+      mod_tcp_keepalive
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
     <a href="../../modules/mod_trace/mod_trace/" title="mod_trace" class="md-nav__link">
       mod_trace
     </a>
@@ -2422,6 +2434,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../condition/request/context/" title="Context" class="md-nav__link">
+      Context
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -2738,13 +2762,13 @@ RU5ErkJggg==" ></image>
 </ul>
 <p>amd64</p>
 <pre class="codehilite"><code class="language-bash"># export PKG_PATH=&quot;https://mirrors.tuna.tsinghua.edu.cn/OpenBSD/6.6/packages/amd64/&quot;
-# pkg_add wget go</code></pre>
-
+# pkg_add wget go
+</code></pre>
 
 <p>i386</p>
 <pre class="codehilite"><code class="language-bash"># export PKG_PATH=&quot;https://mirrors.tuna.tsinghua.edu.cn/OpenBSD/6.6/packages/i386/&quot;
-# pkg_add llvm wget go</code></pre>
-
+# pkg_add llvm wget go
+</code></pre>
 
 <ul>
 <li>由于OpenBSD 6.6自带的make 无法编译BFE，因此需要安装gnu make</li>
@@ -2755,8 +2779,8 @@ RU5ErkJggg==" ></image>
 # cd make-4.2
 # ./configure
 # make -j8
-# make install</code></pre>
-
+# make install
+</code></pre>
 
 <p>i386</p>
 <pre class="codehilite"><code class="language-bash"># cd /usr/bin
@@ -2767,8 +2791,8 @@ RU5ErkJggg==" ></image>
 # cd make-4.2
 # ./configure
 # make -j8 
-# make install</code></pre>
-
+# make install
+</code></pre>
 
 <h2 id="bfe">编译安装BFE</h2>
 <ul>
@@ -2782,8 +2806,8 @@ RU5ErkJggg==" ></image>
 #
 # mkdir -p /usr/local/bfe/bin
 # cp bfe /usr/local/bfe/bin
-# cp -fr conf/ /usr/local/bfe</code></pre>
-
+# cp -fr conf/ /usr/local/bfe
+</code></pre>
 
 <ul>
 <li>修改配置文件</li>
@@ -2791,8 +2815,8 @@ RU5ErkJggg==" ></image>
 <pre class="codehilite"><code class="language-bash"># cd /usr/local/bfe/conf/mod_access/
 # vi mod_access.conf
 LogDir =  ../log
-:wq ## 保存退出</code></pre>
-
+:wq ## 保存退出
+</code></pre>
 
 <ul>
 <li>创建启动脚本及运行</li>
@@ -2809,7 +2833,8 @@ cd /usr/local/bfe/bin
 # sh run_bfe.sh
 # ps |grep bfe
 25625 p0  I        6:08.02 ./bfe -c ../conf -l ../log
-79047 p0  R+/2     0:00.00 grep bfe</code></pre>
+79047 p0  R+/2     0:00.00 grep bfe
+</code></pre>
                 
               
               
@@ -2879,7 +2904,7 @@ cd /usr/local/bfe/bin
     </div>
     
       <script src="../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "ja", "clipboard.copy": "\u590d\u5236", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "\u5df2\u590d\u5236", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
+      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
       
       <script>
         app = initialize({

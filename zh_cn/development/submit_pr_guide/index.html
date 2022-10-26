@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../#pr" class="md-skip">
+        <a href="#pr" class="md-skip">
           跳转至
         </a>
       
@@ -1453,6 +1453,18 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
+    <a href="../../modules/mod_tcp_keepalive/mod_tcp_keepalive/" title="mod_tcp_keepalive" class="md-nav__link">
+      mod_tcp_keepalive
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
     <a href="../../modules/mod_trace/mod_trace/" title="mod_trace" class="md-nav__link">
       mod_trace
     </a>
@@ -2500,6 +2512,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../condition/request/context/" title="Context" class="md-nav__link">
+      Context
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -2844,14 +2868,14 @@ RU5ErkJggg==" ></image>
 <h2 id="_2">删除远程分支</h2>
 <p>在 PR 被 merge 进主仓库后，我们可以在 PR 的页面删除远程仓库的分支。</p>
 <p>也可以使用 <code>git push origin :分支名</code> 删除远程分支，如：</p>
-<pre class="codehilite"><code class="language-bash">$ git push origin :my-cool-stuff</code></pre>
-
+<pre class="codehilite"><code class="language-bash">$ git push origin :my-cool-stuff
+</code></pre>
 
 <h2 id="_3">删除本地分支</h2>
 <p>最后，删除本地分支。</p>
 <pre class="codehilite"><code class="language-bash">$ git checkout develop # 切换到 develop 分支
-$ git branch -D my-cool-stuff # 删除 my-cool-stuff 分支</code></pre>
-
+$ git branch -D my-cool-stuff # 删除 my-cool-stuff 分支
+</code></pre>
 
 <p>至此，我们就完成了一次代码贡献的过程。</p>
 <h2 id="_4">提交代码的一些约定</h2>
@@ -2872,9 +2896,11 @@ $ git branch -D my-cool-stuff # 删除 my-cool-stuff 分支</code></pre>
 <p>请注意每个commit的名称：应能反映当前commit的内容，不能太随意。</p>
 </li>
 </ul>
-<p>3）如果解决了某个Issue的问题，请在该Pull Request的<strong>第一个</strong>评论框中加上：<code>fix #issue_number</code>，这样当该PUll Request被合并后，会自动关闭对应的Issue。
-- 关键词包括：close, closes, closed, fix, fixes, fixed, resolve, resolves, resolved，请选择合适的词汇。
-- 详细可参考<a href="https://help.github.com/articles/closing-issues-via-commit-messages">Closing issues via commit messages</a>。</p>
+<p>3）如果解决了某个Issue的问题，请在该Pull Request的<strong>第一个</strong>评论框中加上：<code>fix #issue_number</code>，这样当该PUll Request被合并后，会自动关闭对应的Issue。</p>
+<ul>
+<li>关键词包括：close, closes, closed, fix, fixes, fixed, resolve, resolves, resolved，请选择合适的词汇。</li>
+<li>详细可参考<a href="https://help.github.com/articles/closing-issues-via-commit-messages">Closing issues via commit messages</a>。</li>
+</ul>
 <p>此外，在回复评审人意见时，请您遵守以下约定：</p>
 <p>1）评审人的每个意见都必须回复（这是开源社区的基本礼貌，别人帮了忙，应该说谢谢）：</p>
 <ul>
@@ -2998,7 +3024,7 @@ $ git branch -D my-cool-stuff # 删除 my-cool-stuff 分支</code></pre>
     </div>
     
       <script src="../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "ja", "clipboard.copy": "\u590d\u5236", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "\u5df2\u590d\u5236", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
+      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
       
       <script>
         app = initialize({

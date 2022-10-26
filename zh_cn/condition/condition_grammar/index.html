@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../#_1" class="md-skip">
+        <a href="#_1" class="md-skip">
           跳转至
         </a>
       
@@ -1453,6 +1453,18 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
+    <a href="../../modules/mod_tcp_keepalive/mod_tcp_keepalive/" title="mod_tcp_keepalive" class="md-nav__link">
+      mod_tcp_keepalive
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
     <a href="../../modules/mod_trace/mod_trace/" title="mod_trace" class="md-nav__link">
       mod_trace
     </a>
@@ -2545,6 +2557,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../request/context/" title="Context" class="md-nav__link">
+      Context
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -2928,8 +2952,8 @@ RU5ErkJggg==" ></image>
 <li>条件原语是基本的内置条件判断单元，执行某种比较来判断是否满足条件</li>
 </ul>
 <pre class="codehilite"><code class="language-go">// 如果请求host是&quot;bfe-networks.com&quot;或&quot;bfe-networks.org&quot;, 返回true
-req_host_in(&quot;bfe-networks.com|bfe-networks.org&quot;) </code></pre>
-
+req_host_in(&quot;bfe-networks.com|bfe-networks.org&quot;) 
+</code></pre>
 
 <ul>
 <li>BFE支持一系列预定义的内置<a href="../condition_primitive_index/">条件原语</a></li>
@@ -2939,8 +2963,8 @@ req_host_in(&quot;bfe-networks.com|bfe-networks.org&quot;) </code></pre>
 <li>条件表达式是多个条件原语与操作符(例如与、或、非)的组合</li>
 </ul>
 <pre class="codehilite"><code class="language-go">// 如果请求域名是&quot;bfe-networks.com&quot;且请求方法是&quot;GET&quot;, 返回true
-req_host_in(&quot;bfe-networks.com&quot;) &amp;&amp; req_method_in(&quot;GET&quot;) </code></pre>
-
+req_host_in(&quot;bfe-networks.com&quot;) &amp;&amp; req_method_in(&quot;GET&quot;) 
+</code></pre>
 
 <ul>
 <li>支持的操作符详见下文说明</li>
@@ -2950,8 +2974,8 @@ req_host_in(&quot;bfe-networks.com&quot;) &amp;&amp; req_method_in(&quot;GET&quo
 <li>可以将条件表达式赋值给一个变量，这个变量被定义为条件变量</li>
 </ul>
 <pre class="codehilite"><code class="language-go">// 将条件表达式赋值给变量bfe_host
-bfe_host = req_host_in(&quot;bfe-networks.com&quot;) </code></pre>
-
+bfe_host = req_host_in(&quot;bfe-networks.com&quot;) 
+</code></pre>
 
 <h3 id="_6">高级条件表达式</h3>
 <ul>
@@ -2963,14 +2987,14 @@ bfe_host = req_host_in(&quot;bfe-networks.com&quot;) </code></pre>
 </li>
 </ul>
 <pre class="codehilite"><code class="language-go">// 如果变量bfe_host为true且请求方法是&quot;GET&quot;，返回true
-$bfe_host &amp;&amp; req_method_in(&quot;GET&quot;) </code></pre>
-
+$bfe_host &amp;&amp; req_method_in(&quot;GET&quot;) 
+</code></pre>
 
 <h2 id="_7">语法说明</h2>
 <h3 id="_8">条件原语的语法</h3>
 <p>条件原语的形式如下：</p>
-<pre class="codehilite"><code class="language-go">func_name(params)</code></pre>
-
+<pre class="codehilite"><code class="language-go">func_name(params)
+</code></pre>
 
 <ul>
 <li><strong>func_name</strong>是条件原语名称</li>
@@ -2983,8 +3007,8 @@ $bfe_host &amp;&amp; req_method_in(&quot;GET&quot;) </code></pre>
    | CE || CE
    | ( CE )
    | ! CE
-   | ConditionPrimitive</code></pre>
-
+   | ConditionPrimitive
+</code></pre>
 
 <h3 id="_10">高级条件表达式的语法</h3>
 <p>高级条件表达式(ACE: Advanced Condition Expression)的语法定义如下：</p>
@@ -2993,8 +3017,8 @@ $bfe_host &amp;&amp; req_method_in(&quot;GET&quot;) </code></pre>
     | ( ACE )
     | ! ACE
     | ConditionPrimitive
-    | ConditionVariable</code></pre>
-
+    | ConditionVariable
+</code></pre>
 
 <h3 id="_11">操作符优先级</h3>
 <p>操作符的优先级和结合律与C语言中类似。下表列出了所有操作符的优先级及结合律。操作符从上至下按操作符优先级降序排列。</p>
@@ -3138,7 +3162,7 @@ $bfe_host &amp;&amp; req_method_in(&quot;GET&quot;) </code></pre>
     </div>
     
       <script src="../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "ja", "clipboard.copy": "\u590d\u5236", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "\u5df2\u590d\u5236", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
+      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
       
       <script>
         app = initialize({

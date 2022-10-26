@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../#_1" class="md-skip">
+        <a href="#_1" class="md-skip">
           跳转至
         </a>
       
@@ -1453,6 +1453,18 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
+    <a href="../../modules/mod_tcp_keepalive/mod_tcp_keepalive/" title="mod_tcp_keepalive" class="md-nav__link">
+      mod_tcp_keepalive
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
     <a href="../../modules/mod_trace/mod_trace/" title="mod_trace" class="md-nav__link">
       mod_trace
     </a>
@@ -1746,31 +1758,44 @@ RU5ErkJggg==" ></image>
     创建本地分支
   </a>
   
+    <nav class="md-nav" aria-label="创建本地分支">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    安装工具集
+  </a>
+  
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#pre-commit" class="md-nav__link">
     使用 pre-commit 钩子
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#license-eye" class="md-nav__link">
     使用 license-eye 工具
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
-  <a href="#_4" class="md-nav__link">
+  <a href="#_5" class="md-nav__link">
     开始开发
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#_5" class="md-nav__link">
+  <a href="#_6" class="md-nav__link">
     构建和测试
   </a>
   
@@ -1784,7 +1809,7 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
-  <a href="#_6" class="md-nav__link">
+  <a href="#_7" class="md-nav__link">
     保持本地仓库最新
   </a>
   
@@ -2542,6 +2567,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../condition/request/context/" title="Context" class="md-nav__link">
+      Context
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -2842,31 +2879,44 @@ RU5ErkJggg==" ></image>
     创建本地分支
   </a>
   
+    <nav class="md-nav" aria-label="创建本地分支">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    安装工具集
+  </a>
+  
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#pre-commit" class="md-nav__link">
     使用 pre-commit 钩子
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#license-eye" class="md-nav__link">
     使用 license-eye 工具
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
-  <a href="#_4" class="md-nav__link">
+  <a href="#_5" class="md-nav__link">
     开始开发
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#_5" class="md-nav__link">
+  <a href="#_6" class="md-nav__link">
     构建和测试
   </a>
   
@@ -2880,7 +2930,7 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
-  <a href="#_6" class="md-nav__link">
+  <a href="#_7" class="md-nav__link">
     保持本地仓库最新
   </a>
   
@@ -2928,34 +2978,41 @@ RU5ErkJggg==" ></image>
 <h2 id="clone">克隆（Clone）</h2>
 <p>将远程仓库 clone 到本地：</p>
 <pre class="codehilite"><code class="language-bash">$ git clone https://github.com/USERNAME/bfe
-$ cd bfe</code></pre>
-
+$ cd bfe
+</code></pre>
 
 <h2 id="_3">创建本地分支</h2>
 <p>BFE目前使用<a href="http://nvie.com/posts/a-successful-git-branching-model/">Git流分支模型</a>进行开发、测试、发行和维护，具体请参考 <a href="../release_regulation/">BFE分支规范</a>。</p>
 <p>所有的 feature 和 bug fix 的开发工作都应该在一个新的分支上完成，一般从 <code>develop</code> 分支上创建新分支。</p>
 <p>使用 <code>git checkout -b</code> 创建并切换到新分支。</p>
-<pre class="codehilite"><code class="language-bash">$ git checkout -b my-cool-stuff</code></pre>
-
+<pre class="codehilite"><code class="language-bash">$ git checkout -b my-cool-stuff
+</code></pre>
 
 <p>值得注意的是，在 checkout 之前，需要保持当前分支目录 clean，否则会把 untracked 的文件也带到新分支上，这可以通过 <code>git status</code> 查看。</p>
-<h2 id="pre-commit">使用 <code>pre-commit</code> 钩子</h2>
+<h3 id="_4">安装工具集</h3>
+<p><code>make deps</code> 一键安装所有依赖工具，包括 <code>pre-commit</code> <code>goyacc</code> <code>license-eye</code> <code>staticcheck</code>。</p>
+<h3 id="pre-commit">使用 <code>pre-commit</code> 钩子</h3>
 <p>BFE 开发人员使用 <a href="http://pre-commit.com/">pre-commit</a> 工具来管理 Git 预提交钩子。 它可以帮助我们格式化源代码，在提交（commit）前自动检查一些基本事宜（如每个文件只有一个 EOL，Git 中不要添加大文件等）。</p>
 <p><code>pre-commit</code>测试是 Travis-CI 中单元测试的一部分，不满足钩子的 PR 不能被提交到 BFE，首先安装并在当前目录运行它：</p>
-<pre class="codehilite"><code class="language-bash">$ pip install pre-commit
-$ pre-commit install</code></pre>
-
+<pre class="codehilite"><code class="language-bash"># 确保安装pre-commit
+$ make deps
+# 开启自动更新以及安装钩子
+$ make precommit
+</code></pre>
 
 <p>BFE 使用 <code>gofmt</code> 来调整 golang源代码格式。</p>
-<h2 id="license-eye">使用 <code>license-eye</code> 工具</h2>
+<h3 id="license-eye">使用 <code>license-eye</code> 工具</h3>
 <p><a href="http://github.com/apache/skywalking-eyes">license-eye</a> 工具可以帮助我们检查和修复所有文件的证书声明，在提交 (commit) 前证书声明都应该先完成。</p>
 <p><code>license-eye</code> 检查是 Github-Action 中检测的一部分，检测不通过的 PR 不能被提交到 BFE，安装使用它：</p>
-<pre class="codehilite"><code class="language-bash">$ go install github.com/apache/skywalking-eyes/cmd/license-eye@latest
-$ license-eye header check
-$ license-eye header fix</code></pre>
+<pre class="codehilite"><code class="language-bash"># 确保安装license-eye
+$ make deps
+# 检查所有许可证
+$ make license-check
+# 修复所有许可证
+$ make license-fix
+</code></pre>
 
-
-<h2 id="_4">开始开发</h2>
+<h2 id="_5">开始开发</h2>
 <p>在本例中，我删除了 README.md 中的一行，并创建了一个新文件。</p>
 <p>通过 <code>git status</code> 查看当前状态，这会提示当前目录的一些变化，同时也可以通过 <code>git diff</code> 查看文件具体被修改的内容。</p>
 <pre class="codehilite"><code class="language-bash">$ git status
@@ -2971,10 +3028,10 @@ Untracked files:
 
     test
 
-no changes added to commit (use &quot;git add&quot; and/or &quot;git commit -a&quot;)</code></pre>
+no changes added to commit (use &quot;git add&quot; and/or &quot;git commit -a&quot;)
+</code></pre>
 
-
-<h2 id="_5">构建和测试</h2>
+<h2 id="_6">构建和测试</h2>
 <p>从源码编译BFE及测试，请参见<a href="../../installation/install_from_source/">编译及安装BFE</a></p>
 <h2 id="commit">提交（commit）</h2>
 <p>接下来我们取消对 README.md 文件的改变，然后提交新添加的 test 文件。</p>
@@ -2987,8 +3044,8 @@ Untracked files:
     test
 
 nothing added to commit but untracked files present (use &quot;git add&quot; to track)
-$ git add test</code></pre>
-
+$ git add test
+</code></pre>
 
 <p>Git 每次提交代码，都需要写提交说明，这可以让其他人知道这次提交做了哪些改变，这可以通过<code>git commit</code> 完成。</p>
 <pre class="codehilite"><code class="language-bash">$ git commit
@@ -2999,46 +3056,47 @@ Check for merge conflicts................................................Passed
 Check for broken symlinks................................................Passed
 Detect Private Key...................................(no files to check)Skipped
 Fix End of Files.....................................(no files to check)Skipped
-clang-formater.......................................(no files to check)Skipped
+clang-formatter.......................................(no files to check)Skipped
 [my-cool-stuff c703c041] add test file
  1 file changed, 0 insertions(+), 0 deletions(-)
- create mode 100644 233</code></pre>
-
+ create mode 100644 233
+</code></pre>
 
 <p><b> <font color="red">需要注意的是：您需要在commit中添加说明（commit message）以触发CI单测，写法如下：</font> </b></p>
 <pre class="codehilite"><code class="language-bash"># 触发develop分支的CI单测
 $ git commit -m &quot;test=develop&quot;
 
 # 触发release/1.1分支的CI单测
-$ git commit -m &quot;test=release/1.1&quot;</code></pre>
+$ git commit -m &quot;test=release/1.1&quot;
+</code></pre>
 
-
-<h2 id="_6">保持本地仓库最新</h2>
+<h2 id="_7">保持本地仓库最新</h2>
 <p>在准备发起 Pull Request 之前，需要同步原仓库（<a href="https://github.com/bfenetworks/bfe">https://github.com/bfenetworks/bfe</a>）最新的代码。</p>
 <p>首先通过 <code>git remote</code> 查看当前远程仓库的名字</p>
 <pre class="codehilite"><code class="language-bash">$ git remote
 origin
 $ git remote -v
 origin  https://github.com/USERNAME/bfe (fetch)
-origin  https://github.com/USERNAME/bfe (push)</code></pre>
-
+origin  https://github.com/USERNAME/bfe (push)
+</code></pre>
 
 <p>这里 origin 是我们 clone 的远程仓库的名字，也就是自己用户名下的 BFE，接下来我们创建一个原始 BFE 仓库的远程主机，命名为 upstream。</p>
 <pre class="codehilite"><code class="language-bash">$ git remote add upstream https://github.com/bfenetworks/bfe
 $ git remote
 origin
-upstream</code></pre>
-
+upstream
+</code></pre>
 
 <p>获取 upstream 的最新代码并更新当前分支。</p>
 <pre class="codehilite"><code class="language-bash">$ git fetch upstream
-$ git pull upstream develop</code></pre>
-
+$ git pull upstream develop
+</code></pre>
 
 <h2 id="push">Push 到远程仓库</h2>
 <p>将本地的修改推送到 GitHub 上，也就是 https://github.com/USERNAME/bfe</p>
 <pre class="codehilite"><code class="language-bash"># 推送到远程仓库 origin 的 my-cool-stuff 分支上
-$ git push origin my-cool-stuff</code></pre>
+$ git push origin my-cool-stuff
+</code></pre>
                 
               
               
@@ -3143,7 +3201,7 @@ $ git push origin my-cool-stuff</code></pre>
     </div>
     
       <script src="../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "ja", "clipboard.copy": "\u590d\u5236", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "\u5df2\u590d\u5236", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
+      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
       
       <script>
         app = initialize({
