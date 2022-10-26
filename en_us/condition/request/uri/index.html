@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../../#request-uri-related-primitives" class="md-skip">
+        <a href="#request-uri-related-primitives" class="md-skip">
           Skip to content
         </a>
       
@@ -1453,6 +1453,18 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
+    <a href="../../../modules/mod_tcp_keepalive/mod_tcp_keepalive/" title="mod_tcp_keepalive" class="md-nav__link">
+      mod_tcp_keepalive
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
     <a href="../../../modules/mod_trace/mod_trace/" title="mod_trace" class="md-nav__link">
       mod_trace
     </a>
@@ -2563,6 +2575,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../context/" title="Context" class="md-nav__link">
+      Context
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -2986,8 +3010,8 @@ RU5ErkJggg==" ></image>
 req_host_in(&quot;www.bfe-networks.com|bfe-networks.com&quot;)
 
 // wrong：
-req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)</code></pre>
-
+req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)
+</code></pre>
 
 <h2 id="req_path_inpath_list-case_insensitive">req_path_in(path_list, case_insensitive)</h2>
 <ul>
@@ -3019,8 +3043,8 @@ req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_path_in(&quot;/api/search|/api/list&quot;, true)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_path_in(&quot;/api/search|/api/list&quot;, true)
+</code></pre>
 
 <h2 id="req_path_containpath_list-case_insensitive">req_path_contain(path_list, case_insensitive)</h2>
 <ul>
@@ -3052,8 +3076,8 @@ req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_path_contain(&quot;search|analytics&quot;, true)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_path_contain(&quot;search|analytics&quot;, true)
+</code></pre>
 
 <h2 id="req_path_prefix_inprefix_list-case_insensitive">req_path_prefix_in(prefix_list, case_insensitive)</h2>
 <ul>
@@ -3085,8 +3109,8 @@ req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_path_prefix_in(&quot;/api/report|/api/analytics&quot;, false)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_path_prefix_in(&quot;/api/report|/api/analytics&quot;, false)
+</code></pre>
 
 <h2 id="req_path_suffix_insuffix_list-case_insensitive">req_path_suffix_in(suffix_list, case_insensitive)</h2>
 <ul>
@@ -3118,8 +3142,8 @@ req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_path_suffix_in(&quot;.php|.jsp&quot;, false)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_path_suffix_in(&quot;.php|.jsp&quot;, false)
+</code></pre>
 
 <h2 id="req_path_element_prefix_inprefix_list-case_insensitive">req_path_element_prefix_in(prefix_list, case_insensitive)</h2>
 <ul>
@@ -3151,8 +3175,8 @@ req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_path_element_prefix_in(&quot;/api/report/|/api/analytics/&quot;, false)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_path_element_prefix_in(&quot;/api/report/|/api/analytics/&quot;, false)
+</code></pre>
 
 <h2 id="req_query_key_inkey_list">req_query_key_in(key_list)</h2>
 <ul>
@@ -3180,8 +3204,8 @@ req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_query_key_exist(&quot;word|wd&quot;)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_query_key_exist(&quot;word|wd&quot;)
+</code></pre>
 
 <h2 id="req_query_key_prefix_inprefix_list">req_query_key_prefix_in(prefix_list)</h2>
 <ul>
@@ -3209,8 +3233,8 @@ req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_query_key_prefix_in(&quot;rid&quot;)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_query_key_prefix_in(&quot;rid&quot;)
+</code></pre>
 
 <h2 id="req_query_value_inkey-value_list-case_insensitive">req_query_value_in(key, value_list, case_insensitive)</h2>
 <ul>
@@ -3246,8 +3270,8 @@ req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_query_value_in(&quot;uid&quot;, &quot;x|y|z&quot;, true)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_query_value_in(&quot;uid&quot;, &quot;x|y|z&quot;, true)
+</code></pre>
 
 <h2 id="req_query_value_prefix_inkey-prefix_list-case_insensitive">req_query_value_prefix_in(key, prefix_list, case_insensitive)</h2>
 <ul>
@@ -3283,8 +3307,8 @@ req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_query_value_prefix_in(&quot;uid&quot;, &quot;100|200&quot;, true)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_query_value_prefix_in(&quot;uid&quot;, &quot;100|200&quot;, true)
+</code></pre>
 
 <h2 id="req_query_value_suffix_inkey-suffix_list-case_insensitive">req_query_value_suffix_in(key, suffix_list, case_insensitive)</h2>
 <ul>
@@ -3320,8 +3344,8 @@ req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_query_value_suffix_in(&quot;uid&quot;, &quot;1|2|3&quot;, true)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_query_value_suffix_in(&quot;uid&quot;, &quot;1|2|3&quot;, true)
+</code></pre>
 
 <h2 id="req_query_value_hash_inkey-value_list-case_insensitive">req_query_value_hash_in(key, value_list, case_insensitive)</h2>
 <ul>
@@ -3357,8 +3381,8 @@ req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_query_value_hash_in(&quot;cid&quot;, &quot;100&quot;, true)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_query_value_hash_in(&quot;cid&quot;, &quot;100&quot;, true)
+</code></pre>
 
 <h2 id="req_port_inport_list">req_port_in(port_list)</h2>
 <ul>
@@ -3386,8 +3410,8 @@ req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_port_in(&quot;80|8080&quot;)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_port_in(&quot;80|8080&quot;)
+</code></pre>
 
 <h2 id="req_url_regmatchreg_exp">req_url_regmatch(reg_exp)</h2>
 <ul>
@@ -3415,7 +3439,8 @@ req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)</code></pre>
 <ul>
 <li>Example</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_url_regmatch(`/s\?word=123`)</code></pre>
+<pre class="codehilite"><code class="language-go">req_url_regmatch(`/s\?word=123`)
+</code></pre>
                 
               
               
@@ -3520,7 +3545,7 @@ req_host_in(&quot;www.bfe-networks.com | bfe-networks.com&quot;)</code></pre>
     </div>
     
       <script src="../../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "en", "clipboard.copy": "Copy to clipboard", "search.result.none": "No matching documents", "search.result.other": "# matching documents", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "Copied to clipboard", "search.result.one": "1 matching document"}</script>
+      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({

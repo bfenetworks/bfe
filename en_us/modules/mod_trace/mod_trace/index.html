@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../../#mod_trace" class="md-skip">
+        <a href="#mod_trace" class="md-skip">
           Skip to content
         </a>
       
@@ -1453,6 +1453,18 @@ RU5ErkJggg==" ></image>
           
           
 
+
+  <li class="md-nav__item">
+    <a href="../../mod_tcp_keepalive/mod_tcp_keepalive/" title="mod_tcp_keepalive" class="md-nav__link">
+      mod_tcp_keepalive
+    </a>
+  </li>
+
+        
+          
+          
+          
+
   
 
 
@@ -2585,6 +2597,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/request/context/" title="Context" class="md-nav__link">
+      Context
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -3018,7 +3042,7 @@ RU5ErkJggg==" ></image>
 <tbody>
 <tr>
 <td>Basic.DataPath</td>
-<td>String<br>Path of rule configuraiton</td>
+<td>String<br>Path of rule configuration</td>
 </tr>
 <tr>
 <td>Basic.ServiceName</td>
@@ -3084,7 +3108,7 @@ RU5ErkJggg==" ></image>
 </tr>
 <tr>
 <td>Jaeger.LocalAgentHostPort</td>
-<td>String<br>The address of jaeger-agent which recives spans</td>
+<td>String<br>The address of jaeger-agent which receives spans</td>
 </tr>
 <tr>
 <td>Jaeger.Propagation</td>
@@ -3156,8 +3180,8 @@ SameSpan = false
 ID128Bit = true
 
 # The rate between 0.0001 and 1.0 of requests to trace
-SampleRate = 1.0</code></pre>
-
+SampleRate = 1.0
+</code></pre>
 
 <h4 id="example-for-jaeger">Example for Jaeger</h4>
 <pre class="codehilite"><code class="language-ini">[Basic]
@@ -3208,8 +3232,8 @@ CollectorEndpoint = &quot;&quot;
 CollectorUser = &quot;&quot;
 
 # CollectorPassword for basic http authentication when sending spans to jaeger-collector
-CollectorPassword = &quot;&quot;</code></pre>
-
+CollectorPassword = &quot;&quot;
+</code></pre>
 
 <h4 id="example-for-elastic">Example for Elastic</h4>
 <pre class="codehilite"><code class="language-ini">[Basic]
@@ -3229,8 +3253,8 @@ OpenDebug = false
 ServerURL = http://127.0.0.1:8200
 
 # Set the token used to connect to Elastic APM Server
-SecretToken = &quot;&quot;</code></pre>
-
+SecretToken = &quot;&quot;
+</code></pre>
 
 <h2 id="rule-configuration">Rule Configuration</h2>
 <h3 id="description_1">Description</h3>
@@ -3245,7 +3269,7 @@ SecretToken = &quot;&quot;</code></pre>
 <tbody>
 <tr>
 <td>Version</td>
-<td>String<br>Verson of the config file</td>
+<td>String<br>Version of the config file</td>
 </tr>
 <tr>
 <td>Config</td>
@@ -3284,7 +3308,8 @@ SecretToken = &quot;&quot;</code></pre>
        }
     ]
   }
-}</code></pre>
+}
+</code></pre>
                 
               
               
@@ -3303,7 +3328,7 @@ SecretToken = &quot;&quot;</code></pre>
     <div class="md-footer-nav">
       <nav class="md-footer-nav__inner md-grid" aria-label="Footer">
         
-          <a href="../../mod_tag/mod_tag/" title="mod_tag" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+          <a href="../../mod_tcp_keepalive/mod_tcp_keepalive/" title="mod_tcp_keepalive" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
             <div class="md-footer-nav__button md-icon">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
             </div>
@@ -3312,7 +3337,7 @@ SecretToken = &quot;&quot;</code></pre>
                 <span class="md-footer-nav__direction">
                   Previous
                 </span>
-                mod_tag
+                mod_tcp_keepalive
               </div>
             </div>
           </a>
@@ -3389,7 +3414,7 @@ SecretToken = &quot;&quot;</code></pre>
     </div>
     
       <script src="../../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "en", "clipboard.copy": "Copy to clipboard", "search.result.none": "No matching documents", "search.result.other": "# matching documents", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "Copied to clipboard", "search.result.one": "1 matching document"}</script>
+      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({

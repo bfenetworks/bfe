@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../#guide-of-local-development" class="md-skip">
+        <a href="#guide-of-local-development" class="md-skip">
           Skip to content
         </a>
       
@@ -1453,6 +1453,18 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
+    <a href="../../modules/mod_tcp_keepalive/mod_tcp_keepalive/" title="mod_tcp_keepalive" class="md-nav__link">
+      mod_tcp_keepalive
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
     <a href="../../modules/mod_trace/mod_trace/" title="mod_trace" class="md-nav__link">
       mod_trace
     </a>
@@ -1749,16 +1761,29 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
+  <a href="#install-dependent-tools" class="md-nav__link">
+    Install dependent tools
+  </a>
+  
+    <nav class="md-nav" aria-label="Install dependent tools">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#use-pre-commit-hook" class="md-nav__link">
     Use pre-commit hook
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#use-license-eye-tool" class="md-nav__link">
     Use license-eye tool
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2542,6 +2567,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../condition/request/context/" title="Context" class="md-nav__link">
+      Context
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -2845,16 +2882,29 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
+  <a href="#install-dependent-tools" class="md-nav__link">
+    Install dependent tools
+  </a>
+  
+    <nav class="md-nav" aria-label="Install dependent tools">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#use-pre-commit-hook" class="md-nav__link">
     Use pre-commit hook
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#use-license-eye-tool" class="md-nav__link">
     Use license-eye tool
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2928,32 +2978,39 @@ RU5ErkJggg==" ></image>
 <h2 id="clone">Clone</h2>
 <p>Clone remote git to local:</p>
 <pre class="codehilite"><code class="language-bash">$ git clone https://github.com/USERNAME/bfe
-$ cd bfe</code></pre>
-
+$ cd bfe
+</code></pre>
 
 <h2 id="create-local-branch">Create local branch</h2>
 <p>At present <a href="http://nvie.com/posts/a-successful-git-branching-model/">Git stream branch model</a>  is applied to BFE to undergo task of development,test,release and maintenance.Please refer to <a href="../release_regulation/">branch regulation of BFE</a> about details。</p>
 <p>All development tasks of feature and bug fix should be finished in a new branch which is extended from <code>develop</code> branch.</p>
 <p>Create and switch to a new branch with command <code>git checkout -b</code>.</p>
-<pre class="codehilite"><code class="language-bash">$ git checkout -b my-cool-stuff</code></pre>
-
+<pre class="codehilite"><code class="language-bash">$ git checkout -b my-cool-stuff
+</code></pre>
 
 <p>It is worth noting that before the checkout, you need to keep the current branch directory clean, otherwise the untracked file will be brought to the new branch, which can be viewed by  <code>git status</code> .</p>
-<h2 id="use-pre-commit-hook">Use <code>pre-commit</code> hook</h2>
+<h2 id="install-dependent-tools">Install dependent tools</h2>
+<p><code>make deps</code> install all the dependent tools, include <code>pre-commit</code> <code>goyacc</code> <code>license-eye</code> <code>staticcheck</code>.</p>
+<h3 id="use-pre-commit-hook">Use <code>pre-commit</code> hook</h3>
 <p>BFE developers use the <a href="http://pre-commit.com/">pre-commit</a> tool to manage Git pre-commit hooks. It helps us format the source code and automatically check some basic things before committing (such as having only one EOL per file, not adding large files in Git, etc.).</p>
 <p>The <code>pre-commit</code> test is part of the unit test in Travis-CI. A PR that does not satisfy the hook cannot be submitted to BFE. Install <code>pre-commit</code> first and then run it in current directory：</p>
-<pre class="codehilite"><code class="language-bash">$ pip install pre-commit
-$ pre-commit install</code></pre>
-
+<pre class="codehilite"><code class="language-bash"># ensure installed pre-commit
+$ make deps
+# enable autoupdate and install hooks
+$ make precommit
+</code></pre>
 
 <p>BFE modify the format of golang source code with <code>gofmt</code> .</p>
-<h2 id="use-license-eye-tool">Use <code>license-eye</code> tool</h2>
+<h3 id="use-license-eye-tool">Use <code>license-eye</code> tool</h3>
 <p><a href="http://github.com/apache/skywalking-eyes">license-eye</a> helps us check and fix file's license header declaration. All files' license header should be done before committing.</p>
-<p>The <code>license-eye</code> check is part of the Github-Action. A PR that check failed cannot be submmitted to BFE. Install <code>license-eye</code> and do check or fix:</p>
-<pre class="codehilite"><code class="language-bash">$ go install github.com/apache/skywalking-eyes/cmd/license-eye@latest
-$ license-eye header check
-$ license-eye header fix</code></pre>
-
+<p>The <code>license-eye</code> check is part of the Github-Action. A PR that check failed cannot be submitted to BFE. Install <code>license-eye</code> and do check or fix:</p>
+<pre class="codehilite"><code class="language-bash"># ensure installed license-eye
+$ make deps
+# check the license header
+$ make license-check
+# fix the license header
+$ make license-fix
+</code></pre>
 
 <h2 id="start-development">Start development</h2>
 <p>I delete a line of README.md and create a new file in the case.</p>
@@ -2967,8 +3024,8 @@ Changes not staged for commit:
 Untracked files:
   (use &quot;git add &lt;file&gt;...&quot; to include in what will be committed)
     test
-no changes added to commit (use &quot;git add&quot; and/or &quot;git commit -a&quot;)</code></pre>
-
+no changes added to commit (use &quot;git add&quot; and/or &quot;git commit -a&quot;)
+</code></pre>
 
 <h2 id="build-and-test">Build and test</h2>
 <p>Please refer to <a href="../../installation/install_from_source/">Build and Run</a> about construction and test.</p>
@@ -2981,8 +3038,8 @@ Untracked files:
   (use &quot;git add &lt;file&gt;...&quot; to include in what will be committed)
     test
 nothing added to commit but untracked files present (use &quot;git add&quot; to track)
-$ git add test</code></pre>
-
+$ git add test
+</code></pre>
 
 <p>It's required that the commit message is also given on every Git commit, through which other developers will be notified of what changes have been made. Type <code>git commit</code> to realize it.</p>
 <pre class="codehilite"><code class="language-bash">$ git commit
@@ -2993,18 +3050,18 @@ Check for merge conflicts................................................Passed
 Check for broken symlinks................................................Passed
 Detect Private Key...................................(no files to check)Skipped
 Fix End of Files.....................................(no files to check)Skipped
-clang-formater.......................................(no files to check)Skipped
+clang-formatter.......................................(no files to check)Skipped
 [my-cool-stuff c703c041] add test file
  1 file changed, 0 insertions(+), 0 deletions(-)
- create mode 100644 233</code></pre>
-
+ create mode 100644 233
+</code></pre>
 
 <p><b> <font color="red">Attention needs to be paid：you need to add commit message to trigger CI test.The command is as follows:</font> </b></p>
 <pre class="codehilite"><code class="language-bash"># Touch CI single test of develop branch
 $ git commit -m &quot;test=develop&quot;
 # Touch CI single test of release/1.1 branch
-$ git commit -m &quot;test=release/1.1&quot;</code></pre>
-
+$ git commit -m &quot;test=release/1.1&quot;
+</code></pre>
 
 <h2 id="keep-the-latest-local-repository">Keep the latest local repository</h2>
 <p>It needs to keep up with the latest code of original repository(<a href="https://github.com/bfenetworks/bfe">https://github.com/bfenetworks/bfe</a>）before Pull Request.</p>
@@ -3013,25 +3070,26 @@ $ git commit -m &quot;test=release/1.1&quot;</code></pre>
 origin
 $ git remote -v
 origin  https://github.com/USERNAME/bfe (fetch)
-origin  https://github.com/USERNAME/bfe (push)</code></pre>
-
+origin  https://github.com/USERNAME/bfe (push)
+</code></pre>
 
 <p>origin is the name of remote repository that we clone, which is also the BFE under your own account. Next we create a remote host of an original BFE and name it upstream.</p>
 <pre class="codehilite"><code class="language-bash">$ git remote add upstream https://github.com/bfenetworks/bfe
 $ git remote
 origin
-upstream</code></pre>
-
+upstream
+</code></pre>
 
 <p>Get the latest code of upstream and update current branch.</p>
 <pre class="codehilite"><code class="language-bash">$ git fetch upstream
-$ git pull upstream develop</code></pre>
-
+$ git pull upstream develop
+</code></pre>
 
 <h2 id="push-to-remote-repository">Push to remote repository</h2>
 <p>Push local modification to GitHub(https://github.com/USERNAME/bfe).</p>
 <pre class="codehilite"><code class="language-bash"># submit it to remote git the branch my-cool-stuff of origin
-$ git push origin my-cool-stuff</code></pre>
+$ git push origin my-cool-stuff
+</code></pre>
                 
               
               
@@ -3136,7 +3194,7 @@ $ git push origin my-cool-stuff</code></pre>
     </div>
     
       <script src="../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "en", "clipboard.copy": "Copy to clipboard", "search.result.none": "No matching documents", "search.result.other": "# matching documents", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "Copied to clipboard", "search.result.one": "1 matching document"}</script>
+      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({

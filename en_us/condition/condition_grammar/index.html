@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../#concept-and-grammar" class="md-skip">
+        <a href="#concept-and-grammar" class="md-skip">
           Skip to content
         </a>
       
@@ -1453,6 +1453,18 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
+    <a href="../../modules/mod_tcp_keepalive/mod_tcp_keepalive/" title="mod_tcp_keepalive" class="md-nav__link">
+      mod_tcp_keepalive
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
     <a href="../../modules/mod_trace/mod_trace/" title="mod_trace" class="md-nav__link">
       mod_trace
     </a>
@@ -2545,6 +2557,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../request/context/" title="Context" class="md-nav__link">
+      Context
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -2928,8 +2952,8 @@ RU5ErkJggg==" ></image>
 <li>A condition primitive is a basic and built-in function which check some specified condition matched or not.</li>
 </ul>
 <pre class="codehilite"><code class="language-go">// return true if the request Host is &quot;www.bfe-networks.com&quot; or &quot;bfe-networks.com&quot;
-req_host_in(&quot;www.bfe-networks.com|bfe-networks.com&quot;)</code></pre>
-
+req_host_in(&quot;www.bfe-networks.com|bfe-networks.com&quot;)
+</code></pre>
 
 <ul>
 <li>BFE provides a set of built-in <a href="../condition_primitive_index/">condition primitives</a></li>
@@ -2939,8 +2963,8 @@ req_host_in(&quot;www.bfe-networks.com|bfe-networks.com&quot;)</code></pre>
 <li>A condition expression is a series of condition primitives combined with operators (e.g. AND, OR, NOT, etc).</li>
 </ul>
 <pre class="codehilite"><code class="language-go">// return ture if the request host is &quot;bfe-networks.com&quot; and the request method is &quot;GET&quot;
-req_host_in(&quot;bfe-networks.com&quot;) &amp;&amp; req_method_in(&quot;GET&quot;)</code></pre>
-
+req_host_in(&quot;bfe-networks.com&quot;) &amp;&amp; req_method_in(&quot;GET&quot;)
+</code></pre>
 
 <ul>
 <li>The supported operators are described in another section below.</li>
@@ -2950,8 +2974,8 @@ req_host_in(&quot;bfe-networks.com&quot;) &amp;&amp; req_method_in(&quot;GET&quo
 <li>You can define a variable  and assign a condition expression to it.</li>
 </ul>
 <pre class="codehilite"><code class="language-go">// define a condition varaible
-bfe_host = req_host_in(&quot;bfe-networks.com&quot;)</code></pre>
-
+bfe_host = req_host_in(&quot;bfe-networks.com&quot;)
+</code></pre>
 
 <h3 id="advanced-condition-expression">Advanced Condition Expression</h3>
 <ul>
@@ -2963,14 +2987,14 @@ bfe_host = req_host_in(&quot;bfe-networks.com&quot;)</code></pre>
 </li>
 </ul>
 <pre class="codehilite"><code class="language-go">// return true if the value of new_host is true and the request method is GET
-$news_host &amp;&amp; req_method_in(&quot;GET&quot;)</code></pre>
-
+$news_host &amp;&amp; req_method_in(&quot;GET&quot;)
+</code></pre>
 
 <h2 id="grammar">Grammar</h2>
 <h3 id="condition-primitive-grammar">Condition Primitive Grammar</h3>
 <p>A condition primitive is shown as follows:</p>
-<pre class="codehilite"><code class="language-go">func_name(params)</code></pre>
-
+<pre class="codehilite"><code class="language-go">func_name(params)
+</code></pre>
 
 <ul>
 <li><strong>func_name</strong> is the name of condition primitive</li>
@@ -2983,8 +3007,8 @@ $news_host &amp;&amp; req_method_in(&quot;GET&quot;)</code></pre>
    | CE || CE
    | ( CE )
    | ! CE
-   | ConditionPrimitive</code></pre>
-
+   | ConditionPrimitive
+</code></pre>
 
 <h3 id="advanced-condition-expression-grammar">Advanced Condition Expression Grammar</h3>
 <p>Advanced Condition Expression(ACE) grammar is defined as follows:</p>
@@ -2993,8 +3017,8 @@ $news_host &amp;&amp; req_method_in(&quot;GET&quot;)</code></pre>
     | ( ACE)
     | ! ACE
     | ConditionPrimitive
-    | ConditionVariable</code></pre>
-
+    | ConditionVariable
+</code></pre>
 
 <h3 id="operator-precedence">Operator Precedence</h3>
 <p>The precedence and associativity of operators are similar to the C language. The following table lists the precedence and associativity of all operators. Operators are listed top to bottom, in descending precedence.</p>
@@ -3138,7 +3162,7 @@ $news_host &amp;&amp; req_method_in(&quot;GET&quot;)</code></pre>
     </div>
     
       <script src="../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "en", "clipboard.copy": "Copy to clipboard", "search.result.none": "No matching documents", "search.result.other": "# matching documents", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "Copied to clipboard", "search.result.one": "1 matching document"}</script>
+      <script src="../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({

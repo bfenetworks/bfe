@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../../#how-to-write-a-module" class="md-skip">
+        <a href="#how-to-write-a-module" class="md-skip">
           Skip to content
         </a>
       
@@ -1453,6 +1453,18 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
+    <a href="../../../modules/mod_tcp_keepalive/mod_tcp_keepalive/" title="mod_tcp_keepalive" class="md-nav__link">
+      mod_tcp_keepalive
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
     <a href="../../../modules/mod_trace/mod_trace/" title="mod_trace" class="md-nav__link">
       mod_trace
     </a>
@@ -2574,6 +2586,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/request/context/" title="Context" class="md-nav__link">
+      Context
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -2988,7 +3012,7 @@ RU5ErkJggg==" ></image>
 <p>mod_block is used as an example for ease of understanding.（<a href="https://github.com/bfenetworks/bfe/tree/master/bfe_modules/mod_block">/bfe_modules/mod_block</a>）</p>
 <h2 id="load-configuration">Load Configuration</h2>
 <h3 id="types-of-configuration">Types of configuration</h3>
-<p>For a given module, there are 2 types of configuration: </p>
+<p>For a given module, there are 2 types of configuration:</p>
 <ul>
 <li>
 <p>Static configuration: be loaded when BFE starts</p>
@@ -3025,8 +3049,8 @@ RU5ErkJggg==" ></image>
     err = whs.RegisterHandler(web_monitor.WebHandleReload, m.name, m.loadConfData)
     if err != nil {
       ...
-    }</code></pre>
-
+    }
+</code></pre>
 
 <h2 id="write-and-register-callback-functions">Write and register callback functions</h2>
 <h3 id="write-callback-functions">Write callback functions</h3>
@@ -3039,8 +3063,8 @@ RU5ErkJggg==" ></image>
 
 func (m *ModuleBlock) productBlockHandler(request *bfe_basic.Request) (int, *bfe_http.Response) {
     ...
-}</code></pre>
-
+}
+</code></pre>
 
 <h3 id="register-callback-functions">Register callback functions</h3>
 <p>Callback functions should be registered when the module is initialized.</p>
@@ -3058,12 +3082,12 @@ func (m *ModuleBlock) productBlockHandler(request *bfe_basic.Request) (int, *bfe
         ...
     }
     ...
-}</code></pre>
-
+}
+</code></pre>
 
 <h2 id="expose-module-internal-states">Expose module internal states</h2>
 <p>For each BFE module, it is strongly recommended to expose enough internal states.</p>
-<p>To expose internal states of a module, do the following 3 steps: </p>
+<p>To expose internal states of a module, do the following 3 steps:</p>
 <ul>
 <li>Define state variables</li>
 <li>Register callback function for exposing internal states</li>
@@ -3080,16 +3104,16 @@ func (m *ModuleBlock) productBlockHandler(request *bfe_basic.Request) (int, *bfe
     ReqAccept    *metrics.Counter // request accepted
     ReqRefuse    *metrics.Counter // request refused
     WrongCommand *metrics.Counter // request with condition satisfied, but wrong command
-}</code></pre>
-
+}
+</code></pre>
 
 <p>Secondly, define a member variable of type ModuleBlockState in ModuleBlock. Also define a member variable of type Metrics for related calculations.</p>
 <pre class="codehilite"><code class="language-golang">type ModuleBlock struct {
     ...
     state   ModuleBlockState // module state
     metrics metrics.Metrics
-    ...</code></pre>
-
+    ...
+</code></pre>
 
 <p>Thirdly, do initialization in constructor function.</p>
 <pre class="codehilite"><code class="language-golang">func NewModuleBlock() *ModuleBlock {
@@ -3097,8 +3121,8 @@ func (m *ModuleBlock) productBlockHandler(request *bfe_basic.Request) (int, *bfe
     m.name = ModBlock
     m.metrics.Init(&amp;m.state, ModBlock, 0)
     ...
-}</code></pre>
-
+}
+</code></pre>
 
 <h3 id="register-a-callback-function-that-exposes-the-internal-state">Register a callback function that exposes the internal state</h3>
 <p>In order to expose internal status, callback function should be implemented.</p>
@@ -3119,16 +3143,16 @@ func (m *ModuleBlock) monitorHandlers() map[string]interface{} {
         m.name + &quot;.diff&quot;: m.getStateDiff,
     }
     return handlers
-}</code></pre>
-
+}
+</code></pre>
 
 <p>Then register callback function during module initialization.</p>
 <pre class="codehilite"><code class="language-golang">    // register web handler for monitor
     err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())
     if err != nil {
         ...
-    }</code></pre>
-
+    }
+</code></pre>
 
 <h3 id="insert-code-for-statistic">Insert code for statistic</h3>
 <p>Insert some code for doing statistic.</p>
@@ -3137,7 +3161,8 @@ func (m *ModuleBlock) monitorHandlers() map[string]interface{} {
     ...
     m.state.ConnTotal.Inc(1)
     ...
-}</code></pre>
+}
+</code></pre>
                 
               
               
@@ -3242,7 +3267,7 @@ func (m *ModuleBlock) monitorHandlers() map[string]interface{} {
     </div>
     
       <script src="../../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "en", "clipboard.copy": "Copy to clipboard", "search.result.none": "No matching documents", "search.result.other": "# matching documents", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "Copied to clipboard", "search.result.one": "1 matching document"}</script>
+      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
       
       <script>
         app = initialize({

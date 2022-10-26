@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="../../../#uri" class="md-skip">
+        <a href="#uri" class="md-skip">
           跳转至
         </a>
       
@@ -1453,6 +1453,18 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
+    <a href="../../../modules/mod_tcp_keepalive/mod_tcp_keepalive/" title="mod_tcp_keepalive" class="md-nav__link">
+      mod_tcp_keepalive
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
     <a href="../../../modules/mod_trace/mod_trace/" title="mod_trace" class="md-nav__link">
       mod_trace
     </a>
@@ -2563,6 +2575,18 @@ RU5ErkJggg==" ></image>
   </li>
 
         
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../context/" title="Context" class="md-nav__link">
+      Context
+    </a>
+  </li>
+
+        
       </ul>
     </nav>
   </li>
@@ -2981,8 +3005,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_host_in(&quot;www.bfe-networks.com|bfe-networks.com&quot;)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_host_in(&quot;www.bfe-networks.com|bfe-networks.com&quot;)
+</code></pre>
 
 <h2 id="req_path_inpath_list-case_insensitive">req_path_in(path_list, case_insensitive)</h2>
 <ul>
@@ -3014,8 +3038,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_path_in(&quot;/api/search|/api/list&quot;, true)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_path_in(&quot;/api/search|/api/list&quot;, true)
+</code></pre>
 
 <h2 id="req_path_containpath_list-case_insensitive">req_path_contain(path_list, case_insensitive)</h2>
 <ul>
@@ -3047,8 +3071,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_path_contain(&quot;search&quot;, true)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_path_contain(&quot;search&quot;, true)
+</code></pre>
 
 <h2 id="req_path_prefix_inprefix_list-case_insensitive">req_path_prefix_in(prefix_list, case_insensitive)</h2>
 <ul>
@@ -3080,8 +3104,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_path_prefix_in(&quot;/api/report|/api/analytics&quot;, false)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_path_prefix_in(&quot;/api/report|/api/analytics&quot;, false)
+</code></pre>
 
 <h2 id="req_path_element_prefix_inprefix_list-case_insensitive">req_path_element_prefix_in(prefix_list, case_insensitive)</h2>
 <ul>
@@ -3113,8 +3137,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_path_element_prefix_in(&quot;/api/report/|/api/analytics/&quot;, false)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_path_element_prefix_in(&quot;/api/report/|/api/analytics/&quot;, false)
+</code></pre>
 
 <h2 id="req_path_suffix_insuffix_list-case_insensitive">req_path_suffix_in(suffix_list, case_insensitive)</h2>
 <ul>
@@ -3142,8 +3166,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_path_suffix_in(&quot;.php|.jsp&quot;, false)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_path_suffix_in(&quot;.php|.jsp&quot;, false)
+</code></pre>
 
 <h2 id="req_query_key_inkey_list">req_query_key_in(key_list)</h2>
 <ul>
@@ -3167,8 +3191,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_query_key_in(&quot;word|wd&quot;)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_query_key_in(&quot;word|wd&quot;)
+</code></pre>
 
 <h2 id="req_query_key_prefix_inprefix_list">req_query_key_prefix_in(prefix_list)</h2>
 <ul>
@@ -3192,8 +3216,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_query_key_prefix_in(&quot;rid&quot;)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_query_key_prefix_in(&quot;rid&quot;)
+</code></pre>
 
 <h2 id="req_query_value_inkey-value_list-case_insensitive">req_query_value_in(key, value_list, case_insensitive)</h2>
 <ul>
@@ -3225,8 +3249,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_query_value_in(&quot;uid&quot;, &quot;x|y|z&quot;, true)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_query_value_in(&quot;uid&quot;, &quot;x|y|z&quot;, true)
+</code></pre>
 
 <h2 id="req_query_value_prefix_inkey-prefix_list-case_insensitive">req_query_value_prefix_in(key, prefix_list, case_insensitive)</h2>
 <ul>
@@ -3258,8 +3282,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_query_value_prefix_in(&quot;uid&quot;, &quot;100|200&quot;, true)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_query_value_prefix_in(&quot;uid&quot;, &quot;100|200&quot;, true)
+</code></pre>
 
 <h2 id="req_query_value_suffix_inkey-suffix_list-case_insensitive">req_query_value_suffix_in(key, suffix_list, case_insensitive)</h2>
 <ul>
@@ -3291,8 +3315,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_query_value_suffix_in(&quot;uid&quot;, &quot;1|2|3&quot;, true)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_query_value_suffix_in(&quot;uid&quot;, &quot;1|2|3&quot;, true)
+</code></pre>
 
 <h2 id="req_query_value_hash_inkey-hash_value_list-case_insensitive">req_query_value_hash_in(key, hash_value_list, case_insensitive)</h2>
 <ul>
@@ -3324,8 +3348,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_query_value_hash_in(&quot;cid&quot;, &quot;100&quot;, true)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_query_value_hash_in(&quot;cid&quot;, &quot;100&quot;, true)
+</code></pre>
 
 <h2 id="req_port_inport_list">req_port_in(port_list)</h2>
 <ul>
@@ -3349,8 +3373,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_port_in(&quot;80|8080&quot;)</code></pre>
-
+<pre class="codehilite"><code class="language-go">req_port_in(&quot;80|8080&quot;)
+</code></pre>
 
 <h2 id="req_url_regmatchreg_exp">req_url_regmatch(reg_exp)</h2>
 <ul>
@@ -3377,7 +3401,8 @@ RU5ErkJggg==" ></image>
 <ul>
 <li>示例</li>
 </ul>
-<pre class="codehilite"><code class="language-go">req_url_regmatch(`/s\?word=123`)</code></pre>
+<pre class="codehilite"><code class="language-go">req_url_regmatch(`/s\?word=123`)
+</code></pre>
                 
               
               
@@ -3482,7 +3507,7 @@ RU5ErkJggg==" ></image>
     </div>
     
       <script src="../../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"search.config.lang": "ja", "clipboard.copy": "\u590d\u5236", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.config.pipeline": "trimmer, stopWordFilter", "clipboard.copied": "\u5df2\u590d\u5236", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
+      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
       
       <script>
         app = initialize({
