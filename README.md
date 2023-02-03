@@ -59,6 +59,13 @@ Besides, we also implement [BFE Ingress Controller](https://github.com/bfenetwor
 - [English version](https://www.bfe-networks.net/en_us/ABOUT/)
 - [Chinese version](https://www.bfe-networks.net/zh_cn/ABOUT/)
 
+## Book
+
+- [In-depth Understanding of BFE](https://github.com/baidu/bfe-book) (Released in Feb 2023)
+
+  This book focuses on BFE open source project, introduces the relevant technical principles of network access, explains the design idea of BFE open source software, and how to build a network front-end platform based on BFE open source software. Readers with development capabilities can also develop BFE extension modules according to their own needs or contribute code to BFE open source projects according to the instructions in this book.
+
+
 ## Contributing
 
 - Please create an issue in [issue list](http://github.com/bfenetworks/bfe/issues).
