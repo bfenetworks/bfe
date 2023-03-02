@@ -1,5 +1,27 @@
 BFE提供预编译二进制文件供下载。也可在GitHub下载各平台[最新版本BFE](https://github.com/bfenetworks/bfe/releases)。
 
+## bfe v1.6.0
+
+* 2022-10-25 [发布说明](https://github.com/bfenetworks/bfe/releases/tag/v1.6.0)
+
+| 文件名    | 操作系统 | 平台 | 大小 | SHA256检验和 |
+| --------- | -------- | ---- | ---- | ------------ |
+| [bfe_1.6.0_darwin_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.6.0/bfe_1.6.0_darwin_amd64.tar.gz) | darwin | amd    64 | 9.3M | 61c8c5cab55c2b0ae7a5a0c027559efceddf58924fec7ff7dc9342e9ae8800e6 |
+| [bfe_1.6.0_linux_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.6.0/bfe_1.6.0_linux_amd64.tar.gz) | linux | amd64     | 9.56 MB | 26510e09a7da8618e860beb58823b12b4305bf83a48fde4d09fae5f5c4d18aba |
+| [bfe_1.6.0_linux_arm64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.6.0/bfe_1.6.0_linux_arm64.tar.gz) | linux | arm64     | 8.84 MB | 135d3d8f45612633958df923a876b5481ca5d4221f3d997de952cfd797ccd77e |
+| [bfe_1.6.0_windows_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.6.0/bfe_1.6.0_windows_amd64.tar.gz) | windows |     amd64 | 9.64 MB | 31e331335c87c2c44faf6dce915a53f5b7fada6c1925580ee2e19db6933fe450 |
+
+## bfe v1.5.0
+
+* 2022-01-11 [发布说明](https://github.com/bfenetworks/bfe/releases/tag/v1.5.0)
+
+| 文件名    | 操作系统 | 平台 | 大小 | SHA256检验和 |
+| --------- | -------- | ---- | ---- | ------------ |
+| [bfe_1.5.0_darwin_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.5.0/bfe_1.5.0_darwin_amd64.tar.gz) | darwin | amd    64 | 9.29M | accf8ccebaf98ab38028f7beb8c4da0825a7c62976063bd844cebeb2d57760b0 |
+| [bfe_1.5.0_linux_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.5.0/bfe_1.5.0_linux_amd64.tar.gz) | linux | amd64     | 9.55 MB | a74818d26462995b4f79c72184bee005c3aa161d9cb7af42b41d18791733336d |
+| [bfe_1.5.0_linux_arm64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.5.0/bfe_1.5.0_linux_arm64.tar.gz) | linux | arm64     | 8.83 MB | d9ee8877c679d2b7af2d1fa60cd4a498bc252c5832df0f8ced771cae1d36fa58 |
+| [bfe_1.5.0_windows_amd64.tar.gz](https://github.com/bfenetworks/bfe/releases/download/v1.5.0/bfe_1.5.0_windows_amd64.tar.gz) | windows |     amd64 | 9.63 MB | a9f54df2a2374bf53ba6ad1d728f82a27f2b2c8aaa6ae854141c58105a905992 |
+
 ## bfe v1.4.0
 
 * 2021-12-10 [发布说明](https://github.com/bfenetworks/bfe/releases/tag/v1.4.0)
