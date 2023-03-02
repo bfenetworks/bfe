@@ -127,6 +127,7 @@ nav:
       - 'mod_rewrite': 'modules/mod_rewrite/mod_rewrite.md'
       - 'mod_static': 'modules/mod_static/mod_static.md'
       - 'mod_tag': 'modules/mod_tag/mod_tag.md'
+      - 'mod_tcp_keepalive': 'modules/mod_tcp_keepalive/mod_tcp_keepalive.md'
       - 'mod_trace': 'modules/mod_trace/mod_trace.md'
       - 'mod_trust_clientip': 'modules/mod_trust_clientip/mod_trust_clientip.md'
       - 'mod_userid': 'modules/mod_userid/mod_userid.md'
@@ -188,6 +189,7 @@ nav:
         - 'Cookie': 'condition/request/cookie.md'
         - 'Tag': 'condition/request/tag.md'
         - 'IP': 'condition/request/ip.md'
+        - 'Context': 'condition/request/context.md'
       - 'Response related primitives':
         - 'Code': 'condition/response/code.md'
         - 'Header': 'condition/response/header.md'
