@@ -22,9 +22,19 @@ import (
 	"github.com/baidu/go-lib/log"
 )
 
-func AbnormalExit() {
+func exit(code int) {
 	// waiting for logger finish jobs
 	log.Logger.Close()
 	// exit
-	os.Exit(1)
+	os.Exit(code)
+}
+
+// AbnormalExit abnormal status exit with code 1.
+func AbnormalExit() {
+	exit(1)
+}
+
+// NormalExit normal status exit with code 0.
+func NormalExit() {
+	exit(0)
 }
