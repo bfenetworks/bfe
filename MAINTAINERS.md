@@ -6,7 +6,7 @@ This file lists who are the maintainers of the BFE project. The responsibilities
 
 | Name | GitHub ID | Affiliation |
 | ---- | --------- | ----------- |
-| [Miao Zhang](mailto:zhangmiao02@baidu.com) | [mileszhang2016](https://github.com/mileszhang2016) | Yingfei Networks |
+| [Miao Zhang](mailto:zhangmiao@yf-networks.com) | [mileszhang2016](https://github.com/mileszhang2016) | Yingfei Networks |
 | [Sijie Yang](mailto:iyangsj@gmail.com)   | [iyangsj](https://github.com/iyangsj) | Tencent |
 
 ## Senior Maintainers
