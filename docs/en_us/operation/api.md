@@ -1,6 +1,6 @@
 # Management API
 
-BFE provides a set of management APIs for metrics exposing, configruation reloading, debugging and profiling etc. It should not publicly exposing the APIs, keeping them restricted to internal networks.
+BFE provides a set of management APIs for metrics exposing, configurations reloading, debugging and profiling etc. It should not publicly exposing the APIs, keeping them restricted to internal networks.
 
 ## Configuration
 

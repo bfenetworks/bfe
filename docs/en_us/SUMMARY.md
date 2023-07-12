@@ -3,7 +3,7 @@
 * [About](ABOUT.md)
 * Introduction
   * [Overview](introduction/overview.md)
-  * [Comparsion to similar systems](introduction/comparison.md)
+  * [Comparison to similar systems](introduction/comparison.md)
   * Design overview
     * [Terminology](introduction/terminology.md)
     * [Traffic fowarding model](introduction/forward_model.md)
@@ -18,7 +18,7 @@
     * [Traffic blocking](example/block.md)
     * [Request redirect](example/redirect.md)
     * [Request rewrite](example/rewrite.md)
-    * [FastCGI procotol](example/fastcgi.md)
+    * [FastCGI protocol](example/fastcgi.md)
     * [TLS mutual authentication](example/client_auth.md)
 * [Installation](installation/install.md)
   * [Install from source](installation/install_from_source.md)
