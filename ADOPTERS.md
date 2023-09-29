@@ -14,6 +14,8 @@ Some of our users include:
 
 * [Haier](https://www.haier.com)
 
+* [PITS Global Data Recovery Services](https://pitsdatarecovery.net/)
+
 * [Postal Savings Bank of China](https://www.psbc.com)
 
 * [Resolink](https://www.crresolink.com.cn)
