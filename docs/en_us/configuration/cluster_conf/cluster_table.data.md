@@ -17,7 +17,7 @@ cluster_table.data records the load balancing config among instances.
 | Config{v}{k}          | String<br>name of subcluster |
 | Config{v}{v}          | Object<br>config of subcluster(a list of instance) |
 
-### Instance configuraton
+### Instance configuration
 
 | Config Item           | Description                     |
 | --------------------- | ------------------------------- |

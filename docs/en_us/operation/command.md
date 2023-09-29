@@ -30,4 +30,4 @@ Display verbose version information and exit. By default, this flag is set false
 
 * -h
 
-Display help infomation and exit. By default, this flag is set false.
+Display help information and exit. By default, this flag is set false.
