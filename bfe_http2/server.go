@@ -34,16 +34,13 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-import (
 	"github.com/baidu/go-lib/gotrack"
 	"github.com/baidu/go-lib/log"
-)
 
-import (
 	http "github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_http2/hpack"
+
 	tls "github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util/pipe"
 )
@@ -890,7 +887,7 @@ func (sc *serverConn) serve() {
 			if !sc.processFrameFromReader(res) {
 				return
 			}
-			// collect HTTP/2 fingerprint infomation.
+			// collect HTTP/2 fingerprint information.
 			sc.fingerprint.ProcessFrame(res)
 			res.readMore()
 			if settingsTimer.C != nil {

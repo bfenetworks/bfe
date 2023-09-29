@@ -47,4 +47,4 @@ DataPath = mod_redirect/redirect.data
 curl -H "host: example.org" "http://127.1:8080/test"  
 ```
 
-The repsonse stuatus code should be 301, and the value of Location response Header should be "https://example.org/test".
+The response stuatus code should be 301, and the value of Location response Header should be "https://example.org/test".

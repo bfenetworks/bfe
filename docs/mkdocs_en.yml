@@ -66,7 +66,7 @@ nav:
     - 'About': 'ABOUT.md'
     - 'Introduction':
       - 'Overview': 'introduction/overview.md'
-      - 'Comparsion to similar systems': 'introduction/comparison.md'
+      - 'Comparison to similar systems': 'introduction/comparison.md'
       - 'Design overview':
         - 'Terminology': 'introduction/terminology.md'
         - 'Traffic fowarding model': 'introduction/forward_model.md'
