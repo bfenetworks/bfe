@@ -11,7 +11,7 @@
 ```bash
 $ git clone https://github.com/bfenetworks/bfe
 ```
-
+delete
 ## Build
 
 - Execute the following command to build bfe:
@@ -46,7 +46,5 @@ $ cd output/bin/
 $ ./bfe -c ../conf -l ../log
 ```
 
-## Further reading
-
-- Get familiar with [Command options](../operation/command.md)
+## Further read
 - Get started with [Beginner's Guide](../example/guide.md)
