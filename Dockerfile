@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM golang:1.17.5-alpine3.15 AS build
+FROM --platform=${BUILDPLATFORM} golang:1.17.5-alpine3.15 AS build
+ARG TARGETARCH
+ARG TARGETOS
 
 WORKDIR /bfe
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=`cat VERSION`"
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags "-X main.version=`cat VERSION`"
 
 FROM alpine:3.15 AS run
 RUN apk update && apk add --no-cache ca-certificates
