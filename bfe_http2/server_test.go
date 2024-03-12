@@ -3000,7 +3000,6 @@ func TestNoRstPostAfterGOAWAY(t *testing.T) {
 		}
 		if gf, ok := f.(*RSTStreamFrame); ok && gf.StreamID == 1 {
 			t.Fatal("got rst but want no ret")
-			break
 		}
 	}
 

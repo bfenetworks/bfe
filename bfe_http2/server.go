@@ -34,16 +34,13 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-import (
 	"github.com/baidu/go-lib/gotrack"
 	"github.com/baidu/go-lib/log"
-)
 
-import (
 	http "github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_http2/hpack"
+
 	tls "github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util/pipe"
 )
@@ -371,6 +368,8 @@ func (s *Server) ServeConn(c net.Conn, opts *ServeConnOpts) {
 		readClientAgainTimeout: defaultReadClientAgainTimeout,
 		timeoutEventCh:         make(chan timeoutEventElem, s.maxConcurrentStreams(r)),
 		timeoutValueCh:         make(chan timeoutValueElem, s.maxConcurrentStreams(r)),
+
+		fingerprint: newFingerprint(),
 	}
 	sc.flow.add(initialWindowSize)
 	sc.inflow.add(initialWindowSize)
@@ -545,6 +544,9 @@ type serverConn struct {
 	// when save timeout, ServeHTTP() routine write to chan
 	// main routine read from chan
 	timeoutValueCh chan timeoutValueElem
+
+	// the parts to calculate fingerprint
+	fingerprint *fingerprint
 }
 
 // timeout event
@@ -885,6 +887,8 @@ func (sc *serverConn) serve() {
 			if !sc.processFrameFromReader(res) {
 				return
 			}
+			// collect HTTP/2 fingerprint information.
+			sc.fingerprint.ProcessFrame(res)
 			res.readMore()
 			if settingsTimer.C != nil {
 				settingsTimer.Stop()
@@ -2051,6 +2055,7 @@ func (sc *serverConn) runHandler(rw *responseWriter, req *http.Request, handler 
 		}
 		rw.handlerDone()
 	}()
+	req.State.H2Fingerprint = sc.fingerprint.Get()
 	handler(rw, req)
 	didPanic = false
 }

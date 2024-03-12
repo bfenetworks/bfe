@@ -111,6 +111,7 @@ BFE支持如下一系列变量并在处理请求阶段求值。关于变量的�
 | %bfe_ssl_version | TLS/SSL协议版本 |
 | %bfe_ssl_ja3_raw | TLS/SSL客户端JA3算法指纹数据 |
 | %bfe_ssl_ja3_hash | TLS/SSL客户端JA3算法指纹哈希值 |
+| %bfe_http2_fingerprint | HTTP/2 指纹 |
 | %bfe_protocol | 访问协议 |
 | %client_cert_serial_number | 客户端证书序列号 |
 | %client_cert_subject_title | 客户端证书Subject title |
