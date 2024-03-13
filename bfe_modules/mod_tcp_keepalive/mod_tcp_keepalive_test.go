@@ -15,7 +15,6 @@
 package mod_tcp_keepalive
 
 import (
-	"net"
 	"testing"
 
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
