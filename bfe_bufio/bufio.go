@@ -107,7 +107,10 @@ func (b *Reader) fill() {
 		b.w -= b.r
 		b.r = 0
 	}
-
+	// make sure the buff can be written
+	if b.w >= len(b.buf) {
+		return
+	}
 	// Read new data.
 	n, err := b.rd.Read(b.buf[b.w:])
 	if n < 0 {
