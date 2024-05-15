@@ -1504,6 +1504,7 @@ func (fr *Framer) readMetaFrame(f *HeadersFrame) (*MetaHeadersFrame, error) {
 			hdec.SetEmitEnabled(false)
 			mh.Truncated = true
 			state.H2ErrMaxHeaderListSize.Inc(1)
+			remainSize = 0
 			return maxHeaderListSizeError{
 				streamID:          f.FrameHeader.StreamID,
 				curHeaderListSize: fr.maxHeaderListSize() - remainSize + size,
@@ -1525,6 +1526,35 @@ func (fr *Framer) readMetaFrame(f *HeadersFrame) (*MetaHeadersFrame, error) {
 	var err error
 	for {
 		frag := hc.HeaderBlockFragment()
+
+		// Avoid parsing large amounts of headers that we will then discard.
+		// If the sender exceeds the max header list size by too much,
+		// skip parsing the fragment and close the connection.
+		//
+		// "Too much" is either any CONTINUATION frame after we've already
+		// exceeded the max header list size (in which case remainSize is 0),
+		// or a frame whose encoded size is more than twice the remaining
+		// header list bytes we're willing to accept.
+		if int64(len(frag)) > int64(2*remainSize) {
+			if VerboseLogs {
+				log.Printf("http2: header list too large")
+			}
+			// It would be nice to send a RST_STREAM before sending the GOAWAY,
+			// but the structure of the server's frame writer makes this difficult.
+			return nil, ConnectionError{ErrCodeProtocol, "http2: header list too large"}
+		}
+
+		// Also close the connection after any CONTINUATION frame following an
+		// invalid header, since we stop tracking the size of the headers after
+		// an invalid one.
+		if invalid != nil {
+			if VerboseLogs {
+				log.Printf("http2: invalid header: %v", invalid)
+			}
+			// It would be nice to send a RST_STREAM before sending the GOAWAY,
+			// but the structure of the server's frame writer makes this difficult.
+			return nil, ConnectionError{ErrCodeProtocol, fmt.Sprintf("http2: invalid header: %v", invalid)}
+		}
 		blockSize += len(frag)
 		if _, err = hdec.Write(frag); err != nil {
 			// do not return ConnectionError err type,
