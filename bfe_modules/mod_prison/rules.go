@@ -60,7 +60,7 @@ func buildPrisonRuleMap(ruleList []prisonRule) map[string]*prisonRule {
 }
 
 func (r *prisonRules) initDict(oldRules *prisonRules) {
-	oldRuleMap := make(map[string]*prisonRule, 0)
+	oldRuleMap := make(map[string]*prisonRule)
 	if oldRules != nil {
 		oldRuleMap = oldRules.ruleMap
 	}

@@ -7,6 +7,7 @@ mod_rediect根据自定义的条件，对请求进行重定向。
 ## 基础配置
 
 ### 配置描述
+
 模块配置文件: conf/mod_redirect/mod_redirect.conf
 
 | 配置项         | 描述                               |
@@ -14,6 +15,7 @@ mod_rediect根据自定义的条件，对请求进行重定向。
 | Basic.DataPath | String<br>规则配置文件路径         |
 
 ### 配置示例
+
 ```ini
 [Basic]
 DataPath = mod_redirect/redirect.data
@@ -22,6 +24,7 @@ DataPath = mod_redirect/redirect.data
 ## 规则配置
 
 ### 配置描述
+
 规则配置文件: conf/mod_redirect/redirect.data
 
 | 配置项                     | 描述                           |
@@ -38,6 +41,7 @@ DataPath = mod_redirect/redirect.data
 | Config{v}[].Status         | Integer<br>HTTP状态码          |
 
 ### 模块动作
+
 | 动作           | 描述                                              |
 | -------------- | ------------------------------------------------- |
 | URL_SET        | 设置重定向URL为指定值                             |
@@ -46,6 +50,7 @@ DataPath = mod_redirect/redirect.data
 | SCHEME_SET     | 设置重定向URL为原始URL并修改协议(支持HTTP和HTTPS) |
 
 ### 配置示例
+
 ```json
 {
     "Version": "20190101000000",

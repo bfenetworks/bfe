@@ -4,14 +4,14 @@
 
 ### Overview
 
-- Usually one cluster has more than one sub clusters. In BFE, it is supported to 
+- Usually one cluster has more than one sub clusters. In BFE, it is supported to
 define weights for distributing traffic to each sub cluster.
 
 - Also there is a special virtual sub cluster "BLACKHOLE" for each cluster.
     - Traffic allocated to "BLACKHOLE" will be discarded.
     - "BLACKHOLE" is used to prevent traffic overloading to the whole cluster.
 
-- Load balance between sub clusters, it is a very important feature for BFE. 
+- Load balance between sub clusters, it is a very important feature for BFE.
 This feature is very useful in multi-IDCs scenario.
 
 ### Example
@@ -32,8 +32,8 @@ This feature is very useful in multi-IDCs scenario.
 
 ## Instance level load balance
 
-- Usually, a sub cluster is composed of multiple instances. 
-- Within sub cluster, several policies is provided for distributing traffic among instances. e.g., 
+- Usually, a sub cluster is composed of multiple instances.
+- Within sub cluster, several policies is provided for distributing traffic among instances. e.g.,
     - WRR(Weighted Round Robin)
     - WLC(Weighted Least Connection)
 - Instances can be assigned with different weights based on their capacity。
@@ -42,18 +42,18 @@ This feature is very useful in multi-IDCs scenario.
 
 BFE supports health check for each backend instance.
 
-BFE maintains a state machine for each instance, with two states: 
+BFE maintains a state machine for each instance, with two states:
 
 - NORMAL：the instance acts normally in processing request.
-- CHECKING：the instance fails to process request and response to BFE. BFE starts health check for this instance, until it acts normally again. 
+- CHECKING：the instance fails to process request and response to BFE. BFE starts health check for this instance, until it acts normally again.
 
 The condition for switching between states:
+
 - NORMAL to CHECKING, when：
     - Number of consecutive failures, in connecting or sending request to the instance, exceeds a threshhod.
 
 - CHECKING to NORMAL, when：
     - BFE receives correct response for health check request from the instance.
-
 
 ## Automatic retries
 
@@ -84,10 +84,11 @@ Two ways are supported for TCP connection between BFE and backend instance：
 BFE supports session stickiness.
 
 Session could be defined based on following infos of the request:
+
 - Source IP
 - Field in request header, cookie etc.
 
 Session stickiness is supported for the following two levels:
-- Sub cluster level: requests of the same session are forwarded to the same sub cluster (may be different instances in this sub cluster).
-- Instance level: requests of the same session are fowarded to the same instance.
 
+- Sub cluster level: requests of the same session are forwarded to the same sub cluster (may be different instances in this sub cluster).
+- Instance level: requests of the same session are forwarded to the same instance.

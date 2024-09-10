@@ -102,7 +102,7 @@ func onLogFmtSesOverhead(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffe
 		return errors.New("session is nil")
 	}
 
-	msg := fmt.Sprintf("%s", session.Overhead.String())
+	msg := session.Overhead.String()
 	buff.WriteString(msg)
 
 	return nil

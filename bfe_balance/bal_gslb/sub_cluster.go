@@ -27,14 +27,14 @@ import (
 // type of sub cluster
 const (
 	TypeGslbNormal    = 0 // normal sub cluster
-	TypeGslbBlackhole = 1 // gslb blackhole
+	TypeGslbBlackhole = 1 // gslb black hole
 )
 
 type SubCluster struct {
 	Name     string             // name of sub cluster
 	sType    int                // TypeGslbNormal, or TypeGslbBlackhole
-	backends *bal_slb.BalanceRR // backend with round robin
-	weight   int                // weight between subclusters
+	backends *bal_slb.BalanceRR // backend with round-robin
+	weight   int                // weight between sub-clusters
 }
 
 func newSubCluster(name string) *SubCluster {
@@ -81,7 +81,7 @@ func (sub *SubCluster) balance(algor int, key []byte) (*backend.BfeBackend, erro
 		return nil, fmt.Errorf("no backend in sub cluster [%s]", sub.Name)
 	}
 
-	// balance from subcluster
+	// balance from sub-cluster
 	return sub.backends.Balance(algor, key)
 }
 
@@ -89,7 +89,7 @@ func (sub *SubCluster) setSlowStart(slowStartTime int) {
 	sub.backends.SetSlowStart(slowStartTime)
 }
 
-// SubClusterList is a list of subcluster.
+// SubClusterList is a list of sub-cluster.
 type SubClusterList []*SubCluster
 
 type SubClusterListSorter struct {

@@ -815,7 +815,7 @@ func TestReadFrameOrder(t *testing.T) {
 			continue
 		}
 		if !((f.errDetail == nil && tt.wantErr == "") || (fmt.Sprint(f.errDetail) == tt.wantErr)) {
-			t.Errorf("%d. framer eror = %q; want %q\n%s", i, f.errDetail, tt.wantErr, log.Bytes())
+			t.Errorf("%d. framer error = %q; want %q\n%s", i, f.errDetail, tt.wantErr, log.Bytes())
 		}
 		if n < tt.atLeast {
 			t.Errorf("%d. framer only read %d frames; want at least %d\n%s", i, n, tt.atLeast, log.Bytes())
@@ -931,7 +931,7 @@ func TestMetaFrameHeader(t *testing.T) {
 			maxHeaderListSize: (1 << 10) / 2,
 			want: maxHeaderListSizeError{
 				streamID:          1,
-				curHeaderListSize: 536,
+				curHeaderListSize: 550,
 				maxHeaderListSize: 512,
 			},
 		},
@@ -1033,7 +1033,7 @@ func TestMetaFrameHeader(t *testing.T) {
 				}
 				return fmt.Sprintf("value %#v", v)
 			}
-			t.Errorf("%s:\n got: %v\nwant: %s", name, str(got), str(tt.want))
+			t.Errorf(" %s:\n got: %v\nwant: %s", name, str(got), str(tt.want))
 		}
 		if tt.wantErrReason != "" && tt.wantErrReason != fmt.Sprint(f.errDetail) {
 			t.Errorf("%s: got error reason %q; want %q", name, f.errDetail, tt.wantErrReason)

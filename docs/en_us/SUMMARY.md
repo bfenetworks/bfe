@@ -3,7 +3,7 @@
 * [About](ABOUT.md)
 * Introduction
   * [Overview](introduction/overview.md)
-  * [Comparsion to similar systems](introduction/comparison.md)
+  * [Comparison to similar systems](introduction/comparison.md)
   * Design overview
     * [Terminology](introduction/terminology.md)
     * [Traffic fowarding model](introduction/forward_model.md)
@@ -11,14 +11,14 @@
     * [Traffic balancing](introduction/balance.md)
   * [Getting help](introduction/getting_help.md)
   * [Version History](https://github.com/bfenetworks/bfe/blob/master/CHANGELOG.md)
-* Getting Started 
+* Getting Started
   * [Install](installation/install_from_source.md)
   * [User Guides](example/guide.md)
     * [Traffic forwarding](example/route.md)
     * [Traffic blocking](example/block.md)
     * [Request redirect](example/redirect.md)
     * [Request rewrite](example/rewrite.md)
-    * [FastCGI procotol](example/fastcgi.md)
+    * [FastCGI protocol](example/fastcgi.md)
     * [TLS mutual authentication](example/client_auth.md)
 * [Installation](installation/install.md)
   * [Install from source](installation/install_from_source.md)
@@ -91,7 +91,7 @@
   * [Performance](faq/performance.md)
   * [Development](faq/development.md)
 * Appendix A: Monitor
-  * Protocol 
+  * Protocol
     * [TLS](monitor/tls_state.md)
     * [HTTP](monitor/http_state.md)
     * [HTTP2](monitor/http2_state.md)

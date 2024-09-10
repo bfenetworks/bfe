@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build windows
 // +build windows
 
 package bfe_util
@@ -20,8 +21,8 @@ import (
 	"errors"
 )
 
-// GetsockoptMutiByte returns the value of the socket option opt for the
+// GetsockoptMultiByte returns the value of the socket option opt for the
 // socket associated with fd at the given socket level.
-func GetsockoptMutiByte(fd, level, opt int) ([]byte, error) {
-	return nil, errors.New("GetsockoptMutiByte is not supported on Windows OS.")
+func GetsockoptMultiByte(fd, level, opt int) ([]byte, error) {
+	return nil, errors.New("GetsockoptMultiByte is not supported on Windows OS")
 }

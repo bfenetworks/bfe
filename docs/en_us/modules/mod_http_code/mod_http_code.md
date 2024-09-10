@@ -1,6 +1,6 @@
 # mod_http_code
 
-## Introduction 
+## Introduction
 
 mod_http_code reports statistics of HTTP response codes.
 
@@ -13,7 +13,6 @@ Not required
 | Metric               | Description           |
 | -------------------- | --------------------- |
 | ALL2_X_X             | Counter of 2XX status |
-| ALL3_X_X             | Coutner of 3XX status |
-| ALL4_X_X             | Coutner of 4XX status |
-| ALL5_X_X             | Coutner of 5XX status |
-
+| ALL3_X_X             | Counter of 3XX status |
+| ALL4_X_X             | Counter of 4XX status |
+| ALL5_X_X             | Counter of 5XX status |

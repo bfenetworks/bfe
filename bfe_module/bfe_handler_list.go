@@ -32,29 +32,29 @@ import (
 
 // HandlerList type.
 const (
-	// for AcceptFilter
+	// HandlersAccept for AcceptFilter
 	HandlersAccept = iota
-	// for RequestFilter
+	// HandlersRequest for RequestFilter
 	HandlersRequest
-	// for ForwardFilter
+	// HandlersForward for ForwardFilter
 	HandlersForward
-	// for ResponseFilter
+	// HandlersResponse for ResponseFilter
 	HandlersResponse
-	// for FinishFilter
+	// HandlersFinish for FinishFilter
 	HandlersFinish
 )
 
 // Return value of handler.
 const (
-	// to close the connection after response
+	// BfeHandlerFinish to close the connection after response
 	BfeHandlerFinish = iota
-	// to go on next handler
+	// BfeHandlerGoOn to go on next handler
 	BfeHandlerGoOn
-	// to redirect
+	// BfeHandlerRedirect to redirect
 	BfeHandlerRedirect
-	// to send response
+	// BfeHandlerResponse to send response
 	BfeHandlerResponse
-	// to close the connection directly, with no data sent.
+	// BfeHandlerClose to close the connection directly, with no data sent.
 	BfeHandlerClose
 )
 

@@ -35,7 +35,6 @@ mod_block的代码位于[/bfe_modules/mod_block](https://github.com/bfenetworks/
 - 模块的配置文件，应该统一放置于[/conf](https://github.com/bfenetworks/bfe/tree/master/conf)目录下为每个模块独立建立的目录中
 - 如：mod_block的配置文件，都放置在[/conf/mod_block](https://github.com/bfenetworks/bfe/tree/master/conf/mod_block)中
 
-
 ### 配置加载的检查
 
 无论对于静态加载的配置，还是对于可动态加载的配置，为了保证程序正常的运行，在配置加载的时候，都需要对于配置文件的正确性进行检查。

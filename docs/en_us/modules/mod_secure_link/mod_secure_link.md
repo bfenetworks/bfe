@@ -1,17 +1,18 @@
 # mod_secure_link
 
-## Introduction 
+## Introduction
 
 mod_secure_link is used to check authenticity of requested links, protect resources from unauthorized access, and limit link lifetime.
 
 ## Module Configuration
 
 ### Description
+
 the basic config in: conf/mod_secure_link/mod_secure_link.conf
 
 | Config Item    | Description                          |
 | -------------- | ------------------------------------ |
-| Basic.DataPath | String<br>Path of rule configuraiton |
+| Basic.DataPath | String<br>Path of rule configuration |
 | Log.OpenDebug  | Boolean<br>Debug flag of module      |
 
 ### Example
@@ -27,6 +28,7 @@ OpenDebug = true
 ## Rule Configuration
 
 ### Description
+
 conf/mod_secure_link/secure_link_rule.data
 
 | Config Item                         | Description                                                                           |
@@ -38,15 +40,15 @@ conf/mod_secure_link/secure_link_rule.data
 | Config{v}[].Cond                    | String<br>Condition expression, See [Condition](../../condition/condition_grammar.md) |
 | Config[v][].ChecksumKey             | String<br>The key which stored Checksum Value in Query                                |
 | Config[v][].ExpiresKey              | String<br>The key which stored Expired time in Query                                  |
-| Config[v][].ExpressionNodes         | Array<br>Nodes which join caculate Checksum                                           |
+| Config[v][].ExpressionNodes         | Array<br>Nodes which join calculate Checksum                                           |
 | Config[v][].ExpressionNodes[].Type  | String<br>Node Type, see Node Type to get more information                            |
 | Config[v][].ExpressionNodes[].Param | String<br>The param may be used to get Final Value                                    |
 
-
 ### Node Type
-be supported node type and Caculate logic: 
 
-| type        | Caculate logic         |
+be supported node type and Calculate logic:
+
+| type        | Calculate logic         |
 | ----------- | ---------------------- |
 | label       | $Param                 |
 | query       | req.URL.Query($Param)  |
@@ -55,8 +57,8 @@ be supported node type and Caculate logic:
 | uri         | req.RequestURI         |
 | remote_addr | req.RemoteAddr         |
 
-
 ### Example
+
 ```json
 {
     "Version": "2019-12-10184356",
@@ -86,6 +88,7 @@ be supported node type and Caculate logic:
 ```
 
 ### Link generate logic
+
 With above config, the pseudo code to generate link is：
 
 ```
@@ -112,6 +115,7 @@ func WrapSecureLinkParam (req *http.Request) {
 ```
 
 step2: the sign logic in shell is:
+
 ```
 echo -n $origin | openssl md5 -binary | openssl base64 | tr +/ -_ | tr -d =
 

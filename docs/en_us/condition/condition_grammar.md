@@ -1,6 +1,5 @@
 # Concept and Grammar
 
-
 ## Basic Concepts
 
 ### Condition Primitive
@@ -30,7 +29,7 @@ req_host_in("bfe-networks.com") && req_method_in("GET")
 - You can define a variable  and assign a condition expression to it.
 
 ```go
-// define a condition varaible
+// define a condition variable
 bfe_host = req_host_in("bfe-networks.com")
 ```
 
@@ -42,7 +41,7 @@ bfe_host = req_host_in("bfe-networks.com")
 
 ```go
 // return true if the value of new_host is true and the request method is GET
-$news_host && req_method_in("GET")
+$new_host && req_method_in("GET")
 ```
 
 ## Grammar
@@ -58,7 +57,6 @@ func_name(params)
 - **func_name** is the name of condition primitive
 - **params** are the  parameters condition primitive
 - The type of return value is **bool**
-
 
 ### Condition Expression Grammar
 
@@ -95,5 +93,3 @@ The precedence and associativity of operators are similar to the C language. The
 | 2          | !        | logical NOT            | Right-to-left |
 | 3          | &&       | logical AND            | Left-to-right |
 | 4          | \|\|     | logical OR             | Left-to-right |
-
-

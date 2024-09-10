@@ -1,8 +1,8 @@
 # Request Tag Related Primtives
 
 ## req_tag_match(tagName, tagValue)
-* Description: Judge if request tag matches configured value
 
+* Description: Judge if request tag matches configured value
 
 * Parameters
 
@@ -10,7 +10,6 @@
 | --------- | ----------- |
 | tagName | String<br>tag name |
 | tagValue | String<br>tag value |
-
 
 * Example
 

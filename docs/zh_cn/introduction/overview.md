@@ -4,7 +4,6 @@
 
 BFE是基于百度统一接入前端开源的七层流量接入系统。
 
-
 ## 功能特性及优点
 
 * 基于Golang构建
@@ -43,7 +42,6 @@ BFE是基于百度统一接入前端开源的七层流量接入系统。
 
 兼容适配主流四层负载均衡方案，及其它生态项目如 Kubernetes、Prometheus、Jaeger、Fluentd 等。
 
-
 ## 功能组件
 
 BFE开源项目包含数据平面和控制平面的多个组件：
@@ -54,7 +52,6 @@ BFE开源项目包含数据平面和控制平面的多个组件：
   - [API-Server](https://github.com/bfenetworks/api-server)：对外提供 API 接口，完成 BFE 配置的变更、存储和生成
   - [Conf-Agent](https://github.com/bfenetworks/conf-agent)：配置加载组件，从 API-Server 获取最新配置，并触发 BFE Server 进行配置热加载
   - [Dashboard](https://github.com/bfenetworks/dashboard)：为用户提供了图形化操作界面，以对 BFE 的主要配置进行管理和查看
-
 
 ## 架构介绍
 
@@ -68,4 +65,4 @@ BFE开源项目包含数据平面和控制平面的多个组件：
 
 ### 控制平面
 
-BFE 用户可通过 BFE Dashboard 或 RESTful API 管理流量接入和转发策略配置。BFE Conf Agent 会触发 BFE Server 加载最新配置。 
+BFE 用户可通过 BFE Dashboard 或 RESTful API 管理流量接入和转发策略配置。BFE Conf Agent 会触发 BFE Server 加载最新配置。

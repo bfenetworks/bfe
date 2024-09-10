@@ -24,9 +24,11 @@ $ git clone https://github.com/brendangregg/FlameGraph
 ## 操作步骤
 
 * 获取性能采样数据
+
 ```bash
 $ go tool pprof -seconds=60 -raw -output=bfe.pprof  http://<addr>:<port>/debug/pprof/profile
 ```
+
 注：seconds=60 表示抓取60s的采样数据
 
 * 转换并绘制火焰图

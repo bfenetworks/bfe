@@ -75,7 +75,7 @@ type BackendCheck struct {
 	CheckInterval *int    // interval of health check, in ms
 }
 
-// FastCGI related configurations
+// FCGIConf are FastCGI related configurations
 type FCGIConf struct {
 	EnvVars map[string]string // the vars which will send to backend
 	Root    string            // the server root
@@ -371,7 +371,7 @@ func GslbBasicConfCheck(conf *GslbBasicConf) error {
 	case BalanceModeWrr:
 	case BalanceModeWlc:
 	default:
-		return fmt.Errorf("unsupport bal mode %s", *conf.BalanceMode)
+		return fmt.Errorf("unsupported bal mode %s", *conf.BalanceMode)
 	}
 
 	return nil
@@ -416,8 +416,8 @@ func ClusterBasicConfCheck(conf *ClusterBasicConf) error {
 	}
 
 	if conf.TimeoutWriteClient == nil {
-		timoutWriteClient := DefaultWriteClientTimeout
-		conf.TimeoutWriteClient = &timoutWriteClient
+		timeoutWriteClient := DefaultWriteClientTimeout
+		conf.TimeoutWriteClient = &timeoutWriteClient
 	}
 
 	if conf.TimeoutReadClientAgain == nil {

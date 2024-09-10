@@ -6,6 +6,7 @@ BFE转发过程中的回调点如下图所示。
 ![BFE转发过程中的回调点](../../../images/bfe-callback.png)
 
 ## 回调点列表
+
 在BFE中，设置了以下9个回调点：
 
 - HandleAccept: 位于和客户端的TCP连接建立后
@@ -56,7 +57,7 @@ BFE转发过程中的回调点如下图所示。
     + HandleAccept
     + HandleHandshake
 - 回调函数形式：
-    + handler(session *bfe_basic.Session) int
+    + `handler(session *bfe_basic.Session) int`
 
 ### HandlersRequest
 
@@ -65,14 +66,14 @@ BFE转发过程中的回调点如下图所示。
     + HandleFoundProduct
     + HandleAfterLocation
 - 回调函数形式：
-    + handler(req *bfe_basic.Request) (int, *bfe_http.Response) 
+    + `handler(req *bfe_basic.Request) (int, *bfe_http.Response)`
 
 ### HandlersForward
 
 - 适用回调点：
     + HandleForward
 - 回调函数形式：
-    + handler(req *bfe_basic.Request) int 
+    + `handler(req *bfe_basic.Request) int`
 
 ### HandlersResponse
 
@@ -80,11 +81,11 @@ BFE转发过程中的回调点如下图所示。
     + HandleReadResponse
     + HandleRequestFinish
 - 回调函数形式：
-    + handler(req *bfe_basic.Request, res *bfe_http.Response) int 
+    + `handler(req *bfe_basic.Request, res *bfe_http.Response) int`
 
 ### HandlersFinish
 
 - 适用回调点：
     + HandleFinish
 - 回调函数形式：
-    + handler(session *bfe_basic.Session) int 
+    + `handler(session *bfe_basic.Session) int`

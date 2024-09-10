@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !windows
 // +build !windows
 
 package bfe_util
@@ -20,9 +21,9 @@ import (
 	sys "golang.org/x/sys/unix"
 )
 
-// GetsockoptMutiByte returns the value of the socket option opt for the
+// GetsockoptMultiByte returns the value of the socket option opt for the
 // socket associated with fd at the given socket level.
-func GetsockoptMutiByte(fd, level, opt int) ([]byte, error) {
+func GetsockoptMultiByte(fd, level, opt int) ([]byte, error) {
 	val, err := sys.GetsockoptString(fd, level, opt)
 	return []byte(val), err
 }

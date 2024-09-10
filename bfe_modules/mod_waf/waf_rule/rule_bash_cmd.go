@@ -106,7 +106,7 @@ func checkSemicolon(value string) bool {
 	return false
 }
 
-// checkHeaderValueContent check if header value content matches the spedific rules
+// checkHeaderValueContent check if header value content matches the specific rules
 func checkHeaderValueContent(value string) bool {
 	index := strings.Index(value, "}")
 	if index != -1 {

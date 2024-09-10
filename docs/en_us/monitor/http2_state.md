@@ -11,7 +11,7 @@ The endpoint `/monitor/http2_state` exposes metrics about HTTP2 protocol.
 | H2_ERR_MAX_HEADER_LIST_SIZE | Counter for reaching max size of header list            |
 | H2_ERR_MAX_HEADER_URI_SIZE  | Counter for reaching max size of header URI             |
 | H2_ERR_MAX_STREAM_PER_CONN  | Counter for reaching advertised concurrent stream limit |
-| H2_ERR_GOT_RESET            | Counter for gettting RST_STREAM                         |
+| H2_ERR_GOT_RESET            | Counter for getting RST_STREAM                         |
 | H2_PANIC_CONN               | Counter for connection panic                            |
 | H2_PANIC_STREAM             | Counter for stream panic                                |
 | H2_REQ_HEADER_COMPRESS_SIZE | Size of request header after compress                   |
@@ -23,4 +23,3 @@ The endpoint `/monitor/http2_state` exposes metrics about HTTP2 protocol.
 | H2_TIMEOUT_READ_STREAM      | Counter for timeout of waiting for reading stream       |
 | H2_TIMEOUT_SETTING          | Counter for timeout of waiting for SETTINGS frames      |
 | H2_TIMEOUT_WRITE_STREAM     | Counter for timeout of waiting for writing stream       |
-

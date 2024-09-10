@@ -32,7 +32,7 @@ type BfePlugins struct {
 	workPlugins map[string]*PluginInfo // work plugins, configure in bfe conf file
 }
 
-// NewPlugins create new Plugins
+// NewBfePlugins create new Plugins
 func NewBfePlugins() *BfePlugins {
 	pl := new(BfePlugins)
 	pl.workPlugins = make(map[string]*PluginInfo)

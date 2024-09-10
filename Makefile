@@ -15,6 +15,7 @@
 # init project path
 WORKROOT := $(shell pwd)
 OUTDIR   := $(WORKROOT)/output
+OS		 := $(shell go env GOOS)
 
 # init environment variables
 export PATH        := $(shell go env GOPATH)/bin:$(PATH)
@@ -28,9 +29,12 @@ GOVET        := $(GO) vet
 GOGET        := $(GO) get
 GOGEN        := $(GO) generate
 GOCLEAN      := $(GO) clean
+GOINSTALL    := $(GO) install
 GOFLAGS      := -race
 STATICCHECK  := staticcheck
 LICENSEEYE   := license-eye
+PIP          := pip3
+PIPINSTALL   := $(PIP) install
 
 # init arch
 ARCH := $(shell getconf LONG_BIT)
@@ -46,6 +50,21 @@ GIT_COMMIT ?= $(shell git rev-parse HEAD)
 # init bfe packages
 BFE_PKGS := $(shell go list ./...)
 
+# go install package
+# $(1) package name
+# $(2) package address
+define INSTALL_PKG
+	@echo installing $(1)
+	$(GOINSTALL) $(2)
+	@echo $(1) installed
+endef
+
+define PIP_INSTALL_PKG
+	@echo installing $(1)
+	$(PIPINSTALL) $(1)
+	@echo $(1) installed
+endef
+
 # make, make all
 all: prepare compile package
 
@@ -55,19 +74,27 @@ strip: prepare compile-strip package
 # make prepare, download dependencies
 prepare: prepare-dep prepare-gen
 prepare-dep:
-	$(GO) get golang.org/x/tools/cmd/goyacc
+	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc)
 prepare-gen:
 	cd "bfe_basic/condition/parser" && $(GOGEN)
 
 # make compile, go build
 compile: test build
 build:
+ifeq ($(OS),darwin)
+	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT)"
+else
 	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT) -extldflags=-static"
+endif
 
 # make compile-strip, go build without symbols and DWARFs
 compile-strip: test build-strip
 build-strip:
+ifeq ($(OS),darwin)
+	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT) -s -w"
+else
 	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT) -extldflags=-static -s -w"
+endif
 
 # make test, test your code
 test: test-case vet-case
@@ -87,15 +114,29 @@ package:
 	mv bfe  $(OUTDIR)/bin
 	cp -r conf $(OUTDIR)
 
+# make deps
+deps:
+	$(call PIP_INSTALL_PKG, pre-commit)
+	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc)
+	$(call INSTALL_PKG, staticcheck, honnef.co/go/tools/cmd/staticcheck)
+	$(call INSTALL_PKG, license-eye, github.com/apache/skywalking-eyes/cmd/license-eye@latest)
+
+# make precommit, enable autoupdate and install with hooks
+precommit:
+	pre-commit autoupdate
+	pre-commit install --install-hooks
+
 # make check
 check:
-	$(GO) get honnef.co/go/tools/cmd/staticcheck
 	$(STATICCHECK) ./...
 
-# make license-check, check code file's license declearation
+# make license-check, check code file's license declaration
 license-check:
-	$(GO) install github.com/apache/skywalking-eyes/cmd/license-eye@latest
 	$(LICENSEEYE) header check
+
+# make license-fix, fix code file's license declaration
+license-fix:
+	$(LICENSEEYE) header fix
 
 # make docker
 docker:

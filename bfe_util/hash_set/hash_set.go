@@ -22,6 +22,7 @@ import (
 	"github.com/spaolacci/murmur3"
 )
 
+// LOAD_FACTOR
 /* in order to reduce the conflict of hash
  * hash array can be LOAD_FACTOR times larger than nodePool
  */

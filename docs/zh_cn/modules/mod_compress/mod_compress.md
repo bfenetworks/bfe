@@ -1,11 +1,13 @@
 # mod_compress
 
-## 模块简介 
+## 模块简介
 
 mod_compress支持对响应主体压缩。
 
 ## 基础配置
+
 ### 配置描述
+
 模块配置文件: conf/mod_compress/mod_compress.conf
 
 | 配置项                | 描述                                        |
@@ -14,7 +16,9 @@ mod_compress支持对响应主体压缩。
 | Log.OpenDebug           | Boolean<br>是否开启 debug 日志<br>默认值False |
 
 ### 配置示例
+
 - 模块配置文件
+
 ```ini
 [Basic]
 DataPath = mod_compress/compress_rule.data
@@ -24,7 +28,9 @@ OpenDebug = false
 ```
 
 ## 规则配置
+
 ### 配置描述
+
 | 配置项  | 描述                                                           |
 | ------- | -------------------------------------------------------------- |
 | Version | String<br>配置文件版本 |
@@ -46,6 +52,7 @@ OpenDebug = false
 | BROTLI                    | brotli压缩                 |
 
 ### 配置示例
+
 ```json
 {
     "Config": {
@@ -72,4 +79,3 @@ OpenDebug = false
 | REQ_SUPPORT_COMPRESS    |支持压缩请求数                       |
 | REQ_MATCH_COMPRESS_RULE |命中压缩规则请求数                    |
 | RES_ENCODE_COMPRESS     |响应被压缩请求数                      |
-

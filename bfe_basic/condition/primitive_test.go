@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2019 The BFE Authors.
+// Copyright (c) 2019 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -182,7 +182,7 @@ func TestHostMatcher_1(t *testing.T) {
 // test HostMatcher, error case, host include port
 func TestHostMatcher_2(t *testing.T) {
 	_, err := NewHostMatcher("www.baidu.com:80|map.baidu.com")
-	if err == nil || err.Error() != "port shoud not be included in host(www.baidu.com:80)" {
+	if err == nil || err.Error() != "port should not be included in host(www.baidu.com:80)" {
 		t.Errorf("NewHostMatcher() return wrong error: %v", err)
 	}
 }
@@ -234,7 +234,6 @@ func TestContextValueFetcher(t *testing.T) {
 	contextVal, err := hf.Fetch(req)
 	if err != nil {
 		t.Fatalf("Fetch(): %v", err)
-		t.FailNow()
 	}
 
 	// check
@@ -308,7 +307,7 @@ func TestPeriodicTimeMatcher(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPeriodicTimeMatcher() error: %v", err)
 	}
-	_, err = NewPeriodicTimeMatcher("200000R", "213000H", "" )
+	_, err = NewPeriodicTimeMatcher("200000R", "213000H", "")
 	if err == nil {
 		t.Fatalf("NewPeriodicTimeMatcher() should failed")
 	}

@@ -13,6 +13,7 @@ bfe.conf is the core configuration file of BFE.
 | Basic.HttpPort                | Integer<br>Listen port for HTTP<br>Default 8080 |
 | Basic.HttpsPort               | Integer<br>Listen port for HTTPS<br>Default 8443 |
 | Basic.MonitorPort             | Integer<br>Listen port for monitor<br>Default 8421 |
+| Basic.MonitorEnabled          | Boolean<br>If false, monitor server is disabled<br>Default True |
 | Basic.MaxCpus                 | Integer<br>Max number of CPUs to use (0 to use all CPUs)<br>Default 0 |
 | Basic.Layer4LoadBalancer      | String<br>Type of layer-4 load balancer (PROXY/NONE)<br>Default NONE |
 | Basic.TlsHandshakeTimeout     | Integer<br>TLS handshake timeout, in seconds<br>Default 30 |
@@ -21,7 +22,7 @@ bfe.conf is the core configuration file of BFE.
 | Basic.KeepAliveEnabled        | Boolean<br>If false, HTTP Keep-Alive is disabled<br>Default True |
 | Basic.GracefulShutdownTimeout | Integer<br>Timeout for graceful shutdown (maximum 300 sec)<br>Default 10 |
 | Basic.MaxHeaderBytes          | Integer<br>Max length of request header, in bytes<br>Default 10485 |
-| Basic.MaxHeaderUriBytes       | Integer<br>Max lenght of request URI, in bytes<br>Default 8192 |
+| Basic.MaxHeaderUriBytes       | Integer<br>Max length of request URI, in bytes<br>Default 8192 |
 | Basic.HostRuleConf            | String<br>Path of [host config](server_data_conf/host_rule.data.md)<br>Default server_data_conf/host_rule.data |
 | Basic.VipRuleConf             | String<br>Path of [VIP config](server_data_conf/vip_rule.data.md)<br>Default server_data_conf/vip_rule.data |
 | Basic.RouteRuleConf           | String<br>Path of [route rule config](server_data_conf/route_rule.data.md)<br>Default server_data_conf/route_rule.data |
@@ -43,7 +44,7 @@ bfe.conf is the core configuration file of BFE.
 | HttpsBasic.ServerCertConf         | String<br>Path of [cert config](tls_conf/server_cert_conf.data.md)<br>Default tls_conf/server_cert_conf.data |
 | HttpsBasic.TlsRuleConf            | String<br>Path of [tls rule config](tls_conf/tls_rule_conf.data.md)<br>Default tls_conf/tls_rule_conf.data |
 | HttpsBasic.CipherSuites           | String<br>CipherSuites preference settings<br>Default                                   |
-| HttpsBasic.CurvePreferences       | String<br>Curve perference settings<br>Default CurveP256 |
+| HttpsBasic.CurvePreferences       | String<br>Curve preference settings<br>Default CurveP256 |
 | HttpsBasic.EnableSslv2ClientHello | Boolean<br>Enable Sslv2ClientHello for compatible with ancient sslv3 client<br>Default True |
 | HttpsBasic.ClientCABaseDir        | String<br>Base directory of client ca certificates <br>Note: filename suffix of ca certificate must be ".crt"<br>Default tls_conf/client_ca |
 | SessioCache.SessionCacheDisabled   | Boolean<br>Disable tls session cache or not<br>Default True |
@@ -56,7 +57,6 @@ bfe.conf is the core configuration file of BFE.
 | SessioCache.SessionExpire          | Integer<br>Expire time for tls session state (second)<br>Default 3600 |
 | SessionTicket.SessionTicketsDisabled | Boolean<br>Disable tls session ticket or not<br>Default True |
 | SessionTicket.SessionTicketKeyFile   | String<br>Path of [session ticket key config](tls_conf/session_ticket_key.data.md)<br>Default tls_conf/session_ticket_key.data |
-
 
 ## Example
 
@@ -166,7 +166,7 @@ CipherSuites=TLS_RSA_WITH_RC4_128_SHA
 CipherSuites=TLS_RSA_WITH_AES_128_CBC_SHA
 CipherSuites=TLS_RSA_WITH_AES_256_CBC_SHA
 
-# supported curve perference settings
+# supported curve preference settings
 #
 # curves implemented in golang: 
 #     CurveP256 

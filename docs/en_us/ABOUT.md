@@ -14,11 +14,10 @@ The BFE documentation is composed of a few major sections:
 
 * **How to contribute**: Information on how to contribute to BFE project.
 
-* **FAQ**: Answers to frequently ask question. 
+* **FAQ**: Answers to frequently ask question.
 
 * **Monitor reference**: metrics detailed reference.
 
 * **Condition reference**: Condition detailed reference.
 
 If you can’t find what you are looking for, or have an issue not covered here, we’d love to hear from you on [Github](https://github.com/bfenetworks/bfe/issues).
-

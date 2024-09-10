@@ -31,7 +31,7 @@ openssl x509 -req -in client.csr -out client.crt -signkey client.key -CA root.cr
 ```
 
 * Step4. Configure layer 4 load balancing service.
-In this example, HAproxy is used as the layer 4 load balancing service, and VIP is passed to BFE using PROXY protocol. 
+In this example, HAproxy is used as the layer 4 load balancing service, and VIP is passed to BFE using PROXY protocol.
 HAproxy can be installed through "apt install haproxy" on Ubuntu system. For more details, see [www.haproxy.org](http://www.haproxy.org).
   
 Configuration file(haproxy.cfg) example：
@@ -110,6 +110,7 @@ Modify conf/tls_conf_rule.data and set "ClientAuth" to true and "ClientCAName" t
 ```
 
 Run BFE.
+
 ```bash
 ./bfe -c ../conf
 ```

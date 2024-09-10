@@ -31,9 +31,10 @@ import (
 )
 
 import (
+	"golang.org/x/crypto/chacha20poly1305"
+
 	"github.com/tjfoc/gmsm/sm3"
 	"github.com/tjfoc/gmsm/sm4"
-	"golang.org/x/crypto/chacha20poly1305"
 )
 
 // a keyAgreement implements the client and server side of a TLS key agreement
@@ -483,7 +484,7 @@ const (
 	TLS_FALLBACK_SCSV uint16 = 0x5600
 
 	// TLS_EMPTY_RENEGOTIATION_INFO_SCSV isn't a true cipher suite, it has
-	// the same semantics as an empty "renegotation info" extension. See
+	// the same semantics as an empty "renegotiation info" extension. See
 	// https://tools.ietf.org/html/rfc5746#section-3.3
 	TLS_EMPTY_RENEGOTIATION_INFO_SCSV = 0x00ff
 )

@@ -1,6 +1,7 @@
 # Time related primitives
 
 ## bfe_time_range(start_time, end_time)
+
 * Description: Judge if current time is in [start_time, end_time]
 
 * Parameters
@@ -19,6 +20,7 @@ bfe_time_range("20190204203000H", "20190204204500H")
 ```
 
 ## bfe_periodic_time_range(start_time, end_time, period)
+
 * Description: Judge if current time is periodly(period) in [start_time, end_time]
 
 * Parameters
@@ -27,7 +29,7 @@ bfe_time_range("20190204203000H", "20190204204500H")
 | --------- | ---------- |
 | start_time | String<br>start time |
 | end_time | String<br> end time |
-| period | String<br> period, defualt *Day* |
+| period | String<br> period, default *Day* |
 
 Time format: hhmmssZ，Z is time zone，detail information is shown in "Appendix B: Time Zone Detail"
 

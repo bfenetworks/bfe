@@ -73,7 +73,7 @@ func (ecr *expectContinueReader) Close() error {
 
 var ErrExpectContinueReaderPeek = errors.New("http: expect continue reader peek failed")
 
-// add peek function which is used by access log module
+// Peek add peek function which is used by access log module
 func (ecr *expectContinueReader) Peek(n int) ([]byte, error) {
 	if ecr.closed.isSet() {
 		return nil, bfe_http.ErrBodyReadAfterClose
@@ -91,7 +91,7 @@ func (ecr *expectContinueReader) Peek(n int) ([]byte, error) {
 	return nil, ErrExpectContinueReaderPeek
 }
 
-// check whether expectContinueReader has sent 100-Continue response
+// WroteContinue check whether expectContinueReader has sent 100-Continue response
 func (ecr *expectContinueReader) WroteContinue() bool {
 	return ecr.resp.wroteContinue
 }

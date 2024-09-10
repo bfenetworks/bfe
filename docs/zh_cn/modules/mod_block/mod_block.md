@@ -1,11 +1,13 @@
 ﻿# mod_block
 
-## 模块简介 
+## 模块简介
 
 mod_block基于自定义的规则，对连接或请求进行封禁。
 
 ## 基础配置
+
 ### 配置描述
+
 模块配置文件: conf/mod_block/mod_block.conf
 
 | 配置项  | 描述                                                           |
@@ -23,6 +25,7 @@ mod_block基于自定义的规则，对连接或请求进行封禁。
 ```
 
 ### 配置示例
+
 ```ini
 [Basic]
 # product rule config file path
@@ -33,7 +36,9 @@ IPBlocklistPath = mod_block/ip_blocklist.data
 ```
 
 ## 规则配置
+
 ### 配置描述
+
 | 配置项  | 描述                                                           |
 | ------- | -------------------------------------------------------------- |
 | Version | String<br>配置文件版本 |
@@ -49,12 +54,14 @@ IPBlocklistPath = mod_block/ip_blocklist.data
 | Config{v}[].Action.Params[] | String<br>参数信息 |
 
 ### 模块动作
+
 | 动作  | 含义     |
 | ----- | -------- |
 | CLOSE | 关闭连接 |
 | ALLOW | 允许请求 |
 
 ### 配置示例
+
 ```json
 {
     "Version": "20190101000000",
@@ -83,7 +90,6 @@ IPBlocklistPath = mod_block/ip_blocklist.data
 }
 ```
 
-
 ## 监控项
 
 | 监控项        | 描述                         |
@@ -95,4 +101,3 @@ IPBlocklistPath = mod_block/ip_blocklist.data
 | REQ_REFUSE    | 请求拒绝的总数               |
 | REQ_ACCEPT    | 请求接受的总数               |
 | REQ_TO_CHECK  | 检查的请求数                 |
-

@@ -7,6 +7,7 @@ mod_geo creates [variables](../mod_header/mod_header.md) with values depending o
 ## Module Configuration
 
 ### Description
+
 conf/mod_geo/mod_geo.conf
 
 | Config Item          | Description                                        |
@@ -14,10 +15,11 @@ conf/mod_geo/mod_geo.conf
 | Basic.GeoDBPath      | String<br>Path of geo db file |
 | Log.OpenDebug        | Boolean<br>Whether enable debug logs<br>Default False |
 
-mod_geo supports GeoDB in MaxMind format which can be downloaded from 
+mod_geo supports GeoDB in MaxMind format which can be downloaded from
 https://dev.maxmind.com/geoip/geoip2/geolite2/
 
 ### Example
+
 ```ini
 [Basic]
 GeoDBPath = mod_geo/geo.db

@@ -81,7 +81,7 @@ func (sr *liveSwitchReader) Read(p []byte) (n int, err error) {
 	return r.Read(p)
 }
 
-// A conn represents the server side of an HTTP/HTTPS connection.
+// conn represents the server side of an HTTP/HTTPS connection.
 type conn struct {
 	// immutable:
 	remoteAddr string             // network address of remote side
@@ -358,7 +358,7 @@ func (c *conn) serve() {
 		// upgrade to negotiated protocol
 		proto := tlsState.NegotiatedProtocol
 		if mandatoryProtocol, ok := c.getMandatoryProtocol(tlsConn); ok {
-			// Note: if mandatory protocol configed, use it anyway
+			// Note: if mandatory protocol configured, use it anyway
 			proto = mandatoryProtocol
 		}
 		if validNPN(proto) {

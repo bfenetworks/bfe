@@ -753,9 +753,9 @@ func checkHostAndToUpper(patterns []string) ([]string, error) {
 	upper := make([]string, len(patterns))
 
 	for i, v := range patterns {
-		// port shoud not be included in host
+		// port should not be included in host
 		if strings.Contains(v, ":") {
-			return nil, fmt.Errorf("port shoud not be included in host(%s)", v)
+			return nil, fmt.Errorf("port should not be included in host(%s)", v)
 		}
 
 		upper[i] = strings.ToUpper(v)
@@ -828,11 +828,11 @@ type HashValueMatcher struct {
 func (matcher *HashValueMatcher) Match(v interface{}) bool {
 	var rawValue string
 
-	switch v.(type) {
+	switch value := v.(type) {
 	case string:
-		rawValue = v.(string)
+		rawValue = value
 	case net.IP:
-		rawValue = v.(net.IP).String()
+		rawValue = value.String()
 	default:
 		return false
 	}
@@ -875,7 +875,7 @@ func parserHashSectionConf(section string) (int, int, error) {
 	// checkt numbers
 	var start, end int
 	for i, numberRawStr := range numbers {
-		numberStr := strings.Replace(numberRawStr, " ", "", -1)
+		numberStr := strings.ReplaceAll(numberRawStr, " ", "")
 		number, err := strconv.Atoi(numberStr)
 		if err != nil {
 			return 0, 0, fmt.Errorf("hash value check section %s number %s err %s",
@@ -986,7 +986,7 @@ func (f *ContextValueFetcher) Fetch(req *bfe_basic.Request) (interface{}, error)
 	return req.GetContext(f.key), nil
 }
 
-// time range matcher
+// TimeMatcher is time range matcher
 type TimeMatcher struct {
 	startTime time.Time
 	endTime   time.Time
@@ -1043,14 +1043,14 @@ func (f *BfeTimeFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
 	return debugTime, nil
 }
 
-// periodic time range matcher
+// PeriodicTimeMatcher is periodic time range matcher
 type PeriodicTimeMatcher struct {
 	startTime int // in seconds of a day
 	endTime   int
 	offset    int // timezone offset
 }
 
-// time string format: hhmmssZ, example 150405H, Z-> timezone defined in bfe_util.TimeZoneMap
+// NewPeriodicTimeMatcher follows time string format: hhmmssZ, example 150405H, Z-> timezone defined in bfe_util.TimeZoneMap
 func NewPeriodicTimeMatcher(startTimeStr, endTimeStr, periodStr string) (*PeriodicTimeMatcher, error) {
 	if periodStr != "" {
 		return nil, fmt.Errorf("periodStr is not supported, should not be set!")
