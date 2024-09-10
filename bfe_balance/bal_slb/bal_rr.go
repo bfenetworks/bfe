@@ -41,17 +41,12 @@ import (
 	"math/rand"
 	"sort"
 	"sync"
-)
 
-import (
 	"github.com/baidu/go-lib/log"
-	"github.com/spaolacci/murmur3"
-)
-
-import (
 	"github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
 	"github.com/bfenetworks/bfe/bfe_debug"
+	"github.com/spaolacci/murmur3"
 )
 
 // implementation versions of weighted round-robin algorithm
@@ -343,6 +338,7 @@ func leastConnsBalance(backs BackendList) (BackendList, error) {
 		if ret > 0 {
 			best = backendRR
 			singleBackend = true
+			candidates = candidates[0:0]
 		} else if ret == 0 {
 			singleBackend = false
 			if len(candidates) > 0 {
@@ -360,7 +356,9 @@ func leastConnsBalance(backs BackendList) (BackendList, error) {
 
 	// single backend, return directly
 	if singleBackend {
-		return BackendList{best}, nil
+		candidates = candidates[0:0]
+		candidates = append(candidates, best)
+		return candidates, nil
 	}
 	// more than one backend have same connections/weight,
 	// return all the candidates

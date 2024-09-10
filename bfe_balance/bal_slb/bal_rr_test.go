@@ -19,9 +19,7 @@ import (
 	"math/rand"
 	"reflect"
 	"testing"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
 	"github.com/bfenetworks/bfe/bfe_util/json"
@@ -131,7 +129,7 @@ func processBalancLoopTwenty(t *testing.T, label string, algor int, key []byte, 
 
 func processSimpleBalance(t *testing.T, label string, algor int, key []byte, rr *BalanceRR, result []string) {
 	var l []string
-	loopCount := (300+200+100)+4
+	loopCount := (300 + 200 + 100) + 4
 
 	for i := 1; i < loopCount; i++ {
 		r, err := rr.Balance(algor, key)
@@ -156,7 +154,7 @@ func processSimpleBalance(t *testing.T, label string, algor int, key []byte, rr 
 
 func processSimpleBalance3(t *testing.T, label string, algor int, key []byte, rr *BalanceRR, result []string) {
 	var l []string
-	loopCount := (200+100)*3+4
+	loopCount := (200+100)*3 + 4
 
 	for i := 1; i < loopCount; i++ {
 		r, err := rr.Balance(algor, key)
@@ -218,7 +216,7 @@ func TestBalance(t *testing.T) {
 	rr.backends[0].backend.SetAvail(false)
 	// after scale up 100, the hash result changed
 	expectResult = []string{"b3", "b3", "b3", "b3", "b3", "b3", "b3", "b3", "b3"}
-//	expectResult = []string{"b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2"}
+	//	expectResult = []string{"b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2"}
 	processBalance(t, "case 6", WrrSticky, []byte{1}, rr, expectResult)
 
 	// case 7, lcw balance
@@ -362,4 +360,70 @@ func TestSlowStart(t *testing.T) {
 	// case 1
 	rr := prepareBalanceRR()
 	rr.SetSlowStart(30)
+}
+
+func Test_leastConnsBalance(t *testing.T) {
+	{
+		backs := BackendList{
+			{
+				backend: backend.NewBfeBackend(),
+				weight:  10,
+			},
+			{
+				backend: backend.NewBfeBackend(),
+				weight:  10,
+			},
+			{
+				backend: backend.NewBfeBackend(),
+				weight:  20,
+			},
+			{
+				backend: backend.NewBfeBackend(),
+				weight:  20,
+			},
+		}
+
+		for _, back := range backs {
+			back.backend.IncConnNum()
+		}
+
+		got, err := leastConnsBalance(backs)
+		if err != nil {
+			t.Errorf("leastConnsBalance() error = %v", err)
+			return
+		}
+		if len(got) != 2 {
+			t.Errorf("want length: %d, got: %d", 2, len(got))
+		}
+	}
+
+	{
+		backs := BackendList{
+			{
+				backend: backend.NewBfeBackend(),
+				weight:  10,
+			},
+			{
+				backend: backend.NewBfeBackend(),
+				weight:  20,
+			},
+			{
+				backend: backend.NewBfeBackend(),
+				weight:  30,
+			},
+		}
+
+		for _, back := range backs {
+			back.backend.IncConnNum()
+		}
+
+		got, err := leastConnsBalance(backs)
+		if err != nil {
+			t.Errorf("leastConnsBalance() error = %v", err)
+			return
+		}
+		if len(got) != 1 {
+			t.Errorf("want length: %d, got: %d", 1, len(got))
+		}
+	}
 }
