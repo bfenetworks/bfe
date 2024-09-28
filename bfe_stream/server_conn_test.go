@@ -136,7 +136,7 @@ func TestTLSProxyBackendUnavailable(t *testing.T) {
 		&Server{
 			BalanceHandler: func(conn interface{}) (*backend.BfeBackend, error) {
 				b := backend.NewBfeBackend()
-				b.AddrInfo = "8.8.8.8:12345"
+				b.AddrInfo = "127.8.8.8:12345"
 				// balancer return unavailable backend
 				return b, nil
 			},
