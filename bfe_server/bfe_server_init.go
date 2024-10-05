@@ -79,20 +79,6 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string, dryRun boo
 	}
 	log.Logger.Info("StartUp():bfeServer.InitModules() OK")
 
-	// load plugins
-	if err = bfeServer.LoadPlugins(cfg.Server.Plugins); err != nil {
-		log.Logger.Error("StartUp():bfeServer.LoadPlugins():%s", err.Error())
-		return err
-	}
-
-	// initialize plugins
-	if err = bfeServer.InitPlugins(); err != nil {
-		log.Logger.Error("StartUp():bfeServer.InitPlugins():%s",
-			err.Error())
-		return err
-	}
-	log.Logger.Info("StartUp():bfeServer.InitPlugins() OK")
-
 	if dryRun {
 		return nil
 	}

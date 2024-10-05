@@ -16,7 +16,6 @@ package bfe_conf
 
 import (
 	"fmt"
-	"strings"
 )
 
 import (
@@ -30,11 +29,6 @@ import (
 const (
 	BalancerProxy = "PROXY" // layer4 balancer working in PROXY mode (eg. F5, Ctrix, ELB etc)
 	BalancerNone  = "NONE"  // layer4 balancer not used
-)
-
-const (
-	// LibrarySuffix defines BFE plugin's file suffix.
-	LibrarySuffix = ".so"
 )
 
 type ConfigBasic struct {
@@ -59,7 +53,6 @@ type ConfigBasic struct {
 	KeepAliveEnabled        bool // if false, client connection is shutdown disregard of http headers
 
 	Modules []string // modules to load
-	Plugins []string // plugins to load
 
 	// location of data files for bfe_route
 	HostRuleConf  string // path of host_rule.data
@@ -217,11 +210,6 @@ func basicConfCheck(cfg *ConfigBasic) error {
 		return fmt.Errorf("MaxHeaderHeaderBytes[%d] should > 0", cfg.MaxHeaderBytes)
 	}
 
-	// check Plugins
-	if err := checkPlugins(cfg); err != nil {
-		return fmt.Errorf("plugins[%v] check failed. err: %s", cfg.Plugins, err.Error())
-	}
-
 	return nil
 }
 
@@ -238,24 +226,6 @@ func checkLayer4LoadBalancer(cfg *ConfigBasic) error {
 	default:
 		return fmt.Errorf("Layer4LoadBalancer[%s] should be PROXY/NONE", cfg.Layer4LoadBalancer)
 	}
-}
-
-func checkPlugins(cfg *ConfigBasic) error {
-	plugins := []string{}
-	for _, pluginPath := range cfg.Plugins {
-		pluginPath = strings.TrimSpace(pluginPath)
-		if pluginPath == "" {
-			continue
-		}
-
-		if !strings.HasSuffix(pluginPath, LibrarySuffix) {
-			pluginPath += LibrarySuffix
-		}
-		plugins = append(plugins, pluginPath)
-	}
-	cfg.Plugins = plugins
-
-	return nil
 }
 
 func dataFileConfCheck(cfg *ConfigBasic, confRoot string) error {
