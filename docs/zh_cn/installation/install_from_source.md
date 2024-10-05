@@ -2,7 +2,7 @@
 
 ## 环境准备
 
-- golang 1.17+
+- golang 1.22+
 - git 2.0+
 - glibc-static 2.17+
 
