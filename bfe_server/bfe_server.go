@@ -76,7 +76,6 @@ type BfeServer struct {
 	// module and callback
 	CallBacks *bfe_module.BfeCallbacks // call back functions
 	Modules   *bfe_module.BfeModules   // bfe modules
-	Plugins   *bfe_module.BfePlugins   // bfe plugins
 
 	// web server for bfe monitor and reload
 	Monitor *BfeMonitor
@@ -121,8 +120,6 @@ func NewBfeServer(cfg bfe_conf.BfeConfig, confRoot string,
 	s.CallBacks = bfe_module.NewBfeCallbacks()
 	// create modules
 	s.Modules = bfe_module.NewBfeModules()
-	// create plugins
-	s.Plugins = bfe_module.NewBfePlugins()
 
 	// initialize balTable
 	s.balTable = bfe_balance.NewBalTable(s.GetCheckConf)
@@ -315,26 +312,6 @@ func (srv *BfeServer) initTLSNextProtoHandler() {
 
 func (srv *BfeServer) InitModules() error {
 	return srv.Modules.Init(srv.CallBacks, srv.Monitor.WebHandlers, srv.ConfRoot)
-}
-
-func (srv *BfeServer) LoadPlugins(plugins []string) error {
-	if len(plugins) == 0 {
-		return nil
-	}
-
-	for _, pluginPath := range plugins {
-		if err := srv.Plugins.RegisterPlugin(pluginPath, srv.Version); err != nil {
-			return err
-		}
-
-		log.Logger.Info("RegisterPlugin():pluginPath=%s", pluginPath)
-	}
-
-	return nil
-}
-
-func (srv *BfeServer) InitPlugins() error {
-	return srv.Plugins.Init(srv.CallBacks, srv.Monitor.WebHandlers, srv.ConfRoot)
 }
 
 func (srv *BfeServer) InitSignalTable() {
