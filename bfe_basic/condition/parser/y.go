@@ -119,7 +119,7 @@ func (x *condLex) Error(s string) {
 }
 
 //line yacctab:1
-var condExca = [...]int{
+var condExca = [...]int8{
 	-1, 1,
 	1, -1,
 	-2, 0,
@@ -129,54 +129,54 @@ const condPrivate = 57344
 
 const condLast = 23
 
-var condAct = [...]int{
+var condAct = [...]int8{
 	18, 20, 16, 2, 19, 17, 11, 9, 10, 8,
 	6, 12, 13, 3, 15, 4, 7, 8, 5, 14,
 	7, 8, 1,
 }
 
-var condPact = [...]int{
+var condPact = [...]int16{
 	6, -1000, 15, 6, 6, -1000, -1, 6, 6, 11,
 	-1000, -6, 3, -1000, -1000, -8, -1000, -1000, -1000, -10,
 	-1000,
 }
 
-var condPgo = [...]int{
+var condPgo = [...]int8{
 	0, 22, 3, 18, 14,
 }
 
-var condR1 = [...]int{
+var condR1 = [...]int8{
 	0, 1, 2, 2, 2, 2, 2, 2, 3, 3,
 	4, 4,
 }
 
-var condR2 = [...]int{
+var condR2 = [...]int8{
 	0, 1, 3, 3, 3, 2, 1, 1, 4, 3,
 	1, 3,
 }
 
-var condChk = [...]int{
+var condChk = [...]int16{
 	-1000, -1, -2, 7, 9, -3, 4, 5, 6, -2,
 	-2, 7, -2, -2, 8, -4, 8, 11, 8, 12,
 	11,
 }
 
-var condDef = [...]int{
+var condDef = [...]int8{
 	0, -2, 1, 0, 0, 6, 7, 0, 0, 0,
 	5, 0, 3, 4, 2, 0, 9, 10, 8, 0,
 	11,
 }
 
-var condTok1 = [...]int{
+var condTok1 = [...]int8{
 	1,
 }
 
-var condTok2 = [...]int{
+var condTok2 = [...]int8{
 	2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
 	12, 13, 14, 15, 16, 17, 18, 19,
 }
 
-var condTok3 = [...]int{
+var condTok3 = [...]int8{
 	0,
 }
 
@@ -258,9 +258,9 @@ func condErrorMessage(state, lookAhead int) string {
 	expected := make([]int, 0, 4)
 
 	// Look for shiftable tokens.
-	base := condPact[state]
+	base := int(condPact[state])
 	for tok := TOKSTART; tok-1 < len(condToknames); tok++ {
-		if n := base + tok; n >= 0 && n < condLast && condChk[condAct[n]] == tok {
+		if n := base + tok; n >= 0 && n < condLast && int(condChk[int(condAct[n])]) == tok {
 			if len(expected) == cap(expected) {
 				return res
 			}
@@ -270,13 +270,13 @@ func condErrorMessage(state, lookAhead int) string {
 
 	if condDef[state] == -2 {
 		i := 0
-		for condExca[i] != -1 || condExca[i+1] != state {
+		for condExca[i] != -1 || int(condExca[i+1]) != state {
 			i += 2
 		}
 
 		// Look for tokens that we accept or reduce.
 		for i += 2; condExca[i] >= 0; i += 2 {
-			tok := condExca[i]
+			tok := int(condExca[i])
 			if tok < TOKSTART || condExca[i+1] == 0 {
 				continue
 			}
@@ -307,30 +307,30 @@ func condlex1(lex condLexer, lval *condSymType) (char, token int) {
 	token = 0
 	char = lex.Lex(lval)
 	if char <= 0 {
-		token = condTok1[0]
+		token = int(condTok1[0])
 		goto out
 	}
 	if char < len(condTok1) {
-		token = condTok1[char]
+		token = int(condTok1[char])
 		goto out
 	}
 	if char >= condPrivate {
 		if char < condPrivate+len(condTok2) {
-			token = condTok2[char-condPrivate]
+			token = int(condTok2[char-condPrivate])
 			goto out
 		}
 	}
 	for i := 0; i < len(condTok3); i += 2 {
-		token = condTok3[i+0]
+		token = int(condTok3[i+0])
 		if token == char {
-			token = condTok3[i+1]
+			token = int(condTok3[i+1])
 			goto out
 		}
 	}
 
 out:
 	if token == 0 {
-		token = condTok2[1] /* unknown char */
+		token = int(condTok2[1]) /* unknown char */
 	}
 	if condDebug >= 3 {
 		__yyfmt__.Printf("lex %s(%d)\n", condTokname(token), uint(char))
@@ -385,7 +385,7 @@ condstack:
 	condS[condp].yys = condstate
 
 condnewstate:
-	condn = condPact[condstate]
+	condn = int(condPact[condstate])
 	if condn <= condFlag {
 		goto conddefault /* simple state */
 	}
@@ -396,8 +396,8 @@ condnewstate:
 	if condn < 0 || condn >= condLast {
 		goto conddefault
 	}
-	condn = condAct[condn]
-	if condChk[condn] == condtoken { /* valid shift */
+	condn = int(condAct[condn])
+	if int(condChk[condn]) == condtoken { /* valid shift */
 		condrcvr.char = -1
 		condtoken = -1
 		condVAL = condrcvr.lval
@@ -410,7 +410,7 @@ condnewstate:
 
 conddefault:
 	/* default state action */
-	condn = condDef[condstate]
+	condn = int(condDef[condstate])
 	if condn == -2 {
 		if condrcvr.char < 0 {
 			condrcvr.char, condtoken = condlex1(condlex, &condrcvr.lval)
@@ -419,18 +419,18 @@ conddefault:
 		/* look through exception table */
 		xi := 0
 		for {
-			if condExca[xi+0] == -1 && condExca[xi+1] == condstate {
+			if condExca[xi+0] == -1 && int(condExca[xi+1]) == condstate {
 				break
 			}
 			xi += 2
 		}
 		for xi += 2; ; xi += 2 {
-			condn = condExca[xi+0]
+			condn = int(condExca[xi+0])
 			if condn < 0 || condn == condtoken {
 				break
 			}
 		}
-		condn = condExca[xi+1]
+		condn = int(condExca[xi+1])
 		if condn < 0 {
 			goto ret0
 		}
@@ -452,10 +452,10 @@ conddefault:
 
 			/* find a state where "error" is a legal shift action */
 			for condp >= 0 {
-				condn = condPact[condS[condp].yys] + condErrCode
+				condn = int(condPact[condS[condp].yys]) + condErrCode
 				if condn >= 0 && condn < condLast {
-					condstate = condAct[condn] /* simulate a shift of "error" */
-					if condChk[condstate] == condErrCode {
+					condstate = int(condAct[condn]) /* simulate a shift of "error" */
+					if int(condChk[condstate]) == condErrCode {
 						goto condstack
 					}
 				}
@@ -491,7 +491,7 @@ conddefault:
 	condpt := condp
 	_ = condpt // guard against "declared and not used"
 
-	condp -= condR2[condn]
+	condp -= int(condR2[condn])
 	// condp is now the index of $0. Perform the default action. Iff the
 	// reduced production is ε, $1 is possibly out of range.
 	if condp+1 >= len(condS) {
@@ -502,16 +502,16 @@ conddefault:
 	condVAL = condS[condp+1]
 
 	/* consult goto table to find next state */
-	condn = condR1[condn]
-	condg := condPgo[condn]
+	condn = int(condR1[condn])
+	condg := int(condPgo[condn])
 	condj := condg + condS[condp].yys + 1
 
 	if condj >= condLast {
-		condstate = condAct[condg]
+		condstate = int(condAct[condg])
 	} else {
-		condstate = condAct[condj]
-		if condChk[condstate] != -condn {
-			condstate = condAct[condg]
+		condstate = int(condAct[condj])
+		if int(condChk[condstate]) != -condn {
+			condstate = int(condAct[condg])
 		}
 	}
 	// dummy call; replaced with literal code
