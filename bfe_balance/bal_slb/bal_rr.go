@@ -41,17 +41,12 @@ import (
 	"math/rand"
 	"sort"
 	"sync"
-)
 
-import (
 	"github.com/baidu/go-lib/log"
-	"github.com/spaolacci/murmur3"
-)
-
-import (
 	"github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
 	"github.com/bfenetworks/bfe/bfe_debug"
+	"github.com/spaolacci/murmur3"
 )
 
 // implementation versions of weighted round-robin algorithm
@@ -322,47 +317,34 @@ func (brr *BalanceRR) leastConnsSimpleBalance() (*backend.BfeBackend, error) {
 }
 
 func leastConnsBalance(backs BackendList) (BackendList, error) {
-	var best *BackendRR
 	candidates := make(BackendList, 0, len(backs))
 
 	// select available candidates
-	singleBackend := true
 	for _, backendRR := range backs {
 		if !backendRR.backend.Avail() || backendRR.weight <= 0 {
 			continue
 		}
 
-		if best == nil {
-			best = backendRR
-			singleBackend = true
+		if len(candidates) == 0 {
+			candidates = append(candidates, backendRR) // init
 			continue
 		}
 
 		// compare backends
-		ret := compLCWeight(best, backendRR)
+		ret := compLCWeight(candidates[0], backendRR)
 		if ret > 0 {
-			best = backendRR
-			singleBackend = true
+			candidates = candidates[0:0] // reset
+			candidates = append(candidates, backendRR)
 		} else if ret == 0 {
-			singleBackend = false
-			if len(candidates) > 0 {
-				candidates = append(candidates, backendRR)
-			} else {
-				candidates = append(candidates, best, backendRR)
-			}
-
+			// more than one backend have same connections/weight
+			candidates = append(candidates, backendRR)
 		}
 	}
 
-	if best == nil {
+	if len(candidates) == 0 {
 		return nil, fmt.Errorf("rr_bal:all backend is down")
 	}
 
-	// single backend, return directly
-	if singleBackend {
-		return BackendList{best}, nil
-	}
-	// more than one backend have same connections/weight,
 	// return all the candidates
 	return candidates, nil
 }
