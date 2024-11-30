@@ -1,0 +1,29 @@
+{
+    "Version": "3",
+    "BeforeLocationRules": [{
+        "Cond": "default_t()",
+        "PluginList": [ "http", "headers" ]
+    }],
+    "ProductRules": {
+    },
+    "PluginMap": {
+        "http": {
+            "Name": "http",
+            "WasmVersion": "1",
+            "ConfVersion": "2",
+            "InstanceNum": 1
+        },
+        "hello": {
+            "Name": "hello",
+            "WasmVersion": "1",
+            "ConfVersion": "2",
+            "InstanceNum": 1
+        },
+        "headers": {
+            "Name": "headers",
+            "WasmVersion": "1",
+            "ConfVersion": "2",
+            "InstanceNum": 1
+        }
+    }
+}
