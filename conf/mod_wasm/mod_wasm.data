@@ -1,0 +1,33 @@
+{
+    "Version": "9",
+    "BeforeLocationRules": [{
+        "Cond": "req_path_prefix_in(\"/headers\", false)",
+        "PluginList": [ "headers" ]
+    }],
+    "ProductRules": {
+        "local_product": [{
+            "Cond": "default_t()",
+            "PluginList": [ "auth" ]
+        }]
+    },
+    "PluginMap": {
+        "http": {
+            "Name": "http",
+            "WasmVersion": "1",
+            "ConfVersion": "2",
+            "InstanceNum": 1
+        },
+        "headers": {
+            "Name": "headers",
+            "WasmVersion": "2",
+            "ConfVersion": "4",
+            "InstanceNum": 1
+        },
+        "auth": {
+            "Name": "auth",
+            "WasmVersion": "2",
+            "ConfVersion": "4",
+            "InstanceNum": 1
+        }
+    }
+}
