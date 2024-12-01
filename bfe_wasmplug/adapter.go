@@ -21,9 +21,7 @@ import (
 	"bytes"
 	"io/ioutil"
 
-	"github.com/baidu/go-lib/log"
 	"github.com/bfenetworks/bfe/bfe_http"
-	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_wasmplug/abi/proxywasm010"
 	"github.com/bfenetworks/proxy-wasm-go-host/proxywasm/common"
 	v1Host "github.com/bfenetworks/proxy-wasm-go-host/proxywasm/v1"
@@ -116,89 +114,4 @@ func (v1 *v1Imports) SendHttpResp(respCode int32, respCodeDetail common.IoBuffer
 	
 	v1.filter.request.HttpResponse = resp
 	return v1Host.WasmResultOk
-}
-
-// exports
-type exportAdapter struct {
-	v1 v1Host.Exports
-}
-
-func (e *exportAdapter) ProxyOnContextCreate(contextID int32, parentContextID int32) error {
-		return e.v1.ProxyOnContextCreate(contextID, parentContextID)
-}
-
-func (e *exportAdapter) ProxyOnVmStart(rootContextID int32, vmConfigurationSize int32) (int32, error) {
-		return e.v1.ProxyOnVmStart(rootContextID, vmConfigurationSize)
-}
-
-func (e *exportAdapter) ProxyOnConfigure(rootContextID int32, pluginConfigurationSize int32) (int32, error) {
-		return e.v1.ProxyOnConfigure(rootContextID, pluginConfigurationSize)
-}
-
-func (e *exportAdapter) ProxyOnDone(contextID int32) (int32, error) {
-		return e.v1.ProxyOnDone(contextID)
-}
-
-func (e *exportAdapter) ProxyOnDelete(contextID int32) error {
-		return e.v1.ProxyOnDelete(contextID)
-}
-
-func (e *exportAdapter) ProxyOnRequestHeaders(contextID int32, headers int32, endOfStream int32) int {
-		action, err := e.v1.ProxyOnRequestHeaders(contextID, headers, endOfStream)
-		if err != nil || action != v1Host.ActionContinue {
-			log.Logger.Error("[proxywasm][filter][v1] ProxyOnRequestHeaders action: %v, err: %v", action, err)
-			return bfe_module.BfeHandlerResponse
-		}
-
-	return bfe_module.BfeHandlerGoOn
-}
-
-func (e *exportAdapter) ProxyOnRequestBody(contextID int32, bodyBufferLength int32, endOfStream int32) int {
-		action, err := e.v1.ProxyOnRequestBody(contextID, bodyBufferLength, endOfStream)
-		if err != nil || action != v1Host.ActionContinue {
-			log.Logger.Error("[proxywasm][filter][v1] ProxyOnRequestBody action: %v, err: %v", action, err)
-			return bfe_module.BfeHandlerResponse
-		}
-
-	return bfe_module.BfeHandlerGoOn
-}
-
-func (e *exportAdapter) ProxyOnRequestTrailers(contextID int32, trailers int32, endOfStream int32) int {
-		action, err := e.v1.ProxyOnRequestTrailers(contextID, trailers)
-		if err != nil || action != v1Host.ActionContinue {
-			log.Logger.Error("[proxywasm][filter][v1] ProxyOnRequestTrailers action: %v, err: %v", action, err)
-			return bfe_module.BfeHandlerResponse
-		}
-
-	return bfe_module.BfeHandlerGoOn
-}
-
-func (e *exportAdapter) ProxyOnResponseHeaders(contextID int32, headers int32, endOfStream int32) int {
-		action, err := e.v1.ProxyOnResponseHeaders(contextID, headers, endOfStream)
-		if err != nil || action != v1Host.ActionContinue {
-			log.Logger.Error("[proxywasm][filter][v1] ProxyOnResponseHeaders action: %v, err: %v", action, err)
-			return bfe_module.BfeHandlerResponse
-		}
-
-	return bfe_module.BfeHandlerGoOn
-}
-
-func (e *exportAdapter) ProxyOnResponseBody(contextID int32, bodyBufferLength int32, endOfStream int32) int {
-		action, err := e.v1.ProxyOnResponseBody(contextID, bodyBufferLength, endOfStream)
-		if err != nil || action != v1Host.ActionContinue {
-			log.Logger.Error("[proxywasm][filter][v1] ProxyOnRequestBody action: %v, err: %v", action, err)
-			return bfe_module.BfeHandlerResponse
-		}
-
-	return bfe_module.BfeHandlerGoOn
-}
-
-func (e *exportAdapter) ProxyOnResponseTrailers(contextID int32, trailers int32, endOfStream int32) int {
-		action, err := e.v1.ProxyOnResponseTrailers(contextID, trailers)
-		if err != nil || action != v1Host.ActionContinue {
-			log.Logger.Error("[proxywasm][filter][v1] ProxyOnResponseTrailers action: %v, err: %v", action, err)
-			return bfe_module.BfeHandlerResponse
-		}
-
-	return bfe_module.BfeHandlerGoOn
 }

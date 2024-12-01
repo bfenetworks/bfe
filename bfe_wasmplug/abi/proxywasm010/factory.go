@@ -18,54 +18,13 @@
 package proxywasm010
 
 import (
-	"github.com/bfenetworks/bfe/bfe_wasmplug/abi"
 	"github.com/bfenetworks/proxy-wasm-go-host/proxywasm/common"
 	proxywasm "github.com/bfenetworks/proxy-wasm-go-host/proxywasm/v1"
 )
 
-func init() {
-	abi.RegisterABI(proxywasm.ProxyWasmABI_0_1_0, ABIContextFactory)
-}
-
-func ABIContextFactory(instance common.WasmInstance) abi.ABI {
-	return &ABIContext{
-		proxywasm.ABIContext{
+func ABIContextFactory(instance common.WasmInstance) proxywasm.ContextHandler {
+	return &proxywasm.ABIContext{
 			Imports:  &DefaultImportsHandler{Instance: instance},
 			Instance: instance,
-		},
-	}
+		}
 }
-
-// ABIContext is a wrapper for proxywasm-go-host/proxywasm.ABIContext
-// implement types.ABI
-type ABIContext struct {
-	proxywasm.ABIContext
-}
-
-// implement types.ABI
-func (ctx *ABIContext) GetABIImports() interface{} {
-	return ctx.ABIContext.GetImports()
-}
-
-func (ctx *ABIContext) SetABIImports(imports interface{}) {
-	if v, ok := imports.(proxywasm.ImportsHandler); ok {
-		ctx.ABIContext.SetImports(v)
-	}
-}
-
-func (ctx *ABIContext) GetABIExports() interface{} {
-	return ctx.ABIContext.GetExports()
-}
-
-/*
-// implement types.ABIHandler
-func (ctx *ABIContext) OnInstanceCreate(instance common.WasmInstance) {
-	if err := instance.RegisterImports(ctx.Name()); err != nil {
-		panic(err)
-	}
-}
-
-func (ctx *ABIContext) OnInstanceStart(instance common.WasmInstance) {}
-
-func (ctx *ABIContext) OnInstanceDestroy(instance common.WasmInstance) {}
-*/
