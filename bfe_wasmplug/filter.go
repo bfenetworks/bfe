@@ -29,7 +29,6 @@ import (
 	wasmABI "github.com/bfenetworks/bfe/bfe_wasmplug/abi"
 	"github.com/bfenetworks/proxy-wasm-go-host/proxywasm/common"
 	v1Host "github.com/bfenetworks/proxy-wasm-go-host/proxywasm/v1"
-	v2Host "github.com/bfenetworks/proxy-wasm-go-host/proxywasm/v2"
 )
 
 type Filter struct {
@@ -78,18 +77,12 @@ func NewFilter(plugin *WasmPlugin, request *bfe_basic.Request) *Filter {
 
 	filter.abi = wasmABI.GetABIList(instance)[0]
 	log.Logger.Info("[proxywasm][filter] abi version: %v", filter.abi.Name())
-	if filter.abi.Name() == v1Host.ProxyWasmABI_0_1_0 {
+	if filter.abi != nil {
 		// v1
 		imports := &v1Imports{plugin: *plugin, filter: filter}
 		imports.DefaultImportsHandler.Instance = instance
 		filter.abi.SetABIImports(imports)
 		filter.exports = &exportAdapter{v1: filter.abi.GetABIExports().(v1Host.Exports)}
-	} else if filter.abi.Name() == v2Host.ProxyWasmABI_0_2_0 {
-		// v2
-		imports := &v2Imports{plugin: *plugin, filter: filter}
-		imports.DefaultImportsHandler.Instance = instance
-		filter.abi.SetABIImports(imports)
-		filter.exports = &exportAdapter{v2: filter.abi.GetABIExports().(v2Host.Exports)}
 	} else {
 		log.Logger.Error("[proxywasm][filter] unknown abi list: %v", filter.abi)
 		return nil

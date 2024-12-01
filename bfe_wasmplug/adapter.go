@@ -25,10 +25,8 @@ import (
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_wasmplug/abi/proxywasm010"
-	"github.com/bfenetworks/bfe/bfe_wasmplug/abi/proxywasm020"
 	"github.com/bfenetworks/proxy-wasm-go-host/proxywasm/common"
 	v1Host "github.com/bfenetworks/proxy-wasm-go-host/proxywasm/v1"
-	v2Host "github.com/bfenetworks/proxy-wasm-go-host/proxywasm/v2"
 )
 
 // v1 Imports
@@ -120,227 +118,87 @@ func (v1 *v1Imports) SendHttpResp(respCode int32, respCodeDetail common.IoBuffer
 	return v1Host.WasmResultOk
 }
 
-// v2 Imports
-type v2Imports struct {
-	proxywasm020.DefaultImportsHandler
-	//factory *FilterConfigFactory
-	plugin  WasmPlugin
-	filter  *Filter
-}
-
-func (v2 *v2Imports) GetRootContextID() int32 {
-	return v2.filter.rootContextID
-}
-
-func (v2 *v2Imports) GetVmConfig() common.IoBuffer {
-	//return v2.filter.GetVmConfig()
-	return common.NewIoBufferBytes([]byte{})
-}
-
-func (v2 *v2Imports) GetPluginConfig() common.IoBuffer {
-	return common.NewIoBufferBytes(v2.plugin.GetPluginConfig())
-	//return common.NewIoBufferBytes([]byte{})
-}
-
-func (v2 *v2Imports) GetHttpRequestHeader() common.HeaderMap {
-	if v2.filter.request == nil {
-		return nil
-	}
-
-	return &proxywasm010.HeaderMapWrapper{Header: v2.filter.request.HttpRequest.Header}
-}
-
-func (v2 *v2Imports) GetHttpRequestBody() common.IoBuffer {
-	if v2.filter.request == nil {
-		return nil
-	}
-
-	return nil
-	//return &proxywasm020.IoBufferWrapper{IoBuffer: v2.filter.receiverFilterHandler.GetRequestData()}
-}
-
-func (v2 *v2Imports) GetHttpRequestTrailer() common.HeaderMap {
-	if v2.filter.request == nil {
-		return nil
-	}
-
-	return &proxywasm010.HeaderMapWrapper{Header: v2.filter.request.HttpRequest.Trailer}
-}
-
-func (v2 *v2Imports) GetHttpResponseHeader() common.HeaderMap {
-	if v2.filter.request == nil || v2.filter.request.HttpResponse == nil {
-		return nil
-	}
-
-	return &proxywasm010.HeaderMapWrapper{Header: v2.filter.request.HttpResponse.Header}
-}
-
-func (v2 *v2Imports) GetHttpResponseBody() common.IoBuffer {
-	if v2.filter.request == nil || v2.filter.request.HttpResponse == nil {
-		return nil
-	}
-
-	return nil
-	//return &proxywasm020.IoBufferWrapper{IoBuffer: v2.filter.senderFilterHandler.GetResponseData()}
-}
-
-func (v2 *v2Imports) GetHttpResponseTrailer() common.HeaderMap {
-	if v2.filter.request == nil || v2.filter.request.HttpResponse == nil {
-		return nil
-	}
-
-	return &proxywasm010.HeaderMapWrapper{Header: v2.filter.request.HttpResponse.Trailer}
-}
-
 // exports
 type exportAdapter struct {
 	v1 v1Host.Exports
-	v2 v2Host.Exports
 }
 
 func (e *exportAdapter) ProxyOnContextCreate(contextID int32, parentContextID int32) error {
-	if e.v1 != nil {
 		return e.v1.ProxyOnContextCreate(contextID, parentContextID)
-	} else {
-		return e.v2.ProxyOnContextCreate(contextID, parentContextID, v2Host.ContextTypeHttpContext)
-	}
 }
 
 func (e *exportAdapter) ProxyOnVmStart(rootContextID int32, vmConfigurationSize int32) (int32, error) {
-	if e.v1 != nil {
 		return e.v1.ProxyOnVmStart(rootContextID, vmConfigurationSize)
-	} else {
-		return e.v2.ProxyOnVmStart(rootContextID, vmConfigurationSize)
-	}
 }
 
 func (e *exportAdapter) ProxyOnConfigure(rootContextID int32, pluginConfigurationSize int32) (int32, error) {
-	if e.v1 != nil {
 		return e.v1.ProxyOnConfigure(rootContextID, pluginConfigurationSize)
-	} else {
-		return e.v2.ProxyOnConfigure(rootContextID, pluginConfigurationSize)
-	}
 }
 
 func (e *exportAdapter) ProxyOnDone(contextID int32) (int32, error) {
-	if e.v1 != nil {
 		return e.v1.ProxyOnDone(contextID)
-	} else {
-		return e.v2.ProxyOnDone(contextID)
-	}
 }
 
 func (e *exportAdapter) ProxyOnDelete(contextID int32) error {
-	if e.v1 != nil {
 		return e.v1.ProxyOnDelete(contextID)
-	}
-	return nil
 }
 
 func (e *exportAdapter) ProxyOnRequestHeaders(contextID int32, headers int32, endOfStream int32) int {
-	if e.v1 != nil {
 		action, err := e.v1.ProxyOnRequestHeaders(contextID, headers, endOfStream)
 		if err != nil || action != v1Host.ActionContinue {
 			log.Logger.Error("[proxywasm][filter][v1] ProxyOnRequestHeaders action: %v, err: %v", action, err)
 			return bfe_module.BfeHandlerResponse
 		}
-	} else {
-		action, err := e.v2.ProxyOnRequestHeaders(contextID, headers, endOfStream)
-		if err != nil || action != v2Host.ActionContinue {
-			log.Logger.Error("[proxywasm][filter][v2] ProxyOnRequestHeaders action: %v, err: %v", action, err)
-			return bfe_module.BfeHandlerResponse
-		}
-	}
 
 	return bfe_module.BfeHandlerGoOn
 }
 
 func (e *exportAdapter) ProxyOnRequestBody(contextID int32, bodyBufferLength int32, endOfStream int32) int {
-	if e.v1 != nil {
 		action, err := e.v1.ProxyOnRequestBody(contextID, bodyBufferLength, endOfStream)
 		if err != nil || action != v1Host.ActionContinue {
 			log.Logger.Error("[proxywasm][filter][v1] ProxyOnRequestBody action: %v, err: %v", action, err)
 			return bfe_module.BfeHandlerResponse
 		}
-	} else {
-		action, err := e.v2.ProxyOnRequestBody(contextID, bodyBufferLength, endOfStream)
-		if err != nil || action != v2Host.ActionContinue {
-			log.Logger.Error("[proxywasm][filter][v2] ProxyOnRequestBody action: %v, err: %v", action, err)
-			return bfe_module.BfeHandlerResponse
-		}
-	}
 
 	return bfe_module.BfeHandlerGoOn
 }
 
 func (e *exportAdapter) ProxyOnRequestTrailers(contextID int32, trailers int32, endOfStream int32) int {
-	if e.v1 != nil {
 		action, err := e.v1.ProxyOnRequestTrailers(contextID, trailers)
 		if err != nil || action != v1Host.ActionContinue {
 			log.Logger.Error("[proxywasm][filter][v1] ProxyOnRequestTrailers action: %v, err: %v", action, err)
 			return bfe_module.BfeHandlerResponse
 		}
-	} else {
-		action, err := e.v2.ProxyOnRequestTrailers(contextID, trailers, endOfStream)
-		if err != nil || action != v2Host.ActionContinue {
-			log.Logger.Error("[proxywasm][filter][v2] ProxyOnRequestTrailers action: %v, err: %v", action, err)
-			return bfe_module.BfeHandlerResponse
-		}
-	}
 
 	return bfe_module.BfeHandlerGoOn
 }
 
 func (e *exportAdapter) ProxyOnResponseHeaders(contextID int32, headers int32, endOfStream int32) int {
-	if e.v1 != nil {
 		action, err := e.v1.ProxyOnResponseHeaders(contextID, headers, endOfStream)
 		if err != nil || action != v1Host.ActionContinue {
 			log.Logger.Error("[proxywasm][filter][v1] ProxyOnResponseHeaders action: %v, err: %v", action, err)
 			return bfe_module.BfeHandlerResponse
 		}
-	} else {
-		action, err := e.v2.ProxyOnResponseHeaders(contextID, headers, endOfStream)
-		if err != nil || action != v2Host.ActionContinue {
-			log.Logger.Error("[proxywasm][filter][v2] ProxyOnResponseHeaders action: %v, err: %v", action, err)
-			return bfe_module.BfeHandlerResponse
-		}
-	}
 
 	return bfe_module.BfeHandlerGoOn
 }
 
 func (e *exportAdapter) ProxyOnResponseBody(contextID int32, bodyBufferLength int32, endOfStream int32) int {
-	if e.v1 != nil {
 		action, err := e.v1.ProxyOnResponseBody(contextID, bodyBufferLength, endOfStream)
 		if err != nil || action != v1Host.ActionContinue {
 			log.Logger.Error("[proxywasm][filter][v1] ProxyOnRequestBody action: %v, err: %v", action, err)
 			return bfe_module.BfeHandlerResponse
 		}
-	} else {
-		action, err := e.v2.ProxyOnResponseBody(contextID, bodyBufferLength, endOfStream)
-		if err != nil || action != v2Host.ActionContinue {
-			log.Logger.Error("[proxywasm][filter][v2] ProxyOnRequestBody action: %v, err: %v", action, err)
-			return bfe_module.BfeHandlerResponse
-		}
-	}
 
 	return bfe_module.BfeHandlerGoOn
 }
 
 func (e *exportAdapter) ProxyOnResponseTrailers(contextID int32, trailers int32, endOfStream int32) int {
-	if e.v1 != nil {
 		action, err := e.v1.ProxyOnResponseTrailers(contextID, trailers)
 		if err != nil || action != v1Host.ActionContinue {
 			log.Logger.Error("[proxywasm][filter][v1] ProxyOnResponseTrailers action: %v, err: %v", action, err)
 			return bfe_module.BfeHandlerResponse
 		}
-	} else {
-		action, err := e.v2.ProxyOnResponseTrailers(contextID, trailers, endOfStream)
-		if err != nil || action != v2Host.ActionContinue {
-			log.Logger.Error("[proxywasm][filter][v2] ProxyOnResponseTrailers action: %v, err: %v", action, err)
-			return bfe_module.BfeHandlerResponse
-		}
-	}
 
 	return bfe_module.BfeHandlerGoOn
 }
