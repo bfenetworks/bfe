@@ -57,6 +57,7 @@ func (ctx *ABIContext) GetABIExports() interface{} {
 	return ctx.ABIContext.GetExports()
 }
 
+/*
 // implement types.ABIHandler
 func (ctx *ABIContext) OnInstanceCreate(instance common.WasmInstance) {
 	if err := instance.RegisterImports(ctx.Name()); err != nil {
@@ -67,3 +68,4 @@ func (ctx *ABIContext) OnInstanceCreate(instance common.WasmInstance) {
 func (ctx *ABIContext) OnInstanceStart(instance common.WasmInstance) {}
 
 func (ctx *ABIContext) OnInstanceDestroy(instance common.WasmInstance) {}
+*/

@@ -17,10 +17,6 @@
 
 package abi
 
-import (
-	"github.com/bfenetworks/proxy-wasm-go-host/proxywasm/common"
-)
-
 //
 //	ABI
 //
@@ -29,6 +25,7 @@ import (
 // *exports* represents the exported elements of the wasm module, i.e., the abilities provided by wasm and exposed to host
 // *imports* represents the imported elements of the wasm module, i.e., the dependencies that required by wasm
 // *life-cycle handler* manages the life-cycle of an abi
+
 type ABI interface {
 	// Name returns the name of ABI
 	Name() string
@@ -42,9 +39,10 @@ type ABI interface {
 	// GetExports returns the export part of the abi
 	GetABIExports() interface{}
 
-	ABIHandler
+	//ABIHandler
 }
 
+/*
 type ABIHandler interface {
 	// life-cycle: OnInstanceCreate got called when instantiating the wasm instance
 	OnInstanceCreate(instance common.WasmInstance)
@@ -55,3 +53,4 @@ type ABIHandler interface {
 	// life-cycle: OnInstanceDestroy got called when destroying the wasm instance
 	OnInstanceDestroy(instance common.WasmInstance)
 }
+*/

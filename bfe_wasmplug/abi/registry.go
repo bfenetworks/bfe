@@ -22,6 +22,7 @@ import (
 
 	"github.com/baidu/go-lib/log"
 	"github.com/bfenetworks/proxy-wasm-go-host/proxywasm/common"
+	proxywasm "github.com/bfenetworks/proxy-wasm-go-host/proxywasm/v1"
 )
 
 // Factory is the ABI factory func.
@@ -69,11 +70,11 @@ func GetABIList(instance common.WasmInstance) []ABI {
 	res := make([]ABI, 0)
 
 	abiNameList := instance.GetModule().GetABINameList()
-	for _, abiName := range abiNameList {
-		v, ok := abiMap.Load(abiName)
+	if len(abiNameList) > 0 {
+		v, ok := abiMap.Load(proxywasm.ProxyWasmABI_0_1_0)
 		if !ok {
-			log.Logger.Warn("[abi][registry] GetABIList abi not registered, name: %v", abiName)
-			continue
+			log.Logger.Warn("[abi][registry] GetABIList abi not registered, name: %v", proxywasm.ProxyWasmABI_0_1_0)
+			return res
 		}
 
 		factory := v.(Factory)
