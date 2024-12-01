@@ -75,7 +75,7 @@ type httpCallout struct {
 	id         int32
 	d          *DefaultImportsHandler
 	instance   common.WasmInstance
-	abiContext *ABIContext
+	abiContext *proxywasm.ABIContext
 
 	urlString  string
 	client     *http.Client
@@ -101,7 +101,7 @@ func (d *DefaultImportsHandler) HttpCall(reqURL string, header common.HeaderMap,
 		id:         calloutID,
 		d:          d,
 		instance:   d.Instance,
-		abiContext: d.Instance.GetData().(*ABIContext),
+		abiContext: d.Instance.GetData().(*proxywasm.ABIContext),
 		urlString:  reqURL,
 	}
 
