@@ -18,67 +18,23 @@
 package abi
 
 import (
-	"sync"
-
 	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/bfe/bfe_wasmplug/abi/proxywasm010"
 	"github.com/bfenetworks/proxy-wasm-go-host/proxywasm/common"
 	proxywasm "github.com/bfenetworks/proxy-wasm-go-host/proxywasm/v1"
 )
 
-// Factory is the ABI factory func.
-type Factory func(instance common.WasmInstance) ABI
-
-// string -> Factory.
-var abiMap = sync.Map{}
-
-// RegisterABI registers an abi factory.
-func RegisterABI(name string, factory Factory) {
-	abiMap.Store(name, factory)
-}
-
-func GetABI(instance common.WasmInstance, name string) ABI {
-	if instance == nil || name == "" {
-		log.Logger.Error("[abi][registry] GetABI invalid param, name: %v, instance: %v", name, instance)
-		return nil
-	}
-
-	v, ok := abiMap.Load(name)
-	if !ok {
-		log.Logger.Error("[abi][registry] GetABI not found in registry, name: %v", name)
-		return nil
-	}
-
-	abiNameList := instance.GetModule().GetABINameList()
-	for _, abi := range abiNameList {
-		if name == abi {
-			factory := v.(Factory)
-			return factory(instance)
-		}
-	}
-
-	log.Logger.Error("[abi][register] GetABI not found in wasm instance, name: %v", name)
-
-	return nil
-}
-
-func GetABIList(instance common.WasmInstance) []ABI {
+func GetABIList(instance common.WasmInstance) []proxywasm.ContextHandler {
 	if instance == nil {
 		log.Logger.Error("[abi][registry] GetABIList nil instance: %v", instance)
 		return nil
 	}
 
-	res := make([]ABI, 0)
+	res := make([]proxywasm.ContextHandler, 0)
 
 	abiNameList := instance.GetModule().GetABINameList()
 	if len(abiNameList) > 0 {
-		v, ok := abiMap.Load(proxywasm.ProxyWasmABI_0_1_0)
-		if !ok {
-			log.Logger.Warn("[abi][registry] GetABIList abi not registered, name: %v", proxywasm.ProxyWasmABI_0_1_0)
-			return res
-		}
-
-		factory := v.(Factory)
-		res = append(res, factory(instance))
+		res = append(res, proxywasm010.ABIContextFactory(instance))
 	}
 
 	return res

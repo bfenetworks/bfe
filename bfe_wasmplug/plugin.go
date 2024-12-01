@@ -314,13 +314,13 @@ func (w *wasmPluginImpl) ReleaseInstance(instance common.WasmInstance) {
 func (w *wasmPluginImpl) OnPluginStart() {
 	w.Exec(func(instance common.WasmInstance) bool {
 		abi := wasmABI.GetABIList(instance)[0]
-		var exports *exportAdapter
+		var exports v1Host.Exports
 		if abi != nil {
 			// v1
 			imports := &v1Imports{plugin: w}
 			imports.DefaultImportsHandler.Instance = instance
-			abi.SetABIImports(imports)
-			exports = &exportAdapter{v1: abi.GetABIExports().(v1Host.Exports)}
+			abi.SetImports(imports)
+			exports = abi.GetExports()
 		} else {
 			log.Logger.Error("[proxywasm][factory] unknown abi list: %v", abi)
 			return false

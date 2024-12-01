@@ -39,8 +39,8 @@ type Filter struct {
 	//pluginName string
 	plugin     WasmPlugin
 	instance   common.WasmInstance
-	abi        wasmABI.ABI
-	exports    *exportAdapter
+	abi        v1Host.ContextHandler
+	exports    v1Host.Exports
 
 	rootContextID int32
 	contextID     int32
@@ -81,8 +81,8 @@ func NewFilter(plugin *WasmPlugin, request *bfe_basic.Request) *Filter {
 		// v1
 		imports := &v1Imports{plugin: *plugin, filter: filter}
 		imports.DefaultImportsHandler.Instance = instance
-		filter.abi.SetABIImports(imports)
-		filter.exports = &exportAdapter{v1: filter.abi.GetABIExports().(v1Host.Exports)}
+		filter.abi.SetImports(imports)
+		filter.exports = filter.abi.GetExports()
 	} else {
 		log.Logger.Error("[proxywasm][filter] unknown abi list: %v", filter.abi)
 		return nil
@@ -100,59 +100,7 @@ func NewFilter(plugin *WasmPlugin, request *bfe_basic.Request) *Filter {
 
 	return filter
 }
-/*
-func NewFilter(ctx context.Context, pluginName string, rootContextID int32, factory *FilterConfigFactory) *Filter {
-	pluginWrapper := bfe_wasm.GetWasmManager().GetWasmPluginWrapperByName(pluginName)
-	if pluginWrapper == nil {
-		log.Logger.Error("[proxywasm][filter] NewFilter wasm plugin not exists, plugin name: %v", pluginName)
-		return nil
-	}
 
-	plugin := pluginWrapper.GetPlugin()
-	instance := plugin.GetInstance()
-
-	filter := &Filter{
-		ctx:           ctx,
-		factory:       factory,
-		pluginName:    pluginName,
-		plugin:        plugin,
-		instance:      instance,
-		rootContextID: rootContextID,
-		contextID:     newContextID(rootContextID),
-	}
-
-	filter.abi = wasmABI.GetABIList(instance)[0]
-	log.Logger.Info("[proxywasm][filter] abi version: %v", filter.abi.Name())
-	if filter.abi.Name() == v1Host.ProxyWasmABI_0_1_0 {
-		// v1
-		imports := &v1Imports{factory: filter.factory, filter: filter}
-		imports.DefaultImportsHandler.Instance = instance
-		filter.abi.SetABIImports(imports)
-		filter.exports = &exportAdapter{v1: filter.abi.GetABIExports().(v1Host.Exports)}
-	} else if filter.abi.Name() == v2Host.ProxyWasmABI_0_2_0 {
-		// v2
-		imports := &v2Imports{factory: filter.factory, filter: filter}
-		imports.DefaultImportsHandler.Instance = instance
-		filter.abi.SetABIImports(imports)
-		filter.exports = &exportAdapter{v2: filter.abi.GetABIExports().(v2Host.Exports)}
-	} else {
-		log.Logger.Error("[proxywasm][filter] unknown abi list: %v", filter.abi)
-		return nil
-	}
-
-	filter.instance.Lock(filter.abi)
-	defer filter.instance.Unlock()
-
-	err := filter.exports.ProxyOnContextCreate(filter.contextID, filter.rootContextID)
-	if err != nil {
-		log.Logger.Error("[proxywasm][filter] NewFilter fail to create context id: %v, rootContextID: %v, err: %v",
-			filter.contextID, filter.rootContextID, err)
-		return nil
-	}
-
-	return filter
-}
-*/
 func (f *Filter) OnDestroy() {
 	f.destroyOnce.Do(func() {
 		f.instance.Lock(f.abi)
@@ -173,88 +121,17 @@ func (f *Filter) OnDestroy() {
 		f.plugin.ReleaseInstance(f.instance)
 	})
 }
-/*
-func (f *Filter) SetReceiveFilterHandler(handler api.StreamReceiverFilterHandler) {
-	f.receiverFilterHandler = handler
-}
 
-func (f *Filter) SetSenderFilterHandler(handler api.StreamSenderFilterHandler) {
-	f.senderFilterHandler = handler
-}
-*/
-/*
-func (f *Filter) OnReceive() int {
-	f.instance.Lock(f.abi)
-	defer f.instance.Unlock()
-
-	status := f.exports.ProxyOnRequestHeaders(f.contextID, int32(len(f.request.HttpRequest.Header)), 0)
-	if status != bfe_module.BfeHandlerGoOn {
-		return status
-	}
-
-	endOfStream = 1
-	if trailers != nil {
-		endOfStream = 0
-	}
-
-	if buf != nil && buf.Len() > 0 {
-		status = f.exports.ProxyOnRequestBody(f.contextID, int32(buf.Len()), int32(endOfStream))
-		if status == api.StreamFilterStop {
-			return api.StreamFilterStop
-		}
-	}
-
-	if trailers != nil {
-		status = f.exports.ProxyOnRequestTrailers(f.contextID, int32(headerMapSize(trailers)), int32(endOfStream))
-		if status == api.StreamFilterStop {
-			return api.StreamFilterStop
-		}
-	}
-
-	return api.StreamFilterContinue
-}
-
-func (f *Filter) Append(ctx context.Context, headers api.HeaderMap, buf buffer.IoBuffer, trailers api.HeaderMap) api.StreamFilterStatus {
-	f.instance.Lock(f.abi)
-	defer f.instance.Unlock()
-
-	endOfStream := 1
-	if (buf != nil && buf.Len() > 0) || trailers != nil {
-		endOfStream = 0
-	}
-
-	status := f.exports.ProxyOnResponseHeaders(f.contextID, int32(headerMapSize(headers)), int32(endOfStream))
-	if status == api.StreamFilterStop {
-		return api.StreamFilterStop
-	}
-
-	endOfStream = 1
-	if trailers != nil {
-		endOfStream = 0
-	}
-
-	if buf != nil && buf.Len() > 0 {
-		status = f.exports.ProxyOnResponseBody(f.contextID, int32(buf.Len()), int32(endOfStream))
-		if status == api.StreamFilterStop {
-			return api.StreamFilterStop
-		}
-	}
-
-	if trailers != nil {
-		status = f.exports.ProxyOnResponseTrailers(f.contextID, int32(headerMapSize(trailers)), int32(endOfStream))
-		if status == api.StreamFilterStop {
-			return api.StreamFilterStop
-		}
-	}
-
-	return api.StreamFilterContinue
-}
-*/
 func (f *Filter) RequestHandler(request *bfe_basic.Request) (int, *bfe_http.Response) {
 	f.instance.Lock(f.abi)
 	defer f.instance.Unlock()
 
-	status := f.exports.ProxyOnRequestHeaders(f.contextID, int32(len(request.HttpRequest.Header)), 0)
+	action, err := f.exports.ProxyOnRequestHeaders(f.contextID, int32(len(request.HttpRequest.Header)), 0)
+	if err != nil {
+		log.Logger.Error("[proxywasm][filter][v1] ProxyOnRequestHeaders action: %v, err: %v", action, err)
+	}
+
+	status := bfe_module.BfeHandlerGoOn
 	if f.request.HttpResponse != nil {
 		status = bfe_module.BfeHandlerResponse
 	}
@@ -265,7 +142,14 @@ func (f *Filter) ResponseHandler(request *bfe_basic.Request) (int, *bfe_http.Res
 	f.instance.Lock(f.abi)
 	defer f.instance.Unlock()
 
-	status := f.exports.ProxyOnResponseHeaders(f.contextID, int32(len(request.HttpResponse.Header)), 0)
+	action, err := f.exports.ProxyOnResponseHeaders(f.contextID, int32(len(request.HttpResponse.Header)), 0)
+	if err != nil {
+		log.Logger.Error("[proxywasm][filter][v1] ProxyOnResponseHeaders action: %v, err: %v", action, err)
+	}
+
+	status := bfe_module.BfeHandlerGoOn
+	if f.request.HttpResponse != nil {
+		status = bfe_module.BfeHandlerResponse
+	}
 	return status, f.request.HttpResponse
 }
-

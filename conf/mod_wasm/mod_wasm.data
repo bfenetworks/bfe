@@ -1,5 +1,5 @@
 {
-    "Version": "9",
+    "Version": "1",
     "BeforeLocationRules": [{
         "Cond": "req_path_prefix_in(\"/headers\", false)",
         "PluginList": [ "headers" ]
@@ -19,15 +19,15 @@
         },
         "headers": {
             "Name": "headers",
-            "WasmVersion": "2",
-            "ConfVersion": "4",
-            "InstanceNum": 1
+            "WasmVersion": "3",
+            "ConfVersion": "6",
+            "InstanceNum": 3
         },
         "auth": {
             "Name": "auth",
             "WasmVersion": "2",
             "ConfVersion": "4",
-            "InstanceNum": 1
+            "InstanceNum": 3
         }
     }
 }

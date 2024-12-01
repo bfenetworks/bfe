@@ -56,20 +56,3 @@ func (h HeaderMapWrapper) ByteSize() uint64 {
 func (h HeaderMapWrapper) Clone() common.HeaderMap {
 	return &HeaderMapWrapper{h.Header}
 }
-
-/*
-// HeaderMapWrapperBack wraps proxy-wasm-go-host/common.HeaderMap into api.HeaderMap
-type HeaderMapWrapperBack struct {
-	common.HeaderMap
-}
-
-func (h HeaderMapWrapperBack) Clone() api.HeaderMap {
-	return nil
-}
-
-// IoBufferWrapper  wraps buffer.IoBuffer into proxy-wasm-go-host/common.IoBuffer
-// implement common.IoBuffer
-type IoBufferWrapper struct {
-	buffer.IoBuffer
-}
-*/
