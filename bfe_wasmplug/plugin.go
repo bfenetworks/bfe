@@ -236,6 +236,7 @@ func (w *wasmPluginImpl) EnsureInstanceNum(num int) int {
 				continue
 			}
 
+			w.OnInstanceStart(instance)
 			newInstance = append(newInstance, instance)
 		}
 
@@ -311,8 +312,7 @@ func (w *wasmPluginImpl) ReleaseInstance(instance common.WasmInstance) {
 	atomic.AddInt32(&w.occupy, -1)
 }
 
-func (w *wasmPluginImpl) OnPluginStart() {
-	w.Exec(func(instance common.WasmInstance) bool {
+func (w *wasmPluginImpl) OnInstanceStart(instance common.WasmInstance) bool {
 		abi := wasmABI.GetABIList(instance)[0]
 		var exports v1Host.Exports
 		if abi != nil {
@@ -356,7 +356,10 @@ func (w *wasmPluginImpl) OnPluginStart() {
 		}
 
 		return true
-	})
+}
+
+func (w *wasmPluginImpl) OnPluginStart() {
+	// w.Exec(w.OnInstanceStart)
 }
 
 func (d *wasmPluginImpl) OnPluginDestroy() {}
