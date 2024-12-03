@@ -98,15 +98,15 @@ type PluginMeta struct {
 
 type FilterRule struct {
 	Cond    condition.Condition // condition for plugin
-	PluginList []*bfe_wasmplug.WasmPlugin
+	PluginList []bfe_wasmplug.WasmPlugin
 }
 
 type RuleList []FilterRule
-type ProductRules map[string]*RuleList // product => list of filter rules
+type ProductRules map[string]RuleList // product => list of filter rules
 
 func updatePluginConf(t *PluginTable, conf PluginConfFile, pluginPath string) error {
 	if conf.Version != nil && *conf.Version != t.GetVersion() {
-		pluginMapNew := make(map[string]*bfe_wasmplug.WasmPlugin)
+		pluginMapNew := make(map[string]bfe_wasmplug.WasmPlugin)
 		var beforeLocationRulesNew RuleList
 		productRulesNew := make(ProductRules)
 
@@ -116,16 +116,16 @@ func updatePluginConf(t *PluginTable, conf PluginConfFile, pluginPath string) er
 		pm := t.GetPluginMap()
 		if conf.PluginMap != nil {
 			for pn, p := range *conf.PluginMap {
-				plugOld := (*pm)[pn]
+				plugOld := pm[pn]
 				// check whether plugin version changed.
 				if plugOld != nil {
-					configOld := (*plugOld).GetConfig()
+					configOld := plugOld.GetConfig()
 					if configOld.WasmVersion == p.WasmVersion && configOld.ConfigVersion == p.ConfVersion {
 						// not change, just copy to new map
 						pluginMapNew[pn] = plugOld
 
 						// ensure instance num
-						actual := (*plugOld).EnsureInstanceNum(p.InstanceNum)
+						actual := plugOld.EnsureInstanceNum(p.InstanceNum)
 						if actual != p.InstanceNum {
 							return fmt.Errorf("can not EnsureInstanceNum, plugin:%s, num:%d", pn, p.InstanceNum)
 						}
@@ -151,7 +151,7 @@ func updatePluginConf(t *PluginTable, conf PluginConfFile, pluginPath string) er
 
 				// plug.OnPluginStart()
 
-				pluginMapNew[pn] = &plug
+				pluginMapNew[pn] = plug
 			}
 		}
 
@@ -194,19 +194,19 @@ func updatePluginConf(t *PluginTable, conf PluginConfFile, pluginPath string) er
 					}
 					rulelist = append(rulelist, rule)
 				}
-				productRulesNew[product] = &rulelist
+				productRulesNew[product] = rulelist
 			}
 		}
 
 		// 3. update PluginTable
-		t.Update(*conf.Version, &beforeLocationRulesNew, productRulesNew, &pluginMapNew)
+		t.Update(*conf.Version, beforeLocationRulesNew, productRulesNew, pluginMapNew)
 
 		// 4. stop & clear old plugins
-		for pn, plug := range *pm {
+		for pn, plug := range pm {
 			if _, ok := unchanged[pn]; !ok {
 				// stop plug
-				(*plug).OnPluginDestroy()
-				(*plug).Clear()
+				plug.OnPluginDestroy()
+				plug.Clear()
 			}
 		}
 	}
@@ -216,19 +216,19 @@ func updatePluginConf(t *PluginTable, conf PluginConfFile, pluginPath string) er
 type PluginTable struct {
 	lock         sync.RWMutex
 	version      string
-	beforeLocationRules *RuleList
+	beforeLocationRules RuleList
 	productRules ProductRules
-	pluginMap *map[string]*bfe_wasmplug.WasmPlugin
+	pluginMap map[string]bfe_wasmplug.WasmPlugin
 }
 
 func NewPluginTable() *PluginTable {
 	t := new(PluginTable)
 	t.productRules = make(ProductRules)
-	t.pluginMap = new(map[string]*bfe_wasmplug.WasmPlugin)
+	t.pluginMap = make(map[string]bfe_wasmplug.WasmPlugin)
 	return t
 }
 
-func (t *PluginTable) Update(version string, beforeLocationRules *RuleList, productRules ProductRules, pluginMap *map[string]*bfe_wasmplug.WasmPlugin) {
+func (t *PluginTable) Update(version string, beforeLocationRules RuleList, productRules ProductRules, pluginMap map[string]bfe_wasmplug.WasmPlugin) {
 	t.lock.Lock()
 
 	t.version = version
@@ -245,19 +245,19 @@ func (t *PluginTable) GetVersion() string {
 	return t.version
 }
 
-func (t *PluginTable) GetPluginMap() *map[string]*bfe_wasmplug.WasmPlugin {
+func (t *PluginTable) GetPluginMap() map[string]bfe_wasmplug.WasmPlugin {
 	defer t.lock.RUnlock()
 	t.lock.RLock()
 	return t.pluginMap
 }
 
-func (t *PluginTable) GetBeforeLocationRules() *RuleList {
+func (t *PluginTable) GetBeforeLocationRules() RuleList {
 	defer t.lock.RUnlock()
 	t.lock.RLock()
 	return t.beforeLocationRules
 }
 
-func (t *PluginTable) Search(product string) (*RuleList, bool) {
+func (t *PluginTable) Search(product string) (RuleList, bool) {
 	t.lock.RLock()
 	productRules := t.productRules
 	t.lock.RUnlock()

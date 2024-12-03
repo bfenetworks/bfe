@@ -53,12 +53,12 @@ func newContextID(rootContextID int32) int32 {
 	}
 }
 
-func NewFilter(plugin *WasmPlugin, request *bfe_basic.Request) *Filter {
-	instance := (*plugin).GetInstance()
-	rootContextID := (*plugin).GetRootContextID()
+func NewFilter(plugin WasmPlugin, request *bfe_basic.Request) *Filter {
+	instance := plugin.GetInstance()
+	rootContextID := plugin.GetRootContextID()
 
 	filter := &Filter{
-		plugin:        *plugin,
+		plugin:        plugin,
 		instance:      instance,
 		rootContextID: rootContextID,
 		contextID:     newContextID(rootContextID),
@@ -69,7 +69,7 @@ func NewFilter(plugin *WasmPlugin, request *bfe_basic.Request) *Filter {
 	log.Logger.Info("[proxywasm][filter] abi version: %v", filter.abi.Name())
 	if filter.abi != nil {
 		// v1
-		imports := &v1Imports{plugin: *plugin, filter: filter}
+		imports := &v1Imports{plugin: plugin, filter: filter}
 		imports.DefaultImportsHandler.Instance = instance
 		filter.abi.SetImports(imports)
 		filter.exports = filter.abi.GetExports()

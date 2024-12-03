@@ -127,9 +127,9 @@ func (m *ModuleWasm) init(cfg *ConfModWasm, cbs *bfe_module.BfeCallbacks,
 
 // 
 func (m *ModuleWasm) wasmBeforeLocationHandler(request *bfe_basic.Request) (int, *bfe_http.Response) {
-	var pl []*bfe_wasmplug.WasmPlugin
+	var pl []bfe_wasmplug.WasmPlugin
 	rl := m.pluginTable.GetBeforeLocationRules()
-	for _, rule := range *rl {
+	for _, rule := range rl {
 		if rule.Cond.Match(request) {
 			// find pluginlist
 			pl = rule.PluginList
@@ -162,9 +162,9 @@ func (m *ModuleWasm) wasmBeforeLocationHandler(request *bfe_basic.Request) (int,
 
 // 
 func (m *ModuleWasm) wasmRequestHandler(request *bfe_basic.Request) (int, *bfe_http.Response) {
-	var pl []*bfe_wasmplug.WasmPlugin
+	var pl []bfe_wasmplug.WasmPlugin
 	rl, _ := m.pluginTable.Search(request.Route.Product)
-	for _, rule := range *rl {
+	for _, rule := range rl {
 		if rule.Cond.Match(request) {
 			// find pluginlist
 			pl = rule.PluginList
