@@ -136,7 +136,7 @@ func updatePluginConf(t *PluginTable, conf PluginConfFile, pluginPath string) er
 					return err
 				}
 
-				plug.OnPluginStart()
+				// plug.OnPluginStart()
 
 				pluginMapNew[pn] = &plug
 			}

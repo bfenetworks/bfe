@@ -10,7 +10,6 @@ require (
 	github.com/armon/go-radix v1.0.0
 	github.com/asergeyev/nradix v0.0.0-20170505151046-3872ab85bb56 // indirect
 	github.com/baidu/go-lib v0.0.0-20200819072111-21df249f5e6a
-	github.com/bfenetworks/proxy-wasm-go-host v0.2.1-0.20230626122511-25a9e133320e
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/json-iterator/go v1.1.12
@@ -40,7 +39,10 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
 
-require github.com/go-jose/go-jose/v4 v4.0.4
+require (
+	github.com/bfenetworks/proxy-wasm-go-host v0.0.0-20241202144118-62704e5df808
+	github.com/go-jose/go-jose/v4 v4.0.4
+)
 
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.0.1 // indirect
@@ -67,4 +69,4 @@ require (
 	howett.net/plist v0.0.0-20181124034731-591f970eefbb // indirect
 )
 
-replace github.com/bfenetworks/proxy-wasm-go-host => ../proxy-wasm-go-host
+// replace github.com/bfenetworks/proxy-wasm-go-host => ../proxy-wasm-go-host
