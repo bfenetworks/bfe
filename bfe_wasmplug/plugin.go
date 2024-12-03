@@ -1,19 +1,16 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright (c) 2019 The BFE Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package bfe_wasmplug
 
@@ -301,49 +298,49 @@ func (w *wasmPluginImpl) ReleaseInstance(instance common.WasmInstance) {
 }
 
 func (w *wasmPluginImpl) OnInstanceStart(instance common.WasmInstance) bool {
-		abi := wasmABI.GetABIList(instance)[0]
-		var exports v1Host.Exports
-		if abi != nil {
-			// v1
-			imports := &v1Imports{plugin: w}
-			imports.DefaultImportsHandler.Instance = instance
-			abi.SetImports(imports)
-			exports = abi.GetExports()
-		} else {
-			log.Logger.Error("[proxywasm][factory] unknown abi list: %v", abi)
-			return false
-		}
+	abi := wasmABI.GetABIList(instance)[0]
+	var exports v1Host.Exports
+	if abi != nil {
+		// v1
+		imports := &v1Imports{plugin: w}
+		imports.DefaultImportsHandler.Instance = instance
+		abi.SetImports(imports)
+		exports = abi.GetExports()
+	} else {
+		log.Logger.Error("[proxywasm][factory] unknown abi list: %v", abi)
+		return false
+	}
 
-		instance.Lock(abi)
-		defer instance.Unlock()
+	instance.Lock(abi)
+	defer instance.Unlock()
 
-		err := exports.ProxyOnContextCreate(w.rootContextID, 0)
-		if err != nil {
-			log.Logger.Error("[proxywasm][factory] OnPluginStart fail to create root context id, err: %v", err)
-			return true
-		}
-
-		vmConfigSize := 0
-		// no vm config
-
-		_, err = exports.ProxyOnVmStart(w.rootContextID, int32(vmConfigSize))
-		if err != nil {
-			log.Logger.Error("[proxywasm][factory] OnPluginStart fail to create root context id, err: %v", err)
-			return true
-		}
-
-		pluginConfigSize := 0
-		if pluginConfigBytes := w.GetPluginConfig(); pluginConfigBytes != nil {
-			pluginConfigSize = len(pluginConfigBytes)
-		}
-
-		_, err = exports.ProxyOnConfigure(w.rootContextID, int32(pluginConfigSize))
-		if err != nil {
-			log.Logger.Error("[proxywasm][factory] OnPluginStart fail to create root context id, err: %v", err)
-			return true
-		}
-
+	err := exports.ProxyOnContextCreate(w.rootContextID, 0)
+	if err != nil {
+		log.Logger.Error("[proxywasm][factory] OnPluginStart fail to create root context id, err: %v", err)
 		return true
+	}
+
+	vmConfigSize := 0
+	// no vm config
+
+	_, err = exports.ProxyOnVmStart(w.rootContextID, int32(vmConfigSize))
+	if err != nil {
+		log.Logger.Error("[proxywasm][factory] OnPluginStart fail to create root context id, err: %v", err)
+		return true
+	}
+
+	pluginConfigSize := 0
+	if pluginConfigBytes := w.GetPluginConfig(); pluginConfigBytes != nil {
+		pluginConfigSize = len(pluginConfigBytes)
+	}
+
+	_, err = exports.ProxyOnConfigure(w.rootContextID, int32(pluginConfigSize))
+	if err != nil {
+		log.Logger.Error("[proxywasm][factory] OnPluginStart fail to create root context id, err: %v", err)
+		return true
+	}
+
+	return true
 }
 
 func (w *wasmPluginImpl) OnPluginStart() {
