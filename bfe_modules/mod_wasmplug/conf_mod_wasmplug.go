@@ -113,7 +113,6 @@ func updatePluginConf(t *PluginTable, conf PluginConfFile, pluginPath string) er
 						// ensure instance num
 						actual := (*plugOld).EnsureInstanceNum(p.InstanceNum)
 						if actual != p.InstanceNum {
-							// log.DefaultLogger.Errorf("[wasm][plugin] NewWasmPlugin fail to ensure instance num, want: %v got 0", instanceNum)
 							return fmt.Errorf("can not EnsureInstanceNum, plugin:%s, num:%d", pn, p.InstanceNum)
 						}
 

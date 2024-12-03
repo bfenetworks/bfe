@@ -121,7 +121,6 @@ func NewWasmPlugin(wasmConfig WasmPluginConfig) (WasmPlugin, error) {
 	// get wasm engine
 	vm := GetWasmEngine()
 	if vm == nil {
-		// log.DefaultLogger.Errorf("[wasm][plugin] NewWasmPlugin fail to get wasm engine: %v", wasmConfig.VmConfig.Engine)
 		return nil, ErrEngineNotFound
 	}
 
@@ -149,22 +148,18 @@ func NewWasmPlugin(wasmConfig WasmPluginConfig) (WasmPlugin, error) {
 	md5str := strings.TrimSpace(string(md5File))
 
 	if len(wasmBytes) == 0 {
-		// log.DefaultLogger.Errorf("[wasm][plugin] NewWasmPlugin fail to load wasm bytes, config: %v", wasmConfig)
 		return nil, ErrWasmBytesLoad
 	}
 
 	md5Bytes := md5.Sum(wasmBytes)
 	newMd5 := hex.EncodeToString(md5Bytes[:])
 	if newMd5 != md5str {
-		// log.DefaultLogger.Errorf("[wasm][plugin] NewWasmPlugin the hash(MD5) of wasm bytes is incorrect, config: %v, real hash: %s",
-		// 	wasmConfig, newMd5)
 		return nil, ErrWasmBytesIncorrect
 	}
 
 	// create wasm module
 	module := vm.NewModule(wasmBytes)
 	if module == nil {
-		// log.DefaultLogger.Errorf("[wasm][plugin] NewWasmPlugin fail to create module, config: %v", wasmConfig)
 		return nil, ErrModuleCreate
 	}
 
@@ -177,13 +172,9 @@ func NewWasmPlugin(wasmConfig WasmPluginConfig) (WasmPlugin, error) {
 		rootContextID: newContextID(0),
 	}
 
-	// plugin.SetCpuLimit(wasmConfig.VmConfig.Cpu)
-	// plugin.SetMemLimit(wasmConfig.VmConfig.Mem)
-
 	// ensure instance num
 	actual := plugin.EnsureInstanceNum(wasmConfig.InstanceNum)
 	if actual == 0 {
-		// log.DefaultLogger.Errorf("[wasm][plugin] NewWasmPlugin fail to ensure instance num, want: %v got 0", instanceNum)
 		return nil, ErrInstanceCreate
 	}
 
@@ -219,8 +210,6 @@ func (w *wasmPluginImpl) EnsureInstanceNum(num int) int {
 				log.Logger.Error("[wasm][plugin] EnsureInstanceNum fail to create instance, i: %v", i)
 				continue
 			}
-
-			//instance.abiList = wasmABI.GetABIList(instance)
 
 			// Instantiate any ABI needed by the guest.
 			for _, abi := range wasmABI.GetABIList(instance) {
@@ -302,7 +291,6 @@ func (w *wasmPluginImpl) GetInstance() common.WasmInstance {
 		atomic.AddInt32(&w.occupy, 1)
 		return instance
 	}
-	// log.DefaultLogger.Errorf("[wasm][plugin] GetInstance fail to get available instance, instance num: %v", len(w.instances))
 
 	return nil
 }
