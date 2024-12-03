@@ -190,9 +190,6 @@ func (m *ModuleWasm) wasmRequestHandler(request *bfe_basic.Request) (int, *bfe_h
 
 //
 func (m *ModuleWasm) wasmResponseHandler(request *bfe_basic.Request, res *bfe_http.Response) int {
-	// for p := range pluginList {
-	//   call p
-	// }
 	val, ok := request.Context[ModWasmBeforeLocationKey]
 
 	if ok {
@@ -204,7 +201,6 @@ func (m *ModuleWasm) wasmResponseHandler(request *bfe_basic.Request, res *bfe_ht
 
 		n := len(fl)
 		for i := n-1; i >= 0; i-- {
-			// call pl[i]
 			fl[i].ResponseHandler(request)
 			fl[i].OnDestroy()
 		}

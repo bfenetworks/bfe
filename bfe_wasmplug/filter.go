@@ -32,11 +32,6 @@ import (
 )
 
 type Filter struct {
-	//ctx context.Context
-
-	//factory *FilterConfigFactory
-
-	//pluginName string
 	plugin     WasmPlugin
 	instance   common.WasmInstance
 	abi        v1Host.ContextHandler
@@ -45,8 +40,6 @@ type Filter struct {
 	rootContextID int32
 	contextID     int32
 
-	//receiverFilterHandler api.StreamReceiverFilterHandler
-	//senderFilterHandler   api.StreamSenderFilterHandler
 	request *bfe_basic.Request
 
 	destroyOnce sync.Once
