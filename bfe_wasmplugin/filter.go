@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bfe_wasmplug
+package bfe_wasmplugin
 
 import (
 	"sync"
@@ -23,7 +23,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_module"
 
 	"github.com/baidu/go-lib/log"
-	wasmABI "github.com/bfenetworks/bfe/bfe_wasmplug/abi"
+	wasmABI "github.com/bfenetworks/bfe/bfe_wasmplugin/abi"
 	"github.com/bfenetworks/proxy-wasm-go-host/proxywasm/common"
 	v1Host "github.com/bfenetworks/proxy-wasm-go-host/proxywasm/v1"
 )
