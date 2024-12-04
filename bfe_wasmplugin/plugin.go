@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The BFE Authors.
+// Copyright (c) 2024 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,6 +35,8 @@ var (
 	ErrEngineNotFound     = errors.New("fail to get wasm engine")
 	ErrWasmBytesLoad      = errors.New("fail to load wasm bytes")
 	ErrWasmBytesIncorrect = errors.New("incorrect hash of wasm bytes")
+	ErrConfigFileLoad     = errors.New("fail to load config file")
+	ErrMd5FileLoad        = errors.New("fail to load md5 file")
 	ErrInstanceCreate     = errors.New("fail to create wasm instance")
 	ErrModuleCreate       = errors.New("fail to create wasm module")
 )
@@ -106,6 +108,45 @@ type wasmPluginImpl struct {
 	rootContextID int32
 }
 
+// load wasm bytes
+func loadWasmBytes(dir string, name string) (wasmBytes []byte, configBytes []byte, err error) {
+	wasmBytes, err = os.ReadFile(path.Join(dir, name + ".wasm"))
+	if err != nil || len(wasmBytes) == 0 {
+		// wasm file error
+		err = ErrWasmBytesLoad
+		return
+	}
+
+	configBytes, err = os.ReadFile(path.Join(dir, name + ".conf"))
+	if err != nil {
+		// plugin config file error
+		err = ErrConfigFileLoad
+		return
+	}
+
+	var md5File []byte
+	md5File, err = os.ReadFile(path.Join(dir, name + ".md5"))
+	if err != nil {
+		// md5 file error
+		err = ErrMd5FileLoad
+		return
+	}
+	md5str := ""
+	fields := strings.Fields(string(md5File))
+	if len(fields) > 0 {
+		md5str = fields[0]
+	}
+
+	md5Bytes := md5.Sum(wasmBytes)
+	newMd5 := hex.EncodeToString(md5Bytes[:])
+	if newMd5 != md5str {
+		err = ErrWasmBytesIncorrect
+		return
+	}
+
+	return
+}
+
 func NewWasmPlugin(wasmConfig WasmPluginConfig) (WasmPlugin, error) {
 	// check instance num
 	instanceNum := wasmConfig.InstanceNum
@@ -122,36 +163,10 @@ func NewWasmPlugin(wasmConfig WasmPluginConfig) (WasmPlugin, error) {
 	}
 
 	// load wasm bytes
-	var wasmBytes []byte
-	var configBytes []byte
-	var md5File []byte
-	var err error
-
-	wasmBytes, err = os.ReadFile(path.Join(wasmConfig.Path, wasmConfig.PluginName + ".wasm"))
+	wasmBytes, configBytes, err := loadWasmBytes(wasmConfig.Path, wasmConfig.PluginName)
 	if err != nil {
 		// wasm file error
-		return nil, ErrWasmBytesLoad
-	}
-	configBytes, err = os.ReadFile(path.Join(wasmConfig.Path, wasmConfig.PluginName + ".conf"))
-	if err != nil {
-		// plugin config file error
-		return nil, ErrWasmBytesLoad
-	}
-	md5File, err = os.ReadFile(path.Join(wasmConfig.Path, wasmConfig.PluginName + ".md5"))
-	if err != nil {
-		// md5 file error
-		return nil, ErrWasmBytesLoad
-	}
-	md5str := strings.TrimSpace(string(md5File))
-
-	if len(wasmBytes) == 0 {
-		return nil, ErrWasmBytesLoad
-	}
-
-	md5Bytes := md5.Sum(wasmBytes)
-	newMd5 := hex.EncodeToString(md5Bytes[:])
-	if newMd5 != md5str {
-		return nil, ErrWasmBytesIncorrect
+		return nil, err
 	}
 
 	// create wasm module
@@ -178,6 +193,27 @@ func NewWasmPlugin(wasmConfig WasmPluginConfig) (WasmPlugin, error) {
 	return plugin, nil
 }
 
+// reduce to n instances and return the cut-offs
+func (w *wasmPluginImpl) cutInstance(n int) []common.WasmInstance {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	oldcopy := make([]common.WasmInstance, w.InstanceNum() - n)
+	copy(oldcopy, w.instances[n:])
+	w.instances = w.instances[:n]
+	atomic.StoreInt32(&w.instanceNum, int32(n))
+
+	return oldcopy
+}
+
+func (w *wasmPluginImpl) appendInstance(newInstance []common.WasmInstance) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	w.instances = append(w.instances, newInstance...)
+	atomic.AddInt32(&w.instanceNum, int32(len(newInstance)))
+}
+
 // EnsureInstanceNum try to expand/shrink the num of instance to 'num'
 // and return the actual instance num.
 func (w *wasmPluginImpl) EnsureInstanceNum(num int) int {
@@ -186,17 +222,12 @@ func (w *wasmPluginImpl) EnsureInstanceNum(num int) int {
 	}
 
 	if num < w.InstanceNum() {
-		w.lock.Lock()
+		todel := w.cutInstance(num)
 
-		for i := num; i < len(w.instances); i++ {
-			w.instances[i].Stop()
-			w.instances[i] = nil
+		// stop the cut-off instances
+		for _, instance := range todel {
+			instance.Stop()
 		}
-
-		w.instances = w.instances[:num]
-		atomic.StoreInt32(&w.instanceNum, int32(num))
-
-		w.lock.Unlock()
 	} else {
 		newInstance := make([]common.WasmInstance, 0)
 		numToCreate := num - w.InstanceNum()
@@ -226,12 +257,7 @@ func (w *wasmPluginImpl) EnsureInstanceNum(num int) int {
 			newInstance = append(newInstance, instance)
 		}
 
-		w.lock.Lock()
-
-		w.instances = append(w.instances, newInstance...)
-		atomic.AddInt32(&w.instanceNum, int32(len(newInstance)))
-
-		w.lock.Unlock()
+		w.appendInstance(newInstance)
 	}
 
 	return w.InstanceNum()
