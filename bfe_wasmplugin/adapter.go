@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bfe_wasmplug
+package bfe_wasmplugin
 
 import (
 	"bytes"
 	"io/ioutil"
 
 	"github.com/bfenetworks/bfe/bfe_http"
-	"github.com/bfenetworks/bfe/bfe_wasmplug/abi/proxywasm010"
+	"github.com/bfenetworks/bfe/bfe_wasmplugin/abi/proxywasm010"
 	"github.com/bfenetworks/proxy-wasm-go-host/proxywasm/common"
 	v1Host "github.com/bfenetworks/proxy-wasm-go-host/proxywasm/v1"
 )
@@ -27,7 +27,6 @@ import (
 // v1 Imports
 type v1Imports struct {
 	proxywasm010.DefaultImportsHandler
-	//factory *FilterConfigFactory
 	plugin  WasmPlugin
 	filter  *Filter
 }
@@ -37,13 +36,11 @@ func (v1 *v1Imports) GetRootContextID() int32 {
 }
 
 func (v1 *v1Imports) GetVmConfig() common.IoBuffer {
-	//return v1.factory.GetVmConfig()
 	return common.NewIoBufferBytes([]byte{})
 }
 
 func (v1 *v1Imports) GetPluginConfig() common.IoBuffer {
 	return common.NewIoBufferBytes(v1.plugin.GetPluginConfig())
-	//return common.NewIoBufferBytes([]byte{})
 }
 
 func (v1 *v1Imports) GetHttpRequestHeader() common.HeaderMap {
@@ -60,7 +57,6 @@ func (v1 *v1Imports) GetHttpRequestBody() common.IoBuffer {
 	}
 
 	return nil
-	// return &proxywasm010.IoBufferWrapper{IoBuffer: v1.filter.receiverFilterHandler.GetRequestData()}
 }
 
 func (v1 *v1Imports) GetHttpRequestTrailer() common.HeaderMap {
@@ -85,7 +81,6 @@ func (v1 *v1Imports) GetHttpResponseBody() common.IoBuffer {
 	}
 
 	return nil
-	//return &proxywasm010.IoBufferWrapper{IoBuffer: v1.filter.senderFilterHandler.GetResponseData()}
 }
 
 func (v1 *v1Imports) GetHttpResponseTrailer() common.HeaderMap {

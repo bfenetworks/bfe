@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"io/ioutil"
 
-	// http "github.com/bfenetworks/bfe/bfe_http"
 	"net/http"
 	"net/url"
 	"sync/atomic"

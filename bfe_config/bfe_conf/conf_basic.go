@@ -72,9 +72,6 @@ type ConfigBasic struct {
 	DebugBfeRoute    bool // whether open bferoute debug log
 	DebugBal         bool // whether open bal debug log
 	DebugHealthCheck bool // whether open health check debug log
-
-	// wasm plugin path
-	BfeWasmPath string //root path of wasm plugins
 }
 
 func (cfg *ConfigBasic) SetDefaultConf() {
@@ -102,8 +99,6 @@ func (cfg *ConfigBasic) SetDefaultConf() {
 	cfg.NameConf = "server_data_conf/name_conf.data"
 
 	cfg.MonitorInterval = 20
-
-	cfg.BfeWasmPath = "plugin"
 }
 
 func (cfg *ConfigBasic) Check(confRoot string) error {

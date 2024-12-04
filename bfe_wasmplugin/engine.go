@@ -12,27 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package abi
+package bfe_wasmplugin
 
 import (
-	"github.com/baidu/go-lib/log"
-	"github.com/bfenetworks/bfe/bfe_wasmplug/abi/proxywasm010"
 	"github.com/bfenetworks/proxy-wasm-go-host/proxywasm/common"
-	proxywasm "github.com/bfenetworks/proxy-wasm-go-host/proxywasm/v1"
+	"github.com/bfenetworks/proxy-wasm-go-host/wazero"
 )
 
-func GetABIList(instance common.WasmInstance) []proxywasm.ContextHandler {
-	if instance == nil {
-		log.Logger.Error("[abi][registry] GetABIList nil instance: %v", instance)
-		return nil
-	}
+var defaultEngine = wazero.NewVM()
 
-	res := make([]proxywasm.ContextHandler, 0)
-
-	abiNameList := instance.GetModule().GetABINameList()
-	if len(abiNameList) > 0 {
-		res = append(res, proxywasm010.ABIContextFactory(instance))
-	}
-
-	return res
+func GetWasmEngine() common.WasmVM {
+	return defaultEngine
 }

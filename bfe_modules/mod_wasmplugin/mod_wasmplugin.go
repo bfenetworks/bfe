@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mod_wasmplug
+package mod_wasmplugin
 
 import (
 	"fmt"
@@ -23,7 +23,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
-	"github.com/bfenetworks/bfe/bfe_wasmplug"
+	"github.com/bfenetworks/bfe/bfe_wasmplugin"
 )
 
 const (
@@ -127,7 +127,7 @@ func (m *ModuleWasm) init(cfg *ConfModWasm, cbs *bfe_module.BfeCallbacks,
 
 // 
 func (m *ModuleWasm) wasmBeforeLocationHandler(request *bfe_basic.Request) (int, *bfe_http.Response) {
-	var pl []bfe_wasmplug.WasmPlugin
+	var pl []bfe_wasmplugin.WasmPlugin
 	rl := m.pluginTable.GetBeforeLocationRules()
 	for _, rule := range rl {
 		if rule.Cond.Match(request) {
@@ -141,9 +141,9 @@ func (m *ModuleWasm) wasmBeforeLocationHandler(request *bfe_basic.Request) (int,
 	if pl != nil {
 		// do the pluginlist
 		retCode := bfe_module.BfeHandlerGoOn
-		var fl []*bfe_wasmplug.Filter
+		var fl []*bfe_wasmplugin.Filter
 		for _, plug := range pl {
-			filter := bfe_wasmplug.NewFilter(plug, request)
+			filter := bfe_wasmplugin.NewFilter(plug, request)
 			var ret int
 			ret, resp = filter.RequestHandler(request)
 			fl = append(fl, filter)
@@ -162,7 +162,7 @@ func (m *ModuleWasm) wasmBeforeLocationHandler(request *bfe_basic.Request) (int,
 
 // 
 func (m *ModuleWasm) wasmRequestHandler(request *bfe_basic.Request) (int, *bfe_http.Response) {
-	var pl []bfe_wasmplug.WasmPlugin
+	var pl []bfe_wasmplugin.WasmPlugin
 	rl, _ := m.pluginTable.Search(request.Route.Product)
 	for _, rule := range rl {
 		if rule.Cond.Match(request) {
@@ -176,9 +176,9 @@ func (m *ModuleWasm) wasmRequestHandler(request *bfe_basic.Request) (int, *bfe_h
 	if pl != nil {
 		// do the pluginlist
 		retCode := bfe_module.BfeHandlerGoOn
-		var fl []*bfe_wasmplug.Filter
+		var fl []*bfe_wasmplugin.Filter
 		for _, plug := range pl {
-			filter := bfe_wasmplug.NewFilter(plug, request)
+			filter := bfe_wasmplugin.NewFilter(plug, request)
 			var ret int
 			ret, resp = filter.RequestHandler(request)
 			fl = append(fl, filter)
@@ -188,10 +188,10 @@ func (m *ModuleWasm) wasmRequestHandler(request *bfe_basic.Request) (int, *bfe_h
 			}
 		}
 
-		var fl0 []*bfe_wasmplug.Filter
+		var fl0 []*bfe_wasmplugin.Filter
 		val, ok := request.Context[ModWasmBeforeLocationKey]
 		if ok {
-			fl0 = val.([]*bfe_wasmplug.Filter)
+			fl0 = val.([]*bfe_wasmplugin.Filter)
 		}
 
 		fl0 = append(fl0, fl...)
@@ -207,7 +207,7 @@ func (m *ModuleWasm) wasmResponseHandler(request *bfe_basic.Request, res *bfe_ht
 	val, ok := request.Context[ModWasmBeforeLocationKey]
 
 	if ok {
-		fl, matched := val.([]*bfe_wasmplug.Filter)
+		fl, matched := val.([]*bfe_wasmplugin.Filter)
 		if !matched {
 			// error
 			return bfe_module.BfeHandlerGoOn

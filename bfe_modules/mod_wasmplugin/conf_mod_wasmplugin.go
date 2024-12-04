@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mod_wasmplug
+package mod_wasmplugin
 
 import (
 	"fmt"
@@ -24,7 +24,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
 	"github.com/bfenetworks/bfe/bfe_util"
 	"github.com/bfenetworks/bfe/bfe_util/json"
-	"github.com/bfenetworks/bfe/bfe_wasmplug"
+	"github.com/bfenetworks/bfe/bfe_wasmplugin"
 	gcfg "gopkg.in/gcfg.v1"
 )
 
@@ -78,7 +78,7 @@ func (cfg *ConfModWasm) Check(confRoot string) error {
 type PluginConfFile struct {
 	Version *string // version of the config
 	BeforeLocationRules *[]FilterRuleFile	// rule list for BeforeLocation
-	ProductRules *map[string][]FilterRuleFile // product --> rule list
+	FoundProductRules *map[string][]FilterRuleFile // product --> rule list for FoundProduct
 	PluginMap *map[string]PluginMeta
 }
 
@@ -98,7 +98,7 @@ type PluginMeta struct {
 
 type FilterRule struct {
 	Cond    condition.Condition // condition for plugin
-	PluginList []bfe_wasmplug.WasmPlugin
+	PluginList []bfe_wasmplugin.WasmPlugin
 }
 
 type RuleList []FilterRule
@@ -106,7 +106,7 @@ type ProductRules map[string]RuleList // product => list of filter rules
 
 func updatePluginConf(t *PluginTable, conf PluginConfFile, pluginPath string) error {
 	if conf.Version != nil && *conf.Version != t.GetVersion() {
-		pluginMapNew := make(map[string]bfe_wasmplug.WasmPlugin)
+		pluginMapNew := make(map[string]bfe_wasmplugin.WasmPlugin)
 		var beforeLocationRulesNew RuleList
 		productRulesNew := make(ProductRules)
 
@@ -135,7 +135,7 @@ func updatePluginConf(t *PluginTable, conf PluginConfFile, pluginPath string) er
 					}
 				}
 				// if changed, construct a new plugin.
-				wasmconf := bfe_wasmplug.WasmPluginConfig {
+				wasmconf := bfe_wasmplugin.WasmPluginConfig {
 					PluginName: pn,
 					WasmVersion: p.WasmVersion,
 					ConfigVersion: p.ConfVersion,
@@ -143,7 +143,7 @@ func updatePluginConf(t *PluginTable, conf PluginConfFile, pluginPath string) er
 					Path: path.Join(pluginPath, pn),
 					// Md5: p.Md5,
 				}
-				plug, err := bfe_wasmplug.NewWasmPlugin(wasmconf)
+				plug, err := bfe_wasmplugin.NewWasmPlugin(wasmconf)
 				if err != nil {
 					// build plugin error
 					return err
@@ -175,8 +175,8 @@ func updatePluginConf(t *PluginTable, conf PluginConfFile, pluginPath string) er
 			}
 		}
 
-		if conf.ProductRules != nil {
-			for product, rules := range *conf.ProductRules {
+		if conf.FoundProductRules != nil {
+			for product, rules := range *conf.FoundProductRules {
 				var rulelist RuleList
 				for _, r := range rules {
 					rule := FilterRule{}
@@ -218,17 +218,17 @@ type PluginTable struct {
 	version      string
 	beforeLocationRules RuleList
 	productRules ProductRules
-	pluginMap map[string]bfe_wasmplug.WasmPlugin
+	pluginMap map[string]bfe_wasmplugin.WasmPlugin
 }
 
 func NewPluginTable() *PluginTable {
 	t := new(PluginTable)
 	t.productRules = make(ProductRules)
-	t.pluginMap = make(map[string]bfe_wasmplug.WasmPlugin)
+	t.pluginMap = make(map[string]bfe_wasmplugin.WasmPlugin)
 	return t
 }
 
-func (t *PluginTable) Update(version string, beforeLocationRules RuleList, productRules ProductRules, pluginMap map[string]bfe_wasmplug.WasmPlugin) {
+func (t *PluginTable) Update(version string, beforeLocationRules RuleList, productRules ProductRules, pluginMap map[string]bfe_wasmplugin.WasmPlugin) {
 	t.lock.Lock()
 
 	t.version = version
@@ -245,7 +245,7 @@ func (t *PluginTable) GetVersion() string {
 	return t.version
 }
 
-func (t *PluginTable) GetPluginMap() map[string]bfe_wasmplug.WasmPlugin {
+func (t *PluginTable) GetPluginMap() map[string]bfe_wasmplugin.WasmPlugin {
 	defer t.lock.RUnlock()
 	t.lock.RLock()
 	return t.pluginMap
