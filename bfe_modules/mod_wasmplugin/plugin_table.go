@@ -16,26 +16,24 @@ package mod_wasmplugin
 
 import (
 	"sync"
-
-	"github.com/bfenetworks/bfe/bfe_wasmplugin"
 )
 
 type PluginTable struct {
-	lock         sync.RWMutex
-	version      string
+	lock                sync.RWMutex
+	version             string
 	beforeLocationRules RuleList
-	productRules ProductRules
-	pluginMap map[string]bfe_wasmplugin.WasmPlugin
+	productRules        ProductRules
+	pluginMap           PluginMap
 }
 
 func NewPluginTable() *PluginTable {
 	t := new(PluginTable)
 	t.productRules = make(ProductRules)
-	t.pluginMap = make(map[string]bfe_wasmplugin.WasmPlugin)
+	t.pluginMap = make(PluginMap)
 	return t
 }
 
-func (t *PluginTable) Update(version string, beforeLocationRules RuleList, productRules ProductRules, pluginMap map[string]bfe_wasmplugin.WasmPlugin) {
+func (t *PluginTable) Update(version string, beforeLocationRules RuleList, productRules ProductRules, pluginMap PluginMap) {
 	t.lock.Lock()
 
 	t.version = version
@@ -52,7 +50,7 @@ func (t *PluginTable) GetVersion() string {
 	return t.version
 }
 
-func (t *PluginTable) GetPluginMap() map[string]bfe_wasmplugin.WasmPlugin {
+func (t *PluginTable) GetPluginMap() PluginMap {
 	defer t.lock.RUnlock()
 	t.lock.RLock()
 	return t.pluginMap
