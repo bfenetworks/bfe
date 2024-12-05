@@ -52,111 +52,137 @@ type FilterRule struct {
 type RuleList []FilterRule
 type ProductRules map[string]RuleList // product => list of filter rules
 
-func updatePluginConf(t *PluginTable, conf PluginConfFile, pluginPath string) error {
-	if conf.Version != nil && *conf.Version != t.GetVersion() {
-		pluginMapNew := make(map[string]bfe_wasmplugin.WasmPlugin)
-		var beforeLocationRulesNew RuleList
-		productRulesNew := make(ProductRules)
+type PluginMap map[string]bfe_wasmplugin.WasmPlugin
 
-		// 1. check plugin map
-		unchanged := make(map[string]bool)
+func buildRuleList(rules []FilterRuleFile, pluginMap PluginMap) (RuleList, error) {
+	var rulelist RuleList
 
-		pm := t.GetPluginMap()
-		if conf.PluginMap != nil {
-			for pn, p := range *conf.PluginMap {
-				plugOld := pm[pn]
-				// check whether plugin version changed.
-				if plugOld != nil {
-					configOld := plugOld.GetConfig()
-					if configOld.WasmVersion == p.WasmVersion && configOld.ConfigVersion == p.ConfVersion {
-						// not change, just copy to new map
-						pluginMapNew[pn] = plugOld
+	for _, r := range rules {
+		rule := FilterRule{}
+		cond, err := condition.Build(*r.Cond)
+		if err != nil {
+			return nil, err
+		}
 
-						// ensure instance num
+		rule.Cond =cond
+		
+		for _, pn := range *r.PluginList {
+			plug := pluginMap[pn]
+			if plug == nil {
+				return nil, fmt.Errorf("unknown plugin: %s", pn)
+			}
+			rule.PluginList = append(rule.PluginList, plug)
+		}
+		
+		rulelist = append(rulelist, rule)
+	}
+
+	return rulelist, nil
+}
+
+func buildNewPluginMap(conf *map[string]PluginMeta, pmOld PluginMap, 
+	pluginPath string) (pmNew PluginMap, unchanged map[string]bool, err error) {
+
+	pmNew = PluginMap{}
+	unchanged = map[string]bool{}
+
+	if conf != nil {
+		for pn, p := range *conf {
+			plugOld := pmOld[pn]
+			// check whether plugin version changed.
+			if plugOld != nil {
+				configOld := plugOld.GetConfig()
+				if configOld.WasmVersion == p.WasmVersion && configOld.ConfigVersion == p.ConfVersion {
+					// not change, just copy to new map
+					pmNew[pn] = plugOld
+
+					// grow instance num if needed
+					if p.InstanceNum > plugOld.InstanceNum() {
 						actual := plugOld.EnsureInstanceNum(p.InstanceNum)
 						if actual != p.InstanceNum {
-							return fmt.Errorf("can not EnsureInstanceNum, plugin:%s, num:%d", pn, p.InstanceNum)
+							err = fmt.Errorf("can not EnsureInstanceNum, plugin:%s, num:%d", pn, p.InstanceNum)
+							return
 						}
-
-						unchanged[pn] = true
-						continue
 					}
-				}
-				// if changed, construct a new plugin.
-				wasmconf := bfe_wasmplugin.WasmPluginConfig {
-					PluginName: pn,
-					WasmVersion: p.WasmVersion,
-					ConfigVersion: p.ConfVersion,
-					InstanceNum: p.InstanceNum,
-					Path: path.Join(pluginPath, pn),
-					// Md5: p.Md5,
-				}
-				plug, err := bfe_wasmplugin.NewWasmPlugin(wasmconf)
-				if err != nil {
-					// build plugin error
-					return err
-				}
 
-				// plug.OnPluginStart()
-
-				pluginMapNew[pn] = plug
+					unchanged[pn] = true
+					continue
+				}
 			}
+			// if changed, construct a new plugin.
+			wasmconf := bfe_wasmplugin.WasmPluginConfig {
+				PluginName: pn,
+				WasmVersion: p.WasmVersion,
+				ConfigVersion: p.ConfVersion,
+				InstanceNum: p.InstanceNum,
+				Path: path.Join(pluginPath, pn),
+			}
+			plug, err1 := bfe_wasmplugin.NewWasmPlugin(wasmconf)
+			if err1 != nil {
+				// build plugin error
+				err = err1
+				return
+			}
+
+			pmNew[pn] = plug
+		}
+	}
+
+	return
+}
+
+func cleanPlugins(pm PluginMap, unchanged map[string]bool, conf *map[string]PluginMeta) {
+	for pn, plug := range pm {
+		if unchanged[pn] {
+			// shink instance num if needed
+			confnum := (*conf)[pn].InstanceNum
+			if plug.InstanceNum() > confnum {
+				plug.EnsureInstanceNum(confnum)
+			}
+		} else {
+			// stop plug
+			plug.OnPluginDestroy()
+			plug.Clear()
+		}
+	}
+}
+
+func updatePluginConf(t *PluginTable, conf PluginConfFile, pluginPath string) error {
+	if conf.Version != nil && *conf.Version != t.GetVersion() {
+
+		// 1. check plugin map
+		pm := t.GetPluginMap()
+		pluginMapNew, unchanged, err := buildNewPluginMap(conf.PluginMap, pm, pluginPath)
+		if err != nil {
+			return err
 		}
 
 		// 2. construct product rules
+		var beforeLocationRulesNew RuleList
 		if conf.BeforeLocationRules != nil {
-			for _, r := range *conf.BeforeLocationRules {
-				rule := FilterRule{}
-				cond, err := condition.Build(*r.Cond)
-				if err != nil {
-					return err
-				}
-				rule.Cond =cond
-				for _, pn := range *r.PluginList {
-					plug := pluginMapNew[pn]
-					if plug == nil {
-						return fmt.Errorf("unknown plugin: %s", pn)
-					}
-					rule.PluginList = append(rule.PluginList, plug)
-				}
-				beforeLocationRulesNew = append(beforeLocationRulesNew, rule)
+			if rulelist, err := buildRuleList(*conf.BeforeLocationRules, pluginMapNew); err == nil {
+				beforeLocationRulesNew = rulelist
+			} else {
+				return err
 			}
 		}
 
+		productRulesNew := make(ProductRules)
 		if conf.FoundProductRules != nil {
 			for product, rules := range *conf.FoundProductRules {
-				var rulelist RuleList
-				for _, r := range rules {
-					rule := FilterRule{}
-					cond, err := condition.Build(*r.Cond)
-					if err != nil {
-						return err
-					}
-					rule.Cond =cond
-					for _, pn := range *r.PluginList {
-						plug := pluginMapNew[pn]
-						if plug == nil {
-							return fmt.Errorf("unknown plugin: %s", pn)
-						}
-						rule.PluginList = append(rule.PluginList, plug)
-					}
-					rulelist = append(rulelist, rule)
+				if rulelist, err := buildRuleList(rules, pluginMapNew); err == nil {
+					productRulesNew[product] = rulelist
+				} else {
+					return err
 				}
-				productRulesNew[product] = rulelist
 			}
 		}
 
 		// 3. update PluginTable
 		t.Update(*conf.Version, beforeLocationRulesNew, productRulesNew, pluginMapNew)
 
-		// 4. stop & clear old plugins
-		for pn, plug := range pm {
-			if _, ok := unchanged[pn]; !ok {
-				// stop plug
-				plug.OnPluginDestroy()
-				plug.Clear()
-			}
-		}
+		// 4. stop & clean old plugins
+		cleanPlugins(pm, unchanged, conf.PluginMap)
 	}
 	return nil
 }
