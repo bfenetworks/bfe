@@ -240,7 +240,12 @@ func (w *wasmPluginImpl) EnsureInstanceNum(num int) int {
 			}
 
 			// Instantiate any ABI needed by the guest.
-			for _, abi := range wasmABI.GetABIList(instance) {
+			abilist := wasmABI.GetABIList(instance)
+			if len(abilist) == 0 {
+				log.Logger.Error("[wasm][plugin] EnsureInstanceNum fail to get abilist, i: %v", i)
+				break
+			}
+			for _, abi := range abilist {
 				//abi.OnInstanceCreate(instance)
 				if err := instance.RegisterImports(abi.Name()); err != nil {
 					panic(err)
@@ -253,7 +258,10 @@ func (w *wasmPluginImpl) EnsureInstanceNum(num int) int {
 				continue
 			}
 
-			w.OnInstanceStart(instance)
+			if !w.OnInstanceStart(instance) {
+				log.Logger.Error("[wasm][plugin] EnsureInstanceNum fail on instance start, i: %v", i)
+				break
+			}
 			newInstance = append(newInstance, instance)
 		}
 
@@ -324,7 +332,13 @@ func (w *wasmPluginImpl) ReleaseInstance(instance common.WasmInstance) {
 }
 
 func (w *wasmPluginImpl) OnInstanceStart(instance common.WasmInstance) bool {
-	abi := wasmABI.GetABIList(instance)[0]
+	abilist := wasmABI.GetABIList(instance)
+	if len(abilist) == 0 {
+		log.Logger.Error("[proxywasm][factory] instance has no correct abi list")
+		return false
+	}
+
+	abi := abilist[0]
 	var exports v1Host.Exports
 	if abi != nil {
 		// v1
