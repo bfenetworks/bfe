@@ -6,11 +6,17 @@
             "example.org",
             "fcgi.example.org",
             "h2c.example.org"
+        ],
+        "localTag":[
+            "localhost"
         ]
     },
     "HostTags": {
         "example_product":[
             "exampleTag"
+        ],
+        "local_product":[
+            "localTag"
         ]
     }
 }
