@@ -641,6 +641,7 @@ func TestHandshakeServerSNI(t *testing.T) {
 	runServerTestTLS12(t, test)
 }
 
+
 func TestResumption(t *testing.T) {
 	sessionFilePath := tempFile("")
 	defer os.Remove(sessionFilePath)
