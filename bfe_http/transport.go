@@ -885,6 +885,10 @@ func (pc *persistConn) readLoop() {
 			err = ReadRespHeaderError{Err: err}
 		}
 
+		pc.lk.Lock()
+		pc.numExpectedResponses--
+		pc.lk.Unlock()
+
 		rc.ch <- responseAndError{resp, err}
 
 		// Wait for the just-returned response body to be fully consumed
@@ -1050,10 +1054,6 @@ WaitResponse:
 			break WaitResponse
 		}
 	}
-
-	pc.lk.Lock()
-	pc.numExpectedResponses--
-	pc.lk.Unlock()
 
 	if re.err != nil {
 		pc.t.setReqConn(req.Request, nil)
