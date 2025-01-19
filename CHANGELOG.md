@@ -50,8 +50,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - mod_trust_clientip: fix incorrect private IP address range ([Issue #856](https://github.com/bfenetworks/bfe/issues/856))
 - arm build error in golang 1.18
 
-
-
 ## [v1.6.0] - 2022-10-21
 
 ### Added
