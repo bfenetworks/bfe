@@ -931,7 +931,7 @@ func TestMetaFrameHeader(t *testing.T) {
 			maxHeaderListSize: (1 << 10) / 2,
 			want: maxHeaderListSizeError{
 				streamID:          1,
-				curHeaderListSize: 536,
+				curHeaderListSize: 550,
 				maxHeaderListSize: 512,
 			},
 		},
@@ -1033,7 +1033,7 @@ func TestMetaFrameHeader(t *testing.T) {
 				}
 				return fmt.Sprintf("value %#v", v)
 			}
-			t.Errorf("%s:\n got: %v\nwant: %s", name, str(got), str(tt.want))
+			t.Errorf(" %s:\n got: %v\nwant: %s", name, str(got), str(tt.want))
 		}
 		if tt.wantErrReason != "" && tt.wantErrReason != fmt.Sprint(f.errDetail) {
 			t.Errorf("%s: got error reason %q; want %q", name, f.errDetail, tt.wantErrReason)

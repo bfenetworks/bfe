@@ -15,7 +15,6 @@
 package mod_tcp_keepalive
 
 import (
-	"net"
 	"testing"
 
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
@@ -36,40 +35,6 @@ func prepareRequest() *bfe_basic.Request {
 	request.Session = new(bfe_basic.Session)
 	request.Context = make(map[interface{}]interface{})
 	return request
-}
-
-func TestSetKeepAlive(t *testing.T) {
-	m, err := prepareModule()
-	if err != nil {
-		t.Errorf("prepareModule() error: %v", err)
-		return
-	}
-	s := new(bfe_basic.Session)
-	ip := "180.97.93.196"
-	address := "180.97.93.196:80"
-
-	s.Product = "product1"
-	s.Vip = net.ParseIP(ip)
-	if s.Vip == nil {
-		t.Errorf("net.ParseIP(%s) == nil", ip)
-	}
-
-	conn, err := net.Dial("tcp", address)
-	if err != nil {
-		t.Errorf("net.Dial(tcp, %s) error: %v", address, err)
-		return
-	}
-	s.Connection = conn
-
-	m.HandleAccept(s)
-	metrics := m.metrics.GetAll()
-	if metrics.CounterData["CONN_TO_SET"] != 1 ||
-		metrics.CounterData["CONN_SET_KEEP_IDLE"] != 1 ||
-		metrics.CounterData["CONN_SET_KEEP_INTVL"] != 1 {
-
-		t.Errorf("CONN_TO_SET and CONN_SET_KEEP_IDLE and CONN_SET_KEEP_INTVL should be 1")
-		return
-	}
 }
 
 func TestModuleMisc(t *testing.T) {

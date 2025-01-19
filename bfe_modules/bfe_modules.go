@@ -44,6 +44,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trust_clientip"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_userid"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_waf"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_wasmplugin"
 )
 
 // list of all modules, the order is very important
@@ -131,6 +132,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_access
 	mod_access.NewModuleAccess(),
+
+	// mod_wasm
+	mod_wasmplugin.NewModuleWasm(),
 }
 
 // init modules list

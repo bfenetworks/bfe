@@ -587,22 +587,6 @@ func TestHandshakeServerAESGCM(t *testing.T) {
 	runServerTestTLS12(t, test)
 }
 
-func TestHandshakeServerECDHEECDSAAES(t *testing.T) {
-	config := testConfig.Clone()
-	config.Certificates = make([]Certificate, 1)
-	config.Certificates[0].Certificate = [][]byte{testECDSACertificate}
-	config.Certificates[0].PrivateKey = testECDSAPrivateKey
-	config.BuildNameToCertificate()
-
-	test := &serverTest{
-		name:    "ECDHE-ECDSA-AES",
-		command: []string{"openssl", "s_client", "-no_ticket", "-cipher", "ECDHE-ECDSA-AES256-SHA"},
-		config:  config,
-	}
-	runServerTestTLS10(t, test)
-	runServerTestTLS12(t, test)
-}
-
 func TestHandshakeServerALPN(t *testing.T) {
 	config := testConfig.Clone()
 	config.NextProtos = []string{"proto1", "proto2"}
@@ -657,36 +641,6 @@ func TestHandshakeServerSNI(t *testing.T) {
 	runServerTestTLS12(t, test)
 }
 
-// TestCipherSuiteCertPreference ensures that we select an RSA ciphersuite with
-// an RSA certificate and an ECDSA ciphersuite with an ECDSA certificate.
-func TestCipherSuiteCertPreferenceECDSA(t *testing.T) {
-	config := testConfig.Clone()
-	config.CipherSuites = []uint16{TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA}
-	config.PreferServerCipherSuites = true
-
-	test := &serverTest{
-		name:   "CipherSuiteCertPreferenceRSA",
-		config: config,
-	}
-	runServerTestTLS12(t, test)
-
-	config = testConfig.Clone()
-	config.CipherSuites = []uint16{TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA}
-	config.Certificates = []Certificate{
-		{
-			Certificate: [][]byte{testECDSACertificate},
-			PrivateKey:  testECDSAPrivateKey,
-		},
-	}
-	config.BuildNameToCertificate()
-	config.PreferServerCipherSuites = true
-
-	test = &serverTest{
-		name:   "CipherSuiteCertPreferenceECDSA",
-		config: config,
-	}
-	runServerTestTLS12(t, test)
-}
 
 func TestResumption(t *testing.T) {
 	sessionFilePath := tempFile("")

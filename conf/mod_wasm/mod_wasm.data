@@ -1,0 +1,21 @@
+{
+    "Version": "5",
+    "BeforeLocationRules": [{
+        "Cond": "req_path_prefix_in(\"/headers\", false)",
+        "PluginList": [ "headers" ]
+    }],
+    "ProductRules": {
+        "local_product": [{
+            "Cond": "default_t()",
+            "PluginList": []
+        }]
+    },
+    "PluginMap": {
+        "headers": {
+            "Name": "headers",
+            "WasmVersion": "3",
+            "ConfVersion": "6",
+            "InstanceNum": 20
+        }
+    }
+}

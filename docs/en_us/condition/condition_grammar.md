@@ -29,7 +29,7 @@ req_host_in("bfe-networks.com") && req_method_in("GET")
 - You can define a variable  and assign a condition expression to it.
 
 ```go
-// define a condition varaible
+// define a condition variable
 bfe_host = req_host_in("bfe-networks.com")
 ```
 
@@ -41,7 +41,7 @@ bfe_host = req_host_in("bfe-networks.com")
 
 ```go
 // return true if the value of new_host is true and the request method is GET
-$news_host && req_method_in("GET")
+$new_host && req_method_in("GET")
 ```
 
 ## Grammar

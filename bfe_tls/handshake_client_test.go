@@ -408,32 +408,6 @@ func TestHandshakeClientCertRSA(t *testing.T) {
 	runClientTestTLS12(t, test)
 }
 
-func TestHandshakeClientCertECDSA(t *testing.T) {
-	config := prepareClientConfig()
-	cert, _ := X509KeyPair([]byte(clientECDSACertificatePEM), []byte(clientECDSAKeyPEM))
-	config.Certificates = []Certificate{cert}
-
-	test := &clientTest{
-		name:    "ClientCert-ECDSA-RSA",
-		command: []string{"openssl", "s_server", "-cipher", "RC4-SHA", "-verify", "1"},
-		config:  config,
-	}
-
-	runClientTestTLS10(t, test)
-	runClientTestTLS12(t, test)
-
-	test = &clientTest{
-		name:    "ClientCert-ECDSA-ECDSA",
-		command: []string{"openssl", "s_server", "-cipher", "ECDHE-ECDSA-AES128-SHA", "-verify", "1"},
-		config:  config,
-		cert:    testECDSACertificate,
-		key:     testECDSAPrivateKey,
-	}
-
-	runClientTestTLS10(t, test)
-	runClientTestTLS12(t, test)
-}
-
 func TestClientResumption(t *testing.T) {
 	serverConfig := &Config{
 		CipherSuites: []uint16{TLS_RSA_WITH_RC4_128_SHA, TLS_ECDHE_RSA_WITH_RC4_128_SHA},

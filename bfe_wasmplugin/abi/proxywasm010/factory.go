@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The BFE Authors.
+// Copyright (c) 2024 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,17 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bfe_module
+package proxywasm010
 
 import (
-	"github.com/baidu/go-lib/web-monitor/web_monitor"
+	"github.com/bfenetworks/proxy-wasm-go-host/proxywasm/common"
+	proxywasm "github.com/bfenetworks/proxy-wasm-go-host/proxywasm/v1"
 )
 
-type PluginInfo struct {
-	Name        string
-	Version     string
-	Description string
-	Kind        string // TODO plugin kind
-	Path        string
-	Init        func(cbs *BfeCallbacks, whs *web_monitor.WebHandlers, cr string) error
+func ABIContextFactory(instance common.WasmInstance) proxywasm.ContextHandler {
+	return &proxywasm.ABIContext{
+			Imports:  &DefaultImportsHandler{Instance: instance},
+			Instance: instance,
+		}
 }

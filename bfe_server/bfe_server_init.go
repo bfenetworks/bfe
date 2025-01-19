@@ -25,7 +25,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules"
 )
 
-func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
+func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string, dryRun bool) error {
 	var err error
 
 	// set all available modules
@@ -79,19 +79,9 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string) error {
 	}
 	log.Logger.Info("StartUp():bfeServer.InitModules() OK")
 
-	// load plugins
-	if err = bfeServer.LoadPlugins(cfg.Server.Plugins); err != nil {
-		log.Logger.Error("StartUp():bfeServer.LoadPlugins():%s", err.Error())
-		return err
+	if dryRun {
+		return nil
 	}
-
-	// initialize plugins
-	if err = bfeServer.InitPlugins(); err != nil {
-		log.Logger.Error("StartUp():bfeServer.InitPlugins():%s",
-			err.Error())
-		return err
-	}
-	log.Logger.Info("StartUp():bfeServer.InitPlugins() OK")
 
 	// initialize listeners
 	if err = bfeServer.InitListeners(cfg); err != nil {

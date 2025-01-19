@@ -30,9 +30,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_bufio"
 )
 
@@ -397,7 +395,7 @@ func testMissingFile(t *testing.T, req *Request) {
 		t.Errorf("FormFile file = %v, want nil", f)
 	}
 	if fh != nil {
-		t.Errorf("FormFile file header = %q, want nil", fh)
+		t.Errorf("FormFile file header = %v, want nil", fh)
 	}
 	if err != ErrMissingFile {
 		t.Errorf("FormFile err = %q, want ErrMissingFile", err)
@@ -497,7 +495,7 @@ Content-Disposition: form-data; name="textb"
 `
 
 func benchmarkReadRequest(b *testing.B, request string) {
-	request += "\n"                                      // final \n
+	request += "\n"                                     // final \n
 	request = strings.ReplaceAll(request, "\n", "\r\n") // expand \n to \r\n
 	b.SetBytes(int64(len(request)))
 	r := bfe_bufio.NewReader(&infiniteReader{buf: []byte(request)})

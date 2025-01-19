@@ -170,7 +170,7 @@ CipherSuites=TLS_RSA_WITH_RC4_128_SHA
 CipherSuites=TLS_RSA_WITH_AES_128_CBC_SHA
 CipherSuites=TLS_RSA_WITH_AES_256_CBC_SHA
 
-# supported curve perference settings
+# supported curve preference settings
 #
 # curves implemented in golang: 
 #     CurveP256 

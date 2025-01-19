@@ -74,7 +74,7 @@ strip: prepare compile-strip package
 # make prepare, download dependencies
 prepare: prepare-dep prepare-gen
 prepare-dep:
-	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc)
+	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc@latest)
 prepare-gen:
 	cd "bfe_basic/condition/parser" && $(GOGEN)
 
@@ -117,7 +117,7 @@ package:
 # make deps
 deps:
 	$(call PIP_INSTALL_PKG, pre-commit)
-	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc)
+	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc@latest)
 	$(call INSTALL_PKG, staticcheck, honnef.co/go/tools/cmd/staticcheck)
 	$(call INSTALL_PKG, license-eye, github.com/apache/skywalking-eyes/cmd/license-eye@latest)
 
