@@ -1,0 +1,3238 @@
+
+
+
+<!doctype html>
+<html lang="zh" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="现代化的七层负载均衡系统">
+      
+      
+      
+      <link rel="icon" href="assets/images/logo.svg">
+      <link rel="shortcut icon" href="../../../assets/favicon.png">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-5.1.6">
+    
+    
+      
+        <title>mod_block - BFE</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.127eade9.min.css">
+      
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.c929de0b.min.css">
+      
+      
+        
+        
+        <meta name="theme-color" content="#3f51b5">
+      
+    
+    
+    
+      
+        <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,400i,700%7CRoboto+Mono&display=fallback">
+        <style>body,input{font-family:"Roboto",-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif}code,kbd,pre{font-family:"Roboto Mono",SFMono-Regular,Consolas,Menlo,monospace}</style>
+      
+    
+    
+    
+    
+      
+    
+    
+    <script>
+        var _hmt = _hmt || [];
+        (function() {
+            var hm = document.createElement("script");
+            hm.src = "https://hm.baidu.com/hm.js?66f1c0a476540f1bb697df93b8eb477c";
+            var s = document.getElementsByTagName("script")[0]; 
+            s.parentNode.insertBefore(hm, s);
+        })();
+    </script>     
+  </head>
+  
+  
+    
+    
+    <body dir="ltr" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#mod_block" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <header class="md-header" data-md-component="header">
+  <nav class="md-header-nav md-grid" aria-label="Header">
+    <a href="../../.." title="BFE" class="md-header-nav__button md-logo" aria-label="BFE">
+      
+  
+  <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="246px" height="285px" viewBox="0 0 246 285" enable-background="new 0 0 246 285" xml:space="preserve">  <image id="image0" width="246" height="285" x="0" y="0"
+    href="data:image/png;base64,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
+5pzpyfWuIjlfrF/nnjzvxeduWweHw8PfuG0xYtfsYl76Ne6BTGjnhuewvnLHjX28CP1q0UvEef2r
+ZedIfaY4RFyX6erk2Yx9z5nY8Ym9LtPIa+S0B9f1Gud+UZ/7taS9dHd6hkunPu7Bc5EgT7GbyQHy
+HNbnB5+XLqBy/UGs5SJBfmLXbk0o9Matxs40fSF3JnbE33GDWsrW3Vw6m88F7T8EcpEgJ7Evf+zO
+48n1U+fzvaw2GwlyEXtF3EvX0+e88vtSWYx9eh3CtC6TZb3Sw7aNjImdFtZ1mUzsdLCvy2QzVdIg
+Yl0ma9kpELJAvYkdG0HbyJjYMRG2jYyJHQuB28jYAC0O+2XmaNhPdN4sP5C1bHrEbiNjYtMiehsZ
+E5sS4dvImNhUZLCNjIlNQSbbyNhofCkXl5mbzb4caRvnUq1lLyOrbWRM7HCy20bGxA6DPV0ZQqo+
+W1OdaIWeMF35mHAbmWQT7KbrRPOYcBi9biPeL+2MymZi6qx0sSNVV+oUG+5y3bFksb+XS1Cw4Sga
+Ti82XDVa7iJV7KR1G7rEhhubIi9T7DZt3YY+seHOFb/IEztJdWUJYsPhxetRlthVqurKUsQ+LliV
+JDZtL92yP2cRYsN9f1lKEZu6urJif8KCxIbbmxUSxPYxf/y5k7QuU6oqTh8qkkTAkirOCj3ZJssC
+t5GRJDYN4WJnla4MwbJee7JLV4ZgYour24hH6WILrNuIR9liC6muTEW5YguqrkxFqWKv5dZtxKPU
+Ty8qpG8jc4TNGw9H/jYyLyj1Nb4c6dvInMFadgjSt5EZwVr2XGYtMycLE3seQo1QP0xsf6Tvpz2J
+ie2HuHRlCCb2NCLTlSHYaHyK96h1SG0t+zKC05Uh6GvZVPWij7hGo0lqjWJ3+DvuFx5jh7c0y8zJ
+Ql8iZM+SaUYZGqF+6GvZezao8TZgZ/B7vM7RCPVDa8veM2/jlazSlSFobdl7ntDitVcPnl26MgTd
+LfuZqdUHoy0zJwvdLfuZO9S4HenBoy4zJ4syWvae0xWD1RihfpQkNnC8FnjW6coQShMbAFp8yD9d
+GUKJYgP/wL+5L4GD/wNgDZlosAmqugAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyMC0wNi0wOVQxMTow
+ODoxOSswODowMIPzdpoAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjAtMDYtMDlUMTE6MDg6MTkrMDg6
+MDDyrs4mAAAAIHRFWHRzb2Z0d2FyZQBodHRwczovL2ltYWdlbWFnaWNrLm9yZ7zPHZ0AAAAYdEVY
+dFRodW1iOjpEb2N1bWVudDo6UGFnZXMAMaf/uy8AAAAYdEVYdFRodW1iOjpJbWFnZTo6SGVpZ2h0
+ADI4NcVka+4AAAAXdEVYdFRodW1iOjpJbWFnZTo6V2lkdGgAMjQ2YyklBQAAABl0RVh0VGh1bWI6
+Ok1pbWV0eXBlAGltYWdlL3BuZz+yVk4AAAAXdEVYdFRodW1iOjpNVGltZQAxNTkxNjcyMDk55NSn
+UgAAABN0RVh0VGh1bWI6OlNpemUAMTkyMDlCQkcHXcwAAABBdEVYdFRodW1iOjpVUkkAZmlsZTov
+Ly90bXAvaW1hZ2VsYy9pbWd2aWV3Ml83XzE1ODk3OTUxODQyMDMzNTA4XzZfWzBd89lDtwAAAABJ
+RU5ErkJggg==" ></image>
+</svg>
+
+    </a>
+    <label class="md-header-nav__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2z"/></svg>
+    </label>
+    <div class="md-header-nav__title" data-md-component="header-title">
+      
+        <div class="md-header-nav__ellipsis">
+          <span class="md-header-nav__topic md-ellipsis">
+            BFE
+          </span>
+          <span class="md-header-nav__topic md-ellipsis">
+            
+              mod_block
+            
+          </span>
+        </div>
+      
+    </div>
+    
+      <label class="md-header-nav__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0116 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 019.5 16 6.5 6.5 0 013 9.5 6.5 6.5 0 019.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg>
+      </label>
+      
+<div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" data-md-state="active">
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0116 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 019.5 16 6.5 6.5 0 013 9.5 6.5 6.5 0 019.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </label>
+      <button type="reset" class="md-search__icon md-icon" aria-label="Clear" data-md-component="search-reset" tabindex="-1">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>
+      </button>
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    <div>
+        <div class="langChange" id="translate" title="中文|English">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path
+            d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0014.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04M18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12m-2.62 7l1.62-4.33L19.12 17h-3.24z" />
+    </svg>
+</div>
+
+
+<script>
+    var translate = document.getElementById('translate');
+    translate.addEventListener('click', changeHref, false);
+    function changeHref() {
+        if (window.location.href.search('en_us') !== -1) {
+            var changeHref = window.location.href.replace('en_us', 'zh_cn');
+
+        } else {
+            var changeHref = window.location.href.replace('zh_cn', 'en_us');
+        }
+        window.location.href = changeHref
+    }
+</script>
+
+<style>
+    .langChange {
+        display: inline-block;
+        width: 2.4rem;
+        height: 2.4rem;
+        vertical-align: middle;
+        margin-left: .5rem;
+    }
+
+    .langChange svg {
+        fill: rgba(255, 255, 255, 0.548);
+        display: block;
+        width: 1.2rem;
+        height: 1.2rem;
+        margin: 0 auto;
+        margin-top: .6rem;
+        margin-left: .6rem;
+    }
+
+    .langChange :hover {
+        fill: white;
+        cursor: pointer;
+    }
+</style>
+    </div>
+    
+      <div class="md-header-nav__source">
+        
+<a href="https://github.com/bfenetworks/bfe/" title="前往 GitHub 仓库" class="md-source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M439.55 236.05L244 40.45a28.87 28.87 0 00-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 01-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 000 40.81l195.61 195.6a28.86 28.86 0 0040.8 0l194.69-194.69a28.86 28.86 0 000-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Github
+  </div>
+</a>
+      </div>
+    
+  </nav>
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+        
+      
+      
+        
+          
+
+  
+
+<nav class="md-tabs md-tabs--active" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  <li class="md-tabs__item">
+    
+      <a href="../../.." class="md-tabs__link">
+        首页
+      </a>
+    
+  </li>
+
+      
+        
+  
+  
+    <li class="md-tabs__item">
+      
+        <a href="../../../ABOUT/" class="md-tabs__link md-tabs__link--active">
+          文档
+        </a>
+      
+    </li>
+  
+
+      
+        
+  
+  
+    <li class="md-tabs__item">
+      
+        <a href="../../../DOWNLOAD/" class="md-tabs__link">
+          下载
+        </a>
+      
+    </li>
+  
+
+      
+        
+  
+  
+    <li class="md-tabs__item">
+      
+        <a href="../../../COMMUNITY/" class="md-tabs__link">
+          社区
+        </a>
+      
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              <div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="BFE" class="md-nav__button md-logo" aria-label="BFE">
+      
+  
+  <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="246px" height="285px" viewBox="0 0 246 285" enable-background="new 0 0 246 285" xml:space="preserve">  <image id="image0" width="246" height="285" x="0" y="0"
+    href="data:image/png;base64,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
+5pzpyfWuIjlfrF/nnjzvxeduWweHw8PfuG0xYtfsYl76Ne6BTGjnhuewvnLHjX28CP1q0UvEef2r
+ZedIfaY4RFyX6erk2Yx9z5nY8Ym9LtPIa+S0B9f1Gud+UZ/7taS9dHd6hkunPu7Bc5EgT7GbyQHy
+HNbnB5+XLqBy/UGs5SJBfmLXbk0o9Matxs40fSF3JnbE33GDWsrW3Vw6m88F7T8EcpEgJ7Evf+zO
+48n1U+fzvaw2GwlyEXtF3EvX0+e88vtSWYx9eh3CtC6TZb3Sw7aNjImdFtZ1mUzsdLCvy2QzVdIg
+Yl0ma9kpELJAvYkdG0HbyJjYMRG2jYyJHQuB28jYAC0O+2XmaNhPdN4sP5C1bHrEbiNjYtMiehsZ
+E5sS4dvImNhUZLCNjIlNQSbbyNhofCkXl5mbzb4caRvnUq1lLyOrbWRM7HCy20bGxA6DPV0ZQqo+
+W1OdaIWeMF35mHAbmWQT7KbrRPOYcBi9biPeL+2MymZi6qx0sSNVV+oUG+5y3bFksb+XS1Cw4Sga
+Ti82XDVa7iJV7KR1G7rEhhubIi9T7DZt3YY+seHOFb/IEztJdWUJYsPhxetRlthVqurKUsQ+LliV
+JDZtL92yP2cRYsN9f1lKEZu6urJif8KCxIbbmxUSxPYxf/y5k7QuU6oqTh8qkkTAkirOCj3ZJssC
+t5GRJDYN4WJnla4MwbJee7JLV4ZgYour24hH6WILrNuIR9liC6muTEW5YguqrkxFqWKv5dZtxKPU
+Ty8qpG8jc4TNGw9H/jYyLyj1Nb4c6dvInMFadgjSt5EZwVr2XGYtMycLE3seQo1QP0xsf6Tvpz2J
+ie2HuHRlCCb2NCLTlSHYaHyK96h1SG0t+zKC05Uh6GvZVPWij7hGo0lqjWJ3+DvuFx5jh7c0y8zJ
+Ql8iZM+SaUYZGqF+6GvZezao8TZgZ/B7vM7RCPVDa8veM2/jlazSlSFobdl7ntDitVcPnl26MgTd
+LfuZqdUHoy0zJwvdLfuZO9S4HenBoy4zJ4syWvae0xWD1RihfpQkNnC8FnjW6coQShMbAFp8yD9d
+GUKJYgP/wL+5L4GD/wNgDZlosAmqugAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyMC0wNi0wOVQxMTow
+ODoxOSswODowMIPzdpoAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjAtMDYtMDlUMTE6MDg6MTkrMDg6
+MDDyrs4mAAAAIHRFWHRzb2Z0d2FyZQBodHRwczovL2ltYWdlbWFnaWNrLm9yZ7zPHZ0AAAAYdEVY
+dFRodW1iOjpEb2N1bWVudDo6UGFnZXMAMaf/uy8AAAAYdEVYdFRodW1iOjpJbWFnZTo6SGVpZ2h0
+ADI4NcVka+4AAAAXdEVYdFRodW1iOjpJbWFnZTo6V2lkdGgAMjQ2YyklBQAAABl0RVh0VGh1bWI6
+Ok1pbWV0eXBlAGltYWdlL3BuZz+yVk4AAAAXdEVYdFRodW1iOjpNVGltZQAxNTkxNjcyMDk55NSn
+UgAAABN0RVh0VGh1bWI6OlNpemUAMTkyMDlCQkcHXcwAAABBdEVYdFRodW1iOjpVUkkAZmlsZTov
+Ly90bXAvaW1hZ2VsYy9pbWd2aWV3Ml83XzE1ODk3OTUxODQyMDMzNTA4XzZfWzBd89lDtwAAAABJ
+RU5ErkJggg==" ></image>
+</svg>
+
+    </a>
+    BFE
+  </label>
+  
+    <div class="md-nav__source">
+      
+<a href="https://github.com/bfenetworks/bfe/" title="前往 GitHub 仓库" class="md-source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M439.55 236.05L244 40.45a28.87 28.87 0 00-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 01-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 000 40.81l195.61 195.6a28.86 28.86 0 0040.8 0l194.69-194.69a28.86 28.86 0 000-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Github
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="../../.." title="首页" class="md-nav__link">
+      首页
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+  
+
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2" type="checkbox" id="nav-2" checked>
+    
+    <label class="md-nav__link" for="nav-2">
+      文档
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="文档" data-md-level="1">
+      <label class="md-nav__title" for="nav-2">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        文档
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../ABOUT/" title="关于" class="md-nav__link">
+      关于
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-2" type="checkbox" id="nav-2-2">
+    
+    <label class="md-nav__link" for="nav-2-2">
+      介绍
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="介绍" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-2">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        介绍
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../introduction/overview/" title="BFE概览" class="md-nav__link">
+      BFE概览
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../introduction/comparison/" title="竞品对比" class="md-nav__link">
+      竞品对比
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-2-3" type="checkbox" id="nav-2-2-3">
+    
+    <label class="md-nav__link" for="nav-2-2-3">
+      设计简介
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="设计简介" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-2-3">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        设计简介
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../introduction/terminology/" title="相关术语" class="md-nav__link">
+      相关术语
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../introduction/forward_model/" title="流量接入转发模型" class="md-nav__link">
+      流量接入转发模型
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../introduction/route/" title="基于内容路由" class="md-nav__link">
+      基于内容路由
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../introduction/balance/" title="流量负载均衡" class="md-nav__link">
+      流量负载均衡
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../introduction/getting_help/" title="获取帮助" class="md-nav__link">
+      获取帮助
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="https://github.com/bfenetworks/bfe/blob/master/CHANGELOG.md" title="发布历史" class="md-nav__link">
+      发布历史
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-3" type="checkbox" id="nav-2-3">
+    
+    <label class="md-nav__link" for="nav-2-3">
+      快速开始
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="快速开始" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-3">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        快速开始
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../installation/install_from_source/" title="安装及运行" class="md-nav__link">
+      安装及运行
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-3-2" type="checkbox" id="nav-2-3-2">
+    
+    <label class="md-nav__link" for="nav-2-3-2">
+      使用示例
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="使用示例" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-3-2">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        使用示例
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../example/guide/" title="使用示例" class="md-nav__link">
+      使用示例
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../example/route/" title="流量转发" class="md-nav__link">
+      流量转发
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../example/block/" title="黑名单封禁" class="md-nav__link">
+      黑名单封禁
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../example/redirect/" title="重定向" class="md-nav__link">
+      重定向
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../example/rewrite/" title="重写" class="md-nav__link">
+      重写
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../example/client_auth/" title="TLS客户端认证" class="md-nav__link">
+      TLS客户端认证
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../example/fastcgi/" title="FastCGI" class="md-nav__link">
+      FastCGI
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-4" type="checkbox" id="nav-2-4">
+    
+    <label class="md-nav__link" for="nav-2-4">
+      安装说明
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="安装说明" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-4">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        安装说明
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../installation/install/" title="安装概述" class="md-nav__link">
+      安装概述
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../installation/install_from_source/" title="源码编译安装" class="md-nav__link">
+      源码编译安装
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../installation/install_using_binaries/" title="二进制文件下载安装" class="md-nav__link">
+      二进制文件下载安装
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../installation/install_using_go/" title="go方式安装" class="md-nav__link">
+      go方式安装
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../installation/install_using_snap/" title="snap方式安装" class="md-nav__link">
+      snap方式安装
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../installation/install_using_docker/" title="docker方式安装" class="md-nav__link">
+      docker方式安装
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-5" type="checkbox" id="nav-2-5">
+    
+    <label class="md-nav__link" for="nav-2-5">
+      配置说明
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="配置说明" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-5">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        配置说明
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../configuration/config/" title="配置概述" class="md-nav__link">
+      配置概述
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../configuration/bfe.conf/" title="核心配置" class="md-nav__link">
+      核心配置
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-5-3" type="checkbox" id="nav-2-5-3">
+    
+    <label class="md-nav__link" for="nav-2-5-3">
+      协议
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="协议" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-5-3">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        协议
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../configuration/tls_conf/tls_rule_conf.data/" title="SSL/TLS" class="md-nav__link">
+      SSL/TLS
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../configuration/tls_conf/server_cert_conf.data/" title="证书" class="md-nav__link">
+      证书
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../configuration/tls_conf/session_ticket_key.data/" title="Session ticket key" class="md-nav__link">
+      Session ticket key
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-5-4" type="checkbox" id="nav-2-5-4">
+    
+    <label class="md-nav__link" for="nav-2-5-4">
+      路由
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="路由" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-5-4">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        路由
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../configuration/server_data_conf/host_rule.data/" title="域名规则" class="md-nav__link">
+      域名规则
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../configuration/server_data_conf/vip_rule.data/" title="VIP规则" class="md-nav__link">
+      VIP规则
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../configuration/server_data_conf/route_rule.data/" title="路由规则" class="md-nav__link">
+      路由规则
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../configuration/server_data_conf/cluster_conf.data/" title="后端集群" class="md-nav__link">
+      后端集群
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-5-6" type="checkbox" id="nav-2-5-6">
+    
+    <label class="md-nav__link" for="nav-2-5-6">
+      负载均衡
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="负载均衡" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-5-6">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        负载均衡
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../configuration/cluster_conf/gslb.data/" title="子集群负载均衡" class="md-nav__link">
+      子集群负载均衡
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../configuration/cluster_conf/cluster_table.data/" title="实例负载均衡" class="md-nav__link">
+      实例负载均衡
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-5-7" type="checkbox" id="nav-2-5-7">
+    
+    <label class="md-nav__link" for="nav-2-5-7">
+      名字服务
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="名字服务" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-5-7">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        名字服务
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../configuration/server_data_conf/name_conf.data/" title="名字规则" class="md-nav__link">
+      名字规则
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+  
+
+
+  <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-6" type="checkbox" id="nav-2-6" checked>
+    
+    <label class="md-nav__link" for="nav-2-6">
+      扩展模块
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="扩展模块" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-6">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        扩展模块
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_access/mod_access/" title="mod_access" class="md-nav__link">
+      mod_access
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_auth_basic/mod_auth_basic/" title="mod_auth_basic" class="md-nav__link">
+      mod_auth_basic
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_auth_jwt/mod_auth_jwt/" title="mod_auth_jwt" class="md-nav__link">
+      mod_auth_jwt
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_auth_request/mod_auth_request/" title="mod_auth_request" class="md-nav__link">
+      mod_auth_request
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+  
+
+
+  <li class="md-nav__item md-nav__item--active">
+    
+    <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    
+      
+    
+    
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        mod_block
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 9h14V7H3v2m0 4h14v-2H3v2m0 4h14v-2H3v2m16 0h2v-2h-2v2m0-10v2h2V7h-2m0 6h2v-2h-2v2z"/></svg>
+        </span>
+      </label>
+    
+    <a href="./" title="mod_block" class="md-nav__link md-nav__link--active">
+      mod_block
+    </a>
+    
+      
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    模块简介
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    基础配置
+  </a>
+  
+    <nav class="md-nav" aria-label="基础配置">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    配置描述
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    配置示例
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    规则配置
+  </a>
+  
+    <nav class="md-nav" aria-label="规则配置">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    配置描述
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    模块动作
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_8" class="md-nav__link">
+    配置示例
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_9" class="md-nav__link">
+    监控项
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+    
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_compress/mod_compress/" title="mod_compress" class="md-nav__link">
+      mod_compress
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_doh/mod_doh/" title="mod_doh" class="md-nav__link">
+      mod_doh
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_errors/mod_errors/" title="mod_errors" class="md-nav__link">
+      mod_errors
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_geo/mod_geo/" title="mod_geo" class="md-nav__link">
+      mod_geo
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_header/mod_header/" title="mod_header" class="md-nav__link">
+      mod_header
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_http_code/mod_http_code/" title="mod_http_code" class="md-nav__link">
+      mod_http_code
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_key_log/mod_key_log/" title="mod_key_log" class="md-nav__link">
+      mod_key_log
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_logid/mod_logid/" title="mod_logid" class="md-nav__link">
+      mod_logid
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_prison/mod_prison/" title="mod_prison" class="md-nav__link">
+      mod_prison
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_redirect/mod_redirect/" title="mod_redirect" class="md-nav__link">
+      mod_redirect
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_rewrite/mod_rewrite/" title="mod_rewrite" class="md-nav__link">
+      mod_rewrite
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_static/mod_static/" title="mod_static" class="md-nav__link">
+      mod_static
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_tag/mod_tag/" title="mod_tag" class="md-nav__link">
+      mod_tag
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_tcp_keepalive/mod_tcp_keepalive/" title="mod_tcp_keepalive" class="md-nav__link">
+      mod_tcp_keepalive
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_trace/mod_trace/" title="mod_trace" class="md-nav__link">
+      mod_trace
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_trust_clientip/mod_trust_clientip/" title="mod_trust_clientip" class="md-nav__link">
+      mod_trust_clientip
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../mod_userid/mod_userid/" title="mod_userid" class="md-nav__link">
+      mod_userid
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-7" type="checkbox" id="nav-2-7">
+    
+    <label class="md-nav__link" for="nav-2-7">
+      运维管理
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="运维管理" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-7">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        运维管理
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../operation/command/" title="命令行工具及参数" class="md-nav__link">
+      命令行工具及参数
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../operation/env_var/" title="环境变量说明" class="md-nav__link">
+      环境变量说明
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../operation/signal/" title="系统信号说明" class="md-nav__link">
+      系统信号说明
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../operation/api/" title="管理接口说明" class="md-nav__link">
+      管理接口说明
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../operation/reload/" title="配置热加载" class="md-nav__link">
+      配置热加载
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../operation/monitor/" title="监控指标获取" class="md-nav__link">
+      监控指标获取
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../operation/log_rotation/" title="日志切割备份" class="md-nav__link">
+      日志切割备份
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../operation/capture_packet/" title="流量抓包分析" class="md-nav__link">
+      流量抓包分析
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../operation/performance/" title="性能数据采集" class="md-nav__link">
+      性能数据采集
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-8" type="checkbox" id="nav-2-8">
+    
+    <label class="md-nav__link" for="nav-2-8">
+      参与贡献
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="参与贡献" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-8">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        参与贡献
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-8-1" type="checkbox" id="nav-2-8-1">
+    
+    <label class="md-nav__link" for="nav-2-8-1">
+      如何贡献代码
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="如何贡献代码" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-8-1">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        如何贡献代码
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../development/local_dev_guide/" title="本地开发指南" class="md-nav__link">
+      本地开发指南
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../development/submit_pr_guide/" title="提交PR注意事项" class="md-nav__link">
+      提交PR注意事项
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../development/write_doc_guide/" title="如何贡献文档" class="md-nav__link">
+      如何贡献文档
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../development/release_regulation/" title="版本发布说明" class="md-nav__link">
+      版本发布说明
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-8-4" type="checkbox" id="nav-2-8-4">
+    
+    <label class="md-nav__link" for="nav-2-8-4">
+      开发参考文档
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="开发参考文档" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-8-4">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        开发参考文档
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../development/source_code_layout/" title="代码结构说明" class="md-nav__link">
+      代码结构说明
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-8-5" type="checkbox" id="nav-2-8-5">
+    
+    <label class="md-nav__link" for="nav-2-8-5">
+      模块开发介绍
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="模块开发介绍" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-8-5">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        模块开发介绍
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../development/module/overview/" title="模块开发介绍" class="md-nav__link">
+      模块开发介绍
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../development/module/bfe_callback/" title="BFE回调机制说明" class="md-nav__link">
+      BFE回调机制说明
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../development/module/how_to_write_module/" title="如何开发模块" class="md-nav__link">
+      如何开发模块
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-9" type="checkbox" id="nav-2-9">
+    
+    <label class="md-nav__link" for="nav-2-9">
+      常见问题
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="常见问题" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-9">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        常见问题
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../faq/installation/" title="安装相关" class="md-nav__link">
+      安装相关
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../faq/configuration/" title="配置相关" class="md-nav__link">
+      配置相关
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../faq/performance/" title="性能相关" class="md-nav__link">
+      性能相关
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../faq/development/" title="开发相关" class="md-nav__link">
+      开发相关
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-10" type="checkbox" id="nav-2-10">
+    
+    <label class="md-nav__link" for="nav-2-10">
+      监控指标
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="监控指标" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-10">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        监控指标
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-10-1" type="checkbox" id="nav-2-10-1">
+    
+    <label class="md-nav__link" for="nav-2-10-1">
+      协议
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="协议" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-10-1">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        协议
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../monitor/tls_state/" title="TLS" class="md-nav__link">
+      TLS
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../monitor/http_state/" title="HTTP" class="md-nav__link">
+      HTTP
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../monitor/http2_state/" title="HTTP2" class="md-nav__link">
+      HTTP2
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../monitor/spdy_state/" title="SPDY" class="md-nav__link">
+      SPDY
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../monitor/websocket_state/" title="WebSocket" class="md-nav__link">
+      WebSocket
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../monitor/stream_state/" title="Stream" class="md-nav__link">
+      Stream
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-10-2" type="checkbox" id="nav-2-10-2">
+    
+    <label class="md-nav__link" for="nav-2-10-2">
+      路由
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="路由" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-10-2">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        路由
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../monitor/host_table_status/" title="域名表" class="md-nav__link">
+      域名表
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-10-3" type="checkbox" id="nav-2-10-3">
+    
+    <label class="md-nav__link" for="nav-2-10-3">
+      负载均衡
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="负载均衡" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-10-3">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        负载均衡
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../monitor/bal_table_status/" title="均衡详情" class="md-nav__link">
+      均衡详情
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../monitor/bal_state/" title="均衡错误" class="md-nav__link">
+      均衡错误
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-10-4" type="checkbox" id="nav-2-10-4">
+    
+    <label class="md-nav__link" for="nav-2-10-4">
+      反向代理
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="反向代理" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-10-4">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        反向代理
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../monitor/proxy_state/" title="转发状态" class="md-nav__link">
+      转发状态
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../monitor/proxy_mem_stat/" title="内存详情" class="md-nav__link">
+      内存详情
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../monitor/module_status/" title="扩展模块" class="md-nav__link">
+      扩展模块
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-10-6" type="checkbox" id="nav-2-10-6">
+    
+    <label class="md-nav__link" for="nav-2-10-6">
+      延迟
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="延迟" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-10-6">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        延迟
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../monitor/latency/" title="延迟分布" class="md-nav__link">
+      延迟分布
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-11" type="checkbox" id="nav-2-11">
+    
+    <label class="md-nav__link" for="nav-2-11">
+      条件原语
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="条件原语" data-md-level="2">
+      <label class="md-nav__title" for="nav-2-11">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        条件原语
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/condition_grammar/" title="条件的概念及语法" class="md-nav__link">
+      条件的概念及语法
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/condition_naming_convention/" title="条件原语命名规范" class="md-nav__link">
+      条件原语命名规范
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/condition_primitive_index/" title="条件原语索引" class="md-nav__link">
+      条件原语索引
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-11-4" type="checkbox" id="nav-2-11-4">
+    
+    <label class="md-nav__link" for="nav-2-11-4">
+      请求相关条件原语
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="请求相关条件原语" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-11-4">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        请求相关条件原语
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/request/method/" title="Method" class="md-nav__link">
+      Method
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/request/uri/" title="URI" class="md-nav__link">
+      URI
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/request/protocol/" title="Protocol" class="md-nav__link">
+      Protocol
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/request/header/" title="Header" class="md-nav__link">
+      Header
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/request/cookie/" title="Cookie" class="md-nav__link">
+      Cookie
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/request/tag/" title="Tag" class="md-nav__link">
+      Tag
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/request/ip/" title="IP" class="md-nav__link">
+      IP
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/request/context/" title="Context" class="md-nav__link">
+      Context
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-11-5" type="checkbox" id="nav-2-11-5">
+    
+    <label class="md-nav__link" for="nav-2-11-5">
+      响应相关条件原语
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="响应相关条件原语" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-11-5">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        响应相关条件原语
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/response/code/" title="Code" class="md-nav__link">
+      Code
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/response/header/" title="Header" class="md-nav__link">
+      Header
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-11-6" type="checkbox" id="nav-2-11-6">
+    
+    <label class="md-nav__link" for="nav-2-11-6">
+      会话相关条件原语
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="会话相关条件原语" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-11-6">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        会话相关条件原语
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/session/ip/" title="IP" class="md-nav__link">
+      IP
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/session/tls/" title="TLS" class="md-nav__link">
+      TLS
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-2-11-7" type="checkbox" id="nav-2-11-7">
+    
+    <label class="md-nav__link" for="nav-2-11-7">
+      系统相关条件原语
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="系统相关条件原语" data-md-level="3">
+      <label class="md-nav__title" for="nav-2-11-7">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        系统相关条件原语
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../condition/system/time/" title="Time" class="md-nav__link">
+      Time
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-3" type="checkbox" id="nav-3">
+    
+    <label class="md-nav__link" for="nav-3">
+      下载
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="下载" data-md-level="1">
+      <label class="md-nav__title" for="nav-3">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        下载
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../DOWNLOAD/" title="预编译文件下载" class="md-nav__link">
+      预编译文件下载
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item md-nav__item--nested">
+    
+      <input class="md-nav__toggle md-toggle" data-md-toggle="nav-4" type="checkbox" id="nav-4">
+    
+    <label class="md-nav__link" for="nav-4">
+      社区
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/></svg>
+      </span>
+    </label>
+    <nav class="md-nav" aria-label="社区" data-md-level="1">
+      <label class="md-nav__title" for="nav-4">
+        <span class="md-nav__icon md-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+        </span>
+        社区
+      </label>
+      <ul class="md-nav__list" data-md-scrollfix>
+        
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../COMMUNITY/" title="加入我们" class="md-nav__link">
+      加入我们
+    </a>
+  </li>
+
+        
+      </ul>
+    </nav>
+  </li>
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+      </span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    模块简介
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    基础配置
+  </a>
+  
+    <nav class="md-nav" aria-label="基础配置">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    配置描述
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    配置示例
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    规则配置
+  </a>
+  
+    <nav class="md-nav" aria-label="规则配置">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    配置描述
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    模块动作
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_8" class="md-nav__link">
+    配置示例
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_9" class="md-nav__link">
+    监控项
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          <div class="md-content">
+            <article class="md-content__inner md-typeset">
+              
+                
+                  <a href="https://github.com/bfenetworks/bfe/edit/develop/docs/zh_cn/modules/mod_block/mod_block.md" title="编辑此页" class="md-content__button md-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"/></svg>
+                  </a>
+                
+                
+                  
+                
+                
+                <h1 id="mod_block">mod_block</h1>
+<h2 id="_1">模块简介</h2>
+<p>mod_block基于自定义的规则，对连接或请求进行封禁。</p>
+<h2 id="_2">基础配置</h2>
+<h3 id="_3">配置描述</h3>
+<p>模块配置文件: conf/mod_block/mod_block.conf</p>
+<table>
+<thead>
+<tr>
+<th>配置项</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Basic.ProductRulePath</td>
+<td>String<br>封禁规则文件路径</td>
+</tr>
+<tr>
+<td>Basic.IPBlocklistPath</td>
+<td>String<br>全局IP黑名单文件路径</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>全局IP黑名单文件说明：</li>
+<li>可以配置单独的 IP，也可配置起始 IP</li>
+<li>全局IP黑名单文件配置示例</li>
+</ul>
+<pre class="codehilite"><code>192.168.1.253 192.168.1.254
+192.168.1.250
+</code></pre>
+
+<h3 id="_4">配置示例</h3>
+<pre class="codehilite"><code class="language-ini">[Basic]
+# product rule config file path
+ProductRulePath = mod_block/block_rules.data
+
+# global ip blocklist file path
+IPBlocklistPath = mod_block/ip_blocklist.data
+</code></pre>
+
+<h2 id="_5">规则配置</h2>
+<h3 id="_6">配置描述</h3>
+<table>
+<thead>
+<tr>
+<th>配置项</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Version</td>
+<td>String<br>配置文件版本</td>
+</tr>
+<tr>
+<td>Config</td>
+<td>Object<br>各产品线的封禁规则</td>
+</tr>
+<tr>
+<td>Config{k}</td>
+<td>String<br>产品线名称</td>
+</tr>
+<tr>
+<td>Config{v}</td>
+<td>Object<br>产品线下的封禁规则列表</td>
+</tr>
+<tr>
+<td>Config{v}[]</td>
+<td>Object<br>封禁规则详细信息</td>
+</tr>
+<tr>
+<td>Config{v}[].Cond</td>
+<td>String<br>描述匹配请求或连接的条件, 语法详见<a href="../../../condition/condition_grammar/">Condition</a></td>
+</tr>
+<tr>
+<td>Config{v}[].Name</td>
+<td>String<br>规则名称</td>
+</tr>
+<tr>
+<td>Config{v}[].Action</td>
+<td>Object<br>匹配成功后的动作</td>
+</tr>
+<tr>
+<td>Config{v}[].Action.Cmd</td>
+<td>String<br>匹配成功后执行的指令</td>
+</tr>
+<tr>
+<td>Config{v}[].Action.Params</td>
+<td>Object<br>执行指令的相关参数列表</td>
+</tr>
+<tr>
+<td>Config{v}[].Action.Params[]</td>
+<td>String<br>参数信息</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_7">模块动作</h3>
+<table>
+<thead>
+<tr>
+<th>动作</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CLOSE</td>
+<td>关闭连接</td>
+</tr>
+<tr>
+<td>ALLOW</td>
+<td>允许请求</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_8">配置示例</h3>
+<pre class="codehilite"><code class="language-json">{
+    &quot;Version&quot;: &quot;20190101000000&quot;,
+    &quot;Config&quot;: {
+        &quot;global&quot;: [
+            {
+                &quot;action&quot;: {
+                    &quot;cmd&quot;: &quot;ALLOW&quot;,
+                    &quot;params&quot;: []
+                },
+                &quot;cond&quot;: &quot;req_host_in(\&quot;n.example.org\&quot;) &amp;&amp; req_path_prefix_in(\&quot;/index/\&quot;, false) &amp;&amp; req_query_key_in(\&quot;space\&quot;)&quot;,
+                &quot;name&quot;: &quot;example whiterule&quot;
+            }
+        ],
+        &quot;example_product&quot;: [
+            {
+                &quot;action&quot;: {
+                    &quot;cmd&quot;: &quot;CLOSE&quot;,
+                    &quot;params&quot;: []
+                },
+                &quot;name&quot;: &quot;example rule&quot;,
+                &quot;cond&quot;: &quot;req_path_in(\&quot;/limit\&quot;, false)&quot;            
+            }
+        ]
+    }
+}
+</code></pre>
+
+<h2 id="_9">监控项</h2>
+<table>
+<thead>
+<tr>
+<th>监控项</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CONN_TOTAL</td>
+<td>连接总数</td>
+</tr>
+<tr>
+<td>CONN_REFUSE</td>
+<td>连接拒绝的总数</td>
+</tr>
+<tr>
+<td>CONN_ACCEPT</td>
+<td>连接接受的总数</td>
+</tr>
+<tr>
+<td>REQ_TOTAL</td>
+<td>请求总数</td>
+</tr>
+<tr>
+<td>REQ_REFUSE</td>
+<td>请求拒绝的总数</td>
+</tr>
+<tr>
+<td>REQ_ACCEPT</td>
+<td>请求接受的总数</td>
+</tr>
+<tr>
+<td>REQ_TO_CHECK</td>
+<td>检查的请求数</td>
+</tr>
+</tbody>
+</table>
+                
+              
+              
+                
+
+
+              
+            </article>
+          </div>
+        </div>
+      </main>
+      
+        
+<footer class="md-footer">
+  
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid" aria-label="Footer">
+        
+          <a href="../../mod_auth_request/mod_auth_request/" title="mod_auth_request" class="md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+            </div>
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
+                <span class="md-footer-nav__direction">
+                  上一页
+                </span>
+                mod_auth_request
+              </div>
+            </div>
+          </a>
+        
+        
+          <a href="../../mod_compress/mod_compress/" title="mod_compress" class="md-footer-nav__link md-footer-nav__link--next" rel="next">
+            <div class="md-footer-nav__title">
+              <div class="md-ellipsis">
+                <span class="md-footer-nav__direction">
+                  下一页
+                </span>
+                mod_compress
+              </div>
+            </div>
+            <div class="md-footer-nav__button md-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    </div>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-footer-copyright">
+        
+          <div class="md-footer-copyright__highlight">
+            Copyright © 2021 BFE作者 | 文档发布基于CC-BY-4.0授权许可 <br/>Copyright © 2021 Linux基金会。保留所有权利。Linux基金会已注册并使用商标<br/>如需了解Linux基金会的商标列表， 请<a target="_blank" href="https://www.linuxfoundation.org/trademark-usage">访问商标使用页面 </a>
+          </div>
+        
+      </div>
+      
+  <div class="md-footer-social">
+    
+      
+      
+        
+        
+      
+      <a href="https://github.com/bfenetworks/bfe" target="_blank" rel="noopener" title="github.com" class="md-footer-social__link">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+      </a>
+    
+      
+      
+        
+        
+      
+      <a href="https://twitter.com/BfeNetworks" target="_blank" rel="noopener" title="twitter.com" class="md-footer-social__link">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z"/></svg>
+      </a>
+    
+      
+      
+        
+        
+      
+      <a href="https://slack.cncf.io" target="_blank" rel="noopener" title="slack.cncf.io" class="md-footer-social__link">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M94.12 315.1c0 25.9-21.16 47.06-47.06 47.06S0 341 0 315.1c0-25.9 21.16-47.06 47.06-47.06h47.06v47.06zm23.72 0c0-25.9 21.16-47.06 47.06-47.06s47.06 21.16 47.06 47.06v117.84c0 25.9-21.16 47.06-47.06 47.06s-47.06-21.16-47.06-47.06V315.1zm47.06-188.98c-25.9 0-47.06-21.16-47.06-47.06S139 32 164.9 32s47.06 21.16 47.06 47.06v47.06H164.9zm0 23.72c25.9 0 47.06 21.16 47.06 47.06s-21.16 47.06-47.06 47.06H47.06C21.16 243.96 0 222.8 0 196.9s21.16-47.06 47.06-47.06H164.9zm188.98 47.06c0-25.9 21.16-47.06 47.06-47.06 25.9 0 47.06 21.16 47.06 47.06s-21.16 47.06-47.06 47.06h-47.06V196.9zm-23.72 0c0 25.9-21.16 47.06-47.06 47.06-25.9 0-47.06-21.16-47.06-47.06V79.06c0-25.9 21.16-47.06 47.06-47.06 25.9 0 47.06 21.16 47.06 47.06V196.9zM283.1 385.88c25.9 0 47.06 21.16 47.06 47.06 0 25.9-21.16 47.06-47.06 47.06-25.9 0-47.06-21.16-47.06-47.06v-47.06h47.06zm0-23.72c-25.9 0-47.06-21.16-47.06-47.06 0-25.9 21.16-47.06 47.06-47.06h117.84c25.9 0 47.06 21.16 47.06 47.06 0 25.9-21.16 47.06-47.06 47.06H283.1z"/></svg>
+      </a>
+    
+      
+      
+      <a href="mailto:bfe-networks@groups.io" target="_blank" rel="noopener" title="" class="md-footer-social__link">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M502.3 190.8c3.9-3.1 9.7-.2 9.7 4.7V400c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V195.6c0-5 5.7-7.8 9.7-4.7 22.4 17.4 52.1 39.5 154.1 113.6 21.1 15.4 56.7 47.8 92.2 47.6 35.7.3 72-32.8 92.3-47.6 102-74.1 131.6-96.3 154-113.7zM256 320c23.2.4 56.6-29.2 73.4-41.4 132.7-96.3 142.8-104.7 173.4-128.7 5.8-4.5 9.2-11.5 9.2-18.9v-19c0-26.5-21.5-48-48-48H48C21.5 64 0 85.5 0 112v19c0 7.4 3.4 14.3 9.2 18.9 30.6 23.9 40.7 32.4 173.4 128.7 16.8 12.2 50.2 41.8 73.4 41.4z"/></svg>
+      </a>
+    
+  </div>
+
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    
+      <script src="../../../assets/javascripts/vendor.809e24aa.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\uff0c\\u3002]+", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c"}</script>
+      
+      <script>
+        app = initialize({
+          base: "../../..",
+          features: ["tabs"],
+          search: Object.assign({
+            worker: "../../../assets/javascripts/worker/search.f6ebf1dc.min.js"
+          }, typeof search !== "undefined" && search)
+        })
+      </script>
+      
+        <script src="../../../search/main.js"></script>
+      
+    
+  </body>
+</html>
