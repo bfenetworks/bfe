@@ -25,6 +25,7 @@ package bfe_http
 
 import (
 	"compress/gzip"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
@@ -34,15 +35,11 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-import (
 	"github.com/baidu/go-lib/gotrack"
 	"github.com/baidu/go-lib/log"
-)
-
-import (
 	"github.com/bfenetworks/bfe/bfe_bufio"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
@@ -128,8 +125,14 @@ type Transport struct {
 	// If zero, no periodic flushing is done.
 	ReqFlushInterval time.Duration
 
+	HttpsConf *cluster_conf.BackendHTTPS
+
 	// TODO: tunable on global max cached connections
 	// TODO: tunable on timeout on cached connections
+}
+
+func (t *Transport) SetHttpsConf(c *cluster_conf.BackendHTTPS) {
+	t.HttpsConf = c
 }
 
 // ProxyFromEnvironment returns the URL of the proxy to use for a
@@ -188,6 +191,9 @@ func (tr *transportRequest) extraHeaders() Header {
 // For higher-level HTTP client support (such as handling of cookies
 // and redirects), see Get, Post, and the Client type.
 func (t *Transport) RoundTrip(req *Request) (resp *Response, err error) {
+	if t.HttpsConf != nil && t.HttpsConf.GetProtocol() == "https" {
+		req.URL.Scheme = "https"
+	}
 	state.HttpBackendReqAll.Inc(1)
 	if req.URL == nil {
 		return nil, errors.New("http: nil Request.URL")
@@ -306,6 +312,7 @@ func (t *Transport) connectMethodForRequest(treq *transportRequest) (*connectMet
 	cm := &connectMethod{
 		targetScheme: treq.URL.Scheme,
 		targetAddr:   canonicalAddr(treq.URL),
+		targetHost:   treq.Host,
 	}
 	if t.Proxy != nil {
 		var err error
@@ -591,13 +598,70 @@ func (t *Transport) dialConn(cm *connectMethod) (*persistConn, error) {
 	}
 
 	if cm.targetScheme == "https" {
+		if t.HttpsConf == nil {
+			return nil, errors.New("https: error, httpsConf is nil")
+		}
 		// Initiate TLS and check remote host name against certificate.
 		cfg := t.TLSClientConfig
 		if cfg == nil || cfg.ServerName == "" {
-			host := cm.tlsHost()
+			//host := cm.tlsHost()
+			var (
+				host      string
+				rootCAs   *x509.CertPool        = nil
+				certs     []bfe_tls.Certificate = nil
+				cert      bfe_tls.Certificate
+				httpsConf = t.HttpsConf
+			)
+			if httpsConf.RSInsecureSkipVerify == nil || !*httpsConf.RSInsecureSkipVerify {
+
+				// if the host has port, only use the hostname
+				host = cm.targetHost
+				if hasPort(host) {
+					host = host[:strings.LastIndex(host, ":")]
+				}
+
+				if httpsConf.RSHost != nil && *httpsConf.RSHost != "" {
+					host = *httpsConf.RSHost
+				}
+				rootCAs, err = httpsConf.GetRSCAList()
+				if err != nil {
+					log.Logger.Debug("debug_https get_cas err=%s", err.Error())
+					return nil, err
+				}
+			}
+			if cert, err = httpsConf.GetBFECert(); err == nil {
+				certs = []bfe_tls.Certificate{cert}
+			}
 			if cfg == nil {
-				cfg = &bfe_tls.Config{ServerName: host}
+				if httpsConf.RSInsecureSkipVerify != nil && *httpsConf.RSInsecureSkipVerify {
+					// should skip Insecure Verify
+					cfg = &bfe_tls.Config{
+						Certificates:       certs,
+						InsecureSkipVerify: true,
+						ServerName:         host,
+					}
+				} else {
+					// do Insecure Verify
+					if rootCAs == nil {
+						// use system cas
+						cfg = &bfe_tls.Config{
+							Certificates:       certs,
+							InsecureSkipVerify: false,
+							ServerName:         host,
+						}
+					} else {
+						// use custom cas only, keep unchanged.
+						cfg = &bfe_tls.Config{
+							Certificates:          certs,
+							InsecureSkipVerify:    true,
+							ServerName:            host,
+							RootCAs:               rootCAs,
+							VerifyPeerCertificate: bfe_tls.NewVerifyPeerCertHooks(*httpsConf.RSInsecureSkipVerify, host, rootCAs).Ready(),
+						}
+					}
+				}
 			} else {
+				// should not arrive here, since t.TLSClientConfig is never set
 				clone := cfg.Clone() // shallow clone
 				clone.ServerName = host
 				cfg = clone
@@ -698,11 +762,11 @@ func useProxy(addr string) bool {
 // http://proxy.com|http           http to proxy, http to anywhere after that
 //
 // Note: no support to https to the proxy yet.
-//
 type connectMethod struct {
 	proxyURL     *url.URL // nil for no proxy, else full proxy URL
 	targetScheme string   // "http" or "https"
 	targetAddr   string   // Not used if proxy + http targetScheme (4th example in table)
+	targetHost   string   // used in https protocol for default servername
 }
 
 func (ck *connectMethod) key() string {

@@ -29,15 +29,11 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-import (
 	"golang.org/x/net/http2"
 
 	"github.com/baidu/go-lib/log"
-)
 
-import (
 	bfe_cluster_backend "github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/bfe/bfe_balance/bal_gslb"
 	"github.com/bfenetworks/bfe/bfe_basic"
@@ -63,8 +59,9 @@ import (
 // prior to the headers being written. If the set of trailers is fixed
 // or known before the header is written, the normal Go trailers mechanism
 // is preferred:
-//    https://golang.org/pkg/net/http/#ResponseWriter
-//    https://golang.org/pkg/net/http/#example_ResponseWriter_trailers
+//
+//	https://golang.org/pkg/net/http/#ResponseWriter
+//	https://golang.org/pkg/net/http/#example_ResponseWriter_trailers
 const TrailerPrefix = "Trailer:"
 
 // RoundTripperMap holds mappings from cluster-name to RoundTripper.
@@ -140,6 +137,53 @@ func setBackendAddr(req *bfe_http.Request, backend *bfe_cluster_backend.BfeBacke
 	req.URL.Host = backend.GetAddrInfo()
 }
 
+// compareHttpsConf compares two BackendHTTPS configurations and determines whether they are identical.
+// Return:
+// - bool: Returns true if all fields in src and dst are identical, otherwise false.
+func compareHttpsConf(src, dst *cluster_conf.BackendHTTPS) bool {
+	// Check if either src or dst is nil
+	if src == nil || dst == nil {
+		return src == dst // Both must be nil to be equal
+	}
+
+	// Compare RSHost
+	if (src.RSHost == nil) != (dst.RSHost == nil) || (src.RSHost != nil && *src.RSHost != *dst.RSHost) {
+		return false
+	}
+
+	// Compare RSInsecureSkipVerify
+	if (src.RSInsecureSkipVerify == nil) != (dst.RSInsecureSkipVerify == nil) || (src.RSInsecureSkipVerify != nil && *src.RSInsecureSkipVerify != *dst.RSInsecureSkipVerify) {
+		return false
+	}
+
+	// Compare RSCAList
+	if (src.RSCAList == nil) != (dst.RSCAList == nil) {
+		return false
+	}
+	if src.RSCAList != nil && dst.RSCAList != nil {
+		if len(*src.RSCAList) != len(*dst.RSCAList) {
+			return false
+		}
+		for i := range *src.RSCAList {
+			if (*src.RSCAList)[i] != (*dst.RSCAList)[i] {
+				return false
+			}
+		}
+	}
+
+	// Compare BFECertFile
+	if (src.BFECertFile == nil) != (dst.BFECertFile == nil) || (src.BFECertFile != nil && *src.BFECertFile != *dst.BFECertFile) {
+		return false
+	}
+
+	// Compare BFEKeyFile
+	if (src.BFEKeyFile == nil) != (dst.BFEKeyFile == nil) || (src.BFEKeyFile != nil && *src.BFEKeyFile != *dst.BFEKeyFile) {
+		return false
+	}
+
+	return true
+}
+
 func (p *ReverseProxy) setTransports(clusterMap bfe_route.ClusterMap) {
 	p.tsMu.Lock()
 	defer p.tsMu.Unlock()
@@ -157,7 +201,15 @@ func (p *ReverseProxy) setTransports(clusterMap bfe_route.ClusterMap) {
 		case *bfe_http.Transport:
 			// get transport, check if transport needs update
 			backendConf := conf.BackendConf()
-			if (t.MaxIdleConnsPerHost != *backendConf.MaxIdleConnsPerHost) ||
+
+			proto := "http"
+			if t.HttpsConf != nil {
+				proto = "https"
+			}
+
+			if (proto != *backendConf.Protocol) ||
+				!compareHttpsConf(t.HttpsConf, conf.BackendHTTPSConf()) ||
+				(t.MaxIdleConnsPerHost != *backendConf.MaxIdleConnsPerHost) ||
 				(t.MaxConnsPerHost != *backendConf.MaxConnsPerHost) ||
 				(t.ResponseHeaderTimeout != time.Millisecond*time.Duration(*backendConf.TimeoutResponseHeader)) ||
 				(t.ReqWriteBufferSize != conf.ReqWriteBufferSize()) ||
@@ -168,7 +220,6 @@ func (p *ReverseProxy) setTransports(clusterMap bfe_route.ClusterMap) {
 				newTransports[cluster] = transport
 				continue
 			}
-
 			newTransports[cluster] = transport
 		default:
 			transport = createTransport(conf)
@@ -202,7 +253,7 @@ func createTransport(cluster *bfe_cluster.BfeCluster) bfe_http.RoundTripper {
 	log.Logger.Debug("create a new transport for %s, timeout %d", cluster.Name, *backendConf.TimeoutResponseHeader)
 
 	switch protocol {
-	case "http":
+	case "http", "https":
 		// cluster has its own Connect Server Timeout.
 		// so each cluster has a different transport
 		// once cluster's timeout updated, dailer use new value
@@ -211,7 +262,7 @@ func createTransport(cluster *bfe_cluster.BfeCluster) bfe_http.RoundTripper {
 			return net.DialTimeout(network, add, timeout)
 		}
 
-		return &bfe_http.Transport{
+		transport := &bfe_http.Transport{
 			Dial:                  dailer,
 			DisableKeepAlives:     (*backendConf.MaxIdleConnsPerHost) == 0,
 			MaxIdleConnsPerHost:   *backendConf.MaxIdleConnsPerHost,
@@ -221,6 +272,10 @@ func createTransport(cluster *bfe_cluster.BfeCluster) bfe_http.RoundTripper {
 			DisableCompression:    true,
 			MaxConnsPerHost:       *backendConf.MaxConnsPerHost,
 		}
+		if protocol == "https" {
+			transport.SetHttpsConf(cluster.BackendHTTPSConf())
+		}
+		return transport
 	case "fcgi":
 		return &bfe_fcgi.Transport{
 			Root:    backendConf.FCGIConf.Root,
@@ -561,11 +616,11 @@ func (p *ReverseProxy) setReadClientAgainTimeout(cluster *bfe_cluster.BfeCluster
 // ServeHTTP processes http request and send http response.
 //
 // Params:
-//    - rw : context for sending response
-//    - request: context for request
+//   - rw : context for sending response
+//   - request: context for request
 //
 // Return:
-//    - action: action to do after ServeHTTP
+//   - action: action to do after ServeHTTP
 func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic.Request) (action int) {
 	var err error
 	var res *bfe_http.Response

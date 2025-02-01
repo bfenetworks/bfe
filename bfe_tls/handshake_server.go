@@ -932,8 +932,8 @@ func (hs *serverHandshakeState) processCertsFromClient(certificates [][]byte) (c
 		c.verifiedChains = chains
 	}
 
+	var pub crypto.PublicKey
 	if len(certs) > 0 {
-		var pub crypto.PublicKey
 		switch key := certs[0].PublicKey.(type) {
 		case *ecdsa.PublicKey, *rsa.PublicKey:
 			pub = key
@@ -945,7 +945,14 @@ func (hs *serverHandshakeState) processCertsFromClient(certificates [][]byte) (c
 		return pub, nil
 	}
 
-	return nil, nil
+	if c.config.VerifyPeerCertificate != nil {
+		if err := c.config.VerifyPeerCertificate(certificates, c.verifiedChains); err != nil {
+			c.sendAlert(alertBadCertificate)
+			return nil, err
+		}
+	}
+
+	return pub, nil
 }
 
 // tryCipherSuite returns a cipherSuite with the given id if that cipher suite

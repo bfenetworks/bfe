@@ -10,6 +10,16 @@
                 }
             ]
         },
+        "https_cluster_example": {
+            "example.bfe.bj": [
+                {
+                    "Addr": "127.0.0.1",
+                    "Name": "https_example_hostname",
+                    "Port": 9443,
+                    "Weight": 10
+                }
+            ]
+        },
         "fcgi_cluster_example": {
             "fcgi.example.bfe.bj": [
                 {
