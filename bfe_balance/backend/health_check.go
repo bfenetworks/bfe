@@ -203,7 +203,6 @@ func getHostByType(host, rsAddr, hostType *string, def string) string {
 	return def
 }
 
-// add by liangc
 func checkHTTPSConnect(backend *BfeBackend, checkConf *cluster_conf.BackendCheck, httpsConf *cluster_conf.BackendHTTPS) (bool, error) {
 	var (
 		err          error
@@ -239,17 +238,23 @@ func checkHTTPSConnect(backend *BfeBackend, checkConf *cluster_conf.BackendCheck
 		}
 
 		doCheckFn = func(conn net.Conn) checkRtn {
-			// TLS Check >>>>>>>
+			// Set timeout
+			timeout := 3 * time.Second
+			err = conn.SetDeadline(time.Now().Add(timeout))
+			if err != nil {
+				return checkRtn{false, err}
+			}
+
+			// TLS Check
 			if err = conn.(*bfe_tls.Conn).Handshake(); err != nil {
 				log.Logger.Debug("debug_https err=%s", err.Error())
 				return checkRtn{false, err}
 			}
-			if *checkConf.Schem == "tls" { // https or tls
+			if *checkConf.Schem == "tls" {
 				return checkRtn{true, nil}
 			}
-			// TLS Check <<<<<<<
 
-			// HTTPS Check vvvvvvvvvvvvv
+			// HTTPS Check
 			if checkConf.Uri != nil && *checkConf.Uri != "" {
 				uri = *checkConf.Uri
 			}
@@ -271,7 +276,7 @@ func checkHTTPSConnect(backend *BfeBackend, checkConf *cluster_conf.BackendCheck
 				buf      = make([]byte, bufSz)
 				total    = 0
 			)
-			//TODO: if timeout , how to handle ?
+
 			for {
 				total, err = conn.Read(buf)
 				if err != nil {
@@ -282,7 +287,7 @@ func checkHTTPSConnect(backend *BfeBackend, checkConf *cluster_conf.BackendCheck
 					break
 				}
 			}
-			//data, err = ioutil.ReadAll(conn)
+
 			if err != nil {
 				log.Logger.Debug("debug_https err=%s", err.Error())
 				return checkRtn{false, err}
