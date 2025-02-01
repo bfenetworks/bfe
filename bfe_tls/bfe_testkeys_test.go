@@ -23,7 +23,7 @@ import (
 func TestKeysDecode(t *testing.T) {
 	chain := append(BFE_R_CA_CRT.Bytes(), BFE_I_CA_CRT.Bytes()...)
 
-	// 解码 PEM 数据
+	// Decode pem raw data
 	var certs []*x509.Certificate
 	block, rest := pem.Decode(chain)
 	for block != nil {

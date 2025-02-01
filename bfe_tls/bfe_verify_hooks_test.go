@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-// 创建 CN 证书
+// createCert create a cert with common name
 func createCert(sn int64, cn string) *x509.Certificate {
 	template := &x509.Certificate{
 		SerialNumber:          big.NewInt(sn),
@@ -40,7 +40,7 @@ func createCert(sn int64, cn string) *x509.Certificate {
 	return cert
 }
 
-// 创建带 SAN 的证书
+// createCertWithSAN create a cert with SAN
 func createCertWithSAN(sn int64, dnsNames []string, ips []net.IP) *x509.Certificate {
 	template := &x509.Certificate{
 		SerialNumber:          big.NewInt(sn),
@@ -105,7 +105,7 @@ func TestDefVerifyHost(t *testing.T) {
 			}
 		}
 	)
-	// 测试验证
+	// execute test cases
 	for name, val := range _testcase {
 		t.Run(name, fn(val))
 	}
