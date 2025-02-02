@@ -24,13 +24,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
-)
 
-import (
 	"github.com/baidu/go-lib/log"
-)
-
-import (
 	"github.com/bfenetworks/bfe/bfe_balance"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
@@ -396,13 +391,13 @@ func (srv *BfeServer) GetServerConf() *bfe_route.ServerDataConf {
 
 // GetCheckConf implements CheckConfFetcher and return current
 // health check configuration.
-func (srv *BfeServer) GetCheckConf(clusterName string) *cluster_conf.BackendCheck {
-	sf := srv.GetServerConf()
+func (s *BfeServer) GetCheckConf(clusterName string) (*cluster_conf.BackendCheck, *cluster_conf.BackendHTTPS) {
+	sf := s.GetServerConf()
 	cluster, err := sf.ClusterTable.Lookup(clusterName)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
-	return cluster.BackendCheckConf()
+	return cluster.BackendCheckConf(), cluster.BackendHTTPSConf()
 }
 
 func (srv *BfeServer) InitListeners(config bfe_conf.BfeConfig) error {

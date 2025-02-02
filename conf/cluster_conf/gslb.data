@@ -4,6 +4,10 @@
             "GSLB_BLACKHOLE": 0,
             "example.bfe.bj": 100
         },
+        "https_cluster_example": {
+            "GSLB_BLACKHOLE": 0,
+            "example.bfe.bj": 100
+        },
         "fcgi_cluster_example": {
             "GSLB_BLACKHOLE": 0,
             "fcgi.example.bfe.bj": 100

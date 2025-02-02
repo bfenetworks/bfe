@@ -29,9 +29,7 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-import (
 	"golang.org/x/crypto/ocsp"
 )
 
@@ -60,7 +58,9 @@ const (
 // Grade A+: no ssl3, tls1.0, tls1.1 && no RC4 ciphers
 // Grade A: no ssl3 && no RC4 ciphers
 // Grade B: ssl3 is ok only with RC4 cipher, or
-//    modern version(>=tls10) with no RC4 cipher
+//
+//	modern version(>=tls10) with no RC4 cipher
+//
 // Grade C: ssl3 is ok only with RC4 cipher
 const (
 	GradeAPlus = "A+"
@@ -79,8 +79,8 @@ const (
  *     http://chimera.labs.oreilly.com/books/1230000000545/ch04.html#TLS_RECORD_SIZE
  */
 var (
-	initPlaintext  int = minPlaintext // initial length of plaintext payload
-	bytesThreshold int = 1024 * 1024  // 1 MB
+	initPlaintext   int           = minPlaintext                   // initial length of plaintext payload
+	bytesThreshold  int           = 1024 * 1024                    // 1 MB
 	inactiveSeconds time.Duration = time.Duration(1 * time.Second) // 1 second
 )
 
@@ -349,6 +349,19 @@ type Config struct {
 	// for all connections.
 	NameToCertificate map[string]*Certificate
 
+	// VerifyPeerCertificate, if not nil, is called after normal
+	// certificate verification by either a TLS client or server. It
+	// receives the raw ASN.1 certificates provided by the peer and also
+	// any verified chains that normal processing found. If it returns a
+	// non-nil error, the handshake is aborted and that error results.
+	//
+	// If normal verification fails then the handshake will abort before
+	// considering this callback. If normal verification is disabled by
+	// setting InsecureSkipVerify, or (for a server) when ClientAuth is
+	// RequestClientCert or RequireAnyClientCert, then this callback will
+	// be considered but the verifiedChains argument will always be nil.
+	VerifyPeerCertificate func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error
+
 	// default multiply certificates policy for tls server
 	MultiCert MultiCertificate
 
@@ -466,6 +479,7 @@ func (c *Config) Clone() *Config {
 		Time:                     c.Time,
 		Certificates:             c.Certificates,
 		NameToCertificate:        c.NameToCertificate,
+		VerifyPeerCertificate:    c.VerifyPeerCertificate,
 		MultiCert:                c.MultiCert,
 		RootCAs:                  c.RootCAs,
 		NextProtos:               c.NextProtos,

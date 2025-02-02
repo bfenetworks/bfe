@@ -23,7 +23,7 @@ cluster_conf.data为集群转发配置文件。
 
 | 配置项                        | 描述                                                         |
 | ----------------------------- | ------------------------------------------------------------ |
-| BackendConf.Protocol              | String<br>后端服务的协议，当前支持http和fcgi, 默认值http |
+| BackendConf.Protocol              | String<br>后端服务的协议，当前支持http/https和fcgi, 默认值http |
 | BackendConf.TimeoutConnSrv        | Integer<br>连接后端的超时时间，单位是毫秒<br>默认值2000 |
 | BackendConf.TimeoutResponseHeader | Integer<br>从后端读响应头的超时时间，单位是毫秒<br>默认值60000 |
 | BackendConf.MaxIdleConnsPerHost   | Integer<br>BFE实例与每个后端的最大空闲长连接数<br>默认值2 |
@@ -38,14 +38,16 @@ cluster_conf.data为集群转发配置文件。
 
 | 配置项                   | 描述                                                         |
 | ------------------------ | ------------------------------------------------------------ |
-| CheckConf.Schem         | String<br>健康检查协议，支持HTTP和TCP<br>默认值 HTTP         |
-| CheckConf.Uri           | String<br>健康检查请求URI (仅HTTP)<br>默认值 "/health_check" |
-| CheckConf.Host          | String<br>健康检查请求HOST (仅HTTP)<br>默认值 ""             |
-| CheckConf.StatusCode    | Integer<br>期待返回的响应状态码 (仅HTTP)<br>默认值 200。也可以配置为0，代表任意状态码均符合预期。 |
+| CheckConf.Schem         | String<br>健康检查协议，支持HTTP/HTTPS/TCP/TLS<br>默认值 HTTP         |
+| CheckConf.Uri           | String<br>健康检查请求URI (仅HTTP/HTTPS)<br>默认值 "/health_check" |
+| CheckConf.Host          | String<br>健康检查请求HOST (仅HTTP/HTTPS)<br>默认值 ""             |
+| CheckConf.StatusCode    | Integer<br>期待返回的响应状态码 (仅HTTP/HTTPS)<br>默认值 200。也可以配置为0，代表任意状态码均符合预期。 |
+| CheckConf.StatusCodeRange | String<br>期待返回的响应状态码 (仅HTTP/HTTPS)<br> 具体参见: 注解 1. StatusCodeRange|
 | CheckConf.FailNum       | Integer<br>健康检查启动阈值（转发请求连续失败FailNum次后，将后端实例置为不可用状态，并启动健康检查）<br>默认值5 |
 | CheckConf.SuccNum       | Integer<br>健康检查成功阈值（健康检查连续成功SuccNum次后，将后端实例置为可用状态）<br>默认值1 |
 | CheckConf.CheckTimeout  | Integer<br>健康检查的超时时间，单位是毫秒<br>默认值0（无超时）|
 | CheckConf.CheckInterval | Integer<br>健康检查的间隔时间，单位是毫秒<br>默认值1000 |
+
 
 #### GSLB基础配置
 
@@ -70,6 +72,16 @@ cluster_conf.data为集群转发配置文件。
 | ClusterBasic.ReqFlushInterval       | Integer<br>刷新请求的间隔时间，单位是毫秒。默认值为0，表示不进行周期性刷新 |
 | ClusterBasic.ResFlushInterval       | Integer<br>刷新响应的间隔时间，单位是毫秒。默认值为-1，表示不对响应进行缓存。设置为0表示不进行周期性刷新。建议使用默认值。 |
 | ClusterBasic.CancelOnClientClose    | Boolean<br>当服务端正在读后端响应时，如果客户端断连，是否取消该阻塞状态。默认值为false。建议使用默认值。 |
+
+#### 后端服务HTTPS配置
+
+| 配置项                             | 描述                                                         |
+| --------------------------------- | ------------------------------------------------------------ |
+| HTTPSConf.RSHost                  | String<br>后端服务实例的hostname，用来验证服务端证书。<br>默认值：前端请求头中的Host字段。|
+| HTTPSConf.BFEKeyFile              | String<br>私钥文件路径，支持双向认证时必填<br>BFE引擎向后端转发https请求时使用的私钥。私钥文件必须是pem格式 |
+| HTTPSConf.BFECertFile             | String<br>证书文件路径,支持双向认证时必填<br>BFE引擎向后端转发https请求时使用的证书，证书文件必须是符合x509标准的pem格式，且每个pem文件中只能包含一张证书 |
+| HTTPSConf.RSCAList                | []String<br>BackendConf.Protocol为https，并且需要验证服务端的证书（即RSInsecureSkipVerify为false）时必填，如果不填则使用系统默认CA池。列表项为证书文件路径，证书文件必须是符合x509标准的pem格式证书，允许将CA信任链中的多个CA证书合入一个pem文件中。|
+| HTTPSConf.RSInsecureSkipVerify    | Boolean<br>服务端证书验证开关<br>true：不验证，false：验证（默认）|
 
 ## 配置示例
 
@@ -106,6 +118,51 @@ cluster_conf.data为集群转发配置文件。
                 "TimeoutReadClient": 30000,
                 "TimeoutWriteClient": 60000,
                 "TimeoutReadClientAgain": 60000,
+            }
+        },
+        "https_cluster_example": {
+            "BackendConf": {
+                "Protocol": "https",
+                "TimeoutConnSrv": 2000,
+                "TimeoutResponseHeader": 50000,
+                "MaxIdleConnsPerHost": 0,
+                "RetryLevel": 0
+            },
+            "CheckConf": {
+                "Schem": "https",
+                "Uri": "/",
+                "Host": "example.org",
+                "StatusCode": 200,
+                "FailNum": 10,
+                "CheckInterval": 1000
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 2,
+                "HashConf": {
+                    "HashStrategy": 0,
+                    "HashHeader": "Cookie:UID",
+                    "SessionSticky": false
+                }
+            },
+            "ClusterBasic": {
+                "TimeoutReadClient": 30000,
+                "TimeoutWriteClient": 60000,
+                "TimeoutReadClientAgain": 30000,
+                "ReqWriteBufferSize": 512,
+                "ReqFlushInterval": 0,
+                "ResFlushInterval": -1,
+                "CancelOnClientClose": false
+            },
+            "HTTPSConf":{
+                "RSHost": "www.example.org",
+                "BFEKeyFile": "../conf/tls_conf/backend_rs/r_bfe_dev_prv.pem",
+                "BFECertFile": "../conf/tls_conf/backend_rs/r_bfe_dev.crt",
+                "RSCAList": [
+                    "../conf/tls_conf/backend_rs/bfe_r_ca.crt",
+                    "../conf/tls_conf/backend_rs/bfe_i_ca.crt"
+                ],
+                "RSInsecureSkipVerify": false
             }
         },
         "fcgi_cluster_example": {
@@ -153,3 +210,15 @@ cluster_conf.data为集群转发配置文件。
     }
 }
 ```
+
+## 注解
+
+### 1. StatusCodeRange 
+
+- 响应状态码范围。如果配置了StatusCode，则会忽略此验证条件
+- 合法的配置项举例：
+  1. `"3xx"`, `"4xx"`, `"5xx"` 其中之一
+  2. 特定的HTTP返回码，与StatusCode功能一致
+  3. `"|"` 符号连接的上述 (1)或 (2) 例如： 
+     - `"503|4xx"`
+     - `"501|409|30x"`

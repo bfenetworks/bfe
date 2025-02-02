@@ -4,6 +4,7 @@
     "Hosts": {
         "exampleTag":[
             "example.org",
+            "www.example.org",
             "fcgi.example.org",
             "h2c.example.org"
         ],
