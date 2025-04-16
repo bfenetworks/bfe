@@ -1,8 +1,7 @@
 module github.com/bfenetworks/bfe
 
 go 1.21
-
-toolchain go1.22.2
+toolchain go1.24.1
 
 require (
 	github.com/abbot/go-http-auth v0.4.1-0.20181019201920-860ed7f246ff
@@ -32,9 +31,9 @@ require (
 	go.elastic.co/apm/module/apmot v1.7.2
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/automaxprocs v1.4.0
-	golang.org/x/crypto v0.32.0
-	golang.org/x/net v0.33.0
-	golang.org/x/sys v0.29.0
+	golang.org/x/crypto v0.36.0
+	golang.org/x/net v0.38.0
+	golang.org/x/sys v0.31.0
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
@@ -63,7 +62,7 @@ require (
 	github.com/tetratelabs/wazero v1.2.1 // indirect
 	go.elastic.co/apm/module/apmhttp v1.7.2 // indirect
 	go.elastic.co/fastjson v1.1.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	google.golang.org/grpc v1.56.3 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	howett.net/plist v0.0.0-20181124034731-591f970eefbb // indirect
