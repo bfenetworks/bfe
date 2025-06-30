@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The BFE Authors.
+// Copyright (c) 2019 - 2025 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_tcp_keepalive"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trace"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trust_clientip"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_unified_waf"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_userid"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_waf"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_wasmplugin"
@@ -135,6 +136,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_wasm
 	mod_wasmplugin.NewModuleWasm(),
+
+	// mod_unified_waf
+	mod_unified_waf.NewModuleWaf(),
 }
 
 // init modules list

@@ -1,0 +1,27 @@
+{
+	"Version": "2023-01-19 12:00:10",
+	"Config": {
+        "WafClient": {
+            "ConnectTimeout": 30,
+            "Concurrency": 10,
+            "MaxWaitCount": 10
+        },
+        "WafDetect": {
+            "RetryMax": 2,
+            "ReqTimeout": 50
+        },
+        "MaxWafMem": 1024,
+        "HealthChecker": { 
+            "UnavailableFailedThres": 20,
+            "HealthCheckInterval": 1000
+        },
+        "CircuitBreaker": { 
+            "Enable": true,
+            "OpenThres": 0.2, 
+            "DurationOpen2HalfOpen": 0,
+            "ClosedThres": 0.8,
+            "SamplePercent": 5.0, 
+            "StatTotalOpCount": 100  
+        }
+    }
+}

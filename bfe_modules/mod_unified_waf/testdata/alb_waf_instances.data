@@ -1,0 +1,9 @@
+{
+	"Version": "2023-01-19 12:00:10",
+	"Config": {
+		"WafCluster": [
+			{"IpAddr": "10.10.10.1", "Port": 80},
+			{"IpAddr": "10.10.10.2", "Port": 80, "HealthCheckPort": 5001}
+		]
+	}
+}

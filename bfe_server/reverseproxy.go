@@ -764,7 +764,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 			// close the connection after response
 			action = closeAfterReply
 			basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
-			return
+			goto send_response
 		case bfe_module.BfeHandlerRedirect:
 			// make redirect
 			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)
