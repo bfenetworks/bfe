@@ -42,6 +42,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_tcp_keepalive"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trace"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trust_clientip"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_unified_waf"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_userid"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_waf"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_wasmplugin"
@@ -135,6 +136,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_wasm
 	mod_wasmplugin.NewModuleWasm(),
+
+	// mod_unified_waf
+	mod_unified_waf.NewModuleWaf(),
 }
 
 // init modules list

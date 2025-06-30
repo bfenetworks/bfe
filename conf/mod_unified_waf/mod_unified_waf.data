@@ -1,0 +1,18 @@
+{
+	"Version": "2025-06-23 12:00:10",
+	"Config": {
+        "WafClient": {
+            "ConnectTimeout": 30,
+            "Concurrency": 2000,
+            "MaxWaitCount": 400
+        },
+        "WafDetect": {
+            "RetryMax": 2,
+            "ReqTimeout": 40
+        },
+        "HealthChecker": {
+            "UnavailableFailedThres": 20,
+            "HealthCheckInterval": 10000
+        }
+    }
+}
