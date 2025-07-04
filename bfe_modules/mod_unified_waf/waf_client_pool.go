@@ -31,9 +31,7 @@ type WafClientPool struct {
 	toDelClients []*WafClient          // to be deleted waf clients
 
 	wafParam GlobalParam
-	//wafParamVersion    string
-	//wafInstanceVersion string
-	monitor *MonitorStates // monitor states
+	monitor  *MonitorStates // monitor states
 
 	lock       sync.RWMutex // protect for wafClients and other members
 	updateLock sync.Mutex   // protect for Update()
@@ -68,7 +66,6 @@ func (p *WafClientPool) UpdateWafParam(data *GlobalParamConf) {
 
 	p.lock.Lock()
 	p.wafParam = *param
-	//p.wafParamVersion = ver
 
 	for _, c := range p.wafClients {
 		c.UpdateWafGlobalParam(param)
@@ -85,10 +82,13 @@ func (p *WafClientPool) deleteLoop() {
 		<-t.C
 
 		p.lock.Lock()
+		tryDeletes := p.toDelClients
+		p.toDelClients = nil
+		p.lock.Unlock()
 
 		// try close waf clients
 		toDelete := []*WafClient{}
-		for _, client := range p.toDelClients {
+		for _, client := range tryDeletes {
 			if err := client.Close(); err != nil {
 				// close failed, still should not delete
 				toDelete = append(toDelete, client)
@@ -99,13 +99,15 @@ func (p *WafClientPool) deleteLoop() {
 		}
 
 		// reset to delete clients
-		p.toDelClients = toDelete
+		p.lock.Lock()
+		p.toDelClients = append(p.toDelClients, toDelete...)
+		activeClientCount := int64(len(p.wafClients))
+		toDeleteClientCount := int64(len(p.toDelClients))
+		p.lock.Unlock()
 
 		// for monitor
-		p.monitor.state.SetNum(TO_DELETE_CLIENTS, int64(len(toDelete)))
-		p.monitor.state.SetNum(ACTIVE_CLIENTS, int64(len(p.wafClients)))
-
-		p.lock.Unlock()
+		p.monitor.state.SetNum(TO_DELETE_CLIENTS, toDeleteClientCount)
+		p.monitor.state.SetNum(ACTIVE_CLIENTS, activeClientCount)
 	}
 }
 
@@ -186,7 +188,6 @@ func (p *WafClientPool) adjustInstances(instanceMap map[string]WafInstance) (map
 
 	p.lock.RLock()
 
-	// TODO: 这种模式就无法动态修改除weight外的参数
 	// find new added instances
 	for addr, instance := range instanceMap {
 		if client, found := p.wafClients[addr]; !found {
@@ -211,7 +212,7 @@ func (p *WafClientPool) adjustInstances(instanceMap map[string]WafInstance) (map
 	return toAdd, toDel
 }
 
-func (p *WafClientPool) Update(instances []WafInstance, version string) {
+func (p *WafClientPool) Update(instances []WafInstance) {
 	// protect from concurrent update
 	p.updateLock.Lock()
 	defer p.updateLock.Unlock()
@@ -241,9 +242,6 @@ func (p *WafClientPool) Update(instances []WafInstance, version string) {
 
 	// delete waf clients
 	p.deleteClients(toDel)
-
-	// update waf instance version
-	//p.wafInstanceVersion = version
 }
 
 func (p *WafClientPool) Alloc() (*WafClient, error) {

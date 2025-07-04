@@ -2,7 +2,7 @@
 
 ## 模块简介
 
-Bfe 支持在 http request 的处理流程中引入统一的第三方WAF支持。
+BFE 支持在 http request 的处理流程中引入统一的第三方WAF支持。
 
 ## 基础配置
 
@@ -16,7 +16,7 @@ Bfe 支持在 http request 的处理流程中引入统一的第三方WAF支持�
 | Basic.ConnPoolSize            | String<br> 与WAF server 的连接池大小 |
 | ConfigPath.ModWafDataPath      | String<br> WAF访问的具体参数配置 |
 | ConfigPath.ProductParamPath      | String<br> WAF访问的产品线配置 |
-| ConfigPath.AlbWafInstancesPath      | String<br> WAF RS实例池的配置 |
+| ConfigPath.WafInstancesPath      | String<br> WAF RS实例池的配置 |
 | Log.OpenDebug           | Boolean<br>是否开启 debug 日志<br>默认值False |
 
 ### 配置示例
@@ -30,7 +30,7 @@ ConnPoolSize = 8
 [ConfigPath]
 ModWafDataPath = "../conf/mod_unified_waf/mod_unified_waf.data"
 ProductParamPath = "../conf/mod_unified_waf/product_param.data"
-AlbWafInstancesPath = "../conf/mod_unified_waf/alb_waf_instances.data"
+WafInstancesPath = "../conf/mod_unified_waf/waf_instances.data"
 
 [Log]
 OpenDebug = false
@@ -111,7 +111,7 @@ OpenDebug = false
 
 
 ## WAF RS实例池配置
-配置文件: conf/mod_unified_waf/alb_waf_instances.data
+配置文件: conf/mod_unified_waf/waf_instances.data
 
 ### 配置描述
 

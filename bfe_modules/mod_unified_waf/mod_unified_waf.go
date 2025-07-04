@@ -46,13 +46,13 @@ const (
 const NoneWafName = "None"
 
 const (
-	ModChaitinWaf = "mod_unified_waf"
+	ModUnifiedWaf = "mod_unified_waf"
 
-	NOAH_SD_MOD_WAF         = "waf_client"
-	NOAH_SD_MOD_WAF_DIFF    = "waf_client_diff"
-	NOAH_MOD_WAF_DELAY      = "waf_client_delay"
-	NOAH_MOD_WAF_PEEK_DELAY = "waf_client_delay_peek_body"
-	NOAH_MOD_WAF_COMP_DELAY = "waf_client_delay_call_competition"
+	KP_SD_MOD_WAF         = "waf_client"
+	KP_SD_MOD_WAF_DIFF    = "waf_client_diff"
+	KP_MOD_WAF_DELAY      = "waf_client_delay"
+	KP_MOD_WAF_PEEK_DELAY = "waf_client_delay_peek_body"
+	KP_MOD_WAF_COMP_DELAY = "waf_client_delay_call_competition"
 
 	TO_DELETE_CLIENTS = "waf_client.to_delete_clients"
 	ACTIVE_CLIENTS    = "waf_client.active_clients"
@@ -80,9 +80,9 @@ type ModuleWaf struct {
 	prodParams    *ProductParamTable
 	wafData       *GlobalParamConf
 
-	modWafDataPath      string // path for mod_unified_waf.data
-	productParamPath    string // path for product_param.data
-	albWafInstancesPath string // path for alb_waf_instances.data
+	modWafDataPath   string // path for mod_unified_waf.data
+	productParamPath string // path for product_param.data
+	wafInstancesPath string // path for waf_instances.data
 
 	monitor *MonitorStates // monitor states
 
@@ -91,7 +91,7 @@ type ModuleWaf struct {
 
 func NewModuleWaf() *ModuleWaf {
 	m := new(ModuleWaf)
-	m.name = ModChaitinWaf
+	m.name = ModUnifiedWaf
 
 	m.monitor = NewMonitorStates()
 	m.wafClientPool = NewWafClientPool(m.monitor)
@@ -239,18 +239,16 @@ func (m *ModuleWaf) WafClientDataLoad(path string) error {
 	return nil
 }
 
-// for alb_waf_instances.data
 func (m *ModuleWaf) WafInstancesLoad(path string) error {
-	data, err := AlbWafInstancesLoadAndCheck(path)
+	data, err := WafInstancesLoadAndCheck(path)
 	if err != nil {
 		return err
 	}
 
-	var wafInstances []WafInstance
-	wafInstances = data.WafCluster
+	wafInstances := data.WafCluster
 
 	if !m.isNoneWaf {
-		m.wafClientPool.Update(wafInstances, data.Version)
+		m.wafClientPool.Update(wafInstances)
 	}
 
 	instData, _ := json.Marshal(wafInstances)
@@ -300,7 +298,7 @@ func (m *ModuleWaf) loadWafInstances(query url.Values) error {
 	path := query.Get("path")
 	if path == "" {
 		//use default
-		path = m.albWafInstancesPath
+		path = m.wafInstancesPath
 	}
 	err := m.WafInstancesLoad(path)
 	if err != nil {
@@ -334,7 +332,7 @@ func (m *ModuleWaf) LoadConfig(confPath string, confRoot string) error {
 
 	m.modWafDataPath = conf.ConfigPath.ModWafDataPath
 	m.productParamPath = conf.ConfigPath.ProductParamPath
-	m.albWafInstancesPath = conf.ConfigPath.AlbWafInstancesPath
+	m.wafInstancesPath = conf.ConfigPath.WafInstancesPath
 
 	return nil
 }

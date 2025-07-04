@@ -96,7 +96,7 @@ WafProductName = BFEMockWaf
 
 #### 修改WAF RS 实例
 ```
-#cat ../conf/mod_unified_waf/alb_waf_instances.data
+#cat ../conf/mod_unified_waf/waf_instances.data
 {
         "Version": "2023-01-19 12:00:10",
         "Config": {

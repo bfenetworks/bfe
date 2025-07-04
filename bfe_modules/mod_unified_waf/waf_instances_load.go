@@ -28,23 +28,23 @@ type WafInstance struct {
 	HealthCheckPort int
 }
 
-// alb waf instance config for alb clusters
+// waf instance config for waf clusters
 type ClusterConfigs struct {
 	WafCluster []WafInstance `json:"WafCluster"`
 }
 
 // global param in config file
-type AlbWafInstancesConfFile struct {
+type WafInstancesConfFile struct {
 	Version *string
 	Config  *ClusterConfigs
 }
 
-type AlbWafInstancesConf struct {
+type WafInstancesConf struct {
 	Version    string        `json:"version"`
 	WafCluster []WafInstance `json:"WafCluster"`
 }
 
-func (cfg *AlbWafInstancesConfFile) Check() error {
+func (cfg *WafInstancesConfFile) Check() error {
 	if err := bfe_util.CheckNilField(*cfg, false); err != nil {
 		return err
 	}
@@ -67,20 +67,20 @@ func (cfg *AlbWafInstancesConfFile) Check() error {
 }
 
 // reload_trigger adaptor interface
-func AlbWafInstancesLoadAndCheck(filename string) (AlbWafInstancesConf, error) {
+func WafInstancesLoadAndCheck(filename string) (WafInstancesConf, error) {
 	var err error
-	var data AlbWafInstancesConf
+	var data WafInstancesConf
 
 	// open the file
 	file, err := os.Open(filename)
-	defer file.Close()
 	if err != nil {
 		return data, err
 	}
+	defer file.Close()
 
 	// decode the file
 	decoder := json.NewDecoder(file)
-	var dataFile AlbWafInstancesConfFile
+	var dataFile WafInstancesConfFile
 	err = decoder.Decode(&dataFile)
 	if err != nil {
 		return data, err

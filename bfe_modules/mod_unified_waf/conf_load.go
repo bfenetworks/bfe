@@ -25,17 +25,16 @@ import (
 
 type ConfBasic struct {
 	WafProductName string
-	// Concurrency  int
-	ConnPoolSize int
+	ConnPoolSize   int
 }
 
 type ConfModWaf struct {
 	Basic ConfBasic
 
 	ConfigPath struct {
-		ModWafDataPath      string // configure path for mod_unified_waf.data
-		ProductParamPath    string // configure path for product_param.data
-		AlbWafInstancesPath string // configure path for alb_waf_instances.data
+		ModWafDataPath   string // configure path for mod_unified_waf.data
+		ProductParamPath string // configure path for product_param.data
+		WafInstancesPath string // configure path for waf_instances.data
 	}
 
 	Log struct {
@@ -62,10 +61,6 @@ func ConfLoad(path string, confRoot string) (*ConfModWaf, error) {
 
 // check also fix some configure value
 func (cfg *ConfModWaf) Check(confRoot string) error {
-	// if cfg.Basic.Concurrency <= 0 {
-	// 	log.Logger.Warn("Basic.Concurrency is : %d, use DEFAULT_CONCURRENCY(%d)", cfg.Basic.Concurrency, DEFAULT_CONCURRENCY)
-	// 	cfg.Basic.Concurrency = DEFAULT_CONCURRENCY
-	// }
 	if len(cfg.Basic.WafProductName) <= 0 {
 		cfg.Basic.WafProductName = NoneWafName
 	}
@@ -95,10 +90,10 @@ func (cfg *ConfModWaf) Check(confRoot string) error {
 		return errors.New("ConfigPath.ModWafDataPath not set")
 	}
 
-	// check conf of AlbWafInstancesPath
-	if cfg.ConfigPath.AlbWafInstancesPath == "" {
-		log.Logger.Error("ConfigPath.AlbWafInstancesPath not set")
-		return errors.New("ConfigPath.AlbWafInstancesPath not set")
+	// check conf of WafInstancesPath
+	if cfg.ConfigPath.WafInstancesPath == "" {
+		log.Logger.Error("ConfigPath.WafInstancesPath not set")
+		return errors.New("ConfigPath.WafInstancesPath not set")
 	}
 
 	return nil

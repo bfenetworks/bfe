@@ -15,21 +15,19 @@
 package mod_unified_waf
 
 import (
-	"fmt"
 	"testing"
 )
 
-func TestAlbWafInstancesLoadAndCheck_1(t *testing.T) {
-	albWafInstancesPath := "./testdata/alb_waf_instances.data"
+func TestWafInstancesLoadAndCheck_1(t *testing.T) {
+	wafInstancesPath := "./testdata/waf_instances.data"
 
-	winsts, err := AlbWafInstancesLoadAndCheck(albWafInstancesPath)
+	winsts, err := WafInstancesLoadAndCheck(wafInstancesPath)
 	if err != nil {
-		t.Errorf("AlbWafInstancesLoadAndCheck(): %v", err)
+		t.Errorf("WafInstancesLoadAndCheck(): %v", err)
 		return
 	}
 
 	if winsts.WafCluster[0].HealthCheckPort != winsts.WafCluster[0].Port {
-		fmt.Println("=== TestAlbWafInstancesLoadAndCheck_1", winsts.WafCluster[0].HealthCheckPort, winsts.WafCluster[0].Port)
 		t.Errorf("winsts.WafCluster[0].HealthCheckPort != winsts.WafCluster[0].Port")
 		return
 	}
@@ -41,12 +39,12 @@ func TestAlbWafInstancesLoadAndCheck_1(t *testing.T) {
 
 }
 
-func TestAlbWafInstancesLoadAndCheck_2(t *testing.T) {
-	albWafInstancesPath := "./testdata/alb_waf_instances_empty.data"
+func TestWafInstancesLoadAndCheck_2(t *testing.T) {
+	wafInstancesPath := "./testdata/waf_instances_empty.data"
 
-	_, err := AlbWafInstancesLoadAndCheck(albWafInstancesPath)
+	_, err := WafInstancesLoadAndCheck(wafInstancesPath)
 	if err != nil {
-		t.Errorf("AlbWafInstancesLoadAndCheck(): %v", err)
+		t.Errorf("TestWafInstancesLoadAndCheck_2(): %v", err)
 		return
 	}
 }

@@ -79,10 +79,10 @@ func ProductParamLoadAndCheck(filename string) (ProductParamConf, error) {
 
 	// open the file
 	file, err := os.Open(filename)
-	defer file.Close()
 	if err != nil {
 		return data, err
 	}
+	defer file.Close()
 
 	// decode the file
 	decoder := json.NewDecoder(file)

@@ -32,10 +32,6 @@ import (
 	"github.com/bfenetworks/bwi/bwi"
 )
 
-const (
-	AVAILABLE_THRESHOLD = 20 // default error counter for waf client avaialable
-)
-
 var (
 	ERR_WAF_FORBIDDEN = errors.New("FORBIDDEN_BY_WAF") // request forbidden by waf
 )

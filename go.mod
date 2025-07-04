@@ -73,5 +73,3 @@ require (
 )
 
 // replace github.com/bfenetworks/proxy-wasm-go-host => ../proxy-wasm-go-host
-// replace github.com/bfenetworks/bwi => /root/yingfei/opensouce/bwi
-// replace github.com/bfenetworks/bfe-mock-waf => /root/yingfei/opensouce/bfe-mock-waf

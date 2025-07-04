@@ -26,12 +26,6 @@ import (
 const (
 	DEFAULT_POOL_SIZE   = 8    // default waf client connection pool size
 	DEFAULT_CONCURRENCY = 2000 // default waf client concurrency
-
-	DEFAULT_MAX_WAIT_RATE        = 0.2 // default client max waiting rate
-	DEFAULT_HALF_OPEN_THRES_RATE = 0.2 // default client half open thres rate
-	DEFAULT_CLOSED_THRES_RATE    = 0.8 // default client closed thres rate
-	DEFAULT_SAMPLE_PERCENT       = 5.0 // default client sample rate under half-open
-	DEFAULT_STAT_TOTAL_OP_COUNT  = 100 // default client sample rate under half-open
 )
 
 type HealthCheckerConfFile struct {
@@ -44,8 +38,7 @@ type GlobalParamFile struct {
 	WafClient struct {
 		ConnectTimeout int // connect timeout for waf client
 		Concurrency    int // how many concurrency call for one waf client
-		//ConnPoolSize   int //connection pool size
-		MaxWaitCount int //max wait rate for request waiting for token
+		MaxWaitCount   int //max wait rate for request waiting for token
 	}
 
 	WafDetect struct {
@@ -154,14 +147,13 @@ func (cfg *GlobalParamConfFile) cvtToConf() (*GlobalParamConf, error) {
 // reload_trigger adaptor interface
 func WafDataParamLoadAndCheck(filename string) (*GlobalParamConf, error) {
 	var err error
-	// var data GlobalParamConf
 
 	// open the file
 	file, err := os.Open(filename)
-	defer file.Close()
 	if err != nil {
 		return nil, err
 	}
+	defer file.Close()
 
 	// decode the file
 	decoder := json.NewDecoder(file)

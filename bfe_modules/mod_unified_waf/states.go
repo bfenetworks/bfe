@@ -20,8 +20,7 @@ import (
 	"github.com/baidu/go-lib/web-monitor/module_state2"
 )
 
-// key for counter of mod_crypto
-type ModuleChaitinWafState struct {
+type ModuleWafState struct {
 }
 
 type MonitorStates struct {
@@ -29,9 +28,9 @@ type MonitorStates struct {
 	delayPeekBody delay_counter.DelayRecent  // delay counter for peek http body
 	delayCallComp delay_counter.DelayRecent  // delay counter for concurrency call competition
 	state         *module_state2.State       // module state
-	stateDiff     module_state2.CounterSlice // diff counter of moudle state
+	stateDiff     module_state2.CounterSlice // diff counter of module state
 
-	underlyingState ModuleChaitinWafState
+	underlyingState ModuleWafState
 	metrics         metrics.Metrics //moudle state with prometheus format
 
 }
@@ -47,14 +46,14 @@ func NewMonitorStates() *MonitorStates {
 	m.state.CountersInit(COUNTER_KEYS)
 	m.stateDiff.Init(m.state, DIFF_COUNTER_INTERVAL)
 
-	m.delay.SetKeyPrefix(NOAH_MOD_WAF_DELAY)
-	m.delayPeekBody.SetKeyPrefix(NOAH_MOD_WAF_PEEK_DELAY)
-	m.delayCallComp.SetKeyPrefix(NOAH_MOD_WAF_COMP_DELAY)
+	m.delay.SetKeyPrefix(KP_MOD_WAF_DELAY)
+	m.delayPeekBody.SetKeyPrefix(KP_MOD_WAF_PEEK_DELAY)
+	m.delayCallComp.SetKeyPrefix(KP_MOD_WAF_COMP_DELAY)
 
-	m.state.SetKeyPrefix(NOAH_SD_MOD_WAF)
-	m.stateDiff.SetKeyPrefix(NOAH_SD_MOD_WAF_DIFF)
+	m.state.SetKeyPrefix(KP_SD_MOD_WAF)
+	m.stateDiff.SetKeyPrefix(KP_SD_MOD_WAF_DIFF)
 
-	m.metrics.Init(&m.underlyingState, ModChaitinWaf, 0)
+	m.metrics.Init(&m.underlyingState, ModUnifiedWaf, 0)
 
 	return &m
 }

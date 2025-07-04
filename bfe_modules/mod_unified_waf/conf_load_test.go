@@ -23,7 +23,7 @@ func TestConfLoad_1(t *testing.T) {
 	confPath := "./testdata/mod_unified_waf.conf"
 	ModWafDataPath := "./testdata/mod_unified_waf.data"
 	productParamPath := "./testdata/product_param.data"
-	albWafInstancesPath := "./testdata/alb_waf_instances.data"
+	wafInstancesPath := "./testdata/waf_instances.data"
 	WafProductName := "BFEMockWaf"
 
 	conf, err := ConfLoad(confPath, "")
@@ -42,7 +42,7 @@ func TestConfLoad_1(t *testing.T) {
 	if conf.ConfigPath.ProductParamPath != productParamPath {
 		t.Errorf("ProductParamPath should be %s not %s", productParamPath, conf.ConfigPath.ProductParamPath)
 	}
-	if conf.ConfigPath.AlbWafInstancesPath != albWafInstancesPath {
-		t.Errorf("AlbWafInstancesPath should be %s not %s", albWafInstancesPath, conf.ConfigPath.AlbWafInstancesPath)
+	if conf.ConfigPath.WafInstancesPath != wafInstancesPath {
+		t.Errorf("AlbWafInstancesPath should be %s not %s", wafInstancesPath, conf.ConfigPath.WafInstancesPath)
 	}
 }
