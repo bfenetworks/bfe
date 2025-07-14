@@ -16,6 +16,10 @@ github.com/aymerick/douceur v0.2.0 h1:Mv+mAeH1Q+n9Fr+oyamOlAkUNPWPlA8PPGR0QAaYuP
 github.com/aymerick/douceur v0.2.0/go.mod h1:wlT5vV2O3h55X9m7iVYN0TBM0NH/MmbLnd30/FjWUq4=
 github.com/baidu/go-lib v0.0.0-20200819072111-21df249f5e6a h1:m/u39GNhkoUSC9WxTuM5hWShEqEfVioeXDiqiQd6tKg=
 github.com/baidu/go-lib v0.0.0-20200819072111-21df249f5e6a/go.mod h1:FneHDqz3wLeDGdWfRyW4CzBbCwaqesLGIFb09N80/ww=
+github.com/bfenetworks/bfe-mock-waf v0.1.0 h1:dTd540S3nv6qNlG6lLC0F8qx3gyo5WB4wnci3+d4J78=
+github.com/bfenetworks/bfe-mock-waf v0.1.0/go.mod h1:MWZHbihiRQXpoUCvY1l18s2bfOBWx4N4pghxBt+xUv0=
+github.com/bfenetworks/bwi v0.1.2 h1:3AcCzUjyzKm+FeLgTIVg58u+SUdEVZdJbQM58Ezwjcg=
+github.com/bfenetworks/bwi v0.1.2/go.mod h1:zCRIdSw521zVnNCM73qw/lZ9UknbRux9rk6UQvBJgMA=
 github.com/bfenetworks/proxy-wasm-go-host v0.0.0-20241202144118-62704e5df808 h1:v0ckUMaZJFe8XvoM9x3kn+lDtMfI9EvpFadiOiV/s8A=
 github.com/bfenetworks/proxy-wasm-go-host v0.0.0-20241202144118-62704e5df808/go.mod h1:VG3ZZ8Zg7dYkla2hHy9UsX0GLl/dgJYP4IxuPvoq+/U=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=

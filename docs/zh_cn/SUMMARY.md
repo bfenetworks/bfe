@@ -65,6 +65,7 @@
   * [mod_userid](modules/mod_userid/mod_userid.md)
   * [mod_secure_link](modules/mod_secure_link/mod_secure_link.md)
   * [mod_wasmplugin](modules/mod_wasmplugin/mod_wasmplugin.md)
+  * [mod_unified_waf](modules/mod_unified_waf/mod_unified_waf.md)
 * 运维管理
   * [命令行工具及参数](operation/command.md)
   * [环境变量说明](operation/env_var.md)

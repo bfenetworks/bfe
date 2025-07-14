@@ -1,8 +1,8 @@
 module github.com/bfenetworks/bfe
 
-go 1.21
+go 1.22
 
-toolchain go1.22.2
+toolchain go1.22.9
 
 require (
 	github.com/abbot/go-http-auth v0.4.1-0.20181019201920-860ed7f246ff
@@ -47,6 +47,8 @@ require (
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
+	github.com/bfenetworks/bfe-mock-waf v0.1.0
+	github.com/bfenetworks/bwi v0.1.2
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/elastic/go-sysinfo v1.1.1 // indirect
 	github.com/elastic/go-windows v1.0.0 // indirect
@@ -67,6 +69,7 @@ require (
 	google.golang.org/grpc v1.56.3 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	howett.net/plist v0.0.0-20181124034731-591f970eefbb // indirect
+
 )
 
 // replace github.com/bfenetworks/proxy-wasm-go-host => ../proxy-wasm-go-host
