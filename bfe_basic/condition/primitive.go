@@ -26,14 +26,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
 	"github.com/bfenetworks/bfe/bfe_util"
 	"github.com/bfenetworks/bfe/bfe_util/net_util"
 	"github.com/spaolacci/murmur3"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 const (
@@ -1088,4 +1088,73 @@ func (t *PeriodicTimeMatcher) Match(v interface{}) bool {
 	hour, minute, second := tm.Clock()
 	seconds := hour*3600 + minute*60 + second
 	return seconds >= t.startTime && seconds <= t.endTime
+}
+
+type ReqBodyJsonFetcher struct{
+	path string
+}
+
+func (pf *ReqBodyJsonFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
+	return ReqBodyJsonFetch(req, pf.path)
+}
+
+func ReqBodyJsonFetch(req *bfe_basic.Request, path string) (string, error) {
+	const jsonCachePrefix = "jsoncache."
+
+	if req == nil || req.HttpRequest == nil {
+		return "", fmt.Errorf("fetcher: nil pointer")
+	}
+
+	cachepath := jsonCachePrefix + path
+	cachedVal := req.GetContext(cachepath)
+	if cachedVal != nil {
+		str, ok := cachedVal.(string)
+		if ok {
+			return str, nil
+		}
+		// log.logger.Warn("fetcher: cached value is not string, path: %s, type: %T", path, cachedVal)
+		// return nil, fmt.Errorf("fetcher: cached value is not string")
+	}
+
+	bodyAccessor, err := req.HttpRequest.GetBodyAccessor()
+	if bodyAccessor == nil {
+		return "", err
+	}
+
+	body, _ := bodyAccessor.GetBytes()
+	val := gjson.GetBytes(body, path)
+	if !val.Exists() {
+		req.SetContext(cachepath, "")
+		return "", nil
+	}
+
+	str := val.String()
+	req.SetContext(cachepath, str)
+	return str, nil
+}
+
+func ReqBodyJsonSet(req *bfe_basic.Request, path string, value string) error {
+	if req == nil || req.OutRequest == nil {
+		return fmt.Errorf("set json body error: nil pointer")
+	}
+
+	bodyAccessor, err := req.OutRequest.GetBodyAccessor()
+	if bodyAccessor == nil {
+		return err
+	}
+
+	body, _ := bodyAccessor.GetBytes()
+	var newBody []byte
+	if path == "" {
+		newBody = []byte(value)
+	} else {
+		newBody, err = sjson.SetBytes(body, path, value)
+		if err != nil {
+			return fmt.Errorf("set json body error, path: %s, value: %s, err: %v", path, value, err)
+		}
+	}
+
+	bodyAccessor.SetBytes(newBody, false)
+
+	return nil
 }

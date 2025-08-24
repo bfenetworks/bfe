@@ -2,6 +2,12 @@
     "Version": "init version",
     "Config": {
         "cluster_example": {
+            "AIConf": {
+                "Key": "trial",
+                "ModelMapping": {
+                    "test": "qwen3:latest"
+                }
+            },
             "BackendConf": {
                 "TimeoutConnSrv": 2000,
                 "TimeoutResponseHeader": 50000,
@@ -71,11 +77,11 @@
             },
             "HTTPSConf":{
                 "RSHost": "www.example.org",
-                "BFEKeyFile": "../conf/tls_conf/backend_rs/r_bfe_dev_prv.pem",
-                "BFECertFile": "../conf/tls_conf/backend_rs/r_bfe_dev.crt",
+                "BFEKeyFile": "./conf/tls_conf/backend_rs/r_bfe_dev_prv.pem",
+                "BFECertFile": "./conf/tls_conf/backend_rs/r_bfe_dev.crt",
                 "RSCAList": [
-                    "../conf/tls_conf/backend_rs/bfe_r_ca.crt",
-                    "../conf/tls_conf/backend_rs/bfe_i_ca.crt"
+                    "./conf/tls_conf/backend_rs/bfe_r_ca.crt",
+                    "./conf/tls_conf/backend_rs/bfe_i_ca.crt"
                 ],
                 "RSInsecureSkipVerify": false
             }

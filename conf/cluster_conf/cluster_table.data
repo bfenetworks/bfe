@@ -3,9 +3,9 @@
         "cluster_example": {
             "example.bfe.bj": [
                 {
-                    "Addr": "127.0.0.1",
+                    "Addr": "172.18.1.249",
                     "Name": "example_hostname",
-                    "Port": 8181,
+                    "Port": 5000,
                     "Weight": 10
                 }
             ]

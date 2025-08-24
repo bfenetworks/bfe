@@ -1,0 +1,25 @@
+{
+    "Config": {
+        "example_product" :[
+            {
+                "cond": "default_t()",
+                "action": {
+                    "cmd": "CHECK_TOKEN"
+                }
+            }
+        ]
+    },
+    "Tokens": {
+        "example_product": {
+            "TESTKEY": {
+                "key": "TESTKEY",
+                "status": 1,
+                "name": "test",
+                "expired_time": -1,
+                "unlimited_quota": true
+            }
+        }
+    },
+    "Version": "0"
+}
+

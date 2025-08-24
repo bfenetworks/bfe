@@ -19,10 +19,12 @@ package bfe_modules
 import (
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_token_auth"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_auth_basic"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_auth_jwt"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_auth_request"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_block"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_body_process"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_compress"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_cors"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_doh"
@@ -139,7 +141,12 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_unified_waf
 	mod_unified_waf.NewModuleWaf(),
-}
+
+	// mod_ai_token_auth
+	mod_ai_token_auth.NewModuleAITokenAuth(),
+
+	// mod_body_process
+	mod_body_process.NewModuleBodyProcess(),}
 
 // init modules list
 func InitModuleList(modules []bfe_module.BfeModule) {

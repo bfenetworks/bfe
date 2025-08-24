@@ -749,3 +749,78 @@ func parseContentLength(cl string) (int64, error) {
 	return n, nil
 
 }
+
+type BodyAccessor interface {
+	GetBytes() ([]byte, bool)
+	SetBytes([]byte, bool)
+}
+
+//body with BodyAccessor interface
+type bytes_body struct {
+	src     io.ReadCloser	// source body
+	buf     []byte			// bytes read out from src
+	all     bool            // all already read out from src to buf 
+	r       io.Reader       // multiReader of buf and src
+}
+
+func (b *bytes_body) Read(p []byte) (n int, err error) {
+	return b.r.Read(p)
+}
+
+func (b *bytes_body) Close() error {
+	return b.src.Close()
+}
+
+func (b *bytes_body) Peek(n int) ([]byte, error) {
+	if n < 0 {
+		return nil, fmt.Errorf("negative peek count")
+	}
+	if n > len(b.buf) {
+		n = len(b.buf)
+	}
+	return b.buf[:n], nil
+}
+
+func (b *bytes_body) ForcePeek(n int) ([]byte, error) {
+	return b.Peek(n)
+}
+
+func (b *bytes_body) GetBytes() ([]byte, bool) {
+	return b.buf, b.all
+}
+
+func (b *bytes_body) SetBytes(newBuf []byte, all bool) {
+	b.buf = newBuf
+	br := bytes.NewBuffer(newBuf)
+	b.all = b.all || all
+	if b.all {
+		b.r = br
+	} else {
+		b.r = io.MultiReader(br, b.src)
+	}
+}
+
+func NewBytesBody(src io.ReadCloser, maxSize int64) (*bytes_body, error) {
+	bb, err := io.ReadAll(io.LimitReader(src, maxSize))
+	if err != nil {
+		return nil, fmt.Errorf("io.ReadAll: %s", err.Error())
+	}
+
+	br := bytes.NewBuffer(bb)
+
+	if len(bb) < int(maxSize) {
+		return &bytes_body{
+			src: src,
+			buf: bb,
+			all: true,
+			r:   br,
+		}, nil
+	} else {
+		return &bytes_body{
+			src: src,
+			buf: bb,
+			all: false,
+			r:   io.MultiReader(br, src),
+		}, nil
+	}
+}
