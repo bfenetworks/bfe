@@ -83,6 +83,13 @@ cluster_conf.data为集群转发配置文件。
 | HTTPSConf.RSCAList                | []String<br>BackendConf.Protocol为https，并且需要验证服务端的证书（即RSInsecureSkipVerify为false）时必填，如果不填则使用系统默认CA池。列表项为证书文件路径，证书文件必须是符合x509标准的pem格式证书，允许将CA信任链中的多个CA证书合入一个pem文件中。|
 | HTTPSConf.RSInsecureSkipVerify    | Boolean<br>服务端证书验证开关<br>true：不验证，false：验证（默认）|
 
+#### AI服务配置
+
+| 配置项                             | 描述                                                         |
+| --------------------------------- | ------------------------------------------------------------ |
+| AIConf.Key                  | String<br>后端大模型服务的API-Key<br>空 - 访问后端服务时不重置API-Key，仍保持请求的API-Key |
+| ModelMapping                | Map\[string\]string<br>原请求model -> 后端服务的model 的映射关系。访问后端服务时将根据请求的 model 字段查找此映射关系，命中的话则重写请求的 model 字段|
+
 ## 配置示例
 
 ```json

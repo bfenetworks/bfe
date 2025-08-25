@@ -82,6 +82,13 @@ Note: The following configuration items are located in the namespace `Config[v]`
 | HTTPSConf.RSCAList | []String<br>Required when BackendConf.Protocol is https and server certificate verification is needed (i.e., RSInsecureSkipVerify is false). If not filled, the system default CA pool is used. List items are certificate file paths. Certificate files must be in x509 standard PEM format. Multiple CA certificates in the CA trust chain can be combined into one PEM file. |
 | HTTPSConf.RSInsecureSkipVerify | Boolean<br>Server certificate verification switch<br>true: Do not verify, false: Verify (default) |
 
+#### AI Service Configuration
+
+| Configuration Item              | Description                                                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| AIConf.Key                      | String<br>API-Key for the backend large model service<br>If empty, the API-Key is not reset when accessing the backend service and the request's API-Key is retained |
+| ModelMapping                    | Map\[string\]string<br>Mapping from original request model to backend service model. When accessing the backend service, the model field in the request will be looked up in this mapping; if matched, the model field in the request will be overwritten |
+
 ## Configuration Example
 
 ```json

@@ -76,6 +76,10 @@
  * [req_vip_in(vip_list)](./request/ip.md#req_vip_invip_list)
  * [req_vip_range(start_ip, end_ip)](./request/ip.md#req_vip_rangestart_ip-end_ip)
 
+### body
+
+ * [req_body_json_in(json_path, value_list, case_insensitive)]()
+
 ## 响应相关
 
 ### code
