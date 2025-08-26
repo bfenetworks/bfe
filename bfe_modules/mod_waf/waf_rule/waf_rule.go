@@ -13,6 +13,8 @@
 // limitations under the License.
 package waf_rule
 
+import "maps"
+
 const (
 	RuleBashCmd = "RuleBashCmd" // bash cmd
 )
@@ -43,8 +45,8 @@ func NewWafRuleTable() *WafRuleTable {
 }
 
 func (wr *WafRuleTable) Init() {
-	for k, v := range implementedRule {
-		wr.rules[k] = v
+	if len(implementedRule) != 0 {
+		wr.rules = maps.Clone(implementedRule)
 	}
 	for _, v := range wr.rules {
 		v.Init()
