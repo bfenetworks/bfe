@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The BFE Authors.
+// Copyright (c) 2025 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -169,11 +169,11 @@ func GetApiKey(req *bfe_basic.Request) string {
 	authHeader = strings.TrimPrefix(authHeader, "sk-")
 
 	// split by "-" and return the first part as api key
-	parts := strings.Split(authHeader, "-")
-	if len(parts) > 0 {
-		return parts[0]
-	}
-	return ""
+	// parts := strings.Split(authHeader, "-")
+	// if len(parts) > 0 {
+	// 	return parts[0]
+	// }
+	return authHeader
 }
 
 // found product handler
