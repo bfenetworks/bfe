@@ -1,12 +1,6 @@
 {
     "Config": {
         "example_product" :[
-            {
-                "cond": "default_t()",
-                "action": {
-                    "cmd": "CHECK_TOKEN"
-                }
-            }
         ]
     },
     "Tokens": {
