@@ -31,14 +31,12 @@ type TokenRuleTable struct {
 	version      string
 	productRules ProductRules
 	productTokens ProductTokens
-	// productApiKeys ProductTokens
 }
 
 func NewTokenRuleTable() *TokenRuleTable {
 	t := new(TokenRuleTable)
 	t.productRules = make(ProductRules)
 	t.productTokens = make(ProductTokens)
-	// t.productApiKeys = make(ProductTokens)
 	return t
 }
 
@@ -82,7 +80,6 @@ func (t *TokenRuleTable) Update(conf productRuleConf) (oldtokens []*Token) {
 	t.version = conf.Version
 	t.productRules = conf.Config
 	t.productTokens = conf.Tokens
-	// t.productApiKeys = apiKeys
 	t.lock.Unlock()
 
 	return

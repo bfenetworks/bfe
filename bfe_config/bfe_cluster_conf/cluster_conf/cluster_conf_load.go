@@ -126,7 +126,7 @@ type BackendHTTPS struct {
 }
 
 type AIConf struct {
-	Type               int                // type of AI service, eg. 1 - "chatgpt", 2 - "baidu", etc
+	Type               int                // type of LLM service, reserved for future use. should be 0 now.
 	ModelMapping       *map[string]string // model mapping, key is model name in req, value is model name in backend
 	Key                *string            // API key for AI service
 }

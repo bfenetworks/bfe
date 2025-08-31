@@ -826,8 +826,8 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 		if err != io.EOF {
 			basicReq.ErrCode = bfe_basic.ErrBkBodyProcess
 			basicReq.ErrMsg = err.Error()
-			// p.proxyState.ErrBkFindLocation.Inc(1)
-			// log.Logger.Info("FindLocation error[%s] host[%s]", err, basicReq.HttpRequest.Host)
+			
+			p.proxyState.ErrBkBodyProcess.Inc(1)
 
 			// close connection
 			res = bfe_basic.CreateSpecifiedContentResp(basicReq, bfe_http.StatusBadRequest, "text/plain",

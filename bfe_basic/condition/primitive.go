@@ -1112,8 +1112,6 @@ func ReqBodyJsonFetch(req *bfe_basic.Request, path string) (string, error) {
 		if ok {
 			return str, nil
 		}
-		// log.logger.Warn("fetcher: cached value is not string, path: %s, type: %T", path, cachedVal)
-		// return nil, fmt.Errorf("fetcher: cached value is not string")
 	}
 
 	bodyAccessor, err := req.HttpRequest.GetBodyAccessor()

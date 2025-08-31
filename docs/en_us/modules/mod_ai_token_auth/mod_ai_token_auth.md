@@ -2,7 +2,7 @@
 
 ## Module Overview
 
-mod_ai_token_auth supports API-key (token) authentication for large model services. An API-key represents a token with certain access permissions and quotas for specific large model services. This module checks the API-key carried in the request according to rules to determine whether the request is allowed to access the large model service.
+mod_ai_token_auth supports API-key (token) authentication for LLM services. An API-key represents a token with certain access permissions and quotas for specific LLM services. This module checks the API-key carried in the request according to rules to determine whether the request is allowed to access the LLM service.
 
 Request header carries the API-key:
 ```

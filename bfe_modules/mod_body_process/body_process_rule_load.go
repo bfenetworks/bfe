@@ -32,7 +32,7 @@ type ProcConf struct {
 type BodyProcessConfig struct {
 	Dec  string
 	Enc  string
-	Proc []ProcConf // 处理器列表
+	Proc []ProcConf // processing steps
 }
 
 func BodyProcessConfigCheck(config *BodyProcessConfig) error {
@@ -40,15 +40,15 @@ func BodyProcessConfigCheck(config *BodyProcessConfig) error {
 }
 
 type processRuleFile struct {
-        Cond            *string
-		RequestProcess  *BodyProcessConfig
-		ResponseProcess *BodyProcessConfig
+	Cond            *string
+	RequestProcess  *BodyProcessConfig
+	ResponseProcess *BodyProcessConfig
 }
 
 type processRule struct {
-        Cond            condition.Condition
-		RequestProcess  *BodyProcessConfig
-		ResponseProcess *BodyProcessConfig
+	Cond            condition.Condition
+	RequestProcess  *BodyProcessConfig
+	ResponseProcess *BodyProcessConfig
 }
 
 type processRuleFileList []processRuleFile

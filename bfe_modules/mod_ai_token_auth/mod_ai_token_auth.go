@@ -116,13 +116,11 @@ func (m *ModuleAITokenAuth) matchTokenRule(req *bfe_basic.Request) bool {
 func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
 	ctx := GetTokenAuthContext(req) // ensure token auth context is set
 	if ctx == nil {
-		// log.Logger.Warn("%s: token auth context not set", m.name)
 		return bfe_module.BfeHandlerGoOn
 	}
 
 	if res.ContentLength >= 0 {
 		ctx.CompletionTokens = int64(res.ContentLength) / 4 // estimate completion tokens
-		// ctx.UsedQuota = CalcReqUsedQuota(req, ctx.PromptTokens, ctx.CompletionTokens) // calculate used quota
 	}
 	return bfe_module.BfeHandlerGoOn
 }
@@ -168,11 +166,6 @@ func GetApiKey(req *bfe_basic.Request) string {
 	authHeader = strings.TrimPrefix(authHeader, "Bearer ")
 	authHeader = strings.TrimPrefix(authHeader, "sk-")
 
-	// split by "-" and return the first part as api key
-	// parts := strings.Split(authHeader, "-")
-	// if len(parts) > 0 {
-	// 	return parts[0]
-	// }
 	return authHeader
 }
 

@@ -141,20 +141,7 @@ func (m *ModuleBodyProcess) readResponseHandler(req *bfe_basic.Request, res *bfe
 
 	return bfe_module.BfeHandlerGoOn
 }
-/*
-func (m *ModuleBodyProcess) readResponseHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
-	data := req.GetContext(BodyProcessResponseConfigKey)
-	if data != nil {
-		conf, ok := data.(*BodyProcessConfig)
-		if !ok {
-			log.Logger.Warn("%s: type assertion fail, %v", m.name, data)
-			return bfe_module.BfeHandlerGoOn
-		}
-		m.DoResponseProcess(req, res, conf)
-	}
-	return bfe_module.BfeHandlerGoOn
-}
-*/
+
 func (m *ModuleBodyProcess) getState(params map[string][]string) ([]byte, error) {
 	s := m.metrics.GetAll()
 	return s.Format(params)

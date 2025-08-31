@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	TokenStatusEnabled   = 1 // don't use 0, 0 is the default value!
-	TokenStatusDisabled  = 2 // also don't use 0
+	TokenStatusEnabled   = 1
+	TokenStatusDisabled  = 2
 	TokenStatusExpired   = 3
 	TokenStatusExhausted = 4
 )
@@ -35,27 +35,10 @@ const (
     ActionCheckToken    = "CHECK_TOKEN"
 )
 
-// type Token struct {
-// 	Id             int     `json:"id"`
-// 	UserId         int     `json:"user_id"`
-// 	Key            string  `json:"key"`
-// 	Status         int     `json:"status"`
-// 	Name           string  `json:"name"`
-// 	CreatedTime    int64   `json:"created_time"`
-// 	AccessedTime   int64   `json:"accessed_time"`
-// 	ExpiredTime    int64   `json:"expired_time"` // -1 means never expired
-// 	RemainQuota    int64   `json:"remain_quota"`
-// 	UnlimitedQuota bool    `json:"unlimited_quota"`
-// 	UsedQuota      int64   `json:"used_quota"` // used quota
-// 	Models         *string `json:"models"`            // allowed models
-// 	Subnet         *string `json:"subnet"`           // allowed subnet
-// }
-
 type Token struct {
 	Key            string
 	Status         int
 	Name           string
-	// CreatedTime    int64   `json:"created_time"`
 	UpdateTime     int64
 	ExpiredTime    int64
 	RemainQuota    int64
@@ -69,12 +52,11 @@ type TokenFile struct {
 	Key            string  `json:"key"`
 	Status         int     `json:"status"`
 	Name           string  `json:"name"`
-	// CreatedTime    int64   `json:"created_time"`
 	UpdateTime     int64   `json:"update_time"`
-	ExpiredTime    int64   `json:"expired_time"` // -1 means never expired
+	ExpiredTime    int64   `json:"expired_time"`     // -1 means never expired
 	RemainQuota    int64   `json:"remain_quota"`
 	UnlimitedQuota bool    `json:"unlimited_quota"`
-	Models         *string `json:"models"`            // allowed models
+	Models         *string `json:"models"`           // allowed models
 	Subnet         *string `json:"subnet"`           // allowed subnet
 	models         []string
 	subnet         []*net.IPNet

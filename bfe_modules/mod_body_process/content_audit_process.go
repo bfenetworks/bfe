@@ -51,15 +51,15 @@ func SetHTTPClient(client *http.Client) {
 }
 
 func init() {
-	// 初始化HTTP客户端
+	// initialize the HTTP client with a timeout
 	SetHTTPClient(&http.Client{
-		Timeout: 10 * time.Second, // 设置超时时间
+		Timeout: 10 * time.Second,
 	})
 }
 
 type ContentAudit struct {
 	url     string
-	replace bool // 是否替换内容
+	replace bool // true: replace text; false: filter text
 }
 
 func NewContentAudit(urlStr string, replace bool) (*ContentAudit, error) {
@@ -104,43 +104,37 @@ func SetAuditData(ev Event, data []byte) error {
 }
 
 func (caf *ContentAudit) Process(evs []Event) ([]Event, error) {
-	// 这里可以实现内容审计逻辑
-	// 返回处理后的事件列表和可能的错误
+	// Return the processed event list and possible errors
 	client := GetHTTPClient()
 	for _, ev := range evs {
 		data, err := GetAuditData(ev)
 		if err != nil {
-			// return nil, fmt.Errorf("failed to get audit data: %w", err)
 			log.Logger.Error("failed to get audit data: %v", err)
-			continue // 如果获取数据失败，跳过当前事件
+			continue // fail to get data, skip current event
 		}
 		resp, err := client.PostForm(caf.url, url.Values{ "txt": {string(data)} })
 		if err != nil {
-			// return nil, fmt.Errorf("failed to audit content: %w", err)
 			log.Logger.Error("failed to audit content: %v", err)
-			continue // 如果请求失败，跳过当前事件
+			continue // request failed, skip current event
 		}
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			// return nil, fmt.Errorf("failed to read response body: %w", err)
 			log.Logger.Error("failed to read response body: %v", err)
-			continue // 如果读取响应失败，跳过当前事件
+			continue // fail to read response, skip current event
 		}
 		resp.Body.Close()
 		var result TextFilterResult
 		err = json.Unmarshal(body, &result)
 		if err != nil {
-			// return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 			log.Logger.Error("failed to unmarshal response: %v", err)
-			continue // 如果解析响应失败，跳过当前事件
+			continue // fail to parse response, skip current event
 		}
 		if caf.replace {
 			if result.ResultText != "" {
 				err = SetAuditData(ev, []byte(result.ResultText))
 				if err != nil {
-					// return nil, fmt.Errorf("failed to set audit data: %w", err)
 					log.Logger.Error("failed to set audit data: %v", err)
-					continue // 如果设置数据失败，跳过当前事件
+					continue // fail to set data, skip current event
 				}
 			}
 		} else {
