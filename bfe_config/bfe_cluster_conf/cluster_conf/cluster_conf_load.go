@@ -125,6 +125,12 @@ type BackendHTTPS struct {
 	protocol string               // protocol of backend https
 }
 
+type AIConf struct {
+	Type               int                // type of LLM service, reserved for future use. should be 0 now.
+	ModelMapping       *map[string]string // model mapping, key is model name in req, value is model name in backend
+	Key                *string            // API key for AI service
+}
+
 func (conf *BackendHTTPS) GetProtocol() string {
 	return conf.protocol
 }
@@ -222,6 +228,7 @@ type ClusterConf struct {
 	GslbBasic    *GslbBasicConf    // gslb basic conf for cluster
 	ClusterBasic *ClusterBasicConf // basic conf for cluster
 	HTTPSConf    *BackendHTTPS     // backend's https conf
+	AIConf             *AIConf         // ai conf for cluster
 }
 
 type ClusterToConf map[string]ClusterConf

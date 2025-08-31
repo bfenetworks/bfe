@@ -22,6 +22,7 @@ package bfe_server
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io"
 	"net"
 	"reflect"
@@ -37,12 +38,14 @@ import (
 	bfe_cluster_backend "github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/bfe/bfe_balance/bal_gslb"
 	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_basic/condition"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_debug"
 	"github.com/bfenetworks/bfe/bfe_fcgi"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_http2"
 	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_token_auth"
 	"github.com/bfenetworks/bfe/bfe_route"
 	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
 	"github.com/bfenetworks/bfe/bfe_spdy"
@@ -631,6 +634,8 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	var outreq *bfe_http.Request
 	var serverConf *bfe_route.ServerDataConf
 	var writeTimer *time.Timer
+	var bf BufferFiller
+	var ok bool
 
 	req := basicReq.HttpRequest
 	isRedirect := false
@@ -792,6 +797,46 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	// remove hop-by-hop headers
 	hopByHopHeaderRemove(outreq, req)
 
+	if cluster.AIConf != nil {
+		// if cluster has AIConf, do model mapping & set api key in outreq
+		if cluster.AIConf.Key != nil {
+			mod_ai_token_auth.SetApiKey(outreq, *cluster.AIConf.Key)
+		}
+		if cluster.AIConf.ModelMapping != nil {
+			model, err := condition.ReqBodyJsonFetch(basicReq, "model")
+			if err == nil && model != "" {
+				newModel, ok := (*cluster.AIConf.ModelMapping)[model]
+				if ok {
+					err = condition.ReqBodyJsonSet(basicReq, "model", newModel)
+					if err != nil {
+						log.Logger.Warn("Failed to set model in request body: %s", err)
+						// just continue, not return error
+					}
+				}
+			}
+		}
+	}
+	// do body process before forwarding
+	bf, ok = outreq.Body.(BufferFiller)
+	if ok {
+		// if body is BufferFiller, call FillBuffer to process body before forwarding
+		for err == nil {
+			err = bf.FillBuffer()
+		}
+		if err != io.EOF {
+			basicReq.ErrCode = bfe_basic.ErrBkBodyProcess
+			basicReq.ErrMsg = err.Error()
+			
+			p.proxyState.ErrBkBodyProcess.Inc(1)
+
+			// close connection
+			res = bfe_basic.CreateSpecifiedContentResp(basicReq, bfe_http.StatusBadRequest, "text/plain",
+				fmt.Sprintf("Error %s: %s", basicReq.ErrCode.Error(), basicReq.ErrMsg))
+			action = closeAfterReply
+			goto send_response
+		}
+	}
+	
 	// invoke cluster to get response
 	res, action, err = p.clusterInvoke(srv, cluster, basicReq, rw)
 	basicReq.HttpResponse = res
@@ -967,4 +1012,8 @@ func checkBackendStatus(outlierDetectionHttpCodeStr string, statusCode int) bool
 		}
 	}
 	return false
+}
+
+type BufferFiller interface {
+	FillBuffer() error
 }

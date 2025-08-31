@@ -47,6 +47,7 @@ var (
 	ErrBkRetryTooMany      = errors.New("BK_RETRY_TOOMANY")        // reach retry max
 	ErrBkNoSubClusterCross = errors.New("BK_NO_SUB_CLUSTER_CROSS") // no sub-cluster found
 	ErrBkCrossRetryBalance = errors.New("BK_CROSS_RETRY_BALANCE")  // cross retry balance failed
+	ErrBkBodyProcess       = errors.New("BK_BODY_PROCESS")         // body process error
 
 	// GSLB error
 	ErrGslbBlackhole = errors.New("GSLB_BLACKHOLE") // deny by blackhole

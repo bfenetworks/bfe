@@ -32,6 +32,7 @@ type BfeCluster struct {
 	CheckConf   *cluster_conf.BackendCheck  // how to check backend
 	GslbBasic   *cluster_conf.GslbBasicConf // gslb basic
 	httpsConf   *cluster_conf.BackendHTTPS  // https basic
+	AIConf 	    *cluster_conf.AIConf        // ai conf for cluster
 
 	timeoutReadClient      time.Duration // timeout for read client body
 	timeoutReadClientAgain time.Duration // timeout for read client again
@@ -58,6 +59,8 @@ func (cluster *BfeCluster) BasicInit(clusterConf cluster_conf.ClusterConf) {
 	// set gslb retry conf
 	cluster.GslbBasic = clusterConf.GslbBasic
 
+	cluster.AIConf = clusterConf.AIConf
+	
 	cluster.timeoutReadClient =
 		time.Duration(*clusterConf.ClusterBasic.TimeoutReadClient) * time.Millisecond
 	cluster.timeoutReadClientAgain =
