@@ -34,10 +34,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_net/textproto"
 	"github.com/bfenetworks/bfe/bfe_tls"
@@ -973,4 +972,50 @@ func (r *Request) closeBody() {
 	if r.Body != nil {
 		r.Body.Close()
 	}
+}
+func (r *Request) GetBodyAccessor() (BodyAccessor, error) {
+	if r.Body == nil {
+		return nil, nil
+	}
+	body := r.Body
+	for {
+		bodyAccessor, ok := body.(BodyAccessor)
+		if ok {
+			return bodyAccessor, nil
+		}
+
+		sourcer, ok := body.(SourceGetter)
+		if !ok {
+			break
+		}
+			
+		body = sourcer.GetSource()
+	}
+
+	// If the body is not a BodyAccessor, we will try to convert it to a BytesBody
+	var err error
+	r.Body, err = NewBytesBody(r.Body, GetAccessibleBodySize())
+	if err != nil {
+		return nil, fmt.Errorf("can't get body")
+	}
+	return r.Body.(BodyAccessor), nil
+}
+
+const DefaultAccessibleBodySize = 1024*1024*2
+const MaxAccessibleBodySize = 1024*1024*8
+var accessibleBodySize = int64(DefaultAccessibleBodySize)
+
+func SetAccessibleBodySize(size int64) {
+	if size <= 0 {
+		size = DefaultAccessibleBodySize
+	}
+	atomic.StoreInt64(&accessibleBodySize, size)
+}
+
+func GetAccessibleBodySize() int64 {
+	return atomic.LoadInt64(&accessibleBodySize)
+}
+
+type SourceGetter interface {
+	GetSource() io.ReadCloser
 }

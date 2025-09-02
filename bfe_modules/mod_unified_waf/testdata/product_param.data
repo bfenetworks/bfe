@@ -1,0 +1,13 @@
+{
+	"Version": "2023-01-19 12:00:10",
+	"Config": {
+        "ProductA": {
+            "SendBody": false,
+            "SendBodySize": 0
+        },
+        "ProductB": {
+            "SendBody": true,
+            "SendBodySize": 4096
+        }
+    }
+}

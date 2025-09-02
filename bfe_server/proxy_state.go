@@ -43,7 +43,8 @@ type ProxyState struct {
 	ErrBkFindLocation *metrics.Counter
 	ErrBkNoBalance    *metrics.Counter
 	ErrBkNoCluster    *metrics.Counter
-
+	ErrBkBodyProcess  *metrics.Counter
+	
 	// backend side errors
 	ErrBkConnectBackend    *metrics.Counter
 	ErrBkRequestBackend    *metrics.Counter

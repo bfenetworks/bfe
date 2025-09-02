@@ -548,6 +548,17 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			fetcher: &BfeTimeFetcher{},
 			matcher: matcher,
 		}, nil
+
+	case "req_body_json_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &ReqBodyJsonFetcher{
+				path: node.Args[0].Value, 
+			},
+			matcher: NewInMatcher(node.Args[1].Value, node.Args[2].ToBool()),
+		}, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported primitive %s", node.Fun.Name)
 	}

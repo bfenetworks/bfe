@@ -65,3 +65,55 @@ func TestClusterConfLoad_6(t *testing.T) {
 		return
 	}
 }
+
+func TestStatusCodeRange(t *testing.T) {
+	var (
+		statusCode       = "400"
+		statusCodeRanges = map[string]bool{
+			"200":         false,
+			"2xx":         false,
+			"4x0":         true,
+			"43x":         false,
+			"400":         true,
+			"40x":         true,
+			"4xx":         true,
+			"x00":         true,
+			"x0x":         true,
+			"404|30x|2xx": false,
+			"200|40x|3xx": true,
+			"2xx|4xx|3xx": true,
+		}
+		worngRange = []string{
+			"4000",
+			"x4x&5xx|6xx|111",
+			"[200-300]",
+			"|400",
+		}
+	)
+	t.Run("checkStatusCodeRange", func(t *testing.T) {
+		var err error
+		for statusCodeRange, _ := range statusCodeRanges {
+			if err = checkStatusCodeRange(&statusCodeRange); err != nil {
+				t.Error(err)
+			}
+		}
+		for _, w := range worngRange {
+			if err = checkStatusCodeRange(&w); err == nil {
+				t.Errorf("assertOk=false, ok=true, statusCodeRange=%s", w)
+			} else {
+				t.Log(err)
+			}
+		}
+	})
+	t.Run("MatchStatusCodeRange", func(t *testing.T) {
+		for statusCodeRange, assert := range statusCodeRanges {
+			ok, err := MatchStatusCodeRange(statusCode, statusCodeRange)
+			if ok != assert {
+				t.Errorf("statusCode=%s, statusCodeRange=%s, assertOk=%v, ok=%v", statusCode, statusCodeRange, assert, ok)
+			}
+			if err != nil {
+				t.Logf("assertOk=%v, ok=%v, err_msg=%s", assert, ok, err.Error())
+			}
+		}
+	})
+}

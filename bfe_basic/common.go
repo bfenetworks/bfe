@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The BFE Authors.
+// Copyright (c) 2019 - 2025 The BFE Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,10 @@
 package bfe_basic
 
 import (
+	"io/ioutil"
+	"strconv"
+	"strings"
+
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
 )
@@ -78,6 +82,22 @@ func CreateInternalResp(request *Request, code int) *bfe_http.Response {
 	res.Body = bfe_http.EofReader
 	request.HttpResponse = res
 	return res
+}
+
+func CreateSpecifiedContentResp(request *Request, responseCode int, contentType string, content string) *bfe_http.Response {
+	resp := new(bfe_http.Response)
+	resp.StatusCode = responseCode
+
+	resp.Header = make(bfe_http.Header)
+	resp.Header.Set("Server", "bfe")
+
+	if len(contentType) != 0 {
+		resp.Header.Set("Content-Type", contentType)
+	}
+	resp.Header.Set("Content-Length", strconv.Itoa(len(content)))
+	resp.Body = ioutil.NopCloser(strings.NewReader(content))
+
+	return resp
 }
 
 // ServerDataConfInterface is an interface used for lookup config for each request

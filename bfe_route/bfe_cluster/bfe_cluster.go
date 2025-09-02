@@ -19,13 +19,8 @@ package bfe_cluster
 import (
 	"sync"
 	"time"
-)
 
-import (
 	"github.com/baidu/go-lib/log"
-)
-
-import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 )
 
@@ -36,6 +31,8 @@ type BfeCluster struct {
 	backendConf *cluster_conf.BackendBasic  // backend's basic conf
 	CheckConf   *cluster_conf.BackendCheck  // how to check backend
 	GslbBasic   *cluster_conf.GslbBasicConf // gslb basic
+	httpsConf   *cluster_conf.BackendHTTPS  // https basic
+	AIConf 	    *cluster_conf.AIConf        // ai conf for cluster
 
 	timeoutReadClient      time.Duration // timeout for read client body
 	timeoutReadClientAgain time.Duration // timeout for read client again
@@ -57,10 +54,13 @@ func (cluster *BfeCluster) BasicInit(clusterConf cluster_conf.ClusterConf) {
 	// set backendConf and checkConf
 	cluster.backendConf = clusterConf.BackendConf
 	cluster.CheckConf = clusterConf.CheckConf
+	cluster.httpsConf = clusterConf.HTTPSConf
 
 	// set gslb retry conf
 	cluster.GslbBasic = clusterConf.GslbBasic
 
+	cluster.AIConf = clusterConf.AIConf
+	
 	cluster.timeoutReadClient =
 		time.Duration(*clusterConf.ClusterBasic.TimeoutReadClient) * time.Millisecond
 	cluster.timeoutReadClientAgain =
@@ -97,6 +97,14 @@ func (cluster *BfeCluster) TimeoutConnSrv() int {
 func (cluster *BfeCluster) BackendConf() *cluster_conf.BackendBasic {
 	cluster.RLock()
 	res := cluster.backendConf
+	cluster.RUnlock()
+
+	return res
+}
+
+func (cluster *BfeCluster) BackendHTTPSConf() *cluster_conf.BackendHTTPS {
+	cluster.RLock()
+	res := cluster.httpsConf
 	cluster.RUnlock()
 
 	return res

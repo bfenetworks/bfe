@@ -17,13 +17,17 @@
 package cluster_conf
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
-)
 
-import (
+	"github.com/baidu/go-lib/log"
+
+	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
@@ -42,8 +46,8 @@ const (
 
 // HashStrategy for subcluster-level load balance (GSLB).
 // Note:
-//  - CLIENTID is a special request header which represents a unique client,
-//    eg. baidu id, passport id, device id etc.
+//   - CLIENTID is a special request header which represents a unique client,
+//     eg. baidu id, passport id, device id etc.
 const (
 	ClientIdOnly      = iota // use CLIENTID to hash
 	ClientIpOnly             // use CLIENTIP to hash
@@ -63,16 +67,27 @@ const (
 	AnyStatusCode = 0
 )
 
+const (
+	HostType_HOST        = "HOST"
+	HostType_Instance_IP = "Instance_IP"
+)
+
 // BackendCheck is conf of backend check
 type BackendCheck struct {
-	Schem         *string // protocol for health check (HTTP/TCP)
-	Uri           *string // uri used in health check
-	Host          *string // if check request use special host header
-	StatusCode    *int    // default value is 200
-	FailNum       *int    // unhealthy threshold (consecutive failures of check request)
-	SuccNum       *int    // healthy threshold (consecutive successes of normal request)
-	CheckTimeout  *int    // timeout for health check, in ms
-	CheckInterval *int    // interval of health check, in ms
+	Schem      *string // protocol for health check (HTTP/HTTPS/TCP)
+	Uri        *string // uri used in health check
+	Host       *string // if check request use special host header
+	HostType   *string // extending the type of Host.
+	StatusCode *int    // default value is 200
+	// StatusCodeRange Legal configuration items:
+	//	(1) One of "3xx", "4xx", "5xx"
+	//	(2) Specific HTTP status codes
+	//	(3) Combinations of the above (1) or (2) connected by the "|" symbol, for example: "3xx", "4xx", "5xx", "503" | "4xx", "501" | "409"
+	StatusCodeRange *string
+	FailNum         *int // unhealthy threshold (consecutive failures of check request)
+	SuccNum         *int // healthy threshold (consecutive successes of normal request)
+	CheckTimeout    *int // timeout for health check, in ms
+	CheckInterval   *int // interval of health check, in ms
 }
 
 // FCGIConf are FastCGI related configurations
@@ -93,6 +108,81 @@ type BackendBasic struct {
 	OutlierDetectionHttpCode *string // outlier detection http status code
 	// protocol specific configurations
 	FCGIConf *FCGIConf
+}
+
+// BackendHTTPS is conf of backend https
+type BackendHTTPS struct {
+	// confs
+	RSHost               *string   // real server hostname
+	RSInsecureSkipVerify *bool     // whether to skip verify cert of real server
+	RSCAList             *[]string // real server CA Cert list. nil/empty - use system ca list; not empty - completely use RSCAList and do not use system list
+	BFECertFile          *string   // BFE Cert file
+	BFEKeyFile           *string   // Privatekey file of BFECert
+
+	// caches
+	rsCAList *x509.CertPool       // cache RSCAList
+	bfeCert  *bfe_tls.Certificate // cache BFECertFile & BFEKeyFile
+	protocol string               // protocol of backend https
+}
+
+type AIConf struct {
+	Type               int                // type of LLM service, reserved for future use. should be 0 now.
+	ModelMapping       *map[string]string // model mapping, key is model name in req, value is model name in backend
+	Key                *string            // API key for AI service
+}
+
+func (conf *BackendHTTPS) GetProtocol() string {
+	return conf.protocol
+}
+
+// GetRSCAList : cache the RSCAList in memory,
+func (conf *BackendHTTPS) GetRSCAList() (*x509.CertPool, error) {
+	return conf.rsCAList, nil
+}
+
+// SetRSCAList : just for unit test
+func (conf *BackendHTTPS) SetRSCAList(cal *x509.CertPool) {
+	conf.rsCAList = cal
+}
+
+// GetBFECert : cache the cert in memory
+func (conf *BackendHTTPS) GetBFECert() (bfe_tls.Certificate, error) {
+	if conf.bfeCert == nil {
+		return bfe_tls.Certificate{}, errors.New("BFECert not found.")
+	}
+	return *conf.bfeCert, nil
+}
+
+// SetBFECert : just for unit test
+func (conf *BackendHTTPS) SetBFECert(cert *bfe_tls.Certificate) {
+	conf.bfeCert = cert
+}
+
+// CheckBFECertAndKey : check the BFECertFile and BFEKeyFile
+func (conf *BackendHTTPS) CheckBFECertAndKey() error {
+	var (
+		certPem, keyPem []byte
+		cert            bfe_tls.Certificate
+		err             error = nil
+	)
+	conf.bfeCert = nil
+	if conf.BFECertFile != nil && *conf.BFECertFile != "" {
+		if certPem, err = os.ReadFile(*conf.BFECertFile); err != nil {
+			return err
+		}
+	}
+	if conf.BFEKeyFile != nil && *conf.BFEKeyFile != "" {
+		if keyPem, err = os.ReadFile(*conf.BFEKeyFile); err != nil {
+			return err
+		}
+	}
+	if certPem == nil || keyPem == nil {
+		return nil
+	} else if cert, err = bfe_tls.X509KeyPair(certPem, keyPem); err != nil {
+		return err
+	}
+	conf.bfeCert = &cert
+	return nil
 }
 
 type HashConf struct {
@@ -137,6 +227,8 @@ type ClusterConf struct {
 	CheckConf    *BackendCheck     // how to check backend
 	GslbBasic    *GslbBasicConf    // gslb basic conf for cluster
 	ClusterBasic *ClusterBasicConf // basic conf for cluster
+	HTTPSConf    *BackendHTTPS     // backend's https conf
+	AIConf             *AIConf         // ai conf for cluster
 }
 
 type ClusterToConf map[string]ClusterConf
@@ -147,6 +239,47 @@ type BfeClusterConf struct {
 	Config  *ClusterToConf
 }
 
+// BackendHTTPS is https conf of backend.
+func BackendHTTPSCheck(protocol *string, conf *BackendHTTPS) error {
+	if protocol == nil || *protocol != "https" {
+		return nil
+	}
+	conf.protocol = *protocol
+	if conf.RSInsecureSkipVerify == nil || !*conf.RSInsecureSkipVerify {
+		if conf.RSCAList != nil && len(*conf.RSCAList) > 0 {
+			rootCAs := x509.NewCertPool()
+			for _, caFp := range *conf.RSCAList {
+				chain, err := os.ReadFile(caFp)
+				log.Logger.Debug("load: ca_fp=%s, err=%v", caFp, err)
+				if err != nil {
+					return err
+				}
+				var certs []*x509.Certificate
+				block, rest := pem.Decode(chain)
+				for block != nil {
+					if block.Type == "CERTIFICATE" {
+						cert, err := x509.ParseCertificate(block.Bytes)
+						if err != nil {
+							return err
+						}
+						certs = append(certs, cert)
+					}
+					if len(rest) > 0 {
+						block, rest = pem.Decode(rest)
+					} else {
+						break
+					}
+				}
+				for _, crt := range certs {
+					rootCAs.AddCert(crt)
+				}
+			}
+			conf.rsCAList = rootCAs
+		}
+	}
+	return conf.CheckBFECertAndKey()
+}
+
 // BackendBasicCheck check BackendBasic config.
 func BackendBasicCheck(conf *BackendBasic) error {
 	if conf.Protocol == nil {
@@ -155,9 +288,9 @@ func BackendBasicCheck(conf *BackendBasic) error {
 	}
 	*conf.Protocol = strings.ToLower(*conf.Protocol)
 	switch *conf.Protocol {
-	case "http", "tcp", "ws", "fcgi", "h2c":
+	case "http", "tcp", "ws", "fcgi", "h2c", "https":
 	default:
-		return fmt.Errorf("protocol only support http/tcp/ws/fcgi/h2c, but is:%s", *conf.Protocol)
+		return fmt.Errorf("protocol only support http/tcp/ws/fcgi/h2c/https, but is:%s", *conf.Protocol)
 	}
 
 	if conf.TimeoutConnSrv == nil {
@@ -256,6 +389,51 @@ func convertStatusCode(statusCode int) string {
 	return fmt.Sprintf("INVALID %d", statusCode)
 }
 
+func checkStatusCodeRange(sp *string) error {
+	if sp == nil || *sp == "" {
+		return nil
+	}
+	s := *sp
+	s = strings.ReplaceAll(s, " ", "")
+	validPattern := "^[0-9xX|]+$"
+	matched, err := regexp.MatchString(validPattern, s)
+	if err != nil {
+		return err
+	}
+	rtnErr := fmt.Errorf("StatusCodeRange format error : %s", s)
+	if !matched {
+		return rtnErr
+	}
+	parts := strings.Split(s, "|")
+	for _, part := range parts {
+		if len(part) != 3 { // xxx|xxx|xxx
+			return rtnErr
+		}
+	}
+	return nil
+
+}
+
+func MatchStatusCodeRange(statusCode string, statusCodeRange string) (bool, error) {
+	if statusCodeRange == "" {
+		return true, nil
+	}
+	statusCodeRange = strings.ReplaceAll(statusCodeRange, " ", "")
+	ranges := strings.Split(statusCodeRange, "|")
+	for _, rangeStr := range ranges {
+		pattern := strings.ReplaceAll(rangeStr, "x", `\d`)
+		pattern = fmt.Sprintf("^%s$", pattern)
+		match, err := regexp.MatchString(pattern, statusCode)
+		if err != nil {
+			return false, err
+		}
+		if match {
+			return true, nil
+		}
+	}
+	return false, fmt.Errorf("not match: statusCode=%s, statusCodeRange=%s", statusCode, statusCodeRange)
+}
+
 func MatchStatusCode(statusCodeGet int, statusCodeExpect int) (bool, error) {
 	// for normal status code
 	if statusCodeExpect >= 100 && statusCodeExpect <= 599 {
@@ -287,6 +465,8 @@ func BackendCheckCheck(conf *BackendCheck) error {
 		// set default schem to http
 		schem := "http"
 		conf.Schem = &schem
+	} else if *conf.Schem != "http" && *conf.Schem != "https" && *conf.Schem != "tls" && *conf.Schem != "tcp" {
+		return errors.New("Schem for BackendCheck should be http/https/tls/tcp")
 	}
 
 	if conf.Uri == nil {
@@ -297,6 +477,11 @@ func BackendCheckCheck(conf *BackendCheck) error {
 	if conf.Host == nil {
 		host := ""
 		conf.Host = &host
+	}
+
+	if conf.HostType == nil {
+		hostType := HostType_HOST
+		conf.HostType = &hostType
 	}
 
 	if conf.StatusCode == nil {
@@ -319,16 +504,16 @@ func BackendCheckCheck(conf *BackendCheck) error {
 		conf.SuccNum = &succNum
 	}
 
-	if *conf.Schem != "http" && *conf.Schem != "tcp" {
-		return errors.New("schem for BackendCheck should be http/tcp")
-	}
-
-	if *conf.Schem == "http" {
+	if *conf.Schem == "http" || *conf.Schem == "https" {
 		if !strings.HasPrefix(*conf.Uri, "/") {
 			return errors.New("Uri should be start with '/'")
 		}
 
 		if err := checkStatusCode(*conf.StatusCode); err != nil {
+			return err
+		}
+
+		if err := checkStatusCodeRange(conf.StatusCodeRange); err != nil {
 			return err
 		}
 	}
@@ -503,8 +688,7 @@ func ClusterToConfCheck(conf ClusterToConf) error {
 	return nil
 }
 
-// BfeClusterConfCheck check integrity of config
-func BfeClusterConfCheck(conf *BfeClusterConf) error {
+func prevCheckBfeClusterConf(conf *BfeClusterConf, fn func() error) error {
 	if conf == nil {
 		return errors.New("nil BfeClusterConf")
 	}
@@ -515,13 +699,35 @@ func BfeClusterConfCheck(conf *BfeClusterConf) error {
 	if conf.Config == nil {
 		return errors.New("no Config")
 	}
+	return fn()
+}
 
-	err := ClusterToConfCheck(*conf.Config)
-	if err != nil {
-		return fmt.Errorf("BfeClusterConf.Config:%s", err.Error())
-	}
+// ClusterToConfBackendHTTPSCheck check ClusterToConf.HTTPSConf
+func ClusterToConfBackendHTTPSCheck(conf *BfeClusterConf) error {
+	return prevCheckBfeClusterConf(conf, func() error {
+		for clusterName, clusterConf := range *conf.Config {
+			// "HTTPSConf" does not have strict required fields, so it should be allowed to be empty.
+			if clusterConf.HTTPSConf == nil {
+				clusterConf.HTTPSConf = new(BackendHTTPS)
+			}
+			err := BackendHTTPSCheck(clusterConf.BackendConf.Protocol, clusterConf.HTTPSConf)
+			if err != nil {
+				return fmt.Errorf("BackendHTTPS: clusterName=%s, err=%s", clusterName, err.Error())
+			}
+		}
+		return nil
+	})
+}
 
-	return nil
+// BfeClusterConfCheck check integrity of config
+func BfeClusterConfCheck(conf *BfeClusterConf) error {
+	return prevCheckBfeClusterConf(conf, func() error {
+		err := ClusterToConfCheck(*conf.Config)
+		if err != nil {
+			return fmt.Errorf("BfeClusterConf.Config:%s", err.Error())
+		}
+		return nil
+	})
 }
 
 func GetCookieKey(header string) (string, bool) {
@@ -548,9 +754,13 @@ func (conf *BfeClusterConf) LoadAndCheck(filename string) (string, error) {
 		return "", err
 	}
 
-	/* check conf   */
+	/* check conf */
 	if err := BfeClusterConfCheck(conf); err != nil {
 		return "", err
+	}
+
+	if err := ClusterToConfBackendHTTPSCheck(conf); err != nil {
+		return "", fmt.Errorf("BfeClusterConf.Config.HTTPSConf:%s", err.Error())
 	}
 
 	return *(conf.Version), nil
