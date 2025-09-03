@@ -14,7 +14,7 @@
       
       <link rel="icon" href="assets/images/logo.svg">
       <link rel="shortcut icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-5.1.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-5.1.6">
     
     
       
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#cluster-configuration" class="md-skip">
+        <a href="#cluster-forwarding-configuration" class="md-skip">
           Skip to content
         </a>
       
@@ -258,7 +258,7 @@ RU5ErkJggg==" ></image>
     
       <div class="md-header-nav__source">
         
-<a href="https://github.com/bfenetworks/bfe/" title="Go to repository" class="md-source">
+<a href="https://github.com/bfenetworks/bfe" title="Go to repository" class="md-source">
   <div class="md-source__icon md-icon">
     
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M439.55 236.05L244 40.45a28.87 28.87 0 00-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 01-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 000 40.81l195.61 195.6a28.86 28.86 0 0040.8 0l194.69-194.69a28.86 28.86 0 000-40.81z"/></svg>
@@ -434,7 +434,7 @@ RU5ErkJggg==" ></image>
   
     <div class="md-nav__source">
       
-<a href="https://github.com/bfenetworks/bfe/" title="Go to repository" class="md-source">
+<a href="https://github.com/bfenetworks/bfe" title="Go to repository" class="md-source">
   <div class="md-source__icon md-icon">
     
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M439.55 236.05L244 40.45a28.87 28.87 0 00-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 01-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 000 40.81l195.61 195.6a28.86 28.86 0 0040.8 0l194.69-194.69a28.86 28.86 0 000-40.81z"/></svg>
@@ -541,8 +541,8 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
-    <a href="../../../introduction/comparison/" title="Comparsion to similar systems" class="md-nav__link">
-      Comparsion to similar systems
+    <a href="../../../introduction/comparison/" title="Comparison to similar systems" class="md-nav__link">
+      Comparison to similar systems
     </a>
   </li>
 
@@ -853,8 +853,8 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
-    <a href="../../../installation/install_from_source/" title="Install from source" class="md-nav__link">
-      Install from source
+    <a href="../../../installation/install_from_source/" title="Install BFE" class="md-nav__link">
+      Install BFE
     </a>
   </li>
 
@@ -1136,52 +1136,73 @@ RU5ErkJggg==" ></image>
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#introduction" class="md-nav__link">
-    Introduction
+  <a href="#configuration-introduction" class="md-nav__link">
+    Configuration Introduction
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#configuration" class="md-nav__link">
-    Configuration
+  <a href="#configuration-description" class="md-nav__link">
+    Configuration Description
   </a>
   
-    <nav class="md-nav" aria-label="Configuration">
+    <nav class="md-nav" aria-label="Configuration Description">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#cluster-config-detail" class="md-nav__link">
-    Cluster Config Detail
+  <a href="#basic-configuration" class="md-nav__link">
+    Basic Configuration
   </a>
   
-    <nav class="md-nav" aria-label="Cluster Config Detail">
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cluster-forwarding-configuration_1" class="md-nav__link">
+    Cluster Forwarding Configuration
+  </a>
+  
+    <nav class="md-nav" aria-label="Cluster Forwarding Configuration">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#backend-config" class="md-nav__link">
-    Backend Config
+  <a href="#backend-basic-configuration" class="md-nav__link">
+    Backend Basic Configuration
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#health-check-config" class="md-nav__link">
-    Health Check Config
+  <a href="#health-check-configuration" class="md-nav__link">
+    Health Check Configuration
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#gslb-config" class="md-nav__link">
-    GSLB Config
+  <a href="#gslb-basic-configuration" class="md-nav__link">
+    GSLB Basic Configuration
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#cluster-basic-config" class="md-nav__link">
-    Cluster Basic Config
+  <a href="#cluster-basic-configuration" class="md-nav__link">
+    Cluster Basic Configuration
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backend-service-https-configuration" class="md-nav__link">
+    Backend Service HTTPS Configuration
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ai-service-configuration" class="md-nav__link">
+    AI Service Configuration
   </a>
   
 </li>
@@ -1197,9 +1218,29 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
-    Example
+  <a href="#configuration-example" class="md-nav__link">
+    Configuration Example
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    Notes
+  </a>
+  
+    <nav class="md-nav" aria-label="Notes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-statuscoderange" class="md-nav__link">
+    1. StatusCodeRange
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1414,6 +1455,18 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
+    <a href="../../../modules/mod_cors/mod_cors/" title="mod_cors" class="md-nav__link">
+      mod_cors
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
     <a href="../../../modules/mod_doh/mod_doh/" title="mod_doh" class="md-nav__link">
       mod_doh
     </a>
@@ -1534,6 +1587,18 @@ RU5ErkJggg==" ></image>
 
 
   <li class="md-nav__item">
+    <a href="../../../modules/mod_secure_link/mod_secure_link/" title="mod_secure_link" class="md-nav__link">
+      mod_secure_link
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
     <a href="../../../modules/mod_static/mod_static/" title="mod_static" class="md-nav__link">
       mod_static
     </a>
@@ -1596,6 +1661,18 @@ RU5ErkJggg==" ></image>
   <li class="md-nav__item">
     <a href="../../../modules/mod_userid/mod_userid/" title="mod_userid" class="md-nav__link">
       mod_userid
+    </a>
+  </li>
+
+        
+          
+          
+          
+
+
+  <li class="md-nav__item">
+    <a href="../../../modules/mod_wasmplugin/mod_wasmplugin/" title="mod_wasmplugin" class="md-nav__link">
+      mod_wasmplugin
     </a>
   </li>
 
@@ -2830,52 +2907,73 @@ RU5ErkJggg==" ></image>
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#introduction" class="md-nav__link">
-    Introduction
+  <a href="#configuration-introduction" class="md-nav__link">
+    Configuration Introduction
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#configuration" class="md-nav__link">
-    Configuration
+  <a href="#configuration-description" class="md-nav__link">
+    Configuration Description
   </a>
   
-    <nav class="md-nav" aria-label="Configuration">
+    <nav class="md-nav" aria-label="Configuration Description">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#cluster-config-detail" class="md-nav__link">
-    Cluster Config Detail
+  <a href="#basic-configuration" class="md-nav__link">
+    Basic Configuration
   </a>
   
-    <nav class="md-nav" aria-label="Cluster Config Detail">
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cluster-forwarding-configuration_1" class="md-nav__link">
+    Cluster Forwarding Configuration
+  </a>
+  
+    <nav class="md-nav" aria-label="Cluster Forwarding Configuration">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#backend-config" class="md-nav__link">
-    Backend Config
+  <a href="#backend-basic-configuration" class="md-nav__link">
+    Backend Basic Configuration
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#health-check-config" class="md-nav__link">
-    Health Check Config
+  <a href="#health-check-configuration" class="md-nav__link">
+    Health Check Configuration
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#gslb-config" class="md-nav__link">
-    GSLB Config
+  <a href="#gslb-basic-configuration" class="md-nav__link">
+    GSLB Basic Configuration
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#cluster-basic-config" class="md-nav__link">
-    Cluster Basic Config
+  <a href="#cluster-basic-configuration" class="md-nav__link">
+    Cluster Basic Configuration
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backend-service-https-configuration" class="md-nav__link">
+    Backend Service HTTPS Configuration
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ai-service-configuration" class="md-nav__link">
+    AI Service Configuration
   </a>
   
 </li>
@@ -2891,9 +2989,29 @@ RU5ErkJggg==" ></image>
 </li>
       
         <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
-    Example
+  <a href="#configuration-example" class="md-nav__link">
+    Configuration Example
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    Notes
+  </a>
+  
+    <nav class="md-nav" aria-label="Notes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-statuscoderange" class="md-nav__link">
+    1. StatusCodeRange
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2917,25 +3035,26 @@ RU5ErkJggg==" ></image>
                   
                 
                 
-                <h1 id="cluster-configuration">Cluster Configuration</h1>
-<h2 id="introduction">Introduction</h2>
-<p>cluster_conf.data records the cluster config.</p>
-<h2 id="configuration">Configuration</h2>
+                <h1 id="cluster-forwarding-configuration">Cluster Forwarding Configuration</h1>
+<h2 id="configuration-introduction">Configuration Introduction</h2>
+<p><code>cluster_conf.data</code> is the configuration file for cluster forwarding.</p>
+<h2 id="configuration-description">Configuration Description</h2>
+<h3 id="basic-configuration">Basic Configuration</h3>
 <table>
 <thead>
 <tr>
-<th>Config Item</th>
+<th>Configuration Item</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Version</td>
-<td>String<br>Version of config file</td>
+<td>String<br>Configuration file version</td>
 </tr>
 <tr>
 <td>Config</td>
-<td>Struct<br>Map data, key is cluster name, value is cluster config detail</td>
+<td>Object<br>Forwarding configuration parameters for each cluster</td>
 </tr>
 <tr>
 <td>Config[k]</td>
@@ -2943,189 +3062,239 @@ RU5ErkJggg==" ></image>
 </tr>
 <tr>
 <td>Config[v]</td>
-<td>Object<br>Cluster's routing config</td>
+<td>Object<br>Cluster forwarding configuration parameters</td>
 </tr>
 </tbody>
 </table>
-<h3 id="cluster-config-detail">Cluster Config Detail</h3>
-<p>Notice: the following configs are in namespace Config[v].</p>
-<h4 id="backend-config">Backend Config</h4>
-<p>BackendConf is config for backend.</p>
+<h3 id="cluster-forwarding-configuration_1">Cluster Forwarding Configuration</h3>
+<p>Note: The following configuration items are located in the namespace <code>Config[v]</code>, and the namespace is omitted in the configuration item names.</p>
+<h4 id="backend-basic-configuration">Backend Basic Configuration</h4>
 <table>
 <thead>
 <tr>
-<th>Config Item</th>
+<th>Configuration Item</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Protocol</td>
-<td>String<br>Protocol for connecting backend. http and fcgi are supported. Default value is http.</td>
+<td>BackendConf.Protocol</td>
+<td>String<br>Protocol of the backend service, currently supports http/https and fcgi, default value is http</td>
 </tr>
 <tr>
-<td>TimeoutConnSrv</td>
-<td>Int<br>Timeout for connecting backend, in ms. Default value is 2000.</td>
+<td>BackendConf.TimeoutConnSrv</td>
+<td>Integer<br>Timeout for connecting to the backend, in milliseconds<br>Default value 2000</td>
 </tr>
 <tr>
-<td>TimeoutResponseHeader</td>
-<td>Int<br>Timeout for reading response header, in ms. Default value is 60000.</td>
+<td>BackendConf.TimeoutResponseHeader</td>
+<td>Integer<br>Timeout for reading the response header from the backend, in milliseconds<br>Default value 60000</td>
 </tr>
 <tr>
-<td>MaxIdleConnsPerHost</td>
-<td>Int<br>Max idle connections to each backend per BFE. Default value is 2.</td>
+<td>BackendConf.MaxIdleConnsPerHost</td>
+<td>Integer<br>Maximum number of idle persistent connections between the BFE instance and each backend<br>Default value 2</td>
 </tr>
 <tr>
-<td>MaxConnsPerHost</td>
-<td>Int<br>Max number of concurrent connections to each backend per BFE. 0 means no limitation. Default value is 0.</td>
+<td>BackendConf.MaxConnsPerHost</td>
+<td>Integer<br>Maximum number of persistent connections between the BFE instance and each backend, 0 means no limit<br>Default value 0</td>
 </tr>
 <tr>
-<td>RetryLevel</td>
-<td>Int<br>Retry level if request fail. 0: retry after connecting backend fails; 1: retry after connecting backend fails or forwarding GET request fails. Default value is 0.</td>
+<td>BackendConf.RetryLevel</td>
+<td>Integer<br>Request retry level. 0: Retry when connection to backend fails; 1: Retry when connection to backend fails or forwarding GET request fails<br>Default value 0</td>
 </tr>
 <tr>
 <td>BackendConf.OutlierDetectionHttpCode</td>
-<td>String<br>Backend HTTP status code outlier detection. <br>"" means disable detection, "500" means "500" is considered as backend failure. <br>Supports two formats: "[0-9]{3}"(e.g "500"), and "[0-9]xx"(e.g "4xx"). Multiple status codes are seperated by "|".<br>Default value is "", which means disable the detection.</td>
+<td>String<br>Backend response status code anomaly check, "" means no check, "500" means backend is considered failed if it returns 500<br>Supports two formats: "[0-9]{3}" (e.g., "500") and "[0-9]xx" (e.g., "4xx"); multiple status codes can be connected using '&#124;'<br>Default value "", no backend response status code anomaly check</td>
 </tr>
 <tr>
-<td>FCGIConf</td>
-<td>Object<br>Conf for FastCGI Protocol</td>
+<td>BackendConf.FCGIConf</td>
+<td>Object<br>FastCGI protocol configuration</td>
 </tr>
 <tr>
-<td>FCGIConf.Root</td>
-<td>String<br>The root folder of the website</td>
+<td>BackendConf.FCGIConf.Root</td>
+<td>String<br>Root folder location of the website</td>
 </tr>
 <tr>
-<td>FCGIConf.EnvVars</td>
-<td>Map[string]string<br>Extra environment variable</td>
+<td>BackendConf.FCGIConf.EnvVars</td>
+<td>Map[string]string<br>Extended environment variables</td>
 </tr>
 </tbody>
 </table>
-<h4 id="health-check-config">Health Check Config</h4>
-<p>CheckConf is config of backend check.</p>
+<h4 id="health-check-configuration">Health Check Configuration</h4>
 <table>
 <thead>
 <tr>
-<th>Config Item</th>
+<th>Configuration Item</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Schem</td>
-<td>String<br>Protocol for health check (HTTP/TCP). Default value is http.</td>
+<td>CheckConf.Schem</td>
+<td>String<br>Health check protocol, supports HTTP/HTTPS/TCP/TLS<br>Default value HTTP</td>
 </tr>
 <tr>
-<td>Uri</td>
-<td>String<br>Uri used in health check (HTTP only). Default value is "/health_check".</td>
+<td>CheckConf.Uri</td>
+<td>String<br>Health check request URI (only HTTP/HTTPS)<br>Default value "/health_check"</td>
 </tr>
 <tr>
-<td>Host</td>
-<td>String<br>Host used in health check (HTTP only). Default value is "".</td>
+<td>CheckConf.Host</td>
+<td>String<br>Health check request HOST (only HTTP/HTTPS)<br>Default value ""</td>
 </tr>
 <tr>
-<td>StatusCode</td>
-<td>Int<br>Expected response code (HTTP only). Default value is 200. And 0 means any response code is considered valid.</td>
+<td>CheckConf.StatusCode</td>
+<td>Integer<br>Expected response status code (only HTTP/HTTPS)<br>Default value 200. Can also be configured as 0, meaning any status code is acceptable.</td>
 </tr>
 <tr>
-<td>FailNum</td>
-<td>Int<br>Failure threshold (consecutive failures of forwarded requests), which will trigger BFE to set the backend instance to unavailable state and start the health check.</td>
+<td>CheckConf.StatusCodeRange</td>
+<td>String<br>Expected response status code (only HTTP/HTTPS)<br>See: Note 1. StatusCodeRange</td>
 </tr>
 <tr>
-<td>SuccNum</td>
-<td>Int<br>Healthy threshold (consecutive successes of health check request), which will trigger BFE to set the backend instance to available state and stop the health check.</td>
+<td>CheckConf.FailNum</td>
+<td>Integer<br>Health check activation threshold (after forwarding requests fail consecutively for FailNum times, the backend instance is marked as unavailable and health check is initiated)<br>Default value 5</td>
 </tr>
 <tr>
-<td>CheckTimeout</td>
-<td>Int<br>Timeout for health check, in ms. Default value is 0, which means no timeout.</td>
+<td>CheckConf.SuccNum</td>
+<td>Integer<br>Health check success threshold (after health check succeeds consecutively for SuccNum times, the backend instance is marked as available)<br>Default value 1</td>
 </tr>
 <tr>
-<td>CheckInterval</td>
-<td>Int<br>Interval of health check, in ms. Default value is 1000.</td>
+<td>CheckConf.CheckTimeout</td>
+<td>Integer<br>Health check timeout, in milliseconds<br>Default value 0 (no timeout)</td>
+</tr>
+<tr>
+<td>CheckConf.CheckInterval</td>
+<td>Integer<br>Health check interval, in milliseconds<br>Default value 1000</td>
 </tr>
 </tbody>
 </table>
-<h4 id="gslb-config">GSLB Config</h4>
-<p>GslbBasic is cluster config for Gslb.</p>
+<h4 id="gslb-basic-configuration">GSLB Basic Configuration</h4>
 <table>
 <thead>
 <tr>
-<th>Config Item</th>
+<th>Configuration Item</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>CrossRetry</td>
-<td>Int<br>Max cross sub-clusters retry times. Default value is 0.</td>
+<td>GslbBasic.CrossRetry</td>
+<td>Integer<br>Maximum cross-sub-cluster retry count<br>Default value 0</td>
 </tr>
 <tr>
-<td>RetryMax</td>
-<td>Int<br>Max retry times within same sub-cluster. Default value is 2.</td>
+<td>GslbBasic.RetryMax</td>
+<td>Integer<br>Maximum retry count within a sub-cluster<br>Default value 2</td>
 </tr>
 <tr>
-<td>BalanceMode</td>
-<td>String<br>Load Balance Mode. Supported mode: WRR(Weighted Round Robin), WLC(Weighted Least Connection). Default value is WRR.</td>
+<td>GslbBasic.BalanceMode</td>
+<td>String<br>Load balancing mode (WRR: Weighted Round Robin; WLC: Weighted Least Connections)<br>Default value WRR</td>
 </tr>
 <tr>
-<td>HashConf</td>
-<td>Struct<br>Hash config of session persistence<br></td>
+<td>GslbBasic.HashConf</td>
+<td>Object<br>Hash strategy configuration for session persistence</td>
 </tr>
 <tr>
-<td>HashConf.HashStrategy</td>
-<td>Int<br>Hash Strategy of session persistence. Supported strategies: 0: ClientIdOnly, 1: ClientIpOnly, 2: ClientIdPreferred, 3: RequestURI. Default value is 1 (ClientIpOnly).<br></td>
+<td>GslbBasic.HashConf.HashStrategy</td>
+<td>Integer<br>Hash strategy for session persistence. 0: ClientIdOnly, 1: ClientIpOnly, 2: ClientIdPreferred, 3: RequestURI<br>Default value 1 (ClientIpOnly)</td>
 </tr>
 <tr>
-<td>HashConf.HashHeader</td>
-<td>String<br>HashHeader is an optional request header which represents a unique client. Format for speicial cookie header is "Cookie:Key"<br></td>
+<td>GslbBasic.HashConf.HashHeader</td>
+<td>String<br>Hash request header for session persistence. Optional. Can be configured as a Header that uniquely identifies a client. If it is a cookie header, the format is: "Cookie:key"</td>
 </tr>
 <tr>
-<td>HashConf.SessonSticky</td>
-<td>Boolean<br>Set SessionSticky to "true" enable sticky session (ensures that all requests from the user during the session are sent to the same backend). If set to "false", the session persistence will be at sub-cluster level.</td>
+<td>GslbBasic.HashConf.SessionSticky</td>
+<td>Boolean<br>Whether to enable session persistence (when enabled, requests from the same user can be sent to the same backend)<br>Default value False. When set to False, the session persistence level is at the sub-cluster level.</td>
 </tr>
 </tbody>
 </table>
-<h4 id="cluster-basic-config">Cluster Basic Config</h4>
-<p>ClusterBasic is basic config for cluster.</p>
+<h4 id="cluster-basic-configuration">Cluster Basic Configuration</h4>
 <table>
 <thead>
 <tr>
-<th>Config Item</th>
+<th>Configuration Item</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>TimeoutReadClient</td>
-<td>Int<br>Timeout for read client body in ms. Default value is 30000.</td>
+<td>ClusterBasic.TimeoutReadClient</td>
+<td>Integer<br>Timeout for reading the client request body, in milliseconds<br>Default value 30000</td>
 </tr>
 <tr>
-<td>TimeoutWriteClient</td>
-<td>Int<br>Timeout for write response to client. Default value is 60000.</td>
+<td>ClusterBasic.TimeoutWriteClient</td>
+<td>Integer<br>Timeout for writing the response, in milliseconds<br>Default value 60000</td>
 </tr>
 <tr>
-<td>TimeoutReadClientAgain</td>
-<td>Int<br>Timeout for read client again in ms. Default value is 60000.</td>
+<td>ClusterBasic.TimeoutReadClientAgain</td>
+<td>Integer<br>Timeout for idle connections, in milliseconds<br>Default value 60000</td>
 </tr>
 <tr>
-<td>ReqWriteBufferSize</td>
-<td>Int<br>Write buffer size for request in byte. Default and recommended value is 512.</td>
+<td>ClusterBasic.ReqWriteBufferSize</td>
+<td>Integer<br>Request write buffer size, in Bytes. Default value 512. Recommended to use the default value.</td>
 </tr>
 <tr>
-<td>ReqFlushInterval</td>
-<td>Int<br>Interval to flush request in ms. Default and recommended value is 0, means disable periodic flush.</td>
+<td>ClusterBasic.ReqFlushInterval</td>
+<td>Integer<br>Interval for flushing requests, in milliseconds. Default value 0, meaning no periodic flushing</td>
 </tr>
 <tr>
-<td>ResFlushInterval</td>
-<td>Int<br>Interval to flush response in ms. Default and recommended value is -1, means not to cache response. 0 means disable periodic flush.</td>
+<td>ClusterBasic.ResFlushInterval</td>
+<td>Integer<br>Interval for flushing responses, in milliseconds. Default value -1, meaning no caching of responses. Setting to 0 means no periodic flushing. Recommended to use the default value.</td>
 </tr>
 <tr>
-<td>CancelOnClientClose</td>
-<td>Bool<br>During reading response from backend, cancel the blocking status if client connection disconnected. Default and recommended value is false.</td>
+<td>ClusterBasic.CancelOnClientClose</td>
+<td>Boolean<br>Whether to cancel the blocking state when the client disconnects while the server is reading the backend response. Default value false. Recommended to use the default value.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="example">Example</h2>
+<h4 id="backend-service-https-configuration">Backend Service HTTPS Configuration</h4>
+<table>
+<thead>
+<tr>
+<th>Configuration Item</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HTTPSConf.RSHost</td>
+<td>String<br>Hostname of the backend service instance, used to verify the server certificate.<br>Default value: Host field in the frontend request header.</td>
+</tr>
+<tr>
+<td>HTTPSConf.BFEKeyFile</td>
+<td>String<br>Private key file path, required when mutual authentication is supported<br>Private key used by the BFE engine when forwarding HTTPS requests to the backend. The private key file must be in PEM format</td>
+</tr>
+<tr>
+<td>HTTPSConf.BFECertFile</td>
+<td>String<br>Certificate file path, required when mutual authentication is supported<br>Certificate used by the BFE engine when forwarding HTTPS requests to the backend. The certificate file must be in x509 standard PEM format, and each PEM file can only contain one certificate</td>
+</tr>
+<tr>
+<td>HTTPSConf.RSCAList</td>
+<td>[]String<br>Required when BackendConf.Protocol is https and server certificate verification is needed (i.e., RSInsecureSkipVerify is false). If not filled, the system default CA pool is used. List items are certificate file paths. Certificate files must be in x509 standard PEM format. Multiple CA certificates in the CA trust chain can be combined into one PEM file.</td>
+</tr>
+<tr>
+<td>HTTPSConf.RSInsecureSkipVerify</td>
+<td>Boolean<br>Server certificate verification switch<br>true: Do not verify, false: Verify (default)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="ai-service-configuration">AI Service Configuration</h4>
+<table>
+<thead>
+<tr>
+<th>Configuration Item</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AIConf.Key</td>
+<td>String<br>API-Key for the backend large model service<br>If empty, the API-Key is not reset when accessing the backend service and the request's API-Key is retained</td>
+</tr>
+<tr>
+<td>ModelMapping</td>
+<td>Map[string]string<br>Mapping from original request model to backend service model. When accessing the backend service, the model field in the request will be looked up in this mapping; if matched, the model field in the request will be overwritten</td>
+</tr>
+</tbody>
+</table>
+<h2 id="configuration-example">Configuration Example</h2>
 <pre class="codehilite"><code class="language-json">{
     &quot;Version&quot;: &quot;20190101000000&quot;,
     &quot;Config&quot;: {
@@ -3134,9 +3303,8 @@ RU5ErkJggg==" ></image>
                 &quot;TimeoutConnSrv&quot;: 2000,
                 &quot;TimeoutResponseHeader&quot;: 50000,
                 &quot;MaxIdleConnsPerHost&quot;: 0,
-                &quot;MaxConnsPerHost&quot;: 0,
                 &quot;RetryLevel&quot;: 0,
-                &quot;OutlierDetectionHttpCode&quot;: &quot;5xx|400&quot;
+                &quot;OutlierDetectionHttpCode&quot;: &quot;5xx|403&quot;
             },
             &quot;CheckConf&quot;: {
                 &quot;Schem&quot;: &quot;http&quot;,
@@ -3159,10 +3327,51 @@ RU5ErkJggg==" ></image>
                 &quot;TimeoutReadClient&quot;: 30000,
                 &quot;TimeoutWriteClient&quot;: 60000,
                 &quot;TimeoutReadClientAgain&quot;: 60000,
+            }
+        },
+        &quot;https_cluster_example&quot;: {
+            &quot;BackendConf&quot;: {
+                &quot;Protocol&quot;: &quot;https&quot;,
+                &quot;TimeoutConnSrv&quot;: 2000,
+                &quot;TimeoutResponseHeader&quot;: 50000,
+                &quot;MaxIdleConnsPerHost&quot;: 0,
+                &quot;RetryLevel&quot;: 0
+            },
+            &quot;CheckConf&quot;: {
+                &quot;Schem&quot;: &quot;https&quot;,
+                &quot;Uri&quot;: &quot;/&quot;,
+                &quot;Host&quot;: &quot;example.org&quot;,
+                &quot;StatusCode&quot;: 200,
+                &quot;FailNum&quot;: 10,
+                &quot;CheckInterval&quot;: 1000
+            },
+            &quot;GslbBasic&quot;: {
+                &quot;CrossRetry&quot;: 0,
+                &quot;RetryMax&quot;: 2,
+                &quot;HashConf&quot;: {
+                    &quot;HashStrategy&quot;: 0,
+                    &quot;HashHeader&quot;: &quot;Cookie:UID&quot;,
+                    &quot;SessionSticky&quot;: false
+                }
+            },
+            &quot;ClusterBasic&quot;: {
+                &quot;TimeoutReadClient&quot;: 30000,
+                &quot;TimeoutWriteClient&quot;: 60000,
+                &quot;TimeoutReadClientAgain&quot;: 30000,
                 &quot;ReqWriteBufferSize&quot;: 512,
                 &quot;ReqFlushInterval&quot;: 0,
                 &quot;ResFlushInterval&quot;: -1,
                 &quot;CancelOnClientClose&quot;: false
+            },
+            &quot;HTTPSConf&quot;:{
+                &quot;RSHost&quot;: &quot;www.example.org&quot;,
+                &quot;BFEKeyFile&quot;: &quot;../conf/tls_conf/backend_rs/r_bfe_dev_prv.pem&quot;,
+                &quot;BFECertFile&quot;: &quot;../conf/tls_conf/backend_rs/r_bfe_dev.crt&quot;,
+                &quot;RSCAList&quot;: [
+                    &quot;../conf/tls_conf/backend_rs/bfe_r_ca.crt&quot;,
+                    &quot;../conf/tls_conf/backend_rs/bfe_i_ca.crt&quot;
+                ],
+                &quot;RSInsecureSkipVerify&quot;: false
             }
         },
         &quot;fcgi_cluster_example&quot;: {
@@ -3171,6 +3380,7 @@ RU5ErkJggg==" ></image>
                 &quot;TimeoutConnSrv&quot;: 2000,
                 &quot;TimeoutResponseHeader&quot;: 50000,
                 &quot;MaxIdleConnsPerHost&quot;: 0,
+                &quot;MaxConnsPerHost&quot;: 0,
                 &quot;RetryLevel&quot;: 0,
                 &quot;FCGIConf&quot;: {
                     &quot;Root&quot;: &quot;/home/work&quot;,
@@ -3209,6 +3419,20 @@ RU5ErkJggg==" ></image>
     }
 }
 </code></pre>
+
+<h2 id="notes">Notes</h2>
+<h3 id="1-statuscoderange">1. StatusCodeRange</h3>
+<ul>
+<li>Response status code range. If StatusCode is configured, this validation condition will be ignored.</li>
+<li>Valid configuration examples:</li>
+<li>One of <code>"3xx"</code>, <code>"4xx"</code>, <code>"5xx"</code></li>
+<li>Specific HTTP return codes, consistent with the StatusCode function</li>
+<li>The above (1) or (2) connected by the <code>"|"</code> symbol, for example:<ul>
+<li><code>"503|4xx"</code></li>
+<li><code>"501|409|30x"</code></li>
+</ul>
+</li>
+</ul>
                 
               
               
@@ -3313,7 +3537,7 @@ RU5ErkJggg==" ></image>
     </div>
     
       <script src="../../../assets/javascripts/vendor.809e24aa.min.js"></script>
-      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents"}</script>
+      <script src="../../../assets/javascripts/bundle.8566d47a.min.js"></script><script id="__lang" type="application/json">{"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching"}</script>
       
       <script>
         app = initialize({
