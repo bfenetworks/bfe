@@ -1,0 +1,4 @@
+# 其他配置...
+# ignored-folder
+exclude:
+  - bfe_modules/mod_markdown/testdata/
