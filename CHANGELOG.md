@@ -10,6 +10,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.8.0] - 2025-09-03
+
+### Added
+
+- Support third-party WAF integration  ([Pull #1222](https://github.com/bfenetworks/bfe/pull/1222))
+- Support basic functions of an AI gateway ([Pull #1223](https://github.com/bfenetworks/bfe/pull/1223))
+- Support forwarding requests to backend RS over HTTPS
+
+
 ## [v1.7.0] - 2025-01-19
 
 ### Added
