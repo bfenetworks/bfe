@@ -68,7 +68,7 @@ spec:
             - '-bfe-api-addr=http://api-server.bfe-system.svc.cluster.local:8183'
             - '-bfe-api-token=Token eT5QWkLhQmp6lO4NWxAc'
             - '-k8s-cluster-name=szyf'
-            - '-namespace=bfe-system'
+            - '-namespace=default'
           ports:
             - containerPort: 9081
           livenessProbe:
