@@ -49,6 +49,7 @@ Besides, we also implement [BFE Ingress Controller](https://github.com/bfenetwor
 
 - Data plane: BFE Server [build and run](docs/en_us/installation/install_from_source.md)
 - Control plane: English document coming soon.  [Chinese version](https://github.com/bfenetworks/api-server/blob/develop/docs/zh_cn/deploy.md)
+- Kubernetes example (kustomize): [examples/kubernetes/README.md](examples/kubernetes/README.md)
 
 ## Running the tests
 

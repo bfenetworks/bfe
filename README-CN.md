@@ -50,6 +50,7 @@ BFE的架构说明见[概览](docs/zh_cn/introduction/overview.md)文档
 
 - 数据平面：BFE核心转发引擎的[编译及运行](docs/zh_cn/installation/install_from_source.md)
 - 控制平面：请参考控制平面的[部署说明](https://github.com/bfenetworks/api-server/blob/develop/docs/zh_cn/deploy.md)
+- Kubernetes 部署示例（kustomize）：[examples/kubernetes/README.md](examples/kubernetes/README.md)
 
 ## 运行测试
 
