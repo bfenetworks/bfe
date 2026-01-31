@@ -138,12 +138,120 @@ license-check:
 license-fix:
 	$(LICENSEEYE) header fix
 
-# make docker
+
+# Docker image build targets
+BFE_IMAGE_NAME ?= bfe
+# conf-agent version used in Docker image build.
+# Default: 0.0.2
+# Override example: make docker CONF_AGENT_VERSION=0.0.2
+CONF_AGENT_VERSION ?= 0.0.2
+NO_CACHE ?= false
+
+# Optional cleanup controls
+# - CLEAN_DANGLING=true will remove dangling images ("<none>:<none>") after build.
+# - CLEAN_BUILDKIT_CACHE=true will prune build cache (can slow down next builds).
+CLEAN_DANGLING ?= false
+CLEAN_BUILDKIT_CACHE ?= false
+
+# Optional buildx (multi-arch) settings
+PLATFORMS ?= linux/amd64,linux/arm64
+BUILDER_NAME ?= bfe-builder
+
+# buildx helpers
+# - make docker (local build) does NOT require buildx.
+# - make docker-push (multi-arch push) requires buildx and will auto-init a builder.
+buildx-check:
+	@docker buildx version >/dev/null 2>&1 || ( \
+		echo "Error: docker buildx is not available."; \
+		echo "- If you use Docker Desktop: update/enable BuildKit/buildx."; \
+		echo "- If you use docker-ce: install the buildx plugin."; \
+		exit 1; \
+	)
+
+buildx-init: buildx-check
+	@docker buildx inspect $(BUILDER_NAME) >/dev/null 2>&1 || docker buildx create --name $(BUILDER_NAME) --driver docker-container --use
+	@docker buildx use $(BUILDER_NAME)
+	@docker buildx inspect --bootstrap >/dev/null 2>&1 || true
+
+# make docker: Build BFE docker images (prod + debug)
 docker:
+	@echo "Building BFE docker images (prod + debug)..."
+	@NORM_BFE_VERSION=$$(echo "$(BFE_VERSION)" | sed 's/^v*/v/'); \
+	NORM_CONF_VERSION=$$(echo "$(CONF_AGENT_VERSION)" | sed 's/^v*/v/'); \
+	echo "BFE version: $$NORM_BFE_VERSION"; \
+	echo "conf-agent version: $$NORM_CONF_VERSION"; \
+	echo "Step 1/2: build prod image"; \
 	docker build \
-		-t bfe:$(BFE_VERSION) \
+		$$(if [ "$(NO_CACHE)" = "true" ]; then echo "--no-cache"; fi) \
+		--build-arg VARIANT=prod \
+		--build-arg CONF_AGENT_VERSION=$$NORM_CONF_VERSION \
+		-t $(BFE_IMAGE_NAME):$$NORM_BFE_VERSION \
+		-t $(BFE_IMAGE_NAME):latest \
+		-f Dockerfile \
+		.; \
+	echo "Step 2/2: build debug image"; \
+	docker build \
+		$$(if [ "$(NO_CACHE)" = "true" ]; then echo "--no-cache"; fi) \
+		--build-arg VARIANT=debug \
+		--build-arg CONF_AGENT_VERSION=$$NORM_CONF_VERSION \
+		-t $(BFE_IMAGE_NAME):$$NORM_BFE_VERSION-debug \
 		-f Dockerfile \
 		.
+	@$(MAKE) docker-prune
+
+# docker-prune: optional post-build cleanup (safe-by-default)
+docker-prune:
+	@if [ "$(CLEAN_DANGLING)" = "true" ]; then \
+		echo "Pruning dangling images (<none>)..."; \
+		docker image prune -f; \
+	fi
+	@if [ "$(CLEAN_BUILDKIT_CACHE)" = "true" ]; then \
+		echo "Pruning build cache (BuildKit)..."; \
+		docker builder prune -f; \
+	fi
+
+# make docker-push: Build & push multi-arch images using buildx (REGISTRY is required)
+# Usage: make docker-push REGISTRY=ghcr.io/your-org
+docker-push:
+	@if [ -z "$(REGISTRY)" ]; then \
+		echo "Error: REGISTRY is required"; \
+		echo "Usage: make docker-push REGISTRY=ghcr.io/your-org"; \
+		exit 1; \
+	fi
+	@echo "Building and pushing multi-arch images via buildx..."
+	@echo "Platforms: $(PLATFORMS)"
+	@$(MAKE) buildx-init
+	@NORM_BFE_VERSION=$$(echo "$(BFE_VERSION)" | sed 's/^v*/v/'); \
+	NORM_CONF_VERSION=$$(echo "$(CONF_AGENT_VERSION)" | sed 's/^v*/v/'); \
+	NO_CACHE_OPT=$$(if [ "$(NO_CACHE)" = "true" ]; then echo "--no-cache"; fi); \
+	echo "BFE version: $$NORM_BFE_VERSION"; \
+	echo "conf-agent version: $$NORM_CONF_VERSION"; \
+	echo "Step 1/2: build+push prod (multi-arch)"; \
+	docker buildx build \
+		--platform $(PLATFORMS) \
+		$$NO_CACHE_OPT \
+		--build-arg VARIANT=prod \
+		--build-arg CONF_AGENT_VERSION=$$NORM_CONF_VERSION \
+		-t $(REGISTRY)/$(BFE_IMAGE_NAME):$$NORM_BFE_VERSION \
+		-t $(REGISTRY)/$(BFE_IMAGE_NAME):latest \
+		-f Dockerfile \
+		--push \
+		.; \
+	echo "Step 2/2: build+push debug (multi-arch)"; \
+	docker buildx build \
+		--platform $(PLATFORMS) \
+		$$NO_CACHE_OPT \
+		--build-arg VARIANT=debug \
+		--build-arg CONF_AGENT_VERSION=$$NORM_CONF_VERSION \
+		-t $(REGISTRY)/$(BFE_IMAGE_NAME):$$NORM_BFE_VERSION-debug \
+		-f Dockerfile \
+		--push \
+		.; \
+	echo "Pushed multi-arch:"; \
+	echo "  - $(REGISTRY)/$(BFE_IMAGE_NAME):$$NORM_BFE_VERSION"; \
+	echo "  - $(REGISTRY)/$(BFE_IMAGE_NAME):$$NORM_BFE_VERSION-debug"; \
+	echo "  - $(REGISTRY)/$(BFE_IMAGE_NAME):latest (prod)"
+	@$(MAKE) docker-prune
 
 # make clean
 clean:
@@ -153,4 +261,4 @@ clean:
 	rm -rf $(GOPATH)/pkg/linux_amd64
 
 # avoid filename conflict and speed up build 
-.PHONY: all prepare compile test package clean build
+.PHONY: all prepare compile test package clean build docker docker-push docker-prune buildx-check buildx-init

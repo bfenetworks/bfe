@@ -15,7 +15,7 @@
 .svn
 .tmp
 .download
-output
+output/
 .*.swp
 .*.swo
 /**/y.output
@@ -25,7 +25,6 @@ profile.out
 coverage.txt
 .idea/*
 .vscode/*
-bfe
 dist/*
 conf/wasm_plugin
 

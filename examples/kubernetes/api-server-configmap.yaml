@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-server-conf
+data:
+  api_server.toml: |-
+    # ---------------------------------
+    # API Server Config
+    [Server]
+    # server port
+    ServerPort = 8183
+    # server graceful exit timeout
+    GracefulTimeOutInMs = 5000
+    # monitor port, don't start monitor server if less than 0
+    MonitorPort = 8284
+
+    # ---------------------------------
+    # Logger Config
+    # access log config
+    [Loggers.access]
+    LogName     = "access"
+    LogLevel    = "INFO"
+    RotateWhen  = "MIDNIGHT"
+    BackupCount = 1
+    Format      = "[%D %T] [%L] [%S] %M"
+    StdOut      = false
+
+    # sql log, you can skip this config if RunTime.RecordSQL is false
+    [Loggers.sql]
+    LogName     = "sql"
+    LogLevel    = "INFO"
+    RotateWhen  = "MIDNIGHT"
+    BackupCount = 1
+    Format      = "[%D %T] %M"
+    StdOut      = false
+
+    # ---------------------------------
+    # Database Config
+    # see https://github.com/go-sql-driver/mysql/blob/master/dsn.go#L37
+    [Databases.bfe_db]
+    DBName               = "open_bfe"
+    # MySQL service in the same namespace
+    Addr                 = "mysql.bfe-system.svc.cluster.local:3306"
+    Net                  = "tcp"
+    User                 = "root"
+    Passwd               = "bfe123456"
+    MultiStatements      = true
+    MaxAllowedPacket     = 67108864
+    ParseTime            = true
+    AllowNativePasswords = true
+
+    Driver              = "mysql"
+    MaxOpenConns        = 500
+    MaxIdleConns        = 100
+    ConnMaxIdleTimeInMs = 500000
+    ConnMaxLifetimeInMs = 5000000
+
+
+    # ---------------------------------
+    # Dependence Config
+    [Depends]
+    # NavTreeFile path
+    NavTreeFile = "${conf_dir}/nav_tree.toml"
+    # i18n conf dir path
+    I18nDir = "${conf_dir}/i18n"
+    # dashboard icon
+    UIIcon = "https://raw.githubusercontent.com/bfenetworks/bfe/develop/docs/images/logo/icon/color/bfe-icon-color.svg"
+    # dashboard logo
+    UILogo = "https://raw.githubusercontent.com/bfenetworks/bfe/develop/docs/images/logo/horizontal/color/bfe-horizontal-color.png"
+
+
+    # ---------------------------------
+    # Runtime Config
+    [RunTime]
+    # you can use "Skip {role_name} as authorization header to access api server if open this optional
+    # eg: Headers[Authorization] = "Skip System"
+    # don't open it on production environment
+    SkipTokenValidate = false
+    # sql will be record to log file when this option be opend
+    RecordSQL = false
+    # how long use must login again
+    SessionExpireInDay = 10
+    # static file path, when dynamic router not be matched, static file will be return if found
+    StaticFilePath = "./static"
+    # debug info will be add to response when this option be opend
+    Debug = false

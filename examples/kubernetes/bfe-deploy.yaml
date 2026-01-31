@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bfe
+  namespace: bfe-system
+  labels:
+    app: bfe
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: bfe
+  template:
+    metadata:
+      labels:
+        app: bfe
+    spec:
+      containers:
+      - name: bfe
+        image: ghcr.io/bfenetworks/bfe:v1.8.0-debug # 替换为实际镜像
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: https
+          containerPort: 8443
+          protocol: TCP
+        - name: monitor
+          containerPort: 8421
+          protocol: TCP
+        volumeMounts:
+        - name: bfe-conf
+          mountPath: /home/work/bfe/conf/bfe.conf
+          subPath: bfe.conf
+          readOnly: false
+        - name: conf-agent-conf
+          mountPath: /home/work/conf-agent/conf/conf-agent.toml
+          subPath: conf-agent.toml
+          readOnly: false
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /monitor
+            port: 8421
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /monitor
+            port: 8421
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: bfe-conf
+        configMap:
+          name: bfe-config
+      - name: conf-agent-conf
+        configMap:
+          name: conf-agent-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bfe
+  namespace: bfe-system
+  labels:
+    app: bfe
+spec:
+  selector:
+    app: bfe
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+    nodePort: 30080
+  - name: https
+    port: 8443
+    targetPort: 8443
+    protocol: TCP
+    nodePort: 30443
+  - name: monitor
+    port: 8421
+    targetPort: 8421
+    protocol: TCP
+    nodePort: 30421
+  type: NodePort
