@@ -62,13 +62,13 @@ spec:
       containers:
         - name: bfe-service-controller
           imagePullPolicy: Always
-          image: ghcr.io/bfenetworks/service-controller:x86_64-v1.0.0
+          image: ghcr.io/bfenetworks/service-controller:latest
           command: [ "/service-controller" ]
           args:
             - '-bfe-api-addr=http://api-server.bfe-system.svc.cluster.local:8183'
             - '-bfe-api-token=Token eT5QWkLhQmp6lO4NWxAc'
             - '-k8s-cluster-name=szyf'
-            - '-namespace=bfe-system'
+            - '-namespace=default'
           ports:
             - containerPort: 9081
           livenessProbe:
