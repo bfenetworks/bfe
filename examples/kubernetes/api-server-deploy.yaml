@@ -31,21 +31,47 @@ spec:
         runAsGroup: 10001
         fsGroup: 10001
       initContainers:
-        # Wait for MySQL init job to complete
+        # Wait for MySQL schema initialization to complete (open_bfe tables exist)
         - name: wait-for-db-init
-          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          image: ghcr.io/cc14514/mysql:8 
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: mysql-root-password
           command:
             - sh
             - -c
             - |
-              echo "Waiting for database initialization..."
-              until nc -z mysql.bfe-system.svc.cluster.local 3306; do
-                echo "MySQL is not ready, waiting..."
+              set -eu
+              host="mysql.bfe-system.svc.cluster.local"
+              echo "Waiting for MySQL to be ready..."
+              until mysqladmin ping -h "$host" -uroot --password="$MYSQL_ROOT_PASSWORD" --silent; do
+                echo "MySQL is not ready yet, sleeping 5s..."
                 sleep 5
               done
-              echo "MySQL is ready, waiting for init job to complete..."
-              sleep 15
-              echo "Database should be initialized now!"
+
+              echo "Waiting for open_bfe tables to be created..."
+              deadline=$(( $(date +%s) + 300 ))
+              while true; do
+                table_count=$(mysql --protocol=tcp -h "$host" -uroot --password="$MYSQL_ROOT_PASSWORD" -N -s \
+                  -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='open_bfe';" 2>/dev/null || true)
+                table_count=${table_count:-0}
+                if [ "$table_count" -ge 1 ]; then
+                  echo "Database initialized: open_bfe has $table_count tables."
+                  break
+                fi
+                if [ "$(date +%s)" -gt "$deadline" ]; then
+                  echo "Timeout waiting for open_bfe tables. Dumping diagnostics..."
+                  mysql --protocol=tcp -h "$host" -uroot --password="$MYSQL_ROOT_PASSWORD" -e "SHOW DATABASES;" || true
+                  mysql --protocol=tcp -h "$host" -uroot --password="$MYSQL_ROOT_PASSWORD" -e "SHOW TABLES FROM open_bfe;" || true
+                  exit 1
+                fi
+                echo "open_bfe not initialized yet (tables=$table_count), sleeping 5s..."
+                sleep 5
+              done
       containers:
         - name: api-server
           # Update this image to your registry.

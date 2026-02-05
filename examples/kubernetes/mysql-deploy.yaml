@@ -65,7 +65,7 @@ spec:
     spec:
       containers:
         - name: mysql
-          image: mysql:8.0
+          image: ghcr.io/cc14514/mysql:8
           env:
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
@@ -83,32 +83,36 @@ spec:
           volumeMounts:
             - name: mysql-data
               mountPath: /var/lib/mysql
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot --password="$MYSQL_ROOT_PASSWORD" --silent
+            # First bootstrap (data dir init) can be slow on cold start/slow IO.
+            failureThreshold: 60
+            periodSeconds: 5
+            timeoutSeconds: 5
           livenessProbe:
             exec:
               command:
-                - mysqladmin
-                - ping
-                - -h
-                - localhost
-                - -uroot
-                - -p$(MYSQL_ROOT_PASSWORD)
-            initialDelaySeconds: 60
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot --password="$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 0
             timeoutSeconds: 5
-            failureThreshold: 5
+            failureThreshold: 10
             periodSeconds: 10
           readinessProbe:
             exec:
               command:
-                - mysqladmin
-                - ping
-                - -h
-                - localhost
-                - -uroot
-                - -p$(MYSQL_ROOT_PASSWORD)
-            initialDelaySeconds: 60
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot --password="$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 0
             timeoutSeconds: 5
-            failureThreshold: 5
-            periodSeconds: 10
+            failureThreshold: 3
+            periodSeconds: 5
       volumes:
         - name: mysql-data
           emptyDir: {}
@@ -403,23 +407,9 @@ spec:
       initContainers:
         # Wait for MySQL to be ready
         - name: wait-for-mysql
-          image: busybox:1.36
-          command:
-            - sh
-            - -c
-            - |
-              echo "Waiting for MySQL to be ready..."
-              until nc -z mysql.bfe-system.svc.cluster.local 3306; do
-                echo "MySQL is not ready yet, sleeping 5s..."
-                sleep 5
-              done
-              echo "MySQL is ready!"
-              sleep 10
-      containers:
-        - name: mysql-init
-          image: mysql:8.0
+          image: ghcr.io/cc14514/mysql:8
           env:
-            - name: MYSQL_PWD
+            - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: mysql-secret
@@ -428,8 +418,29 @@ spec:
             - sh
             - -c
             - |
+              echo "Waiting for MySQL to be ready..."
+              until mysqladmin ping -h mysql.bfe-system.svc.cluster.local -uroot --password="$MYSQL_ROOT_PASSWORD" --silent; do
+                echo "MySQL is not ready yet, sleeping 5s..."
+                sleep 5
+              done
+              echo "MySQL is ready!"
+              sleep 5
+      containers:
+        - name: mysql-init
+          image: ghcr.io/cc14514/mysql:8
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: mysql-root-password
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
               echo "Starting database initialization..."
-              mysql -h mysql.bfe-system.svc.cluster.local -uroot < /init-scripts/db_ddl.sql
+              mysql --protocol=tcp --connect-timeout=10 -h mysql.bfe-system.svc.cluster.local -uroot --password="$MYSQL_ROOT_PASSWORD" < /init-scripts/db_ddl.sql
               echo "Database initialization completed!"
           volumeMounts:
             - name: init-scripts

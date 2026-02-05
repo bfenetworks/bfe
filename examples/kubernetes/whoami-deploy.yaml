@@ -36,7 +36,8 @@ spec:
       containers:
         - name: whoami
           imagePullPolicy: IfNotPresent
-          image: traefik/whoami
+          # image: ghcr.nju.edu.cn/cc14514/whoami:latest
+          image: ghcr.io/cc14514/whoami:latest
           ports:
             - containerPort: 80
 
