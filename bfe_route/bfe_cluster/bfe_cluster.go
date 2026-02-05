@@ -42,6 +42,9 @@ type BfeCluster struct {
 	reqFlushInterval    time.Duration // interval to flush request
 	resFlushInterval    time.Duration // interval to flush response
 	cancelOnClientClose bool          // cancel blocking operation in server if client conn gone
+
+	DisableHostHeader  bool // disable setting host header for backend
+	DisableHealthCheck bool // disable health check for backend
 }
 
 func NewBfeCluster(name string) *BfeCluster {
@@ -74,6 +77,9 @@ func (cluster *BfeCluster) BasicInit(clusterConf cluster_conf.ClusterConf) {
 	cluster.resFlushInterval =
 		time.Duration(*clusterConf.ClusterBasic.ResFlushInterval) * time.Millisecond
 	cluster.cancelOnClientClose = *clusterConf.ClusterBasic.CancelOnClientClose
+
+	cluster.DisableHostHeader = *clusterConf.ClusterBasic.DisableHostHeader
+	cluster.DisableHealthCheck = *clusterConf.ClusterBasic.DisableHealthCheck
 
 	log.Logger.Info("cluster %s init success", cluster.Name)
 }
