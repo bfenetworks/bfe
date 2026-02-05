@@ -19,9 +19,7 @@ import (
 	"math/rand"
 	"reflect"
 	"testing"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
 	"github.com/bfenetworks/bfe/bfe_util/json"
@@ -131,7 +129,7 @@ func processBalancLoopTwenty(t *testing.T, label string, algor int, key []byte, 
 
 func processSimpleBalance(t *testing.T, label string, algor int, key []byte, rr *BalanceRR, result []string) {
 	var l []string
-	loopCount := (300+200+100)+4
+	loopCount := (300 + 200 + 100) + 4
 
 	for i := 1; i < loopCount; i++ {
 		r, err := rr.Balance(algor, key)
@@ -156,7 +154,7 @@ func processSimpleBalance(t *testing.T, label string, algor int, key []byte, rr 
 
 func processSimpleBalance3(t *testing.T, label string, algor int, key []byte, rr *BalanceRR, result []string) {
 	var l []string
-	loopCount := (200+100)*3+4
+	loopCount := (200+100)*3 + 4
 
 	for i := 1; i < loopCount; i++ {
 		r, err := rr.Balance(algor, key)
@@ -218,7 +216,7 @@ func TestBalance(t *testing.T) {
 	rr.backends[0].backend.SetAvail(false)
 	// after scale up 100, the hash result changed
 	expectResult = []string{"b3", "b3", "b3", "b3", "b3", "b3", "b3", "b3", "b3"}
-//	expectResult = []string{"b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2"}
+	//	expectResult = []string{"b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2"}
 	processBalance(t, "case 6", WrrSticky, []byte{1}, rr, expectResult)
 
 	// case 7, lcw balance
@@ -362,4 +360,77 @@ func TestSlowStart(t *testing.T) {
 	// case 1
 	rr := prepareBalanceRR()
 	rr.SetSlowStart(30)
+}
+
+func Test_leastConnsBalance(t *testing.T) {
+	b0_0 := &BackendRR{backend: backend.NewBfeBackend(), weight: 0}
+	b0_1 := &BackendRR{backend: backend.NewBfeBackend(), weight: 0}
+
+	b1_1 := &BackendRR{backend: backend.NewBfeBackend(), weight: 1}
+
+	b2_1 := &BackendRR{backend: backend.NewBfeBackend(), weight: 2}
+	b2_2 := &BackendRR{backend: backend.NewBfeBackend(), weight: 2}
+	b2_3 := &BackendRR{backend: backend.NewBfeBackend(), weight: 2}
+
+	b3_1 := &BackendRR{backend: backend.NewBfeBackend(), weight: 3}
+	b3_3 := &BackendRR{backend: backend.NewBfeBackend(), weight: 3}
+
+	b0_0.backend.Name = "b0_0"
+	b0_1.backend.Name = "b0_1"
+	b1_1.backend.Name = "b1_1"
+	b2_1.backend.Name = "b2_1"
+	b2_2.backend.Name = "b2_2"
+	b2_3.backend.Name = "b2_3"
+	b3_1.backend.Name = "b3_1"
+	b3_3.backend.Name = "b3_3"
+
+	b0_1.backend.IncConnNum()
+	b1_1.backend.IncConnNum()
+	b2_1.backend.IncConnNum()
+
+	b2_2.backend.IncConnNum()
+	b2_2.backend.IncConnNum()
+
+	b2_3.backend.IncConnNum()
+	b2_3.backend.IncConnNum()
+	b2_3.backend.IncConnNum()
+
+	b3_1.backend.IncConnNum()
+
+	b3_3.backend.IncConnNum()
+	b3_3.backend.IncConnNum()
+	b3_3.backend.IncConnNum()
+
+	for _, cas := range []struct {
+		name           string
+		backends       BackendList
+		wantCandidates []string
+		wantErr        bool
+	}{
+		{name: "all down", backends: BackendList{b0_0, b0_1}, wantCandidates: nil, wantErr: true},
+		{name: "all same", backends: BackendList{b1_1, b2_2, b3_3}, wantCandidates: []string{"b1_1", "b2_2", "b3_3"}, wantErr: false},
+		{name: "incr1", backends: BackendList{b2_1, b2_2, b2_3}, wantCandidates: []string{"b2_1"}, wantErr: false},
+		{name: "desc1", backends: BackendList{b2_3, b2_2, b2_1}, wantCandidates: []string{"b2_1"}, wantErr: false},
+		{name: "incr2", backends: BackendList{b3_1, b2_1, b1_1}, wantCandidates: []string{"b3_1"}, wantErr: false},
+		{name: "desc2", backends: BackendList{b1_1, b2_1, b3_1}, wantCandidates: []string{"b3_1"}, wantErr: false},
+		{name: "just one", backends: BackendList{b2_1}, wantCandidates: []string{"b2_1"}, wantErr: false},
+	} {
+		got, err := leastConnsBalance(cas.backends)
+
+		if !cas.wantErr && err != nil {
+			t.Errorf("%s: leastConnsBalance() error = %v", cas.name, err)
+		}
+		if cas.wantErr {
+			continue
+		}
+
+		gotList := []string{}
+		for _, one := range got {
+			gotList = append(gotList, one.backend.Name)
+		}
+
+		if !reflect.DeepEqual(gotList, cas.wantCandidates) {
+			t.Errorf("%s: want: %v, got: %v", cas.name, cas.wantCandidates, gotList)
+		}
+	}
 }
