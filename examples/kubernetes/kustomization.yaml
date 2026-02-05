@@ -25,3 +25,35 @@ resources:
   - bfe-configmap.yaml
   - bfe-deploy.yaml
   - mysql-deploy.yaml
+
+# Centralized image override.
+#
+# Mirror usage:
+# - Replace `newName` with your mirror registry/repo path, and optionally set `newTag`.
+# - `name` MUST match the image name used in the YAML resources (without the tag).
+#
+# Example (ghcr -> ghcr.nju.edu.cn):
+#   - name: ghcr.io/bfenetworks/bfe
+#     newName: ghcr.nju.edu.cn/bfenetworks/bfe
+#     newTag: v1.8.0-debug
+images:
+  - name: ghcr.io/bfenetworks/bfe
+    newName: ghcr.io/bfenetworks/bfe
+    # newName: ghcr.nju.edu.cn/bfenetworks/bfe
+    newTag: v1.8.0-debug
+
+  - name: ghcr.io/bfenetworks/api-server
+    newName: ghcr.io/bfenetworks/api-server
+    # newName: ghcr.nju.edu.cn/bfenetworks/api-server
+    newTag: latest
+
+  - name: ghcr.io/bfenetworks/service-controller
+    newName: ghcr.io/bfenetworks/service-controller
+    # newName: ghcr.nju.edu.cn/bfenetworks/service-controller
+    newTag: latest
+
+  # ghcr.io/servercontainers/mysql:latest
+  - name: ghcr.io/cc14514/mysql 
+    newName: ghcr.io/cc14514/mysql 
+    # newName: ghcr.nju.edu.cn/cc14514/mysql
+    newTag: "8"

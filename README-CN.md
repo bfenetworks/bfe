@@ -36,6 +36,43 @@ BFE的架构说明见[概览](docs/zh_cn/introduction/overview.md)文档
 
 此外，我们也基于 BFE 实现了 [BFE Ingress Controller](https://github.com/bfenetworks/ingress-bfe)，用于支持在 Kubernetes 中使用 Ingress
 
+
+## 🚀 快速开始
+
+快速开始面向想尽快跑起来的用户：先构建 Docker 镜像，再用 Kubernetes 示例快速部署。
+
+### 1）构建 Docker 镜像
+
+在仓库根目录执行：
+
+```bash
+make docker
+```
+
+说明：
+- `make docker` 会构建 prod + debug 两个镜像，镜像 tag 来自 `VERSION` 文件。
+- 如需自定义镜像名，可通过 `BFE_IMAGE_NAME` 覆盖，例如：
+
+```bash
+make docker BFE_IMAGE_NAME=your-registry/bfe
+```
+
+如果你希望 Kubernetes 部署使用你本地构建的镜像：需要将镜像推送到集群节点可访问的镜像仓库（或在本地集群中加载镜像），并在 `examples/kubernetes/kustomization.yaml` 的 `images:` 中将 bfe 镜像替换为你的镜像地址与 tag。
+
+Docker 镜像的构建与推送（包含 `make docker-push`）详见：
+- [docs/zh_cn/installation/install_using_docker.md](docs/zh_cn/installation/install_using_docker.md)
+
+### 2）使用 Kubernetes 示例快速部署（kustomize）
+
+```bash
+cd examples/kubernetes
+kubectl apply -k .
+kubectl apply -f whoami-deploy.yaml
+```
+
+更多部署细节（包含镜像统一替换/mirror、初始化说明、清理与 finalizers 排障等）请参考：
+- [examples/kubernetes/README-CN.md](examples/kubernetes/README-CN.md)
+
 ## 特性及优点
 
 - 丰富协议支持：支持HTTP、HTTPS、SPDY、HTTP/2、WebSocket、TLS、gRPC、FastCGI等
@@ -50,7 +87,7 @@ BFE的架构说明见[概览](docs/zh_cn/introduction/overview.md)文档
 
 - 数据平面：BFE核心转发引擎的[编译及运行](docs/zh_cn/installation/install_from_source.md)
 - 控制平面：请参考控制平面的[部署说明](https://github.com/bfenetworks/api-server/blob/develop/docs/zh_cn/deploy.md)
-- Kubernetes 部署示例（kustomize）：[examples/kubernetes/README.md](examples/kubernetes/README.md)
+- Kubernetes 部署示例（kustomize）：[examples/kubernetes/README-CN.md](examples/kubernetes/README-CN.md)
 
 ## 运行测试
 

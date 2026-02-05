@@ -1,69 +1,102 @@
-# BFE Kubernetes 部署示例
+# BFE Kubernetes Deployment Example
 
-## 概述
+## Overview
 
 ![BFE Kubernetes](../../docs/images/bfe-k8s.png)
 
-本示例在 `bfe-system` 命名空间中演示了若干关键组件及其交互：
-- 数据面（bfe 与 conf-agent）负责流量转发与接入控制；
-- 控制面（api-server 与 dashboard）负责策略下发与管理；
-- 服务发现（service-controller）负责发现并同步后端服务；
-- 示例服务 whoami 用于验证路由；
-- 组件间通过 Kubernetes Service/DNS 相互通信，如：
+This example deploys several key components and demonstrates how they work together in the `bfe-system` namespace:
+- Data plane (bfe and conf-agent): traffic forwarding and access control
+- Control plane (api-server and dashboard): policy management and delivery
+- Service discovery (service-controller): discovers and syncs backend services
+- Demo service (whoami): used to validate routing
+- Components communicate via Kubernetes Service/DNS, for example:
   - api-server.bfe-system.svc.cluster.local
   - mysql.bfe-system.svc.cluster.local
 
-注意：
-- api-server 与 MySQL 提供持久化与控制数据；
-  - 示例中的 MySQL 会随清单重建并重新初始化
-  - 不能直接用于生产环境
+Notes:
+- api-server and MySQL provide persistent/control data
+  - In this example, MySQL may be rebuilt and re-initialized with the manifests
+  - This is not production-ready
 
+Main files:
 
-主要文件概览：
-
-| **文件名** | **说明** |
+| **File** | **Description** |
 |---|---|
-| `namespace.yaml` | 命名空间定义（bfe-system） |
-| `kustomization.yaml` | kustomize 资源汇总与启用/禁用项 |
-| `bfe-configmap.yaml` | bfe 配置（bfe.conf、conf-agent.toml 等） |
-| `bfe-deploy.yaml` | bfe 数据面 Deployment 清单 |
-| `api-server-configmap.yaml` | API Server 配置（DB 连接、鉴权示例） |
-| `api-server-deploy.yaml` | API Server Deployment 清单 |
-| `mysql-deploy.yaml` | MySQL Deployment（示例数据库与存储配置） |
-| `service-controller-deploy.yaml` | 服务发现控制器 Deployment 清单 |
-| `whoami-deploy.yaml` | 示例测试服务 whoami 的 Deployment 清单 |
+| `namespace.yaml` | Namespace definition (`bfe-system`) |
+| `kustomization.yaml` | Kustomize resource set and image overrides |
+| `bfe-configmap.yaml` | bfe configuration (bfe.conf, conf-agent.toml, etc.) |
+| `bfe-deploy.yaml` | bfe data plane Deployment |
+| `api-server-configmap.yaml` | API server configuration (DB connection, auth example) |
+| `api-server-deploy.yaml` | API server Deployment |
+| `mysql-deploy.yaml` | MySQL Deployment (demo DB + storage config) |
+| `service-controller-deploy.yaml` | Service discovery controller Deployment |
+| `whoami-deploy.yaml` | whoami demo service Deployment |
 
-## 前提条件
+## Prerequisites
 
-- 版本约束：kubectl 必须支持 -k 参数
-  - 建议 kubectl >= 1.20 或任意能执行 `kubectl apply -k .` 的版本。
+- Version: kubectl must support `-k`
+  - Recommended: kubectl >= 1.20 (or any version that can run `kubectl apply -k .`).
 
-- 集群访问权限：kubectl 能访问目标集群并有权限创建 Namespace、Deployment、Service、ConfigMap、Secret 等资源。
+- Cluster permissions: kubectl can access the cluster and can create Namespace, Deployment, Service, ConfigMap, Secret, etc.
 
-- 镜像可拉取：若使用外部镜像仓库，确保集群节点能拉取示例镜像，或在 `*-deploy.yaml` 中替换为可访问的镜像地址。
+- Images are pullable: make sure cluster nodes can pull the images.
+  - This example manages image names/tags via `images:` in `kustomization.yaml`. Prefer updating that in one place.
+  - If you need an image mirror/accelerator, adjust `newName` / `newTag` under `images:`.
 
-- 可选工具：若 kubectl 无内置 kustomize，请安装 kustomize 或使用带 kustomize 的 kubectl 版本。
+- Optional: if your kubectl does not embed kustomize, install kustomize or use a kubectl version with kustomize.
 
+## Deployment
 
-## 部署
+### Configure images
 
-- 部署 bfe 服务（数据面、控制面、服务发现）
+All component images are centralized in `kustomization.yaml` under `images:`.
+If you hit image pull failures (e.g. ghcr is not reachable), update `newName`/`newTag` under `images:` instead of editing every `*-deploy.yaml`.
+
+Common mirror example (using `ghcr.nju.edu.cn`):
+
+```yaml
+images:
+  - name: ghcr.io/bfenetworks/bfe
+    newName: ghcr.nju.edu.cn/bfenetworks/bfe
+    newTag: v1.8.0-debug
+
+  - name: ghcr.io/bfenetworks/api-server
+    newName: ghcr.nju.edu.cn/bfenetworks/api-server
+    newTag: latest
+
+  - name: ghcr.io/bfenetworks/service-controller
+    newName: ghcr.nju.edu.cn/bfenetworks/service-controller
+    newTag: latest
+
+  - name: ghcr.io/cc14514/mysql
+    newName: ghcr.nju.edu.cn/cc14514/mysql
+    newTag: "8"
+```
+
+> Tip: Prefer changing only `newName` (registry/repo prefix) and `newTag` (version). Keep `name:` consistent with the image names used in the YAML manifests.
+
+> Note: The MySQL image is used both by the MySQL Deployment and by the api-server initContainer (which waits for the DB schema to be initialized). Keep them consistent, and ensure the image includes `mysql`/`mysqladmin` clients.
+
+### Deploy BFE stack (data plane, control plane, service discovery)
 
 ```bash
 cd examples/kubernetes
 kubectl apply -k .
 ```
 
-- 部署测试服务（验证 bfe 服务启动成功后）
+### Deploy demo service (after BFE stack is running)
 
 ```bash
 cd examples/kubernetes
 kubectl apply -f whoami-deploy.yaml 
 ```
 
-## 验证
+> The whoami demo is deployed in the `default` namespace (see `whoami-deploy.yaml`) and is not part of `kubectl apply -k .`.
+> If whoami also needs to use a mirror, edit the `image:` in `whoami-deploy.yaml` directly.
 
-- 检查命名空间、Pod 与服务状态：
+## Validation
+
+- Check namespace, pods, and services:
 
 ```bash
 [root@iTM ~]# kubectl get ns bfe-system
@@ -86,31 +119,70 @@ mysql        ClusterIP   None            <none>        3306/TCP                 
 [root@iTM ~]#
 ```
 
-- 登陆 dashboard:
-  - 浏览器访问 http://{NodeIP}:30083
-  - 默认账号/密码：admin/admin
+- 登录 dashboard:
+  - Open http://{NodeIP}:30083 in your browser
+  - Default username/password: admin/admin
 
-## 清理
+## Cleanup
 
-- 清理测试服务
+- Delete demo service
 
 ```bash
 cd examples/kubernetes
 kubectl delete -f whoami-deploy.yaml
 ```
 
-- 清理 bfe 服务（数据面、控制面、服务发现）
+Recommended deletion order: delete `whoami` first, then delete `bfe-system`.
+Reason: `service-controller` may add `finalizers` to whoami-related resources (typically the Service in the `default` namespace). If you delete `bfe-system` first (which removes `service-controller`) and then delete whoami, the finalizer may never be removed and `kubectl delete -f whoami-deploy.yaml` may hang.
+
+- Delete BFE stack (data plane, control plane, service discovery)
 
 ```bash
 cd examples/kubernetes
 kubectl delete -k . 
 ```
 
-- 按需删除单个资源：
+Notes: `kubectl delete -k .` only deletes resources listed under `resources:` in `kustomization.yaml` (mainly components in `bfe-system` + `namespace.yaml`).
+whoami is in the `default` namespace and is not part of the `-k` resource set.
+
+If deleting whoami hangs (instead of `-k`), first check whether whoami resources in the `default` namespace have finalizers:
+
+```bash
+kubectl get svc whoami -n default -o jsonpath='{.metadata.finalizers}' && echo
+kubectl get deploy whoami -n default -o jsonpath='{.metadata.finalizers}' && echo
+```
+
+If you confirm it is safe to force cleanup, you can remove whoami finalizers (use with care):
+
+```bash
+kubectl patch svc whoami -n default --type=merge -p '{"metadata":{"finalizers":[]}}'
+kubectl patch deploy whoami -n default --type=merge -p '{"metadata":{"finalizers":[]}}'
+```
+
+If `kubectl delete -k .` hangs (often because the `bfe-system` namespace is stuck in Terminating), it usually means some resources in `bfe-system` still have `finalizers`, while the responsible controller is stopped or cleanup did not complete.
+
+```bash
+kubectl describe ns bfe-system
+kubectl get ns bfe-system -o jsonpath='{.spec.finalizers}' && echo
+```
+
+To locate remaining resources (example):
+
+```bash
+kubectl api-resources --verbs=list --namespaced -o name \
+  | xargs -n 1 kubectl get -n bfe-system --ignore-not-found --show-kind --no-headers
+```
+
+If you confirm it is safe to force cleanup, you can remove namespace finalizers (use with care):
+
+```bash
+kubectl patch ns bfe-system --type=merge -p '{"spec":{"finalizers":[]}}'
+```
+
+- Delete individual resources (optional):
 
 ```bash
 # bfe 
-kubectl -n bfe-system delete -f whoami-deploy.yaml
 kubectl -n bfe-system delete -f service-controller-deploy.yaml
 kubectl -n bfe-system delete -f api-server-deploy.yaml
 kubectl -n bfe-system delete -f api-server-configmap.yaml
@@ -122,45 +194,45 @@ kubectl -n bfe-system delete -f bfe-configmap.yaml
 kubectl delete -f whoami-deploy.yaml
 ```
 
-## 重启 
+## Restart
 
-示例中 MySQL Pod 每次重启时会重新初始化并丢失已有数据,
-若希望在仅更新其它 Pod（例如修改配置后 `kubectl apply -k .`）时保留已有数据库,
-可在 `examples/kubernetes/kustomization.yaml` 中临时注释或移除 `mysql-deploy.yaml`。
-然后再执行 `kubectl apply -k .` 进行重启。
+In this example, the MySQL Pod may be re-initialized on restart and data can be lost.
+If you want to keep the existing database while updating other pods (e.g. after changing configs and running `kubectl apply -k .`), you can temporarily comment out or remove `mysql-deploy.yaml` from `examples/kubernetes/kustomization.yaml`, then run `kubectl apply -k .`.
 
-## 关键配置 
+## Key configurations
 
-### 数据面 bfe
+### Data plane (bfe)
 
-- 镜像：bfe-deploy.yaml 中 spec.template.spec.containers[].image，请替换为可信仓库地址并使用带标签的镜像。
+- Image: override via `images:` in `kustomization.yaml`. Use a pinned tag.
 
-- 配置挂载：bfe-configmap.yaml 包含 bfe.conf 与 conf-agent.toml，确认 volumeMounts 的容器路径与配置文件中引用路径一致。
+- Config mounts: `bfe-configmap.yaml` includes bfe.conf and conf-agent.toml. Make sure the mount paths match the paths referenced in your configs.
 
-- 监控端口：示例暴露 8421，用于健康与监控接口，可通过 Service 或 kubectl port-forward 验证。
+- Monitoring port: the example exposes 8421 for health/monitor endpoints. You can verify via Service or `kubectl port-forward`.
 
-- 服务端口：示例暴露 8080，NodePort 30080，用于对外提供服务。
+- Service ports: the example exposes 8080 (NodePort 30080) for external access.
 
-### 控制面 api-server 与 mysql
+### Control plane (api-server and mysql)
 
-- 数据库连接：api-server-configmap.yaml 中 DB_HOST / DB_PORT / DB_USER / DB_PASSWORD（示例为明文）。
-  - 在生产环境请改为 Kubernetes Secret。
+- DB connection: see DB_HOST / DB_PORT / DB_USER / DB_PASSWORD in `api-server-configmap.yaml` (plain text in this example).
+  - Use Kubernetes Secret in production.
 
-- 鉴权 Token：示例 Token 已经预置在 `api-server-configmap.yaml` 与 `service-controller-deploy.yaml` 中。
-  - 生产环境必须使用 Secret、短期或动态凭证。
-  - 生产环境需要预先在控制面 [dashboard](https://github.com/bfenetworks/dashboard/blob/develop/README.md) 中创建 Token。
+- Auth token: the example token is preconfigured in `api-server-configmap.yaml` and `service-controller-deploy.yaml`.
+  - Use Secret / short-lived / dynamically managed credentials in production.
+  - In production, create tokens via the control plane dashboard.
 
-- MySQL 存储：mysql-deploy.yaml 为方便一键部署快速搭建，使用了 emptyDir 卷，重启 pod 后数据会丢失，不适用于生产环境。
-  - 生产必须使用 PV/PVC、指定 StorageClass，并配置备份策略。
+- MySQL storage: `mysql-deploy.yaml` uses an `emptyDir` volume for convenience. Data will be lost after Pod restart, not suitable for production.
+  - In production, use PV/PVC with a StorageClass and a backup strategy.
 
+- MySQL initialization: the example uses a Job to run `db_ddl.sql` to initialize schema. api-server waits for tables in `open_bfe` via an initContainer before starting.
+  - If startup is slow in your environment, increase `startupProbe` tolerances in `mysql-deploy.yaml` (e.g. bump `failureThreshold`).
 
-- 更多请参见：[dashboard](https://github.com/bfenetworks/dashboard/blob/develop/README.md)
+- See also: [dashboard](https://github.com/bfenetworks/dashboard/blob/develop/README.md)
 
-### 服务发现 service-controller 与 whoami
+### Service discovery (service-controller and whoami)
 
-- 发现规则：service-controller-deploy.yaml 中 args 或 env 定义发现策略、标签选择器或 API Server 地址，按需调整以匹配你的服务标签/注解。
+- Discovery rules: `service-controller-deploy.yaml` `args` / `env` define discovery strategy, label selectors, and API server address. Adjust to match your service labels/annotations.
 
-- whoami 端口：whoami-deploy.yaml 中 spec.template.spec.containers[].ports 必须与对应 Service 的端口一致。
+- whoami ports: `whoami-deploy.yaml` `spec.template.spec.containers[].ports` must match the Service ports.
 
-- 更多请参见：[service-controller](https://github.com/bfenetworks/service-controller/blob/main/README.md)
+- See also: [service-controller](https://github.com/bfenetworks/service-controller/blob/main/README.md)
 
