@@ -398,7 +398,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 
 		if err == nil {
 			if checkBackendStatus(cluster.OutlierDetectionHttpCode(), res.StatusCode) {
-				backend.OnFail(cluster.Name)
+				backend.OnFailByCluster(cluster)
 			} else {
 				backend.OnSuccess()
 			}
@@ -437,7 +437,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 			request.ErrMsg = err.Error()
 			p.proxyState.ErrBkConnectBackend.Inc(1)
 			allowRetry = true
-			backend.OnFail(cluster.Name)
+			backend.OnFailByCluster(cluster)
 
 		case bfe_http.WriteRequestError, bfe_fcgi.WriteRequestError:
 			request.ErrCode = bfe_basic.ErrBkWriteRequest
@@ -448,7 +448,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 			// if error is caused by backend server
 			rerr := err.(bfe_http.WriteRequestError)
 			if !rerr.CheckTargetError(request.RemoteAddr) {
-				backend.OnFail(cluster.Name)
+				backend.OnFailByCluster(cluster)
 			}
 
 		case bfe_http.ReadRespHeaderError, bfe_fcgi.ReadRespHeaderError:
@@ -456,14 +456,14 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 			request.ErrMsg = err.Error()
 			p.proxyState.ErrBkReadRespHeader.Inc(1)
 			allowRetry = checkAllowRetry(cluster.RetryLevel(), outreq)
-			backend.OnFail(cluster.Name)
+			backend.OnFailByCluster(cluster)
 
 		case bfe_http.RespHeaderTimeoutError:
 			request.ErrCode = bfe_basic.ErrBkRespHeaderTimeout
 			request.ErrMsg = err.Error()
 			p.proxyState.ErrBkRespHeaderTimeout.Inc(1)
 			allowRetry = checkAllowRetry(cluster.RetryLevel(), outreq)
-			backend.OnFail(cluster.Name)
+			backend.OnFailByCluster(cluster)
 
 		case bfe_http.TransportBrokenError:
 			request.ErrCode = bfe_basic.ErrBkTransportBroken
@@ -796,6 +796,11 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	httpProtoSet(outreq)
 	// remove hop-by-hop headers
 	hopByHopHeaderRemove(outreq, req)
+
+	if cluster.DisableHostHeader {
+		// if cluster.DisableHostHeader is true, del outreq.Host
+		outreq.Host = ""
+	}
 
 	if cluster.AIConf != nil {
 		// if cluster has AIConf, do model mapping & set api key in outreq
