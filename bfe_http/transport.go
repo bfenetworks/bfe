@@ -604,7 +604,6 @@ func (t *Transport) dialConn(cm *connectMethod) (*persistConn, error) {
 		// Initiate TLS and check remote host name against certificate.
 		cfg := t.TLSClientConfig
 		if cfg == nil || cfg.ServerName == "" {
-			//host := cm.tlsHost()
 			var (
 				host      string
 				rootCAs   *x509.CertPool        = nil
@@ -612,27 +611,16 @@ func (t *Transport) dialConn(cm *connectMethod) (*persistConn, error) {
 				cert      bfe_tls.Certificate
 				httpsConf = t.HttpsConf
 			)
-			if httpsConf.RSInsecureSkipVerify == nil || !*httpsConf.RSInsecureSkipVerify {
-
-				// if the host has port, only use the hostname
-				host = cm.targetHost
-				if hasPort(host) {
-					host = host[:strings.LastIndex(host, ":")]
-				}
-
-				if httpsConf.RSHost != nil && *httpsConf.RSHost != "" {
-					host = *httpsConf.RSHost
-				}
-				rootCAs, err = httpsConf.GetRSCAList()
-				if err != nil {
-					log.Logger.Debug("debug_https get_cas err=%s", err.Error())
-					return nil, err
-				}
+			if httpsConf.RSHost != nil && *httpsConf.RSHost != "" {
+				host = *httpsConf.RSHost
+			} else {
+				host = cm.tlsHost()
 			}
-			if cert, err = httpsConf.GetBFECert(); err == nil {
-				certs = []bfe_tls.Certificate{cert}
-			}
+
 			if cfg == nil {
+				if cert, err = httpsConf.GetBFECert(); err == nil {
+					certs = []bfe_tls.Certificate{cert}
+				}
 				if httpsConf.RSInsecureSkipVerify != nil && *httpsConf.RSInsecureSkipVerify {
 					// should skip Insecure Verify
 					cfg = &bfe_tls.Config{
@@ -641,6 +629,11 @@ func (t *Transport) dialConn(cm *connectMethod) (*persistConn, error) {
 						ServerName:         host,
 					}
 				} else {
+					rootCAs, err = httpsConf.GetRSCAList()
+					if err != nil {
+						log.Logger.Debug("debug_https get_cas err=%s", err.Error())
+						return nil, err
+					}
 					// do Insecure Verify
 					if rootCAs == nil {
 						// use system cas
