@@ -72,6 +72,12 @@ COPY --from=confagent /out/conf-agent-conf /home/work/conf-agent/conf
 COPY --from=build /out/bfe /home/work/bfe/bin/bfe
 COPY --from=build /src/conf /home/work/bfe/conf/
 
+RUN set -ex; \
+	if [ -f /home/work/bfe/conf/server_data_conf/name_conf.data ]; then \
+		mv /home/work/bfe/conf/server_data_conf/name_conf.data /home/work/bfe/conf/name_conf.data; \
+		ln -s /home/work/bfe/conf/name_conf.data /home/work/bfe/conf/server_data_conf/name_conf.data; \
+	fi
+
 # COPY deploy/docker/entrypoint.sh /home/work/entrypoint.sh
 # Generate entrypoint.sh inside the image to avoid external file dependency
 RUN set -ex; \
