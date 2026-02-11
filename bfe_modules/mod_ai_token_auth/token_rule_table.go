@@ -181,7 +181,7 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 	}
 
 	if len(token.Models) > 0 {
-		model, err := condition.ReqBodyJsonFetch(req, "model")
+		model, err := condition.ReqBodyJsonFetch(req, "model", nil)
 		if err != nil || model == "" {
 			return nil, fmt.Errorf("model not found in request body: %v", err)
 		}
