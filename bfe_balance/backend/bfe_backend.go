@@ -18,10 +18,10 @@ package backend
 
 import (
 	"fmt"
+	"net"
+	"strconv"
 	"sync"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
 	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
 )
@@ -50,6 +50,35 @@ func NewBfeBackend() *BfeBackend {
 	backend := new(BfeBackend)
 	backend.avail = true
 	backend.closeChan = make(chan bool)
+
+	return backend
+}
+
+func (back *BfeBackend) InitSimpleByAddrinfo(subClusterName string, name string, addrinfo string) {
+	back.Name = name
+
+	// parse addrinfo to addr and port
+	host, portStr, err := net.SplitHostPort(addrinfo)
+	if err != nil {
+		back.Addr = addrinfo
+		back.Port = 0
+	} else {
+		back.Addr = host
+		if p, err2 := strconv.Atoi(portStr); err2 == nil {
+			back.Port = p
+		} else {
+			back.Port = 0
+		}
+	}
+	back.AddrInfo = addrinfo
+	back.SubCluster = subClusterName
+}
+
+func NewBfeBackendByAddrinfo(subClusterName string, name string, addrinfo string) *BfeBackend {
+	backend := new(BfeBackend)
+	backend.avail = true
+
+	backend.InitSimpleByAddrinfo(subClusterName, name, addrinfo)
 
 	return backend
 }
