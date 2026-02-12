@@ -190,7 +190,6 @@ func (c *EppClient) CloseRespBody() {
         return
     }
     close(c.datach)
-    c.datach = nil
 }
 
 func BuildEnvoyGRPCHeaders(header http.Header, rawValue bool, endofstream bool) *pb.HttpHeaders {
@@ -231,9 +230,6 @@ func (f *EppResponseBodyFilter) Read(p []byte) (n int, err error) {
 		dataCopy := make([]byte, n)
 		copy(dataCopy, p[:n])
         f.c.ProcRespBody(dataCopy)
-    }
-    if err == io.EOF {
-        f.c.CloseRespBody()
     }
     return n, err
 }
