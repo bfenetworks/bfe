@@ -237,8 +237,8 @@ func (bal *BalanceGslb) chooseBackendFromEPP(req *bfe_basic.Request) (string, *e
 
 	// receive response
 	resp, err := client.Recv()
-	// client.Close()
 	if err != nil {
+		client.Close()
 		return "", nil, err
 	}
 

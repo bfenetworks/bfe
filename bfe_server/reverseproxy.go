@@ -884,6 +884,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 response_got:
 	eppClient, ok = basicReq.GetContext(bal_gslb.REQ_CTX_EPP).(*epp.EppClient)
 	if ok {
+		basicReq.SetContext(bal_gslb.REQ_CTX_EPP, nil)
 		eppClient.ProcRespHeader(res.Header, false)
 		b := epp.NewEppResponseBodyFilter(res.Body, eppClient)
 		res.Body = b

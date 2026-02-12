@@ -83,15 +83,12 @@ func NewEppClient(conn *grpc.ClientConn) (*EppClient, error) {
 }
 
 func (c *EppClient) Close() {
-    if c != nil {
-        c.CloseRespBody()
-    }
+    c.CloseRespBody()
 
     if c.donech != nil {
         <-c.donech
     }
     c.cancel()
-    // c.conn.Close()
 }
 
 func (c *EppClient) Send(req *extprocv3.ProcessingRequest) error {
@@ -235,6 +232,7 @@ func (f *EppResponseBodyFilter) Read(p []byte) (n int, err error) {
 }
 
 func (f *EppResponseBodyFilter) Close() error {
+    err := f.source.Close()
     f.c.Close()
-    return f.source.Close()
+    return err
 }
