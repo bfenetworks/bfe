@@ -319,6 +319,10 @@ type WriteRequestError struct {
 	Err error
 }
 
+func (e WriteRequestError) Unwrap() error {
+	return e.Err
+}
+
 func (e WriteRequestError) Error() string {
 	return fmt.Sprintf("WriteRequestError: %s", e.Err.Error())
 }

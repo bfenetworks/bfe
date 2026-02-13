@@ -1,0 +1,123 @@
+# Copyright (c) 2026 The BFE Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-server
+  template:
+    metadata:
+      labels:
+        app: api-server
+    spec:
+      securityContext:
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      initContainers:
+        # Wait for MySQL schema initialization to complete (open_bfe tables exist)
+        - name: wait-for-db-init
+          imagePullPolicy: IfNotPresent
+          image: ghcr.io/cc14514/mysql:8 
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: mysql-root-password
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              host="mysql.bfe-system.svc.cluster.local"
+              echo "Waiting for MySQL to be ready..."
+              until mysqladmin ping -h "$host" -uroot --password="$MYSQL_ROOT_PASSWORD" --silent; do
+                echo "MySQL is not ready yet, sleeping 5s..."
+                sleep 5
+              done
+
+              echo "Waiting for open_bfe tables to be created..."
+              deadline=$(( $(date +%s) + 300 ))
+              while true; do
+                table_count=$(mysql --protocol=tcp -h "$host" -uroot --password="$MYSQL_ROOT_PASSWORD" -N -s \
+                  -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='open_bfe';" 2>/dev/null || true)
+                table_count=${table_count:-0}
+                if [ "$table_count" -ge 1 ]; then
+                  echo "Database initialized: open_bfe has $table_count tables."
+                  break
+                fi
+                if [ "$(date +%s)" -gt "$deadline" ]; then
+                  echo "Timeout waiting for open_bfe tables. Dumping diagnostics..."
+                  mysql --protocol=tcp -h "$host" -uroot --password="$MYSQL_ROOT_PASSWORD" -e "SHOW DATABASES;" || true
+                  mysql --protocol=tcp -h "$host" -uroot --password="$MYSQL_ROOT_PASSWORD" -e "SHOW TABLES FROM open_bfe;" || true
+                  exit 1
+                fi
+                echo "open_bfe not initialized yet (tables=$table_count), sleeping 5s..."
+                sleep 5
+              done
+      containers:
+        - name: api-server
+          # Update this image to your registry.
+          image: ghcr.io/bfenetworks/api-server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8183
+            - name: monitor
+              containerPort: 8284
+          volumeMounts:
+            - name: conf
+              mountPath: /home/work/api-server/conf/api_server.toml
+              subPath: api_server.toml
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /monitor
+              port: 8284
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /monitor
+              port: 8284
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: conf
+          configMap:
+            name: api-server-conf
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-server
+spec:
+  selector:
+    app: api-server
+  ports:
+    - name: http
+      port: 8183
+      targetPort: 8183
+      nodePort: 30083
+    - name: monitor
+      port: 8284
+      targetPort: 8284
+  type: NodePort 

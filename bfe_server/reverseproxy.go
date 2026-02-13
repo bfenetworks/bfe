@@ -22,7 +22,7 @@ package bfe_server
 
 import (
 	"crypto/tls"
-	"fmt"
+	"errors"
 	"io"
 	"net"
 	"reflect"
@@ -46,6 +46,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_http2"
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_token_auth"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_body_process"
 	"github.com/bfenetworks/bfe/bfe_route"
 	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
 	"github.com/bfenetworks/bfe/bfe_spdy"
@@ -398,7 +399,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 
 		if err == nil {
 			if checkBackendStatus(cluster.OutlierDetectionHttpCode(), res.StatusCode) {
-				backend.OnFail(cluster.Name)
+				backend.OnFailByCluster(cluster)
 			} else {
 				backend.OnSuccess()
 			}
@@ -437,9 +438,20 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 			request.ErrMsg = err.Error()
 			p.proxyState.ErrBkConnectBackend.Inc(1)
 			allowRetry = true
-			backend.OnFail(cluster.Name)
+			backend.OnFailByCluster(cluster)
 
 		case bfe_http.WriteRequestError, bfe_fcgi.WriteRequestError:
+			var be *mod_body_process.BPError
+			if errors.As(err, &be) {
+				// body process error, no retry
+				request.ErrCode = bfe_basic.ErrBkBodyProcess
+				request.ErrMsg = err.Error()
+				p.proxyState.ErrBkBodyProcess.Inc(1)
+				allowRetry = false
+				action = closeAfterReply
+				break
+			}
+
 			request.ErrCode = bfe_basic.ErrBkWriteRequest
 			request.ErrMsg = err.Error()
 			p.proxyState.ErrBkWriteRequest.Inc(1)
@@ -448,7 +460,7 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 			// if error is caused by backend server
 			rerr := err.(bfe_http.WriteRequestError)
 			if !rerr.CheckTargetError(request.RemoteAddr) {
-				backend.OnFail(cluster.Name)
+				backend.OnFailByCluster(cluster)
 			}
 
 		case bfe_http.ReadRespHeaderError, bfe_fcgi.ReadRespHeaderError:
@@ -456,14 +468,14 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 			request.ErrMsg = err.Error()
 			p.proxyState.ErrBkReadRespHeader.Inc(1)
 			allowRetry = checkAllowRetry(cluster.RetryLevel(), outreq)
-			backend.OnFail(cluster.Name)
+			backend.OnFailByCluster(cluster)
 
 		case bfe_http.RespHeaderTimeoutError:
 			request.ErrCode = bfe_basic.ErrBkRespHeaderTimeout
 			request.ErrMsg = err.Error()
 			p.proxyState.ErrBkRespHeaderTimeout.Inc(1)
 			allowRetry = checkAllowRetry(cluster.RetryLevel(), outreq)
-			backend.OnFail(cluster.Name)
+			backend.OnFailByCluster(cluster)
 
 		case bfe_http.TransportBrokenError:
 			request.ErrCode = bfe_basic.ErrBkTransportBroken
@@ -634,8 +646,8 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	var outreq *bfe_http.Request
 	var serverConf *bfe_route.ServerDataConf
 	var writeTimer *time.Timer
-	var bf BufferFiller
-	var ok bool
+	// var bf BufferFiller
+	// var ok bool
 
 	req := basicReq.HttpRequest
 	isRedirect := false
@@ -665,7 +677,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 			// close the connection after response
 			action = closeAfterReply
 			basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
-			return
+			goto send_response
 		case bfe_module.BfeHandlerRedirect:
 			// make redirect
 			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)
@@ -705,7 +717,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 			// close the connection after response
 			action = closeAfterReply
 			basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
-			return
+			goto send_response
 		case bfe_module.BfeHandlerRedirect:
 			// make redirect
 			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)
@@ -797,13 +809,18 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	// remove hop-by-hop headers
 	hopByHopHeaderRemove(outreq, req)
 
+	if cluster.DisableHostHeader {
+		// if cluster.DisableHostHeader is true, del outreq.Host
+		outreq.Host = ""
+	}
+
 	if cluster.AIConf != nil {
 		// if cluster has AIConf, do model mapping & set api key in outreq
 		if cluster.AIConf.Key != nil {
 			mod_ai_token_auth.SetApiKey(outreq, *cluster.AIConf.Key)
 		}
 		if cluster.AIConf.ModelMapping != nil {
-			model, err := condition.ReqBodyJsonFetch(basicReq, "model")
+			model, err := condition.ReqBodyJsonFetch(basicReq, "model", outreq)
 			if err == nil && model != "" {
 				newModel, ok := (*cluster.AIConf.ModelMapping)[model]
 				if ok {
@@ -811,11 +828,18 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 					if err != nil {
 						log.Logger.Warn("Failed to set model in request body: %s", err)
 						// just continue, not return error
+					} else {
+						// outreq body already changed, need reset Content-Length
+						if outreq.ContentLength >= 0 {
+							outreq.ContentLength = -1
+							outreq.Header.Del("Content-Length")
+						}
 					}
 				}
 			}
 		}
 	}
+/*
 	// do body process before forwarding
 	bf, ok = outreq.Body.(BufferFiller)
 	if ok {
@@ -836,7 +860,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 			goto send_response
 		}
 	}
-	
+*/
 	// invoke cluster to get response
 	res, action, err = p.clusterInvoke(srv, cluster, basicReq, rw)
 	basicReq.HttpResponse = res
@@ -890,7 +914,7 @@ response_got:
 			// close the connection after response
 			action = closeAfterReply
 			basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
-			return
+			goto send_response
 		case bfe_module.BfeHandlerRedirect:
 			// make redirect
 			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)

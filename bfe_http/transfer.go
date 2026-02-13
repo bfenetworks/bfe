@@ -800,7 +800,15 @@ func (b *bytes_body) SetBytes(newBuf []byte, all bool) {
 	}
 }
 
-func NewBytesBody(src io.ReadCloser, maxSize int64) (*bytes_body, error) {
+func NewBytesBody(src io.ReadCloser, maxSize int64) (io.ReadCloser, error) {
+	b, err := newBytesBody(src, maxSize)
+	if b == nil {
+		return nil, err
+	}
+	return b, err
+}
+
+func newBytesBody(src io.ReadCloser, maxSize int64) (*bytes_body, error) {
 	bb, err := io.ReadAll(io.LimitReader(src, maxSize))
 	if err != nil {
 		return nil, fmt.Errorf("io.ReadAll: %s", err.Error())

@@ -36,6 +36,42 @@ Refer to [Overview](docs/en_us/introduction/overview.md) in BFE document for mor
 
 Besides, we also implement [BFE Ingress Controller](https://github.com/bfenetworks/ingress-bfe) based on BFE, to fulfill Ingress in Kubernetes  
 
+## 🚀 Quick Start
+
+This quick start is for users who want to get a running setup fast: build Docker images first, then deploy the Kubernetes example.
+
+### 1) Build Docker images
+
+From the repository root:
+
+```bash
+make docker
+```
+
+Notes:
+- `make docker` builds both prod and debug images. Image tags are derived from the `VERSION` file.
+- To override the image name, set `BFE_IMAGE_NAME`, for example:
+
+```bash
+make docker BFE_IMAGE_NAME=your-registry/bfe
+```
+
+If you want the Kubernetes deployment to use your locally built image, push it to a registry reachable by your cluster nodes (or load it into a local cluster), then update the bfe image mapping under `images:` in `examples/kubernetes/kustomization.yaml`.
+
+For more details on building and pushing images (including `make docker-push`), see:
+- [docs/en_us/installation/install_using_docker.md](docs/en_us/installation/install_using_docker.md)
+
+### 2) Deploy via Kubernetes example (kustomize)
+
+```bash
+cd examples/kubernetes
+kubectl apply -k .
+kubectl apply -f whoami-deploy.yaml
+```
+
+For details (image mirror settings, initialization notes, cleanup and finalizer troubleshooting, etc.), see:
+- [examples/kubernetes/README.md](examples/kubernetes/README.md)
+
 ## Advantages
 
 - Multiple protocols supported, including HTTP, HTTPS, SPDY, HTTP2, WebSocket, TLS, FastCGI, etc.
@@ -49,6 +85,7 @@ Besides, we also implement [BFE Ingress Controller](https://github.com/bfenetwor
 
 - Data plane: BFE Server [build and run](docs/en_us/installation/install_from_source.md)
 - Control plane: English document coming soon.  [Chinese version](https://github.com/bfenetworks/api-server/blob/develop/docs/zh_cn/deploy.md)
+- Kubernetes example (kustomize): [examples/kubernetes/README.md](examples/kubernetes/README.md)
 
 ## Running the tests
 

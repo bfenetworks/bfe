@@ -219,6 +219,9 @@ type ClusterBasicConf struct {
 	ReqFlushInterval    *int  // interval to flush request in ms. if zero, disable periodic flush
 	ResFlushInterval    *int  // interval to flush response in ms. if zero, disable periodic flush
 	CancelOnClientClose *bool // cancel blocking operation on server if client connection disconnected
+
+	DisableHostHeader  *bool // disable host header when forward to backend
+	DisableHealthCheck *bool // disable health check for backend
 }
 
 // ClusterConf is conf of cluster.
@@ -628,6 +631,16 @@ func ClusterBasicConfCheck(conf *ClusterBasicConf) error {
 	if conf.CancelOnClientClose == nil {
 		cancelOnClientClose := false
 		conf.CancelOnClientClose = &cancelOnClientClose
+	}
+
+	if conf.DisableHostHeader == nil {
+		disableHostHeader := false
+		conf.DisableHostHeader = &disableHostHeader
+	}
+
+	if conf.DisableHealthCheck == nil {
+		disableHealthCheck := false
+		conf.DisableHealthCheck = &disableHealthCheck
 	}
 
 	return nil

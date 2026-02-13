@@ -23,6 +23,7 @@ import (
 
 import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
+	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
 )
 
 // BfeBackend is a backend server.
@@ -218,4 +219,11 @@ func (back *BfeBackend) OnSuccess() {
 func (back *BfeBackend) OnFail(cluster string) {
 	back.AddFailNum()
 	UpdateStatus(back, cluster)
+}
+
+func (back *BfeBackend) OnFailByCluster(cluster *bfe_cluster.BfeCluster) {
+	if cluster.DisableHealthCheck {
+		return
+	}
+	back.OnFail(cluster.Name)
 }
