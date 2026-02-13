@@ -939,13 +939,34 @@ RU5ErkJggg==" ></image>
       
         <li class="md-nav__item">
   <a href="#_1" class="md-nav__link">
-    安装 &amp;&amp; 运行
+    方式一：直接运行已有镜像
   </a>
   
 </li>
       
         <li class="md-nav__item">
   <a href="#_2" class="md-nav__link">
+    方式二：从源码构建镜像（推荐）
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#make-docker-push" class="md-nav__link">
+    方式三：构建并推送镜像到仓库（make docker-push）
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    自定义配置（挂载本地目录）
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
     下一步
   </a>
   
@@ -2825,13 +2846,34 @@ RU5ErkJggg==" ></image>
       
         <li class="md-nav__item">
   <a href="#_1" class="md-nav__link">
-    安装 &amp;&amp; 运行
+    方式一：直接运行已有镜像
   </a>
   
 </li>
       
         <li class="md-nav__item">
   <a href="#_2" class="md-nav__link">
+    方式二：从源码构建镜像（推荐）
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#make-docker-push" class="md-nav__link">
+    方式三：构建并推送镜像到仓库（make docker-push）
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    自定义配置（挂载本地目录）
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
     下一步
   </a>
   
@@ -2857,25 +2899,87 @@ RU5ErkJggg==" ></image>
                   
                 
                 
-                <h1 id="docker">docker安装</h1>
-<h2 id="_1">安装 &amp;&amp; 运行</h2>
-<ul>
-<li>基于示例配置运行BFE:</li>
-</ul>
-<pre class="codehilite"><code class="language-bash">docker run -p 8080:8080 -p 8443:8443 -p 8421:8421 bfenetworks/bfe
+                <h1 id="docker">Docker 安装</h1>
+<p>本章介绍如何通过 Docker 运行 BFE。</p>
+<h2 id="_1">方式一：直接运行已有镜像</h2>
+<p>如果你已经有可用镜像（例如 <code>ghcr.io/bfenetworks/bfe</code>，或你自己构建并推送到私有仓库的镜像），可以直接运行：</p>
+<pre class="codehilite"><code class="language-bash">docker run --rm \
+    -p 8080:8080 -p 8443:8443 -p 8421:8421 \
+    &lt;your-image&gt;
 </code></pre>
 
-<p>你可以访问 http://127.0.0.1:8080/ 因为没有匹配的配置，将得到 status code 500
-你可以访问 http://127.0.0.1:8421/ 查看监控信息</p>
-<ul>
-<li>自定义配置文件路径</li>
-</ul>
-<pre class="codehilite"><code class="language-bash">// 事先准备好你自己的配置放到 (可以参考 配置 章节) /Users/BFE/conf
-
-docker run -p 8080:8080 -p 8443:8443 -p 8421:8421 -v /Users/BFE/Desktop/log:/bfe/log -v /Users/BFE/Desktop/conf:/bfe/conf bfenetworks/bfe
+<p>示例：</p>
+<pre class="codehilite"><code class="language-bash">docker run --rm \
+  -p 8080:8080 -p 8443:8443 -p 8421:8421 \
+  ghcr.io/bfenetworks/bfe:latest
 </code></pre>
 
-<h2 id="_2">下一步</h2>
+<p>你可以访问：
+- http://127.0.0.1:8080/ （如果配置未命中，可能返回 500）
+- http://127.0.0.1:8421/monitor （监控信息）</p>
+<h2 id="_2">方式二：从源码构建镜像（推荐）</h2>
+<p>在仓库根目录执行：</p>
+<pre class="codehilite"><code class="language-bash"># 一次构建 prod + debug 两个镜像
+make docker
+
+# 可选：指定镜像名（默认 bfe）
+make docker BFE_IMAGE_NAME=bfe
+</code></pre>
+
+<p>说明：
+- 镜像 tag 来自仓库根目录的 <code>VERSION</code> 文件，并会被规范化为以 <code>v</code> 开头（例如 <code>1.8.0</code> 会变成 <code>v1.8.0</code>）。
+- <code>make docker</code> 是本地构建，不依赖 buildx。</p>
+<p>构建后的镜像标签（以 VERSION=1.8.0 为例）：
+- <code>bfe:v1.8.0</code>（prod）
+- <code>bfe:v1.8.0-debug</code>（debug）
+- <code>bfe:latest</code>（始终指向 prod）</p>
+<h2 id="make-docker-push">方式三：构建并推送镜像到仓库（make docker-push）</h2>
+<p>当你需要将镜像提供给 Kubernetes 集群（或其它机器）拉取时，推荐使用 <code>make docker-push</code> 构建并推送多架构镜像（默认 <code>linux/amd64,linux/arm64</code>）。</p>
+<p>前提条件：
+- 你有可用的镜像仓库（例如 GHCR、Harbor、Docker Hub 等）
+- 已完成 <code>docker login &lt;registry&gt;</code>
+- 本地 Docker 支持 buildx（Docker Desktop 通常默认支持）</p>
+<p>常用参数：
+- <code>REGISTRY</code>：必填，镜像仓库前缀（如 <code>ghcr.io/your-org</code>）
+- <code>BFE_IMAGE_NAME</code>：镜像名（默认 <code>bfe</code>，也可以是带路径的 <code>team/bfe</code>）
+- <code>PLATFORMS</code>：构建平台（默认 <code>linux/amd64,linux/arm64</code>）</p>
+<p>示例：推送到 GHCR（得到 <code>ghcr.io/cc14514/bfe:&lt;tag&gt;</code>）：</p>
+<pre class="codehilite"><code class="language-bash">make docker-push REGISTRY=ghcr.io/cc14514 
+</code></pre>
+
+<p>示例：推送到私有仓库并限制平台（只构建 amd64）：</p>
+<pre class="codehilite"><code class="language-bash">make docker-push \
+    REGISTRY=registry.example.com \
+    BFE_IMAGE_NAME=infra/bfe \
+    PLATFORMS=linux/amd64
+</code></pre>
+
+<p>推送完成后镜像示例（以 VERSION=1.8.0 为例）：
+- <code>$(REGISTRY)/$(BFE_IMAGE_NAME):v1.8.0</code>（prod，多架构）
+- <code>$(REGISTRY)/$(BFE_IMAGE_NAME):v1.8.0-debug</code>（debug，多架构）
+- <code>$(REGISTRY)/$(BFE_IMAGE_NAME):latest</code>（prod，多架构）</p>
+<p>如果你要用 Kubernetes 示例部署并使用你推送的镜像：请到 <code>examples/kubernetes/kustomization.yaml</code> 的 <code>images:</code> 中替换 bfe 镜像的 <code>newName</code> / <code>newTag</code>。</p>
+<h2 id="_3">自定义配置（挂载本地目录）</h2>
+<p>镜像内目录约定：
+- BFE 配置目录：<code>/home/work/bfe/conf</code>
+- BFE 日志目录：<code>/home/work/bfe/log</code>
+- conf-agent 配置目录：<code>/home/work/conf-agent/conf</code>
+- conf-agent 日志目录：<code>/home/work/conf-agent/log</code></p>
+<p>示例：挂载你本地准备好的配置与日志目录（按需修改路径）：</p>
+<pre class="codehilite"><code class="language-bash"># 事先准备好你自己的配置：
+#   - /Users/BFE/Desktop/conf/         (BFE 配置目录)
+#   - /Users/BFE/Desktop/conf-agent/   (conf-agent 配置目录，里面放 conf-agent.toml)
+#   - /Users/BFE/Desktop/log/          (BFE 日志目录)
+
+docker run --rm \
+    -p 8080:8080 -p 8443:8443 -p 8421:8421 \
+    -v /Users/BFE/Desktop/conf:/home/work/bfe/conf \
+    -v /Users/BFE/Desktop/log:/home/work/bfe/log \
+    -v /Users/BFE/Desktop/conf-agent:/home/work/conf-agent/conf \
+    bfe:latest
+</code></pre>
+
+<h2 id="_4">下一步</h2>
 <ul>
 <li>了解<a href="../../operation/command/">命令行参数</a></li>
 <li>了解<a href="../../example/guide/">基本功能配置使用</a></li>

@@ -938,8 +938,29 @@ RU5ErkJggg==" ></image>
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#install-run" class="md-nav__link">
-    Install &amp;&amp; Run
+  <a href="#option-1-run-a-prebuilt-image" class="md-nav__link">
+    Option 1: Run a prebuilt image
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#option-2-build-images-from-source-recommended" class="md-nav__link">
+    Option 2: Build images from source (recommended)
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#option-3-build-and-push-images-to-a-registry-make-docker-push" class="md-nav__link">
+    Option 3: Build and push images to a registry (make docker-push)
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customize-configuration-mount-local-directories" class="md-nav__link">
+    Customize configuration (mount local directories)
   </a>
   
 </li>
@@ -2812,8 +2833,29 @@ RU5ErkJggg==" ></image>
     <ul class="md-nav__list" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#install-run" class="md-nav__link">
-    Install &amp;&amp; Run
+  <a href="#option-1-run-a-prebuilt-image" class="md-nav__link">
+    Option 1: Run a prebuilt image
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#option-2-build-images-from-source-recommended" class="md-nav__link">
+    Option 2: Build images from source (recommended)
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#option-3-build-and-push-images-to-a-registry-make-docker-push" class="md-nav__link">
+    Option 3: Build and push images to a registry (make docker-push)
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customize-configuration-mount-local-directories" class="md-nav__link">
+    Customize configuration (mount local directories)
   </a>
   
 </li>
@@ -2845,22 +2887,79 @@ RU5ErkJggg==" ></image>
                   
                 
                 
-                <h1 id="install-using-docker">Install using docker</h1>
-<h2 id="install-run">Install &amp;&amp; Run</h2>
-<ul>
-<li>Run BFE with example configuration files:</li>
-</ul>
-<pre class="codehilite"><code class="language-bash">docker run -p 8080:8080 -p 8443:8443 -p 8421:8421 bfenetworks/bfe
+                <h1 id="install-using-docker">Install using Docker</h1>
+<p>This document explains how to run BFE with Docker, and how to build/push Docker images from source.</p>
+<h2 id="option-1-run-a-prebuilt-image">Option 1: Run a prebuilt image</h2>
+<p>If you already have an image (for example <code>ghcr.io/bfenetworks/bfe</code>, or an image you built and pushed to a private registry), you can run it directly:</p>
+<pre class="codehilite"><code class="language-bash">docker run --rm \
+    -p 8080:8080 -p 8443:8443 -p 8421:8421 \
+    &lt;your-image&gt;
 </code></pre>
 
-<p>you can access http://127.0.0.1:8080/ and got status code 500 because of there is rule be matched.
-you can access http://127.0.0.1:8421/ got monitor information.</p>
-<ul>
-<li>Run BFE with your configuration files:</li>
-</ul>
-<pre class="codehilite"><code class="language-bash">// prepare your configuration (see section Configuration if you need) to dir /Users/BFE/conf
+<p>Example:</p>
+<pre class="codehilite"><code class="language-bash">docker run --rm \
+    -p 8080:8080 -p 8443:8443 -p 8421:8421 \
+    ghcr.io/bfenetworks/bfe:latest
+</code></pre>
 
-docker run -p 8080:8080 -p 8443:8443 -p 8421:8421 -v /Users/BFE/Desktop/log:/bfe/log -v /Users/BFE/Desktop/conf:/bfe/conf bfenetworks/bfe
+<p>You can access:
+- http://127.0.0.1:8080/ (may return 500 if no rule matches)
+- http://127.0.0.1:8421/monitor (monitoring endpoint)</p>
+<h2 id="option-2-build-images-from-source-recommended">Option 2: Build images from source (recommended)</h2>
+<p>From the repository root:</p>
+<pre class="codehilite"><code class="language-bash"># Build both prod and debug images
+make docker
+
+# Optional: override image name (default: bfe)
+make docker BFE_IMAGE_NAME=bfe
+</code></pre>
+
+<p>Notes:
+- Image tags are derived from the <code>VERSION</code> file and normalized to start with <code>v</code> (for example <code>1.8.0</code> becomes <code>v1.8.0</code>).
+- <code>make docker</code> is a local build and does not require buildx.</p>
+<p>Example tags when <code>VERSION=1.8.0</code>:
+- <code>bfe:v1.8.0</code> (prod)
+- <code>bfe:v1.8.0-debug</code> (debug)
+- <code>bfe:latest</code> (always points to prod)</p>
+<h2 id="option-3-build-and-push-images-to-a-registry-make-docker-push">Option 3: Build and push images to a registry (make docker-push)</h2>
+<p>If you want Kubernetes (or other machines) to pull your image, use <code>make docker-push</code> to build and push multi-arch images (default platforms: <code>linux/amd64,linux/arm64</code>).</p>
+<p>Prerequisites:
+- A registry you can push to (GHCR, Harbor, Docker Hub, etc.)
+- You have logged in via <code>docker login &lt;registry&gt;</code>
+- Docker buildx is available (Docker Desktop usually includes it)</p>
+<p>Common variables:
+- <code>REGISTRY</code>: required, registry prefix (for example <code>ghcr.io/your-org</code>)
+- <code>BFE_IMAGE_NAME</code>: image name (default: <code>bfe</code>, can also be <code>team/bfe</code>)
+- <code>PLATFORMS</code>: build platforms (default: <code>linux/amd64,linux/arm64</code>)</p>
+<p>Example: push to GHCR (result: <code>ghcr.io/cc14514/bfe:&lt;tag&gt;</code>):</p>
+<pre class="codehilite"><code class="language-bash">make docker-push REGISTRY=ghcr.io/cc14514
+</code></pre>
+
+<p>Example: push to a private registry and build only amd64:</p>
+<pre class="codehilite"><code class="language-bash">make docker-push \
+    REGISTRY=registry.example.com \
+    BFE_IMAGE_NAME=infra/bfe \
+    PLATFORMS=linux/amd64
+</code></pre>
+
+<p>After pushing (example <code>VERSION=1.8.0</code>):
+- <code>$(REGISTRY)/$(BFE_IMAGE_NAME):v1.8.0</code> (prod, multi-arch)
+- <code>$(REGISTRY)/$(BFE_IMAGE_NAME):v1.8.0-debug</code> (debug, multi-arch)
+- <code>$(REGISTRY)/$(BFE_IMAGE_NAME):latest</code> (prod, multi-arch)</p>
+<p>If you deploy via the Kubernetes example and want to use your pushed image, update the bfe image mapping under <code>images:</code> in <code>examples/kubernetes/kustomization.yaml</code>.</p>
+<h2 id="customize-configuration-mount-local-directories">Customize configuration (mount local directories)</h2>
+<p>Paths inside the image:
+- BFE config: <code>/home/work/bfe/conf</code>
+- BFE logs: <code>/home/work/bfe/log</code>
+- conf-agent config: <code>/home/work/conf-agent/conf</code>
+- conf-agent logs: <code>/home/work/conf-agent/log</code></p>
+<p>Example (adjust paths as needed):</p>
+<pre class="codehilite"><code class="language-bash">docker run --rm \
+    -p 8080:8080 -p 8443:8443 -p 8421:8421 \
+    -v /Users/BFE/Desktop/conf:/home/work/bfe/conf \
+    -v /Users/BFE/Desktop/log:/home/work/bfe/log \
+    -v /Users/BFE/Desktop/conf-agent:/home/work/conf-agent/conf \
+    bfe:latest
 </code></pre>
 
 <h2 id="further-reading">Further reading</h2>
