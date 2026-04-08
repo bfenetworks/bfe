@@ -19,9 +19,8 @@ package bfe_basic
 import (
 	"net"
 	"net/url"
-)
+	"strings"
 
-import (
 	"github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/bfe/bfe_http"
 )
@@ -99,6 +98,8 @@ type Request struct {
 
 	// User context associated with this request
 	Context map[interface{}]interface{}
+
+	IsSse bool
 }
 
 // NewRequest creates and initializes a new request.
@@ -119,6 +120,14 @@ func NewRequest(request *bfe_http.Request, conn net.Conn, stat *RequestStat,
 	}
 
 	fReq.SvrDataConf = svrDataConf
+
+	accValues := strings.ToLower(request.Header.Get("Accept"))
+	for _, item := range strings.Split(accValues, ",") {
+		if strings.TrimSpace(item) == "text/event-stream" {
+			fReq.IsSse = true
+			break
+		}
+	}
 
 	return fReq
 }

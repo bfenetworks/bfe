@@ -15,17 +15,16 @@
 package mod_redirect
 
 import (
+	"net/http"
 	"net/url"
 	"testing"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 )
 
 func prepareRequest(urlStr string) *bfe_basic.Request {
-	req := new(bfe_http.Request)
+	req, _ := bfe_http.NewRequest(http.MethodGet, "http://example.org", nil)
 	req.URL, _ = url.Parse(urlStr)
 
 	freq := bfe_basic.NewRequest(req, nil, nil, nil, nil)
