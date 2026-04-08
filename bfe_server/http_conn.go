@@ -27,14 +27,9 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-import (
 	"github.com/baidu/go-lib/gotrack"
 	"github.com/baidu/go-lib/log"
-)
-
-import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_http"
@@ -535,8 +530,23 @@ func (c *conn) serveRequest(w bfe_http.ResponseWriter, request *bfe_basic.Reques
 	// [*] Not strictly true: HTTP pipelining.  We could let them all process
 	// in parallel even if their responses need to be serialized.
 
+	isClientReqSse := false
+	if request.IsSse {
+		isClientReqSse = true
+		proxyState.SseReqServed.Inc(1)
+
+		proxyState.SseReqActive.Inc(1)
+		defer proxyState.SseReqActive.Dec(1)
+	}
+
 	// serve the request
 	ret1 := c.server.ReverseProxy.ServeHTTP(w, request)
+
+	if !isClientReqSse && request.IsSse {
+		//sse tag in response header
+		proxyState.SseReqServed.Inc(1)
+		//ignore SseReqActive, since it almost has done
+	}
 
 	// if there is some response, count the time
 	if !request.Stat.ResponseStart.IsZero() {

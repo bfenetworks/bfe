@@ -16,11 +16,10 @@ package condition
 
 import (
 	"net"
+	"net/http"
 	"testing"
 	"time"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 )
@@ -227,8 +226,8 @@ func TestContainMatcher_2(t *testing.T) {
 func TestContextValueFetcher(t *testing.T) {
 	// prepare input data
 	hf := ContextValueFetcher{"hello"}
-	req := bfe_basic.NewRequest(nil, nil, nil, nil, nil)
-	req.HttpRequest = &bfe_http.Request{}
+	rreq, _ := bfe_http.NewRequest(http.MethodGet, "http://example.org", nil)
+	req := bfe_basic.NewRequest(rreq, nil, nil, nil, nil)
 	req.SetContext("hello", "world")
 	// Fetch
 	contextVal, err := hf.Fetch(req)

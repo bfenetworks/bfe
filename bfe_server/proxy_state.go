@@ -44,7 +44,7 @@ type ProxyState struct {
 	ErrBkNoBalance    *metrics.Counter
 	ErrBkNoCluster    *metrics.Counter
 	ErrBkBodyProcess  *metrics.Counter
-	
+
 	// backend side errors
 	ErrBkConnectBackend    *metrics.Counter
 	ErrBkRequestBackend    *metrics.Counter
@@ -119,6 +119,10 @@ type ProxyState struct {
 	StreamClientConnActive *metrics.Gauge
 	WsClientConnActive     *metrics.Gauge
 	WssClientConnActive    *metrics.Gauge
+
+	// sse
+	SseReqServed *metrics.Counter
+	SseReqActive *metrics.Gauge
 }
 
 func (s *ProxyState) ClientConnServedInc(proto string, value uint) {

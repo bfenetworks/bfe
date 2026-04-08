@@ -29,13 +29,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-)
 
-import (
 	"github.com/baidu/go-lib/log"
-)
-
-import (
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_http"
 )
@@ -299,12 +294,12 @@ func (w *response) bodyAllowed() bool {
 //
 // The Writers are wired together like:
 //
-// 1. *response (the ResponseWriter) ->
-// 2. (*response).w, a *bufio.Writer of bufferBeforeChunkingSize bytes
-// 3. chunkWriter.Writer (whose writeHeader finalizes Content-Length/Type)
-//    and which writes the chunk headers, if needed.
-// 4. conn.buf, a bufio.Writer of default (4kB) bytes
-// 5. the rwc, the net.Conn.
+//  1. *response (the ResponseWriter) ->
+//  2. (*response).w, a *bufio.Writer of bufferBeforeChunkingSize bytes
+//  3. chunkWriter.Writer (whose writeHeader finalizes Content-Length/Type)
+//     and which writes the chunk headers, if needed.
+//  4. conn.buf, a bufio.Writer of default (4kB) bytes
+//  5. the rwc, the net.Conn.
 //
 // TODO(bradfitz): short-circuit some of the buffering when the
 // initial header contains both a Content-Type and Content-Length.

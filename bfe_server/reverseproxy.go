@@ -594,14 +594,18 @@ func (p *ReverseProxy) setTimeout(stage bfe_basic.OperationStage,
 	conn net.Conn, req *bfe_http.Request, d time.Duration) {
 	switch b := req.Body.(type) {
 	case *bfe_http2.RequestBody: // http2
-		if stage == bfe_basic.StageReadReqBody {
-			bfe_http2.SetReadStreamTimeout(b, d)
-		}
-		if stage == bfe_basic.StageWriteClient {
-			bfe_http2.SetWriteStreamTimeout(b, d)
-		}
-		if stage == bfe_basic.StageEndRequest {
-			bfe_http2.SetConnTimeout(b, d)
+		if d >= 0 {
+			if stage == bfe_basic.StageReadReqBody {
+				bfe_http2.SetReadStreamTimeout(b, d)
+			}
+			if stage == bfe_basic.StageWriteClient {
+				bfe_http2.SetWriteStreamTimeout(b, d)
+			}
+			if stage == bfe_basic.StageEndRequest {
+				bfe_http2.SetConnTimeout(b, d)
+			}
+		} else {
+			//skip timeout setingg
 		}
 	case *bfe_spdy.RequestBody: // spdy
 		if stage == bfe_basic.StageReadReqBody {
@@ -614,11 +618,18 @@ func (p *ReverseProxy) setTimeout(stage bfe_basic.OperationStage,
 			bfe_spdy.SetConnTimeout(b, d)
 		}
 	default: // http
+		timeout := time.Time{} //no timeout
+		if d >= 0 {
+			timeout = time.Now().Add(d)
+		} else {
+			//skip timeout setingg
+		}
+
 		if stage == bfe_basic.StageReadReqBody || stage == bfe_basic.StageEndRequest {
-			conn.SetReadDeadline(time.Now().Add(d))
+			conn.SetReadDeadline(timeout)
 		}
 		if stage == bfe_basic.StageWriteClient {
-			conn.SetWriteDeadline(time.Now().Add(d))
+			conn.SetWriteDeadline(timeout)
 		}
 	}
 }
@@ -654,6 +665,7 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	resFlushInterval := time.Duration(0)
 	cancelOnClientClose := false
 
+	timeoutReadClient := time.Duration(cluster_conf.DefaultReadClientTimeout) * time.Millisecond
 	timeoutWriteClient := time.Duration(cluster_conf.DefaultWriteClientTimeout) * time.Millisecond
 	timeoutReadClientAgain := time.Duration(cluster_conf.DefaultReadClientAgainTimeout) * time.Millisecond
 
@@ -761,11 +773,19 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	basicReq.Backend.ClusterName = clusterName
 
 	// set deadline to finish read client request body
-	p.setTimeout(bfe_basic.StageReadReqBody, basicReq.Connection, req, cluster.TimeoutReadClient())
+	timeoutReadClient = cluster.TimeoutReadClient()
 	resFlushInterval = cluster.ResFlushInterval()
 	cancelOnClientClose = cluster.CancelOnClientClose()
 	timeoutWriteClient = cluster.TimeoutWriteClient()
 	timeoutReadClientAgain = cluster.TimeoutReadClientAgain()
+
+	if basicReq.IsSse {
+		timeoutReadClient = -1
+		timeoutWriteClient = -1
+		cancelOnClientClose = true
+	}
+
+	p.setTimeout(bfe_basic.StageReadReqBody, basicReq.Connection, req, timeoutReadClient)
 
 	// Callback for HandleAfterLocation
 	hl = srv.CallBacks.GetHandlerList(bfe_module.HandleAfterLocation)
@@ -839,28 +859,28 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 			}
 		}
 	}
-/*
-	// do body process before forwarding
-	bf, ok = outreq.Body.(BufferFiller)
-	if ok {
-		// if body is BufferFiller, call FillBuffer to process body before forwarding
-		for err == nil {
-			err = bf.FillBuffer()
-		}
-		if err != io.EOF {
-			basicReq.ErrCode = bfe_basic.ErrBkBodyProcess
-			basicReq.ErrMsg = err.Error()
-			
-			p.proxyState.ErrBkBodyProcess.Inc(1)
+	/*
+		// do body process before forwarding
+		bf, ok = outreq.Body.(BufferFiller)
+		if ok {
+			// if body is BufferFiller, call FillBuffer to process body before forwarding
+			for err == nil {
+				err = bf.FillBuffer()
+			}
+			if err != io.EOF {
+				basicReq.ErrCode = bfe_basic.ErrBkBodyProcess
+				basicReq.ErrMsg = err.Error()
 
-			// close connection
-			res = bfe_basic.CreateSpecifiedContentResp(basicReq, bfe_http.StatusBadRequest, "text/plain",
-				fmt.Sprintf("Error %s: %s", basicReq.ErrCode.Error(), basicReq.ErrMsg))
-			action = closeAfterReply
-			goto send_response
+				p.proxyState.ErrBkBodyProcess.Inc(1)
+
+				// close connection
+				res = bfe_basic.CreateSpecifiedContentResp(basicReq, bfe_http.StatusBadRequest, "text/plain",
+					fmt.Sprintf("Error %s: %s", basicReq.ErrCode.Error(), basicReq.ErrMsg))
+				action = closeAfterReply
+				goto send_response
+			}
 		}
-	}
-*/
+	*/
 	// invoke cluster to get response
 	res, action, err = p.clusterInvoke(srv, cluster, basicReq, rw)
 	basicReq.HttpResponse = res
@@ -881,6 +901,17 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	}
 
 response_got:
+	if res != nil && res.IsSse {
+		if !basicReq.IsSse {
+			timeoutReadClient = -1
+			p.setTimeout(bfe_basic.StageReadReqBody, basicReq.Connection, req, timeoutReadClient)
+
+			timeoutWriteClient = -1
+			cancelOnClientClose = true
+			basicReq.IsSse = true
+		}
+	}
+
 	// timeout for write response to client
 	// Note: we use io.Copy() to read from backend and write to client.
 	// For avoid from blocking on client conn or backend conn forever,
