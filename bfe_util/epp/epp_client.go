@@ -140,13 +140,6 @@ func (c *EppClient) ProcRespHeader(header http.Header, endofstream bool) {
                 log.Logger.Warn("EppResponseBodyFilter send body chunk error: %v", err)
                 return
             }
-            // receive response from EPP server
-            _, err = c.Recv()
-            if err != nil {
-                // log error and return
-                log.Logger.Warn("EppResponseBodyFilter recv body chunk response error: %v", err)
-                return
-            }
         }
         // send end of stream
         req := &extprocv3.ProcessingRequest{

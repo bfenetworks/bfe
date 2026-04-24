@@ -242,6 +242,7 @@ func (bal *BalanceGslb) chooseBackendFromEPP(req *bfe_basic.Request) (string, *e
 		return "", nil, err
 	}
 
+	var addrinfo string
 	// Try to inspect dynamic_metadata
 	if md := resp.GetDynamicMetadata(); md != nil {
 		if v, ok := md.Fields["envoy.lb"]; ok {
@@ -251,11 +252,25 @@ func (bal *BalanceGslb) chooseBackendFromEPP(req *bfe_basic.Request) (string, *e
 					if s := val.GetStringValue(); s != "" {
 						// may be comma separated list, pick first
 						parts := strings.Split(s, ",")
-						return strings.TrimSpace(parts[0]), client, nil
+						addrinfo = strings.TrimSpace(parts[0])
 					}
 				}
 			}
 		}
+	}
+
+	if hasBody && resp.Response != nil && resp.GetRequestHeaders() != nil {
+		// receive response for request body
+		resp, err = client.Recv()
+		// the response should be resp.GetRequestBody()
+		if err != nil {
+			client.Close()
+			return "", nil, err
+		}
+	}
+	
+	if addrinfo != "" {
+		return addrinfo, client, nil
 	}
 
 	client.Close()
