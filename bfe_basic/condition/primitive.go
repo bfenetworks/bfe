@@ -29,6 +29,7 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
+	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_util"
 	"github.com/bfenetworks/bfe/bfe_util/net_util"
 	"github.com/spaolacci/murmur3"
@@ -1095,10 +1096,10 @@ type ReqBodyJsonFetcher struct{
 }
 
 func (pf *ReqBodyJsonFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
-	return ReqBodyJsonFetch(req, pf.path)
+	return ReqBodyJsonFetch(req, pf.path, nil)
 }
 
-func ReqBodyJsonFetch(req *bfe_basic.Request, path string) (string, error) {
+func ReqBodyJsonFetch(req *bfe_basic.Request, path string, httpreq *bfe_http.Request) (string, error) {
 	const jsonCachePrefix = "jsoncache."
 
 	if req == nil || req.HttpRequest == nil {
@@ -1114,7 +1115,26 @@ func ReqBodyJsonFetch(req *bfe_basic.Request, path string) (string, error) {
 		}
 	}
 
-	bodyAccessor, err := req.HttpRequest.GetBodyAccessor()
+	if httpreq == nil {
+		httpreq = req.HttpRequest
+	}
+
+	str, err := HttpReqBodyJsonGet(httpreq, path)
+
+	if err != nil {
+		return "", err
+	}
+
+	req.SetContext(cachepath, str)
+	return str, nil
+}
+
+func HttpReqBodyJsonGet(req *bfe_http.Request, path string) (string, error) {
+	if req == nil {
+		return "", fmt.Errorf("fetcher: nil pointer")
+	}
+
+	bodyAccessor, err := req.GetBodyAccessor()
 	if bodyAccessor == nil {
 		return "", err
 	}
@@ -1122,13 +1142,10 @@ func ReqBodyJsonFetch(req *bfe_basic.Request, path string) (string, error) {
 	body, _ := bodyAccessor.GetBytes()
 	val := gjson.GetBytes(body, path)
 	if !val.Exists() {
-		req.SetContext(cachepath, "")
 		return "", nil
 	}
 
-	str := val.String()
-	req.SetContext(cachepath, str)
-	return str, nil
+	return val.String(), nil
 }
 
 func ReqBodyJsonSet(req *bfe_basic.Request, path string, value string) error {

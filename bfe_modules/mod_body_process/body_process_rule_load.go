@@ -36,6 +36,27 @@ type BodyProcessConfig struct {
 }
 
 func BodyProcessConfigCheck(config *BodyProcessConfig) error {
+	if config == nil {
+		return nil
+	}
+	
+	if config.Dec != "" && config.Dec != "line" && config.Dec != "json" && config.Dec != "sse" {
+		return errors.New("invalid Dec")
+	}
+
+	if config.Enc != "" && config.Enc != "line" && config.Enc != "json" && config.Enc != "sse" {
+		return errors.New("invalid Enc")
+	}
+
+	for _, proc := range config.Proc {
+		if proc.Name != "textfilter" {
+			return errors.New("invalid Proc name")
+		}
+		if len(proc.Params) != 1 {
+			return errors.New("invalid Proc params, textfilter need only 1 param")
+		}
+	}
+
 	return nil
 }
 
@@ -72,9 +93,9 @@ func processRuleCheck(conf processRuleFile) error {
 		return errors.New("no Cond")
 	}
 
-	if conf.RequestProcess == nil && conf.ResponseProcess == nil {
-		return errors.New("no RequestProcess or ResponseProcess")
-	}
+	// if conf.RequestProcess == nil && conf.ResponseProcess == nil {
+	// 	return errors.New("no RequestProcess or ResponseProcess")
+	// }
 
 	if err := BodyProcessConfigCheck(conf.RequestProcess); err != nil {
 		return err

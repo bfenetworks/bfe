@@ -27,9 +27,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_net/textproto"
 	"github.com/bfenetworks/bfe/bfe_tls"
@@ -47,7 +45,6 @@ type SignCalculator interface {
 }
 
 // Response represents the response from an HTTP request.
-//
 type Response struct {
 	Status     string // e.g. "200 OK"
 	StatusCode int    // e.g. 200
@@ -109,6 +106,8 @@ type Response struct {
 	// The pointer is shared between responses and should not be
 	// modified.
 	TLS *bfe_tls.ConnectionState
+
+	IsSse bool
 }
 
 // Cookies parses and returns the cookies set in the Set-Cookie headers.
@@ -131,6 +130,26 @@ func (r *Response) Location() (*url.URL, error) {
 		return r.Request.URL.Parse(lv)
 	}
 	return url.Parse(lv)
+}
+
+func isSSEResponse(ct string) bool {
+	if len(ct) < 15 { // length of sse relative values is >= 15
+		return false
+	}
+
+	if strings.EqualFold(ct, "text/event-stream") {
+		return true
+	}
+
+	ctValues := strings.ToLower(ct)
+	for _, item := range strings.Split(ctValues, ";") {
+		fitem := strings.TrimSpace(item)
+		if fitem == "text/event-stream" || fitem == "application/sse" || fitem == "application/x-sse" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // ReadResponse reads and returns an HTTP response from r.
@@ -182,6 +201,9 @@ func ReadResponse(r *bfe_bufio.Reader, req *Request) (*Response, error) {
 
 	fixPragmaCacheControl(resp.Header)
 
+	contentType := resp.Header.Get("Content-Type")
+	resp.IsSse = isSSEResponse(contentType)
+
 	err = readTransfer(resp, r)
 	if err != nil {
 		return nil, err
@@ -191,8 +213,11 @@ func ReadResponse(r *bfe_bufio.Reader, req *Request) (*Response, error) {
 }
 
 // RFC2616: Should treat
+//
 //	Pragma: no-cache
+//
 // like
+//
 //	Cache-Control: no-cache
 func fixPragmaCacheControl(header Header) {
 	if hp, ok := header["Pragma"]; ok && len(hp) > 0 && hp[0] == "no-cache" {
@@ -212,16 +237,15 @@ func (r *Response) ProtoAtLeast(major, minor int) bool {
 // Writes the response (header, body and trailer) in wire format. This method
 // consults the following fields of the response:
 //
-//  StatusCode
-//  ProtoMajor
-//  ProtoMinor
-//  Request.Method
-//  TransferEncoding
-//  Trailer
-//  Body
-//  ContentLength
-//  Header, values for non-canonical keys will have unpredictable behavior
-//
+//	StatusCode
+//	ProtoMajor
+//	ProtoMinor
+//	Request.Method
+//	TransferEncoding
+//	Trailer
+//	Body
+//	ContentLength
+//	Header, values for non-canonical keys will have unpredictable behavior
 func (r *Response) Write(w io.Writer) error {
 
 	// Status line

@@ -72,12 +72,20 @@ COPY --from=confagent /out/conf-agent-conf /home/work/conf-agent/conf
 COPY --from=build /out/bfe /home/work/bfe/bin/bfe
 COPY --from=build /src/conf /home/work/bfe/conf/
 
+RUN set -ex; \
+	if [ -f /home/work/bfe/conf/server_data_conf/name_conf.data ]; then \
+		mv /home/work/bfe/conf/server_data_conf/name_conf.data /home/work/bfe/conf/name_conf.data; \
+		ln -s /home/work/bfe/conf/name_conf.data /home/work/bfe/conf/server_data_conf/name_conf.data; \
+	fi
+
 # COPY deploy/docker/entrypoint.sh /home/work/entrypoint.sh
 # Generate entrypoint.sh inside the image to avoid external file dependency
 RUN set -ex; \
     cat > /home/work/entrypoint.sh <<'EOF'
 #!/bin/sh
 set -eu
+
+CONF_AGENT_PID=""
 
 # Log function
 log() {
@@ -102,7 +110,7 @@ start_conf_agent() {
 start_bfe() {
     log "Starting bfe..."
     cd /home/work/bfe/bin
-    exec ./bfe -c ../conf/ -l ../log/ -s
+	exec ./bfe -c ../conf/ -l ../log/ -s__BFE_DEBUG_FLAG__
 }
 
 # Signal handler
@@ -136,6 +144,13 @@ sleep 2
 # 2. Start bfe in foreground
 start_bfe
 EOF
+
+RUN set -ex; \
+	if [ "${VARIANT}" = "debug" ]; then \
+		sed -i 's/__BFE_DEBUG_FLAG__/ -d debug/g' /home/work/entrypoint.sh; \
+	else \
+		sed -i 's/__BFE_DEBUG_FLAG__//g' /home/work/entrypoint.sh; \
+	fi
 
 RUN chmod +x /home/work/entrypoint.sh
 

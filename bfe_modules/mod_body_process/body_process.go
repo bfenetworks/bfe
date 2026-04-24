@@ -75,6 +75,18 @@ func (e *RejectionError) Error() string {
 	return e.Message
 }
 
+type BPError struct {
+	Err error
+}
+
+func (e *BPError) Unwrap() error {
+	return e.Err
+}
+
+func (e *BPError) Error() string {
+	return fmt.Sprintf("BodyProcessError: %s", e.Err.Error())
+}
+
 type Event interface {
 	// GetType() string
 	// GetData() []byte
@@ -107,7 +119,7 @@ func (bp *BodyProcessor) CreateEventDecoder(fac EventDecoderFac) {
 	// defer bp.mu.Unlock()
 	dec, err := fac(bp.source)
 	if err != nil {
-		bp.err = fmt.Errorf("create event decoder: %w", err)
+		bp.err = &BPError{fmt.Errorf("create event decoder: %w", err)}
 		return
 	}
 	bp.decoder = dec
@@ -118,7 +130,7 @@ func (bp *BodyProcessor) CreateEventEncoder(fac EventEncoderFac) {
 	// defer bp.mu.Unlock()
 	enc, err := fac(bp.buffer)
 	if err != nil {
-		bp.err = fmt.Errorf("create event encoder: %w", err)
+		bp.err = &BPError{fmt.Errorf("create event encoder: %w", err)}
 		return
 	}
 	bp.encoder = enc
@@ -166,8 +178,8 @@ func (bp *BodyProcessor) fillBuffer() error {
 	for {
 		events, decodeErr := bp.decoder.Decode()
 		if decodeErr != nil {
-			bp.err = decodeErr
-			return decodeErr
+			bp.err = &BPError{decodeErr}
+			return bp.err
 		}
 		if len(events) == 0 {
 			bp.err = io.EOF
@@ -182,20 +194,20 @@ func (bp *BodyProcessor) fillBuffer() error {
 			var processErr error
 			events, processErr = processor.Process(events)
 			if processErr != nil {
-				bp.err = processErr
+				bp.err = &BPError{processErr}
 				// 检查是否为中断错误
 				if cvErr, ok := processErr.(*RejectionError); ok {
 					bp.handleRejection(cvErr)
 					return cvErr
 				}
-				return processErr
+				return bp.err
 			}
 		}
 		// 编码事件
 		n, encodeErr := bp.encoder.Encode(events)
 		if encodeErr != nil {
-			bp.err = encodeErr
-			return encodeErr
+			bp.err = &BPError{encodeErr}
+			return bp.err
 		}
 		if n > 0 {
 			break // 至少有一个事件被处理
@@ -226,7 +238,6 @@ func (bp *BodyProcessor) Close() error {
 	// bp.mu.Lock()
 	// defer bp.mu.Unlock()
 	
-	bp.buffer.Reset()
 	return bp.source.Close()
 }
 
@@ -507,7 +518,7 @@ func (dec *LineDecoder) Decode() ([]Event, error) {
 	if err == io.EOF {
 		return []Event{}, nil // 没有更多数据
 	}
-	return nil, fmt.Errorf("line decode error: %w", err)
+	return nil, err
 }
 
 type JsonDecoder struct {
@@ -526,7 +537,7 @@ func (dec *JsonDecoder) Decode() ([]Event, error) {
 		if err == io.EOF {
 			return []Event{}, nil // 没有更多数据
 		}
-		return nil, fmt.Errorf("json decode error: %w", err)
+		return nil, err
 	}
 	re := RawEvent(event)
 	return []Event{&re}, nil

@@ -78,7 +78,7 @@ func tokenCheck(conf *TokenFile) error {
 	if conf.UnlimitedQuota && conf.RemainQuota != 0 {
 		return errors.New("if UnlimitedQuota is true, RemainQuota must be 0")
 	}
-	if conf.Models != nil {
+	if conf.Models != nil && *conf.Models != "" {
 		conf.models = strings.Split(*conf.Models, ",")
 		for i := 0; i < len(conf.models); i++ {
 			conf.models[i] = strings.TrimSpace(conf.models[i])
@@ -87,7 +87,7 @@ func tokenCheck(conf *TokenFile) error {
 			}
 		}
 	}
-	if conf.Subnet != nil {
+	if conf.Subnet != nil && *conf.Subnet != "" {
 		res := strings.Split(*conf.Subnet, ",")
 		conf.subnet = make([]*net.IPNet, len(res))
 		for i := 0; i < len(res); i++ {
