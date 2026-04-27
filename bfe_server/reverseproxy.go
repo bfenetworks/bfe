@@ -51,6 +51,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
 	"github.com/bfenetworks/bfe/bfe_spdy"
 	"github.com/bfenetworks/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_util/epp"
 )
 
 // TrailerPrefix is a magic prefix for ResponseWriter.Header map keys
@@ -333,11 +334,23 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 	// When request.RetryTime exceeds some value, srv.clusterTable.Lookup()
 	// will return error. Here set a limit of 20, to avoid endless loop
 	for i := 0; i < 20; i++ {
-		// get backend with cluster-name and request
-		clusterBackend, err = bal.Balance(request)
-		if err == bfe_basic.ErrBkCrossRetryBalance {
-			request.RetryTime += 1
-			continue
+		clusterBackend = nil
+		err = nil
+		if bal.BalanceMode == cluster_conf.BalanceModeEPP {
+			eppClient := request.GetContext(bal_gslb.REQ_CTX_EPP)
+			if eppClient != nil {
+				eppClient.(*epp.EppClient).Close()
+				request.SetContext(bal_gslb.REQ_CTX_EPP, nil)
+			}
+			clusterBackend, err = bal.BalanceEpp(request)
+		}
+		if clusterBackend == nil {
+			// get backend with cluster-name and request
+			clusterBackend, err = bal.Balance(request)
+			if err == bfe_basic.ErrBkCrossRetryBalance {
+				request.RetryTime += 1
+				continue
+			}
 		}
 
 		if err != nil {
@@ -657,8 +670,8 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	var outreq *bfe_http.Request
 	var serverConf *bfe_route.ServerDataConf
 	var writeTimer *time.Timer
-	// var bf BufferFiller
-	// var ok bool
+	var ok bool
+	var eppClient *epp.EppClient
 
 	req := basicReq.HttpRequest
 	isRedirect := false
@@ -891,6 +904,12 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	basicReq.SvrDataConf = nil
 
 	if err != nil || res == nil {
+		eppclient := basicReq.GetContext(bal_gslb.REQ_CTX_EPP)
+		if eppclient != nil {
+			eppclient.(*epp.EppClient).Close()
+			basicReq.SetContext(bal_gslb.REQ_CTX_EPP, nil)
+		}
+
 		basicReq.Stat.ResponseStart = time.Now()
 		basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
 		res = bfe_basic.CreateInternalSrvErrResp(basicReq)
@@ -910,6 +929,14 @@ response_got:
 			cancelOnClientClose = true
 			basicReq.IsSse = true
 		}
+	}
+  
+	eppClient, ok = basicReq.GetContext(bal_gslb.REQ_CTX_EPP).(*epp.EppClient)
+	if ok {
+		basicReq.SetContext(bal_gslb.REQ_CTX_EPP, nil)
+		eppClient.ProcRespHeader(res.Header, false)
+		b := epp.NewEppResponseBodyFilter(res.Body, eppClient)
+		res.Body = b
 	}
 
 	// timeout for write response to client
