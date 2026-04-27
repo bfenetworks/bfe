@@ -1,8 +1,6 @@
 module github.com/bfenetworks/bfe
 
-go 1.22
-
-toolchain go1.22.9
+go 1.24.0
 
 require (
 	github.com/abbot/go-http-auth v0.4.1-0.20181019201920-860ed7f246ff
@@ -42,7 +40,7 @@ require (
 require (
 	github.com/bfenetworks/proxy-wasm-go-host v0.0.0-20241202144118-62704e5df808
 	github.com/envoyproxy/go-control-plane/envoy v1.32.3
-	github.com/go-jose/go-jose/v4 v4.0.5
+	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/google/uuid v1.6.0
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/sjson v1.2.5
@@ -83,7 +81,6 @@ require (
 	google.golang.org/grpc v1.67.1
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	howett.net/plist v0.0.0-20181124034731-591f970eefbb // indirect
-
 )
 
 // replace github.com/bfenetworks/proxy-wasm-go-host => ../proxy-wasm-go-host
