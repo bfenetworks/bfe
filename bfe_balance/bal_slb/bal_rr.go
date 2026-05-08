@@ -505,3 +505,17 @@ func GetHash(value []byte, base uint) int {
 
 	return int(hash % uint64(base))
 }
+
+// Look up backend with given addrInfo(ip:port)
+func (brr *BalanceRR) LookUpBackend(addrInfo string) (*backend.BfeBackend, error) {
+	brr.Lock()
+	defer brr.Unlock()
+
+	for _, backendRR := range brr.backends {
+		if backendRR.backend.AddrInfo == addrInfo && backendRR.backend.Avail() && backendRR.weight > 0 {
+			return backendRR.backend, nil
+		}
+	}
+	/* never come here */
+	return nil, fmt.Errorf("rr_bal:LookUpBackend %s fail", addrInfo)
+}

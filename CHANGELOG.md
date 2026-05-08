@@ -10,14 +10,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.8.2] - 2026-05-18
+
+### Added
+
+- support Epp balance  ([Pull #1248](https://github.com/bfenetworks/bfe/pull/1248))
+- improve sse support  ([Pull #1247](https://github.com/bfenetworks/bfe/pull/1247))
+
+
 ## [v1.8.1] - 2026-02-12
 
 ### Added
+
 - External Web Server Support: Enabled the functionality to call an external web server, enhancing integration capabilities with other services.
 - Comprehensive Kubernetes Demo: Introduced a complete Kubernetes demo covering data plane, control plane, and service discovery. This includes updated kustomize manifests for easier deployment and customization.
 - Build Process Improvements: Enhanced build processes by adding Makefile targets (make docker, make docker-push) to facilitate building Docker images and pushing them to registries, streamlining CI/CD pipeline operations.
 
 ### Fixed
+
 - Fix AI Functionality Bugs: Addressed several bugs related to AI functionalities, ensuring more reliable and accurate processing within AI-driven features.
 
 

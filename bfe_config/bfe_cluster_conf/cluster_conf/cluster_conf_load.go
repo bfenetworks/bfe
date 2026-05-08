@@ -59,6 +59,7 @@ const (
 const (
 	BalanceModeWrr = "WRR" // weighted round robin
 	BalanceModeWlc = "WLC" // weighted least connection
+	BalanceModeEPP     = "EPP" // balance by epp
 )
 
 const (
@@ -207,6 +208,7 @@ type GslbBasicConf struct {
 	HashConf   *HashConf
 
 	BalanceMode *string // balanceMode, default WRR
+	EPPAddr     *[]string // EPP address
 }
 
 // ClusterBasicConf is basic conf for cluster.
@@ -558,6 +560,10 @@ func GslbBasicConfCheck(conf *GslbBasicConf) error {
 	switch *conf.BalanceMode {
 	case BalanceModeWrr:
 	case BalanceModeWlc:
+	case BalanceModeEPP:
+		if conf.EPPAddr == nil || len(*conf.EPPAddr) == 0 {
+			return errors.New("EPPAddr is nil or empty")
+		}
 	default:
 		return fmt.Errorf("unsupported bal mode %s", *conf.BalanceMode)
 	}
