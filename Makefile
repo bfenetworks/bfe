@@ -74,7 +74,8 @@ strip: prepare compile-strip package
 # make prepare, download dependencies
 prepare: prepare-dep prepare-gen
 prepare-dep:
-	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc@latest)
+#	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc@latest)
+	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc@v0.27.0)
 prepare-gen:
 	cd "bfe_basic/condition/parser" && $(GOGEN)
 

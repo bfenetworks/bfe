@@ -848,24 +848,28 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	}
 
 	if cluster.AIConf != nil {
-		// if cluster has AIConf, do model mapping & set api key in outreq
-		if cluster.AIConf.Key != nil {
-			mod_ai_token_auth.SetApiKey(outreq, *cluster.AIConf.Key)
-		}
-		if cluster.AIConf.ModelMapping != nil {
-			model, err := condition.ReqBodyJsonFetch(basicReq, "model", outreq)
-			if err == nil && model != "" {
-				newModel, ok := (*cluster.AIConf.ModelMapping)[model]
-				if ok {
-					err = condition.ReqBodyJsonSet(basicReq, "model", newModel)
-					if err != nil {
-						log.Logger.Warn("Failed to set model in request body: %s", err)
-						// just continue, not return error
-					} else {
-						// outreq body already changed, need reset Content-Length
-						if outreq.ContentLength >= 0 {
-							outreq.ContentLength = -1
-							outreq.Header.Del("Content-Length")
+		aiMeta := basicReq.GetAiBasicInfo()
+		if aiMeta != nil {
+			// if cluster has AIConf, do model mapping & set api key in outreq
+			if cluster.AIConf.Key != nil {
+				mod_ai_token_auth.SetApiKey(outreq, *cluster.AIConf.Key)
+			}
+			if cluster.AIConf.ModelMapping != nil {
+				model := aiMeta.ClientModel
+				if model != "" {
+					newModel, ok := (*cluster.AIConf.ModelMapping)[model]
+					if ok {
+						err = condition.ReqBodyJsonSet(basicReq, "model", newModel)
+						if err != nil {
+							log.Logger.Warn("Failed to set model in request body: %s", err)
+							// just continue, not return error
+						} else {
+							// outreq body already changed, need reset Content-Length
+							if outreq.ContentLength >= 0 {
+								outreq.ContentLength = -1
+								outreq.Header.Del("Content-Length")
+							}
+							aiMeta.TargetModel = newModel
 						}
 					}
 				}
@@ -930,7 +934,7 @@ response_got:
 			basicReq.IsSse = true
 		}
 	}
-  
+
 	eppClient, ok = basicReq.GetContext(bal_gslb.REQ_CTX_EPP).(*epp.EppClient)
 	if ok {
 		basicReq.SetContext(bal_gslb.REQ_CTX_EPP, nil)
