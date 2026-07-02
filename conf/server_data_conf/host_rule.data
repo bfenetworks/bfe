@@ -10,11 +10,17 @@
         ],
         "localTag":[
             "localhost"
+        ],
+        "exampleAITag":[
+            "ai.example.org"
         ]
     },
     "HostTags": {
         "example_product":[
             "exampleTag"
+        ],
+        "example_ai_product":[
+            "exampleAITag"
         ],
         "local_product":[
             "localTag"

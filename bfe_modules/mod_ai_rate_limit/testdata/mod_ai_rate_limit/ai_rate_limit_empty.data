@@ -1,0 +1,9 @@
+{
+    "Config": {
+    },
+    "RateLimitPolicies": {
+    },
+    "ApikeyRateLimitPolicyBindings": {
+    },
+    "Version": "1.0"
+}

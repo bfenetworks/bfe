@@ -19,6 +19,7 @@ package bfe_modules
 import (
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_rate_limit"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_token_auth"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_auth_basic"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_auth_jwt"
@@ -146,7 +147,11 @@ var moduleList = []bfe_module.BfeModule{
 	mod_ai_token_auth.NewModuleAITokenAuth(),
 
 	// mod_body_process
-	mod_body_process.NewModuleBodyProcess(),}
+	mod_body_process.NewModuleBodyProcess(),
+
+	//depends on token calc
+	mod_ai_rate_limit.NewModuleAiRateLimit(),
+}
 
 // init modules list
 func InitModuleList(modules []bfe_module.BfeModule) {

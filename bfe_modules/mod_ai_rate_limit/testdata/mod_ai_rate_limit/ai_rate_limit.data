@@ -1,0 +1,46 @@
+{
+    "Config": {
+        "AI_product": [
+            {
+                "cond": "default_t()",
+                "hit_action": {
+                    "cmd": "PASS"
+                }
+            }
+        ]
+    },
+    "RateLimitPolicies": {
+        "rlp-0001": {
+            "name": "ratelimitX",
+            "enabled": true,
+            "models": ["gpt-4"],
+            "rules": {
+                "tpm": [
+                    {"name":"abc0", "window_minutes": 1, "max_tokens": 10000, "step_minutes": 1, "models": ["gpt-4", "gpt-4o"]},
+                    {"name":"abc1", "window_minutes": 10, "max_tokens": 50000, "step_minutes": 1, "models": ["gpt-3.5"]},
+                    {"name":"abc2", "window_minutes": 60, "max_tokens": 200000, "step_minutes": 5}
+                ],
+                "rpm": [
+                    {"name":"abc0", "window_minutes": 1, "max_requests": 100, "burst":1, "models": ["gpt-4"]}
+                ],
+                "max_concurrency": 50
+            }
+        },
+        "rlp-0002": {
+            "name": "ratelimitBasic",
+            "enabled": true,
+            "models": [],
+            "rules": {
+                "tpm": [
+                    {"name": "abc0", "window_minutes": 1, "max_tokens": 5000, "step_minutes": 1}
+                ],
+                "max_concurrency": 10
+            }
+        }
+    },
+    "ApikeyRateLimitPolicyBindings": {
+        "ak-2v8x9k3m7p": ["rlp-0001", "rlp-0002"],
+        "ak-3w9y0k4n8q": ["rlp-0002"]
+    },
+    "Version": "1.0"
+}

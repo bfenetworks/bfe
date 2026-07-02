@@ -31,6 +31,7 @@ import (
 	"github.com/baidu/go-lib/gotrack"
 	"github.com/baidu/go-lib/log"
 	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_basic/condition"
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
@@ -537,6 +538,21 @@ func (c *conn) serveRequest(w bfe_http.ResponseWriter, request *bfe_basic.Reques
 
 		proxyState.SseReqActive.Inc(1)
 		defer proxyState.SseReqActive.Dec(1)
+	}
+
+	if c.server.Config.Server.EnableAiGateway {
+		aiMeta := request.InitAiBasicInfo()
+		apikey := bfe_basic.GetApiKey(request)
+		if len(apikey) > 0 {
+			aiMeta.ClientApiKey = apikey
+		}
+
+		model, err := condition.ReqBodyJsonFetch(request, "model", nil)
+		if err == nil || len(model) > 0 {
+			aiMeta.ClientModel = model
+			aiMeta.TargetModel = model
+		}
+		log.Logger.Debug("conn.serveRequest(), ClientApiKey:%s, ClientModel:%s", apikey, model)
 	}
 
 	// serve the request

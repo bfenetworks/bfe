@@ -18,8 +18,12 @@ import (
 	"fmt"
 )
 
-import (
-)
+type RedisScript interface {
+	Run(
+		key string,
+		args ...interface{},
+	) (interface{}, error)
+}
 
 // Client: redis client interface
 type Client interface {
@@ -32,6 +36,7 @@ type Client interface {
 	PIncr([]string) ([]int64, error)
 	GetInt64(key string) (int64, error)
 	IncrBy(key string, delta int64) (int64, error)
+	NewScript(src string) RedisScript
 }
 
 // counters for module state 2
@@ -79,7 +84,7 @@ func NewRedisClient(options *Options) Client {
 	return NewRedisBnsClient(options)
 }
 
-func CheckRedisConf(redisServersStr string) error{
+func CheckRedisConf(redisServersStr string) error {
 	_, err := ParseRedisBnsConf(redisServersStr)
 	if err != nil {
 		return fmt.Errorf("proxy mode, Redis.Bns check err: %s", err.Error())
