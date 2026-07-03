@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"path/filepath"
 	"sync"
@@ -75,8 +74,8 @@ type ModuleAiRateLimit struct {
 	redisClient redis_client.Client // redis client
 	redisAgent  *limit_rate.RedisLRAgent
 
-	limiterManager        *policyLimiterManager
-	isRejectOnRedisError  bool
+	limiterManager       *policyLimiterManager
+	isRejectOnRedisError bool
 }
 
 func NewModuleAiRateLimit() *ModuleAiRateLimit {
@@ -113,11 +112,11 @@ func (m *ModuleAiRateLimit) limitFoundProductHandler(req *bfe_basic.Request) (in
 	}
 
 	req.InitAiRateLimitHitInfo()
-	ret, res := m.runProductRules(req)
+	ret, res := m.runProductRules(req, meta)
 	return ret, res
 }
 
-func (m *ModuleAiRateLimit) runProductRules(req *bfe_basic.Request) (int, *bfe_http.Response) {
+func (m *ModuleAiRateLimit) runProductRules(req *bfe_basic.Request, meta *bfe_basic.AiBasicInfo) (int, *bfe_http.Response) {
 	product := req.Route.Product
 	rules := m.productTable.getProductRules(product)
 	if rules == nil {
@@ -139,7 +138,7 @@ func (m *ModuleAiRateLimit) runProductRules(req *bfe_basic.Request) (int, *bfe_h
 			log.Logger.Debug("mod_ai_rate_limit: cond[%s] matched for product[%s]", rule.condStr, product)
 		}
 
-		ret, res := m.executeCheckLimitPolicy(req, rule, ctx)
+		ret, res := m.executeCheckLimitPolicy(req, meta, rule, ctx)
 		if ret != bfe_module.BfeHandlerGoOn {
 			req.ErrCode = ErrAiRateLimit
 			return ret, res
@@ -149,8 +148,8 @@ func (m *ModuleAiRateLimit) runProductRules(req *bfe_basic.Request) (int, *bfe_h
 	return bfe_module.BfeHandlerGoOn, nil
 }
 
-func (m *ModuleAiRateLimit) executeCheckLimitPolicy(req *bfe_basic.Request, rule *productRule, ctx *PolicyLimiterContext) (int, *bfe_http.Response) {
-	apiKey := getClientApiKey(req)
+func (m *ModuleAiRateLimit) executeCheckLimitPolicy(req *bfe_basic.Request, meta *bfe_basic.AiBasicInfo, rule *productRule, ctx *PolicyLimiterContext) (int, *bfe_http.Response) {
+	apiKey := meta.ClientApiKey
 	if apiKey == "" {
 		if openDebug {
 			log.Logger.Debug("mod_ai_rate_limit: no api key found, pass")
@@ -166,7 +165,7 @@ func (m *ModuleAiRateLimit) executeCheckLimitPolicy(req *bfe_basic.Request, rule
 		return bfe_module.BfeHandlerGoOn, nil
 	}
 
-	clientModel := getClientModel(req)
+	clientModel := meta.ClientModel
 
 	for _, policyId := range policyIds {
 		policy := m.productTable.getPolicy(policyId)
@@ -194,39 +193,63 @@ func (m *ModuleAiRateLimit) executeCheckLimitPolicy(req *bfe_basic.Request, rule
 		ls := m.limiterManager.getLimiterPolicySet(policyId)
 
 		// check Concurrency
-		if !ls.checkConcurrency(req, m.redisAgent, ctx, clientModel, m.isRejectOnRedisError) {
-			return m.executePolicyAction(req, policy, rule)
+		if !ls.checkConcurrency(req, meta, m.redisAgent, ctx, clientModel, m.isRejectOnRedisError) {
+			return m.executePolicyAction(req, meta, policyId, policy, rule)
 		}
 
 		// check RPM
-		if !ls.checkRPM(req, m.redisAgent, ctx, clientModel, m.isRejectOnRedisError) {
-			return m.executePolicyAction(req, policy, rule)
+		if !ls.checkRPM(req, meta, m.redisAgent, ctx, clientModel, m.isRejectOnRedisError) {
+			return m.executePolicyAction(req, meta, policyId, policy, rule)
 		}
 
 		// check TPM
-		if !ls.checkTPM(req, m.redisAgent, ctx, clientModel, m.isRejectOnRedisError) {
-			return m.executePolicyAction(req, policy, rule)
+		if !ls.checkTPM(req, meta, m.redisAgent, ctx, clientModel, m.isRejectOnRedisError) {
+			return m.executePolicyAction(req, meta, policyId, policy, rule)
 		}
 	}
 
 	return bfe_module.BfeHandlerGoOn, nil
 }
 
-func (m *ModuleAiRateLimit) executePolicyAction(req *bfe_basic.Request, policy *PolicyConf, rule *productRule) (int, *bfe_http.Response) {
-	hitInfoStr := "{}"
-
-	hitInfo := req.GetAiRateLimitHitInfo()
-	if hitInfo != nil {
-		hitInfoBytes, _ := json.Marshal(hitInfo)
-		hitInfoStr = string(hitInfoBytes)
-	}
-
+func (m *ModuleAiRateLimit) executePolicyAction(req *bfe_basic.Request, meta *bfe_basic.AiBasicInfo, policyId string, policy *PolicyConf, rule *productRule) (int, *bfe_http.Response) {
 	if rule.hitAction.Cmd == action.ActionClose {
 		return bfe_module.BfeHandlerClose, nil
 	}
 
 	if rule.hitAction.Cmd == action.ActionFinish {
-		resp := bfe_basic.CreateSpecifiedContentResp(req, http.StatusTooManyRequests, "application/json", hitInfoStr)
+		apiKey := meta.ClientApiKey
+
+		var errorCode, limitType string
+		hitInfo := req.GetAiRateLimitHitInfo()
+		if hitInfo != nil {
+			policyHitInfo := hitInfo.GetPolicyHitInfo(policyId)
+			if policyHitInfo.IsConcurrency {
+				errorCode = bfe_basic.CodeConcurrencyLimitExceeded
+				limitType = bfe_basic.LimitTypeConcurrency
+			} else if len(policyHitInfo.RpmRules) > 0 {
+				errorCode = bfe_basic.CodeRpmLimitExceeded
+				limitType = bfe_basic.LimitTypeRpm
+			} else if len(policyHitInfo.TpmRules) > 0 {
+				errorCode = bfe_basic.CodeTpmLimitExceeded
+				limitType = bfe_basic.LimitTypeTpm
+			}
+		}
+		if errorCode == "" {
+			errorCode = bfe_basic.CodeRpmLimitExceeded
+			limitType = bfe_basic.LimitTypeRpm
+		}
+
+		aiError := bfe_basic.NewAiErrorWithDetails(
+			errorCode,
+			bfe_basic.TypeRateLimitError,
+			fmt.Sprintf("Rate limit exceeded for policy %s", policy.Name),
+			&bfe_basic.AiErrorDetail{
+				ApiKey:    apiKey,
+				LimitType: limitType,
+			},
+		)
+
+		resp := aiError.CreateErrorResponse(req)
 		return bfe_module.BfeHandlerFinish, resp
 	}
 
@@ -271,22 +294,6 @@ func (m *ModuleAiRateLimit) limitRequestFinishHandler(req *bfe_basic.Request, re
 	}
 
 	return bfe_module.BfeHandlerGoOn
-}
-
-func getClientApiKey(req *bfe_basic.Request) string {
-	meta := req.GetAiBasicInfo()
-	if meta != nil {
-		return meta.ClientApiKey
-	}
-	return ""
-}
-
-func getClientModel(req *bfe_basic.Request) string {
-	meta := req.GetAiBasicInfo()
-	if meta != nil {
-		return meta.ClientModel
-	}
-	return ""
 }
 
 func matchModel(policyModels []string, model string) bool {

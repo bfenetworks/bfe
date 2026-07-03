@@ -235,11 +235,7 @@ type PolicyLimiterContext struct {
 	ConLimiters        []*limit_rate.ConcurrencyLimiter
 }
 
-func (ls *policyLimiterSet) checkTPM(req *bfe_basic.Request, agent *limit_rate.RedisLRAgent, ctx *PolicyLimiterContext, model string, isRejectOnRedisError bool) bool {
-	meta := req.GetAiBasicInfo()
-	if meta == nil {
-		return true
-	}
+func (ls *policyLimiterSet) checkTPM(req *bfe_basic.Request, meta *bfe_basic.AiBasicInfo, agent *limit_rate.RedisLRAgent, ctx *PolicyLimiterContext, model string, isRejectOnRedisError bool) bool {
 	tokenUsage := meta.GetTokenUsage()
 
 	for i, item := range ls.tpmLimiters {
@@ -284,7 +280,7 @@ func (ls *policyLimiterSet) checkTPM(req *bfe_basic.Request, agent *limit_rate.R
 	return true
 }
 
-func (ls *policyLimiterSet) checkRPM(req *bfe_basic.Request, agent *limit_rate.RedisLRAgent, ctx *PolicyLimiterContext, model string, isRejectOnRedisError bool) bool {
+func (ls *policyLimiterSet) checkRPM(req *bfe_basic.Request, meta *bfe_basic.AiBasicInfo, agent *limit_rate.RedisLRAgent, ctx *PolicyLimiterContext, model string, isRejectOnRedisError bool) bool {
 	for i, item := range ls.rpmLimiters {
 		if !matchModel(item.Models, model) {
 			if openDebug {
@@ -317,7 +313,7 @@ func (ls *policyLimiterSet) checkRPM(req *bfe_basic.Request, agent *limit_rate.R
 	return true
 }
 
-func (ls *policyLimiterSet) checkConcurrency(req *bfe_basic.Request, agent *limit_rate.RedisLRAgent, ctx *PolicyLimiterContext, model string, isRejectOnRedisError bool) bool {
+func (ls *policyLimiterSet) checkConcurrency(req *bfe_basic.Request, meta *bfe_basic.AiBasicInfo, agent *limit_rate.RedisLRAgent, ctx *PolicyLimiterContext, model string, isRejectOnRedisError bool) bool {
 	if ls.conLimiter == nil {
 		return true
 	}

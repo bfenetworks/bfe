@@ -109,7 +109,10 @@ func (m *ModuleAccessPb3) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.We
 
 func (m *ModuleAccessPb3) requestFinishHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
 	bfeLog := m.requestLogGen(req, res)
-	//fmt.Println("requestFinishHandler", bfeLog.String())
+
+	if openDebug {
+		log.Logger.Debug("%s.requestFinishHandler(), bfeLog: %s", m.name, bfeLog.String())
+	}
 
 	b2logMsg, err := b2logMsgGen(bfeLog)
 	if err != nil {
@@ -122,16 +125,15 @@ func (m *ModuleAccessPb3) requestFinishHandler(req *bfe_basic.Request, res *bfe_
 	m.state.AllReqLogCount.Inc(1)
 	m.logger.Info(b2logMsg)
 
-	if openDebug {
-		log.Logger.Debug("%s.requestFinishHandler(), bfeLog: %s", m.name, bfeLog.String())
-	}
-
 	return bfe_module.BfeHandlerGoOn
 }
 
 func (m *ModuleAccessPb3) sessionFinishHandler(session *bfe_basic.Session) int {
 	bfeLog := sessionLogGen(session)
-	//fmt.Println("sessionFinishHandler", bfeLog.String())
+
+	if openDebug {
+		log.Logger.Debug("%s.sessionFinishHandler:%s", m.name, bfeLog.String())
+	}
 
 	b2logMsg, err := b2logMsgGen(bfeLog)
 	if err != nil {
