@@ -24,7 +24,6 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
-	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_token_auth"
 )
 
 // BodyProcessor 扩展中断支持
@@ -33,12 +32,12 @@ type BodyProcessor struct {
 	buffer     *bytes.Buffer
 	decoder    EventDecoder
 	processors []EventProcessor
-	encoder	    EventEncoder
+	encoder    EventEncoder
 	// mu         sync.Mutex
 	// closed     bool
-	err        error
-	rejection  *RejectionError // 中断时存储的违规信息
-	
+	err       error
+	rejection *RejectionError // 中断时存储的违规信息
+
 	// 中断时回调
 	onReject func(error, *BodyProcessor)
 }
@@ -139,7 +138,7 @@ func (bp *BodyProcessor) CreateEventEncoder(fac EventEncoderFac) {
 func (bp *BodyProcessor) AddProcessor(p EventProcessor) {
 	// bp.mu.Lock()
 	// defer bp.mu.Unlock()
-	
+
 	bp.processors = append(bp.processors, p)
 }
 
@@ -154,22 +153,22 @@ func (f EventProcessorFunc) Process(events []Event) ([]Event, error) {
 func (bp *BodyProcessor) Read(p []byte) (n int, err error) {
 	// bp.mu.Lock()
 	// defer bp.mu.Unlock()
-	
+
 	// if bp.rejection != nil {
 	// 	return 0, bp.rejection // 返回违规错误
 	// }
-	
+
 	if bp.err != nil && bp.err != io.EOF {
 		return 0, bp.err
 	}
-	
+
 	// 检查缓冲区是否足够
 	if bp.buffer.Len() < len(p) && bp.err != io.EOF {
 		if err := bp.fillBuffer(); err != nil {
 			return 0, err
 		}
 	}
-	
+
 	return bp.buffer.Read(p)
 }
 
@@ -219,7 +218,7 @@ func (bp *BodyProcessor) fillBuffer() error {
 // handleRejection 处理内容违规事件
 func (bp *BodyProcessor) handleRejection(err *RejectionError) {
 	bp.rejection = err
-	
+
 	// 触发回调
 	if bp.onReject != nil {
 		bp.onReject(err, bp)
@@ -237,7 +236,7 @@ func (bp *BodyProcessor) RejectionResponse() *RejectionError {
 func (bp *BodyProcessor) Close() error {
 	// bp.mu.Lock()
 	// defer bp.mu.Unlock()
-	
+
 	return bp.source.Close()
 }
 
@@ -246,11 +245,11 @@ func (bp *BodyProcessor) Close() error {
 func (bp *BodyProcessor) FillBuffer() error {
 	// bp.mu.Lock()
 	// defer bp.mu.Unlock()
-	
+
 	if bp.err != nil {
 		return bp.err
 	}
-	
+
 	return bp.fillBuffer()
 }
 
@@ -271,8 +270,9 @@ func (m *ModuleBodyProcess) DoRequestProcess(req *bfe_basic.Request, conf *BodyP
 		bp.CreateEventDecoder(NewJsonDecoder)
 	default:
 		contentType := req.HttpRequest.Header.Get("Content-Type")
-		bp.CreateEventDecoder(func(source io.Reader)(EventDecoder, error) {
-			return NewContentTypeDecoder(source, contentType)} ) // 使用ContentTypeDecoder根据Content-Type自动选择解码器
+		bp.CreateEventDecoder(func(source io.Reader) (EventDecoder, error) {
+			return NewContentTypeDecoder(source, contentType)
+		}) // 使用ContentTypeDecoder根据Content-Type自动选择解码器
 		// bp.CreateEventDecoder(NewJsonDecoder) // 默认使用ndJson解码
 	}
 	bp.CreateEventEncoder(NewGeneralEncoder)
@@ -283,7 +283,7 @@ func (m *ModuleBodyProcess) DoRequestProcess(req *bfe_basic.Request, conf *BodyP
 			bp.AddProcessor(caf)
 		}
 	}
-	
+
 	req.HttpRequest.Body = bp
 	req.HttpRequest.ContentLength = -1 // 设置为-1表示不确定长度
 	req.HttpRequest.Header.Del("Content-Length")
@@ -299,7 +299,7 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 	}
 
 	m.state.ResProcess.Inc(1)
-	
+
 	bp := NewBodyProcessor(res.Body)
 	// 缺省添加streamcompletion处理器
 	if ccq != nil {
@@ -312,7 +312,7 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 	}
 
 	switch dec {
-	case "sse":  // sse is not available for request body
+	case "sse": // sse is not available for request body
 		bp.CreateEventDecoder(NewSSEEventDecoder)
 	case "line":
 		bp.CreateEventDecoder(NewLineDecoder)
@@ -320,8 +320,9 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 		bp.CreateEventDecoder(NewJsonDecoder)
 	default:
 		contentType := res.Header.Get("Content-Type")
-		bp.CreateEventDecoder(func(source io.Reader)(EventDecoder, error) {
-			return NewContentTypeDecoder(source, contentType)} ) // 使用ContentTypeDecoder根据Content-Type自动选择解码器
+		bp.CreateEventDecoder(func(source io.Reader) (EventDecoder, error) {
+			return NewContentTypeDecoder(source, contentType)
+		}) // 使用ContentTypeDecoder根据Content-Type自动选择解码器
 		// bp.CreateEventDecoder(NewJsonDecoder) // 默认使用ndJson解码
 	}
 
@@ -342,6 +343,7 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 	res.Header.Del("Content-Length")
 	return bp
 }
+
 /*
 func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_http.Response, conf *BodyProcessConfig) *BodyProcessor {
 	if conf == nil {
@@ -364,7 +366,7 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 			return NewContentTypeDecoder(source, contentType)} ) // 使用ContentTypeDecoder根据Content-Type自动选择解码器
 		// bp.CreateEventDecoder(NewJsonDecoder) // 默认使用ndJson解码
 	}
-	
+
 	bp.CreateEventEncoder(NewGeneralEncoder)
 
 	// 缺省添加streamcompletion处理器
@@ -573,26 +575,28 @@ func GetEventTokens(ev Event) int64 {
 
 	switch e := ev.(type) {
 	case *RawEvent:
-		return int64(len(*e)/4)
+		return int64(len(*e) / 4)
 	case *SSEEvent:
-		return int64(len(e.Data)/4)
+		return int64(len(e.Data) / 4)
 	default:
 		return 0
 	}
 }
 
 func NewCalcCompletionQuota(req *bfe_basic.Request) EventProcessorFunc {
-	ctx := mod_ai_token_auth.GetTokenAuthContext(req)
-	if ctx == nil || ctx.CompletionTokens != -1 {
-		return nil // 没有token上下文，或 CompletionTokens 已知，无需计算
+	aiBasicInfo := req.GetAiBasicInfo()
+	if aiBasicInfo == nil {
+		return nil // 没有token上下文，无需计算
 	}
+
+	tusage := aiBasicInfo.GetTokenUsage()
 	return func(events []Event) ([]Event, error) {
 		for _, ev := range events {
-			if ctx.CompletionTokens == -1 {
-				ctx.CompletionTokens = 0 // 初始化为0
+			if tusage.CompletionTokens == -1 {
+				tusage.CompletionTokens = 0 // 初始化为0
 			}
 			// 累加事件的token数
-			ctx.CompletionTokens += GetEventTokens(ev)
+			tusage.CompletionTokens += GetEventTokens(ev)
 		}
 		return events, nil // 没有事件，直接返回
 	}

@@ -22,6 +22,7 @@ import (
 	"github.com/baidu/go-lib/log"
 	"github.com/baidu/go-lib/web-monitor/metrics"
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
+	"github.com/tidwall/gjson"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
@@ -38,9 +39,9 @@ var (
 )
 
 type ModuleAITokenAuthState struct {
-	ReqTotal           *metrics.Counter
-	ReqAuth            *metrics.Counter
-	ReqAuthFail        *metrics.Counter
+	ReqTotal    *metrics.Counter
+	ReqAuth     *metrics.Counter
+	ReqAuthFail *metrics.Counter
 }
 
 type ModuleAITokenAuth struct {
@@ -76,12 +77,7 @@ func (m *ModuleAITokenAuth) loadProductRuleConf(query url.Values) error {
 		return fmt.Errorf("err in ProductRuleConfLoad(%s): %s", path, err)
 	}
 
-	oldtokens := m.ruleTable.Update(conf)
-	// clean old tokens' used quota in redis
-	for _, t := range oldtokens {
-		key := usedQuotaKey(t.Key, t.UpdateTime)
-		m.redisClient.Expire(key, 3600)
-	}
+	m.ruleTable.Update(conf)
 
 	return nil
 }
@@ -113,14 +109,41 @@ func (m *ModuleAITokenAuth) matchTokenRule(req *bfe_basic.Request) bool {
 	return false
 }
 
+func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
+	var used, prompt, completion int64
+
+	used = gjson.GetBytes(data, "usage.total_tokens").Int()
+	prompt = gjson.GetBytes(data, "usage.prompt_tokens").Int()
+	completion = gjson.GetBytes(data, "usage.completion_tokens").Int()
+
+	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
+	if used > 0 {
+		tokenUsage.UsedQuota = used
+		tokenUsage.PromptTokens = prompt
+		tokenUsage.CompletionTokens = completion
+	} else if prompt > 0 || completion > 0 {
+		tokenUsage.UsedQuota = prompt + completion
+		tokenUsage.PromptTokens = prompt
+		tokenUsage.CompletionTokens = completion
+	}
+}
+
 func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
 	ctx := GetTokenAuthContext(req) // ensure token auth context is set
 	if ctx == nil {
 		return bfe_module.BfeHandlerGoOn
 	}
 
-	if res.ContentLength >= 0 {
-		ctx.CompletionTokens = int64(res.ContentLength) / 4 // estimate completion tokens
+	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
+	if res.StatusCode == bfe_http.StatusOK && res.ContentLength >= 0 {
+		if bodyAccessor, err := res.GetBodyAccessor(); err == nil {
+			body, _ := bodyAccessor.GetBytes()
+			UpdateCtxByUsage(ctx, body)
+		}
+		if tokenUsage.UsedQuota <= 0 {
+			tokenUsage.CompletionTokens = int64(res.ContentLength) / 4                                         // estimate completion tokens
+			tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens) // calculate used quota
+		}
 	}
 	return bfe_module.BfeHandlerGoOn
 }
@@ -134,14 +157,31 @@ func CalcReqUsedQuota(req *bfe_basic.Request, promptTokens, completionTokens int
 }
 
 func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
+	if res == nil || res.StatusCode != bfe_http.StatusOK {
+		// only count used quota for successful requests
+		return bfe_module.BfeHandlerGoOn
+	}
+
 	ctx := GetTokenAuthContext(req) // ensure token auth context is set
 	if ctx == nil {
 		return bfe_module.BfeHandlerGoOn
 	}
 
-	ctx.UsedQuota = CalcReqUsedQuota(req, ctx.PromptTokens, ctx.CompletionTokens) // calculate used quota
-	if ctx.UsedQuota > 0 {
-		m.IncrTokenUsedQuotaBy(ctx.Token, ctx.UsedQuota) // increment token used quota
+	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
+	if tokenUsage.UsedQuota <= 0 {
+		tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens) // calculate used quota
+	}
+	if tokenUsage.UsedQuota > 0 {
+		// deduct usedquota from every quotaplan
+		for _, plan := range ctx.Token.QuotaPlans {
+			if plan.Unlimited {
+				continue
+			}
+			_, err := plan.Deduct(m.redisClient, tokenUsage.UsedQuota)
+			if err != nil {
+				return bfe_module.BfeHandlerGoOn
+			}
+		}
 	}
 
 	return bfe_module.BfeHandlerGoOn
@@ -182,17 +222,12 @@ func (m *ModuleAITokenAuth) tokenFoundProductHandler(req *bfe_basic.Request) (in
 	tok, err := m.ValidateUserTokenByReq(req)
 	if err != nil {
 		m.state.ReqAuthFail.Inc(1)
-		resp := bfe_basic.CreateSpecifiedContentResp(req, bfe_http.StatusUnauthorized, "text/plain",
-			fmt.Sprintf("token authentication failed: %s", err.Error()))
+		resp := err.CreateErrorResponse(req)
 		return bfe_module.BfeHandlerResponse, resp
 	}
 
 	promptToken := GetPromptToken(req)
-	SetTokenAuthContext(req, &TokenAuthContext{
-		Token: tok,
-		PromptTokens: promptToken,
-		CompletionTokens: -1, // -1 - unknown
-	})
+	SetTokenAuthContext(req, tok, promptToken)
 
 	return bfe_module.BfeHandlerGoOn, nil
 }
@@ -285,12 +320,12 @@ func usedQuotaKey(key string, updatetime int64) string {
 }
 
 type TokenAuthContext struct {
-	Token *Token
-	PromptTokens int64 // number of tokens in the prompt
-	CompletionTokens int64 // number of tokens in the completion
-	UsedQuota int64 // used quota for this request
+	Token       *Token
+	aiBasicInfo *bfe_basic.AiBasicInfo
 }
+
 const REQ_TOKEN_AUTH_CONTEXT = "tokenauth_ctx"
+
 func GetTokenAuthContext(req *bfe_basic.Request) *TokenAuthContext {
 	ctx := req.GetContext(REQ_TOKEN_AUTH_CONTEXT)
 	tokenCtx, ok := ctx.(*TokenAuthContext)
@@ -300,8 +335,18 @@ func GetTokenAuthContext(req *bfe_basic.Request) *TokenAuthContext {
 
 	return tokenCtx
 }
+
 // SetTokenAuthContext sets the token authentication context in the request
-func SetTokenAuthContext(req *bfe_basic.Request, tokenCtx *TokenAuthContext) {
+func SetTokenAuthContext(req *bfe_basic.Request, tok *Token, promptToken int64) {
+	aiBasicInfo := req.GetAiBasicInfo()
+	tusage := aiBasicInfo.GetTokenUsage()
+	tusage.PromptTokens = promptToken
+	tusage.CompletionTokens = -1 // -1 - unknown
+
+	tokenCtx := &TokenAuthContext{
+		Token:       tok,
+		aiBasicInfo: aiBasicInfo,
+	}
 	req.SetContext(REQ_TOKEN_AUTH_CONTEXT, tokenCtx)
 }
 
@@ -312,7 +357,7 @@ func GetPromptToken(req *bfe_basic.Request) int64 {
 	if req.HttpRequest.ContentLength > 0 {
 		return req.HttpRequest.ContentLength / 4
 	}
-	
+
 	// if content length is not set, try to peek the body
 	bodyAccessor, _ := req.HttpRequest.GetBodyAccessor()
 	if bodyAccessor == nil {

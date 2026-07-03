@@ -290,3 +290,19 @@ func (r *Response) Write(w io.Writer) error {
 	// Success
 	return nil
 }
+
+func (r *Response) GetBodyAccessor() (BodyAccessor, error) {
+	if r.Body == nil {
+		return nil, nil
+	}
+	bodyAccessor, ok := r.Body.(BodyAccessor)
+	if !ok {
+		var err error
+		r.Body, err = NewBytesBody(r.Body, GetAccessibleBodySize())
+		if err != nil {
+			return nil, errors.New("can't get body")
+		}
+		bodyAccessor, _ = r.Body.(BodyAccessor)
+	}
+	return bodyAccessor, nil
+}
