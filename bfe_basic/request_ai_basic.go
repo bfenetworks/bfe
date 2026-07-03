@@ -27,10 +27,22 @@ const (
 	REQ_AI_RATE_LIMIT_HIT = "__REQ_AI_RATE_LIMIT_HIT"
 )
 
+const (
+	COMPLETION_TOKENS_UNKNOWN = -1
+)
+
 type TokenUsage struct {
 	PromptTokens     int64 // number of tokens in the prompt
 	CompletionTokens int64 // number of tokens in the completion
 	UsedQuota        int64 // used quota for this request
+}
+
+type TokenTimeInfo struct {
+	TReqEnd     int64 // Unix microsecond timestamp when the gateway finishes receiving the request body
+	TFirstToken int64 // Unix microsecond timestamp when the gateway receives the first chunk with valid generated text
+	TLastToken  int64 // Unix microsecond timestamp when the last token is read
+	TTFT        int64 // Time to first token (microseconds), TFirstToken - TReqEnd
+	TPOT        int64 // Average time per output token (microseconds), (TLastToken - TFirstToken) / (CompletionTokens - 1)
 }
 
 type ApikeyTag struct {
@@ -38,12 +50,19 @@ type ApikeyTag struct {
 	TagValues []string //eg entity.name
 }
 
+type AiAuthInfo struct {
+	RejectReason     string   // reason for rejection
+	RejectQuotaPlans []string // quota plan IDs rejected due to insufficient quota
+}
+
 type AiBasicInfo struct {
-	ClientApiKey string
-	ClientModel  string
-	TargetModel  string
-	tokenUsage   TokenUsage
-	ApikeyTags   []ApikeyTag
+	ClientApiKey  string
+	ClientModel   string
+	TargetModel   string
+	tokenUsage    TokenUsage
+	ApikeyTags    []ApikeyTag
+	TokenTimeInfo TokenTimeInfo
+	AiAuthInfo    AiAuthInfo
 }
 
 func (aiinfo *AiBasicInfo) GetTokenUsage() *TokenUsage {
@@ -66,8 +85,9 @@ func GetApiKey(req *Request) string {
 
 // Set user context by key and val.
 func (r *Request) InitAiBasicInfo() *AiBasicInfo {
-	//TODO:This should be call in initial Request stage
 	ret := &AiBasicInfo{}
+	ret.tokenUsage.CompletionTokens = COMPLETION_TOKENS_UNKNOWN
+
 	r.SetContext(REQ_AI_BASIC_CONTEXT, ret)
 	return ret
 }
@@ -89,7 +109,7 @@ func (r *Request) GetAiBasicInfo() *AiBasicInfo {
 type HitPolicyInfo struct {
 	TpmRules      []string `json:"tpm_rules"` //name of limiter
 	RpmRules      []string `json:"rpm_rules"` //name of limiter
-	IsConcurrency bool     `json:"is_conncurrency"`
+	IsConcurrency bool     `json:"is_concurrency"`
 }
 
 type AiRateLimitHitInfo struct {
@@ -116,12 +136,23 @@ func (r *Request) InitAiRateLimitHitInfo() *AiRateLimitHitInfo {
 }
 
 func (r *Request) GetAiRateLimitHitInfo() *AiRateLimitHitInfo {
-	var ret *AiRateLimitHitInfo
 	ctx := r.GetContext(REQ_AI_RATE_LIMIT_HIT)
-	if ctx != nil {
-		ret, _ = ctx.(*AiRateLimitHitInfo)
+	if ctx == nil {
+		return nil
 	}
-	return ret
+	info, ok := ctx.(*AiRateLimitHitInfo)
+	if !ok {
+		return nil
+	}
+	return info
+}
+
+func (r *Request) GetApikeyTags() []ApikeyTag {
+	aiInfo := r.GetAiBasicInfo()
+	if aiInfo == nil {
+		return nil
+	}
+	return aiInfo.ApikeyTags
 }
 
 const (
