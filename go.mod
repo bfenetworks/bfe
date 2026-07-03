@@ -48,6 +48,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/sjson v1.2.5
+	google.golang.org/protobuf v1.36.5
 )
 
 require (
@@ -61,12 +62,12 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
-	google.golang.org/protobuf v1.36.5 // indirect
 )
 
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
+	github.com/bfenetworks/bfe-access-pb v0.1.0
 	github.com/bfenetworks/bfe-mock-waf v0.1.0
 	github.com/bfenetworks/bwi v0.1.2
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -93,3 +94,4 @@ require (
 )
 
 // replace github.com/bfenetworks/proxy-wasm-go-host => ../proxy-wasm-go-host
+// replace github.com/bfenetworks/bfe-access-pb => ../bfe-access-pb
