@@ -16,19 +16,15 @@ package mod_trace
 
 import (
 	"fmt"
-)
 
-import (
 	"github.com/baidu/go-lib/log"
-	"gopkg.in/gcfg.v1"
-)
-
-import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trace/trace"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trace/trace/elastic"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trace/trace/jaeger"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_trace/trace/otel"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trace/trace/zipkin"
 	"github.com/bfenetworks/bfe/bfe_util"
+	"gopkg.in/gcfg.v1"
 )
 
 const (
@@ -40,6 +36,7 @@ var (
 		zipkin.Name:  true,
 		jaeger.Name:  true,
 		elastic.Name: true,
+		otel.Name:    true,
 	}
 )
 
@@ -47,7 +44,7 @@ type ConfModTrace struct {
 	Basic struct {
 		DataPath    string // The path of rule data
 		ServiceName string // The name of this service
-		TraceAgent  string // The type of trace agent: zipkin, jaeger or elastic
+		TraceAgent  string // The type of trace agent: zipkin, jaeger, elastic or otel
 	}
 
 	Log struct {
@@ -57,6 +54,7 @@ type ConfModTrace struct {
 	Zipkin  zipkin.Config  // Settings for zipkin, only useful when TraceAgent is zipkin
 	Jaeger  jaeger.Config  // Settings for jaeger, only useful when TraceAgent is jaeger
 	Elastic elastic.Config // Settings for elastic, only useful when TraceAgent is elastic
+	Otel    otel.Config    // Settings for opentelemetry, only useful when TraceAgent is otel
 }
 
 func ConfLoad(filePath string, confRoot string) (*ConfModTrace, error) {
@@ -102,6 +100,8 @@ func (cfg *ConfModTrace) GetTraceConfig() trace.TraceAgent {
 		return &cfg.Zipkin
 	case elastic.Name:
 		return &cfg.Elastic
+	case otel.Name:
+		return &cfg.Otel
 	default:
 		return &cfg.Jaeger
 	}
