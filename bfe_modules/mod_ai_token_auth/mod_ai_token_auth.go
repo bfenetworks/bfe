@@ -227,7 +227,7 @@ func (m *ModuleAITokenAuth) tokenFoundProductHandler(req *bfe_basic.Request) (in
 	}
 
 	promptToken := GetPromptToken(req)
-	SetTokenAuthContext(req, tok, promptToken)
+	SetTokenAuthContext(req, tok, promptToken, tok.Tags)
 
 	return bfe_module.BfeHandlerGoOn, nil
 }
@@ -337,11 +337,12 @@ func GetTokenAuthContext(req *bfe_basic.Request) *TokenAuthContext {
 }
 
 // SetTokenAuthContext sets the token authentication context in the request
-func SetTokenAuthContext(req *bfe_basic.Request, tok *Token, promptToken int64) {
+func SetTokenAuthContext(req *bfe_basic.Request, tok *Token, promptToken int64, tags []bfe_basic.ApikeyTag) {
 	aiBasicInfo := req.GetAiBasicInfo()
 	tusage := aiBasicInfo.GetTokenUsage()
 	tusage.PromptTokens = promptToken
 	tusage.CompletionTokens = -1 // -1 - unknown
+	aiBasicInfo.ApikeyTags = tags
 
 	tokenCtx := &TokenAuthContext{
 		Token:       tok,
