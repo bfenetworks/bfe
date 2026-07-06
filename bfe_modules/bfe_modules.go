@@ -19,6 +19,7 @@ package bfe_modules
 import (
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_access_pb3"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_rate_limit"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_token_auth"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_auth_basic"
@@ -151,6 +152,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	//depends on token calc
 	mod_ai_rate_limit.NewModuleAiRateLimit(),
+
+	// mod_access_pb3
+	mod_access_pb3.NewModuleAccessPb3(),
 }
 
 // init modules list

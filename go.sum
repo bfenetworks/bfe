@@ -18,6 +18,8 @@ github.com/baidu/go-lib v0.0.0-20200819072111-21df249f5e6a h1:m/u39GNhkoUSC9WxTu
 github.com/baidu/go-lib v0.0.0-20200819072111-21df249f5e6a/go.mod h1:FneHDqz3wLeDGdWfRyW4CzBbCwaqesLGIFb09N80/ww=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
+github.com/bfenetworks/bfe-access-pb v0.1.0 h1:wVFgWNIiU06v7UkycZ+1IIlUBtn4zAhrjLqLbgNzrDU=
+github.com/bfenetworks/bfe-access-pb v0.1.0/go.mod h1:XZVAEiVf88PQqSHncZFFvUEK9ZdN1aaiuugRHTIBgNo=
 github.com/bfenetworks/bfe-mock-waf v0.1.0 h1:dTd540S3nv6qNlG6lLC0F8qx3gyo5WB4wnci3+d4J78=
 github.com/bfenetworks/bfe-mock-waf v0.1.0/go.mod h1:MWZHbihiRQXpoUCvY1l18s2bfOBWx4N4pghxBt+xUv0=
 github.com/bfenetworks/bwi v0.1.2 h1:3AcCzUjyzKm+FeLgTIVg58u+SUdEVZdJbQM58Ezwjcg=
