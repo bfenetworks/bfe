@@ -46,8 +46,8 @@ type TokenTimeInfo struct {
 }
 
 type ApikeyTag struct {
-	TagName   string   //eg entity.type
-	TagValues []string //eg entity.name
+	TagName  string //eg entity.type
+	TagValue string //eg entity.name
 }
 
 type AiAuthInfo struct {
