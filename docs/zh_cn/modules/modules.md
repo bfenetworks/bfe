@@ -15,6 +15,7 @@
 - [mod_prison](mod_prison/mod_prison.md)
 - [mod_redirect](mod_redirect/mod_redirect.md)
 - [mod_rewrite](mod_rewrite/mod_rewrite.md)
+- [mod_session_sticky](mod_session_sticky/mod_session_sticky.md)
 - [mod_static](mod_static/mod_static.md)
 - [mod_tag](mod_tag/mod_tag.md)
 - [mod_trace](mod_trace/mod_trace.md)

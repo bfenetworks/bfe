@@ -27,8 +27,8 @@ import (
 const (
 	DefaultCookieKey       = "bfe_ssbl"
 	DefaultMaxAge          = 3600
-	DefaultMaskCode        = "maskcode"
-	DefaultStandbyMaskCode = "standbymaskcode"
+	DefaultMaskCode        = "defaultmask"
+	DefaultStandbyMaskCode = "standbymask"
 	DefaultHttpOnly        = false
 	DefaultSecure          = false
 
