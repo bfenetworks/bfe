@@ -105,3 +105,14 @@ type ServerDataConfInterface interface {
 	ClusterTableLookup(clusterName string) (*bfe_cluster.BfeCluster, error)
 	HostTableLookup(hostname string) (string, error)
 }
+
+type SessionStickyBackend struct {
+	Addr       *string `json:"ip"`
+	Port       *int    `json:"port"`
+	SubCluster *string `json:"subcluster"`
+	RenewTime  *int64  `json:"renewtime"`
+}
+
+const (
+	SessionStickyBackendKey = "SessionStickyBackendKey"
+)

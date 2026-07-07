@@ -115,6 +115,15 @@ func (r *Response) Cookies() []*Cookie {
 	return readSetCookies(r.Header)
 }
 
+func (r *Response) Cookie(name string) (*Cookie, error) {
+	for _, c := range readSetCookies(r.Header) {
+		if c.Name == name {
+			return c, nil
+		}
+	}
+	return nil, ErrNoCookie
+}
+
 var ErrNoLocation = errors.New("http: no Location header in response")
 
 // Location returns the URL of the response's "Location" header,

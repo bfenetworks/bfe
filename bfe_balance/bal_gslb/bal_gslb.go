@@ -61,11 +61,11 @@ type BalanceGslb struct {
 	BalanceMode string                // balanceMode, WRR or WLC, defined in cluster_conf
 
 	// EPP related
-	eppClient           epp.EppGrpcClient
-	eppAddrs            []string
-	eppConnTimeout      time.Duration
-	eppCallRetry        uint32
-	eppConcurrency      int
+	eppClient      epp.EppGrpcClient
+	eppAddrs       []string
+	eppConnTimeout time.Duration
+	eppCallRetry   uint32
+	eppConcurrency int
 }
 
 func NewBalanceGslb(name string) *BalanceGslb {
@@ -222,7 +222,6 @@ func (bal *BalanceGslb) chooseBackendFromEPP(req *bfe_basic.Request) (string, *e
 			Request: &extprocv3.ProcessingRequest_RequestBody{
 				RequestBody: &extprocv3.HttpBody{
 					Body:        body,
-					//Body:        httpReq.Body,
 					EndOfStream: true,
 				},
 			},
@@ -268,7 +267,7 @@ func (bal *BalanceGslb) chooseBackendFromEPP(req *bfe_basic.Request) (string, *e
 			return "", nil, err
 		}
 	}
-	
+
 	if addrinfo != "" {
 		return addrinfo, client, nil
 	}
@@ -545,6 +544,14 @@ func (bal *BalanceGslb) Balance(req *bfe_basic.Request) (*bal_backend.BfeBackend
 		return nil, bfe_basic.ErrBkRetryTooMany
 	}
 
+	// if there is backend info in req's context, bfe will try to lookup backend info;
+	if bal.isContextWithBackend(req) {
+		backend, _, err := bal.LookupStickyBackend(req)
+		if err == nil {
+			return backend, err
+		}
+	}
+
 	// select balance mode
 	switch bal.BalanceMode {
 	case cluster_conf.BalanceModeWlc:
@@ -703,6 +710,45 @@ func (bal *BalanceGslb) randomSelectExclude(excludeCluster *SubCluster) (*SubClu
 
 	// never reach here
 	return subCluster, fmt.Errorf("randomSelectExclude():should not reach here")
+}
+
+func (bal *BalanceGslb) isContextWithBackend(req *bfe_basic.Request) bool {
+	_, ok := req.Context[bfe_basic.SessionStickyBackendKey]
+	return ok
+}
+
+// lookup session sticky backend from request's context
+func (bal *BalanceGslb) LookupStickyBackend(req *bfe_basic.Request) (*bal_backend.BfeBackend, *SubCluster, error) {
+	if _, ok := req.Context[bfe_basic.SessionStickyBackendKey]; !ok {
+		return nil, nil, fmt.Errorf("no SessionStickyBackendKey in contexts")
+
+	}
+	val, matched := req.Context[bfe_basic.SessionStickyBackendKey].(*bfe_basic.SessionStickyBackend)
+	if !matched {
+		return nil, nil, fmt.Errorf("Context type unmatched: %s", bal.BalanceMode)
+	}
+	var subCluster *SubCluster
+	for _, s := range bal.subClusters {
+		if s.Name == *val.SubCluster && s.weight > 0 {
+			subCluster = s
+			break
+		}
+	}
+	if subCluster == nil {
+		return nil, nil, fmt.Errorf("no subCluster, want: %s", *val.SubCluster)
+	}
+
+	addrInfo := fmt.Sprintf("%s:%d", *val.Addr, *val.Port)
+
+	backend, err := subCluster.backends.LookUpBackend(addrInfo)
+	if err != nil {
+		return backend, subCluster, err
+	}
+
+	req.Backend.SubclusterName = subCluster.Name
+
+	return backend, subCluster, nil
+
 }
 
 func (bal *BalanceGslb) SubClusterNum() int {
