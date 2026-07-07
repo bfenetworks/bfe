@@ -18,15 +18,55 @@ mod_session_sticky 用于实现会话保持功能，确保同一用户的请求�
 | 配置项 | 描述 |
 | ------ | ---- |
 | Basic.DataPath | 规则配置文件路径 |
-| Basic.CacheSize | Sticky 模式下的缓存大小，默认值为 10000 |
+| Basic.CacheSize | Sticky 模式下本地缓存的大小，默认值为 10000（仅当 CacheType 为 local 时生效） |
+| Basic.CacheType | 缓存类型，可选值为 "local"（本地 LRU 缓存）或 "redis"（Redis 分布式缓存），默认为 "local" |
 | Log.OpenDebug | 是否启用模块调试日志开关 |
 
+### Redis 配置
+
+当 `CacheType` 设置为 "redis" 时，需要配置以下 Redis 相关参数：
+
+| 配置项 | 描述 |
+| ------ | ---- |
+| Redis.Bns | BNS 服务名称 |
+| Redis.ConnectTimeout | 连接超时时间，单位为毫秒 |
+| Redis.ReadTimeout | 读取超时时间，单位为毫秒 |
+| Redis.WriteTimeout | 写入超时时间，单位为毫秒 |
+| Redis.MaxIdle | 最大空闲连接数 |
+| Redis.MaxActive | 最大活跃连接数（0 表示不限） |
+| Redis.Password | Redis 密码 |
+| Redis.ExpireSeconds | 缓存过期时间，单位为秒 |
+
 ### 配置示例
+
+#### 本地缓存模式
 
 ```ini
 [Basic]
 DataPath = mod_session_sticky/session_sticky.data
 CacheSize = 10000
+CacheType = local
+
+[Log]
+OpenDebug = true
+```
+
+#### Redis 缓存模式
+
+```ini
+[Basic]
+DataPath = mod_session_sticky/session_sticky.data
+CacheType = redis
+
+[Redis]
+Bns = redis.service
+ConnectTimeout = 1000
+ReadTimeout = 1000
+WriteTimeout = 1000
+MaxIdle = 10
+MaxActive = 100
+Password = 
+ExpireSeconds = 3600
 
 [Log]
 OpenDebug = true
@@ -54,6 +94,8 @@ OpenDebug = true
 | Config[v][].StandbyMaskCode | String<br>备用掩码，当主掩码解密失败时使用，长度不小于 4 |
 | Config[v][].Header | String<br>Sticky 模式下，从请求头中获取 stickyid 的字段名 |
 | Config[v][].URIParam | String<br>Sticky 模式下，从 URL 参数中获取 stickyid 的参数名 |
+| Config[v][].StickyRequestField | String<br>Sticky 模式下，从 JSON 请求体中提取 stickyid 的字段名（如 previous_response_id），用于 OpenAI 兼容接口 |
+| Config[v][].StickyResponseField | String<br>Sticky 模式下，从 JSON 响应体中提取 stickyid 的字段名（如 response_id），用于 OpenAI 兼容接口 |
 | Config[v][].Secure | Boolean<br>Cookie 的 Secure 属性，默认为 false |
 | Config[v][].HttpOnly | Boolean<br>Cookie 的 HttpOnly 属性，默认为 false |
 | Config[v][].RenewWindow | Integer<br>Cookie 续期窗口，单位为秒。当剩余有效期小于此值时，会重新设置 Cookie。默认为 MaxAge 的一半 |
@@ -113,8 +155,26 @@ OpenDebug = true
 
 ### Sticky 模式
 
-1. **Encode（编码阶段）**：当请求首次到达时，BFE 选择后端，并将 stickyid（从 Cookie）与后端信息的映射关系存入缓存
-2. **Decode（解码阶段）**：客户端后续请求携带相同的 stickyid（从 Cookie、请求头或 URL 参数中获取），BFE 从缓存中查找对应的后端信息，将请求路由到对应的后端
+1. **Encode（编码阶段）**：当请求首次到达时，BFE 选择后端，并将 stickyid（从 Cookie 或 JSON 响应体中获取）与后端信息的映射关系存入缓存
+2. **Decode（解码阶段）**：客户端后续请求携带相同的 stickyid（从 Cookie、请求头、URL 参数或 JSON 请求体中获取），BFE 从缓存中查找对应的后端信息，将请求路由到对应的后端
+
+### 缓存类型
+
+模块支持两种缓存类型：
+
+- **local（本地缓存）**：使用 LRU 缓存存储 stickyid 与后端的映射关系，适用于单机部署或无需跨节点共享会话的场景
+- **redis（Redis 分布式缓存）**：使用 Redis 存储映射关系，适用于多节点部署场景，确保会话在不同节点间共享
+
+### JSON 请求/响应体字段
+
+对于 OpenAI 兼容接口等场景，模块支持从 JSON 请求体和响应体中提取 stickyid：
+
+- **StickyRequestField**：从 JSON 请求体中提取 stickyid，例如从 `previous_response_id` 字段获取
+- **StickyResponseField**：从 JSON 响应体中提取 stickyid，例如从 `response_id` 字段获取
+
+提取优先级（Decode 阶段）：Cookie > Header > URIParam > StickyRequestField
+
+提取优先级（Encode 阶段）：Cookie > StickyResponseField
 
 ### Cookie 续期机制
 

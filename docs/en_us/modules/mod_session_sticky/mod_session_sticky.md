@@ -18,15 +18,55 @@ conf/mod_session_sticky/mod_session_sticky.conf
 | Config Item | Description |
 | ----------- | ----------- |
 | Basic.DataPath | String<br>Path of rule configuration |
-| Basic.CacheSize | Integer<br>Cache size for Sticky mode, default is 10000 |
+| Basic.CacheSize | Integer<br>Cache size for Sticky mode, default is 10000 (only effective when CacheType is "local") |
+| Basic.CacheType | String<br>Cache type, "local" (LRU cache) or "redis" (Redis distributed cache), default is "local" |
 | Log.OpenDebug | Boolean<br>Debug flag of module |
 
+### Redis Configuration
+
+When `CacheType` is set to "redis", the following Redis parameters are required:
+
+| Config Item | Description |
+| ----------- | ----------- |
+| Redis.Bns | String<br>BNS service name |
+| Redis.ConnectTimeout | Integer<br>Connect timeout in milliseconds |
+| Redis.ReadTimeout | Integer<br>Read timeout in milliseconds |
+| Redis.WriteTimeout | Integer<br>Write timeout in milliseconds |
+| Redis.MaxIdle | Integer<br>Max idle connections |
+| Redis.MaxActive | Integer<br>Max active connections (0 means unlimited) |
+| Redis.Password | String<br>Redis password |
+| Redis.ExpireSeconds | Integer<br>Cache expire time in seconds |
+
 ### Example
+
+#### Local Cache Mode
 
 ```ini
 [Basic]
 DataPath = mod_session_sticky/session_sticky.data
 CacheSize = 10000
+CacheType = local
+
+[Log]
+OpenDebug = true
+```
+
+#### Redis Cache Mode
+
+```ini
+[Basic]
+DataPath = mod_session_sticky/session_sticky.data
+CacheType = redis
+
+[Redis]
+Bns = redis.service
+ConnectTimeout = 1000
+ReadTimeout = 1000
+WriteTimeout = 1000
+MaxIdle = 10
+MaxActive = 100
+Password = 
+ExpireSeconds = 3600
 
 [Log]
 OpenDebug = true
@@ -54,6 +94,8 @@ conf/mod_session_sticky/session_sticky.data
 | Config[v][].StandbyMaskCode | String<br>Standby mask code for decrypting when primary fails, minimum length 4 |
 | Config[v][].Header | String<br>Header name to get stickyid in Sticky mode |
 | Config[v][].URIParam | String<br>URL parameter name to get stickyid in Sticky mode |
+| Config[v][].StickyRequestField | String<br>JSON field name in request body for sticky ID (e.g., previous_response_id), used for OpenAI-compatible interfaces |
+| Config[v][].StickyResponseField | String<br>JSON field name in response body for sticky ID (e.g., response_id), used for OpenAI-compatible interfaces |
 | Config[v][].Secure | Boolean<br>Cookie Secure attribute, default is false |
 | Config[v][].HttpOnly | Boolean<br>Cookie HttpOnly attribute, default is false |
 | Config[v][].RenewWindow | Integer<br>Cookie renew window in seconds. When remaining validity is less than this value, Cookie will be reset. Default is half of MaxAge |
@@ -113,8 +155,26 @@ conf/mod_session_sticky/session_sticky.data
 
 ### Sticky Mode
 
-1. **Encode**: When a request first arrives, BFE selects a backend and stores the mapping between stickyid (obtained from Cookie) and backend information in the cache.
-2. **Decode**: Subsequent requests from the client carry the same stickyid (obtained from Cookie, request header, or URL parameter). BFE looks up the corresponding backend information from the cache and routes the request to the corresponding backend.
+1. **Encode**: When a request first arrives, BFE selects a backend and stores the mapping between stickyid (obtained from Cookie or JSON response body) and backend information in the cache.
+2. **Decode**: Subsequent requests from the client carry the same stickyid (obtained from Cookie, request header, URL parameter, or JSON request body). BFE looks up the corresponding backend information from the cache and routes the request to the corresponding backend.
+
+### Cache Types
+
+The module supports two cache types:
+
+- **local**: Uses LRU cache to store the mapping between stickyid and backend. Suitable for single-node deployment or scenarios where session sharing across nodes is not required.
+- **redis**: Uses Redis to store the mapping. Suitable for multi-node deployment scenarios to ensure session sharing across different nodes.
+
+### JSON Request/Response Fields
+
+For OpenAI-compatible interfaces and similar scenarios, the module supports extracting stickyid from JSON request and response bodies:
+
+- **StickyRequestField**: Extracts stickyid from JSON request body, for example, from the `previous_response_id` field.
+- **StickyResponseField**: Extracts stickyid from JSON response body, for example, from the `response_id` field.
+
+Extraction priority (Decode phase): Cookie > Header > URIParam > StickyRequestField
+
+Extraction priority (Encode phase): Cookie > StickyResponseField
 
 ### Cookie Renewal Mechanism
 

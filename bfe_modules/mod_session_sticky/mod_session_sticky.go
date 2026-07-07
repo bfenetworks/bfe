@@ -26,14 +26,50 @@ import (
 	"github.com/baidu/go-lib/web-monitor/metrics"
 	"github.com/baidu/go-lib/web-monitor/web_monitor"
 	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_basic/condition"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 )
 
 var (
 	openDebug = false
 
 	ModSessionStickyKey = "mod_session_sticky_key"
+
+	// StickyRedisKeyPrefix is the Redis key prefix for sticky mapping
+	StickyRedisKeyPrefix = "bfe:stickyid:"
+)
+
+func (c CacheType) String() string {
+	switch c {
+	case CacheTypeLocal:
+		return "local"
+	case CacheTypeRedis:
+		return "redis"
+	default:
+		return "unknown"
+	}
+}
+
+// ParseCacheType converts string to CacheType
+func ParseCacheType(s string) (CacheType, error) {
+	switch s {
+	case "local":
+		return CacheTypeLocal, nil
+	case "redis":
+		return CacheTypeRedis, nil
+	default:
+		return CacheTypeLocal, fmt.Errorf("invalid cache type: %s", s)
+	}
+}
+
+// CacheType defines the cache type for session sticky
+type CacheType int
+
+const (
+	CacheTypeLocal CacheType = iota // local LRU cache
+	CacheTypeRedis                  // Redis distributed cache
 )
 
 type ModuleSessionState struct {
@@ -48,7 +84,11 @@ type ModuleSessionSticky struct {
 	configPath string            // path of config file
 	ruleTable  *ProductRuleTable // table of sticky rules
 
-	stickyCache *lru_cache.LRUCache
+	// New fields for Redis support
+	cacheType     CacheType // cache type: local or redis
+	stickyCache   *lru_cache.LRUCache
+	redisClient   redis_client.Client // Redis client (redis mode)
+	expireSeconds int                 // cache expire time
 }
 
 func NewModuleSessionSticky() *ModuleSessionSticky {
@@ -125,6 +165,14 @@ func (m *ModuleSessionSticky) FindAndCacheStickyRule(request *bfe_basic.Request,
 type SessionStickyData struct {
 	bk   *bfe_basic.SessionStickyBackend
 	rule *StickyRule
+}
+
+// RedisSessionData is used for JSON serialization when storing in Redis
+type RedisSessionData struct {
+	Addr       string `json:"addr"`
+	Port       int    `json:"port"`
+	SubCluster string `json:"sub_cluster"`
+	CreatedAt  int64  `json:"created_at"`
 }
 
 // find sticky rule which can match request;
@@ -213,15 +261,42 @@ func (m *ModuleSessionSticky) init(cfg *ConfModSessionSticky, cbs *bfe_module.Bf
 	openDebug = cfg.Log.OpenDebug
 
 	m.configPath = cfg.Basic.DataPath
-	m.stickyCache = lru_cache.NewLRUCache(cfg.Basic.CacheSize)
+	cacheType, err := ParseCacheType(cfg.Basic.CacheType)
+	if err != nil {
+		return fmt.Errorf("invalid cache type: %s", err.Error())
+	}
+	m.cacheType = cacheType
+	m.expireSeconds = cfg.Redis.ExpireSeconds
+
+	// Initialize cache based on CacheType
+	if m.cacheType == CacheTypeRedis {
+		// Create Redis client
+		r := cfg.Redis
+		options := &redis_client.Options{
+			ServiceConf:    r.Bns,
+			MaxIdle:        r.MaxIdle,
+			MaxActive:      r.MaxActive,
+			Wait:           false,
+			ConnTimeoutMs:  r.ConnectTimeout,
+			ReadTimeoutMs:  r.ReadTimeout,
+			WriteTimeoutMs: r.WriteTimeout,
+			Password:       r.Password,
+		}
+
+		client := redis_client.NewRedisClient(options)
+		m.redisClient = client
+	} else {
+		// Local LRU cache
+		m.stickyCache = lru_cache.NewLRUCache(cfg.Basic.CacheSize)
+	}
 
 	// load from config file to rule table
-	if err := m.loadConfData(nil); err != nil {
+	if err = m.loadConfData(nil); err != nil {
 		return fmt.Errorf("err in loadConfData(): %s", err.Error())
 	}
 
 	// register handler
-	err := cbs.AddFilter(bfe_module.HandleAfterLocation, m.decodeHandler)
+	err = cbs.AddFilter(bfe_module.HandleAfterLocation, m.decodeHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.decodeHandler): %s", m.name, err.Error())
 	}
@@ -301,16 +376,22 @@ func (m *ModuleSessionSticky) processDecode(req *bfe_basic.Request, rule StickyR
 			stickyid = req.CachedQuery().Get(rule.URIParam)
 		}
 
+		// check JSON request body field (for OpenAI responses interface)
+		if stickyid == "" && rule.StickyRequestField != "" {
+			stickyid = extractStickyIDFromRequestBody(req, rule.StickyRequestField)
+		}
+
 		if stickyid == "" {
 			// no stickyid found in request
 			return
 		}
 
-		val, ok := m.stickyCache.Get(stickyid)
+		// use unified cache interface
+		var ok bool
+		bk, ok = m.getBackendFromCache(stickyid)
 		if !ok {
 			return
 		}
-		bk = val.(*bfe_basic.SessionStickyBackend)
 	}
 
 	req.Context[bfe_basic.SessionStickyBackendKey] = bk
@@ -328,6 +409,99 @@ func getStickyBackend(code string) (*bfe_basic.SessionStickyBackend, error) {
 	return &bk, err
 }
 
+// extractStickyIDFromRequestBody extracts sticky ID from JSON request body
+// Reuse condition.ReqBodyJsonFetch for consistent implementation
+func extractStickyIDFromRequestBody(req *bfe_basic.Request, fieldName string) string {
+	val, err := condition.ReqBodyJsonFetch(req, fieldName, nil)
+	if err != nil || val == "" {
+		return ""
+	}
+	return val
+}
+
+// extractStickyIDFromResponseBody extracts sticky ID from JSON response body
+// Reuse condition.HttpRespBodyJsonGet for consistent implementation
+func extractStickyIDFromResponseBody(res *bfe_http.Response, fieldName string) string {
+	val, err := condition.HttpRespBodyJsonGet(res, fieldName)
+	if err != nil || val == "" {
+		return ""
+	}
+	return val
+}
+
+// getBackendFromCache retrieves backend info from cache
+func (m *ModuleSessionSticky) getBackendFromCache(stickyid string) (*bfe_basic.SessionStickyBackend, bool) {
+	if m.cacheType == CacheTypeRedis {
+		return m.getBackendFromRedis(stickyid)
+	}
+	return m.getBackendFromLocal(stickyid)
+}
+
+// setBackendToCache stores backend info to cache
+func (m *ModuleSessionSticky) setBackendToCache(stickyid string, bk *bfe_basic.SessionStickyBackend) error {
+	if m.cacheType == CacheTypeRedis {
+		return m.setBackendToRedis(stickyid, bk)
+	}
+	m.setBackendToLocal(stickyid, bk)
+	return nil
+}
+
+// getBackendFromLocal retrieves backend info from local LRU cache
+func (m *ModuleSessionSticky) getBackendFromLocal(stickyid string) (*bfe_basic.SessionStickyBackend, bool) {
+	val, ok := m.stickyCache.Get(stickyid)
+	if !ok {
+		return nil, false
+	}
+	bk, ok := val.(*bfe_basic.SessionStickyBackend)
+	return bk, ok
+}
+
+// setBackendToLocal stores backend info to local LRU cache
+func (m *ModuleSessionSticky) setBackendToLocal(stickyid string, bk *bfe_basic.SessionStickyBackend) {
+	m.stickyCache.Add(stickyid, bk)
+}
+
+// getBackendFromRedis retrieves backend info from Redis
+func (m *ModuleSessionSticky) getBackendFromRedis(stickyid string) (*bfe_basic.SessionStickyBackend, bool) {
+	key := StickyRedisKeyPrefix + stickyid
+
+	val, err := m.redisClient.Get(key)
+	if err != nil || val == nil {
+		return nil, false
+	}
+
+	var data RedisSessionData
+	if err := json.Unmarshal([]byte(val.(string)), &data); err != nil {
+		return nil, false
+	}
+
+	bk := &bfe_basic.SessionStickyBackend{
+		Addr:       &data.Addr,
+		Port:       &data.Port,
+		SubCluster: &data.SubCluster,
+	}
+	return bk, true
+}
+
+// setBackendToRedis stores backend info to Redis
+func (m *ModuleSessionSticky) setBackendToRedis(stickyid string, bk *bfe_basic.SessionStickyBackend) error {
+	key := StickyRedisKeyPrefix + stickyid
+
+	data := RedisSessionData{
+		Addr:       *bk.Addr,
+		Port:       *bk.Port,
+		SubCluster: *bk.SubCluster,
+		CreatedAt:  time.Now().Unix(),
+	}
+
+	val, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	return m.redisClient.Setex(key, val, m.expireSeconds)
+}
+
 // encode session sticky info in  http request with given rules.
 func (m *ModuleSessionSticky) processEncode(req *bfe_basic.Request, res *bfe_http.Response, sessiondata SessionStickyData) {
 	// just in case the backend is nil while blackhole subcluser or backend unavailable
@@ -343,6 +517,10 @@ func (m *ModuleSessionSticky) processEncode(req *bfe_basic.Request, res *bfe_htt
 	if rule.Type == RuleTypeSticky {
 		if cookie, err := res.Cookie(rule.CookieKey); err == nil {
 			stickyid = cookie.Value
+		}
+		// If not found in cookie, try JSON response body (for OpenAI responses interface)
+		if stickyid == "" && rule.StickyResponseField != "" {
+			stickyid = extractStickyIDFromResponseBody(res, rule.StickyResponseField)
 		}
 		if stickyid == "" {
 			// no stickyid in response, exit
@@ -413,8 +591,10 @@ func (m *ModuleSessionSticky) processEncode(req *bfe_basic.Request, res *bfe_htt
 		setCookie(&cookie, res)
 		debuglogWithSwitch(fmt.Sprintf("EncodeHandler(): encode cookie [%v]", cookie))
 	case RuleTypeSticky:
-		// save backend for Jessionid
-		m.stickyCache.Add(stickyid, bk)
+		// save backend for sticky_id using unified cache interface
+		if err := m.setBackendToCache(stickyid, bk); err != nil {
+			debuglogWithSwitch(fmt.Sprintf("setBackendToCache failed: %v", err))
+		}
 	}
 }
 

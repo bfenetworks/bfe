@@ -44,35 +44,39 @@ const (
 )
 
 type StickyRuleFile struct {
-	Cond            *string // condition string for sticky
-	Type            *string // "Cookie" | "Sticky"
-	CookieKey       *string // cookie key
-	Domain          *string // cookie domain
-	Path            *string // cookie path
-	MaxAge          *int    // max age
-	MaskCode        *string // active mask code which used to mask original bytes
-	StandbyMaskCode *string // stand by mask code which used to mask original bytes
-	Header          *string // sticky header name
-	URIParam        *string // sticky uri param name
-	Secure          *bool
-	HttpOnly        *bool
-	RenewWindow     *int // renew window in seconds
+	Cond                *string // condition string for sticky
+	Type                *string // "Cookie" | "Sticky"
+	CookieKey           *string // cookie key
+	Domain              *string // cookie domain
+	Path                *string // cookie path
+	MaxAge              *int    // max age
+	MaskCode            *string // active mask code which used to mask original bytes
+	StandbyMaskCode     *string // stand by mask code which used to mask original bytes
+	Header              *string // sticky header name
+	URIParam            *string // sticky uri param name
+	Secure              *bool
+	HttpOnly            *bool
+	RenewWindow         *int    // renew window in seconds
+	StickyRequestField  *string // JSON field name in request body for sticky ID (e.g., previous_response_id)
+	StickyResponseField *string // JSON field name in response body for sticky ID (e.g., response_id)
 }
 
 type StickyRule struct {
-	Cond            condition.Condition // condition for sticky
-	Type            RuleType
-	CookieKey       string // cookie key
-	Domain          string // cookie domain
-	Path            string // cookie path
-	MaxAge          int    // max age
-	MaskCode        string // active mask code which used to mask original bytes
-	StandbyMaskCode string // stand by mask code which used to mask original bytes
-	Header          string // sticky header name
-	URIParam        string // sticky uri param name
-	Secure          bool
-	HttpOnly        bool
-	RenewWindow     int // renew window in seconds
+	Cond                condition.Condition // condition for sticky
+	Type                RuleType
+	CookieKey           string // cookie key
+	Domain              string // cookie domain
+	Path                string // cookie path
+	MaxAge              int    // max age
+	MaskCode            string // active mask code which used to mask original bytes
+	StandbyMaskCode     string // stand by mask code which used to mask original bytes
+	Header              string // sticky header name
+	URIParam            string // sticky uri param name
+	Secure              bool
+	HttpOnly            bool
+	RenewWindow         int    // renew window in seconds
+	StickyRequestField  string // JSON field name in request body for sticky ID (e.g., previous_response_id)
+	StickyResponseField string // JSON field name in response body for sticky ID (e.g., response_id)
 }
 
 type StickyRuleFileList []StickyRuleFile
@@ -250,6 +254,14 @@ func ruleConvert(ruleFile StickyRuleFile) (StickyRule, error) {
 		}
 	} else {
 		rule.RenewWindow = *(ruleFile.RenewWindow)
+	}
+
+	if ruleFile.StickyRequestField != nil {
+		rule.StickyRequestField = *(ruleFile.StickyRequestField)
+	}
+
+	if ruleFile.StickyResponseField != nil {
+		rule.StickyResponseField = *(ruleFile.StickyResponseField)
 	}
 
 	return rule, nil
