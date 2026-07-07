@@ -15,8 +15,11 @@
 package mod_session_sticky
 
 import (
+	"fmt"
+
 	"github.com/baidu/go-lib/log"
 	"github.com/bfenetworks/bfe/bfe_util"
+	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 	gcfg "gopkg.in/gcfg.v1"
 )
 
@@ -28,6 +31,19 @@ type ConfModSessionSticky struct {
 	Basic struct {
 		DataPath  string // path of config data (session sticky)
 		CacheSize int    // sticky cache size
+		CacheType string // cache type: "local" or "redis"
+	}
+
+	// Redis configuration (refer to mod_req_limit)
+	Redis struct {
+		Bns            string // BNS service name
+		ConnectTimeout int    // connect timeout (ms)
+		ReadTimeout    int    // read timeout (ms)
+		WriteTimeout   int    // write timeout (ms)
+		MaxIdle        int    // max idle connections
+		MaxActive      int    // max active connections (0 means unlimited)
+		Password       string // Redis password
+		ExpireSeconds  int    // cache expire time (seconds)
 	}
 
 	Log struct {
@@ -65,5 +81,35 @@ func (cfg *ConfModSessionSticky) Check(confRoot string) error {
 	if cfg.Basic.CacheSize < defaultCacheSize {
 		cfg.Basic.CacheSize = defaultCacheSize
 	}
+
+	// Set default CacheType to "local" for backward compatibility
+	if cfg.Basic.CacheType == "" {
+		cfg.Basic.CacheType = "local"
+	}
+
+	// Validate CacheType
+	if cfg.Basic.CacheType != "local" && cfg.Basic.CacheType != "redis" {
+		return fmt.Errorf("CacheType must be 'local' or 'redis', got '%s'", cfg.Basic.CacheType)
+	}
+
+	// Validate Redis configuration if in redis mode
+	if cfg.Basic.CacheType == "redis" {
+		if err := redis_client.CheckRedisConf(cfg.Redis.Bns); err != nil {
+			return fmt.Errorf("Redis config check failed: %s", err.Error())
+		}
+		if cfg.Redis.ConnectTimeout <= 0 {
+			return fmt.Errorf("Redis.ConnectTimeout must be > 0")
+		}
+		if cfg.Redis.ReadTimeout <= 0 {
+			return fmt.Errorf("Redis.ReadTimeout must be > 0")
+		}
+		if cfg.Redis.WriteTimeout <= 0 {
+			return fmt.Errorf("Redis.WriteTimeout must be > 0")
+		}
+		if cfg.Redis.ExpireSeconds <= 0 {
+			return fmt.Errorf("Redis.ExpireSeconds must be > 0")
+		}
+	}
+
 	return nil
 }

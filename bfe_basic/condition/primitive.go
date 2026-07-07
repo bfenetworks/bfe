@@ -1091,7 +1091,7 @@ func (t *PeriodicTimeMatcher) Match(v interface{}) bool {
 	return seconds >= t.startTime && seconds <= t.endTime
 }
 
-type ReqBodyJsonFetcher struct{
+type ReqBodyJsonFetcher struct {
 	path string
 }
 
@@ -1140,6 +1140,31 @@ func HttpReqBodyJsonGet(req *bfe_http.Request, path string) (string, error) {
 	}
 
 	body, _ := bodyAccessor.GetBytes()
+	val := gjson.GetBytes(body, path)
+	if !val.Exists() {
+		return "", nil
+	}
+
+	return val.String(), nil
+}
+
+// HttpRespBodyJsonGet extracts JSON field value from HTTP response body
+// Similar to HttpReqBodyJsonGet but for responses
+func HttpRespBodyJsonGet(res *bfe_http.Response, path string) (string, error) {
+	if res == nil {
+		return "", fmt.Errorf("HttpRespBodyJsonGet: nil response")
+	}
+
+	bodyAccessor, err := res.GetBodyAccessor()
+	if bodyAccessor == nil {
+		return "", err
+	}
+
+	body, _ := bodyAccessor.GetBytes()
+	if body == nil {
+		return "", nil
+	}
+
 	val := gjson.GetBytes(body, path)
 	if !val.Exists() {
 		return "", nil
