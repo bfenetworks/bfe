@@ -379,12 +379,10 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 	// API Key Tags
 	if len(aiInfo.ApikeyTags) > 0 {
 		for _, tag := range aiInfo.ApikeyTags {
-			for _, tagValue := range tag.TagValues {
-				reqLog.AiApikeytags = append(reqLog.AiApikeytags, &bfe_access_pb3.ApikeyTag{
-					Tagname:  proto.String(tag.TagName),
-					Tagvalue: proto.String(tagValue),
-				})
-			}
+			reqLog.AiApikeytags = append(reqLog.AiApikeytags, &bfe_access_pb3.ApikeyTag{
+				Tagname:  proto.String(tag.TagName),
+				Tagvalue: proto.String(tag.TagValue),
+			})
 		}
 	}
 

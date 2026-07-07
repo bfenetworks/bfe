@@ -372,6 +372,9 @@ func (obj *PolicyConfFile) Check() error {
 
 func ratePoliciesCheck(conf *map[string]*PolicyConfFile) error {
 	for policyId, policy := range *conf {
+		if len(policyId) <= 0 {
+			return fmt.Errorf("policyId is empty")
+		}
 		if policy == nil {
 			return fmt.Errorf("policy[%s] is nil", policyId)
 		}
@@ -410,6 +413,17 @@ func aiRateLimitConfCheck(conf *AiRateLimitConfFile) error {
 	}
 	if err := ratePoliciesCheck(conf.RateLimitPolicies); err != nil {
 		return fmt.Errorf("RateLimitPolicies: %s", err.Error())
+	}
+
+	if conf.ApikeyRatePoliciesBindings != nil {
+		for key, policies := range *conf.ApikeyRatePoliciesBindings {
+			if len(key) <= 0 {
+				return fmt.Errorf("key is empty in ApikeyRatePoliciesBindings")
+			}
+			if policies == nil {
+				return fmt.Errorf("policies in ApikeyRatePoliciesBindings is nil for key:%s", key)
+			}
+		}
 	}
 
 	return nil

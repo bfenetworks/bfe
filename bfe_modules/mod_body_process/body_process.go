@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
@@ -389,39 +388,6 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 	return bp
 }
 */
-// SSEEvent 表示一个SSE事件
-type SSEEvent struct {
-	ID    string
-	Event string
-	Data  []byte
-	Retry int
-	// raw   []byte // 原始事件数据
-	truncated bool // 是否被截断
-}
-
-// ToBytes 将事件转换为SSE格式
-func (e *SSEEvent) ToBytes() []byte {
-	var buf bytes.Buffer
-	if e.ID != "" {
-		buf.WriteString("id: " + e.ID + "\n")
-	}
-	if e.Event != "" {
-		buf.WriteString("event: " + e.Event + "\n")
-	}
-	if len(e.Data) > 0 {
-		lines := strings.Split(string(e.Data), "\n")
-		for _, line := range lines {
-			buf.WriteString("data: " + line + "\n")
-		}
-	}
-	if e.Retry > 0 {
-		buf.WriteString(fmt.Sprintf("retry: %d\n", e.Retry))
-	}
-	if !e.truncated {
-		buf.WriteString("\n")
-	}
-	return buf.Bytes()
-}
 
 type GeneralEncoder struct {
 	dest io.Writer
@@ -442,58 +408,6 @@ func (enc *GeneralEncoder) Encode(events []Event) (int, error) {
 		total += n
 	}
 	return total, nil
-}
-
-type SSEEventDecoder struct {
-	scanner *bufio.Scanner
-}
-
-func NewSSEEventDecoder(source io.Reader) (EventDecoder, error) {
-	scanner := bufio.NewScanner(source)
-	return &SSEEventDecoder{scanner: scanner}, nil
-}
-
-func (dec *SSEEventDecoder) Decode() ([]Event, error) {
-	var current SSEEvent
-	dataLines := []string{}
-	for dec.scanner.Scan() {
-		line := dec.scanner.Text()
-		if line == "" {
-			// 空行表示一个完整的事件结束
-			if len(dataLines) == 0 && current.Event == "" && current.ID == "" && len(current.Data) == 0 {
-				continue // 跳过空事件
-			}
-			current.Data = []byte(strings.Join(dataLines, "\n"))
-			return []Event{&current}, nil
-		}
-
-		// 解析SSE事件
-		if strings.HasPrefix(line, "event:") {
-			current.Event = strings.TrimSpace(line[6:])
-		} else if strings.HasPrefix(line, "data:") {
-			dataLines = append(dataLines, strings.TrimSpace(line[5:]))
-		} else if strings.HasPrefix(line, "id:") {
-			current.ID = strings.TrimSpace(line[3:])
-		} else if strings.HasPrefix(line, "retry:") {
-			var retry int
-			_, err := fmt.Sscanf(line[6:], "%d", &retry)
-			if err != nil {
-				return nil, fmt.Errorf("invalid retry value: %s", line[6:])
-			}
-			current.Retry = retry
-		} else {
-			// 未知的SSE行，可能需要处理或忽略
-			return nil, fmt.Errorf("unknown SSE line: %s", line)
-		}
-	}
-	// 检查是否有未完成的事件
-	if len(dataLines) > 0 || current.Event != "" || current.ID != "" {
-		current.Data = []byte(strings.Join(dataLines, "\n"))
-		current.truncated = true // 标记为被截断
-		return []Event{&current}, nil
-	}
-
-	return []Event{}, dec.scanner.Err()
 }
 
 type RawEvent []byte
@@ -577,7 +491,7 @@ func GetEventTokens(ev Event) int64 {
 	case *RawEvent:
 		return int64(len(*e) / 4)
 	case *SSEEvent:
-		return int64(len(e.Data) / 4)
+		return e.GetQuotaUsage().CompletionTokens
 	default:
 		return 0
 	}

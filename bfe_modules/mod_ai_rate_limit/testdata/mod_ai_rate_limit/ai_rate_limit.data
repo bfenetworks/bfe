@@ -13,7 +13,6 @@
         "rlp-0001": {
             "name": "ratelimitX",
             "enabled": true,
-            "models": ["gpt-4"],
             "rules": {
                 "tpm": [
                     {"name":"abc0", "window_minutes": 1, "max_tokens": 10000, "step_minutes": 1, "models": ["gpt-4", "gpt-4o"]},
@@ -29,7 +28,6 @@
         "rlp-0002": {
             "name": "ratelimitBasic",
             "enabled": true,
-            "models": [],
             "rules": {
                 "tpm": [
                     {"name": "abc0", "window_minutes": 1, "max_tokens": 5000, "step_minutes": 1}
