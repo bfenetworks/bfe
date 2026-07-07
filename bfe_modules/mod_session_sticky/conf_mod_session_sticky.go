@@ -27,7 +27,7 @@ const (
 type ConfModSessionSticky struct {
 	Basic struct {
 		DataPath  string // path of config data (session sticky)
-		CacheSize int    // Jsession cache size
+		CacheSize int    // sticky cache size
 	}
 
 	Log struct {

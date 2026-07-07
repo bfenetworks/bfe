@@ -8,7 +8,7 @@
         ],
         "unittest": [{
                 "Cond": "req_path_prefix_in(\"/unittest\", true)",
-                "Type": "Jsession",
+                "Type": "Sticky",
                 "CookieKey": "JSessionID",
                 "MaxAge": 12000
             }]

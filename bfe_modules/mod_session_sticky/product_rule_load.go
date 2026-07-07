@@ -39,21 +39,21 @@ type RuleType int
 
 const (
 	RuleTypeCookie RuleType = iota
-	RuleTypeJsession
+	RuleTypeSticky
 	RuleTypeMax
 )
 
 type StickyRuleFile struct {
 	Cond            *string // condition string for sticky
-	Type            *string // "Cookie" | "Jsession"
+	Type            *string // "Cookie" | "Sticky"
 	CookieKey       *string // cookie key
 	Domain          *string // cookie domain
 	Path            *string // cookie path
 	MaxAge          *int    // max age
 	MaskCode        *string // active mask code which used to mask original bytes
 	StandbyMaskCode *string // stand by mask code which used to mask original bytes
-	Header          *string // Jsession header name
-	URIParam        *string // Jsession uri param name
+	Header          *string // sticky header name
+	URIParam        *string // sticky uri param name
 	Secure          *bool
 	HttpOnly        *bool
 	RenewWindow     *int // renew window in seconds
@@ -68,8 +68,8 @@ type StickyRule struct {
 	MaxAge          int    // max age
 	MaskCode        string // active mask code which used to mask original bytes
 	StandbyMaskCode string // stand by mask code which used to mask original bytes
-	Header          string // Jsession header name
-	URIParam        string // Jsession uri param name
+	Header          string // sticky header name
+	URIParam        string // sticky uri param name
 	Secure          bool
 	HttpOnly        bool
 	RenewWindow     int // renew window in seconds
@@ -111,11 +111,11 @@ func stickyRuleCheck(conf *StickyRuleFile) error {
 	if conf.Path != nil && !strings.HasPrefix(*conf.Path, "/") {
 		return fmt.Errorf("stickyRuleCheck(): Path should start with /")
 	}
-	if conf.Type != nil && *conf.Type != "Cookie" && *conf.Type != "Jsession" {
+	if conf.Type != nil && *conf.Type != "Cookie" && *conf.Type != "Sticky" {
 		return fmt.Errorf("stickyRuleCheck(): Wrong Type: %s", *conf.Type)
 	}
-	if conf.Type != nil && *conf.Type == "Jsession" && conf.CookieKey == nil {
-		return fmt.Errorf("stickyRuleCheck(): no CookieKey for Jsession rule")
+	if conf.Type != nil && *conf.Type == "Sticky" && conf.CookieKey == nil {
+		return fmt.Errorf("stickyRuleCheck(): no CookieKey for Sticky rule")
 	}
 
 	return nil
@@ -216,8 +216,8 @@ func ruleConvert(ruleFile StickyRuleFile) (StickyRule, error) {
 	} else {
 		if *ruleFile.Type == "Cookie" {
 			rule.Type = RuleTypeCookie
-		} else if *ruleFile.Type == "Jsession" {
-			rule.Type = RuleTypeJsession
+		} else if *ruleFile.Type == "Sticky" {
+			rule.Type = RuleTypeSticky
 		} else {
 			return rule, fmt.Errorf("stickyRuleCheck(): Wrong Type: %s", *ruleFile.Type)
 		}

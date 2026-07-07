@@ -690,7 +690,7 @@ func TestModuleSessionSticky_decodeHandler(t *testing.T) {
 
 func TestModuleSessionStickyJsession(t *testing.T) {
 	m := GetModuleSessionStickyByFilename("./test_data/mod_session_sticky_jsession.data")
-	m.jsessioncache = lru_cache.NewLRUCache(defaultCacheSize)
+	m.stickyCache = lru_cache.NewLRUCache(defaultCacheSize)
 
 	req := func() *bfe_basic.Request {
 		r := prepareRequest(product, "/unittest")
@@ -705,7 +705,7 @@ func TestModuleSessionStickyJsession(t *testing.T) {
 
 	m.encodeHandler(req, res)
 
-	val, ok := m.jsessioncache.Get("testsession")
+	val, ok := m.stickyCache.Get("testsession")
 	if !ok {
 		t.Errorf("encodeHandler() did not save bk for %s", "testsession")
 		return

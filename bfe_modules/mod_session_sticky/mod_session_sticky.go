@@ -48,7 +48,7 @@ type ModuleSessionSticky struct {
 	configPath string            // path of config file
 	ruleTable  *ProductRuleTable // table of sticky rules
 
-	jsessioncache *lru_cache.LRUCache
+	stickyCache *lru_cache.LRUCache
 }
 
 func NewModuleSessionSticky() *ModuleSessionSticky {
@@ -213,7 +213,7 @@ func (m *ModuleSessionSticky) init(cfg *ConfModSessionSticky, cbs *bfe_module.Bf
 	openDebug = cfg.Log.OpenDebug
 
 	m.configPath = cfg.Basic.DataPath
-	m.jsessioncache = lru_cache.NewLRUCache(cfg.Basic.CacheSize)
+	m.stickyCache = lru_cache.NewLRUCache(cfg.Basic.CacheSize)
 
 	// load from config file to rule table
 	if err := m.loadConfData(nil); err != nil {
@@ -281,32 +281,32 @@ func (m *ModuleSessionSticky) processDecode(req *bfe_basic.Request, rule StickyR
 			return
 		}
 
-	case RuleTypeJsession:
-		var jsessionid string
-		// check jsessionid in cookie
+	case RuleTypeSticky:
+		var stickyid string
+		// check stickyid in cookie
 		if cookie, ok := req.Cookie(rule.CookieKey); ok {
-			jsessionid = cookie.Value
+			stickyid = cookie.Value
 		}
 
-		// check header if no jsessionid in cookie
-		if jsessionid == "" && rule.Header != "" {
+		// check header if no stickyid in cookie
+		if stickyid == "" && rule.Header != "" {
 			h, ok := req.HttpRequest.Header[rule.Header]
 			if ok && len(h) > 0 {
-				jsessionid = h[0]
+				stickyid = h[0]
 			}
 		}
 
-		// check uriparam if no jsession in cookie or header
-		if jsessionid == "" && rule.URIParam != "" {
-			jsessionid = req.CachedQuery().Get(rule.URIParam)
+		// check uriparam if no stickyid in cookie or header
+		if stickyid == "" && rule.URIParam != "" {
+			stickyid = req.CachedQuery().Get(rule.URIParam)
 		}
 
-		if jsessionid == "" {
-			// no jsessionid found in request
+		if stickyid == "" {
+			// no stickyid found in request
 			return
 		}
 
-		val, ok := m.jsessioncache.Get(jsessionid)
+		val, ok := m.stickyCache.Get(stickyid)
 		if !ok {
 			return
 		}
@@ -339,13 +339,13 @@ func (m *ModuleSessionSticky) processEncode(req *bfe_basic.Request, res *bfe_htt
 	rule := sessiondata.rule
 	sesbk := sessiondata.bk
 
-	var jsessionid string
-	if rule.Type == RuleTypeJsession {
+	var stickyid string
+	if rule.Type == RuleTypeSticky {
 		if cookie, err := res.Cookie(rule.CookieKey); err == nil {
-			jsessionid = cookie.Value
+			stickyid = cookie.Value
 		}
-		if jsessionid == "" {
-			// no Jsessionid in response, exit
+		if stickyid == "" {
+			// no stickyid in response, exit
 			return
 		}
 	}
@@ -412,9 +412,9 @@ func (m *ModuleSessionSticky) processEncode(req *bfe_basic.Request, res *bfe_htt
 
 		setCookie(&cookie, res)
 		debuglogWithSwitch(fmt.Sprintf("EncodeHandler(): encode cookie [%v]", cookie))
-	case RuleTypeJsession:
+	case RuleTypeSticky:
 		// save backend for Jessionid
-		m.jsessioncache.Add(jsessionid, bk)
+		m.stickyCache.Add(stickyid, bk)
 	}
 }
 
