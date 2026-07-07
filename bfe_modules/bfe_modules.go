@@ -41,6 +41,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_redirect"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_rewrite"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_secure_link"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_session_sticky"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_static"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_tag"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_tcp_keepalive"
@@ -155,6 +156,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_access_pb3
 	mod_access_pb3.NewModuleAccessPb3(),
+
+	// mod session sticy
+	mod_session_sticky.NewModuleSessionSticky(),
 }
 
 // init modules list
