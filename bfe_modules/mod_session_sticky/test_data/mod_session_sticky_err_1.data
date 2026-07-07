@@ -1,0 +1,16 @@
+{
+    "Version": "2020-12-29 16:20:53",
+    "Config": {
+        "global": [
+            {
+                "Cond": "default_t()"
+            }
+        ],
+"unittest": [{
+                "Cond": "default_t()",
+"MaskCode": "a11123",
+"StandbyMaskCode": "qw111er",
+                        "MaxAge": "abc"
+}]
+}
+}
