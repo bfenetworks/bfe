@@ -414,6 +414,13 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		reqLog.AiTpotUs = proto.Int64(ti.TPOT)
 	}
 
+	if len(aiInfo.AiAuthInfo.RejectReason) > 0 {
+		reqLog.AiAuthRejectReason = proto.String(aiInfo.AiAuthInfo.RejectReason)
+	}
+	for _, item := range aiInfo.AiAuthInfo.RejectQuotaPlans {
+		reqLog.AiAuthRejectQuotaPlans = append(reqLog.AiAuthRejectQuotaPlans, item)
+	}
+
 	// Rate limit hit info
 	hitInfo := req.GetAiRateLimitHitInfo()
 	if hitInfo != nil && len(hitInfo.HitPolicyDict) > 0 {
@@ -440,6 +447,14 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 					RateLimitPolicyId: proto.String(policyId),
 					RateLimitType:     proto.String("concurrency"),
 					RuleNames:         []string{"concurrency"},
+				})
+			}
+			// Redis error
+			if info.IsRedisError != "" {
+				reqLog.AiRateLimitHits = append(reqLog.AiRateLimitHits, &bfe_access_pb3.RateLimitHit{
+					RateLimitPolicyId: proto.String(policyId),
+					RateLimitType:     proto.String("redis_error"),
+					RuleNames:         []string{"acc_redis_error"},
 				})
 			}
 		}
