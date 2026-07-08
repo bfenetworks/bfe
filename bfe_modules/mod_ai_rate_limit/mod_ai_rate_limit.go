@@ -223,7 +223,10 @@ func (m *ModuleAiRateLimit) executePolicyAction(req *bfe_basic.Request, meta *bf
 		hitInfo := req.GetAiRateLimitHitInfo()
 		if hitInfo != nil {
 			policyHitInfo := hitInfo.GetPolicyHitInfo(policyId)
-			if policyHitInfo.IsConcurrency {
+			if policyHitInfo.IsRedisError != "" {
+				errorCode = bfe_basic.CodeRateLimitRedisError
+				limitType = bfe_basic.LimitTypeErrRedis
+			} else if policyHitInfo.IsConcurrency {
 				errorCode = bfe_basic.CodeConcurrencyLimitExceeded
 				limitType = bfe_basic.LimitTypeConcurrency
 			} else if len(policyHitInfo.RpmRules) > 0 {
