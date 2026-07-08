@@ -260,7 +260,14 @@ func (ls *policyLimiterSet) checkTPM(req *bfe_basic.Request, meta *bfe_basic.AiB
 
 		if err != nil {
 			log.Logger.Warn("mod_ai_rate_limit: TPM redis error, policyId:%s, isRejectOnRedisError:%v, err:%v", ls.policyId, isRejectOnRedisError, err)
-			isAllowed = !isRejectOnRedisError
+			if isRejectOnRedisError {
+				hitInfo := req.GetAiRateLimitHitInfo()
+				policyHitInfo := hitInfo.GetPolicyHitInfo(ls.policyId)
+				policyHitInfo.IsRedisError = item.name
+				return false
+			} else {
+				return true
+			}
 		}
 
 		if !isAllowed {
@@ -294,7 +301,14 @@ func (ls *policyLimiterSet) checkRPM(req *bfe_basic.Request, meta *bfe_basic.AiB
 
 		if err != nil {
 			log.Logger.Warn("mod_ai_rate_limit: RPM redis error, policyId:%s, isRejectOnRedisError:%v, err:%v", ls.policyId, isRejectOnRedisError, err)
-			isAllowed = !isRejectOnRedisError
+			if isRejectOnRedisError {
+				hitInfo := req.GetAiRateLimitHitInfo()
+				policyHitInfo := hitInfo.GetPolicyHitInfo(ls.policyId)
+				policyHitInfo.IsRedisError = item.name
+				return false
+			} else {
+				return true
+			}
 		}
 
 		if !isAllowed {
@@ -323,7 +337,14 @@ func (ls *policyLimiterSet) checkConcurrency(req *bfe_basic.Request, meta *bfe_b
 
 	if err != nil {
 		log.Logger.Warn("mod_ai_rate_limit: Concurrency redis error, policyId:%s, isRejectOnRedisError:%v, err:%v", ls.policyId, isRejectOnRedisError, err)
-		isAllowed = !isRejectOnRedisError
+		if isRejectOnRedisError {
+			hitInfo := req.GetAiRateLimitHitInfo()
+			policyHitInfo := hitInfo.GetPolicyHitInfo(ls.policyId)
+			policyHitInfo.IsRedisError = "concurrency"
+			return false
+		} else {
+			return true
+		}
 	}
 
 	if !isAllowed {

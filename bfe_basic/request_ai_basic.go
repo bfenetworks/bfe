@@ -110,6 +110,7 @@ type HitPolicyInfo struct {
 	TpmRules      []string `json:"tpm_rules"` //name of limiter
 	RpmRules      []string `json:"rpm_rules"` //name of limiter
 	IsConcurrency bool     `json:"is_concurrency"`
+	IsRedisError  string   `json:"is_redis_error"`
 }
 
 type AiRateLimitHitInfo struct {
@@ -167,6 +168,7 @@ const (
 	CodeRpmLimitExceeded         = "RPM_LIMIT_EXCEEDED"
 	CodeTpmLimitExceeded         = "TPM_LIMIT_EXCEEDED"
 	CodeConcurrencyLimitExceeded = "CONCURRENCY_LIMIT_EXCEEDED"
+	CodeRateLimitRedisError      = "RATE_LIMIT_REDIS_ERROR"
 
 	CodeQuotaExhausted       = "QUOTA_EXHAUSTED"
 	CodeQuotaExpired         = "QUOTA_EXPIRED"
@@ -213,6 +215,7 @@ var ErrorCodeToStatusCode = map[string]int{
 	CodeRpmLimitExceeded:         429,
 	CodeTpmLimitExceeded:         429,
 	CodeConcurrencyLimitExceeded: 429,
+	CodeRateLimitRedisError:      500,
 
 	CodeQuotaExhausted:       429,
 	CodeQuotaExpired:         429,
@@ -244,6 +247,7 @@ const (
 	LimitTypeRpm         = "rpm"
 	LimitTypeTpm         = "tpm"
 	LimitTypeConcurrency = "concurrency"
+	LimitTypeErrRedis    = "redis_access_error"
 )
 
 type AiErrorDetail struct {
