@@ -19,6 +19,8 @@ package bfe_modules
 import (
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_access_pb3"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_rate_limit"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_token_auth"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_auth_basic"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_auth_jwt"
@@ -39,6 +41,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_redirect"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_rewrite"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_secure_link"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_session_sticky"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_static"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_tag"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_tcp_keepalive"
@@ -146,7 +149,17 @@ var moduleList = []bfe_module.BfeModule{
 	mod_ai_token_auth.NewModuleAITokenAuth(),
 
 	// mod_body_process
-	mod_body_process.NewModuleBodyProcess(),}
+	mod_body_process.NewModuleBodyProcess(),
+
+	//depends on token calc
+	mod_ai_rate_limit.NewModuleAiRateLimit(),
+
+	// mod_access_pb3
+	mod_access_pb3.NewModuleAccessPb3(),
+
+	// mod session sticy
+	mod_session_sticky.NewModuleSessionSticky(),
+}
 
 // init modules list
 func InitModuleList(modules []bfe_module.BfeModule) {

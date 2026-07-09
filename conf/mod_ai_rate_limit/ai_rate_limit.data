@@ -1,0 +1,49 @@
+{
+    "Config": {
+        "example_ai_product": [
+            {
+                "cond": "default_t()",
+                "hit_action": {
+                    "cmd": "FINISH",
+					"params": []
+                }
+            }
+        ]
+    },
+    "RateLimitPolicies": {
+        "rlp-0001": {
+            "name": "ratelimitX",
+            "enabled": true,
+            "rules": {
+                "tpm": [
+                    {"name":"tpmabc1", "models": ["gpt-4"], "window_minutes": 1, "max_tokens": 10000, "step_minutes": 1},
+                    {"name":"tpmabc10", "models": ["*"], "window_minutes": 10, "max_tokens": 50000, "step_minutes": 1},
+                    {"name":"tpmabc60", "window_minutes": 60, "max_tokens": 200000, "step_minutes": 5}
+                ],
+                "rpm": [
+                    {"name":"rpmabc1", "window_minutes": 1, "max_requests": 100, "burst":1}
+                ],
+                "max_concurrency": 50
+            }
+        },
+        "rlp-0002": {
+            "name": "ratelimitBasic",
+            "enabled": true,
+            "rules": {
+                "tpm": [
+                    {"name":"tpm1", "window_minutes": 1, "max_tokens": 200, "step_minutes": 1},
+                    {"name":"tpm2", "window_minutes": 10, "max_tokens": 10000, "step_minutes": 1}
+                ],
+                "rpm": [
+                    {"name":"rpm1", "window_minutes": 1, "max_requests": 30, "burst":1}
+                ],
+                "max_concurrency": 2
+            }
+        }
+    },
+    "ApikeyRateLimitPolicyBindings": {
+        "YOURAPIKEY": ["rlp-0001", "rlp-0002"],
+        "ak-3w9y0k4n8q": ["rlp-0002"]
+    },
+    "Version": "1.0"
+}

@@ -1,0 +1,19 @@
+{
+    "Version": "2020-12-29 16:20:53",
+    "Config": {
+        "global": [
+            {
+                "Cond": "default_t()"
+            }
+        ],
+        "unittest": [{
+                "Cond": "req_path_prefix_in(\"/unittest\", true)",
+                "Type": "Cookie",
+                "MaskCode": "maskcode",
+                "MaxAge": 12000,
+                "Secure": true,
+                "HttpOnly": true,
+                "RenewWindow": 0
+            }]
+     }
+}

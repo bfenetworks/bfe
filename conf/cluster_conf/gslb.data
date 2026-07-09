@@ -15,6 +15,10 @@
         "h2c_cluster_example": {
             "GSLB_BLACKHOLE": 0,
             "h2c.example.bfe.bj": 100
+        },
+        "ai_cluster_example": {
+            "GSLB_BLACKHOLE": 0,
+            "ai.pool.bj": 100
         }
     },
     "Hostname": "",

@@ -16,13 +16,8 @@ package bfe_conf
 
 import (
 	"fmt"
-)
 
-import (
 	"github.com/baidu/go-lib/log"
-)
-
-import (
 	"github.com/bfenetworks/bfe/bfe_util"
 )
 
@@ -51,6 +46,8 @@ type ConfigBasic struct {
 	MaxHeaderUriBytes       int  // max URI(in header) length in bytes in request
 	MaxProxyHeaderBytes     int  // max header length in bytes in Proxy protocol
 	KeepAliveEnabled        bool // if false, client connection is shutdown disregard of http headers
+
+	EnableAiGateway bool //enable ai gateway
 
 	Modules []string // modules to load
 
