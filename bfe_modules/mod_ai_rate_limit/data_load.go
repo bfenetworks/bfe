@@ -99,7 +99,7 @@ type RPMRuleConf struct {
 type LimitRulesConf struct {
 	TPM            []*TPMRuleConf
 	RPM            []*RPMRuleConf
-	MaxConcurrency int64
+	MaxConcurrency *int64
 }
 
 type PolicyConf struct {
@@ -159,13 +159,8 @@ func (f *RPMRuleConfFile) Convert() *RPMRuleConf {
 }
 
 func (f *LimitRulesConfFile) Convert() *LimitRulesConf {
-	maxConn := int64(-1) //unlimited
-	if f.MaxConcurrency != nil {
-		maxConn = *f.MaxConcurrency
-	}
-
 	result := &LimitRulesConf{
-		MaxConcurrency: maxConn,
+		MaxConcurrency: f.MaxConcurrency,
 	}
 
 	for _, tpm := range f.TPM {
