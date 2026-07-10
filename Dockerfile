@@ -29,6 +29,7 @@ RUN set -ex; \
 FROM alpine:3.19 AS confagent
 ARG TARGETARCH
 ARG CONF_AGENT_VERSION=0.0.2
+ARG CONF_AGENT_REPO=bfenetworks
 
 RUN apk add --no-cache ca-certificates wget tar
 
@@ -44,7 +45,7 @@ RUN set -ex; \
 		arm64|aarch64) CONF_AGENT_ARCH="arm64" ;; \
 		*) echo "Unsupported architecture: ${ARCH}"; exit 1 ;; \
 	esac; \
-	CONF_AGENT_URL="https://github.com/bfenetworks/conf-agent/releases/download/${CONF_AGENT_VERSION_TAG}/conf-agent_${CONF_AGENT_VERSION_NO_V}_linux_${CONF_AGENT_ARCH}.tar.gz"; \
+	CONF_AGENT_URL="https://github.com/${CONF_AGENT_REPO}/conf-agent/releases/download/${CONF_AGENT_VERSION_TAG}/conf-agent_${CONF_AGENT_VERSION_NO_V}_linux_${CONF_AGENT_ARCH}.tar.gz"; \
 	wget -O /tmp/conf-agent.tar.gz "${CONF_AGENT_URL}"; \
 	tar -xzf /tmp/conf-agent.tar.gz -C /tmp; \
 	mkdir -p /out; \

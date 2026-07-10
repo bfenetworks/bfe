@@ -74,8 +74,7 @@ strip: prepare compile-strip package
 # make prepare, download dependencies
 prepare: prepare-dep prepare-gen
 prepare-dep:
-#	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc@latest)
-	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc@v0.27.0)
+	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc@latest)
 prepare-gen:
 	cd "bfe_basic/condition/parser" && $(GOGEN)
 
@@ -146,6 +145,7 @@ BFE_IMAGE_NAME ?= bfe
 # Default: 0.0.2
 # Override example: make docker CONF_AGENT_VERSION=0.0.2
 CONF_AGENT_VERSION ?= 0.0.2
+CONF_AGENT_REPO ?= bfenetworks
 NO_CACHE ?= false
 
 # Optional cleanup controls
@@ -186,6 +186,7 @@ docker:
 		$$(if [ "$(NO_CACHE)" = "true" ]; then echo "--no-cache"; fi) \
 		--build-arg VARIANT=prod \
 		--build-arg CONF_AGENT_VERSION=$$NORM_CONF_VERSION \
+		--build-arg CONF_AGENT_REPO=$(CONF_AGENT_REPO) \
 		-t $(BFE_IMAGE_NAME):$$NORM_BFE_VERSION \
 		-t $(BFE_IMAGE_NAME):latest \
 		-f Dockerfile \
@@ -195,6 +196,7 @@ docker:
 		$$(if [ "$(NO_CACHE)" = "true" ]; then echo "--no-cache"; fi) \
 		--build-arg VARIANT=debug \
 		--build-arg CONF_AGENT_VERSION=$$NORM_CONF_VERSION \
+		--build-arg CONF_AGENT_REPO=$(CONF_AGENT_REPO) \
 		-t $(BFE_IMAGE_NAME):$$NORM_BFE_VERSION-debug \
 		-f Dockerfile \
 		.
@@ -233,6 +235,7 @@ docker-push:
 		$$NO_CACHE_OPT \
 		--build-arg VARIANT=prod \
 		--build-arg CONF_AGENT_VERSION=$$NORM_CONF_VERSION \
+		--build-arg CONF_AGENT_REPO=$(CONF_AGENT_REPO) \
 		-t $(REGISTRY)/$(BFE_IMAGE_NAME):$$NORM_BFE_VERSION \
 		-t $(REGISTRY)/$(BFE_IMAGE_NAME):latest \
 		-f Dockerfile \
@@ -244,6 +247,7 @@ docker-push:
 		$$NO_CACHE_OPT \
 		--build-arg VARIANT=debug \
 		--build-arg CONF_AGENT_VERSION=$$NORM_CONF_VERSION \
+		--build-arg CONF_AGENT_REPO=$(CONF_AGENT_REPO) \
 		-t $(REGISTRY)/$(BFE_IMAGE_NAME):$$NORM_BFE_VERSION-debug \
 		-f Dockerfile \
 		--push \
