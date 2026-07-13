@@ -157,12 +157,12 @@ func newPolicyLimiterSet(policyId string, policy *PolicyConf) *policyLimiterSet 
 		ps.rpmLimiters = append(ps.rpmLimiters, newRpmLimiterItem(limiter, rpmInstId, rule))
 	}
 
-	if policy.Rules.MaxConcurrency > 0 {
+	if policy.Rules.MaxConcurrency != nil {
 		redisKey := buildRedisKey(policyId, "con")
 		ps.conLimiter = &conLimiterItem{
 			conLimiter: limit_rate.NewConcurrencyLimiter(
 				redisKey,
-				policy.Rules.MaxConcurrency,
+				*policy.Rules.MaxConcurrency,
 				concurrencyLimiterTTL,
 			),
 		}

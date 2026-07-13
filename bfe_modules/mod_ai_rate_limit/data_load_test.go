@@ -106,8 +106,8 @@ func TestLimitRulesConfFileConvert(t *testing.T) {
 		MaxConcurrency: &maxConn,
 	}
 	result := f.Convert()
-	if result.MaxConcurrency != 50 {
-		t.Errorf("MaxConcurrency: expected 50, got %d", result.MaxConcurrency)
+	if *result.MaxConcurrency != 50 {
+		t.Errorf("MaxConcurrency: expected 50, got %d", *result.MaxConcurrency)
 	}
 	if len(result.TPM) != 1 {
 		t.Errorf("TPM length: expected 1, got %d", len(result.TPM))
@@ -122,8 +122,8 @@ func TestLimitRulesConfFileConvertNilMaxConcurrency(t *testing.T) {
 		TPM: []TPMRuleConfFile{{WindowMinutes: 1, MaxTokens: 1000, StepMinutes: 1}},
 	}
 	result := f.Convert()
-	if result.MaxConcurrency != -1 {
-		t.Errorf("MaxConcurrency: expected -1, got %d", result.MaxConcurrency)
+	if result.MaxConcurrency != nil {
+		t.Errorf("MaxConcurrency: expected nil, got %d", *result.MaxConcurrency)
 	}
 }
 
@@ -671,16 +671,16 @@ func TestAiRateLimitConfLoadValid(t *testing.T) {
 	if len(rlp1.Rules.RPM[0].Models) != 1 || rlp1.Rules.RPM[0].Models[0] != "gpt-4" {
 		t.Errorf("rlp-0001 RPM[0] Models mismatch: got %v", rlp1.Rules.RPM[0].Models)
 	}
-	if rlp1.Rules.MaxConcurrency != 50 {
-		t.Errorf("rlp-0001 MaxConcurrency: expected 50, got %d", rlp1.Rules.MaxConcurrency)
+	if *rlp1.Rules.MaxConcurrency != 50 {
+		t.Errorf("rlp-0001 MaxConcurrency: expected 50, got %d", *rlp1.Rules.MaxConcurrency)
 	}
 
 	rlp2 := (*conf.RateLimitPolicies)["rlp-0002"]
 	if rlp2.Name != "ratelimitBasic" {
 		t.Errorf("rlp-0002 Name: expected ratelimitBasic, got %s", rlp2.Name)
 	}
-	if rlp2.Rules.MaxConcurrency != 10 {
-		t.Errorf("rlp-0002 MaxConcurrency: expected 10, got %d", rlp2.Rules.MaxConcurrency)
+	if *rlp2.Rules.MaxConcurrency != 10 {
+		t.Errorf("rlp-0002 MaxConcurrency: expected 10, got %d", *rlp2.Rules.MaxConcurrency)
 	}
 }
 
