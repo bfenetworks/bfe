@@ -35,6 +35,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_key_log"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_logid"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_markdown"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_otel"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_prison"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_redirect"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_rewrite"
@@ -71,6 +72,9 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_tag
 	mod_tag.NewModuleTag(),
+
+	// mod_otel
+	mod_otel.NewModuleOtel(),
 
 	// mod_trace
 	mod_trace.NewModuleTrace(),
@@ -146,7 +150,7 @@ var moduleList = []bfe_module.BfeModule{
 	mod_ai_token_auth.NewModuleAITokenAuth(),
 
 	// mod_body_process
-	mod_body_process.NewModuleBodyProcess(),}
+	mod_body_process.NewModuleBodyProcess()}
 
 // init modules list
 func InitModuleList(modules []bfe_module.BfeModule) {
