@@ -137,7 +137,7 @@ func (m *ModuleOtel) startTrace(request *bfe_basic.Request) (int, *bfe_http.Resp
 		trace.WithSpanKind(trace.SpanKindServer),
 	)
 
-	logRequest(span, request.HttpRequest)
+	logRequest(span, request)
 
 	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(request.HttpRequest.Header))
 
@@ -239,18 +239,36 @@ func (m *ModuleOtel) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHand
 
 func spanName(r *bfe_http.Request) string {
 	host := strings.SplitN(r.Host, ":", 2)[0]
-	return host + r.URL.Path
+	return r.Method + " " + host + r.URL.Path
 }
 
-func logRequest(span trace.Span, r *bfe_http.Request) {
-	if span == nil || r == nil || r.URL == nil {
+func logRequest(span trace.Span, req *bfe_basic.Request) {
+	if span == nil || req == nil || req.HttpRequest == nil || req.HttpRequest.URL == nil {
 		return
 	}
+	r := req.HttpRequest
+
+	scheme := r.URL.Scheme
+	if scheme == "" {
+		scheme = "http"
+		if r.TLS != nil {
+			scheme = "https"
+		}
+	}
+
 	span.SetAttributes(
 		attribute.String("http.method", r.Method),
 		attribute.String("http.url", r.URL.String()),
 		attribute.String("http.host", r.Host),
+		attribute.String("http.scheme", scheme),
+		attribute.String("user_agent", r.Header.Get("User-Agent")),
 	)
+	if req.RemoteAddr != nil {
+		span.SetAttributes(attribute.String("remote_addr", req.RemoteAddr.String()))
+	}
+	if len(req.LogId) > 0 {
+		span.SetAttributes(attribute.String("log_id", req.LogId))
+	}
 }
 
 func logResponseCode(span trace.Span, code int) {
@@ -260,6 +278,8 @@ func logResponseCode(span trace.Span, code int) {
 	span.SetAttributes(attribute.Int("http.status_code", code))
 	if code >= http.StatusBadRequest {
 		span.SetStatus(codes.Error, fmt.Sprintf("HTTP %d", code))
+	} else {
+		span.SetStatus(codes.Ok, "")
 	}
 }
 
