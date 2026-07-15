@@ -127,8 +127,6 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 		isguess = false
 	} else {
 		curtoken = EstimateContentToken(string(data))
-		completion = curtoken
-		isguess = true
 	}
 
 	return QuotaUsage{PromptTokens: prompt, CompletionTokens: completion, UsedQuota: used, CurrentTokens: curtoken, IsGuess: isguess}

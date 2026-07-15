@@ -133,7 +133,6 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 	if ctx == nil {
 		return bfe_module.BfeHandlerGoOn
 	}
-
 	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
 	if res.StatusCode == bfe_http.StatusOK && res.ContentLength >= 0 {
 		if bodyAccessor, err := res.GetBodyAccessor(); err == nil {
@@ -145,6 +144,7 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 			tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens) // calculate used quota
 		}
 	}
+
 	return bfe_module.BfeHandlerGoOn
 }
 
@@ -342,7 +342,7 @@ func SetTokenAuthContext(req *bfe_basic.Request, tok *Token, promptToken int64, 
 	if aiBasicInfo != nil {
 		tusage := aiBasicInfo.GetTokenUsage()
 		tusage.PromptTokens = promptToken
-		tusage.CompletionTokens = -1 // -1 - unknown
+		tusage.CompletionTokens = bfe_basic.COMPLETION_TOKENS_UNKNOWN // -1 - unknown
 		aiBasicInfo.ApikeyTags = tags
 	}
 
