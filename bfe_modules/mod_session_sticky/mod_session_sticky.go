@@ -470,8 +470,13 @@ func (m *ModuleSessionSticky) getBackendFromRedis(stickyid string) (*bfe_basic.S
 		return nil, false
 	}
 
+	v, ok := val.([]byte)
+	if !ok {
+		return nil, false
+	}
+
 	var data RedisSessionData
-	if err := json.Unmarshal([]byte(val.(string)), &data); err != nil {
+	if err := json.Unmarshal(v, &data); err != nil {
 		return nil, false
 	}
 

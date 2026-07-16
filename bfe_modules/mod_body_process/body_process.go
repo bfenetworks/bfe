@@ -23,6 +23,7 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/tidwall/gjson"
 )
 
 // BodyProcessor 扩展中断支持
@@ -89,6 +90,8 @@ type Event interface {
 	// GetType() string
 	// GetData() []byte
 	ToBytes() []byte // 转换为字节数组
+
+	GetQuotaUsage() QuotaUsage
 }
 
 type EventDecoder interface {
@@ -291,7 +294,7 @@ func (m *ModuleBodyProcess) DoRequestProcess(req *bfe_basic.Request, conf *BodyP
 
 func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_http.Response, conf *BodyProcessConfig) *BodyProcessor {
 	// 检查是否需要处理streamcompletion
-	ccq := NewCalcCompletionQuota(req)
+	ccq := NewQuotaUsageProcessor(req, res)
 
 	if conf == nil && ccq == nil {
 		return nil // 没有配置，直接返回
@@ -416,6 +419,23 @@ func (e *RawEvent) ToBytes() []byte {
 	return *e
 }
 
+func (e *RawEvent) GetQuotaUsage() QuotaUsage {
+	curtoken := int64(0)
+	isguess := true
+
+	used := gjson.GetBytes(*e, "usage.total_tokens").Int()
+	prompt := gjson.GetBytes(*e, "usage.prompt_tokens").Int()
+	completion := gjson.GetBytes(*e, "usage.completion_tokens").Int()
+	if used > 0 {
+		isguess = false
+	} else {
+		curtoken = EstimateContentToken(string(*e))
+	}
+
+	return QuotaUsage{PromptTokens: prompt, CompletionTokens: completion, UsedQuota: used,
+		CurrentTokens: curtoken, IsGuess: isguess}
+}
+
 type LineDecoder struct {
 	reader *bufio.Reader
 }
@@ -480,38 +500,4 @@ func NewContentTypeDecoder(source io.Reader, contentType string) (EventDecoder, 
 
 func (ctd *ContentTypeDecoder) Decode() ([]Event, error) {
 	return ctd.dec.Decode()
-}
-
-func GetEventTokens(ev Event) int64 {
-	if ev == nil {
-		return 0
-	}
-
-	switch e := ev.(type) {
-	case *RawEvent:
-		return int64(len(*e) / 4)
-	case *SSEEvent:
-		return e.GetQuotaUsage().CompletionTokens
-	default:
-		return 0
-	}
-}
-
-func NewCalcCompletionQuota(req *bfe_basic.Request) EventProcessorFunc {
-	aiBasicInfo := req.GetAiBasicInfo()
-	if aiBasicInfo == nil {
-		return nil // 没有token上下文，无需计算
-	}
-
-	tusage := aiBasicInfo.GetTokenUsage()
-	return func(events []Event) ([]Event, error) {
-		for _, ev := range events {
-			if tusage.CompletionTokens == -1 {
-				tusage.CompletionTokens = 0 // 初始化为0
-			}
-			// 累加事件的token数
-			tusage.CompletionTokens += GetEventTokens(ev)
-		}
-		return events, nil // 没有事件，直接返回
-	}
 }

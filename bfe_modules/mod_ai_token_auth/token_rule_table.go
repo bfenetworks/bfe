@@ -215,20 +215,22 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 			}
 		}
 
-		inModels := false
-		for _, m := range token.Models {
-			if m == model {
-				inModels = true
-				break
+		if len(token.Models) > 0 {
+			inModels := false
+			for _, m := range token.Models {
+				if m == model {
+					inModels = true
+					break
+				}
 			}
-		}
-		if !inModels {
-			SetAiAuthInfo(req, bfe_basic.CodeModelNotAllowed, nil)
-			return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeModelNotAllowed, bfe_basic.TypeInvalidRequestError, fmt.Sprintf("Model %s not allowed by key %s", model, key),
-				&bfe_basic.AiErrorDetail{
-					ApiKey: key,
-					Model:  model,
-				})
+			if !inModels {
+				SetAiAuthInfo(req, bfe_basic.CodeModelNotAllowed, nil)
+				return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeModelNotAllowed, bfe_basic.TypeInvalidRequestError, fmt.Sprintf("Model %s not allowed by key %s", model, key),
+					&bfe_basic.AiErrorDetail{
+						ApiKey: key,
+						Model:  model,
+					})
+			}
 		}
 	}
 
