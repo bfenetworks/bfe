@@ -10,6 +10,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.8.4] -
+
+### Added
+
+
+### Fixed
+- Fix token calculation
+- Fix allow_models check in mod_ai_token_auth
+- Fix redisdata unmarshal bug in mod_session_sticky
+
+
+## [v1.8.3] - 2026-07-10
+
+### Added
+- add EnableAiGateway flag  ([Pull #1248](https://github.com/bfenetworks/bfe/pull/1255))
+- add mod_ai_rate_limit     ([Pull #1248](https://github.com/bfenetworks/bfe/pull/1255))
+- update mod_ai_token_auth  ([Pull #1248](https://github.com/bfenetworks/bfe/pull/1256))
+- add mod_access_pb         ([Pull #1248](https://github.com/bfenetworks/bfe/pull/1257))
+- add mod_session_sticky    ([Pull #1248](https://github.com/bfenetworks/bfe/pull/1262))
+
+
 ## [v1.8.2] - 2026-05-08
 
 ### Added
