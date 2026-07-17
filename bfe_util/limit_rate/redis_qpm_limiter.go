@@ -39,7 +39,6 @@ func NewQPMLimiter(redisKey string, burst int64, period int64, limit int64) *QPM
 func (l *QPMLimiter) Check(reqToConsume int64, agent *RedisLRAgent) (bool, int64, float64, error) {
 	tat := float64(0)
 	limit := l.limit.Load()
-	burst := l.burst.Load()
 	period := l.period.Load()
 
 	if reqToConsume <= 0 {
@@ -55,7 +54,7 @@ func (l *QPMLimiter) Check(reqToConsume int64, agent *RedisLRAgent) (bool, int64
 	}
 
 	//check remote
-	currentTime, isAllowed, tat, err := agent.QpmCheck(l.redisKey, burst, period, limit, reqToConsume)
+	currentTime, isAllowed, tat, err := agent.QpmCheck(l.redisKey, period, limit, reqToConsume)
 	if err != nil {
 		return false, currentTime, tat, err
 	}

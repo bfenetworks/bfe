@@ -19,15 +19,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bfenetworks/bfe/bfe_util/bns"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 )
 
 func makeRedisClient() redis_client.Client {
+	filename := "./testdata/name_conf.data"
+	err := bns.LoadLocalNameConf(filename)
+	if err != nil {
+		fmt.Println("LoadLocalNameConf err", err.Error())
+	}
+
 	opts := &redis_client.Options{
-		ServiceConf: "127.0.0.1:6379",
-		MaxIdle:     10,
-		MaxActive:   20,
-		Wait:        true,
+		//ServiceConf: "127.0.0.1:6379",
+		ServiceConf: "testredis",
+
+		MaxIdle:   10,
+		MaxActive: 20,
+		Wait:      true,
 
 		ConnTimeoutMs:  100,
 		ReadTimeoutMs:  100,
@@ -35,6 +44,11 @@ func makeRedisClient() redis_client.Client {
 
 		Password: "",
 	}
+	err = opts.Format()
+	if err != nil {
+		fmt.Println("Format Options err", err.Error())
+	}
+
 	client := redis_client.NewRedisClient(opts)
 	return client
 }
