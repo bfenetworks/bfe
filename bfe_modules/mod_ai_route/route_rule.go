@@ -28,24 +28,49 @@ const (
 	RouteTypeGlobal = "global"
 )
 
-type RouteRule struct {
-	Name      string `json:"name"`
-	CondStr   string `json:"Cond"`
-	Cond      condition.Condition           `json:"-"`
+// RouteRuleFile is the JSON DTO for a single route rule.
+type RouteRuleFile struct {
+	Name      string                      `json:"name"`
+	Cond      string                      `json:"Cond"`
 	Targets   []bfe_basic.AiRouteTarget   `json:"targets"`
 	Fallbacks []bfe_basic.AiRouteFallback `json:"fallbacks"`
 }
 
-type RouteTable struct {
-	Type  string      `json:"type"`
-	Owner string      `json:"owner"`
-	Rules []RouteRule `json:"rules"`
+// RouteTableFile is the JSON DTO for a route table.
+type RouteTableFile struct {
+	Type  string          `json:"type"`
+	Owner string          `json:"owner"`
+	Rules []RouteRuleFile `json:"rules"`
 }
 
+// AiRouteDataFile is the JSON DTO for the whole AI route data file.
+type AiRouteDataFile struct {
+	Version                  string                    `json:"Version"`
+	RouteRules               map[string]RouteTableFile `json:"route_rules"`
+	ApikeyRouteTableBindings map[string][]string       `json:"ApikeyRouteTableBindings"`
+}
+
+// RouteRule is the runtime representation of a route rule with compiled condition.
+type RouteRule struct {
+	Name      string
+	CondStr   string
+	Cond      condition.Condition
+	Targets   []bfe_basic.AiRouteTarget
+	Fallbacks []bfe_basic.AiRouteFallback
+}
+
+// RouteTable is the runtime representation of a route table.
+type RouteTable struct {
+	Type  string
+	Owner string
+	Rules []RouteRule
+}
+
+// AiRouteData is the runtime representation of the whole AI route data.
 type AiRouteData struct {
-	Version                  string                `json:"Version"`
-	RouteRules               map[string]RouteTable `json:"route_rules"`
-	ApikeyRouteTableBindings map[string][]string   `json:"ApikeyRouteTableBindings"`
+	Version                  string
+	RouteRules               map[string]RouteTable
+	ApikeyRouteTableBindings map[string][]string
 }
 
 func (rt *RouteTable) Match(req *bfe_basic.Request) *RouteRule {

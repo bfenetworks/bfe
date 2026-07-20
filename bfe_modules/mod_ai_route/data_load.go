@@ -21,11 +21,34 @@ import (
 )
 
 func AiRouteDataLoad(fileName string) (*AiRouteData, error) {
-	var data AiRouteData
+	var file AiRouteDataFile
 
-	if err := bfe_util.LoadJsonFile(fileName, &data); err != nil {
+	if err := bfe_util.LoadJsonFile(fileName, &file); err != nil {
 		return nil, fmt.Errorf("LoadJsonFile(): err[%s]", err.Error())
 	}
 
-	return &data, nil
+	data := &AiRouteData{
+		Version:                  file.Version,
+		RouteRules:               make(map[string]RouteTable, len(file.RouteRules)),
+		ApikeyRouteTableBindings: file.ApikeyRouteTableBindings,
+	}
+
+	for key, tableFile := range file.RouteRules {
+		rules := make([]RouteRule, len(tableFile.Rules))
+		for i, ruleFile := range tableFile.Rules {
+			rules[i] = RouteRule{
+				Name:      ruleFile.Name,
+				CondStr:   ruleFile.Cond,
+				Targets:   ruleFile.Targets,
+				Fallbacks: ruleFile.Fallbacks,
+			}
+		}
+		data.RouteRules[key] = RouteTable{
+			Type:  tableFile.Type,
+			Owner: tableFile.Owner,
+			Rules: rules,
+		}
+	}
+
+	return data, nil
 }
