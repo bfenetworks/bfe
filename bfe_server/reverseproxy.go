@@ -24,6 +24,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"io"
+	"math/rand"
 	"net"
 	"reflect"
 	"strconv"
@@ -1102,4 +1103,458 @@ func checkBackendStatus(outlierDetectionHttpCodeStr string, statusCode int) bool
 
 type BufferFiller interface {
 	FillBuffer() error
+}
+
+// aiTargetRand is used for weighted random target selection in AI gateway mode.
+var aiTargetRand = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+// SelectTarget selects a target based on weight.
+func SelectTarget(targets []bfe_basic.AiRouteTarget) bfe_basic.AiRouteTarget {
+	if len(targets) == 1 {
+		return targets[0]
+	}
+
+	r := aiTargetRand.Intn(100)
+	sum := 0
+	for _, target := range targets {
+		sum += target.Weight
+		if r < sum {
+			return target
+		}
+	}
+	return targets[len(targets)-1]
+}
+
+type aiForwardAttempt struct {
+	ClusterName string
+	Model       string
+	IsFallback  bool
+}
+
+// ServeHTTPForAI processes AI gateway http request and sends http response.
+func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_basic.Request) (action int) {
+	var err error
+	var res *bfe_http.Response
+	var hl *bfe_module.HandlerList
+	var retVal int
+	var req *bfe_http.Request = basicReq.HttpRequest
+	var serverConf *bfe_route.ServerDataConf
+	var writeTimer *time.Timer
+	var eppClient *epp.EppClient
+	var ok bool
+
+	isRedirect := false
+	resFlushInterval := time.Duration(0)
+	cancelOnClientClose := false
+
+	timeoutReadClient := time.Duration(cluster_conf.DefaultReadClientTimeout) * time.Millisecond
+	timeoutWriteClient := time.Duration(cluster_conf.DefaultWriteClientTimeout) * time.Millisecond
+	timeoutReadClientAgain := time.Duration(cluster_conf.DefaultReadClientAgainTimeout) * time.Millisecond
+
+	// get instance of BfeServer
+	srv := p.server
+
+	// set clientip of original user for request
+	setClientAddr(basicReq)
+
+	// Callback for HandleBeforeLocation
+	hl = srv.CallBacks.GetHandlerList(bfe_module.HandleBeforeLocation)
+	if hl != nil {
+		retVal, res = hl.FilterRequest(basicReq)
+		basicReq.HttpResponse = res
+		switch retVal {
+		case bfe_module.BfeHandlerClose:
+			// close the connection directly (with no response)
+			action = closeDirectly
+			return
+		case bfe_module.BfeHandlerFinish:
+			// close the connection after response
+			action = closeAfterReply
+			basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
+			goto send_response
+		case bfe_module.BfeHandlerRedirect:
+			// make redirect
+			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)
+			isRedirect = true
+			basicReq.BfeStatusCode = basicReq.Redirect.Code
+			goto send_response
+		case bfe_module.BfeHandlerResponse:
+			goto response_got
+		}
+	}
+
+	// find product
+	if err := srv.findProduct(basicReq); err != nil {
+		basicReq.ErrCode = bfe_basic.ErrBkFindProduct
+		basicReq.ErrMsg = err.Error()
+		p.proxyState.ErrBkFindProduct.Inc(1)
+		log.Logger.Info("FindProduct error[%s] host[%s] vip[%s] clientip[%s]", err.Error(),
+			basicReq.HttpRequest.Host, basicReq.Session.Vip, basicReq.ClientAddr)
+
+		// close connection
+		res = bfe_basic.CreateInternalSrvErrResp(basicReq)
+		action = closeAfterReply
+		goto response_got
+	}
+
+	// Callback for HandleFoundProduct
+	hl = srv.CallBacks.GetHandlerList(bfe_module.HandleFoundProduct)
+	if hl != nil {
+		retVal, res = hl.FilterRequest(basicReq)
+		basicReq.HttpResponse = res
+		switch retVal {
+		case bfe_module.BfeHandlerClose:
+			// close the connection directly (with no response)
+			action = closeDirectly
+			return
+		case bfe_module.BfeHandlerFinish:
+			// close the connection after response
+			action = closeAfterReply
+			basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
+			goto send_response
+		case bfe_module.BfeHandlerRedirect:
+			// make redirect
+			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)
+			isRedirect = true
+			basicReq.BfeStatusCode = basicReq.Redirect.Code
+			goto send_response
+		case bfe_module.BfeHandlerResponse:
+			goto response_got
+		}
+	}
+
+	// AI Route Result Check
+	aiResult := basicReq.GetAiRouteResult()
+	if aiResult == nil {
+		// AI gateway mode: no route hit, return 404
+		basicReq.ErrCode = bfe_basic.ErrBkFindLocation
+		basicReq.ErrMsg = "no ai route found"
+		p.proxyState.ErrBkFindLocation.Inc(1)
+		res = bfe_basic.CreateSpecifiedContentResp(basicReq, bfe_http.StatusNotFound,
+			"text/plain", "AI route not found")
+		action = closeAfterReply
+		goto response_got
+	}
+
+	aiMeta := basicReq.GetAiBasicInfo()
+
+	// Callback for HandleAfterLocation
+	hl = srv.CallBacks.GetHandlerList(bfe_module.HandleAfterLocation)
+	if hl != nil {
+		retVal, res = hl.FilterRequest(basicReq)
+		basicReq.HttpResponse = res
+		switch retVal {
+		case bfe_module.BfeHandlerClose:
+			// close the connection directly (with no response)
+			action = closeDirectly
+			return
+		case bfe_module.BfeHandlerFinish:
+			// close the connection after response
+			action = closeAfterReply
+			basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
+			goto send_response
+		case bfe_module.BfeHandlerRedirect:
+			// make redirect
+			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)
+			isRedirect = true
+			basicReq.BfeStatusCode = basicReq.Redirect.Code
+			goto send_response
+		case bfe_module.BfeHandlerResponse:
+			goto response_got
+		}
+	}
+
+	// AI Forward Loop
+	serverConf = basicReq.SvrDataConf.(*bfe_route.ServerDataConf)
+
+	// weighted random select target
+	var selectedTarget bfe_basic.AiRouteTarget
+	if len(aiResult.Targets) > 0 {
+		selectedTarget = SelectTarget(aiResult.Targets)
+		if aiMeta != nil {
+			aiMeta.TargetModel = selectedTarget.Model
+		}
+	}
+
+	// build attempt list: selected target + fallbacks
+	attempts := make([]aiForwardAttempt, 0, 1+len(aiResult.Fallbacks))
+	if selectedTarget.ClusterName != "" {
+		attempts = append(attempts, aiForwardAttempt{
+			ClusterName: selectedTarget.ClusterName,
+			Model:       selectedTarget.Model,
+			IsFallback:  false,
+		})
+	}
+	for _, fb := range aiResult.Fallbacks {
+		attempts = append(attempts, aiForwardAttempt{
+			ClusterName: fb.ClusterName,
+			Model:       fb.Model,
+			IsFallback:  true,
+		})
+	}
+
+	var lastCluster *bfe_cluster.BfeCluster
+	var invokeErr error
+	for i, attempt := range attempts {
+		if i > 0 {
+			// fallback attempt: reset request state
+			p.resetRequestForRetry(basicReq)
+		}
+
+		res, action, lastCluster, invokeErr = p.aiClusterInvoke(srv, serverConf, basicReq, rw, attempt, aiMeta)
+		if invokeErr == nil && res != nil && res.StatusCode < 500 {
+			// success or 4xx (client error, do not fallback)
+			break
+		}
+
+		// decide whether to try next fallback
+		if i == len(attempts)-1 {
+			// last attempt
+			break
+		}
+		if !shouldTriggerFallback(res, invokeErr) {
+			break
+		}
+
+		// log fallback
+		log.Logger.Info("mod_ai_route: fallback triggered, cluster[%s] err[%v] status[%d]",
+			attempt.ClusterName, invokeErr, getResponseStatus(res))
+	}
+
+	basicReq.HttpResponse = res
+
+	// Note: The runtime will not GC the objects referenced by basicReq.SvrDataConf until the request
+	// has been processed. But the request may last a long time. It's better to remove the reference
+	// to objects which are not used any more.
+	basicReq.SvrDataConf = nil
+
+	if err != nil || res == nil {
+		eppclient := basicReq.GetContext(bal_gslb.REQ_CTX_EPP)
+		if eppclient != nil {
+			eppclient.(*epp.EppClient).Close()
+			basicReq.SetContext(bal_gslb.REQ_CTX_EPP, nil)
+		}
+
+		basicReq.Stat.ResponseStart = time.Now()
+		basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
+		res = bfe_basic.CreateInternalSrvErrResp(basicReq)
+		goto response_got
+	}
+
+	// set response-phase timeouts based on the last cluster used
+	if lastCluster != nil {
+		resFlushInterval = lastCluster.ResFlushInterval()
+		cancelOnClientClose = lastCluster.CancelOnClientClose()
+		timeoutWriteClient = lastCluster.TimeoutWriteClient()
+		timeoutReadClientAgain = lastCluster.TimeoutReadClientAgain()
+	}
+	if resFlushInterval == 0 && basicReq.HttpRequest.Header.Get("Accept") == "text/event-stream" {
+		if lastCluster != nil {
+			resFlushInterval = lastCluster.DefaultSSEFlushInterval()
+		}
+	}
+
+response_got:
+	if res != nil && res.IsSse {
+		if !basicReq.IsSse {
+			timeoutReadClient = -1
+			p.setTimeout(bfe_basic.StageReadReqBody, basicReq.Connection, req, timeoutReadClient)
+
+			timeoutWriteClient = -1
+			cancelOnClientClose = true
+			basicReq.IsSse = true
+		}
+	}
+
+	eppClient, ok = basicReq.GetContext(bal_gslb.REQ_CTX_EPP).(*epp.EppClient)
+	if ok {
+		basicReq.SetContext(bal_gslb.REQ_CTX_EPP, nil)
+		eppClient.ProcRespHeader(res.Header, false)
+		b := epp.NewEppResponseBodyFilter(res.Body, eppClient)
+		res.Body = b
+	}
+
+	// timeout for write response to client
+	// Note: we use io.Copy() to read from backend and write to client.
+	// For avoid from blocking on client conn or backend conn forever,
+	// we must timeout both conns after specified duration.
+	p.setTimeout(bfe_basic.StageWriteClient, basicReq.Connection, req, timeoutWriteClient)
+	writeTimer = time.AfterFunc(timeoutWriteClient, func() {
+		if basicReq.Trans.Transport != nil {
+			// TODO: process bfe_fcgi.Transport & bfe_http2.Transport
+			switch t := basicReq.Trans.Transport.(type) {
+			case *bfe_http.Transport:
+				t.CancelRequest(req)
+			default:
+				// do nothing
+			}
+		}
+
+	})
+	defer writeTimer.Stop()
+
+	// for read next request
+	defer p.setTimeout(bfe_basic.StageEndRequest, basicReq.Connection, req, timeoutReadClientAgain)
+
+	defer res.Body.Close()
+
+	// Callback for HandleReadResponse
+	hl = srv.CallBacks.GetHandlerList(bfe_module.HandleReadResponse)
+	if hl != nil {
+		retVal = hl.FilterResponse(basicReq, res)
+		switch retVal {
+		case bfe_module.BfeHandlerFinish:
+			// close the connection after response
+			action = closeAfterReply
+			basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
+			goto send_response
+		case bfe_module.BfeHandlerRedirect:
+			// make redirect
+			Redirect(rw, req, basicReq.Redirect.Url, basicReq.Redirect.Code, basicReq.Redirect.Header)
+			isRedirect = true
+			basicReq.BfeStatusCode = basicReq.Redirect.Code
+			goto send_response
+		}
+	}
+
+send_response:
+	// send http response to client
+	basicReq.Stat.ResponseStart = time.Now()
+
+	if !isRedirect && res != nil {
+		err = p.sendResponse(rw, res, resFlushInterval, cancelOnClientClose)
+		if err != nil {
+			// Note: for h2/spdy protocol, not close client conn when send
+			// response error. h2/spdy module will close conn/stream properly
+			if !CheckSupportMultiplex(basicReq.Session.Proto) {
+				action = closeAfterReply
+			}
+			basicReq.ErrCode = bfe_basic.ErrClientWrite
+			basicReq.ErrMsg = err.Error()
+
+			p.proxyState.ErrClientWrite.Inc(1)
+		}
+	}
+	return
+}
+
+func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.ServerDataConf,
+	basicReq *bfe_basic.Request, rw bfe_http.ResponseWriter,
+	attempt aiForwardAttempt, aiMeta *bfe_basic.AiBasicInfo) (
+	res *bfe_http.Response, action int, cluster *bfe_cluster.BfeCluster, err error) {
+
+	req := basicReq.HttpRequest
+
+	// update route info
+	basicReq.Route.ClusterName = attempt.ClusterName
+	basicReq.Backend.ClusterName = attempt.ClusterName
+
+	// look up for cluster
+	cluster, err = serverConf.ClusterTable.Lookup(attempt.ClusterName)
+	if err != nil {
+		log.Logger.Warn("no cluster for %s", attempt.ClusterName)
+		basicReq.Stat.ResponseStart = time.Now()
+		basicReq.ErrCode = bfe_basic.ErrBkNoCluster
+		basicReq.ErrMsg = err.Error()
+		p.proxyState.ErrBkNoCluster.Inc(1)
+		return nil, closeAfterReply, nil, err
+	}
+
+	// set deadline to finish read client request body
+	timeoutReadClient := cluster.TimeoutReadClient()
+	p.setTimeout(bfe_basic.StageReadReqBody, basicReq.Connection, req, timeoutReadClient)
+
+	// prepare out request to downstream RS backend
+	outreq := new(bfe_http.Request)
+	*outreq = *req // includes shallow copies of maps, but okay
+	basicReq.OutRequest = outreq
+
+	// set http proto for out request
+	httpProtoSet(outreq)
+	// remove hop-by-hop headers
+	hopByHopHeaderRemove(outreq, req)
+
+	if cluster.DisableHostHeader {
+		// if cluster.DisableHostHeader is true, del outreq.Host
+		outreq.Host = ""
+	}
+
+	// apply model override from ai route target/fallback
+	if attempt.Model != "" && aiMeta != nil {
+		if err := condition.ReqBodyJsonSet(basicReq, "model", attempt.Model); err != nil {
+			log.Logger.Warn("Failed to set model in request body: %s", err)
+		} else {
+			// outreq body already changed, need reset Content-Length
+			if outreq.ContentLength >= 0 {
+				outreq.ContentLength = -1
+				outreq.Header.Del("Content-Length")
+			}
+			aiMeta.TargetModel = attempt.Model
+		}
+	}
+
+	// apply cluster.AIConf (api key, model mapping)
+	if cluster.AIConf != nil && aiMeta != nil {
+		if cluster.AIConf.Key != nil {
+			mod_ai_token_auth.SetApiKey(outreq, *cluster.AIConf.Key)
+		}
+		if cluster.AIConf.ModelMapping != nil {
+			model := aiMeta.ClientModel
+			if aiMeta.TargetModel != "" {
+				model = aiMeta.TargetModel
+			}
+			if model != "" {
+				if newModel, ok := (*cluster.AIConf.ModelMapping)[model]; ok {
+					if err := condition.ReqBodyJsonSet(basicReq, "model", newModel); err != nil {
+						log.Logger.Warn("Failed to set model in request body: %s", err)
+					} else {
+						// outreq body already changed, need reset Content-Length
+						if outreq.ContentLength >= 0 {
+							outreq.ContentLength = -1
+							outreq.Header.Del("Content-Length")
+						}
+						aiMeta.TargetModel = newModel
+					}
+				}
+			}
+		}
+	}
+
+	// invoke cluster to get response
+	res, action, err = p.clusterInvoke(srv, cluster, basicReq, rw)
+	return res, action, cluster, err
+}
+
+func shouldTriggerFallback(res *bfe_http.Response, err error) bool {
+	if err != nil {
+		return true
+	}
+	if res != nil && res.StatusCode >= 500 {
+		return true
+	}
+	return false
+}
+
+func getResponseStatus(res *bfe_http.Response) int {
+	if res == nil {
+		return 0
+	}
+	return res.StatusCode
+}
+
+func (p *ReverseProxy) resetRequestForRetry(basicReq *bfe_basic.Request) {
+	// desc backend connection counter
+	if basicReq.Trans.Backend != nil {
+		basicReq.Trans.Backend.DecConnNum()
+		basicReq.Trans.Backend = nil
+	}
+	basicReq.Trans.Transport = nil
+	basicReq.RetryTime = 0
+
+	// reset out request so body can be re-read
+	basicReq.OutRequest = nil
+
+	// clear error info from previous attempt
+	basicReq.ErrCode = nil
+	basicReq.ErrMsg = ""
 }

@@ -556,7 +556,12 @@ func (c *conn) serveRequest(w bfe_http.ResponseWriter, request *bfe_basic.Reques
 	}
 
 	// serve the request
-	ret1 := c.server.ReverseProxy.ServeHTTP(w, request)
+	var ret1 int
+	if c.server.Config.Server.EnableAiGateway {
+		ret1 = c.server.ReverseProxy.ServeHTTPForAI(w, request)
+	} else {
+		ret1 = c.server.ReverseProxy.ServeHTTP(w, request)
+	}
 
 	if !isClientReqSse && request.IsSse {
 		//sse tag in response header
