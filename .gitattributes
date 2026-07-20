@@ -1,0 +1,4 @@
+# Test fixtures that must keep LF line endings for deterministic byte comparisons
+bfe_modules/mod_static/testdata/mod_static/index.html eol=lf
+bfe_modules/mod_markdown/testdata/*.md eol=lf
+bfe_modules/mod_markdown/testdata/*.output eol=lf
