@@ -112,13 +112,6 @@ func (m *ModuleAiRoute) routeFoundProductHandler(req *bfe_basic.Request) (int, *
 		m.state.ReqHitGlobal.Inc(1)
 	}
 
-	// write selected cluster into req.Route for compatibility
-	if len(result.Targets) > 0 {
-		selected := SelectTarget(result.Targets)
-		req.Route.ClusterName = selected.ClusterName
-		aiMeta.TargetModel = selected.Model
-	}
-
 	req.SetAiRouteResult(result)
 
 	return bfe_module.BfeHandlerGoOn, nil

@@ -60,9 +60,6 @@ func TestRouteFoundProductHandlerHit(t *testing.T) {
 	if result.RuleName != "user_a-rule1" {
 		t.Errorf("RuleName: expected user_a-rule1, got %s", result.RuleName)
 	}
-	if req.Route.ClusterName == "" {
-		t.Error("expected ClusterName set in req.Route")
-	}
 }
 
 func TestRouteFoundProductHandlerNoAiBasicInfo(t *testing.T) {
