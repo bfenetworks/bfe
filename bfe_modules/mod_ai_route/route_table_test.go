@@ -24,7 +24,7 @@ import (
 
 func newTestBasicRequest(host string) *bfe_basic.Request {
 	req, _ := bfe_http.NewRequest(http.MethodGet, "http://"+host+"/v1/chat/completions", nil)
-	return bfe_basic.NewRequest(req, nil, nil, nil, nil)
+	return bfe_basic.NewRequest(req, nil, nil, bfe_basic.NewSession(nil), nil)
 }
 
 func TestAiRouteTableUpdateValid(t *testing.T) {

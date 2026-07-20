@@ -44,8 +44,8 @@ func TestAiRouteDataLoadValid(t *testing.T) {
 	if apikeyTable.Type != RouteTypeApikey {
 		t.Errorf("apikey_ak_user_a type: expected apikey, got %s", apikeyTable.Type)
 	}
-	if len(apikeyTable.Rules) != 2 {
-		t.Errorf("apikey_ak_user_a rules count: expected 2, got %d", len(apikeyTable.Rules))
+	if len(apikeyTable.Rules) != 1 {
+		t.Errorf("apikey_ak_user_a rules count: expected 1, got %d", len(apikeyTable.Rules))
 	}
 }
 

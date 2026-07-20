@@ -31,7 +31,7 @@ const (
 type RouteRule struct {
 	Name      string `json:"name"`
 	CondStr   string `json:"Cond"`
-	Cond      condition.Condition
+	Cond      condition.Condition           `json:"-"`
 	Targets   []bfe_basic.AiRouteTarget   `json:"targets"`
 	Fallbacks []bfe_basic.AiRouteFallback `json:"fallbacks"`
 }

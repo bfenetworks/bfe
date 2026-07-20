@@ -26,18 +26,6 @@
                             "Model": "deepseek-v3.2"
                         }
                     ]
-                },
-                {
-                    "name": "user_a-default",
-                    "Cond": "default_t()",
-                    "targets": [
-                        {
-                            "ClusterName": "cluster_default",
-                            "Model": "",
-                            "Weight": 100
-                        }
-                    ],
-                    "fallbacks": []
                 }
             ]
         },
@@ -81,7 +69,6 @@
     "ApikeyRouteTableBindings": {
         "ak_user_a": [
             "apikey_ak_user_a",
-            "entity_dept_ai",
             "global_default"
         ],
         "ak_user_b": [

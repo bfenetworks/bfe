@@ -25,7 +25,7 @@ import (
 
 func newTestRequestWithApiKey(host, apiKey string) *bfe_basic.Request {
 	req, _ := bfe_http.NewRequest(http.MethodGet, "http://"+host+"/v1/chat/completions", nil)
-	basicReq := bfe_basic.NewRequest(req, nil, nil, nil, nil)
+	basicReq := bfe_basic.NewRequest(req, nil, nil, bfe_basic.NewSession(nil), nil)
 	aiMeta := basicReq.InitAiBasicInfo()
 	aiMeta.ClientApiKey = apiKey
 	return basicReq
