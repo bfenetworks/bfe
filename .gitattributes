@@ -2,3 +2,5 @@
 bfe_modules/mod_static/testdata/mod_static/index.html eol=lf
 bfe_modules/mod_markdown/testdata/*.md eol=lf
 bfe_modules/mod_markdown/testdata/*.output eol=lf
+tests/integration/mod_ai_route/testdata/**/*.data eol=lf
+tests/integration/mod_ai_route/testdata/**/*.conf eol=lf
