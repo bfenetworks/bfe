@@ -1,0 +1,95 @@
+{
+    "Version": "20260720150000",
+    "route_rules": {
+        "apikey_ak_user_a": {
+            "type": "apikey",
+            "owner": "ak_user_a",
+            "rules": [
+                {
+                    "name": "user_a-rule1",
+                    "Cond": "req_host_in(\"api.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_deepseek_a",
+                            "Model": "deepseek-v4-pro",
+                            "Weight": 70
+                        },
+                        {
+                            "ClusterName": "cluster_deepseek_b",
+                            "Model": "deepseek-v4-pro",
+                            "Weight": 30
+                        }
+                    ],
+                    "fallbacks": [
+                        {
+                            "ClusterName": "cluster_deepseek_c",
+                            "Model": "deepseek-v3.2"
+                        }
+                    ]
+                },
+                {
+                    "name": "user_a-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_default",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        },
+        "entity_dept_ai": {
+            "type": "entity",
+            "owner": "dept_ai",
+            "rules": [
+                {
+                    "name": "dept_ai-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_dept_ai",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        },
+        "global_default": {
+            "type": "global",
+            "owner": "global",
+            "rules": [
+                {
+                    "name": "global-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_global",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_user_a": [
+            "apikey_ak_user_a",
+            "entity_dept_ai",
+            "global_default"
+        ],
+        "ak_user_b": [
+            "entity_dept_ai",
+            "global_default"
+        ],
+        "ak_unknown": [
+            "non_existent_table"
+        ]
+    }
+}

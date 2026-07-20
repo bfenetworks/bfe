@@ -21,6 +21,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access_pb3"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_rate_limit"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_route"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_token_auth"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_auth_basic"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_auth_jwt"
@@ -147,6 +148,10 @@ var moduleList = []bfe_module.BfeModule{
 
 	// mod_ai_token_auth
 	mod_ai_token_auth.NewModuleAITokenAuth(),
+
+	// mod_ai_route
+	// Requirement: after mod_ai_token_auth (needs ClientApiKey)
+	mod_ai_route.NewModuleAiRoute(),
 
 	// mod_body_process
 	mod_body_process.NewModuleBodyProcess(),
