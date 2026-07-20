@@ -1143,6 +1143,14 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 	var eppClient *epp.EppClient
 	var ok bool
 
+	// declare ai-related vars at top to avoid goto jumping over declarations
+	var aiResult *bfe_basic.AiRouteResult
+	var aiMeta *bfe_basic.AiBasicInfo
+	var selectedTarget bfe_basic.AiRouteTarget
+	var attempts []aiForwardAttempt
+	var lastCluster *bfe_cluster.BfeCluster
+	var invokeErr error
+
 	isRedirect := false
 	resFlushInterval := time.Duration(0)
 	cancelOnClientClose := false
@@ -1224,7 +1232,7 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 	}
 
 	// AI Route Result Check
-	aiResult := basicReq.GetAiRouteResult()
+	aiResult = basicReq.GetAiRouteResult()
 	if aiResult == nil {
 		// AI gateway mode: no route hit, return 404
 		basicReq.ErrCode = bfe_basic.ErrBkFindLocation
@@ -1236,7 +1244,7 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		goto response_got
 	}
 
-	aiMeta := basicReq.GetAiBasicInfo()
+	aiMeta = basicReq.GetAiBasicInfo()
 
 	// Callback for HandleAfterLocation
 	hl = srv.CallBacks.GetHandlerList(bfe_module.HandleAfterLocation)
@@ -1268,7 +1276,6 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 	serverConf = basicReq.SvrDataConf.(*bfe_route.ServerDataConf)
 
 	// weighted random select target
-	var selectedTarget bfe_basic.AiRouteTarget
 	if len(aiResult.Targets) > 0 {
 		selectedTarget = SelectTarget(aiResult.Targets)
 		if aiMeta != nil {
@@ -1277,7 +1284,7 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 	}
 
 	// build attempt list: selected target + fallbacks
-	attempts := make([]aiForwardAttempt, 0, 1+len(aiResult.Fallbacks))
+	attempts = make([]aiForwardAttempt, 0, 1+len(aiResult.Fallbacks))
 	if selectedTarget.ClusterName != "" {
 		attempts = append(attempts, aiForwardAttempt{
 			ClusterName: selectedTarget.ClusterName,
@@ -1293,8 +1300,6 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		})
 	}
 
-	var lastCluster *bfe_cluster.BfeCluster
-	var invokeErr error
 	for i, attempt := range attempts {
 		if i > 0 {
 			// fallback attempt: reset request state
