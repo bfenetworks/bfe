@@ -211,6 +211,11 @@ func GetApiKey(req *bfe_basic.Request) string {
 
 // found product handler
 func (m *ModuleAITokenAuth) tokenFoundProductHandler(req *bfe_basic.Request) (int, *bfe_http.Response) {
+	meta := req.GetAiBasicInfo()
+	if meta == nil {
+		return bfe_module.BfeHandlerGoOn, nil
+	}
+
 	matched := m.matchTokenRule(req)
 	if !matched {
 		// no rule, just pass
