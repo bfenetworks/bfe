@@ -19,9 +19,11 @@ import (
 	"strconv"
 )
 
+// QpmCheck performs sliding-window rate limiting.
+// Main window: key stores timestamps in a ZSET, period seconds, max limit requests.
+// tat returns the current main-window request count (was TAT in GCRA).
 func (agent *RedisLRAgent) QpmCheck(
 	key string,
-	burst int64,
 	period int64,
 	limit int64,
 	expectUse int64,
@@ -36,9 +38,7 @@ func (agent *RedisLRAgent) QpmCheck(
 		return
 	}
 
-	// now := float64(time.Now().UnixNano()) / 1e9
-	// args := []interface{}{burst, period, limit, expectUse, now}
-	args := []interface{}{burst, period, limit, expectUse}
+	args := []interface{}{period, limit, expectUse}
 
 	res, errtmp := agent.scriptQpmCheck.Run(key, args...)
 	if errtmp != nil {
