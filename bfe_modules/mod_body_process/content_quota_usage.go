@@ -62,7 +62,7 @@ func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 			}
 		}
 
-		if tctx.UsedQuota <= 0 {
+		if tctx.UsedQuota <= 0 && caf.aiBasicInfo.IsAllowEstimateToken() {
 			// still not got usage, estimate from content length
 			if tctx.CompletionTokens == -1 {
 				tctx.CompletionTokens = 0 // 初始化为0

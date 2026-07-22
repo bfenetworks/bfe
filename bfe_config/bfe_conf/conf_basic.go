@@ -47,7 +47,8 @@ type ConfigBasic struct {
 	MaxProxyHeaderBytes     int  // max header length in bytes in Proxy protocol
 	KeepAliveEnabled        bool // if false, client connection is shutdown disregard of http headers
 
-	EnableAiGateway bool //enable ai gateway
+	EnableAiGateway bool // enable ai gateway
+	EstimateToken   bool // whether estimate token usage from content length
 
 	Modules []string // modules to load
 
