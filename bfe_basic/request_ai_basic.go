@@ -63,10 +63,20 @@ type AiBasicInfo struct {
 	ApikeyTags    []ApikeyTag
 	TokenTimeInfo TokenTimeInfo
 	AiAuthInfo    AiAuthInfo
+
+	allowEstimateToken bool
 }
 
 func (aiinfo *AiBasicInfo) GetTokenUsage() *TokenUsage {
 	return &aiinfo.tokenUsage
+}
+
+func (aiinfo *AiBasicInfo) SetAllowEstimateToken(allow bool) {
+	aiinfo.allowEstimateToken = allow
+}
+
+func (aiinfo *AiBasicInfo) IsAllowEstimateToken() bool {
+	return aiinfo.allowEstimateToken
 }
 
 func GetApiKey(req *Request) string {
