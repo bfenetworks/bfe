@@ -15,6 +15,7 @@
 package mod_ai_route
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
@@ -48,6 +49,36 @@ type AiRouteDataFile struct {
 	Version                  string                    `json:"Version"`
 	RouteRules               map[string]RouteTableFile `json:"route_rules"`
 	ApikeyRouteTableBindings map[string][]string       `json:"ApikeyRouteTableBindings"`
+}
+
+// UnmarshalJSON accepts both the canonical BFE field name "route_rules" and
+// the ai-gateway-api InnerAPI field name "RouteRules". It also normalizes
+// route table type values ("api_key" -> "apikey") for compatibility.
+func (f *AiRouteDataFile) UnmarshalJSON(data []byte) error {
+	type rawFile AiRouteDataFile
+	raw := &struct {
+		*rawFile
+		RouteRulesUpper map[string]RouteTableFile `json:"RouteRules"`
+	}{
+		rawFile: (*rawFile)(f),
+	}
+
+	if err := json.Unmarshal(data, raw); err != nil {
+		return err
+	}
+
+	if f.RouteRules == nil && raw.RouteRulesUpper != nil {
+		f.RouteRules = raw.RouteRulesUpper
+	}
+
+	for key, table := range f.RouteRules {
+		if table.Type == "api_key" {
+			table.Type = RouteTypeApikey
+		}
+		f.RouteRules[key] = table
+	}
+
+	return nil
 }
 
 // RouteRule is the runtime representation of a route rule with compiled condition.
