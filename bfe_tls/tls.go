@@ -12,321 +12,197 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Copyright 2009 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
-// Package bfe_tls partially implements TLS 1.2, as specified in RFC 5246.
+// Package bfe_tls wraps Go's standard crypto/tls to add BFE-specific
+// features: per-VIP/SNI rule selection, grade-based cipher policy,
+// CRL checking, and OCSP stapling.
 package bfe_tls
 
 import (
-	"crypto"
-	"crypto/ecdsa"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
-	"errors"
-	"io/ioutil"
+	"crypto/tls"
 	"net"
-	"strings"
 	"sync"
-	"time"
+
+	crypto_tls "crypto/tls"
 )
 
-// Server returns a new TLS server side connection
-// using conn as the underlying transport.
-// The configuration config must be non-nil and must have
-// at least one certificate.
+// CurveID and curve constants re-exported from crypto/tls.
+type CurveID = crypto_tls.CurveID
+
+const (
+	CurveP256 = crypto_tls.CurveP256
+	CurveP384 = crypto_tls.CurveP384
+	CurveP521 = crypto_tls.CurveP521
+	X25519    = crypto_tls.X25519
+)
+
+
+
+// X509KeyPair parses a PEM-encoded certificate and private key.
+func X509KeyPair(certPEMBlock, keyPEMBlock []byte) (Certificate, error) {
+	tlsCert, err := crypto_tls.X509KeyPair(certPEMBlock, keyPEMBlock)
+	if err != nil {
+		return Certificate{}, err
+	}
+	return Certificate{
+		Certificate: tlsCert.Certificate,
+		PrivateKey:  tlsCert.PrivateKey,
+		Leaf:        tlsCert.Leaf,
+	}, nil
+}
+
+// LoadX509KeyPair reads and parses a certificate/key pair from files.
+func LoadX509KeyPair(certFile, keyFile string) (Certificate, error) {
+	tlsCert, err := crypto_tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return Certificate{}, err
+	}
+	return Certificate{
+		Certificate: tlsCert.Certificate,
+		PrivateKey:  tlsCert.PrivateKey,
+		Leaf:        tlsCert.Leaf,
+	}, nil
+}
+
+// NewLRUClientSessionCache creates a new LRU client session cache.
+var NewLRUClientSessionCache = crypto_tls.NewLRUClientSessionCache
+
+// Server returns a TLS server-side Conn using conn as the underlying transport.
 func Server(conn net.Conn, config *Config) *Conn {
-	return &Conn{conn: conn, config: config}
+	tlsCfg := config.toCryptoTLS(nil)
+	return newConn(crypto_tls.Server(conn, tlsCfg))
 }
 
-// Client returns a new TLS client side connection
-// using conn as the underlying transport.
-// The config cannot be nil: users must set either ServerName or
-// InsecureSkipVerify in the config.
+// Client returns a TLS client-side Conn using conn as the underlying transport.
 func Client(conn net.Conn, config *Config) *Conn {
-	return &Conn{conn: conn, config: config, isClient: true}
+	tlsCfg := config.toCryptoTLS(nil)
+	return newConn(crypto_tls.Client(conn, tlsCfg))
 }
 
-// A listener implements a network listener (net.Listener) for TLS connections.
+// listener wraps a net.Listener and accepts TLS connections using a
+// live-reloadable BFE Config.
 type listener struct {
 	net.Listener
+	mu     sync.RWMutex
 	config *Config
-	lock   sync.RWMutex // lock for config
 }
 
 // Accept waits for and returns the next incoming TLS connection.
-// The returned connection c is a *tls.Conn.
-func (l *listener) Accept() (c net.Conn, err error) {
-	c, err = l.Listener.Accept()
+func (l *listener) Accept() (net.Conn, error) {
+	raw, err := l.Listener.Accept()
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	l.lock.RLock()
-	c = Server(c, l.config)
-	l.lock.RUnlock()
-	return
+	l.mu.RLock()
+	cfg := l.config
+	l.mu.RUnlock()
+
+	tlsCfg := cfg.toCryptoTLS(cfg.ServerRule)
+	tlsConn := crypto_tls.Server(raw, tlsCfg)
+	return newConn(tlsConn), nil
 }
 
-// NewListener creates a Listener which accepts connections from an inner
-// Listener and wraps each connection with Server.
-// The configuration config must be non-nil and must have
-// at least one certificate.
+// NewListener creates a Listener that wraps each accepted connection in TLS.
 func NewListener(inner net.Listener, config *Config) net.Listener {
-	l := new(listener)
-	l.Listener = inner
-	l.config = config
+	l := &listener{Listener: inner, config: config}
 	return l
 }
 
-// UpdateListener updates config for tls listener
-/*
- * Params:
- *     - ln  : a tls listener
- *     - conf: a tls config
- *
- * Return:
- *     - error
- *
- * Note:
- *     1. tls.listener will not modify tls.Config and just pass it
- * to accepted Connection.
- *     2. tls.Conn will just read tls.Config during handshake and
- * data transfer phase
- *     3. MUST specify a new tls.config when called
- */
-func UpdateListener(ln net.Listener, conf *Config) error {
-	l, ok := ln.(*listener)
-	if !ok {
-		return errors.New("tls.UpdateListener: type not tls.listener")
+// UpdateListener hot-reloads the TLS config on an existing listener.
+func UpdateListener(l net.Listener, config *Config) {
+	if tl, ok := l.(*listener); ok {
+		tl.mu.Lock()
+		tl.config = config
+		tl.mu.Unlock()
 	}
-
-	l.lock.Lock()
-	defer l.lock.Unlock()
-
-	if l.config == conf {
-		return errors.New("tls.UpdateListener: not safe to modify config in use")
-	}
-
-	l.config = conf
-	return nil
 }
 
-// Listen creates a TLS listener accepting connections on the
-// given network address using net.Listen.
-// The configuration config must be non-nil and must have
-// at least one certificate.
-func Listen(network, laddr string, config *Config) (net.Listener, error) {
-	if config == nil || len(config.Certificates) == 0 {
-		return nil, errors.New("tls.Listen: no certificates in configuration")
+// toCryptoTLS converts a BFE Config to a standard crypto/tls.Config,
+// wiring per-connection rule selection via GetConfigForClient.
+func (c *Config) toCryptoTLS(rule ServerRule) *crypto_tls.Config {
+	tlsCerts := make([]tls.Certificate, 0, len(c.Certificates))
+	for _, cert := range c.Certificates {
+		tlsCerts = append(tlsCerts, cert.toCryptoTLS())
 	}
-	l, err := net.Listen(network, laddr)
-	if err != nil {
-		return nil, err
+
+	cfg := &crypto_tls.Config{
+		Rand:                     c.Rand,
+		Time:                     c.Time,
+		Certificates:             tlsCerts,
+		NextProtos:               c.NextProtos,
+		ServerName:               c.ServerName,
+		InsecureSkipVerify:       c.InsecureSkipVerify,
+		CipherSuites:             c.CipherSuites,
+		PreferServerCipherSuites: c.PreferServerCipherSuites,
+		SessionTicketsDisabled:   c.SessionTicketsDisabled,
+		SessionTicketKey:         c.SessionTicketKey,
+		ClientSessionCache:       c.ClientSessionCache,
+		MinVersion:               VersionTLS12, // floor: no SSL3/TLS1.0/TLS1.1
+		MaxVersion:               0,            // 0 = crypto/tls default = TLS 1.3
+		CurvePreferences:         c.CurvePreferences,
+		VerifyPeerCertificate:    c.VerifyPeerCertificate,
 	}
-	return NewListener(l, config), nil
-}
 
-type timeoutError struct{}
+	if c.RootCAs != nil {
+		cfg.RootCAs = c.RootCAs
+	}
+	if c.ClientCAs != nil {
+		cfg.ClientCAs = c.ClientCAs
+		cfg.ClientAuth = c.ClientAuth
+	}
 
-func (timeoutError) Error() string   { return "tls: DialWithDialer timed out" }
-func (timeoutError) Timeout() bool   { return true }
-func (timeoutError) Temporary() bool { return true }
+	if rule == nil {
+		return cfg
+	}
 
-// DialWithDialer connects to the given network address using dialer.Dial and
-// then initiates a TLS handshake, returning the resulting TLS connection. Any
-// timeout or deadline given in the dialer apply to connection and TLS
-// handshake as a whole.
-//
-// DialWithDialer interprets a nil configuration as equivalent to the zero
-// configuration; see the documentation of Config for the defaults.
-func DialWithDialer(dialer *net.Dialer, network, addr string, config *Config) (*Conn, error) {
-	// We want the Timeout and Deadline values from dialer to cover the
-	// whole process: TCP connection and TLS handshake. This means that we
-	// also need to start our own timers now.
-	timeout := dialer.Timeout
+	// Wire per-connection config selection.
+	cfg.GetConfigForClient = func(chi *crypto_tls.ClientHelloInfo) (*crypto_tls.Config, error) {
+		synth := newSyntheticConn(chi.Conn, chi.ServerName)
+		r := rule.Get(synth)
+		if r == nil {
+			return nil, nil // use base config
+		}
+		perConn := cfg.Clone()
+		applyRule(perConn, r)
+		return perConn, nil
+	}
 
-	if !dialer.Deadline.IsZero() {
-		deadlineTimeout := dialer.Deadline.Sub(time.Now())
-		if timeout == 0 || deadlineTimeout < timeout {
-			timeout = deadlineTimeout
+	// Multi-cert selection: pick the right leaf cert by SNI/VIP.
+	if c.MultiCert != nil {
+		cfg.GetCertificate = func(chi *crypto_tls.ClientHelloInfo) (*crypto_tls.Certificate, error) {
+			synth := newSyntheticConn(chi.Conn, chi.ServerName)
+			cert := c.MultiCert.Get(synth)
+			if cert == nil {
+				return nil, nil // fall back to Certificates list
+			}
+			tlsCert := cert.toCryptoTLS()
+			return &tlsCert, nil
 		}
 	}
 
-	var errChannel chan error
-
-	if timeout != 0 {
-		errChannel = make(chan error, 2)
-		time.AfterFunc(timeout, func() {
-			errChannel <- timeoutError{}
-		})
-	}
-
-	rawConn, err := dialer.Dial(network, addr)
-	if err != nil {
-		return nil, err
-	}
-
-	colonPos := strings.LastIndex(addr, ":")
-	if colonPos == -1 {
-		colonPos = len(addr)
-	}
-	hostname := addr[:colonPos]
-
-	if config == nil {
-		config = defaultConfig()
-	}
-	// If no ServerName is set, infer the ServerName
-	// from the hostname we're connecting to.
-	if config.ServerName == "" {
-		// Make a copy to avoid polluting argument or default.
-		c := config.Clone()
-		c.ServerName = hostname
-		config = c
-	}
-
-	conn := Client(rawConn, config)
-
-	if timeout == 0 {
-		err = conn.Handshake()
-	} else {
-		go func() {
-			errChannel <- conn.Handshake()
-		}()
-
-		err = <-errChannel
-	}
-
-	if err != nil {
-		rawConn.Close()
-		return nil, err
-	}
-
-	return conn, nil
+	return cfg
 }
 
-// Dial connects to the given network address using net.Dial
-// and then initiates a TLS handshake, returning the resulting
-// TLS connection.
-// Dial interprets a nil configuration as equivalent to
-// the zero configuration; see the documentation of Config
-// for the defaults.
+// applyRule applies a BFE TLS Rule to a per-connection crypto/tls.Config.
+func applyRule(cfg *crypto_tls.Config, r *Rule) {
+	cfg.MinVersion = gradeMinVersion(r.Grade)
+	cfg.MaxVersion = 0 // always allow TLS 1.3
+	cfg.CipherSuites = gradeCipherSuites(r.Grade, r.Chacha20)
+
+	if r.ClientAuth {
+		cfg.ClientAuth = crypto_tls.RequireAndVerifyClientCert
+		if r.ClientCAs != nil {
+			cfg.ClientCAs = r.ClientCAs
+		}
+	}
+}
+
+// Dial connects to addr using TLS on the named network.
 func Dial(network, addr string, config *Config) (*Conn, error) {
-	return DialWithDialer(new(net.Dialer), network, addr, config)
-}
-
-// LoadX509KeyPair reads and parses a public/private key pair from a pair of
-// files. The files must contain PEM encoded data.
-func LoadX509KeyPair(certFile, keyFile string) (cert Certificate, err error) {
-	// try third party loader
-	if keyPairLoader != nil {
-		return keyPairLoader.LoadX509KeyPair(certFile, keyFile)
-	}
-
-	certPEMBlock, err := ioutil.ReadFile(certFile)
+	tlsCfg := config.toCryptoTLS(config.ServerRule)
+	c, err := crypto_tls.Dial(network, addr, tlsCfg)
 	if err != nil {
-		return
+		return nil, err
 	}
-	keyPEMBlock, err := ioutil.ReadFile(keyFile)
-	if err != nil {
-		return
-	}
-	return X509KeyPair(certPEMBlock, keyPEMBlock)
-}
-
-// X509KeyPair parses a public/private key pair from a pair of
-// PEM encoded data.
-func X509KeyPair(certPEMBlock, keyPEMBlock []byte) (cert Certificate, err error) {
-	var certDERBlock *pem.Block
-	for {
-		certDERBlock, certPEMBlock = pem.Decode(certPEMBlock)
-		if certDERBlock == nil {
-			break
-		}
-		if certDERBlock.Type == "CERTIFICATE" {
-			cert.Certificate = append(cert.Certificate, certDERBlock.Bytes)
-		}
-	}
-
-	if len(cert.Certificate) == 0 {
-		err = errors.New("crypto/tls: failed to parse certificate PEM data")
-		return
-	}
-	cert.buildCertMsg() // prebuild cert message for tls handshake
-
-	var keyDERBlock *pem.Block
-	for {
-		keyDERBlock, keyPEMBlock = pem.Decode(keyPEMBlock)
-		if keyDERBlock == nil {
-			err = errors.New("crypto/tls: failed to parse key PEM data")
-			return
-		}
-		if keyDERBlock.Type == "PRIVATE KEY" || strings.HasSuffix(keyDERBlock.Type, " PRIVATE KEY") {
-			break
-		}
-	}
-
-	cert.PrivateKey, err = parsePrivateKey(keyDERBlock.Bytes)
-	if err != nil {
-		return
-	}
-
-	// We don't need to parse the public key for TLS, but we so do anyway
-	// to check that it looks sane and matches the private key.
-	x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
-	if err != nil {
-		return
-	}
-
-	switch pub := x509Cert.PublicKey.(type) {
-	case *rsa.PublicKey:
-		priv, ok := cert.PrivateKey.(*rsa.PrivateKey)
-		if !ok {
-			err = errors.New("crypto/tls: private key type does not match public key type")
-			return
-		}
-		if pub.N.Cmp(priv.N) != 0 {
-			err = errors.New("crypto/tls: private key does not match public key")
-			return
-		}
-	case *ecdsa.PublicKey:
-		priv, ok := cert.PrivateKey.(*ecdsa.PrivateKey)
-		if !ok {
-			err = errors.New("crypto/tls: private key type does not match public key type")
-			return
-		}
-		if pub.X.Cmp(priv.X) != 0 || pub.Y.Cmp(priv.Y) != 0 {
-			err = errors.New("crypto/tls: private key does not match public key")
-			return
-		}
-	default:
-		err = errors.New("crypto/tls: unknown public key algorithm")
-		return
-	}
-
-	return
-}
-
-// Attempt to parse the given private key DER block. OpenSSL 0.9.8 generates
-// PKCS#1 private keys by default, while OpenSSL 1.0.0 generates PKCS#8 keys.
-// OpenSSL ecparam generates SEC1 EC private keys for ECDSA. We try all three.
-func parsePrivateKey(der []byte) (crypto.PrivateKey, error) {
-	if key, err := x509.ParsePKCS1PrivateKey(der); err == nil {
-		return key, nil
-	}
-	if key, err := x509.ParsePKCS8PrivateKey(der); err == nil {
-		switch key := key.(type) {
-		case *rsa.PrivateKey, *ecdsa.PrivateKey:
-			return key, nil
-		default:
-			return nil, errors.New("crypto/tls: found unknown private key type in PKCS#8 wrapping")
-		}
-	}
-	if key, err := x509.ParseECPrivateKey(der); err == nil {
-		return key, nil
-	}
-
-	return nil, errors.New("crypto/tls: failed to parse private key")
+	return newConn(c), nil
 }
