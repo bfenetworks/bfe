@@ -521,8 +521,11 @@ func TestMultiFallbacksAllFail(t *testing.T) {
 
 // TestModelOverrideAndFallback verifies model override for target and fallback.
 func TestModelOverrideAndFallback(t *testing.T) {
+	// Make all primaries fail so the request deterministically falls back.
 	e := newTestEnv(t, map[string]int{
 		"cluster_primary_a":  http.StatusInternalServerError,
+		"cluster_primary_b":  http.StatusInternalServerError,
+		"cluster_primary_c":  http.StatusInternalServerError,
 		"cluster_fallback_1": http.StatusOK,
 	})
 	defer e.Close()
