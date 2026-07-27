@@ -542,6 +542,7 @@ func (c *conn) serveRequest(w bfe_http.ResponseWriter, request *bfe_basic.Reques
 
 	if c.server.Config.Server.EnableAiGateway {
 		aiMeta := request.InitAiBasicInfo()
+		aiMeta.SetAllowEstimateToken(c.server.Config.Server.EstimateToken)
 		apikey := bfe_basic.GetApiKey(request)
 		if len(apikey) > 0 {
 			aiMeta.ClientApiKey = apikey

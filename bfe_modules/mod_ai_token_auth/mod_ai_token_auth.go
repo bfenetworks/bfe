@@ -139,7 +139,7 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 			body, _ := bodyAccessor.GetBytes()
 			UpdateCtxByUsage(ctx, body)
 		}
-		if tokenUsage.UsedQuota <= 0 {
+		if tokenUsage.UsedQuota <= 0 && ctx.aiBasicInfo.IsAllowEstimateToken() {
 			tokenUsage.CompletionTokens = int64(res.ContentLength) / 4                                         // estimate completion tokens
 			tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens) // calculate used quota
 		}
@@ -168,7 +168,7 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	}
 
 	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
-	if tokenUsage.UsedQuota <= 0 {
+	if tokenUsage.UsedQuota <= 0 && ctx.aiBasicInfo.IsAllowEstimateToken() {
 		tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens) // calculate used quota
 	}
 	if tokenUsage.UsedQuota > 0 {
@@ -231,8 +231,11 @@ func (m *ModuleAITokenAuth) tokenFoundProductHandler(req *bfe_basic.Request) (in
 		return bfe_module.BfeHandlerResponse, resp
 	}
 
-	promptToken := GetPromptToken(req)
-	SetTokenAuthContext(req, tok, promptToken, tok.Tags)
+	promptToken := 0
+	if meta.IsAllowEstimateToken() {
+		promptToken = int(GetPromptToken(req))
+	}
+	SetTokenAuthContext(req, tok, int64(promptToken), tok.Tags)
 
 	return bfe_module.BfeHandlerGoOn, nil
 }
@@ -318,10 +321,6 @@ func (m *ModuleAITokenAuth) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.
 	}
 
 	return nil
-}
-
-func usedQuotaKey(key string, updatetime int64) string {
-	return fmt.Sprintf("usedquota_%s:%d", key, updatetime)
 }
 
 type TokenAuthContext struct {
