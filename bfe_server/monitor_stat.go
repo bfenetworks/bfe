@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/web-monitor/kv_encode"
+	"github.com/bfenetworks/go-lib/web-monitor/kv_encode"
 )
 
 import (

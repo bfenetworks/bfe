@@ -15,7 +15,7 @@
 package mod_tcp_keepalive
 
 import (
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 func setIdle(fd int, secs int) error {

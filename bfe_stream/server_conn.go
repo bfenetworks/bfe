@@ -22,8 +22,8 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/gotrack"
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/gotrack"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 import (

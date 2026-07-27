@@ -17,8 +17,8 @@
 package bfe_server
 
 import (
-	"github.com/baidu/go-lib/web-monitor/delay_counter"
-	"github.com/baidu/go-lib/web-monitor/metrics"
+	"github.com/bfenetworks/go-lib/web-monitor/delay_counter"
+	"github.com/bfenetworks/go-lib/web-monitor/metrics"
 )
 
 import (

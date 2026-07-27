@@ -220,7 +220,7 @@ func newTestEnv(t *testing.T, responseMap map[string]int) *testEnv {
 	e.srv = bfe_server.NewBfeServer(cfg, e.tempDir, "test")
 
 	// init web monitor (needed by InitModules)
-	if err := e.srv.InitWebMonitor(0); err != nil {
+	if err := e.srv.InitWebMonitor(0, ""); err != nil {
 		t.Fatalf("init web monitor failed: %v", err)
 	}
 

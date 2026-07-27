@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 )

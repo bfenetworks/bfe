@@ -17,7 +17,7 @@ package mod_session_sticky
 import (
 	"fmt"
 
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/bfe/bfe_util"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 	gcfg "gopkg.in/gcfg.v1"

@@ -17,7 +17,7 @@
 package bfe_server
 
 import (
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 import (
@@ -60,7 +60,8 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string, dryRun boo
 
 	// init web monitor
 	monitorPort := cfg.Server.MonitorPort
-	if err = bfeServer.InitWebMonitor(monitorPort); err != nil {
+	monitorAddr := cfg.Server.MonitorAddr
+	if err = bfeServer.InitWebMonitor(monitorPort, monitorAddr); err != nil {
 		log.Logger.Error("StartUp(): InitWebMonitor():%s", err.Error())
 		return err
 	}

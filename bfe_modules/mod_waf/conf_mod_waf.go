@@ -14,7 +14,7 @@
 package mod_waf
 
 import (
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 	"gopkg.in/gcfg.v1"
 )
 
