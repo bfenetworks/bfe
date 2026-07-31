@@ -15,9 +15,9 @@
 package mod_unified_waf
 
 import (
-	"github.com/baidu/go-lib/web-monitor/delay_counter"
-	"github.com/baidu/go-lib/web-monitor/metrics"
-	"github.com/baidu/go-lib/web-monitor/module_state2"
+	"github.com/bfenetworks/go-lib/web-monitor/delay_counter"
+	"github.com/bfenetworks/go-lib/web-monitor/metrics"
+	"github.com/bfenetworks/go-lib/web-monitor/module_state2"
 )
 
 type ModuleWafState struct {

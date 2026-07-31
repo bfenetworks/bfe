@@ -21,8 +21,8 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/log"
-	"github.com/baidu/go-lib/web-monitor/web_monitor"
+	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/go-lib/web-monitor/web_monitor"
 )
 
 import (

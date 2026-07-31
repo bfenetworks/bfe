@@ -22,7 +22,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
 
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 	wasmABI "github.com/bfenetworks/bfe/bfe_wasmplugin/abi"
 	"github.com/bfenetworks/proxy-wasm-go-host/proxywasm/common"
 	v1Host "github.com/bfenetworks/proxy-wasm-go-host/proxywasm/v1"

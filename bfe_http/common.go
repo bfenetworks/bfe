@@ -31,8 +31,8 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/gotrack"
-	slog "github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/gotrack"
+	slog "github.com/bfenetworks/go-lib/log"
 )
 
 import (

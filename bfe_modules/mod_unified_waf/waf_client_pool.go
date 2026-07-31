@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_unified_waf/waf_impl"
 )
 

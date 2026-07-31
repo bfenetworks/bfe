@@ -36,8 +36,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/baidu/go-lib/gotrack"
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/gotrack"
+	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_tls"

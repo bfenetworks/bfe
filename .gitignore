@@ -30,3 +30,4 @@ conf/wasm_plugin
 
 .DS_Store
 .git*
+!.gitattributes

@@ -20,8 +20,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/baidu/go-lib/lru_cache"
-	"github.com/baidu/go-lib/web-monitor/web_monitor"
+	"github.com/bfenetworks/go-lib/lru_cache"
+	"github.com/bfenetworks/go-lib/web-monitor/web_monitor"
 	"github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"

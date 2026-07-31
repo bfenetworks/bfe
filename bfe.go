@@ -23,8 +23,8 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/log"
-	"github.com/baidu/go-lib/log/log4go"
+	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/go-lib/log/log4go"
 	_ "go.uber.org/automaxprocs"
 )
 

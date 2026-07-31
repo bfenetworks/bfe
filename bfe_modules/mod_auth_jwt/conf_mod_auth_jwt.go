@@ -15,7 +15,7 @@
 package mod_auth_jwt
 
 import (
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 	gcfg "gopkg.in/gcfg.v1"
 )
 

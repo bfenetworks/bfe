@@ -15,7 +15,7 @@
 package bfe_http2
 
 import (
-	"github.com/baidu/go-lib/web-monitor/metrics"
+	"github.com/bfenetworks/go-lib/web-monitor/metrics"
 )
 
 type Http2State struct {

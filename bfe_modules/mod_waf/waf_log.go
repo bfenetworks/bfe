@@ -18,7 +18,7 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/log/log4go"
+	"github.com/bfenetworks/go-lib/log/log4go"
 )
 
 import (

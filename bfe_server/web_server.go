@@ -17,8 +17,8 @@
 package bfe_server
 
 import (
-	"github.com/baidu/go-lib/log"
-	"github.com/baidu/go-lib/web-monitor/web_monitor"
+	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/go-lib/web-monitor/web_monitor"
 )
 
 type BfeMonitor struct {
@@ -27,7 +27,7 @@ type BfeMonitor struct {
 	srv         *BfeServer
 }
 
-func newBfeMonitor(srv *BfeServer, monitorPort int) (*BfeMonitor, error) {
+func newBfeMonitor(srv *BfeServer, monitorPort int, monitorAddr string) (*BfeMonitor, error) {
 	m := &BfeMonitor{nil, nil, srv}
 
 	// initialize web handlers
@@ -37,8 +37,12 @@ func newBfeMonitor(srv *BfeServer, monitorPort int) (*BfeMonitor, error) {
 		return nil, err
 	}
 
-	// initialize web server
-	m.WebServer = web_monitor.NewMonitorServer("bfe", srv.Version, monitorPort)
+	// initialize web server, bind to loopback when an address is configured
+	if monitorAddr != "" {
+		m.WebServer = web_monitor.NewMonitorServerWithAddr("bfe", srv.Version, monitorAddr, monitorPort)
+	} else {
+		m.WebServer = web_monitor.NewMonitorServer("bfe", srv.Version, monitorPort)
+	}
 	m.WebServer.HandlersSet(m.WebHandlers)
 
 	return m, nil
