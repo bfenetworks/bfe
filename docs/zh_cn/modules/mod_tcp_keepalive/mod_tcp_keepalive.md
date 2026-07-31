@@ -93,4 +93,4 @@ OpenDebug = false
 | CONN_SET_KEEP_CNT_ERROR | 设置keepCnt属性失败的连接数 |
 | CONN_DISABLE_KEEP_ALIVE | 设置disable属性的连接数 |
 | CONN_DISABLE_KEEP_ALIVE_ERROR | 设置disable属性失败的连接数 |
-| CONN_COVERT_TO_TCP_CONN_ERROR | 将连接类型转换为TCPConn类型失败的次数 |
+| CONN_CONVERT_TO_TCP_CONN_ERROR | 将连接类型转换为TCPConn类型失败的次数 |

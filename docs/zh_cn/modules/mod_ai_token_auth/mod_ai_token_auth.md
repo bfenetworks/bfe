@@ -30,10 +30,10 @@ Authorization: Bearer <api-key>
 ### 配置示例
 
 ```ini
-[basic]
+[Basic]
 ProductRulePath = mod_ai_token_auth/token_rule.data
 
-[redis]
+[Redis]
 # bns addr
 bns = BLB.ALB-redis
 
@@ -51,7 +51,7 @@ maxActive = 100
 # redis password (optional)
 password = 
 
-[log]
+[Log]
 OpenDebug = false
 ```
 
@@ -174,6 +174,6 @@ struct {
 
 | 指标名称 | 类型 | 描述 |
 | -------- | ---- | ---- |
-| ReqTotal | Counter | 总请求数 |
-| ReqAuth | Counter | 触发鉴权的请求数 |
-| ReqAuthFail | Counter | 鉴权失败的请求数 |
+| REQ_TOTAL | Counter | 总请求数 |
+| REQ_AUTH | Counter | 触发鉴权的请求数 |
+| REQ_AUTH_FAIL | Counter | 鉴权失败的请求数 |

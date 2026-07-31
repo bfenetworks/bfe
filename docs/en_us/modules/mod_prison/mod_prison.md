@@ -13,12 +13,16 @@ conf/mod_prison/mod_prison.conf
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
 | Basic.ProductRulePath | String<br>path of rule configuration |
+| Log.OpenDebug | Boolean<br>Whether to enable debug logs<br>Default False |
 
 ### Example
 
 ```ini
 [Basic]
 ProductRulePath = mod_prison/prison.data
+
+[Log]
+OpenDebug = false
 ```
 
 ## Rule Configuration
@@ -44,7 +48,7 @@ conf/mod_prison/prison.data
 | Config{v}[].AccessSignConf.UsePath | Boolean<br>Whether using path to generate access sign |
 | Config{v}[].AccessSignConf.UseHeaders | Boolean<br>Whether using headers to generate access sign |
 | Config{v}[].AccessSignConf.UrlRegexp | String<br>Substrings in url matching UrlRegexp which are used for generating access sign |
-| Config{v}[].AccessSignConf.[]Qeury | Array<br>Qeury keys used for generating access sign |
+| Config{v}[].AccessSignConf.[]Query | Array<br>Query keys used for generating access sign |
 | Config{v}[].AccessSignConf.[]Header | Array<br>Header keys used for generating access sign |
 | Config{v}[].AccessSignConf.[]Cookie | Array<br>Cookie keys used for generating access sign |
 | Config{v}[].Action | Object<br>Prison action if visits exceed the limit |

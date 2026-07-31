@@ -13,12 +13,16 @@ mod_prison根据自定义的条件，限定单位时间用户的访问次数。
 | 配置项                | 描述                       |
 | --------------------- | -------------------------- |
 | Basic.ProductRulePath | String<br>规则配置文件路径 |
+| Log.OpenDebug | Boolean<br>是否开启 debug 日志<br>默认值 False |
 
 ### 配置示例
 
 ```ini
 [Basic]
 ProductRulePath = mod_prison/prison.data
+
+[Log]
+OpenDebug = false
 ```
 
 ## 规则配置
@@ -44,7 +48,7 @@ ProductRulePath = mod_prison/prison.data
 | Config{v}[].AccessSignConf.UsePath | Boolean<br>计算请求签名时是否使用请求Path |
 | Config{v}[].AccessSignConf.UseHeaders | Boolean<br>计算请求签名时是否使用header |
 | Config{v}[].AccessSignConf.UrlRegexp | String<br>计算请求签名时使用URL中匹配了UrlRegexp的子串 |
-| Config{v}[].AccessSignConf.[]Qeury | Array<br>计算请求签名时使用的query key |
+| Config{v}[].AccessSignConf.[]Query | Array<br>计算请求签名时使用的query key |
 | Config{v}[].AccessSignConf.[]Header | Array<br>计算请求签名时使用的header key |
 | Config{v}[].AccessSignConf.[]Cookie | Array<br>计算请求签名时使用的cookie key |
 | Config{v}[].Action | Object<br>规则动作 |
@@ -96,3 +100,10 @@ ProductRulePath = mod_prison/prison.data
 	}
 }
 ```
+
+## 监控项
+
+| 监控项      | 描述             |
+| ----------- | ---------------- |
+| ALL_CHECKED | 被检查的请求总数 |
+| ALL_PRISON  | 被封禁的请求总数 |

@@ -10,7 +10,7 @@ cluster_table.data records the load balancing config among instances.
 
 | Config Item           | Description                     |
 | --------------------- | ------------------------------- |
-| Version               | String<br>Verson of config file |
+| Version               | String<br>Version of config file |
 | Config                | Object<br>config of all clusters |
 | Config{k}             | String<br>name of cluster |
 | Config{v}             | Object<br>config of cluster |
@@ -21,10 +21,12 @@ cluster_table.data records the load balancing config among instances.
 
 | Config Item           | Description                     |
 | --------------------- | ------------------------------- |
-| Addr                  | String<br>ip address of instance |
-| Name                  | String<br>name of instance |
-| Port                  | String<br>port of instance |
-| Weight                | String<br>weight of instance |
+| Addr                  | String<br>listen address of instance (required) |
+| Name                  | String<br>name of instance (required) |
+| Port                  | Integer<br>port of instance (required) |
+| Weight                | Integer<br>weight of instance (required) |
+
+**Note:** Each sub-cluster must contain at least one backend with `Weight > 0`.
 
 ## Example
 

@@ -22,6 +22,7 @@ bfe_time_range("20190204203000H", "20190204204500H")
 ## bfe_periodic_time_range(start_time, end_time, period)
 
 * 语义: 判断当前时间是否周期性属于[start_time, end_time]
+    * 注：当前实现中 `period` 参数只支持空字符串，代表按日周期；传入非空字符串会报错
 
 * 参数
 
@@ -29,7 +30,7 @@ bfe_time_range("20190204203000H", "20190204204500H")
 | ---------- | ----------------------- |
 | start_time | String<br>起始时间      |
 | end_time   | String<br>结束时间      |
-| period     | String<br>周期, 缺省代表日 |
+| period     | String<br>周期, 当前只支持空字符串（代表日周期） |
 
 时间格式：hhmmssZ，其中Z代表时区，详见附B说明
 

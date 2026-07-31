@@ -21,10 +21,12 @@ cluster_table.data配置文件记录各后端集群包含的子集群及实例
 
 | 配置项  | 描述                                                           |
 | ------- | -------------------------------------------------------------- |
-| Addr    | String<br>实例监听地址 |
-| Port    | Integer<br>实例监听端口 |
-| Weight  | Integer<br>实例权重 |
-| Name    | String<br>实例名称 |
+| Addr    | String<br>实例监听地址（必填） |
+| Port    | Integer<br>实例监听端口（必填） |
+| Weight  | Integer<br>实例权重（必填） |
+| Name    | String<br>实例名称（必填） |
+
+**注意：** 每个子集群至少需要一个 `Weight > 0` 的实例。
 
 ## 配置示例
 

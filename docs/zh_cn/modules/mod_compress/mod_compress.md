@@ -12,8 +12,8 @@ mod_compress支持对响应主体压缩。
 
 | 配置项                | 描述                                        |
 | ---------------------| ------------------------------------------- |
-| Basic.DataPath            | String<br>规则配置的的文件路径 |
-| Log.OpenDebug           | Boolean<br>是否开启 debug 日志<br>默认值False |
+| Basic.ProductRulePath     | String<br>规则配置文件的文件路径 |
+| Log.OpenDebug           | Boolean<br>是否开启 debug 日志<br>默认值 False |
 
 ### 配置示例
 
@@ -21,7 +21,7 @@ mod_compress支持对响应主体压缩。
 
 ```ini
 [Basic]
-DataPath = mod_compress/compress_rule.data
+ProductRulePath = mod_compress/compress_rule.data
 
 [Log]
 OpenDebug = false
@@ -79,3 +79,5 @@ OpenDebug = false
 | REQ_SUPPORT_COMPRESS    |支持压缩请求数                       |
 | REQ_MATCH_COMPRESS_RULE |命中压缩规则请求数                    |
 | RES_ENCODE_COMPRESS     |响应被压缩请求数                      |
+| RES_ENCODE_GZIP_COMPRESS|响应被gzip压缩请求数                  |
+| RES_ENCODE_BR_COMPRESS  |响应被brotli压缩请求数                |

@@ -23,11 +23,12 @@ Note: The following configuration items are located in the namespace `Config[v]`
 
 | Configuration Item | Description |
 | ------------------ | ----------- |
-| BackendConf.Protocol | String<br>Protocol of the backend service, currently supports http/https and fcgi, default value is http |
+| BackendConf.Protocol | String<br>Protocol of the backend service, currently supports http/https/fcgi/tcp/ws/h2c, default value is http |
 | BackendConf.TimeoutConnSrv | Integer<br>Timeout for connecting to the backend, in milliseconds<br>Default value 2000 |
 | BackendConf.TimeoutResponseHeader | Integer<br>Timeout for reading the response header from the backend, in milliseconds<br>Default value 60000 |
 | BackendConf.MaxIdleConnsPerHost | Integer<br>Maximum number of idle persistent connections between the BFE instance and each backend<br>Default value 2 |
 | BackendConf.MaxConnsPerHost | Integer<br>Maximum number of persistent connections between the BFE instance and each backend, 0 means no limit<br>Default value 0 |
+| BackendConf.SlowStartTime | Integer<br>Slow start time for backend instances, in seconds; 0 means disabled<br>Default value 0 |
 | BackendConf.RetryLevel | Integer<br>Request retry level. 0: Retry when connection to backend fails; 1: Retry when connection to backend fails or forwarding GET request fails<br>Default value 0 |
 | BackendConf.OutlierDetectionHttpCode | String<br>Backend response status code anomaly check, "" means no check, "500" means backend is considered failed if it returns 500<br>Supports two formats: "\[0-9\]{3}" (e.g., "500") and "\[0-9\]xx" (e.g., "4xx"); multiple status codes can be connected using '&#124;'<br>Default value "", no backend response status code anomaly check |
 | BackendConf.FCGIConf | Object<br>FastCGI protocol configuration |
@@ -39,9 +40,10 @@ Note: The following configuration items are located in the namespace `Config[v]`
 | Configuration Item | Description |
 | ------------------ | ----------- |
 | CheckConf.Schem | String<br>Health check protocol, supports HTTP/HTTPS/TCP/TLS<br>Default value HTTP |
+| CheckConf.HostType | String<br>Health check request host type, supports HOST (use CheckConf.Host) and _ADDR (use backend instance address)<br>Default value HOST |
 | CheckConf.Uri | String<br>Health check request URI (only HTTP/HTTPS)<br>Default value "/health_check" |
 | CheckConf.Host | String<br>Health check request HOST (only HTTP/HTTPS)<br>Default value "" |
-| CheckConf.StatusCode | Integer<br>Expected response status code (only HTTP/HTTPS)<br>Default value 200. Can also be configured as 0, meaning any status code is acceptable. |
+| CheckConf.StatusCode | Integer<br>Expected response status code (only HTTP/HTTPS)<br>Default value 0, meaning any status code is acceptable. Can also be configured to a specific code such as 200. |
 | CheckConf.StatusCodeRange | String<br>Expected response status code (only HTTP/HTTPS)<br>See: Note 1. StatusCodeRange |
 | CheckConf.FailNum | Integer<br>Health check activation threshold (after forwarding requests fail consecutively for FailNum times, the backend instance is marked as unavailable and health check is initiated)<br>Default value 5 |
 | CheckConf.SuccNum | Integer<br>Health check success threshold (after health check succeeds consecutively for SuccNum times, the backend instance is marked as available)<br>Default value 1 |
@@ -54,7 +56,8 @@ Note: The following configuration items are located in the namespace `Config[v]`
 | ------------------ | ----------- |
 | GslbBasic.CrossRetry | Integer<br>Maximum cross-sub-cluster retry count<br>Default value 0 |
 | GslbBasic.RetryMax | Integer<br>Maximum retry count within a sub-cluster<br>Default value 2 |
-| GslbBasic.BalanceMode | String<br>Load balancing mode (WRR: Weighted Round Robin; WLC: Weighted Least Connections)<br>Default value WRR |
+| GslbBasic.BalanceMode | String<br>Load balancing mode (WRR: Weighted Round Robin; WLC: Weighted Least Connections; EPP: External Policy-based Load Balancing)<br>Default value WRR |
+| GslbBasic.EPPAddr | []String<br>List of EPP server addresses, effective only when BalanceMode is EPP |
 | GslbBasic.HashConf | Object<br>Hash strategy configuration for session persistence |
 | GslbBasic.HashConf.HashStrategy | Integer<br>Hash strategy for session persistence. 0: ClientIdOnly, 1: ClientIpOnly, 2: ClientIdPreferred, 3: RequestURI<br>Default value 1 (ClientIpOnly) |
 | GslbBasic.HashConf.HashHeader | String<br>Hash request header for session persistence. Optional. Can be configured as a Header that uniquely identifies a client. If it is a cookie header, the format is: "Cookie:key" |
@@ -71,12 +74,14 @@ Note: The following configuration items are located in the namespace `Config[v]`
 | ClusterBasic.ReqFlushInterval | Integer<br>Interval for flushing requests, in milliseconds. Default value 0, meaning no periodic flushing |
 | ClusterBasic.ResFlushInterval | Integer<br>Interval for flushing responses, in milliseconds. Default value -1, meaning no caching of responses. Setting to 0 means no periodic flushing. Recommended to use the default value. |
 | ClusterBasic.CancelOnClientClose | Boolean<br>Whether to cancel the blocking state when the client disconnects while the server is reading the backend response. Default value false. Recommended to use the default value. |
+| ClusterBasic.DisableHostHeader | Boolean<br>Whether to disable the Host header automatically added/overridden by BFE<br>Default value false |
+| ClusterBasic.DisableHealthCheck | Boolean<br>Whether to disable health check for this cluster<br>Default value false |
 
 #### Backend Service HTTPS Configuration
 
 | Configuration Item | Description |
 | ------------------ | ----------- |
-| HTTPSConf.RSHost | String<br>Hostname of the backend service instance, used to verify the server certificate.<br>Default value: Host field in the frontend request header. |
+| HTTPSConf.RSHost | String<br>Hostname of the backend service instance, used to verify the server certificate.<br>No default value; must be explicitly configured. |
 | HTTPSConf.BFEKeyFile | String<br>Private key file path, required when mutual authentication is supported<br>Private key used by the BFE engine when forwarding HTTPS requests to the backend. The private key file must be in PEM format |
 | HTTPSConf.BFECertFile | String<br>Certificate file path, required when mutual authentication is supported<br>Certificate used by the BFE engine when forwarding HTTPS requests to the backend. The certificate file must be in x509 standard PEM format, and each PEM file can only contain one certificate |
 | HTTPSConf.RSCAList | []String<br>Required when BackendConf.Protocol is https and server certificate verification is needed (i.e., RSInsecureSkipVerify is false). If not filled, the system default CA pool is used. List items are certificate file paths. Certificate files must be in x509 standard PEM format. Multiple CA certificates in the CA trust chain can be combined into one PEM file. |
@@ -86,8 +91,9 @@ Note: The following configuration items are located in the namespace `Config[v]`
 
 | Configuration Item              | Description                                                                                                   |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| AIConf.Type                     | Integer<br>AI service type, currently reserved; keep it 0 |
 | AIConf.Key                      | String<br>API-Key for the backend large model service<br>If empty, the API-Key is not reset when accessing the backend service and the request's API-Key is retained |
-| ModelMapping                    | Map\[string\]string<br>Mapping from original request model to backend service model. When accessing the backend service, the model field in the request will be looked up in this mapping; if matched, the model field in the request will be overwritten |
+| AIConf.ModelMapping             | Map\[string\]string<br>Mapping from original request model to backend service model. When accessing the backend service, the model field in the request will be looked up in this mapping; if matched, the model field in the request will be overwritten |
 
 ## Configuration Example
 
@@ -123,7 +129,7 @@ Note: The following configuration items are located in the namespace `Config[v]`
             "ClusterBasic": {
                 "TimeoutReadClient": 30000,
                 "TimeoutWriteClient": 60000,
-                "TimeoutReadClientAgain": 60000,
+                "TimeoutReadClientAgain": 60000
             }
         },
         "https_cluster_example": {
@@ -211,6 +217,48 @@ Note: The following configuration items are located in the namespace `Config[v]`
                 "ReqFlushInterval": 0,
                 "ResFlushInterval": -1,
                 "CancelOnClientClose": false
+            }
+        },
+        "ai_cluster_example": {
+            "BackendConf": {
+                "Protocol": "https",
+                "TimeoutConnSrv": 2000,
+                "TimeoutResponseHeader": 50000,
+                "MaxIdleConnsPerHost": 0,
+                "RetryLevel": 0
+            },
+            "CheckConf": {
+                "Schem": "https",
+                "Uri": "/healthcheck",
+                "Host": "example.org",
+                "StatusCode": 200,
+                "FailNum": 10,
+                "CheckInterval": 1000
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 2,
+                "HashConf": {
+                    "HashStrategy": 0,
+                    "HashHeader": "Cookie:UID",
+                    "SessionSticky": false
+                }
+            },
+            "ClusterBasic": {
+                "TimeoutReadClient": 30000,
+                "TimeoutWriteClient": 60000,
+                "TimeoutReadClientAgain": 60000,
+                "ReqWriteBufferSize": 512,
+                "ReqFlushInterval": 0,
+                "ResFlushInterval": -1,
+                "CancelOnClientClose": false
+            },
+            "AIConf": {
+                "Type": 0,
+                "Key": "sk-example-api-key",
+                "ModelMapping": {
+                    "gpt-4": "backend-gpt-4-model"
+                }
             }
         }
     }

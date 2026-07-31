@@ -16,6 +16,7 @@ conf/mod_key_log/mod_key_log.conf
 
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
+| Basic.DataPath | String<br>Path of rule configuration |
 | Log.LogFile | String<br>Set file path of log for saving to a single file without rotation |
 | Log.LogPrefix | String<br>Filename prefix for log |
 | Log.LogDir | String<br>Directory of log files |

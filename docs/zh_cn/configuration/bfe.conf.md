@@ -23,6 +23,13 @@ bfe.conf是BFE的核心配置
 | Server.KeepAliveEnabled        | Boolean<br>与用户端连接是否启用HTTP KeepAlive<br>默认值True |
 | Server.MaxHeaderBytes          | Integer<br>请求头部的最大长度，单位为Byte<br>默认值1048576 |
 | Server.MaxHeaderUriBytes       | Integer<br>请求头部URI的最大长度，单位为Byte<br>默认值8192 |
+| Server.HttpAddr                | String<br>HTTP监听地址，空字符串表示监听所有地址<br>默认值空 |
+| Server.HttpsAddr               | String<br>HTTPS监听地址，空字符串表示监听所有地址<br>默认值空 |
+| Server.MonitorAddr             | String<br>Monitor监听地址，空字符串表示监听所有地址<br>默认值空 |
+| Server.AcceptNum               | Integer<br>每个监听地址的Accept协程数<br>默认值1 |
+| Server.MaxProxyHeaderBytes     | Integer<br>PROXY协议头部的最大长度，单位为Byte<br>默认值0 |
+| Server.EnableAiGateway         | Boolean<br>是否启用AI Gateway模式<br>默认值False |
+| Server.EstimateToken           | Boolean<br>是否基于请求Content-Length估算token使用量<br>默认值False |
 | Server.HostRuleConf            | String<br>[租户域名表配置](server_data_conf/host_rule.data.md)文件路径<br>默认值server_data_conf/host_rule.data |
 | Server.VipRuleConf             | String<br>[租户VIP表配置](server_data_conf/vip_rule.data.md)文件路径<br>默认值server_data_conf/vip_rule.data |
 | Server.RouteRuleConf           | String<br>[转发规则配置](server_data_conf/route_rule.data.md)文件路径<br>默认值server_data_conf/route_rule.data |
@@ -47,11 +54,14 @@ bfe.conf是BFE的核心配置
 | HttpsBasic.CurvePreferences       | String<br>启用的ECC椭圆曲线，详见示例<br> 默认值CurveP256 |
 | HttpsBasic.EnableSslv2ClientHello | Boolean<br>针对SSLv3协议，启用对SSLv2格式ClientHello的兼容<br>默认值True |
 | HttpsBasic.ClientCABaseDir        | String<br>客户端根CA证书基目录; 注意：证书文件后缀约定必须是 ".crt"<br> 默认值tls_conf/client_ca |
-| SessionCache.SessionCacheDisabled | Boolean<br>是否禁用TLS Session Cache机制<br>默认值False |
+| HttpsBasic.MaxTlsVersion          | String<br>支持的最高TLS版本<br>默认值TLSv1.2 |
+| HttpsBasic.MinTlsVersion          | String<br>支持的最低TLS版本<br>默认值SSLv3 |
+| HttpsBasic.ClientCRLBaseDir       | String<br>客户端CRL基目录<br>默认值tls_conf/client_crl |
+| SessionCache.SessionCacheDisabled | Boolean<br>是否禁用TLS Session Cache机制<br>默认值True |
 | SessionCache.Servers              | String<br>Cache服务的访问地址<br>默认值无 |
 | SessionCache.KeyPrefix            | String<br>缓存key前缀<br>默认值bfe |
 | SessionCache.ConnectTimeout       | Integer<br>连接Cache服务的超时时间, 单位毫秒<br>默认值50 |
-| SessionCache.ReadTimeout          | Integer<br>读取Cache服务的超时时间, 单位毫秒<br>默认值50 |
+| SessionCache.ReadTimeout          | Integer<br>读取Cache服务的超时时间, 单位毫秒<br>默认值无（未设置时值为0，校验会失败，必须显式配置） |
 | SessionCache.WriteTimeout         | Integer<br>写入Cache服务的超时时间, 单位毫秒<br>默认值50 |
 | SessionCache.MaxIdle              | Integer<br>与Cache服务的最大空闲长连接数<br>默认值20 |
 | SessionCache.SessionExpire        | Integer<br>存储在Cache服务中会话信息的过期时间, 单位秒<br>默认值3600 |

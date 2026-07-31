@@ -30,10 +30,10 @@ Module configuration file: conf/mod_ai_token_auth/mod_ai_token_auth.conf
 ### Configuration Example
 
 ```ini
-[basic]
+[Basic]
 ProductRulePath = mod_ai_token_auth/token_rule.data
 
-[redis]
+[Redis]
 # bns addr
 bns = BLB.ALB-redis
 
@@ -51,7 +51,7 @@ maxActive = 100
 # redis password (optional)
 password = 
 
-[log]
+[Log]
 OpenDebug = false
 ```
 
@@ -174,6 +174,6 @@ struct {
 
 | Metric Name | Type | Description |
 | ----------- | ---- | ----------- |
-| ReqTotal | Counter | Total number of requests |
-| ReqAuth | Counter | Number of requests triggering authentication |
-| ReqAuthFail | Counter | Number of authentication failures |
+| REQ_TOTAL | Counter | Total number of requests |
+| REQ_AUTH | Counter | Number of requests triggering authentication |
+| REQ_AUTH_FAIL | Counter | Number of authentication failures |

@@ -14,6 +14,7 @@ conf/mod_block/mod_block.conf
 | ----------- | ----------- |
 | Basic.ProductRulePath | Path of product rule configuration |
 | Basic.IPBlocklistPath | Path of ip blocklist file |
+| Log.OpenDebug | Boolean<br>Whether to enable debug logs<br>Default False |
 
 ### Example
 
@@ -24,6 +25,9 @@ ProductRulePath = mod_block/block_rules.data
 
 # global ip blocklist file path
 IPBlocklistPath = mod_block/ip_blocklist.data
+
+[Log]
+OpenDebug = false
 ```
 
 Format of IPBlocklistPath file
@@ -100,5 +104,4 @@ conf/mod_block/block_rules.data
 | REQ_ACCEPT    | Counter for request accepted                                 |
 | REQ_REFUSE    | Counter for request refused                                  |
 | REQ_TOTAL     | Counter for all request in                                   |
-| REQ_TO_CHECK  | Counter for request to check                                 |
 | WRONG_COMMAND | Counter for request with condition satisfied, but wrong command |

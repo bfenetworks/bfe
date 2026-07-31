@@ -14,7 +14,13 @@ route_rule.data 是BFE的分流配置文件。
 | ProductRule[v]               | Object<br>分流规则表，包含多条有序分流规则                 |
 | ProductRule[v][]             | Object<br>分流规则                                         |
 | ProductRule[v][].Cond        | String<br>分流条件, 语法详见[Condition](../../condition/condition_grammar.md) |
-| ProductRule[v][].ClusterName | Object<br>目的集群                                         |
+| ProductRule[v][].ClusterName | String<br>目的集群                                         |
+| BasicRule                    | Object<br>基础分流规则（可选）。基于Host+Path的静态路由表，按产品线组织 |
+| BasicRule[k]                 | String<br>产品线名称                                       |
+| BasicRule[v][]               | Object<br>基础路由规则                                     |
+| BasicRule[v][].Hostname      | String<br>匹配的Host，支持通配符                           |
+| BasicRule[v][].Path          | String<br>匹配的Path                                       |
+| BasicRule[v][].ClusterName   | String<br>目的集群                                         |
 
 ## 配置示例
 

@@ -15,6 +15,7 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
 
 | 配置项                | 描述                                        |
 | ----------------------| ------------------------------------------- |
+| Basic.DataPath | String<br>规则配置文件路径 |
 | Log.LogFile | String<br>日志文件路径，用来将日志输出到单个文件中（不进行日志切割） |
 | Log.LogPrefix | String<br>日志文件前缀名称 |
 | Log.LogDir | String<br>日志文件目录 |

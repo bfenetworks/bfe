@@ -13,12 +13,16 @@ mod_trust_clientip基于配置信任IP列表，检查并标识访问用户真实
 | 配置项         | 描述                             |
 | -------------- | -------------------------------- |
 | Basic.DataPath | String<br>IP字典文件路径，包含了所有信任IP |
+| Log.OpenDebug | Boolean<br>是否开启 debug 日志<br>默认值 False |
 
 ### 配置示例
 
 ```ini
 [Basic]
 DataPath = mod_trust_clientip/trust_client_ip.data
+
+[Log]
+OpenDebug = false
 ```
 
 ## 字典配置
@@ -59,3 +63,5 @@ DataPath = mod_trust_clientip/trust_client_ip.data
 | ---------------------------- | -------------------------------------- |
 | CONN_TOTAL                   | 所有连接数                             |
 | CONN_TRUST_CLIENTIP          | 来源于信任地址的连接数                 |
+| CONN_ADDR_INTERNAL           | 来源于内部地址的连接数                 |
+| CONN_ADDR_INTERNAL_NOT_TRUST | 来源于内部地址但不在信任列表的连接数   |

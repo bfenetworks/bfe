@@ -93,4 +93,4 @@ OpenDebug = false
 | CONN_SET_KEEP_CNT_ERROR | Counter for connection set keepalive retry count error |
 | CONN_DISABLE_KEEP_ALIVE | Counter for connection disable keepalive message |
 | CONN_DISABLE_KEEP_ALIVE_ERROR | Counter for connection disable keepalive error |
-| CONN_COVERT_TO_TCP_CONN_ERROR | Counter for connection convert to TCPConn error |
+| CONN_CONVERT_TO_TCP_CONN_ERROR | Counter for connection convert to TCPConn error |

@@ -76,3 +76,13 @@ echo -n jwt_example | base64 | tr '+/' '-_' | tr -d '='
     }
 }
 ```
+
+## Metrics
+
+| Metric | Description |
+| ------ | ----------- |
+| REQ_AUTH_RULE_HIT | Count of requests hitting authentication rule |
+| REQ_AUTH_NO_AUTHORIZATION | Count of requests without Authorization header |
+| REQ_AUTH_AUTHORIZATION_FORMAT_ERR | Count of requests with malformed Authorization header |
+| REQ_AUTH_SUCCESS | Count of authentication successes |
+| REQ_AUTH_FAILURE | Count of authentication failures |

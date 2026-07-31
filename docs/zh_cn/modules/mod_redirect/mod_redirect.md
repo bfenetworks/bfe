@@ -2,7 +2,7 @@
 
 ## 模块简介
 
-mod_rediect根据自定义的条件，对请求进行重定向。
+mod_redirect根据自定义的条件，对请求进行重定向。
 
 ## 基础配置
 
@@ -13,12 +13,16 @@ mod_rediect根据自定义的条件，对请求进行重定向。
 | 配置项         | 描述                               |
 | -------------- | ---------------------------------- |
 | Basic.DataPath | String<br>规则配置文件路径         |
+| Log.OpenDebug | Boolean<br>是否开启 debug 日志<br>默认值 False |
 
 ### 配置示例
 
 ```ini
 [Basic]
 DataPath = mod_redirect/redirect.data
+
+[Log]
+OpenDebug = false
 ```
 
 ## 规则配置

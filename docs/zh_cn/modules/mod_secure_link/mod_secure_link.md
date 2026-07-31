@@ -123,3 +123,15 @@ echo -n $origin | openssl md5 -binary | openssl base64 | tr +/ -_ | tr -d =
 echo -n '2147483647/s/link127.0.0.1 secret' | openssl md5 -binary | openssl base64 | tr +/ -_ | tr -d =
 _e4Nc3iduzkWRm01TBBNYw
 ```
+
+## 监控项
+
+| 监控项                     | 描述                            |
+| -------------------------- | ------------------------------- |
+| REQ_TOTAL                  | 请求总数                        |
+| REQ_ACCEPT                 | 校验通过的请求数                |
+| REQ_WITHOUT_EXPIRES_KEY    | 缺少 expires 参数的请求数       |
+| REQ_INVALID_EXPIRES_VALUE  | expires 参数值非法的请求数      |
+| REQ_WITHOUT_CHECKSUM_KEY   | 缺少 checksum 参数的请求数      |
+| REQ_INVALID_CHECKSUM       | checksum 校验失败的请求数       |
+| REQ_EXPIRED                | 链接已过期的请求数              |

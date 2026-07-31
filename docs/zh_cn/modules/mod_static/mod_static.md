@@ -14,6 +14,8 @@ mod_static支持返回静态文件作为响应。
 | -------------- | ---------------------------------- |
 | Basic.DataPath | String<br>规则配置文件路径         |
 | Basic.MimeTypePath | String<br>MIME配置文件路径     |
+| Basic.EnableCompress | Boolean<br>是否启用静态文件压缩<br>默认值 False |
+| Log.OpenDebug | Boolean<br>是否开启 debug 日志<br>默认值 False |
 
 ### 配置示例
 
@@ -21,7 +23,10 @@ mod_static支持返回静态文件作为响应。
 [Basic]
 DataPath = mod_static/static_rule.data
 MimeTypePath = mod_static/mime_type.data
+EnableCompress = false
 
+[Log]
+OpenDebug = false
 ```
 
 ## 规则配置
@@ -38,11 +43,11 @@ MimeTypePath = mod_static/mime_type.data
 | Config[v]                   | Object<br>产品线的规则列表                   |
 | Config[v][]                 | Object<br>产品线的规则                       |
 | Config[v][].Cond            | String<br>规则的匹配条件, 语法详见[Condition](../../condition/condition_grammar.md) |
-| Config[v][].Action          | Object br>规则的执行动作                     |
+| Config[v][].Action          | Object<br>规则的执行动作                     |
 | Config[v][].Action.Cmd      | String<br>动作名称, 合法值包括BROWSE(访问指定目录下的静态文件) |
 | Config[v][].Action.Params   | Object<br>动作参数                           |
-| Config[v][].Action.Param[0] | String<br>第一个参数为根目录位置             |
-| Config[v][].Action.Param[1] | String<br>第二个参数为默认静态文件名         |
+| Config[v][].Action.Params[0] | String<br>第一个参数为根目录位置             |
+| Config[v][].Action.Params[1] | String<br>第二个参数为默认静态文件名         |
 
 ### 配置示例
 
@@ -99,3 +104,5 @@ MIME配置文件: conf/mod_static/mime_type.data
 | FILE_CURRENT_OPENED     |统计当前打开的文件数                  |
 | FILE_BROWSE_NOT_EXIST   |文件不存在请求数                     |
 | FILE_BROWSE_SIZE        |已处理文件总大小                     |
+| FILE_BROWSE_CONTENT_TYPE_ERROR|Content-Type 获取失败请求数        |
+| FILE_BROWSE_FALLBACK_DEFAULT  |回退到默认文件请求数                |
