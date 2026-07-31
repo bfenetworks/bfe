@@ -13,13 +13,18 @@ conf/mod_header/mod_header.conf
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
 | Basic.DataPath | String<br>Path of rule configuration |
+| Basic.DisableDefaultHeader | Boolean<br>Whether to disable default header<br>Default False |
 | Log.OpenDebug | Boolean<br>Debug flag of module |
 
 ### Example
 
 ```ini
 [Basic]
-DataPath = mod_header/header_rule.data
+DataPath = mod_header/mod_header.data
+DisableDefaultHeader = false
+
+[Log]
+OpenDebug = false
 ```
 
 ## Rule Configuration
@@ -49,9 +54,17 @@ conf/mod_header/header_rule.data
 | REQ_HEADER_SET | Set request header     | HeaderName, HeaderValue |
 | REQ_HEADER_ADD | Add request header     | HeaderName, HeaderValue |
 | REQ_HEADER_DEL | Delete request header  | HeaderName |
+| REQ_HEADER_RENAME | Rename request header | OriginalHeaderName, NewHeaderName |
 | RSP_HEADER_SET | Set response header    | HeaderName, HeaderValue |
 | RSP_HEADER_ADD | Add response header    | HeaderName, HeaderValue |
 | RSP_HEADER_DEL | Delete response header | HeaderName |
+| RSP_HEADER_RENAME | Rename response header | OriginalHeaderName, NewHeaderName |
+| REQ_HEADER_MOD | Modify request header | scheme_set/query_add, HeaderName, ... |
+| RSP_HEADER_MOD | Modify response header | scheme_set/query_add, HeaderName, ... |
+| REQ_COOKIE_SET | Set request Cookie | CookieName, CookieValue |
+| REQ_COOKIE_DEL | Delete request Cookie | CookieName |
+| RSP_COOKIE_SET | Set response Cookie | Name, Value, Domain, Path, Expires(RFC1123), MaxAge(int), HttpOnly(bool), Secure(bool) |
+| RSP_COOKIE_DEL | Delete response Cookie | Name, Domain, Path |
 
 ### Example
 
@@ -105,6 +118,8 @@ See the **Example** above.
 | %bfe_session_id | Session ID |
 | %bfe_log_id | Request ID |
 | %bfe_cip | Client IP (CIP) |
+| %bfe_bip | Backend instance IP |
+| %bfe_rip | BFE instance IP |
 | %bfe_vip | Virtual IP (VIP) |
 | %bfe_server_name | BFE instance address |
 | %bfe_cluster | Backend cluster |
@@ -116,6 +131,11 @@ See the **Example** above.
 | %bfe_ssl_ja3_hash | JA3 fingerprint hash for TLS/SSL client |
 | %bfe_http2_fingerprint | HTTP/2 fingerprint |
 | %bfe_protocol | Application level protocol |
+| %bfe_client_geo_country_iso_code | Client geo country ISO code |
+| %bfe_client_geo_subdivision_iso_code | Client geo subdivision ISO code |
+| %bfe_client_geo_city_name | Client geo city name |
+| %bfe_client_geo_latitude | Client geo latitude |
+| %bfe_client_geo_longitude | Client geo longitude |
 | %client_cert_serial_number | Serial number of client certificate |
 | %client_cert_subject_title | Subject title of client certificate |
 | %client_cert_subject_common_name | Subject Common Name of client certificate|

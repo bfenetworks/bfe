@@ -24,8 +24,8 @@ mod_trace根据自定义的条件，为请求开启分布式跟踪。
 | 配置项                         | 描述                     |
 | ------------------------------| -------------------------|
 | Zipkin.HTTPEndpoint           | String<br>设置接收trace信息的接口 |
-| Zipkin.SameSpan               | String<br>客户端与服务端是否使用相同的span |
-| Zipkin.ID128Bit               | String<br>是否使用128位span ID |
+| Zipkin.SameSpan               | Boolean<br>客户端与服务端是否使用相同的span |
+| Zipkin.ID128Bit               | Boolean<br>是否使用128位span ID |
 | Zipkin.SampleRate             | Float<br>设置请求抽样比例 |
 
 #### Jaeger配置项
@@ -189,3 +189,10 @@ SecretToken = ""
   }
 }
 ```
+
+## 监控项
+
+| 监控项           | 描述             |
+| ---------------- | ---------------- |
+| START_SPAN_COUNT | 开启的 span 总数 |
+| FINISH_SPAN_COUNT| 结束的 span 总数 |

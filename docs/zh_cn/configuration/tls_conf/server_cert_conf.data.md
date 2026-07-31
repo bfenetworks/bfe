@@ -16,7 +16,7 @@ server_cert_conf.data用于配置证书和密钥。
 | Config.CertConf{v} | Object<br>证书相关文件路径 |
 | Config.CertConf{v}.ServerCertFile | String<br>证书文件路径 |
 | Config.CertConf{v}.ServerKeyFile | String<br>证书关联密钥文件路径 |
-| Config.CertConf{v}.OcspResponseFile | String<br>证书关联OCSP Stple文件路径<br>可选配置 |
+| Config.CertConf{v}.OcspResponseFile | String<br>证书关联OCSP Staple文件路径<br>可选配置 |
 
 ## 配置示例
 

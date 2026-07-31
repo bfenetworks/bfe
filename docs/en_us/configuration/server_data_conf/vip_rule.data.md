@@ -9,9 +9,10 @@ vip_rule.data records vip lists for each product.
 | Config Item | Description                                                  |
 | ----------- | ------------------------------------------------------------ |
 | Version     | String<br>Version of config file                                       |
-| Vips        | Struct<br>Vip list for each product                                    |
+| Vips        | Object<br>Vip list for each product                                    |
 | Vips{k}     | String<br>Product name                                                 |
-| Vips{v}     | Struct<br>Vip list for product                                         |
+| Vips{v}     | []String<br>VIP list for product                                       |
+| Vips{v}[]   | String<br>VIP                                                          |
 
 ## Example
 

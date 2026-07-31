@@ -13,12 +13,16 @@ conf/mod_rewrite/mod_rewrite.conf
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
 | Basic.DataPath | String<br>Path of rule configuration |
+| Log.OpenDebug | Boolean<br>Whether to enable debug logs<br>Default False |
 
 ### Example
 
 ```ini
 [Basic]
 DataPath = mod_rewrite/rewrite.data
+
+[Log]
+OpenDebug = false
 ```
 
 ## Rule Configuration
@@ -37,7 +41,7 @@ conf/mod_rewrite/rewrite.data
 | Config{v}[].Cond | String<br>Condition expression, See [Condition](../../condition/condition_grammar.md) |
 | Config{v}[].Actions | Object<br>A ordered list of rewrite actions |
 | Config{v}[].Actions[] | Object<br>A rewrite action |
-| Config{v}[].Actions[].Cmd | Object<br>Name of rewrite action |
+| Config{v}[].Actions[].Cmd | String<br>Name of rewrite action |
 | Config{v}[].Actions[].Params | Object<br>Parameters of rewrite action |
 | Config{v}[].Last | Integer<br>If true, stop to check the remaining rules |
 

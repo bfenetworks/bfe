@@ -12,14 +12,14 @@ conf/mod_compress/mod_compress.conf
 
 | Config Item          | Description                                 |
 | ---------------------| ------------------------------------------- |
-| Basic.DataPath       | String<br>Path of rule configuration |
+| Basic.ProductRulePath | String<br>Path of rule configuration |
 | Log.OpenDebug        | Boolean<br>Whether enable debug logs<br>Default False |
 
 ### Example
 
 ```ini
 [Basic]
-DataPath = mod_compress/compress_rule.data
+ProductRulePath = mod_compress/compress_rule.data
 
 [Log]
 OpenDebug = false

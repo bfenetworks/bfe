@@ -9,7 +9,7 @@ session_ticket_key.data配置记录了session ticket key信息。
 | 配置项           | 描述                                                           |
 | ---------------- | -------------------------------------------------------------- |
 | Version          | String<br>配置文件版本                                         |
-| SessionTicketKey | String<br>Session Ticket密钥，仅包含字符a-z0-9且长度48的字符串 |
+| SessionTicketKey | String<br>Session Ticket密钥，96字符十六进制字符串（表示48字节原始密钥），字符仅包含0-9、a-f<br>也支持直接存放48字节原始密钥的二进制文件（当JSON解析失败时作为回退） |
 
 ## 配置示例
 

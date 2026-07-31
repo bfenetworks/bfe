@@ -66,3 +66,12 @@ conf/mod_cors/cors_rule.data
     }
 }
 ```
+
+## Metrics
+
+| Metric | Description |
+| ------ | ----------- |
+| REQ_CORS_RULE_HIT | Count of requests hitting CORS rule |
+| REQ_PRE_FLIGHT_HIT | Count of preflight requests hit |
+| REQ_ALLOW_ORIGIN_HIT | Count of requests with allowed origin |
+| REQ_NOT_ALLOW_ORIGIN_HIT | Count of requests with disallowed origin |

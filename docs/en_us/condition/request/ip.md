@@ -24,7 +24,8 @@ req_cip_range("10.0.0.1", "10.0.0.10")
 ## req_cip_hash_in(value_list)
 
 * Description:
-  - Judge if client IP after hash matches configured patterns (value after hash is 0～9999)
+  - Judge if client IP after hash matches configured patterns (hash value range: 0～9999)
+    - Note: each element can be a single value or a range
 
 * Parameters
 
@@ -37,7 +38,7 @@ req_cip_range("10.0.0.1", "10.0.0.10")
 ```go
 req_cip_hash_in("100")
 req_cip_hash_in("100-200")
-req_cip_hash_in("100-200|1000-1000")
+req_cip_hash_in("100-200|1000-1100")
 ```
 
 ## req_vip_in(vip_list)

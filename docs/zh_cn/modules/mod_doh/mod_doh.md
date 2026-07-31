@@ -31,3 +31,11 @@ Timeout = 1000
 [Log]
 OpenDebug = false
 ```
+
+## 监控项
+
+| 监控项               | 描述                     |
+| -------------------- | ------------------------ |
+| DOH_REQUEST          | DoH 请求总数             |
+| DOH_REQUEST_NOT_SECURE | 非安全请求的 DoH 请求数  |
+| FETCH_DNS_ERR        | DNS 查询失败次数         |

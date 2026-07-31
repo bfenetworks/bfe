@@ -13,12 +13,16 @@ mod_rewrite根据自定义的条件，修改请求的URI。
 | 配置项         | 描述                               |
 | -------------- | ---------------------------------- |
 | Basic.DataPath | String<br>规则配置文件路径         |
+| Log.OpenDebug | Boolean<br>是否开启 debug 日志<br>默认值 False |
 
 ### 配置示例
 
 ```ini
 [Basic]
 DataPath = mod_rewrite/rewrite.data
+
+[Log]
+OpenDebug = false
 ```
 
 ## 规则配置
@@ -35,9 +39,9 @@ DataPath = mod_rewrite/rewrite.data
 | Config{v}                | Object<br>重写规则列表                                  |
 | Config{v}[]              | Object<br>重写规则                                      |
 | Config{v}[].Cond         | String<br>规则条件, 语法详见[Condition](../../condition/condition_grammar.md) |
-| Config{v}[].Action       | Object<br>规则动作                                      |
-| Config{v}[].Action.Cmd   | Object<br>规则动作名称                                  |
-| Config{v}[].Action.Param | Object<br>规则动作参数列表                              |
+| Config{v}[].Actions      | Object<br>规则动作列表                                  |
+| Config{v}[].Actions[].Cmd | String<br>规则动作名称                                  |
+| Config{v}[].Actions[].Params | Object<br>规则动作参数列表                              |
 | Config{v}[].Last         | Boolean<br>当该项为true时，命中某条规则后，不再向后匹配 |
 
 ### 模块动作

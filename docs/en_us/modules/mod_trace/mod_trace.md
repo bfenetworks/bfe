@@ -24,8 +24,8 @@ mod_trace enables tracing for requests based on defined rules.
 | Config Item                   | Description                     |
 | ------------------------------| --------------------------------|
 | Zipkin.HTTPEndpoint           | String<br>Http endpoint to report traces to |
-| Zipkin.SameSpan               | String<br>Whether to use Zipkin SameSpan RPC style traces |
-| Zipkin.ID128Bit               | String<br>Whether to use 128 bit root span IDs |
+| Zipkin.SameSpan               | Boolean<br>Whether to use Zipkin SameSpan RPC style traces |
+| Zipkin.ID128Bit               | Boolean<br>Whether to use 128 bit root span IDs |
 | Zipkin.SampleRate             | Float<br>The rate between 0.0001 and 1.0 of requests to trace |
 
 #### Configuration about Jaeger
@@ -189,3 +189,10 @@ conf/mod_trace/trace_rule.data
   }
 }
 ```
+
+## Metrics
+
+| Metric | Description |
+| ------ | ----------- |
+| START_SPAN_COUNT | Total count of started spans |
+| FINISH_SPAN_COUNT | Total count of finished spans |

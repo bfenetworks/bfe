@@ -76,3 +76,13 @@ echo -n jwt_example | base64 | tr '+/' '-_' | tr -d '='
     }
 }
 ```
+
+## 监控项
+
+| 监控项                            | 描述                            |
+| --------------------------------- | ------------------------------- |
+| REQ_AUTH_RULE_HIT                 | 命中鉴权规则的请求数            |
+| REQ_AUTH_NO_AUTHORIZATION         | 未携带 Authorization 的请求数   |
+| REQ_AUTH_AUTHORIZATION_FORMAT_ERR | Authorization 格式错误的请求数  |
+| REQ_AUTH_SUCCESS                  | 鉴权成功的请求数                |
+| REQ_AUTH_FAILURE                  | 鉴权失败的请求数                |

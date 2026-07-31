@@ -66,3 +66,12 @@ OpenDebug = false
     }
 }
 ```
+
+## 监控项
+
+| 监控项                  | 描述                       |
+| ----------------------- | -------------------------- |
+| REQ_CORS_RULE_HIT       | 命中 CORS 规则的请求数     |
+| REQ_PRE_FLIGHT_HIT      | 命中预检请求的请求数       |
+| REQ_ALLOW_ORIGIN_HIT    | 命中允许 Origin 的请求数   |
+| REQ_NOT_ALLOW_ORIGIN_HIT| 未命中允许 Origin 的请求数 |

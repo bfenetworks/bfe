@@ -106,3 +106,36 @@ req_header_value_hash_in("X-Device-Id", "100-200|400", true)
 ```go
 req_header_value_contain("User-Agent", "Firefox|Chrome", true)
 ```
+
+## req_header_value_regmatch(header_name, reg_exp)
+
+* 含义： 判断http消息头部字段值是否匹配正则表达式reg_exp
+    * 注： 推荐使用反引号，不需要额外进行转义；不合理使用将明显影响性能，谨慎使用
+* 参数  
+
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| header_name | String<br>请求header中的key |
+| reg_exp | String<br>表示正则表达式 |  
+
+* 示例
+
+```go
+req_header_value_regmatch("User-Agent", `Chrome/\d+`)
+```
+
+## req_ua_regmatch(reg_exp)
+
+* 含义： 判断请求User-Agent头部值是否匹配正则表达式reg_exp
+    * 注： 推荐使用反引号，不需要额外进行转义；不合理使用将明显影响性能，谨慎使用
+* 参数  
+
+| 参数     | 描述                   |
+| -------- | ---------------------- |
+| reg_exp | String<br>表示正则表达式 |  
+
+* 示例
+
+```go
+req_ua_regmatch(`.*Bot.*`)
+```

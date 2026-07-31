@@ -12,6 +12,9 @@
 | H2_ERR_MAX_HEADER_URI_SIZE  | 请求中URI超限的错误数       |
 | H2_ERR_MAX_STREAM_PER_CONN  | 连接并发流超限的错误数       |
 | H2_ERR_GOT_RESET            | 收到RESET帧的次数          |
+| H2_CONN_OVERLOAD            | HTTP2连接过载的次数          |
+| H2_REQ_OVERLOAD             | HTTP2请求过载的次数          |
+| H2_CONN_EXCEED_MAX_QUEUED_CONTROL_FRAMES | 连接超出最大排队控制帧数的次数 |
 | H2_PANIC_CONN               | 连接处理协程panic的次数     |
 | H2_PANIC_STREAM             | 流处理协程panic的次数       |
 | H2_REQ_HEADER_COMPRESS_SIZE | 压缩的请求头总字节数         |

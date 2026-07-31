@@ -33,10 +33,10 @@ Module config file: conf/mod_body_process/mod_body_process.conf
 ### Configuration Example
 
 ```ini
-[basic]
+[Basic]
 ProductRulePath = ../data/mod_body_process/body_process_rule.data
 
-[log]
+[Log]
 OpenDebug = false
 ```
 
@@ -94,3 +94,12 @@ struct {
     "Version": "20190101000000"
 }
 ```
+
+## Metrics
+
+| Metric | Description |
+| ------ | ----------- |
+| REQ_TOTAL | Total count of requests |
+| REQ_PROCESS | Count of request body processing |
+| RES_PROCESS | Count of response body processing |
+| IN_FLIGHT | Current number of in-flight requests |

@@ -10,12 +10,14 @@ name_conf.data记录了服务名字和服务实例的映射关系。
 | ------------------ | ------------------------------ |
 | Version            | String<br>配置文件版本         |
 | Config             | Object<br>名字和实例的映射关系 |
-| Config[k]          | String<br>集群名称             |
+| Config[k]          | String<br>服务名称             |
 | Config[v]          | Object<br>实例信息列表         |
 | Config[v][]        | Object<br>实例信息             |
 | Config[v][].Host   | String<br>实例地址             |
 | Config[v][].Port   | Integer<br>实例端口            |
 | Config[v][].Weight | Integer<br>实例权重            |
+
+**注意：** `name_conf.data` 为可选配置。仅在 `bfe.conf` 的 `[Server]` 段配置了 `NameConf` 时才会被加载。
 
 ## 配置示例
 

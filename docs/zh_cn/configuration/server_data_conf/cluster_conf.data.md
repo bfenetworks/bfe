@@ -23,11 +23,12 @@ cluster_conf.data为集群转发配置文件。
 
 | 配置项                        | 描述                                                         |
 | ----------------------------- | ------------------------------------------------------------ |
-| BackendConf.Protocol              | String<br>后端服务的协议，当前支持http/https和fcgi, 默认值http |
+| BackendConf.Protocol              | String<br>后端服务的协议，当前支持http/https/fcgi/tcp/ws/h2c, 默认值http |
 | BackendConf.TimeoutConnSrv        | Integer<br>连接后端的超时时间，单位是毫秒<br>默认值2000 |
 | BackendConf.TimeoutResponseHeader | Integer<br>从后端读响应头的超时时间，单位是毫秒<br>默认值60000 |
 | BackendConf.MaxIdleConnsPerHost   | Integer<br>BFE实例与每个后端的最大空闲长连接数<br>默认值2 |
 | BackendConf.MaxConnsPerHost   | Integer<br>BFE实例与每个后端的最大长连接数，0代表无限制<br>默认值0 |
+| BackendConf.SlowStartTime         | Integer<br>后端实例慢启动时间，单位为秒，0表示不开启慢启动<br>默认值0 |
 | BackendConf.RetryLevel            | Integer<br>请求重试级别。0：连接后端失败时，进行重试；1：连接后端失败、转发GET请求失败时均进行重试<br>默认值0 |
 | BackendConf.OutlierDetectionHttpCode            | String<br>后端响应状态码异常检查，""代表不开启检查，"500"表示后端返回500则认为后端失败<br>支持两种格式："\[0-9\]{3}"（如"500"）和"\[0-9\]xx"（如"4xx"）;多个状态码之间使用'&#124;'连接<br>默认值""，不开启后端响应状态码异常检查 |
 | BackendConf.FCGIConf              | Object<br>FastCGI 协议的配置                              |
@@ -39,9 +40,10 @@ cluster_conf.data为集群转发配置文件。
 | 配置项                   | 描述                                                         |
 | ------------------------ | ------------------------------------------------------------ |
 | CheckConf.Schem         | String<br>健康检查协议，支持HTTP/HTTPS/TCP/TLS<br>默认值 HTTP         |
+| CheckConf.HostType      | String<br>健康检查请求Host类型，支持HOST（使用CheckConf.Host）和_ADDR（使用后端实例地址）<br>默认值HOST |
 | CheckConf.Uri           | String<br>健康检查请求URI (仅HTTP/HTTPS)<br>默认值 "/health_check" |
 | CheckConf.Host          | String<br>健康检查请求HOST (仅HTTP/HTTPS)<br>默认值 ""             |
-| CheckConf.StatusCode    | Integer<br>期待返回的响应状态码 (仅HTTP/HTTPS)<br>默认值 200。也可以配置为0，代表任意状态码均符合预期。 |
+| CheckConf.StatusCode    | Integer<br>期待返回的响应状态码 (仅HTTP/HTTPS)<br>默认值 0，代表任意状态码均符合预期。也可以配置为具体状态码如200。 |
 | CheckConf.StatusCodeRange | String<br>期待返回的响应状态码 (仅HTTP/HTTPS)<br> 具体参见: 注解 1. StatusCodeRange|
 | CheckConf.FailNum       | Integer<br>健康检查启动阈值（转发请求连续失败FailNum次后，将后端实例置为不可用状态，并启动健康检查）<br>默认值5 |
 | CheckConf.SuccNum       | Integer<br>健康检查成功阈值（健康检查连续成功SuccNum次后，将后端实例置为可用状态）<br>默认值1 |
@@ -55,7 +57,8 @@ cluster_conf.data为集群转发配置文件。
 | -------------------------------- | ------------------------------------------------------------ |
 | GslbBasic.CrossRetry             | Integer<br>跨子集群最大重试次数<br>默认值0                   |
 | GslbBasic.RetryMax               | Integer<br>子集群内最大重试次数<br>默认值2                   |
-| GslbBasic.BalanceMode            | String<br>负载均衡模式(WRR: 加权轮询; WLC: 加权最小连接数)<br>默认值WRR |
+| GslbBasic.BalanceMode            | String<br>负载均衡模式(WRR: 加权轮询; WLC: 加权最小连接数; EPP: 基于外部策略的负载均衡)<br>默认值WRR |
+| GslbBasic.EPPAddr                | []String<br>EPP服务端地址列表，仅当BalanceMode为EPP时生效    |
 | GslbBasic.HashConf               | Object<br>会话保持的HASH策略配置                             |
 | GslbBasic.HashConf.HashStrategy  | Integer<br>会话保持的哈希策略。0：ClientIdOnly, 1：ClientIpOnly, 2：ClientIdPreferred，3：RequestURI<br>默认值为1(ClientIpOnly) |
 | GslbBasic.HashConf.HashHeader    | String<br>会话保持的hash请求头。可选参数。可配置为能用于唯一区分一个客户端的Header。如果是一个cookie header, 格式为："Cookie:key" |
@@ -72,12 +75,14 @@ cluster_conf.data为集群转发配置文件。
 | ClusterBasic.ReqFlushInterval       | Integer<br>刷新请求的间隔时间，单位是毫秒。默认值为0，表示不进行周期性刷新 |
 | ClusterBasic.ResFlushInterval       | Integer<br>刷新响应的间隔时间，单位是毫秒。默认值为-1，表示不对响应进行缓存。设置为0表示不进行周期性刷新。建议使用默认值。 |
 | ClusterBasic.CancelOnClientClose    | Boolean<br>当服务端正在读后端响应时，如果客户端断连，是否取消该阻塞状态。默认值为false。建议使用默认值。 |
+| ClusterBasic.DisableHostHeader      | Boolean<br>是否禁用由BFE自动添加/覆盖的Host请求头<br>默认值false |
+| ClusterBasic.DisableHealthCheck     | Boolean<br>是否禁用该集群的健康检查<br>默认值false |
 
 #### 后端服务HTTPS配置
 
 | 配置项                             | 描述                                                         |
 | --------------------------------- | ------------------------------------------------------------ |
-| HTTPSConf.RSHost                  | String<br>后端服务实例的hostname，用来验证服务端证书。<br>默认值：前端请求头中的Host字段。|
+| HTTPSConf.RSHost                  | String<br>后端服务实例的hostname，用来验证服务端证书。<br>无默认值，需显式配置。|
 | HTTPSConf.BFEKeyFile              | String<br>私钥文件路径，支持双向认证时必填<br>BFE引擎向后端转发https请求时使用的私钥。私钥文件必须是pem格式 |
 | HTTPSConf.BFECertFile             | String<br>证书文件路径,支持双向认证时必填<br>BFE引擎向后端转发https请求时使用的证书，证书文件必须是符合x509标准的pem格式，且每个pem文件中只能包含一张证书 |
 | HTTPSConf.RSCAList                | []String<br>BackendConf.Protocol为https，并且需要验证服务端的证书（即RSInsecureSkipVerify为false）时必填，如果不填则使用系统默认CA池。列表项为证书文件路径，证书文件必须是符合x509标准的pem格式证书，允许将CA信任链中的多个CA证书合入一个pem文件中。|
@@ -87,8 +92,9 @@ cluster_conf.data为集群转发配置文件。
 
 | 配置项                             | 描述                                                         |
 | --------------------------------- | ------------------------------------------------------------ |
+| AIConf.Type                 | Integer<br>AI服务类型，当前保留字段，请保持为0 |
 | AIConf.Key                  | String<br>后端大模型服务的API-Key<br>空 - 访问后端服务时不重置API-Key，仍保持请求的API-Key |
-| ModelMapping                | Map\[string\]string<br>原请求model -> 后端服务的model 的映射关系。访问后端服务时将根据请求的 model 字段查找此映射关系，命中的话则重写请求的 model 字段|
+| AIConf.ModelMapping         | Map\[string\]string<br>原请求model -> 后端服务的model 的映射关系。访问后端服务时将根据请求的 model 字段查找此映射关系，命中的话则重写请求的 model 字段|
 
 ## 配置示例
 
@@ -124,7 +130,7 @@ cluster_conf.data为集群转发配置文件。
             "ClusterBasic": {
                 "TimeoutReadClient": 30000,
                 "TimeoutWriteClient": 60000,
-                "TimeoutReadClientAgain": 60000,
+                "TimeoutReadClientAgain": 60000
             }
         },
         "https_cluster_example": {
@@ -212,6 +218,48 @@ cluster_conf.data为集群转发配置文件。
                 "ReqFlushInterval": 0,
                 "ResFlushInterval": -1,
                 "CancelOnClientClose": false
+            }
+        },
+        "ai_cluster_example": {
+            "BackendConf": {
+                "Protocol": "https",
+                "TimeoutConnSrv": 2000,
+                "TimeoutResponseHeader": 50000,
+                "MaxIdleConnsPerHost": 0,
+                "RetryLevel": 0
+            },
+            "CheckConf": {
+                "Schem": "https",
+                "Uri": "/healthcheck",
+                "Host": "example.org",
+                "StatusCode": 200,
+                "FailNum": 10,
+                "CheckInterval": 1000
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 2,
+                "HashConf": {
+                    "HashStrategy": 0,
+                    "HashHeader": "Cookie:UID",
+                    "SessionSticky": false
+                }
+            },
+            "ClusterBasic": {
+                "TimeoutReadClient": 30000,
+                "TimeoutWriteClient": 60000,
+                "TimeoutReadClientAgain": 60000,
+                "ReqWriteBufferSize": 512,
+                "ReqFlushInterval": 0,
+                "ResFlushInterval": -1,
+                "CancelOnClientClose": false
+            },
+            "AIConf": {
+                "Type": 0,
+                "Key": "sk-example-api-key",
+                "ModelMapping": {
+                    "gpt-4": "backend-gpt-4-model"
+                }
             }
         }
     }

@@ -183,3 +183,8 @@ When the remaining validity period of the Cookie is less than `RenewWindow`, BFE
 ### Mask Code Compatibility
 
 The module supports primary and standby mask codes. If decryption with the primary mask code fails, it will try the standby mask code. This is useful when you need to change the mask code without interrupting existing sessions.
+## Metrics
+
+| Metric | Description |
+| ------ | ----------- |
+| VERSION | Version of currently effective rules |

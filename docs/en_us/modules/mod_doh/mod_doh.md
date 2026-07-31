@@ -31,3 +31,11 @@ Timeout = 1000
 [Log]
 OpenDebug = false
 ```
+
+## Metrics
+
+| Metric | Description |
+| ------ | ----------- |
+| DOH_REQUEST | Total count of DoH requests |
+| DOH_REQUEST_NOT_SECURE | Count of DoH requests not secure |
+| FETCH_DNS_ERR | Count of DNS fetch errors |

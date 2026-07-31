@@ -8,14 +8,16 @@ host_rule.data records the domain names for each product.
 
 | Config Item    | Description                                                  |
 | -------------- | ------------------------------------------------------------ |
-| Version        | String<br>Verson of config file                                        |
-| DefaultProduct | String<br>Default product name.                                        |
-| Hosts          | Struct<br>Host list for each HostTag                                   |
-| Hosts{k}       | Struct<br>HostTag                                                      |
-| Hosts{v}       | String<br>Host list for HostTag                                        |
-| HostTags       | Struct<br>HostTag list for each product                                |
-| HostTags{k}    | Struct<br>Product name                                                 |
-| HostTags{v}    | Struct<br>HostTag list for product                                     |
+| Version        | String<br>Version of config file                                       |
+| DefaultProduct | String<br>Default product name                                         |
+| Hosts          | Object<br>Host list for each HostTag                                   |
+| Hosts{k}       | String<br>HostTag                                                      |
+| Hosts{v}       | []String<br>Host list for HostTag                                      |
+| Hosts{v}[]     | String<br>Host                                                         |
+| HostTags       | Object<br>HostTag list for each product                                |
+| HostTags{k}    | String<br>Product name                                                 |
+| HostTags{v}    | []String<br>HostTag list for product                                   |
+| HostTags{v}[]  | String<br>HostTag                                                      |
 
 ## Example
 

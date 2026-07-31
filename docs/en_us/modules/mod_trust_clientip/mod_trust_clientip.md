@@ -13,12 +13,16 @@ conf/mod_trust_clientip/mod_trust_clientip.conf
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
 | Basic.DataPath | String<br>Path of rule configuration |
+| Log.OpenDebug | Boolean<br>Whether to enable debug logs<br>Default False |
 
 ### Example
 
 ```ini
 [Basic]
 DataPath = mod_trust_clientip/trust_client_ip.data
+
+[Log]
+OpenDebug = false
 ```
 
 ## Rule Configuration

@@ -16,7 +16,7 @@ server_cert_conf.data records the config for server certificate and private key
 | Config.CertConf{v}    | Object<br>Cert related file path                                      |
 | Config.CertConf{v}.ServerCertFile    | String<br>Path of server certificate    |
 | Config.CertConf{v}.ServerKeyFile     | String<br>Path of private key           |
-| Config.CertConf{v}.OcspResponseFile  | String<br>Path of OCSP Stple (optional) |
+| Config.CertConf{v}.OcspResponseFile  | String<br>Path of OCSP Staple (optional) |
 
 ## Example
 

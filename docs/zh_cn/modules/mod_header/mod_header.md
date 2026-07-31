@@ -12,14 +12,19 @@ mod_header根据自定义条件，修改请求或响应的头部。
 
 | 配置项                | 描述                                        |
 | ---------------------| ------------------------------------------- |
-| Basic.DataPath            | String<br>规则配置的的文件路径 |
-| Log.OpenDebug           | Boolean<br>是否开启 debug 日志<br>默认值False |
+| Basic.DataPath            | String<br>规则配置文件的文件路径 |
+| Basic.DisableDefaultHeader | Boolean<br>是否禁用默认 Header<br>默认值 False |
+| Log.OpenDebug           | Boolean<br>是否开启 debug 日志<br>默认值 False |
 
 ### 配置示例
 
 ```ini
 [Basic]
-DataPath = mod_header/header_rule.data
+DataPath = mod_header/mod_header.data
+DisableDefaultHeader = false
+
+[Log]
+OpenDebug = false
 ```
 
 ## 规则配置
@@ -47,9 +52,17 @@ DataPath = mod_header/header_rule.data
 | REQ_HEADER_SET | 设置请求头 | HeaderName, HeaderValue |
 | REQ_HEADER_ADD | 添加请求头 | HeaderName, HeaderValue |
 | REQ_HEADER_DEL | 删除请求头 | HeaderName |
+| REQ_HEADER_RENAME | 重命名请求头 | OriginalHeaderName, NewHeaderName |
 | RSP_HEADER_SET | 设置响应头 | HeaderName, HeaderValue |
 | RSP_HEADER_ADD | 添加响应头 | HeaderName, HeaderValue |
 | RSP_HEADER_DEL | 删除响应头 | HeaderName |
+| RSP_HEADER_RENAME | 重命名响应头 | OriginalHeaderName, NewHeaderName |
+| REQ_HEADER_MOD | 修改请求头 | scheme_set/query_add, HeaderName, ... |
+| RSP_HEADER_MOD | 修改响应头 | scheme_set/query_add, HeaderName, ... |
+| REQ_COOKIE_SET | 设置请求 Cookie | CookieName, CookieValue |
+| REQ_COOKIE_DEL | 删除请求 Cookie | CookieName |
+| RSP_COOKIE_SET | 设置响应 Cookie | Name, Value, Domain, Path, Expires(RFC1123), MaxAge(int), HttpOnly(bool), Secure(bool) |
+| RSP_COOKIE_DEL | 删除响应 Cookie | Name, Domain, Path |
 
 ### 配置示例
 
@@ -102,6 +115,8 @@ BFE支持如下一系列变量并在处理请求阶段求值。关于变量的�
 | %bfe_session_id | 会话ID |
 | %bfe_log_id | 请求ID |
 | %bfe_cip | 客户端IP (CIP) |
+| %bfe_bip | 后端实例IP |
+| %bfe_rip | BFE实例IP |
 | %bfe_vip | 服务端IP (VIP) |
 | %bfe_server_name | BFE实例地址 |
 | %bfe_cluster | 目的后端集群 |
@@ -113,6 +128,11 @@ BFE支持如下一系列变量并在处理请求阶段求值。关于变量的�
 | %bfe_ssl_ja3_hash | TLS/SSL客户端JA3算法指纹哈希值 |
 | %bfe_http2_fingerprint | HTTP/2 指纹 |
 | %bfe_protocol | 访问协议 |
+| %bfe_client_geo_country_iso_code | 客户端地理国家 ISO 代码 |
+| %bfe_client_geo_subdivision_iso_code | 客户端地理行政区划 ISO 代码 |
+| %bfe_client_geo_city_name | 客户端地理城市名 |
+| %bfe_client_geo_latitude | 客户端地理纬度 |
+| %bfe_client_geo_longitude | 客户端地理经度 |
 | %client_cert_serial_number | 客户端证书序列号 |
 | %client_cert_subject_title | 客户端证书Subject title |
 | %client_cert_subject_common_name | 客户端证书Subject Common Name |

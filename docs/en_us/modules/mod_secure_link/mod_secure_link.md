@@ -123,3 +123,15 @@ echo -n $origin | openssl md5 -binary | openssl base64 | tr +/ -_ | tr -d =
 echo -n '2147483647/s/link127.0.0.1 secret' | openssl md5 -binary | openssl base64 | tr +/ -_ | tr -d =
 _e4Nc3iduzkWRm01TBBNYw
 ```
+
+## Metrics
+
+| Metric | Description |
+| ------ | ----------- |
+| REQ_TOTAL | Total count of requests |
+| REQ_ACCEPT | Count of accepted requests |
+| REQ_WITHOUT_EXPIRES_KEY | Count of requests missing expires key |
+| REQ_INVALID_EXPIRES_VALUE | Count of requests with invalid expires value |
+| REQ_WITHOUT_CHECKSUM_KEY | Count of requests missing checksum key |
+| REQ_INVALID_CHECKSUM | Count of requests with invalid checksum |
+| REQ_EXPIRED | Count of expired requests |

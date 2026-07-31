@@ -13,12 +13,20 @@ conf/mod_static/mod_static.conf
 | Config Item | Description                             |
 | ----------- | --------------------------------------- |
 | Basic.DataPath | String<br>Path of rule configuration |
+| Basic.MimeTypePath | String<br>Path of MIME configuration |
+| Basic.EnableCompress | Boolean<br>Whether to enable static file compression<br>Default False |
+| Log.OpenDebug | Boolean<br>Whether to enable debug logs<br>Default False |
 
 ### Example
 
 ```ini
 [Basic]
 DataPath = mod_static/static_rule.data
+MimeTypePath = mod_static/mime_type.data
+EnableCompress = false
+
+[Log]
+OpenDebug = false
 ```
 
 ## Rule Configuration
@@ -75,3 +83,5 @@ conf/mod_static/static_rule.data
 | FILE_CURRENT_OPENED     | Counter for current opend files        |
 | FILE_BROWSE_NOT_EXIST   | Counter for "file not exists" requests |
 | FILE_BROWSE_SIZE        | Total served file size                 |
+| FILE_BROWSE_CONTENT_TYPE_ERROR | Count of Content-Type errors    |
+| FILE_BROWSE_FALLBACK_DEFAULT  | Count of fallback to default file |
