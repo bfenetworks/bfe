@@ -6,106 +6,15 @@ mod_header根据自定义条件，修改请求或响应的头部。
 
 ## 基础配置
 
-### 配置描述
-
-模块配置文件: conf/mod_header/mod_header.conf
-
-| 配置项                | 描述                                        |
-| ---------------------| ------------------------------------------- |
-| Basic.DataPath            | String<br>规则配置文件的文件路径 |
-| Basic.DisableDefaultHeader | Boolean<br>是否禁用默认 Header<br>默认值 False |
-| Log.OpenDebug           | Boolean<br>是否开启 debug 日志<br>默认值 False |
-
-### 配置示例
-
-```ini
-[Basic]
-DataPath = mod_header/mod_header.data
-DisableDefaultHeader = false
-
-[Log]
-OpenDebug = false
-```
+模块基础配置文件说明详见 [mod_header.conf](../../configuration/mod_header/mod_header.conf.md)。
 
 ## 规则配置
 
-### 配置描述
+模块规则配置文件说明详见 [mod_header.data](../../configuration/mod_header/mod_header.data.md)。
 
-| 配置项  | 描述                                                           |
-| ------- | -------------------------------------------------------------- |
-| Version | String<br>配置文件版本 |
-| Config | Object<br>各产品线的 Header 规则 |
-| Config{k} | String<br>产品线名称 |
-| Config{v} | Object<br>产品线下的 Header 规则列表 |
-| Config{v}[] | Object<br>Header 规则详细信息 |
-| Config{v}[].Cond | String<br>描述匹配请求或连接的条件, 语法详见[Condition](../../condition/condition_grammar.md) |
-| Config{v}[].Last | Boolean<br>如果规则条件匹配成功后，是否继续匹配下一条规则 |
-| Config{v}[].Actions | Object<br>匹配成功后的动作|
-| Config{v}[].Actions.Cmd | String<br>匹配成功后执行的指令 |
-| Config{v}[].Actions.Params | Object<br>执行指令的相关参数列表 |
-| Config{v}[].Actions.Params[] | String<br>参数信息 |
-
-### 模块动作
-
-| 动作名称        | 含义       | 参数列表说明 |
-| -------------- | ---------- | --------- |
-| REQ_HEADER_SET | 设置请求头 | HeaderName, HeaderValue |
-| REQ_HEADER_ADD | 添加请求头 | HeaderName, HeaderValue |
-| REQ_HEADER_DEL | 删除请求头 | HeaderName |
-| REQ_HEADER_RENAME | 重命名请求头 | OriginalHeaderName, NewHeaderName |
-| RSP_HEADER_SET | 设置响应头 | HeaderName, HeaderValue |
-| RSP_HEADER_ADD | 添加响应头 | HeaderName, HeaderValue |
-| RSP_HEADER_DEL | 删除响应头 | HeaderName |
-| RSP_HEADER_RENAME | 重命名响应头 | OriginalHeaderName, NewHeaderName |
-| REQ_HEADER_MOD | 修改请求头 | scheme_set/query_add, HeaderName, ... |
-| RSP_HEADER_MOD | 修改响应头 | scheme_set/query_add, HeaderName, ... |
-| REQ_COOKIE_SET | 设置请求 Cookie | CookieName, CookieValue |
-| REQ_COOKIE_DEL | 删除请求 Cookie | CookieName |
-| RSP_COOKIE_SET | 设置响应 Cookie | Name, Value, Domain, Path, Expires(RFC1123), MaxAge(int), HttpOnly(bool), Secure(bool) |
-| RSP_COOKIE_DEL | 删除响应 Cookie | Name, Domain, Path |
-
-### 配置示例
-
-```json
-{
-    "Version": "20190101000000",
-    "Config": {
-        "example_product": [
-            {
-                "cond": "req_path_prefix_in(\"/header\", false)",
-                "actions": [
-                    {
-                        "cmd": "REQ_HEADER_SET",
-                        "params": [
-                            "X-Bfe-Log-Id",
-                            "%bfe_log_id"
-                        ]
-                    },
-                    {
-                        "cmd": "REQ_HEADER_SET",
-                        "params": [
-                            "X-Bfe-Vip",
-                            "%bfe_vip"
-                        ]
-                    },
-                    {
-                        "cmd": "RSP_HEADER_SET",
-                        "params": [
-                            "X-Proxied-By",
-                            "bfe"
-                        ]
-                    }
-                ],
-                "last": true
-            }
-        ]
-    }
-}
-```
-  
 ## 内置变量说明
 
-BFE支持如下一系列变量并在处理请求阶段求值。关于变量的使用参见如上配置示例。
+BFE支持如下一系列变量并在处理请求阶段求值。关于变量的使用参见 [mod_header.data](../../configuration/mod_header/mod_header.data.md) 配置示例。
 
 | 变量名         | 含义       |
 | -------------- | ---------- |

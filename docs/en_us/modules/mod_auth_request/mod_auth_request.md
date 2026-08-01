@@ -4,64 +4,14 @@
 
 mod_auth_request supports sending request to the specified service for authentication.
 
-## Module Configuration
+## Configuration
 
-### Description
-
-conf/mod_auth_request/mod_auth_request.conf
-
-| Config Item       | Description                                            |
-| ----------------- | ------------------------------------------------------ |
-| Basic.DataPath    | String<br>Path of rule configuration                   |
-| Basic.AuthAddress | String<br>Address of authentication service            |
-| Basic.AuthTimeout | Number<br>Timeout for authentication                   |
-| Log.OpenDebug     | Boolean<br/>Whether enable debug log<br/>Default False |
-
-### Example
-
-```ini
-[Basic]
-DataPath = mod_auth_request/auth_request_rule.data
-AuthAddress = http://127.0.0.1
-AuthTimeout = 100
-
-[Log]
-OpenDebug = false
-```
-
-## Rule Configuration
-
-### Description
-
-| Config Item        | Description                                                  |
-| ------------------ | ------------------------------------------------------------ |
-| Version            | String<br>Version of config file                             |
-| Config             | Object<br>Request auth rules for each product                |
-| Config{k}          | String<br>Product name                                       |
-| Config{v}          | Object<br> A list of request auth rules                      |
-| Config{v}[]        | Object<br> A request auth rule                               |
-| Config{v}[].Cond   | String<br>Condition expression, See [Condition](../../condition/condition_grammar.md) |
-| Config{v}[].Enable | Boolean<br>Whether enable request auth rule                  |
-
-### Example
-
-```json
-{
-    "Config": {
-        "example_product": [
-            {
-                "Cond": "req_path_in(\"/auth_request\", false)",
-                "Enable": true
-            }
-        ]
-    },
-    Version": "20190101000000"
-}
-```
+- [Basic Configuration](../../configuration/mod_auth_request/mod_auth_request.conf.md)
+- [Rule Configuration](../../configuration/mod_auth_request/auth_request_rule.data.md)
 
 For example_product, for request to path /auth_request (e.g., www.example.com/auth_request), BFE will create a request and send it to http://127.0.0.1 for authentication.
 
-### Actions
+## Actions
 
 | Action | Condition                            |
 | ------ | ------------------------------------ |

@@ -6,109 +6,16 @@ mod_header modifies header of HTTP request/response based on defined rules.
 
 ## Module Configuration
 
-### Description
-
-conf/mod_header/mod_header.conf
-
-| Config Item | Description                             |
-| ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>Path of rule configuration |
-| Basic.DisableDefaultHeader | Boolean<br>Whether to disable default header<br>Default False |
-| Log.OpenDebug | Boolean<br>Debug flag of module |
-
-### Example
-
-```ini
-[Basic]
-DataPath = mod_header/mod_header.data
-DisableDefaultHeader = false
-
-[Log]
-OpenDebug = false
-```
+For details, see [mod_header.conf](../../configuration/mod_header/mod_header.conf.md).
 
 ## Rule Configuration
 
-### Description
-
-conf/mod_header/header_rule.data
-
-| Config Item | Description                                                  |
-| ----------- | ------------------------------------------------------------ |
-| Version     | String<br>Version of config file |
-| Config      | Struct<br>Header rules for each product |
-| Config{k}   | String<br>Product name |
-| Config{v}   | Object<br>A ordered list of rules |
-| Config{v}[] | Object<br>A rule |
-| Config{v}[].Cond | String<br>Condition expression, See [Condition](../../condition/condition_grammar.md) |
-| Config{v}[].Last | Boolean<br>If true, stop processing the next rule |
-| Config{v}[].Actions | Object<br>A list of Actions |
-| Config{v}[].Actions.Cmd | String<br>A Action |
-| Config{v}[].Actions.Params | Object<br>A list of parameters for action |
-| Config{v}[].Actions.Params[] | String<br>A parameter |
-
-### Actions
-
-| Action         | Description            | Parameters |
-| -------------- | ---------------------- | ---------- |
-| REQ_HEADER_SET | Set request header     | HeaderName, HeaderValue |
-| REQ_HEADER_ADD | Add request header     | HeaderName, HeaderValue |
-| REQ_HEADER_DEL | Delete request header  | HeaderName |
-| REQ_HEADER_RENAME | Rename request header | OriginalHeaderName, NewHeaderName |
-| RSP_HEADER_SET | Set response header    | HeaderName, HeaderValue |
-| RSP_HEADER_ADD | Add response header    | HeaderName, HeaderValue |
-| RSP_HEADER_DEL | Delete response header | HeaderName |
-| RSP_HEADER_RENAME | Rename response header | OriginalHeaderName, NewHeaderName |
-| REQ_HEADER_MOD | Modify request header | scheme_set/query_add, HeaderName, ... |
-| RSP_HEADER_MOD | Modify response header | scheme_set/query_add, HeaderName, ... |
-| REQ_COOKIE_SET | Set request Cookie | CookieName, CookieValue |
-| REQ_COOKIE_DEL | Delete request Cookie | CookieName |
-| RSP_COOKIE_SET | Set response Cookie | Name, Value, Domain, Path, Expires(RFC1123), MaxAge(int), HttpOnly(bool), Secure(bool) |
-| RSP_COOKIE_DEL | Delete response Cookie | Name, Domain, Path |
-
-### Example
-
-```json
-{
-    "Version": "20190101000000",
-    "Config": {
-        "example_product": [
-            {
-                "cond": "req_path_prefix_in(\"/header\", false)",
-                "actions": [
-                    {
-                        "cmd": "REQ_HEADER_SET",
-                        "params": [
-                            "X-Bfe-Log-Id",
-                            "%bfe_log_id"
-                        ]
-                    },
-                    {
-                        "cmd": "REQ_HEADER_SET",
-                        "params": [
-                            "X-Bfe-Vip",
-                            "%bfe_vip"
-                        ]
-                    },
-                    {
-                        "cmd": "RSP_HEADER_SET",
-                        "params": [
-                            "X-Proxied-By",
-                            "bfe"
-                        ]
-                    }
-                ],
-                "last": true
-            }
-        ]
-    }
-}
-```
+For details, see [mod_header.data](../../configuration/mod_header/mod_header.data.md).
 
 ## Builtin Variables
 
 BFE provides a list of variables which are evaluated in the runtime during the processing of each request.
-See the **Example** above.
+See the configuration example in [mod_header.data](../../configuration/mod_header/mod_header.data.md).
 
 | Variable       | Description |
 | -------------- | ----------- |

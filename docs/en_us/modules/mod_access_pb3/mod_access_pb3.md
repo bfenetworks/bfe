@@ -6,30 +6,7 @@ mod_access_pb3 records access logs in Protocol Buffers v3 format.
 
 ## Module Configuration
 
-### Description
-
-Module configuration file: conf/mod_access_pb3/mod_access_pb3.conf
-
-| Config Item | Description |
-| ----------- | ----------- |
-| Log.LogPrefix | String<br>Log file prefix (required) |
-| Log.LogDir | String<br>Log file directory (required) |
-| Log.RotateWhen | String<br>Log rotation time, e.g. NEXTHOUR, MIDNIGHT (required) |
-| Log.BackupCount | Integer<br>Number of backup log files (must be > 0) |
-| BasicConf.OpenDebug | Boolean<br>Whether to enable debug logs |
-
-### Example
-
-```ini
-[Log]
-LogPrefix = pb_access3
-LogDir = /home/work/bfe/log
-RotateWhen = NEXTHOUR
-BackupCount = 2
-
-[BasicConf]
-OpenDebug = true
-```
+- [mod_access_pb3.conf](../../configuration/mod_access_pb3/mod_access_pb3.conf.md)
 
 ## Log Description
 
