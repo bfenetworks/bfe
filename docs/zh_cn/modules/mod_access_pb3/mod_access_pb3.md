@@ -6,30 +6,7 @@ mod_access_pb3 用于以 Protocol Buffers v3 格式记录访问日志。
 
 ## 基础配置
 
-### 配置描述
-
-模块配置文件: conf/mod_access_pb3/mod_access_pb3.conf
-
-| 配置项                | 描述                                        |
-| ---------------------| ------------------------------------------- |
-| Log.LogPrefix         | String<br>日志文件前缀（必填） |
-| Log.LogDir            | String<br>日志文件目录（必填） |
-| Log.RotateWhen        | String<br>日志轮转时间，如 NEXTHOUR、MIDNIGHT（必填） |
-| Log.BackupCount       | Integer<br>日志备份数量（必须 > 0） |
-| BasicConf.OpenDebug   | Boolean<br>是否开启 debug 日志 |
-
-### 配置示例
-
-```ini
-[Log]
-LogPrefix = pb_access3
-LogDir = /home/work/bfe/log
-RotateWhen = NEXTHOUR
-BackupCount = 2
-
-[BasicConf]
-OpenDebug = true
-```
+模块基础配置文件说明详见 [mod_access_pb3.conf](../../configuration/mod_access_pb3/mod_access_pb3.conf.md)。
 
 ## 日志说明
 

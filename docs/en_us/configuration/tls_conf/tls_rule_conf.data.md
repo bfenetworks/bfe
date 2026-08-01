@@ -6,28 +6,28 @@ tls_rule_conf.data records the tls protocol config
 
 ## Configuration
 
-| Config Item             | Description                                                                    |
-| ----------------------- | ------------------------------------------------------------------------------ |
-| Version                 | String<br>Version of configure file                                            |
-| Config                  | Object<br>TLS rule config.                                                     |
-| Config{k}               | String<br>Unique label                                                         |
-| Config{v}               | Object<br>TLS rule detail                                                      |
-| Config{v}.CertName      | String<br>Name of server certificate (Note: defined in server_cert_conf.data)  |
-| Config{v}.NextProtos    | Object<br>TLS application layer protocol list <br>Default empty; inherits top-level DefaultNextProtos |
-| Config{v}.NextProtos[]  | String<br>TLS application layer protocol (h2, spdy/3.1, http/1.1, stream); parameterized syntax such as `proto;level=0;mcs=200;isw=65535;rate=100;pp=1` is also supported |
-| Config{v}.Grade         | String<br>TLS Security grade ( A+, A, B, C); default value is C if not configured |
-| Config{v}.ClientAuth    | Bool<br>Enable TLS Client Authentication; when set to true, ClientCAName must also be configured |
-| Config{v}.ClientCAName  | String<br>Name of Client CA certificate                                        |
-| Config{v}.Chacha20      | Bool<br>Prefer ChaCha20 cipher suites                                          |
-| Config{v}.DynamicRecord | Bool<br>Enable dynamic TLS record size                                         |
-| Config{v}.VipConf       | Object<br>List of VIPs<br>Note: TLS policy selection is based on VIP     |
-| Config{v}.VipConf[]     | String<br>VIP                                                            |
-| Config{v}.SniConf       | Object<br>List of hostnames (optional)<br>Note: Used to determine TLS config when VIP cannot be used |
-| Config{v}.SniConf[]     | String<br>Hostname                                                       |
-| DefaultNextProtos       | Object<br>Default application layer protocols over TLS; default value is ["http/1.1"] |
-| DefaultNextProtos[]     | String<br>TLS application layer protocol (h2, spdy/3.1, http/1.1, stream); parameterized syntax is also supported |
-| DefaultChacha20         | Bool<br>Global default for preferring ChaCha20 cipher suites                   |
-| DefaultDynamicRecord    | Bool<br>Global default for enabling dynamic TLS record size                    |
+| Configuration Item | Type | Meaning | Required | Supplementary Description | Validity Condition |
+| ------------------ | ---- | ------- | -------- | ------------------------- | ------------------ |
+| Version | String | Version of the configuration file | Y | See [Version](../00-common.md#5-version) type definition | Type must be [Version](../00-common.md#5-version) |
+| Config | Object | TLS rule config | Y | Keys are labels, values are TLS rule details | Non-empty |
+| Config{k} | String | Unique label | Y | Key of Config | Non-empty |
+| Config{v} | Object | TLS rule detail | Y | Contains CertName, NextProtos, Grade, etc. | Non-empty |
+| Config{v}.CertName | String | Name of server certificate | Y | Must be defined in `server_cert_conf.data` | Non-empty |
+| Config{v}.NextProtos | Object | TLS application layer protocol list | N | Defaults to empty; inherits top-level DefaultNextProtos | Elements must be supported TLS application layer protocols |
+| Config{v}.NextProtos[] | String | TLS application layer protocol | Y | Element of NextProtos | Valid values include `h2`, `spdy/3.1`, `http/1.1`, `stream`; parameterized syntax such as `proto;level=0;mcs=200;isw=65535;rate=100;pp=1` is also supported |
+| Config{v}.Grade | String | TLS security grade | N | Default value is `C` if not configured | Only supports `A+`, `A`, `B`, `C` |
+| Config{v}.ClientAuth | Boolean | Enable TLS client authentication | N | When set to `true`, ClientCAName must also be configured | - |
+| Config{v}.ClientCAName | String | Name of Client CA certificate | Conditional | Required when `ClientAuth=true` | Non-empty; must be configured when `ClientAuth=true` |
+| Config{v}.Chacha20 | Boolean | Prefer ChaCha20 cipher suites | N | Defaults to inherit DefaultChacha20 | - |
+| Config{v}.DynamicRecord | Boolean | Enable dynamic TLS record size | N | Defaults to inherit DefaultDynamicRecord | - |
+| Config{v}.VipConf | Object | List of VIPs | N | TLS policy selection is based on VIP | Elements must be valid IPs |
+| Config{v}.VipConf[] | String | VIP | Y | Element of VipConf; see [IPAddr](../00-common.md#7-ipaddr) type definition | Type must be [IPAddr](../00-common.md#7-ipaddr) |
+| Config{v}.SniConf | Object | List of hostnames | N | Used to determine TLS config when VIP cannot be used | Elements must be valid hostnames |
+| Config{v}.SniConf[] | String | Hostname | Y | Element of SniConf | Non-empty; must be a valid hostname |
+| DefaultNextProtos | Object | Default application layer protocols over TLS | N | Default value is `["http/1.1"]` | Elements must be supported TLS application layer protocols |
+| DefaultNextProtos[] | String | TLS application layer protocol | Y | Element of DefaultNextProtos | Valid values include `h2`, `spdy/3.1`, `http/1.1`, `stream`; parameterized syntax is also supported |
+| DefaultChacha20 | Boolean | Global default for preferring ChaCha20 cipher suites | N | - | - |
+| DefaultDynamicRecord | Boolean | Global default for enabling dynamic TLS record size | N | - | - |
 
 ## Example
 
@@ -61,7 +61,7 @@ BFE supports multiple security grades(A+/A/B/C) for ease of TLS configuration. S
 
 | Supported Protocols | Supported Cipher Suites |
 | ------------------- | ----------------------- |
-| TLS1.2              | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA |
+| TLS1.2 | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA |
 
 ### Grade A
 

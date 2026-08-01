@@ -9,42 +9,4 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
 
 ## 基础配置
 
-### 配置描述
-
-模块配置文件: conf/mod_key_log/mod_key_log.conf
-
-| 配置项                | 描述                                        |
-| ----------------------| ------------------------------------------- |
-| Basic.DataPath | String<br>规则配置文件路径 |
-| Log.LogFile | String<br>日志文件路径，用来将日志输出到单个文件中（不进行日志切割） |
-| Log.LogPrefix | String<br>日志文件前缀名称 |
-| Log.LogDir | String<br>日志文件目录 |
-| Log.RotateWhen | String<br>日志切割时间，支持 M/H/D/MIDNIGHT/NEXTHOUR |
-| Log.BackupCount | Integer<br>最大的日志存储数量 |
-
-### 配置示例
-
-#### 将日志保存到指定目录
-
-```ini
-[Log]
-# filename prefix for log 
-LogPrefix = key
-
-# log directory 
-LogDir = ../log
-
-# interval to rotate logs: M/H/D/MIDNIGHT/NEXTHOUR
-RotateWhen = H 
-
-# max number of rotated log files
-BackupCount = 3
-```
-
-#### 将日志输出到标准输出
-
-```ini
-[Log]
-# filename prefix for log 
-LogFile = /dev/stdout
-```
+模块基础配置文件说明详见 [mod_key_log.conf](../../configuration/mod_key_log/mod_key_log.conf.md)。

@@ -6,28 +6,28 @@ tls_rule_conf.data配置TLS协议参数。
 
 ## 配置描述
 
-| 配置项                 | 描述                                                          |
-| ---------------------- | ------------------------------------------------------------- |
-| Version                | String<br>配置文件版本                                        |
-| Config                 | Object<br>所有TLS协议配置                                     |
-| Config{k}              | String<br>标签                                                |
-| Config{v}              | Object<br>TLS协议配置详情                                     |
-| Config{v}.CertName     | String<br>服务端证书名称（注：在server_cert_conf.data文件中定义）|
-| Config{v}.NextProtos   | Object<br>TLS应用层协议列表<br>默认值为空，继承顶层DefaultNextProtos |
-| Config{v}.NextProtos[] | String<br>TLS应用层协议, 合法值包括h2, spdy/3.1, http/1.1, stream；支持参数化语法如 `proto;level=0;mcs=200;isw=65535;rate=100;pp=1` |
-| Config{v}.Grade        | String<br>TLS安全等级, 合法值包括A+，A，B，C；未配置时默认值为C |
-| Config{v}.ClientAuth   | Bool<br>是否启用TLS双向认证；设为true时要求同时配置ClientCAName |
-| Config{v}.ClientCAName | String<br>客户端证书签发CA名称                                |
-| Config{v}.Chacha20     | Bool<br>是否优先使用ChaCha20加密套件                          |
-| Config{v}.DynamicRecord | Bool<br>是否开启动态TLS记录大小                                |
-| Config{v}.VipConf      | Object<br>VIP列表（注：优先依据VIP来确定TLS配置）             |
-| Config{v}.VipConf[]    | String<br>VIP                                                 |
-| Config{v}.SniConf      | Object<br>域名列表，可选（注：无法依据VIP确定TLS配置时，使用SNI确定TLS配置）|
-| Config{v}.SniConf[]    | String<br>域名                                                |
-| DefaultNextProtos      | Object<br>支持的TLS应用层协议列表，默认值为["http/1.1"]       |
-| DefaultNextProtos[]    | String<br>TLS应用层协议, 合法值包括h2, spdy/3.1, http/1.1, stream；支持参数化语法 |
-| DefaultChacha20        | Bool<br>全局默认是否优先使用ChaCha20加密套件                 |
-| DefaultDynamicRecord   | Bool<br>全局默认是否开启动态TLS记录大小                       |
+| 配置项                 | 类型      | 参数含义                                 | 必填 | 补充描述                                                     | 合法性条件                                                   |
+| ---------------------- | --------- | ---------------------------------------- | ---- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| Version                | String    | 配置文件版本                             | Y    | 参见 [Version](../00-common.md#5-配置文件版本version) 类型定义  | 类型为 [Version](../00-common.md#5-配置文件版本version)         |
+| Config                 | Object    | 所有TLS协议配置                          | Y    | 键为标签，值为TLS协议配置详情                                | 非空                                                         |
+| Config{k}              | String    | 标签                                     | Y    | 作为 Config 的键                                             | 非空                                                         |
+| Config{v}              | Object    | TLS协议配置详情                          | Y    | 包含 CertName、NextProtos、Grade 等                          | 非空                                                         |
+| Config{v}.CertName     | String    | 服务端证书名称                           | Y    | 须在 `server_cert_conf.data` 中定义                          | 非空                                                         |
+| Config{v}.NextProtos   | Object    | TLS应用层协议列表                        | N    | 默认值为空，继承顶层 DefaultNextProtos                       | 元素须为支持的 TLS 应用层协议                                |
+| Config{v}.NextProtos[] | String    | TLS应用层协议                            | Y    | 作为 NextProtos 的元素                                       | 合法值包括 `h2`、`spdy/3.1`、`http/1.1`、`stream`；支持参数化语法如 `proto;level=0;mcs=200;isw=65535;rate=100;pp=1` |
+| Config{v}.Grade        | String    | TLS安全等级                              | N    | 未配置时默认值为 `C`                                         | 仅支持 `A+`、`A`、`B`、`C`                                   |
+| Config{v}.ClientAuth   | Boolean   | 是否启用TLS双向认证                      | N    | 默认值为 `false`                                             | -                                                            |
+| Config{v}.ClientCAName | String    | 客户端证书签发CA名称                     | 条件 | `ClientAuth=true` 时必填                                     | 非空；`ClientAuth=true` 时必须配置                          |
+| Config{v}.Chacha20     | Boolean   | 是否优先使用ChaCha20加密套件             | N    | 默认继承 DefaultChacha20                                     | -                                                            |
+| Config{v}.DynamicRecord | Boolean  | 是否开启动态TLS记录大小                  | N    | 默认继承 DefaultDynamicRecord                                | -                                                            |
+| Config{v}.VipConf      | Object    | VIP列表                                  | N    | 优先依据VIP来确定TLS配置                                     | 元素须为有效 IP                                            |
+| Config{v}.VipConf[]    | String    | VIP                                      | Y    | 作为 VipConf 的元素；参见 [IPAddr](../00-common.md#7-ip-地址ipaddr) 类型定义 | 类型为 [IPAddr](../00-common.md#7-ip-地址ipaddr)                |
+| Config{v}.SniConf      | Object    | 域名列表                                 | N    | 无法依据VIP确定TLS配置时，使用SNI确定TLS配置                 | 元素须为有效域名                                           |
+| Config{v}.SniConf[]    | String    | 域名                                     | Y    | 作为 SniConf 的元素                                          | 非空；须为有效域名或主机名                                   |
+| DefaultNextProtos      | Object    | 支持的TLS应用层协议列表                  | N    | 默认值为 `["http/1.1"]`                                      | 元素须为支持的 TLS 应用层协议                                |
+| DefaultNextProtos[]    | String    | TLS应用层协议                            | Y    | 作为 DefaultNextProtos 的元素                                | 合法值包括 `h2`、`spdy/3.1`、`http/1.1`、`stream`；支持参数化语法 |
+| DefaultChacha20        | Boolean   | 全局默认是否优先使用ChaCha20加密套件     | N    | -                                                            | -                                                            |
+| DefaultDynamicRecord   | Boolean   | 全局默认是否开启动态TLS记录大小          | N    | -                                                            | -                                                            |
 
 ## 配置示例
 

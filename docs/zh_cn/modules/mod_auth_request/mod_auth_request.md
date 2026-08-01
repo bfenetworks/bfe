@@ -6,58 +6,11 @@ mod_auth_request支持请求发送至指定的服务进行认证。
 
 ## 基础配置
 
-### 配置描述
-
-模块配置文件: conf/mod_auth_request/mod_auth_request.conf
-
-| 配置项            | 描述                                            |
-| ----------------- | ----------------------------------------------- |
-| Basic.DataPath    | String<br>规则配置的文件路径                    |
-| Basic.AuthAddress | String<br>认证服务的地址                        |
-| Basic.AuthTimeout | Number<br>认证超时时间<br>单位ms                |
-| Log.OpenDebug     | Boolean<br/>是否开启调试日志<br/>默认值False |
-
-### 配置示例
-
-```ini
-[Basic]
-DataPath = mod_auth_request/auth_request_rule.data
-AuthAddress = http://127.0.0.1
-AuthTimeout = 100
-
-[Log]
-OpenDebug = false
-```
+模块基础配置文件说明详见 [mod_auth_request.conf](../../configuration/mod_auth_request/mod_auth_request.conf.md)。
 
 ## 规则配置
 
-### 配置描述
-
-| 配置项             | 描述                                                         |
-| ------------------ | ------------------------------------------------------------ |
-| Version            | String<br>配置文件版本                                       |
-| Config             | Object<br>所有产品线的请求认证规则配置                       |
-| Config{k}          | String<br>产品线名称                                         |
-| Config{v}          | Object<br> 产品线的请求认证规则表                          |
-| Config{v}[]        | Object<br> 请求认证规则                                      |
-| Config{v}[].Cond   | String<br>匹配条件, 语法详见[Condition](../../condition/condition_grammar.md) |
-| Config{v}[].Enable | Boolean<br>是否启用规则                                      |
-
-### 配置示例
-
-```josn
-{
-    "Config": {
-        "example_product": [
-            {
-                "Cond": "req_path_in(\"/auth_request\", false)",
-                "Enable": true
-            }
-        ]
-    },
-    Version": "20190101000000"
-}
-```
+模块规则配置文件说明详见 [auth_request_rule.data](../../configuration/mod_auth_request/auth_request_rule.data.md)。
 
 对于example_product产品线配置了一条规则，针对请求路径为/auth_request的请求（例如www.example.com/auth_request），BFE将构造请求发送至http://127.0.0.1进行认证。
 

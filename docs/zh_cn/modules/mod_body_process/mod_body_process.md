@@ -22,79 +22,11 @@ mod_body_process 提供了一个 body 的流式处理框架。在许多场景中
 
 ## 基础配置
 
-### 配置描述
-
-模块配置文件: conf/mod_body_process/mod_body_process.conf
-
-| 配置项              | 描述                                        |
-| ------------------- | ------------------------------------------- |
-| Basic.ProductRulePath      | String<br>规则配置的文件路径 |
-| Log.OpenDebug       | Boolean<br>是否开启 debug 日志<br>默认值False |
-
-### 配置示例
-
-```ini
-[basic]
-ProductRulePath = ../data/mod_body_process/body_process_rule.data
-
-[log]
-OpenDebug = false
-```
+模块基础配置文件说明详见 [mod_body_process.conf](../../configuration/mod_body_process/mod_body_process.conf.md)。
 
 ## 规则配置
 
-### 配置描述
-
-| 配置项                | 描述                                        |
-| ---------------------| ------------------------------------------- |
-| Version | String<br>配置文件版本 |
-| Config | Object<br>所有产品线的 api-key 鉴权规则配置 |
-| Config{k} | String<br>产品线名称|
-| Config{v} | Array<br> 产品线下 api-key 鉴权规则列表 |
-| Config{v}[] | Object<br> api-key 鉴权规则 |
-| Config{v}[].Cond | String<br>匹配条件, 语法详见[Condition](../../condition/condition_grammar.md) |
-| Config{v}[].RequestProcess | Object<br>请求body的处理流程配置,数据结构见下 |
-| Config{v}[].ResponseProcess | Object<br>应答body的处理流程配置，数据结构见下 |
-
-body的处理流程配置的数据结构：
-```
-// 处理流程
-struct {
-	Dec  string     // decoder，不配置则使用缺省decoder
-	Enc  string     // encoder，不配置则使用缺省encoder
-	Proc []ProcConf // 处理器列表
-}
-// ProcConf
-struct {
-	Name string     // 处理器名。目前只支持 “textfilter”
-	Params []string // 处理器的参数表。textfilter: Params[0] - ToolGood.TextFilter 服务的URL
-}
-```
-
-### 配置示例
-
-```json
-{
-    "Config": {
-        "example_product": [
-            {
-                "Cond": "!req_body_json_in(\"model\", \"\", false)",
-                "RequestProcess": {
-                        "Proc": [ 
-                                {"name":"textfilter", "params":["http://172.19.1.136:9191/api/"]} 
-                        ]
-                },
-                "ResponseProcess": {
-                        "Proc": [
-                                {"name":"textfilter", "params":["http://172.19.1.136:9191/api/"]}
-                        ]
-                }
-            }
-        ]
-    },
-    Version": "20190101000000"
-}
-```
+模块规则配置文件说明详见 [body_process_rule.data](../../configuration/mod_body_process/body_process_rule.data.md)。
 
 ## 监控项
 
