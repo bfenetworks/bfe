@@ -1,0 +1,16 @@
+{
+    "Version": "2026-01-01000000",
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "unknown_condition()",
+                "Params": {
+                     "Name": "bfe_userid",
+                     "Domain": "",
+                     "Path": "/",
+                     "MaxAge": 3153600
+                 }
+            }
+        ]
+    }
+}

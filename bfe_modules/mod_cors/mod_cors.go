@@ -124,6 +124,7 @@ func addVaryHeader(rspHeader bfe_http.Header) {
 
 	if needAddOrigin {
 		varyValue += fmt.Sprintf(",%s", HeaderOrigin)
+		rspHeader.Set(HeaderVary, varyValue)
 	}
 }
 

@@ -1,12 +1,13 @@
 {
+    "Version": "SCMPF_MODULE_VERSION",
     "Config": {
-       "example": [
+        "example": [
             {
-                "cond": "res_code_in(\"404\")",
-                "actions": [
+                "Cond": "res_code_in(\"404\")",
+                "Actions": [
                     {
-                        "cmd": "SET_PAGE",
-                        "params": [
+                        "Cmd": "RETURN",
+                        "Params": [
                             "200",
                             "text/html",
                             "./testdata/mod_errors/test.html"
@@ -15,17 +16,16 @@
                 ]
             },
             {
-                "cond": "res_code_in(\"500\")",
-                "actions": [
+                "Cond": "res_code_in(\"500\")",
+                "Actions": [
                     {
-                        "cmd": "SET_REDIRECT",
-                        "params": [
+                        "Cmd": "REDIRECT",
+                        "Params": [
                             "http://example.com/error.html"
                         ]
                     }
                 ]
             }
         ]
-    },
-    "Version": "SCMPF_MODULE_VERSION"
+    }
 }

@@ -16,8 +16,12 @@ package mod_session_sticky
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/url"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/bfenetworks/go-lib/lru_cache"
@@ -760,5 +764,464 @@ func TestModuleSessionStickySecure(t *testing.T) {
 	_, err := m.decodeHandler(req)
 	if err != nil {
 		t.Errorf("decodeHandler: %v, err:%v", req, err)
+	}
+}
+
+func TestNewModuleSessionSticky(t *testing.T) {
+	m := NewModuleSessionSticky()
+	if m == nil {
+		t.Fatal("NewModuleSessionSticky() returned nil")
+	}
+	if m.Name() != "mod_session_sticky" {
+		t.Errorf("Name() = %s, want %s", m.Name(), "mod_session_sticky")
+	}
+	if m.ruleTable == nil {
+		t.Error("ruleTable not initialized")
+	}
+}
+
+func TestModuleSessionSticky_Name(t *testing.T) {
+	m := NewModuleSessionSticky()
+	if got := m.Name(); got != "mod_session_sticky" {
+		t.Errorf("Name() = %s, want %s", got, "mod_session_sticky")
+	}
+}
+
+func TestModuleSessionSticky_Init(t *testing.T) {
+	tests := []struct {
+		name    string
+		cr      string
+		wantErr bool
+	}{
+		{
+			name:    "success",
+			cr:      "./test_data",
+			wantErr: false,
+		},
+		{
+			name:    "missing config dir",
+			cr:      "./test_data/missing_dir",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewModuleSessionSticky()
+			cbs := bfe_module.NewBfeCallbacks()
+			whs := web_monitor.NewWebHandlers()
+			err := m.Init(cbs, whs, tt.cr)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Init() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestModuleSessionSticky_init_cases(t *testing.T) {
+	prepareConf := func(cacheType string) *ConfModSessionSticky {
+		cfg := &ConfModSessionSticky{}
+		cfg.Basic.DataPath = "./test_data/mod_session_sticky.data"
+		cfg.Basic.CacheType = cacheType
+		cfg.Basic.CacheSize = defaultCacheSize
+		return cfg
+	}
+
+	tests := []struct {
+		name    string
+		cfg     *ConfModSessionSticky
+		wantErr bool
+	}{
+		{
+			name:    "local cache success",
+			cfg:     prepareConf("local"),
+			wantErr: false,
+		},
+		{
+			name:    "invalid cache type",
+			cfg:     prepareConf("unknown"),
+			wantErr: true,
+		},
+		{
+			name: "load conf data fail",
+			cfg: func() *ConfModSessionSticky {
+				c := prepareConf("local")
+				c.Basic.DataPath = "./test_data/not_exist.data"
+				return c
+			}(),
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewModuleSessionSticky()
+			cbs := bfe_module.NewBfeCallbacks()
+			whs := web_monitor.NewWebHandlers()
+			err := m.init(tt.cfg, cbs, whs)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("init() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestModuleSessionSticky_init_registerTwice(t *testing.T) {
+	cfg := &ConfModSessionSticky{}
+	cfg.Basic.DataPath = "./test_data/mod_session_sticky.data"
+	cfg.Basic.CacheType = "local"
+	cfg.Basic.CacheSize = defaultCacheSize
+
+	m := NewModuleSessionSticky()
+	cbs := bfe_module.NewBfeCallbacks()
+	whs := web_monitor.NewWebHandlers()
+	if err := m.init(cfg, cbs, whs); err != nil {
+		t.Fatalf("first init failed: %v", err)
+	}
+
+	// second init should fail because handlers are already registered
+	if err := m.init(cfg, cbs, whs); err == nil {
+		t.Error("second init should fail due to duplicate handler registration")
+	}
+}
+
+func TestModuleSessionSticky_cookieRoundTrip(t *testing.T) {
+	m := GetModuleSessionSticky()
+	req := prepareRequest(product, "/unittest")
+	req.Trans.Backend.Addr = "127.0.0.1"
+	req.Trans.Backend.Port = 80
+	req.Backend.SubclusterName = "unittest"
+
+	res := prepareResponse()
+	productRule, _ := m.ruleTable.Search(product)
+	rule := &(*productRule)[0]
+	req.Context[ModSessionStickyKey] = SessionStickyData{rule: rule}
+
+	if got := m.encodeHandler(req, res); got != bfe_module.BfeHandlerGoOn {
+		t.Errorf("encodeHandler() = %v, want %v", got, bfe_module.BfeHandlerGoOn)
+	}
+
+	cookieStr := res.Header.Get("Set-Cookie")
+	if cookieStr == "" {
+		t.Fatal("encodeHandler() did not set cookie")
+	}
+
+	// extract cookie value
+	parts := strings.SplitN(cookieStr, ";", 2)
+	cookieParts := strings.SplitN(parts[0], "=", 2)
+	if len(cookieParts) != 2 {
+		t.Fatalf("invalid cookie string: %s", cookieStr)
+	}
+	cookieValue := cookieParts[1]
+
+	// decode the cookie and verify backend info
+	dec, err := doDecode(cookieValue, []byte(rule.MaskCode))
+	if err != nil {
+		t.Fatalf("doDecode() error = %v", err)
+	}
+	bk, err := getStickyBackend(dec)
+	if err != nil {
+		t.Fatalf("getStickyBackend() error = %v", err)
+	}
+	if bk == nil || *bk.Addr != "127.0.0.1" || *bk.Port != 80 || *bk.SubCluster != "unittest" {
+		t.Errorf("decoded backend = %v, want 127.0.0.1:80 unittest", bk)
+	}
+
+	// now simulate next request with the cookie
+	req2 := prepareRequest(product, "/unittest")
+	req2.HttpRequest.AddCookie(&bfe_http.Cookie{
+		Name:  rule.CookieKey,
+		Value: cookieValue,
+	})
+
+	if got, _ := m.decodeHandler(req2); got != bfe_module.BfeHandlerGoOn {
+		t.Errorf("decodeHandler() = %v, want %v", got, bfe_module.BfeHandlerGoOn)
+	}
+
+	if val, ok := req2.Context[bfe_basic.SessionStickyBackendKey]; ok {
+		gotBk := val.(*bfe_basic.SessionStickyBackend)
+		if !reflect.DeepEqual(gotBk, bk) {
+			t.Errorf("decodeHandler() backend = %v, want %v", gotBk, bk)
+		}
+	} else {
+		t.Error("decodeHandler() did not set SessionStickyBackendKey")
+	}
+}
+
+func TestModuleSessionSticky_decodeHandler_StickyHeader(t *testing.T) {
+	m := GetModuleSessionStickyByFilename("./test_data/mod_session_sticky_header.data")
+	m.stickyCache = lru_cache.NewLRUCache(defaultCacheSize)
+
+	stickyID := "sticky-header-id"
+	backend := &bfe_basic.SessionStickyBackend{
+		Addr:       strPtr("127.0.0.1"),
+		Port:       intPtr(80),
+		SubCluster: strPtr("unittest"),
+	}
+	m.setBackendToCache(stickyID, backend)
+
+	req := prepareRequest(product, "/unittest")
+	req.HttpRequest.Header.Set("X-Sticky-Id", stickyID)
+
+	if got, _ := m.decodeHandler(req); got != bfe_module.BfeHandlerGoOn {
+		t.Errorf("decodeHandler() = %v, want %v", got, bfe_module.BfeHandlerGoOn)
+	}
+
+	if got := req.Context[bfe_basic.SessionStickyBackendKey]; !reflect.DeepEqual(got, backend) {
+		t.Errorf("decodeHandler() backend = %v, want %v", got, backend)
+	}
+}
+
+func TestModuleSessionSticky_decodeHandler_StickyURIParam(t *testing.T) {
+	m := GetModuleSessionStickyByFilename("./test_data/mod_session_sticky_uriparam.data")
+	m.stickyCache = lru_cache.NewLRUCache(defaultCacheSize)
+
+	stickyID := "sticky-uri-id"
+	backend := &bfe_basic.SessionStickyBackend{
+		Addr:       strPtr("127.0.0.1"),
+		Port:       intPtr(80),
+		SubCluster: strPtr("unittest"),
+	}
+	m.setBackendToCache(stickyID, backend)
+
+	req := prepareRequest(product, "/unittest")
+	req.HttpRequest.URL.RawQuery = "sticky_id=" + stickyID
+
+	if got, _ := m.decodeHandler(req); got != bfe_module.BfeHandlerGoOn {
+		t.Errorf("decodeHandler() = %v, want %v", got, bfe_module.BfeHandlerGoOn)
+	}
+
+	if got := req.Context[bfe_basic.SessionStickyBackendKey]; !reflect.DeepEqual(got, backend) {
+		t.Errorf("decodeHandler() backend = %v, want %v", got, backend)
+	}
+}
+
+func TestModuleSessionSticky_decodeHandler_StickyBody(t *testing.T) {
+	m := GetModuleSessionStickyByFilename("./test_data/mod_session_sticky_body.data")
+	m.stickyCache = lru_cache.NewLRUCache(defaultCacheSize)
+
+	stickyID := "sticky-body-id"
+	backend := &bfe_basic.SessionStickyBackend{
+		Addr:       strPtr("127.0.0.1"),
+		Port:       intPtr(80),
+		SubCluster: strPtr("unittest"),
+	}
+	m.setBackendToCache(stickyID, backend)
+
+	req := prepareRequest(product, "/unittest")
+	req.HttpRequest.Body = ioutil.NopCloser(strings.NewReader(`{"previous_response_id":"` + stickyID + `"}`))
+
+	if got, _ := m.decodeHandler(req); got != bfe_module.BfeHandlerGoOn {
+		t.Errorf("decodeHandler() = %v, want %v", got, bfe_module.BfeHandlerGoOn)
+	}
+
+	if got := req.Context[bfe_basic.SessionStickyBackendKey]; !reflect.DeepEqual(got, backend) {
+		t.Errorf("decodeHandler() backend = %v, want %v", got, backend)
+	}
+}
+
+func TestModuleSessionSticky_encodeHandler_StickyResponseBody(t *testing.T) {
+	m := GetModuleSessionStickyByFilename("./test_data/mod_session_sticky_body.data")
+	m.stickyCache = lru_cache.NewLRUCache(defaultCacheSize)
+
+	stickyID := "response-id"
+	req := prepareRequest(product, "/unittest")
+	req.Trans.Backend.Addr = "127.0.0.1"
+	req.Trans.Backend.Port = 80
+	req.Backend.SubclusterName = "unittest"
+
+	productRule, _ := m.ruleTable.Search(product)
+	req.Context[ModSessionStickyKey] = SessionStickyData{rule: &(*productRule)[0]}
+
+	res := prepareResponse()
+	res.Body = ioutil.NopCloser(strings.NewReader(`{"response_id":"` + stickyID + `"}`))
+
+	if got := m.encodeHandler(req, res); got != bfe_module.BfeHandlerGoOn {
+		t.Errorf("encodeHandler() = %v, want %v", got, bfe_module.BfeHandlerGoOn)
+	}
+
+	val, ok := m.stickyCache.Get(stickyID)
+	if !ok {
+		t.Fatalf("encodeHandler() did not save backend for sticky id %s", stickyID)
+	}
+	gotBk, ok := val.(*bfe_basic.SessionStickyBackend)
+	if !ok {
+		t.Fatalf("encodeHandler() saved wrong type %T", val)
+	}
+	if *gotBk.Addr != "127.0.0.1" || *gotBk.Port != 80 || *gotBk.SubCluster != "unittest" {
+		t.Errorf("encodeHandler() saved backend = %v, want 127.0.0.1:80 unittest", gotBk)
+	}
+}
+
+func TestModuleSessionSticky_getState(t *testing.T) {
+	m := GetModuleSessionSticky()
+	state, err := m.getState(nil)
+	if err != nil {
+		t.Errorf("getState() error = %v", err)
+	}
+	if state == nil {
+		t.Error("getState() returned nil")
+	}
+}
+
+func TestModuleSessionSticky_loadConfData(t *testing.T) {
+	m := GetModuleSessionSticky()
+
+	// reload with explicit path
+	query := url.Values{}
+	query.Set("path", "./test_data/mod_session_sticky_2.data")
+	if err := m.loadConfData(query); err != nil {
+		t.Errorf("loadConfData() error = %v", err)
+	}
+
+	// verify new rule is loaded
+	if _, ok := m.ruleTable.Search(product); !ok {
+		t.Error("ruleTable should contain unittest product after reload")
+	}
+
+	// reload with bad path should fail
+	query.Set("path", "./test_data/not_exist.data")
+	if err := m.loadConfData(query); err == nil {
+		t.Error("loadConfData() with bad path should fail")
+	}
+}
+
+func TestModuleSessionSticky_findStickyRule(t *testing.T) {
+	m := GetModuleSessionSticky()
+	productRule, _ := m.ruleTable.Search(product)
+
+	if got := m.FindStickyRule(nil, productRule); got != nil {
+		t.Errorf("FindStickyRule(nil, rules) = %v, want nil", got)
+	}
+	if got := m.FindStickyRule(prepareRequest(product, "/unittest"), nil); got != nil {
+		t.Errorf("FindStickyRule(req, nil) = %v, want nil", got)
+	}
+	if got := m.FindStickyRule(prepareRequest(product, "/unittest"), productRule); got == nil {
+		t.Error("FindStickyRule(req, rules) should match rule")
+	}
+	if got := m.FindStickyRule(prepareRequest(product, "/notmatch"), productRule); got != nil {
+		t.Errorf("FindStickyRule(req, rules) = %v, want nil", got)
+	}
+}
+
+func TestModuleSessionSticky_getBackendFromCache(t *testing.T) {
+	m := GetModuleSessionSticky()
+	m.stickyCache = lru_cache.NewLRUCache(defaultCacheSize)
+
+	stickyID := "cache-test-id"
+	if _, ok := m.getBackendFromCache(stickyID); ok {
+		t.Error("getBackendFromCache() should return false for missing key")
+	}
+
+	backend := &bfe_basic.SessionStickyBackend{
+		Addr:       strPtr("127.0.0.1"),
+		Port:       intPtr(80),
+		SubCluster: strPtr("unittest"),
+	}
+	m.setBackendToCache(stickyID, backend)
+
+	got, ok := m.getBackendFromCache(stickyID)
+	if !ok {
+		t.Error("getBackendFromCache() should return true after set")
+	}
+	if !reflect.DeepEqual(got, backend) {
+		t.Errorf("getBackendFromCache() = %v, want %v", got, backend)
+	}
+}
+
+func TestModuleSessionSticky_InitWithTempConf(t *testing.T) {
+	tmpDir, err := ioutil.TempDir("", "mod_session_sticky_test")
+	if err != nil {
+		t.Fatalf("TempDir() error = %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	modDir := filepath.Join(tmpDir, "mod_session_sticky")
+	if err := os.MkdirAll(modDir, 0755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+
+	confContent := `[basic]
+DataPath = mod_session_sticky.data
+[log]
+OpenDebug = true
+`
+	confPath := filepath.Join(modDir, "mod_session_sticky.conf")
+	if err := ioutil.WriteFile(confPath, []byte(confContent), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	dataContent := `{
+    "Version": "2026-01-01 00:00:00",
+    "Config": {
+        "unittest": [{
+            "Cond": "req_path_prefix_in(\"/unittest\", true)"
+        }]
+    }
+}
+`
+	dataPath := filepath.Join(tmpDir, "mod_session_sticky.data")
+	if err := ioutil.WriteFile(dataPath, []byte(dataContent), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	m := NewModuleSessionSticky()
+	cbs := bfe_module.NewBfeCallbacks()
+	whs := web_monitor.NewWebHandlers()
+	if err := m.Init(cbs, whs, tmpDir); err != nil {
+		t.Errorf("Init() error = %v", err)
+	}
+}
+
+func strPtr(s string) *string {
+	return &s
+}
+
+func intPtr(i int) *int {
+	return &i
+}
+
+func TestModuleSessionSticky_Init_redisInvalidBns(t *testing.T) {
+	tmpDir, err := ioutil.TempDir("", "mod_session_sticky_test")
+	if err != nil {
+		t.Fatalf("TempDir() error = %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	modDir := filepath.Join(tmpDir, "mod_session_sticky")
+	if err := os.MkdirAll(modDir, 0755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+
+	confContent := `[basic]
+DataPath = mod_session_sticky.data
+CacheType = redis
+[redis]
+Bns = ""
+ConnectTimeout = 100
+ReadTimeout = 100
+WriteTimeout = 100
+ExpireSeconds = 60
+[log]
+OpenDebug = true
+`
+	confPath := filepath.Join(modDir, "mod_session_sticky.conf")
+	if err := ioutil.WriteFile(confPath, []byte(confContent), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	dataContent := `{
+    "Version": "2026-01-01 00:00:00",
+    "Config": {}
+}
+`
+	dataPath := filepath.Join(tmpDir, "mod_session_sticky.data")
+	if err := ioutil.WriteFile(dataPath, []byte(dataContent), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	m := NewModuleSessionSticky()
+	cbs := bfe_module.NewBfeCallbacks()
+	whs := web_monitor.NewWebHandlers()
+	if err := m.Init(cbs, whs, tmpDir); err == nil {
+		t.Error("Init() with invalid redis BNS should fail")
 	}
 }

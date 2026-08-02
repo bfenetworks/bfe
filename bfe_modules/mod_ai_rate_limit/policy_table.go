@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/bfenetworks/go-lib/web-monitor/module_state2"
+
 	"github.com/bfenetworks/bfe/bfe_basic/action"
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
 )
