@@ -1,0 +1,19 @@
+{
+    "Version": "init-1",
+    "Config": {
+        "pn": [
+            {
+                "cond": "default_t()",
+                "actions": [
+                    {
+                        "cmd": "HOST_SET",
+                        "params": [
+                            "init.example.org"
+                        ]
+                    }
+                ],
+                "last": true
+            }
+        ]
+    }
+}

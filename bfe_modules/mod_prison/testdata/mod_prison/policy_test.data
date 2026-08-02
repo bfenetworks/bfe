@@ -1,0 +1,98 @@
+{
+    "config": {
+        "close": [
+            {
+                "Name": "close_rule",
+                "Cond": "default_t()",
+                "accessSignConf": {
+                    "url": true
+                },
+                "action": {
+                    "cmd": "CLOSE",
+                    "params": []
+                },
+                "checkPeriod": 10,
+                "stayPeriod": 10,
+                "threshold": 0,
+                "accessDictSize": 1000,
+                "prisonDictSize": 1000
+            }
+        ],
+        "finish": [
+            {
+                "Name": "finish_rule",
+                "Cond": "default_t()",
+                "accessSignConf": {
+                    "url": true
+                },
+                "action": {
+                    "cmd": "FINISH",
+                    "params": []
+                },
+                "checkPeriod": 10,
+                "stayPeriod": 10,
+                "threshold": 0,
+                "accessDictSize": 1000,
+                "prisonDictSize": 1000
+            }
+        ],
+        "pass": [
+            {
+                "Name": "pass_rule",
+                "Cond": "default_t()",
+                "accessSignConf": {
+                    "url": true
+                },
+                "action": {
+                    "cmd": "PASS",
+                    "params": []
+                },
+                "checkPeriod": 10,
+                "stayPeriod": 10,
+                "threshold": 0,
+                "accessDictSize": 1000,
+                "prisonDictSize": 1000
+            }
+        ],
+        "header_set": [
+            {
+                "Name": "header_set_rule",
+                "Cond": "default_t()",
+                "accessSignConf": {
+                    "url": true
+                },
+                "action": {
+                    "cmd": "REQ_HEADER_SET",
+                    "params": [
+                        "X-Bfe-Prison",
+                        "blocked"
+                    ]
+                },
+                "checkPeriod": 10,
+                "stayPeriod": 10,
+                "threshold": 0,
+                "accessDictSize": 1000,
+                "prisonDictSize": 1000
+            }
+        ],
+        "nomatch": [
+            {
+                "Name": "nomatch_rule",
+                "Cond": "req_host_in(\"not.exist\")",
+                "accessSignConf": {
+                    "url": true
+                },
+                "action": {
+                    "cmd": "CLOSE",
+                    "params": []
+                },
+                "checkPeriod": 10,
+                "stayPeriod": 10,
+                "threshold": 0,
+                "accessDictSize": 1000,
+                "prisonDictSize": 1000
+            }
+        ]
+    },
+    "version": "1.0"
+}

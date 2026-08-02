@@ -1,0 +1,20 @@
+{
+    "Version": "SCMPF_MODULE_VERSION",
+    "Config": {
+        "example": [
+            {
+                "Cond": "res_code_in(\"404\")",
+                "Actions": [
+                    {
+                        "Cmd": "RETURN",
+                        "Params": [
+                            "999",
+                            "text/html",
+                            "./testdata/mod_errors/test.html"
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

@@ -1,0 +1,19 @@
+{
+    "Version": "SCMPF_MODULE_VERSION",
+    "Config": {
+        "example": [
+            {
+                "Actions": [
+                    {
+                        "Cmd": "RETURN",
+                        "Params": [
+                            "200",
+                            "text/html",
+                            "./testdata/mod_errors/test.html"
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}
