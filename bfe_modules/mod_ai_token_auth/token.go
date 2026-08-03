@@ -22,6 +22,7 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
+	"github.com/gomodule/redigo/redis"
 	"github.com/google/uuid"
 )
 
@@ -93,7 +94,14 @@ func (q *QuotaPlan) Deduct(client redis_client.Client, amount int64) (int64, err
 	}
 
 	lua := `
-		local current = tonumber(redis.call('GET', KEYS[1]) or '0')
+		local raw = redis.call('GET', KEYS[1])
+		local current
+		if raw == false then
+			current = tonumber(ARGV[2])
+			redis.call('SET', KEYS[1], current)
+		else
+			current = tonumber(raw)
+		end
 		local amount = tonumber(ARGV[1])
 		local deduct = math.min(current, amount)
 		if deduct > 0 then
@@ -102,7 +110,7 @@ func (q *QuotaPlan) Deduct(client redis_client.Client, amount int64) (int64, err
 		return math.max(0, current - deduct)
 	`
 	script := client.NewScript(lua)
-	result, err := script.Run(q.RedisKey, amount)
+	result, err := script.Run(q.RedisKey, amount, q.Quota)
 	if err != nil {
 		return 0, err
 	}
@@ -126,6 +134,10 @@ func (q *QuotaPlan) HasBalance(client redis_client.Client) (bool, int64, error) 
 
 	current, err := client.GetInt64(q.RedisKey)
 	if err != nil {
+		if err == redis.ErrNil {
+			// Key not initialized, treat as full quota
+			return true, q.Quota, nil
+		}
 		return false, 0, err
 	}
 
