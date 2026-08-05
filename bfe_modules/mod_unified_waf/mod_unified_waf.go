@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"sync/atomic"
 	"time"
 
 	"github.com/bfenetworks/go-lib/log"
@@ -70,7 +71,7 @@ var COUNTER_KEYS = []string{
 }
 
 var (
-	openDebug = false
+	openDebug atomic.Bool
 )
 
 type ModuleWaf struct {
@@ -124,8 +125,8 @@ func (m *ModuleWaf) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandl
 	}
 
 	// set debug switch
-	openDebug = m.conf.Log.OpenDebug
-	if openDebug {
+	openDebug.Store(m.conf.Log.OpenDebug)
+	if openDebug.Load() {
 		log.Logger.Debug("mod_unified_waf openDebug")
 	}
 
@@ -347,7 +348,7 @@ func (m *ModuleWaf) wafHandler(req *bfe_basic.Request) (int, *bfe_http.Response)
 	conf := m.getRequestWafParam(req)
 	// no waf check
 	if conf == nil {
-		if openDebug {
+		if openDebug.Load() {
 			log.Logger.Debug("product %s has no waf config", req.Route.Product)
 		}
 
@@ -446,7 +447,7 @@ func (m *ModuleWaf) genWafRequest(req *bfe_basic.Request, param *WafParam, delay
 			wafRequest.Body = ioutil.NopCloser(bytes.NewReader(b))
 			wafBodySize = int64(len(b))
 			wafRequest.ContentLength = wafBodySize
-			if openDebug {
+			if openDebug.Load() {
 				log.Logger.Info("mod_unified_waf Peek succ, %d, contentlen:%d", peekN, wafBodySize)
 			}
 		} else {
