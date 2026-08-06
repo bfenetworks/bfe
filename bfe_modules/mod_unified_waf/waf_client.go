@@ -153,7 +153,7 @@ func (c *WafClient) Detect(req *bfe_basic.Request, wafReq *http.Request, param *
 		c.monitor.state.Inc(bfe_basic.REQ_NO_CHECK, 1)
 		c.monitor.state.Inc("waf_client_detect_closed_skip_"+c.serverAddress, 1)
 		setWafStatus(req, (int)(bfe_basic.WAF_NO_CHECK))
-		if openDebug.Load() {
+		if openDebug {
 			log.Logger.Debug("waf instance is closed, but skip, instance = %s, logid = %s",
 				c.serverAddress, req.LogId)
 		}
@@ -171,7 +171,7 @@ func (c *WafClient) Detect(req *bfe_basic.Request, wafReq *http.Request, param *
 		setWafStatus(req, (int)(bfe_basic.WAF_TIMEOUT))
 		setWafSpentTime(req, startTime, endTime)
 
-		if openDebug.Load() {
+		if openDebug {
 			log.Logger.Debug("time out for concurrency control, logid = %s, start = %d, end = %d",
 				req.LogId, startTime.UnixNano(), endTime.UnixNano())
 		}
@@ -189,7 +189,7 @@ func (c *WafClient) Detect(req *bfe_basic.Request, wafReq *http.Request, param *
 
 	// call waf server
 	done := make(chan *WafDetectResult, 1)
-	go c.detect(wafReq, done, retryMax, req.LogId)
+	go c.detect(wafReq, done, retryMax, req.LogId, openDebug)
 
 	// wait result
 	select {
@@ -219,7 +219,7 @@ func (c *WafClient) Detect(req *bfe_basic.Request, wafReq *http.Request, param *
 			setWafRuleName(req, "-")
 			req.ErrCode = ERR_WAF_FORBIDDEN
 
-			if openDebug.Load() {
+			if openDebug {
 				log.Logger.Debug("waf-server detect block, logid = %s, start = %d, end = %d",
 					req.LogId, startTime.UnixNano(), endTime.UnixNano())
 			}
@@ -235,7 +235,7 @@ func (c *WafClient) Detect(req *bfe_basic.Request, wafReq *http.Request, param *
 		setWafStatus(req, int(bfe_basic.WAF_PASS))
 
 		// pass, go on
-		if openDebug.Load() {
+		if openDebug {
 			log.Logger.Debug("waf-server detect pass, logid = %s, start = %d, end = %d",
 				req.LogId, startTime.UnixNano(), endTime.UnixNano())
 		}
@@ -249,7 +249,7 @@ func (c *WafClient) Detect(req *bfe_basic.Request, wafReq *http.Request, param *
 		setWafStatus(req, (int)(bfe_basic.WAF_TIMEOUT))
 		setWafSpentTime(req, startTime, endTime)
 
-		if openDebug.Load() {
+		if openDebug {
 			log.Logger.Debug("time out for waiting waf-server, logid = %s, start = %d, end = %d",
 				req.LogId, startTime.UnixNano(), endTime.UnixNano())
 		}
@@ -275,7 +275,7 @@ func (c *WafClient) getToken(req *bfe_basic.Request, reqTimeout time.Duration, l
 		ok = false
 	}
 
-	if ok && openDebug.Load() {
+	if ok && openDebug {
 		log.Logger.Debug("get concurrencyChan, logid = %s", logId)
 	}
 
@@ -287,13 +287,13 @@ func (c *WafClient) getHcServerStr() string {
 	return addr
 }
 
-func (c *WafClient) detect(req *http.Request, done chan *WafDetectResult, retryMax int, logId string) {
+func (c *WafClient) detect(req *http.Request, done chan *WafDetectResult, retryMax int, logId string, openDebug bool) {
 	var res bwi.WafResult
 	var err error
 	defer func() {
 		// release
 		c.concurrencyChan <- 1
-		if openDebug.Load() {
+		if openDebug {
 			log.Logger.Debug("release concurrencyChan, logid = %s", logId)
 		}
 		if err := recover(); err != nil {
@@ -310,7 +310,7 @@ func (c *WafClient) detect(req *http.Request, done chan *WafDetectResult, retryM
 			break
 		}
 
-		if openDebug.Load() {
+		if openDebug {
 			log.Logger.Debug("c.client.Detect(dc) failed: %s, retry = %d, logid = %s", err.Error(), i, logId)
 		}
 		c.instanceHeathJudge(false, false)
@@ -318,7 +318,7 @@ func (c *WafClient) detect(req *http.Request, done chan *WafDetectResult, retryM
 
 	// send result
 	done <- &WafDetectResult{Result: res, Error: err}
-	if openDebug.Load() {
+	if openDebug {
 		log.Logger.Debug("waf detect done, logid = %s", logId)
 	}
 }
