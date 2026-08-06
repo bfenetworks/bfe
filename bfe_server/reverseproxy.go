@@ -1278,9 +1278,6 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 	// weighted random select target
 	if len(aiResult.Targets) > 0 {
 		selectedTarget = SelectTarget(aiResult.Targets)
-		if aiMeta != nil {
-			aiMeta.TargetModel = selectedTarget.Model
-		}
 	}
 
 	// build attempt list: selected target + fallbacks
@@ -1324,6 +1321,10 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		// log fallback
 		log.Logger.Info("mod_ai_route: fallback triggered, cluster[%s] err[%v] status[%d]",
 			attempt.ClusterName, invokeErr, getResponseStatus(res))
+		
+		if res != nil {
+			res.Body.Close()
+		}
 	}
 
 	basicReq.HttpResponse = res
@@ -1467,6 +1468,11 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 
 	// set deadline to finish read client request body
 	timeoutReadClient := cluster.TimeoutReadClient()
+	
+	if basicReq.IsSse {
+		timeoutReadClient = -1
+	}
+
 	p.setTimeout(bfe_basic.StageReadReqBody, basicReq.Connection, req, timeoutReadClient)
 
 	// prepare out request to downstream RS backend
