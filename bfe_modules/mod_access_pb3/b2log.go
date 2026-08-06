@@ -17,7 +17,7 @@ package mod_access_pb3
 import (
 	"fmt"
 
-	"github.com/baidu/go-lib/log/log4go"
+	"github.com/bfenetworks/go-lib/log/log4go"
 	"github.com/bfenetworks/bfe-access-pb/b2log"
 
 	"google.golang.org/protobuf/proto"

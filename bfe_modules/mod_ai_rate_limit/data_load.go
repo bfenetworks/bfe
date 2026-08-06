@@ -17,7 +17,8 @@ package mod_ai_rate_limit
 import (
 	"fmt"
 
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
+
 	"github.com/bfenetworks/bfe/bfe_basic/action"
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
 	"github.com/bfenetworks/bfe/bfe_util"

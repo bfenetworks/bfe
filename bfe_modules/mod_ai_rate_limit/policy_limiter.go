@@ -19,7 +19,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
+
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_util/limit_rate"
 )

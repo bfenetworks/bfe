@@ -29,7 +29,7 @@
 package bfe_proxy
 
 import (
-	"github.com/baidu/go-lib/web-monitor/metrics"
+	"github.com/bfenetworks/go-lib/web-monitor/metrics"
 )
 
 // ProxyState is State for Proxy

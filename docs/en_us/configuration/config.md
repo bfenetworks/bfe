@@ -2,7 +2,7 @@
 
 ## Notes
 
-This document explain how to configure BFE Server directly.
+This document explains how to configure BFE Server directly.
 
 For guide of configure BFE via BFE control plane components, see documents of [BFE API Server](https://github.com/bfenetworks/api-server) and [BFE Dashboard](https://github.com/bfenetworks/dashboard).
 
@@ -14,7 +14,7 @@ For guide of configure BFE via BFE control plane components, see documents of [B
 ## Configuration format
 
 - Normal configuration file: INI format
-- Dynamic configuration file: JSON format (except for cerfificate/dict file, etc)
+- Dynamic configuration file: JSON format (except for certificate/dict file, etc)
 
 ## Configuration layout
 

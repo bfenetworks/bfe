@@ -15,7 +15,7 @@
 package bfe_tls
 
 import (
-	"github.com/baidu/go-lib/web-monitor/metrics"
+	"github.com/bfenetworks/go-lib/web-monitor/metrics"
 )
 
 type TlsState struct {

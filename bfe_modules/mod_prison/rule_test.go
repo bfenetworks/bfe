@@ -21,7 +21,7 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/lru_cache"
+	"github.com/bfenetworks/go-lib/lru_cache"
 )
 
 import (

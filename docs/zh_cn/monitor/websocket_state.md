@@ -8,8 +8,8 @@
 
 | 监控项                        | 描述                                |
 | ----------------------------- | ----------------------------------- |
-| WEB_SOCKET_BYTES_RECV         | 接收字的总节数                      |
-| WEB_SOCKET_BYTES_SENT         | 发送字的总节数                      |
+| WEB_SOCKET_BYTES_RECV         | 接收的总字节数                      |
+| WEB_SOCKET_BYTES_SENT         | 发送的总字节数                      |
 | WEB_SOCKET_ERR_BACKEND_REJECT | 后端拒绝升级为WebSocket协议的错误数 |
 | WEB_SOCKET_ERR_BALANCE        | 负载均衡失败的错误数                |
 | WEB_SOCKET_ERR_CONNECT        | 连接后端失败的错误数                |

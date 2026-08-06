@@ -4,54 +4,10 @@
 
 mod_trust_clientip checks the client IP of incoming request/connnection against trusted ip dictionary. If matched, the request/connection is marked as trusted.
 
-## Module Configuration
+## Configuration
 
-### Description
-
-conf/mod_trust_clientip/mod_trust_clientip.conf
-
-| Config Item | Description                             |
-| ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>Path of rule configuration |
-
-### Example
-
-```ini
-[Basic]
-DataPath = mod_trust_clientip/trust_client_ip.data
-```
-
-## Rule Configuration
-
-### Description
-
-  conf/mod_trust_clientip/trust_client_ip.data
-
-| Config Item       | Type   | Description                                                     |
-| ----------------- | ------ | --------------------------------------------------------------- |
-| Version           | String | Version of config file                                           |
-| Config            | Object | Trusted ip config |
-| Config{k}         | Struct | Label
-| Config{v}         | String | A list of ip segments |
-| Config{v}[]       | Object | A ip segment |
-| Config{v}[].Begin | String | Start ip address |
-| Config{v}[].End   | String | End ip address |
-
-### Example
-
-```json
-{
-    "Version": "20190101000000",
-    "Config": {
-        "inner-idc": [
-            {
-                "Begin": "10.0.0.0",
-                "End": "10.255.255.255"
-            }
-        ]
-    }
-}
-```
+- [mod_trust_clientip.conf](../../configuration/mod_trust_clientip/mod_trust_clientip.conf.md)
+- [trust_client_ip.data](../../configuration/mod_trust_clientip/trust_client_ip.data.md)
 
 ## Metrics
 

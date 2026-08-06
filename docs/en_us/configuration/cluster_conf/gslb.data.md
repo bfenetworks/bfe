@@ -6,15 +6,15 @@ gslb.data records the load balancing config between sub-clusters.
 
 ## Configuration
 
-| Config Item | Description                                                  |
-| ----------- | ------------------------------------------------------------ |
-| Clusters    | Object<br>cluster config |
-| Clusters{k} | String<br>cluster name |
-| Clusters{v} | Object<br>weight config for each sub-cluster        |
-| Clusters{v}{k} | String<br>name of sub-cluster<br>GSLB_BLACKHOLE is the name of blackhole sub-cluster which discards all incoming requests |
-| Clusters{v}{v} | Integer<br>weight of sub-cluster<br>The weight should be [0, 100] and the weight sum of all sub-cluster should be 100 |
-| Hostname    | String<br>Hostname of gslb scheduler                                   |
-| Ts          | String<br>Timestamp of config file                                     |
+| Configuration Item | Type | Meaning | Required | Supplementary Description | Validity Condition |
+| ------------------ | ---- | ------- | -------- | ------------------------- | ------------------ |
+| Hostname | String | Hostname of gslb scheduler | Y | Identifies the host/system that generates this configuration file | Non-empty |
+| Ts | String | Timestamp of config file | Y | Identifies the generation time of the configuration file | Non-empty |
+| Clusters | Object | Load balancing weights among sub-clusters | Y | Key is cluster name, value is sub-cluster weight mapping | Non-empty |
+| Clusters{k} | String | Cluster name | Y | Key of Clusters | Non-empty |
+| Clusters{v} | Object | Weight config for each sub-cluster | Y | Key is sub-cluster name, value is weight | Non-empty |
+| Clusters{v}{k} | String | Name of sub-cluster | Y | Key of Clusters{v}; reserved `GSLB_BLACKHOLE` represents the blackhole sub-cluster which discards all incoming requests, used for overload protection | Non-empty |
+| Clusters{v}{v} | Integer | Weight of sub-cluster | Y | See [Weight](../00-common.md#8-weight) type definition | Type is [Weight](../00-common.md#8-weight); sum of positive weights across sub-clusters must be greater than 0 |
 
 ## Example
 

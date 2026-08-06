@@ -6,73 +6,18 @@ mod_auth_jwt支持JWT([JSON Web Token](https://tools.ietf.org/html/rfc7519))认�
 
 ## 基础配置
 
-### 配置描述
-
-模块配置文件: conf/mod_auth_jwt/mod_auth_jwt.conf
-
-| Config Item | Description                             |
-| ----------- | --------------------------------------- |
-| Basic.DataPath | String<br>规则配置的的文件路径 |
-| Log.OpenDebug | Boolean<br>是否开启 debug 日志<br>默认值False |
-
-### 配置示例
-
-```ini
-[Basic]
-DataPath = mod_auth_jwt/auth_jwt_rule.data
-```
+模块基础配置文件说明详见 [mod_auth_jwt.conf](../../configuration/mod_auth_jwt/mod_auth_jwt.conf.md)。
 
 ## 规则配置
 
-### 配置描述
+模块规则配置文件说明详见 [auth_jwt_rule.data](../../configuration/mod_auth_jwt/auth_jwt_rule.data.md)。
 
-conf/mod_auth_jwt/auth_jwt_rule.data
+## 监控项
 
-| Config Item | Description                                                  |
-| ----------- | ------------------------------------------------------------ |
-| Version     | String<br>配置文件版本 |
-| Config      | Struct<br>所有产品线的JWT认证规则配置 |
-| Config{k}   | String<br>产品线名称 |
-| Config{v}   | Object<br>产品线下 JWT认证规则列表|
-| Config{v}[] | Object<br>JWT认证规则 |
-| Config{v}[].Cond | String<br>匹配条件, 语法详见[Condition](../../condition/condition_grammar.md) |
-| Config{v}[].KeyFile | String<br>JWK配置文件 |
-| Config{v}[].Realm | String<br>安全域名称<br>默认值"Restricted" |
-
-JWK配置文件说明
-
-* 配置文件必须遵守[JSON Web Key规范](https://tools.ietf.org/html/rfc7517)
-* 生成示例Key：
-
-```
-echo -n jwt_example | base64 | tr '+/' '-_' | tr -d '='
-```
-
-* JWK配置文件示例：
-
-```json
-[
-    {
-        "k": "and0X2V4YW1wbGU",
-        "kty": "oct",
-        "kid": "0001"
-    }
-]
-```
-
-### 配置示例
-
-```json
-{
-    "Version": "20190101000000",
-    "Config": {
-        "example_product": [
-            {
-                "Cond": "req_host_in(\"www.example.org\")",
-                "KeyFile": "mod_auth_jwt/key_file",
-                "Realm": "Restricted"
-            }
-        ]
-    }
-}
-```
+| 监控项                            | 描述                            |
+| --------------------------------- | ------------------------------- |
+| REQ_AUTH_RULE_HIT                 | 命中鉴权规则的请求数            |
+| REQ_AUTH_NO_AUTHORIZATION         | 未携带 Authorization 的请求数   |
+| REQ_AUTH_AUTHORIZATION_FORMAT_ERR | Authorization 格式错误的请求数  |
+| REQ_AUTH_SUCCESS                  | 鉴权成功的请求数                |
+| REQ_AUTH_FAILURE                  | 鉴权失败的请求数                |

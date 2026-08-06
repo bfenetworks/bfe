@@ -25,7 +25,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/bfe/bfe_balance"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
@@ -325,9 +325,9 @@ func (srv *BfeServer) InitSignalTable() {
 	srv.SignalTable.StartSignalHandle()
 }
 
-func (srv *BfeServer) InitWebMonitor(port int) error {
+func (srv *BfeServer) InitWebMonitor(port int, addr string) error {
 	var err error
-	srv.Monitor, err = newBfeMonitor(srv, port)
+	srv.Monitor, err = newBfeMonitor(srv, port, addr)
 	return err
 }
 
@@ -402,13 +402,20 @@ func (s *BfeServer) GetCheckConf(clusterName string) (*cluster_conf.BackendCheck
 
 func (srv *BfeServer) InitListeners(config bfe_conf.BfeConfig) error {
 	listenerMap := make(map[string]net.Listener)
-	lnConf := map[string]int{
-		"HTTP":  config.Server.HttpPort,
-		"HTTPS": config.Server.HttpsPort,
+	lnConf := map[string]struct {
+		port int
+		addr string
+	}{
+		"HTTP":  {config.Server.HttpPort, config.Server.HttpAddr},
+		"HTTPS": {config.Server.HttpsPort, config.Server.HttpsAddr},
 	}
 
-	for proto, port := range lnConf {
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	for proto, c := range lnConf {
+		addr := c.addr
+		if addr == "" {
+			addr = ""
+		}
+		listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", addr, c.port))
 		if err != nil {
 			return err
 		}
@@ -416,7 +423,7 @@ func (srv *BfeServer) InitListeners(config bfe_conf.BfeConfig) error {
 		// wrap underlying listener according to balancer type
 		listener = NewBfeListener(listener, config)
 		listenerMap[proto] = listener
-		log.Logger.Info("InitListeners(): begin to listen [:%d]", port)
+		log.Logger.Info("InitListeners(): begin to listen [%s:%d]", addr, c.port)
 	}
 
 	srv.listenerMap = listenerMap

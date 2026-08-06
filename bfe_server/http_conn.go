@@ -28,8 +28,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/baidu/go-lib/gotrack"
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/gotrack"
+	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
 	"github.com/bfenetworks/bfe/bfe_bufio"
@@ -557,7 +557,12 @@ func (c *conn) serveRequest(w bfe_http.ResponseWriter, request *bfe_basic.Reques
 	}
 
 	// serve the request
-	ret1 := c.server.ReverseProxy.ServeHTTP(w, request)
+	var ret1 int
+	if c.server.Config.Server.EnableAiGateway {
+		ret1 = c.server.ReverseProxy.ServeHTTPForAI(w, request)
+	} else {
+		ret1 = c.server.ReverseProxy.ServeHTTP(w, request)
+	}
 
 	if !isClientReqSse && request.IsSse {
 		//sse tag in response header

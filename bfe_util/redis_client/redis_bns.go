@@ -41,9 +41,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/baidu/go-lib/log"
-	"github.com/baidu/go-lib/web-monitor/delay_counter"
-	"github.com/baidu/go-lib/web-monitor/module_state2"
+	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/go-lib/web-monitor/delay_counter"
+	"github.com/bfenetworks/go-lib/web-monitor/module_state2"
 	"github.com/bfenetworks/bfe/bfe_util/bns"
 	"github.com/gomodule/redigo/redis"
 	"github.com/spaolacci/murmur3"

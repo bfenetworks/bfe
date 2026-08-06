@@ -26,7 +26,7 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 func delayCalc(delay time.Duration) time.Duration {

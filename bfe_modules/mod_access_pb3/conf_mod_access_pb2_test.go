@@ -41,3 +41,60 @@ func Test_conf_mod_access_pb2_case1(t *testing.T) {
 		t.Error("OpenDebug should be true")
 	}
 }
+
+func TestConfLoadNotExist(t *testing.T) {
+	_, err := ConfLoad("./test_data/conf_mod_access_pb2/not_exist.conf")
+	if err == nil {
+		t.Error("ConfLoad() should return error for non-existent file")
+	}
+}
+
+func TestConfModAccessPbCheckEmptyLogPrefix(t *testing.T) {
+	cfg := &ConfModAccessPb2{}
+	cfg.Log.LogDir = "/home/work/bfe/log"
+	cfg.Log.RotateWhen = "NEXTHOUR"
+	cfg.Log.BackupCount = 2
+
+	err := ConfModAccessPbCheck(cfg)
+	if err == nil {
+		t.Error("ConfModAccessPbCheck() should return error when LogPrefix is empty")
+	}
+}
+
+func TestConfModAccessPbCheckEmptyLogDir(t *testing.T) {
+	cfg := &ConfModAccessPb2{}
+	cfg.Log.LogPrefix = "pb_access3"
+	cfg.Log.RotateWhen = "NEXTHOUR"
+	cfg.Log.BackupCount = 2
+
+	err := ConfModAccessPbCheck(cfg)
+	if err == nil {
+		t.Error("ConfModAccessPbCheck() should return error when LogDir is empty")
+	}
+}
+
+func TestConfModAccessPbCheckInvalidRotateWhen(t *testing.T) {
+	cfg := &ConfModAccessPb2{}
+	cfg.Log.LogPrefix = "pb_access3"
+	cfg.Log.LogDir = "/home/work/bfe/log"
+	cfg.Log.RotateWhen = "INVALID"
+	cfg.Log.BackupCount = 2
+
+	err := ConfModAccessPbCheck(cfg)
+	if err == nil {
+		t.Error("ConfModAccessPbCheck() should return error when RotateWhen is invalid")
+	}
+}
+
+func TestConfModAccessPbCheckInvalidBackupCount(t *testing.T) {
+	cfg := &ConfModAccessPb2{}
+	cfg.Log.LogPrefix = "pb_access3"
+	cfg.Log.LogDir = "/home/work/bfe/log"
+	cfg.Log.RotateWhen = "NEXTHOUR"
+	cfg.Log.BackupCount = 0
+
+	err := ConfModAccessPbCheck(cfg)
+	if err == nil {
+		t.Error("ConfModAccessPbCheck() should return error when BackupCount <= 0")
+	}
+}

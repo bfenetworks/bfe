@@ -10,15 +10,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v1.8.4] -
+## [v1.8.4] - 2026-08-05
 
 ### Added
-
+- Add mod_ai_route module for AI gateway routing
+- Add EstimateToken switch ([Pull #1285](https://github.com/bfenetworks/bfe/pull/1285))
 
 ### Fixed
 - Fix token calculation
 - Fix allow_models check in mod_ai_token_auth
 - Fix redisdata unmarshal bug in mod_session_sticky
+- Fix "unsafe legacy renegotiation disabled" error when connecting from OpenSSL 3.4+ ([Pull #1299](https://github.com/bfenetworks/bfe/pull/1299))
 
 
 ## [v1.8.3] - 2026-07-10

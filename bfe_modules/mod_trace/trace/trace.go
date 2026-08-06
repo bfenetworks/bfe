@@ -32,7 +32,7 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/opentracing/opentracing-go"

@@ -8,55 +8,65 @@ bfe.conf is the core configuration file of BFE.
 
 ### Server basic config
 
-| Config Item                   | Description                                                  |
-| ----------------------------- | ------------------------------------------------------------ |
-| Basic.HttpPort                | Integer<br>Listen port for HTTP<br>Default 8080 |
-| Basic.HttpsPort               | Integer<br>Listen port for HTTPS<br>Default 8443 |
-| Basic.MonitorPort             | Integer<br>Listen port for monitor<br>Default 8421 |
-| Basic.MonitorEnabled          | Boolean<br>If false, monitor server is disabled<br>Default True |
-| Basic.MaxCpus                 | Integer<br>Max number of CPUs to use (0 to use all CPUs)<br>Default 0 |
-| Basic.Layer4LoadBalancer      | String<br>Type of layer-4 load balancer (PROXY/NONE)<br>Default NONE |
-| Basic.TlsHandshakeTimeout     | Integer<br>TLS handshake timeout, in seconds<br>Default 30 |
-| Basic.ClientReadTimeout       | Integer<br>Read timeout of communicating with http client, in seconds<br>Default 60 |
-| Basic.ClientWriteTimeout      | Integer<br>Write timeout of communicating with http client, in seconds<br>Default 60 |
-| Basic.KeepAliveEnabled        | Boolean<br>If false, HTTP Keep-Alive is disabled<br>Default True |
-| Basic.GracefulShutdownTimeout | Integer<br>Timeout for graceful shutdown (maximum 300 sec)<br>Default 10 |
-| Basic.MaxHeaderBytes          | Integer<br>Max length of request header, in bytes<br>Default 10485 |
-| Basic.MaxHeaderUriBytes       | Integer<br>Max length of request URI, in bytes<br>Default 8192 |
-| Basic.HostRuleConf            | String<br>Path of [host config](server_data_conf/host_rule.data.md)<br>Default server_data_conf/host_rule.data |
-| Basic.VipRuleConf             | String<br>Path of [VIP config](server_data_conf/vip_rule.data.md)<br>Default server_data_conf/vip_rule.data |
-| Basic.RouteRuleConf           | String<br>Path of [route rule config](server_data_conf/route_rule.data.md)<br>Default server_data_conf/route_rule.data |
-| Basic.ClusterConf             | String<br>Path of [cluster config](server_data_conf/cluster_conf.data.md)<br>Default server_data_conf/cluster_conf.data |
-| Basic.GslbConf                | String<br>Path of [subcluster balancing config](cluster_conf/gslb.data.md)<br>Default cluster_conf/gslb.data |
-| Basic.ClusterTableConf        | String<br>Path of [instance balancing config](cluster_conf/cluster_table.data.md)<br>Default cluster_conf/cluster_table.data |
-| Basic.NameConf                | String<br>Path of [naming config](server_data_conf/name_conf.data.md)<br>Default server_data_conf/name_conf.data |
-| Basic.Modules                 | String<br>Enabled modules<br>Default "" |
-| Basic.MonitorInterval         | Integer<br>Interval for get diff of proxy-state<br>Default 20 |
-| Basic.DebugServHttp           | Boolean<br>Debug flag for ServerHttp<br>Default False |
-| Basic.DebugBfeRoute           | Boolean<br>Debug flag for BfeRoute<br>Default False |
-| Basic.DebugBal                | Boolean<br>Debug flag for Bal<br>Default False |
-| Basic.DebugHealthCheck        | Boolean<br>Debug flag for HealthCheck<br>Default False |
+| Configuration Item             | Type    | Meaning                                              | Required  | Supplementary Description                                                                                      | Validity Condition                                                   |
+| ------------------------------ | ------- | ---------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Server.HttpPort                | Integer | Listen port for HTTP                                 | N         | Default 8080; see [Port](00-common.md#1-port) type definition                                                  | Type is [Port](00-common.md#1-port), value range [1, 65535]          |
+| Server.HttpsPort               | Integer | Listen port for HTTPS                                | N         | Default 8443; see [Port](00-common.md#1-port) type definition                                                  | Type is [Port](00-common.md#1-port), value range [1, 65535]          |
+| Server.MonitorPort             | Integer | Listen port for monitor                              | N         | Default 8421; see [Port](00-common.md#1-port) type definition                                                  | Type is [Port](00-common.md#1-port); value range [1, 65535] when `MonitorEnabled=true` |
+| Server.MonitorEnabled          | Boolean | Whether monitor server is enabled                    | N         | Default `True`                                                                                                 | -                                                                    |
+| Server.MaxCpus                 | Integer | Max number of CPUs to use                            | N         | Default 0; 0 means use all CPU cores                                                                         | >= 0                                                                 |
+| Server.Layer4LoadBalancer      | String  | Type of layer-4 load balancer                        | N         | Default `NONE`                                                                                                 | Only `PROXY` / `NONE` supported                                      |
+| Server.TlsHandshakeTimeout     | Integer | TLS handshake timeout, in seconds                    | N         | Default 30                                                                                                     | > 0 and <= 1200                                                      |
+| Server.ClientReadTimeout       | Integer | Read timeout of communicating with HTTP client, in seconds | N   | Default 60                                                                                                     | > 0                                                                  |
+| Server.ClientWriteTimeout      | Integer | Write timeout of communicating with HTTP client, in seconds | N  | Default 60                                                                                                     | > 0                                                                  |
+| Server.KeepAliveEnabled        | Boolean | Whether HTTP Keep-Alive is enabled for client connection | N     | Default `True`                                                                                                 | -                                                                    |
+| Server.GracefulShutdownTimeout | Integer | Timeout for graceful shutdown, in seconds            | N         | Default 10                                                                                                     | (0, 300]                                                             |
+| Server.MaxHeaderBytes          | Integer | Max length of request header, in bytes               | N         | Default 1048576                                                                                                | > 0                                                                  |
+| Server.MaxHeaderUriBytes       | Integer | Max length of request URI in header, in bytes        | N         | Default 8192                                                                                                   | > 0                                                                  |
+| Server.HttpAddr                | String  | Listen address for HTTP                              | N         | See [ListenAddr](00-common.md#2-listenaddr) type definition                                                    | Type is [ListenAddr](00-common.md#2-listenaddr)                      |
+| Server.HttpsAddr               | String  | Listen address for HTTPS                             | N         | See [ListenAddr](00-common.md#2-listenaddr) type definition                                                    | Type is [ListenAddr](00-common.md#2-listenaddr)                      |
+| Server.MonitorAddr             | String  | Listen address for monitor                           | N         | See [ListenAddr](00-common.md#2-listenaddr) type definition                                                    | Type is [ListenAddr](00-common.md#2-listenaddr)                      |
+| Server.AcceptNum               | Integer | Number of accept goroutines per listener             | N         | Default 1; automatically set to 1 when 0                                                                       | >= 0                                                                 |
+| Server.MaxProxyHeaderBytes     | Integer | Max length of PROXY protocol header, in bytes        | N         | Default 0                                                                                                      | >= 0                                                                 |
+| Server.EnableAiGateway         | Boolean | Whether AI Gateway mode is enabled                   | N         | Default `False`                                                                                                | -                                                                    |
+| Server.EstimateToken           | Boolean | Whether to estimate token usage based on request Content-Length | N | Default `False`                                                                                                | -                                                                    |
+| Server.HostRuleConf            | String  | Path of [host config](server_data_conf/host_rule.data.md) file | N     | Default `server_data_conf/host_rule.data`; see [FilePath](00-common.md#3-filepath) type definition            | Type is [FilePath](00-common.md#3-filepath)                          |
+| Server.VipRuleConf             | String  | Path of [VIP config](server_data_conf/vip_rule.data.md) file | N       | Default `server_data_conf/vip_rule.data`; see [FilePath](00-common.md#3-filepath) type definition             | Type is [FilePath](00-common.md#3-filepath)                          |
+| Server.RouteRuleConf           | String  | Path of [route rule config](server_data_conf/route_rule.data.md) file | N  | Default `server_data_conf/route_rule.data`; see [FilePath](00-common.md#3-filepath) type definition           | Type is [FilePath](00-common.md#3-filepath)                          |
+| Server.ClusterConf             | String  | Path of [cluster config](server_data_conf/cluster_conf.data.md) file | N    | Default `server_data_conf/cluster_conf.data`; see [FilePath](00-common.md#3-filepath) type definition         | Type is [FilePath](00-common.md#3-filepath)                          |
+| Server.GslbConf                | String  | Path of [subcluster balancing config](cluster_conf/gslb.data.md) file (GSLB) | N | Default `cluster_conf/gslb.data`; see [FilePath](00-common.md#3-filepath) type definition                  | Type is [FilePath](00-common.md#3-filepath)                          |
+| Server.ClusterTableConf        | String  | Path of [instance balancing config](cluster_conf/cluster_table.data.md) file | N | Default `cluster_conf/cluster_table.data`; see [FilePath](00-common.md#3-filepath) type definition          | Type is [FilePath](00-common.md#3-filepath)                          |
+| Server.NameConf                | String  | Path of [naming config](server_data_conf/name_conf.data.md) file | N     | Optional; not loaded if not configured; see [FilePath](00-common.md#3-filepath) type definition               | Type is [FilePath](00-common.md#3-filepath)                          |
+| Server.Modules                 | String  | List of enabled modules                              | N         | Default empty; to enable multiple modules, add multiple Modules lines, see configuration example               | -                                                                    |
+| Server.MonitorInterval         | Integer | Monitor data statistics interval, in seconds         | N         | Default 20; must divide 60; values greater than 60 will be truncated to 60                                     | [20, 60] and must divide 60                                          |
+| Server.DebugServHttp           | Boolean | Whether to enable debug log for reverse proxy module | N         | Default `False`                                                                                                | -                                                                    |
+| Server.DebugBfeRoute           | Boolean | Whether to enable debug log for traffic routing module | N       | Default `False`                                                                                                | -                                                                    |
+| Server.DebugBal                | Boolean | Whether to enable debug log for load balancing module | N        | Default `False`                                                                                                | -                                                                    |
+| Server.DebugHealthCheck        | Boolean | Whether to enable debug log for health check module  | N         | Default `False`                                                                                                | -                                                                    |
 
 ### TLS basic config
 
-| Config Item                       | Description                                                      |
-| --------------------------------- | ---------------------------------------------------------------- |
-| HttpsBasic.ServerCertConf         | String<br>Path of [cert config](tls_conf/server_cert_conf.data.md)<br>Default tls_conf/server_cert_conf.data |
-| HttpsBasic.TlsRuleConf            | String<br>Path of [tls rule config](tls_conf/tls_rule_conf.data.md)<br>Default tls_conf/tls_rule_conf.data |
-| HttpsBasic.CipherSuites           | String<br>CipherSuites preference settings<br>Default                                   |
-| HttpsBasic.CurvePreferences       | String<br>Curve preference settings<br>Default CurveP256 |
-| HttpsBasic.EnableSslv2ClientHello | Boolean<br>Enable Sslv2ClientHello for compatible with ancient sslv3 client<br>Default True |
-| HttpsBasic.ClientCABaseDir        | String<br>Base directory of client ca certificates <br>Note: filename suffix of ca certificate must be ".crt"<br>Default tls_conf/client_ca |
-| SessioCache.SessionCacheDisabled   | Boolean<br>Disable tls session cache or not<br>Default True |
-| SessioCache.Servers                | String<br>Address of cache server<br>Default "" |
-| SessioCache.KeyPrefix              | String<br>Prefix for cache key<br>Default bfe |
-| SessioCache.ConnectTimeout         | Integer<br>Connection timeout (ms) <br>Default 50 |
-| SessioCache.ReadTimeout            | Integer<br>Read timeout of connection with redis server (ms)<br>Default 50 |
-| SessioCache.WriteTimeout           | Integer<br>Write timeout of connection with redis server (ms)<br>Default 50 |
-| SessioCache.MaxIdle                | Integer<br>Max idle connections in connection pool<br>Default 20 |
-| SessioCache.SessionExpire          | Integer<br>Expire time for tls session state (second)<br>Default 3600 |
-| SessionTicket.SessionTicketsDisabled | Boolean<br>Disable tls session ticket or not<br>Default True |
-| SessionTicket.SessionTicketKeyFile   | String<br>Path of [session ticket key config](tls_conf/session_ticket_key.data.md)<br>Default tls_conf/session_ticket_key.data |
+| Configuration Item                   | Type      | Meaning                                                                         | Required   | Supplementary Description                                                                                      | Validity Condition                                                                  |
+| ------------------------------------ | --------- | ------------------------------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| HttpsBasic.ServerCertConf            | String    | Path of [server cert and key config](tls_conf/server_cert_conf.data.md) file    | N          | Default `tls_conf/server_cert_conf.data`; see [FilePath](00-common.md#3-filepath) type definition             | Type is [FilePath](00-common.md#3-filepath)                                         |
+| HttpsBasic.TlsRuleConf               | String    | Path of [TLS rule config](tls_conf/tls_rule_conf.data.md) file                  | N          | Default `tls_conf/tls_rule_conf.data`; see [FilePath](00-common.md#3-filepath) type definition                | Type is [FilePath](00-common.md#3-filepath)                                         |
+| HttpsBasic.CipherSuites              | String[]  | List of enabled cipher suites                                                   | N          | To enable multiple suites, add multiple `CipherSuites` lines; equivalent suites can be separated by `&#124;`, see example | Must be cipher suites supported by BFE, e.g. `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` etc. |
+| HttpsBasic.CurvePreferences          | String[]  | List of enabled ECC curves                                                      | N          | Default `CurveP256`                                                                                            | Only `CurveP256`, `CurveP384`, `CurveP521` supported                                |
+| HttpsBasic.EnableSslv2ClientHello    | Boolean   | Enable SSLv2 format ClientHello compatibility for SSLv3 protocol                | N          | Default `True`                                                                                                 | -                                                                                   |
+| HttpsBasic.ClientCABaseDir           | String    | Base directory of client CA certificates                                        | N          | Default `tls_conf/client_ca`; certificate files in the directory must have `.crt` suffix; see [DirPath](00-common.md#4-dirpath) type definition | Type is [DirPath](00-common.md#4-dirpath)                                         |
+| HttpsBasic.MaxTlsVersion             | String    | Highest supported TLS version                                                   | N          | Default `VersionTLS12`                                                                                         | Only `VersionSSL30`, `VersionTLS10`, `VersionTLS11`, `VersionTLS12` supported       |
+| HttpsBasic.MinTlsVersion             | String    | Lowest supported TLS version                                                    | N          | Default `VersionSSL30`                                                                                         | Only the above enum values; and `MaxTlsVersion >= MinTlsVersion`                    |
+| HttpsBasic.ClientCRLBaseDir          | String    | Base directory of client CRL                                                    | N          | Default `tls_conf/client_crl`; see [DirPath](00-common.md#4-dirpath) type definition                          | Type is [DirPath](00-common.md#4-dirpath)                                           |
+| SessionCache.SessionCacheDisabled    | Boolean   | Whether to disable TLS session cache mechanism                                  | N          | Default `True`; when `True`, other SessionCache related validations are skipped                                | -                                                                                   |
+| SessionCache.Servers                 | String    | Access address of cache service                                                 | Conditional | Required when `SessionCacheDisabled=false`                                                                     | Cannot be empty when `SessionCacheDisabled=false`; multiple addresses separated by comma `,` |
+| SessionCache.KeyPrefix               | String    | Prefix for cache key                                                            | N          | Default `bfe`                                                                                                  | -                                                                                   |
+| SessionCache.ConnectTimeout          | Integer   | Connection timeout to cache service, in milliseconds                            | N          | Default 50                                                                                                     | -                                                                                   |
+| SessionCache.ReadTimeout             | Integer   | Read timeout from cache service, in milliseconds                                | Conditional | Required when `SessionCacheDisabled=false`                                                                     | Must be > 0 when `SessionCacheDisabled=false`                                       |
+| SessionCache.WriteTimeout            | Integer   | Write timeout to cache service, in milliseconds                                 | Conditional | Required when `SessionCacheDisabled=false`                                                                     | Must be > 0 when `SessionCacheDisabled=false`                                       |
+| SessionCache.MaxIdle                 | Integer   | Max idle long connections to cache service                                      | Conditional | Required when `SessionCacheDisabled=false`                                                                     | Must be > 0 when `SessionCacheDisabled=false`                                       |
+| SessionCache.SessionExpire           | Integer   | Expiration time of session info stored in cache service, in seconds             | Conditional | Required when `SessionCacheDisabled=false`                                                                     | Must be > 0 when `SessionCacheDisabled=false`                                       |
+| SessionTicket.SessionTicketsDisabled | Boolean   | Whether to disable TLS session ticket                                           | N          | Default `True`; when `True`, other SessionTicket related validations are skipped                               | -                                                                                   |
+| SessionTicket.SessionTicketKeyFile   | String    | Path of [session ticket key config](tls_conf/session_ticket_key.data.md) file   | N          | Default `tls_conf/session_ticket_key.data`; see [FilePath](00-common.md#3-filepath) type definition           | Type is [FilePath](00-common.md#3-filepath)                                         |
 
 ## Example
 
@@ -101,16 +111,18 @@ MaxHeaderBytes = 1048576
 # max URI(in header) length in bytes in request
 MaxHeaderUriBytes = 8192
 
-# routing related confs
+# routing related conf
 HostRuleConf = server_data_conf/host_rule.data
 VipRuleConf = server_data_conf/vip_rule.data
 RouteRuleConf = server_data_conf/route_rule.data
 ClusterConf = server_data_conf/cluster_conf.data
-NameConf = server_data_conf/name_conf.data
 
-# load balancing related confs 
-ClusterTableConf = cluster_conf/cluster_table.data
+# load balancing related conf
 GslbConf = cluster_conf/gslb.data
+ClusterTableConf = cluster_conf/cluster_table.data
+
+# naming related conf
+NameConf = server_data_conf/name_conf.data
 
 Modules = mod_trust_clientip
 Modules = mod_block

@@ -15,8 +15,8 @@
 ### cookie
 
  * [req_cookie_key_in(key_list)](./request/cookie.md#req_cookie_key_inkey_list)
- * [req_cookie_value_contain(key, value, case_insensitive)](./request/cookie.md#req_cookie_value_containkey-value-case_insensitive)
- * [req_cookie_value_hash_in(key, value_list, case_insensitive)](./request/cookie.md#req_cookie_value_hash_inkey-value_list-case_insensitive)
+ * [req_cookie_value_contain(key, value_list, case_insensitive)](./request/cookie.md#req_cookie_value_containkey-value_list-case_insensitive)
+ * [req_cookie_value_hash_in(key, hash_value_list, case_insensitive)](./request/cookie.md#req_cookie_value_hash_inkey-hash_value_list-case_insensitive)
  * [req_cookie_value_in(key, value_list, case_insensitive)](./request/cookie.md#req_cookie_value_inkey-value_list-case_insensitive)
  * [req_cookie_value_prefix_in(key, value_prefix_list, case_insensitive)](./request/cookie.md#req_cookie_value_prefix_inkey-value_prefix_list-case_insensitive)
  * [req_cookie_value_suffix_in(key, value_suffix_list, case_insensitive)](./request/cookie.md#req_cookie_value_suffix_inkey-value_suffix_list-case_insensitive)
@@ -24,15 +24,20 @@
 ### header
 
  * [req_header_key_in(key_list)](./request/header.md#req_header_key_inkey_list)
- * [req_header_value_contain(key, value_list, case_insensitive)](./request/header.md#req_header_value_containheader_name-value_list-case_insensitive)
- * [req_header_value_hash_in(header_name, value_list, case_insensitive)](./request/header.md#req_header_value_hash_inheader_name-value_list-case_insensitive)
+ * [req_header_value_contain(header_name, value_list, case_insensitive)](./request/header.md#req_header_value_containheader_name-value_list-case_insensitive)
+ * [req_header_value_hash_in(header_name, hash_value_list, case_insensitive)](./request/header.md#req_header_value_hash_inheader_name-hash_value_list-case_insensitive)
  * [req_header_value_in(header_name, value_list, case_insensitive)](./request/header.md#req_header_value_inheader_name-value_list-case_insensitive)
  * [req_header_value_prefix_in(header_name, value_prefix_list, case_insensitive)](./request/header.md#req_header_value_prefix_inheader_name-value_prefix_list-case_insensitive)
+ * [req_header_value_regmatch(header_name, reg_exp)](./request/header.md#req_header_value_regmatchheader_name-reg_exp)
  * [req_header_value_suffix_in(header_name, value_suffix_list, case_insensitive)](./request/header.md#req_header_value_suffix_inheader_name-value_suffix_list-case_insensitive)
+ * [req_ua_regmatch(reg_exp)](./request/header.md#req_ua_regmatchreg_exp)
 
 ### host
 
  * [req_host_in(host_list)](./request/uri.md#req_host_inhost_list)
+ * [req_host_regmatch(reg_exp)](./request/uri.md#req_host_regmatchreg_exp)
+ * [req_host_suffix_in(suffix_list)](./request/uri.md#req_host_suffix_insuffix_list)
+ * [req_host_tag_in(tag_list)](./request/uri.md#req_host_tag_intag_list)
 
 ### method
 
@@ -44,6 +49,7 @@
  * [req_path_element_prefix_in(prefix_list, case_insensitive)](./request/uri.md#req_path_element_prefix_inprefix_list-case_insensitive)
  * [req_path_in(path_list, case_insensitive)](./request/uri.md#req_path_inpath_list-case_insensitive)
  * [req_path_prefix_in(prefix_list, case_insensitive)](./request/uri.md#req_path_prefix_inprefix_list-case_insensitive)
+ * [req_path_regmatch(reg_exp)](./request/uri.md#req_path_regmatchreg_exp)
  * [req_path_suffix_in(suffix_list, case_insensitive)](./request/uri.md#req_path_suffix_insuffix_list-case_insensitive)
 
 ### port
@@ -52,15 +58,19 @@
 
 ### protocol
 
+ * [req_proto_match(proto)](./request/protocol.md#req_proto_matchproto)
  * [req_proto_secure()](./request/protocol.md#req_proto_secure)
 
 ### query
 
+ * [req_query_exist()](./request/uri.md#req_query_exist)
  * [req_query_key_in(key_list)](./request/uri.md#req_query_key_inkey_list)
  * [req_query_key_prefix_in(prefix_list)](./request/uri.md#req_query_key_prefix_inprefix_list)
- * [req_query_value_hash_in(key, value_list, case_insensitive)](./request/uri.md#req_query_value_hash_inkey-value_list-case_insensitive)
+ * [req_query_value_contain(key, value_list, case_insensitive)](./request/uri.md#req_query_value_containkey-value_list-case_insensitive)
+ * [req_query_value_hash_in(key, hash_value_list, case_insensitive)](./request/uri.md#req_query_value_hash_inkey-hash_value_list-case_insensitive)
  * [req_query_value_in(key,  value_list, case_insensitive)](./request/uri.md#req_query_value_inkey-value_list-case_insensitive)
  * [req_query_value_prefix_in(key, prefix_list, case_insensitive)](./request/uri.md#req_query_value_prefix_inkey-prefix_list-case_insensitive)
+ * [req_query_value_regmatch(key, reg_exp)](./request/uri.md#req_query_value_regmatchkey-reg_exp)
  * [req_query_value_suffix_in(key, suffix_list, case_insensitive)](./request/uri.md#req_query_value_suffix_inkey-suffix_list-case_insensitive)
 
 ### tag
@@ -78,7 +88,7 @@
 
 ### body
 
- * [req_body_json_in(json_path, value_list, case_insensitive)]()
+ * [req_body_json_in(json_path, value_list, case_insensitive)](./request/body.md#req_body_json_injson_path-value_list-case_insensitive)
 
 ## Response Primitive
 
@@ -114,5 +124,5 @@
 
 ### time
 
+ * [bfe_periodic_time_range(start_time, end_time, period)](./system/time.md#bfe_periodic_time_rangestart_time-end_time-period) (period currently only supports empty string)
  * [bfe_time_range(start_time, end_time)](./system/time.md#bfe_time_rangestart_time-end_time)
- * [bfe_periodic_time_range(start_time, end_time, period)](./system/time.md#bfe_periodic_time_rangestart_time-end_time-period)

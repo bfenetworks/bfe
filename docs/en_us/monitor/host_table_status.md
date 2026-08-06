@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The endpoint `/monitor/host_table_status` expose metrics about routing configurations.
+The endpoint `/monitor/host_table_status` exposes metrics about routing configurations.
 
 ## Metrics
 
@@ -12,3 +12,4 @@ The endpoint `/monitor/host_table_status` expose metrics about routing configura
 | HostTagTableSize      | Size of host tag table      |
 | VipTableSize          | Size of vip table           |
 | ProductRouteTableSize | Size of product route table |
+| ProductBasicRouteTableSize | Size of product basic route table |

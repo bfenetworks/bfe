@@ -15,7 +15,7 @@
 package bfe_conf
 
 import (
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 import (

@@ -1,0 +1,16 @@
+{
+    "Version": "SCMPF_MODULE_VERSION",
+    "Config": {
+        "example": [
+            {
+                "Cond": "res_code_in(\"500\")",
+                "Actions": [
+                    {
+                        "Cmd": "REDIRECT",
+                        "Params": []
+                    }
+                ]
+            }
+        ]
+    }
+}

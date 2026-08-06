@@ -31,7 +31,7 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 // RoundTripper is an interface representing the ability to execute a

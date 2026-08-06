@@ -17,7 +17,8 @@ package mod_ai_rate_limit
 import (
 	"sync"
 
-	"github.com/baidu/go-lib/web-monitor/module_state2"
+	"github.com/bfenetworks/go-lib/web-monitor/module_state2"
+
 	"github.com/bfenetworks/bfe/bfe_basic/action"
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
 )

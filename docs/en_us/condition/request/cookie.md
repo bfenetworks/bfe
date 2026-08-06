@@ -25,7 +25,7 @@ req_cookie_key_in("uid|cid|uss")
 | Parameter | Description |
 | --------- | ---------- |
 | key | String<br>cookie key |
-| value_list | String<br>a list of hash values which are concatenated using &#124; |
+| value_list | String<br>a list of values which are concatenated using &#124; |
 | case_insensitive | Boolean<br>case insensitive |
 
 * Example
@@ -70,7 +70,7 @@ req_cookie_value_prefix_in("deviceid", "x", true)
 req_cookie_value_suffix_in("deviceid", "1", true)
 ```
 
-## req_cookie_value_hash_in(key, value_list, case_insensitive)
+## req_cookie_value_hash_in(key, hash_value_list, case_insensitive)
 
 * Description: Judge if hash value of specified cookie matches configured patterns(value range: 0～9999)
 
@@ -79,7 +79,7 @@ req_cookie_value_suffix_in("deviceid", "1", true)
 | Parameter | Description |
 | --------- | ---------- |
 | key | String<br>cookie key |
-| value_list | String<br>a list of hash values which are concatenated using &#124; |
+| hash_value_list | String<br>a list of hash values which are concatenated using &#124; |
 | case_insensitive | Boolean<br>case insensitive |
 
 * Example
@@ -88,16 +88,16 @@ req_cookie_value_suffix_in("deviceid", "1", true)
 req_cookie_value_hash_in("uid", "100", true)
 ```
 
-## req_cookie_value_contain(key, value, case_insensitive)
+## req_cookie_value_contain(key, value_list, case_insensitive)
 
-* Description: Judge if value of cookie key contains configured patterns
+* Description: Judge if value of cookie key contains any substring in configured patterns
 
 * Parameters
 
 | Parameter | Description |
 | --------- | ---------- |
 | key | String<br>cookie key |
-| value | String<br>a string |
+| value_list | String<br>a list of value substrings which are concatenated using &#124; |
 | case_insensitive | Boolean<br>case insensitive |
 
 * Example

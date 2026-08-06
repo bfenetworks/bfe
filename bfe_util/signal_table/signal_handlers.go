@@ -19,7 +19,7 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 // TermHandler deal with the signal that should terminate the process

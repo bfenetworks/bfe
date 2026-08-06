@@ -22,9 +22,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/baidu/go-lib/log"
-	"github.com/baidu/go-lib/web-monitor/module_state2"
-	"github.com/baidu/go-lib/web-monitor/web_monitor"
+	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/go-lib/web-monitor/module_state2"
+	"github.com/bfenetworks/go-lib/web-monitor/web_monitor"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_basic/action"

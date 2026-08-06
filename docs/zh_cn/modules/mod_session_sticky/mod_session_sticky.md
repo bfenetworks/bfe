@@ -11,140 +11,11 @@ mod_session_sticky 用于实现会话保持功能，确保同一用户的请求�
 
 ## 基础配置
 
-### 配置描述
-
-模块基础配置文件：conf/mod_session_sticky/mod_session_sticky.conf
-
-| 配置项 | 描述 |
-| ------ | ---- |
-| Basic.DataPath | 规则配置文件路径 |
-| Basic.CacheSize | Sticky 模式下本地缓存的大小，默认值为 10000（仅当 CacheType 为 local 时生效） |
-| Basic.CacheType | 缓存类型，可选值为 "local"（本地 LRU 缓存）或 "redis"（Redis 分布式缓存），默认为 "local" |
-| Log.OpenDebug | 是否启用模块调试日志开关 |
-
-### Redis 配置
-
-当 `CacheType` 设置为 "redis" 时，需要配置以下 Redis 相关参数：
-
-| 配置项 | 描述 |
-| ------ | ---- |
-| Redis.Bns | BNS 服务名称 |
-| Redis.ConnectTimeout | 连接超时时间，单位为毫秒 |
-| Redis.ReadTimeout | 读取超时时间，单位为毫秒 |
-| Redis.WriteTimeout | 写入超时时间，单位为毫秒 |
-| Redis.MaxIdle | 最大空闲连接数 |
-| Redis.MaxActive | 最大活跃连接数（0 表示不限） |
-| Redis.Password | Redis 密码 |
-| Redis.ExpireSeconds | 缓存过期时间，单位为秒 |
-
-### 配置示例
-
-#### 本地缓存模式
-
-```ini
-[Basic]
-DataPath = mod_session_sticky/session_sticky.data
-CacheSize = 10000
-CacheType = local
-
-[Log]
-OpenDebug = true
-```
-
-#### Redis 缓存模式
-
-```ini
-[Basic]
-DataPath = mod_session_sticky/session_sticky.data
-CacheType = redis
-
-[Redis]
-Bns = redis.service
-ConnectTimeout = 1000
-ReadTimeout = 1000
-WriteTimeout = 1000
-MaxIdle = 10
-MaxActive = 100
-Password = 
-ExpireSeconds = 3600
-
-[Log]
-OpenDebug = true
-```
+模块基础配置文件说明详见 [mod_session_sticky.conf](../../configuration/mod_session_sticky/mod_session_sticky.conf.md)。
 
 ## 规则配置
 
-### 配置描述
-
-模块规则配置文件：conf/mod_session_sticky/session_sticky.data
-
-| 配置项 | 描述 |
-| ------ | ---- |
-| Version | String<br>配置文件版本 |
-| Config | Object<br>各产品线的规则配置 |
-| Config[k] | String<br>产品线名称 |
-| Config[v] | Object<br>产品线规则列表 |
-| Config[v][].Cond | String<br>规则条件，语法详见 [Condition](../../condition/condition_grammar.md) |
-| Config[v][].Type | String<br>会话保持类型，可选值为 "Cookie" 或 "Sticky"，默认为 "Cookie" |
-| Config[v][].CookieKey | String<br>Cookie 名称，默认为 "bfe_ssbl" |
-| Config[v][].Domain | String<br>Cookie 的 Domain 属性 |
-| Config[v][].Path | String<br>Cookie 的 Path 属性 |
-| Config[v][].MaxAge | Integer<br>Cookie 的 MaxAge 属性，单位为秒，默认为 3600 |
-| Config[v][].MaskCode | String<br>主掩码，用于对 Cookie 值进行加密，长度不小于 4 |
-| Config[v][].StandbyMaskCode | String<br>备用掩码，当主掩码解密失败时使用，长度不小于 4 |
-| Config[v][].Header | String<br>Sticky 模式下，从请求头中获取 stickyid 的字段名 |
-| Config[v][].URIParam | String<br>Sticky 模式下，从 URL 参数中获取 stickyid 的参数名 |
-| Config[v][].StickyRequestField | String<br>Sticky 模式下，从 JSON 请求体中提取 stickyid 的字段名（如 previous_response_id），用于 OpenAI 兼容接口 |
-| Config[v][].StickyResponseField | String<br>Sticky 模式下，从 JSON 响应体中提取 stickyid 的字段名（如 response_id），用于 OpenAI 兼容接口 |
-| Config[v][].Secure | Boolean<br>Cookie 的 Secure 属性，默认为 false |
-| Config[v][].HttpOnly | Boolean<br>Cookie 的 HttpOnly 属性，默认为 false |
-| Config[v][].RenewWindow | Integer<br>Cookie 续期窗口，单位为秒。当剩余有效期小于此值时，会重新设置 Cookie。默认为 MaxAge 的一半 |
-
-### 配置示例
-
-#### Cookie 模式示例
-
-```json
-{
-    "Version": "2024-01-01 00:00:00",
-    "Config": {
-        "example_product": [
-            {
-                "Cond": "default_t()",
-                "Type": "Cookie",
-                "CookieKey": "bfe_ssbl",
-                "Domain": ".example.com",
-                "Path": "/",
-                "MaxAge": 3600,
-                "MaskCode": "my_secret_mask_code",
-                "StandbyMaskCode": "backup_mask_code",
-                "Secure": true,
-                "HttpOnly": true,
-                "RenewWindow": 1800
-            }
-        ]
-    }
-}
-```
-
-#### Sticky 模式示例
-
-```json
-{
-    "Version": "2024-01-01 00:00:00",
-    "Config": {
-        "example_product": [
-            {
-                "Cond": "req_path_prefix_in(\"/api\", true)",
-                "Type": "Sticky",
-                "CookieKey": "JSESSIONID",
-                "Header": "X-Sticky-Id",
-                "URIParam": "sticky_id"
-            }
-        ]
-    }
-}
-```
+模块规则配置文件说明详见 [session_sticky.data](../../configuration/mod_session_sticky/session_sticky.data.md)。
 
 ## 工作原理
 
@@ -183,3 +54,9 @@ OpenDebug = true
 ### 掩码兼容
 
 模块支持主掩码和备用掩码，当使用主掩码解密失败时，会尝试使用备用掩码。这在需要更换掩码但又不能中断现有会话时非常有用。
+
+## 监控项
+
+| 监控项  | 描述                 |
+| ------- | -------------------- |
+| VERSION | 当前生效的规则版本号 |

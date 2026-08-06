@@ -26,8 +26,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/baidu/go-lib/log"
-	"github.com/baidu/go-lib/web-monitor/metrics"
+	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/go-lib/web-monitor/metrics"
 
 	bal_backend "github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/bfe/bfe_balance/bal_slb"
