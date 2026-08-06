@@ -279,6 +279,37 @@ docker-push:
 	echo "  - $(REGISTRY)/$(BFE_IMAGE_NAME):latest (prod)"
 	@$(MAKE) docker-prune
 
+# make release, build release packages for all platforms
+# produces: dist/bfe_$(VERSION)_darwin_amd64.tar.gz, linux_amd64, linux_arm64, windows_amd64
+release: prepare
+	@echo "Building release packages for BFE $(BFE_VERSION)..."
+	@for platform in \
+		"darwin/amd64" \
+		"linux/amd64" \
+		"linux/arm64" \
+		"windows/amd64"; do \
+		GOOS=$${platform%/*}; \
+		GOARCH=$${platform#*/}; \
+		PKG_DIR="dist/bfe_$(BFE_VERSION)_$${GOOS}_$${GOARCH}"; \
+		BIN_NAME="bfe"; \
+		LDFLAGS="-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT)"; \
+		if [ "$${GOOS}" = "linux" ]; then \
+			LDFLAGS="$${LDFLAGS} -extldflags=-static"; \
+		fi; \
+		if [ "$${GOOS}" = "windows" ]; then \
+			BIN_NAME="bfe.exe"; \
+		fi; \
+		echo "  -> Building $$GOOS/$$GOARCH..."; \
+		rm -rf "$${PKG_DIR}"; \
+		mkdir -p "$${PKG_DIR}/bin"; \
+		GOOS=$${GOOS} GOARCH=$${GOARCH} $(GOBUILD) -ldflags "$${LDFLAGS}" -o "$${PKG_DIR}/bin/$${BIN_NAME}"; \
+		cp -r conf "$${PKG_DIR}/"; \
+		cp README.md LICENSE CHANGELOG.md "$${PKG_DIR}/"; \
+		tar -czf "$${PKG_DIR}.tar.gz" -C dist "bfe_$(BFE_VERSION)_$${GOOS}_$${GOARCH}"; \
+		echo "  -> dist/bfe_$(BFE_VERSION)_$${GOOS}_$${GOARCH}.tar.gz done"; \
+	done
+	@echo "Release packages built successfully."
+
 # make clean
 clean:
 	$(GOCLEAN)
@@ -287,4 +318,4 @@ clean:
 	rm -rf $(GOPATH)/pkg/linux_amd64
 
 # avoid filename conflict and speed up build 
-.PHONY: all prepare compile test package clean build docker docker-push docker-prune buildx-check buildx-init
+.PHONY: all prepare compile test package clean build docker docker-push docker-prune buildx-check buildx-init release
