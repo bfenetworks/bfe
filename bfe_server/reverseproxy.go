@@ -1362,14 +1362,12 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 
 response_got:
 	if res != nil && res.IsSse {
-		if !basicReq.IsSse {
-			timeoutReadClient = -1
-			p.setTimeout(bfe_basic.StageReadReqBody, basicReq.Connection, req, timeoutReadClient)
+		timeoutReadClient = -1
+		p.setTimeout(bfe_basic.StageReadReqBody, basicReq.Connection, req, timeoutReadClient)
 
-			timeoutWriteClient = -1
-			cancelOnClientClose = true
-			basicReq.IsSse = true
-		}
+		timeoutWriteClient = -1
+		cancelOnClientClose = true
+		basicReq.IsSse = true
 	}
 
 	eppClient, ok = basicReq.GetContext(bal_gslb.REQ_CTX_EPP).(*epp.EppClient)
