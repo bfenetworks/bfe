@@ -20,7 +20,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 type VerifyCertHook func(insecureSkipVerify bool, host string, certificates []*x509.Certificate, cas *x509.CertPool) error

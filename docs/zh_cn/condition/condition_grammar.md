@@ -24,26 +24,6 @@ req_host_in("bfe-networks.com") && req_method_in("GET")
 
 * 支持的操作符详见下文说明
 
-### 条件变量
-
-- 可以将条件表达式赋值给一个变量，这个变量被定义为条件变量
-
-```go
-// 将条件表达式赋值给变量bfe_host
-bfe_host = req_host_in("bfe-networks.com") 
-```
-
-### 高级条件表达式
-
-- 高级条件表达式是多个条件原语和条件变量与操作符(例如与、或、非)的组合
-
-- 在高级条件表达式中，条件变量以$前缀作为标示
-
-```go
-// 如果变量bfe_host为true且请求方法是"GET"，返回true
-$bfe_host && req_method_in("GET") 
-```
-
 ## 语法说明
 
 ### 条件原语的语法
@@ -68,19 +48,6 @@ CE = CE && CE
    | ( CE )
    | ! CE
    | ConditionPrimitive
-```
-
-### 高级条件表达式的语法
-
-高级条件表达式(ACE: Advanced Condition Expression)的语法定义如下：
-
-```
-ACE = ACE && ACE
-    | ACE || ACE
-    | ( ACE )
-    | ! ACE
-    | ConditionPrimitive
-    | ConditionVariable
 ```
 
 ### 操作符优先级

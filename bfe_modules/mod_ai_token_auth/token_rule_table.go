@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
@@ -27,9 +26,9 @@ import (
 )
 
 type TokenRuleTable struct {
-	lock         sync.RWMutex
-	version      string
-	productRules ProductRules
+	lock          sync.RWMutex
+	version       string
+	productRules  ProductRules
 	productTokens ProductTokens
 }
 
@@ -40,49 +39,12 @@ func NewTokenRuleTable() *TokenRuleTable {
 	return t
 }
 
-func (t *TokenRuleTable) Update(conf productRuleConf) (oldtokens []*Token) {
-	// check token update time, if the token is not updated, we keep the old used quota
-	for prod, tokenmap := range t.productTokens {
-		newTokenMap, ok := conf.Tokens[prod]
-		if !ok {
-			// product not in new conf, all these tokens are removed
-			for _, t := range *tokenmap {
-				oldtokens = append(oldtokens, t)
-			}
-		} else {
-			// product in new conf, check each token
-			for k, t := range *tokenmap {
-				newToken, ok := (*newTokenMap)[k]
-				if !ok {
-					// token not in new conf, remove it
-					oldtokens = append(oldtokens, t)
-				} else if t.UpdateTime == newToken.UpdateTime {
-					// token not updated, keep the old used quota
-					newToken.UsedQuota = t.UsedQuota
-				} else {
-					// token updated, reset used quota
-					newToken.UsedQuota = &atomic.Uint64{}
-					oldtokens = append(oldtokens, t)
-				}
-			}
-		}
-	}
-	// init new tokens' UsedQuota
-	for _, tokenmap := range conf.Tokens {
-		for _, t := range *tokenmap {
-			if t.UsedQuota == nil {
-				t.UsedQuota = &atomic.Uint64{}
-			}
-		}
-	}
-
+func (t *TokenRuleTable) Update(conf productRuleConf) {
 	t.lock.Lock()
 	t.version = conf.Version
 	t.productRules = conf.Config
 	t.productTokens = conf.Tokens
 	t.lock.Unlock()
-
-	return
 }
 
 func (t *TokenRuleTable) Search(product string) (*tokenRuleList, bool) {
@@ -130,74 +92,148 @@ func (t *TokenRuleTable) ValidateUserToken(product, key string) (token *Token, e
 		return nil, fmt.Errorf("token %s expired", token.Name)
 	}
 
-	if !token.UnlimitedQuota && token.RemainQuota <= 0 {
-		token.Status = TokenStatusExhausted
-		return nil, fmt.Errorf("token %s quota exhausted", token.Name)
-	}
 	return token, nil
 }
 
-func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (token *Token, err error) {
-	key := GetApiKey(req)
+func SetAiAuthInfo(req *bfe_basic.Request, rejectReason string, rejectQuotaPlans []string) {
+	aiBasicInfo := req.GetAiBasicInfo()
+	if aiBasicInfo != nil {
+		aiBasicInfo.AiAuthInfo.RejectReason = rejectReason
+		aiBasicInfo.AiAuthInfo.RejectQuotaPlans = rejectQuotaPlans
+	}
+}
+
+func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (token *Token, err *bfe_basic.AiError) {
+	key := bfe_basic.GetApiKey(req)
 	if key == "" {
-		return nil, errors.New("no token")
+		SetAiAuthInfo(req, bfe_basic.CodeNoApiKey, nil)
+		return nil, bfe_basic.NewAiError(bfe_basic.CodeNoApiKey, bfe_basic.TypeAuthenticationError, "no api key in request")
 	}
 	product := req.Route.Product
 	if product == "" {
-		return nil, errors.New("no product")
+		SetAiAuthInfo(req, bfe_basic.CodeInvalidRequest, nil)
+		return nil, bfe_basic.NewAiError(bfe_basic.CodeInvalidRequest, bfe_basic.TypeInvalidRequestError, "product not found")
 	}
 
 	var ok bool
 	token, ok = m.ruleTable.GetToken(product, key)
 	if !ok {
-		return nil, errors.New("token not found")
+		SetAiAuthInfo(req, bfe_basic.CodeInvalidApiKey, nil)
+		return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeInvalidApiKey, bfe_basic.TypeAuthenticationError, fmt.Sprintf("Invalid API key: %s. Key not found in system.", key),
+			&bfe_basic.AiErrorDetail{
+				ApiKey: key,
+			})
 	}
 
 	switch token.Status {
 	case TokenStatusExhausted:
-		return nil, fmt.Errorf("token %s quota exhausted", token.Name)
+		SetAiAuthInfo(req, bfe_basic.CodeInvalidApiKey, nil)
+		return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeInvalidApiKey, bfe_basic.TypeAuthenticationError, fmt.Sprintf("Invalid API key: %s. quota exhausted.", key),
+			&bfe_basic.AiErrorDetail{
+				ApiKey: key,
+			})
 	case TokenStatusExpired:
-		return nil, fmt.Errorf("token %s expired", token.Name)
+		SetAiAuthInfo(req, bfe_basic.CodeKeyExpired, nil)
+		return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeKeyExpired, bfe_basic.TypeAuthenticationError, fmt.Sprintf("Invalid API key: %s. expired.", key),
+			&bfe_basic.AiErrorDetail{
+				ApiKey: key,
+			})
 	case TokenStatusDisabled:
-		return nil, fmt.Errorf("token %s disabled", token.Name)
+		SetAiAuthInfo(req, bfe_basic.CodeKeyDisabled, nil)
+		return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeKeyDisabled, bfe_basic.TypeAuthenticationError, fmt.Sprintf("Invalid API key: %s. disabled.", key),
+			&bfe_basic.AiErrorDetail{
+				ApiKey: key,
+			})
 	}
 
 	if token.ExpiredTime != -1 && token.ExpiredTime < time.Now().Unix() {
 		token.Status = TokenStatusExpired
-		return nil, fmt.Errorf("token %s expired", token.Name)
+		SetAiAuthInfo(req, bfe_basic.CodeKeyExpired, nil)
+		return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeKeyExpired, bfe_basic.TypeAuthenticationError, fmt.Sprintf("Invalid API key: %s. expired.", key),
+			&bfe_basic.AiErrorDetail{
+				ApiKey: key,
+			})
 	}
 
 	if !token.UnlimitedQuota {
-		if token.RemainQuota <= 0 {
-			token.Status = TokenStatusExhausted
-			return nil, fmt.Errorf("token %s quota exhausted", token.Name)
-		} else {
-			used := m.GetTokenUsedQuota(token)
-			if used >= token.RemainQuota {
-				token.Status = TokenStatusExhausted
-				return nil, fmt.Errorf("token %s quota exhausted", token.Name)
+		// check token quotaPlans, deduct quota from redis key of each quotaPlan
+		for _, plan := range token.QuotaPlans {
+			if plan.Unlimited || plan.PassNoQuota {
+				continue
+			}
+			if plan.ExpiredTime != -1 && plan.ExpiredTime < time.Now().Unix() {
+				// plan quota expired
+				SetAiAuthInfo(req, bfe_basic.CodeQuotaExpired, []string{plan.Id})
+				return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeQuotaExpired, bfe_basic.TypeQuotaError, fmt.Sprintf("Quota plan %s expired.", plan.Id),
+					&bfe_basic.AiErrorDetail{
+						ApiKey:      key,
+						QuotaPlanId: plan.Id,
+						LimitType:   bfe_basic.LimitTypeApiKeyQuota,
+					})
+			}
+			hasBalance, _, err := plan.HasBalance(m.redisClient)
+			if err != nil {
+				SetAiAuthInfo(req, bfe_basic.CodeInternalQuotaError, []string{plan.Id})
+				return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeInternalQuotaError, bfe_basic.TypeInternalError, fmt.Sprintf("Internal error during quota deduction for plan %s: %v", plan.Id, err),
+					&bfe_basic.AiErrorDetail{
+						ApiKey:      key,
+						QuotaPlanId: plan.Id,
+					})
+			}
+			if !hasBalance {
+				SetAiAuthInfo(req, bfe_basic.CodeQuotaExhausted, []string{plan.Id})
+				return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeQuotaExhausted, bfe_basic.TypeQuotaError, fmt.Sprintf("Quota plan %s exhausted.", plan.Id),
+					&bfe_basic.AiErrorDetail{
+						ApiKey:      key,
+						QuotaPlanId: plan.Id,
+						LimitType:   bfe_basic.LimitTypeApiKeyQuota,
+					})
 			}
 		}
 	}
 
-	if len(token.Models) > 0 {
+	if len(token.Models) > 0 || len(token.BlockModels) > 0 {
 		model, err := condition.ReqBodyJsonFetch(req, "model", nil)
 		if err != nil || model == "" {
-			return nil, fmt.Errorf("model not found in request body: %v", err)
+			SetAiAuthInfo(req, bfe_basic.CodeInvalidRequest, nil)
+			return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeInvalidRequest, bfe_basic.TypeInvalidRequestError, fmt.Sprintf("Model not found in request body: %v", err),
+				&bfe_basic.AiErrorDetail{
+					ApiKey: key,
+				})
 		}
 		model = strings.TrimSpace(model)
-		inModels := false
-		for _, m := range token.Models {
-			if m == model {
-				inModels = true
-				break
+		if len(token.BlockModels) > 0 {
+			for _, blockModel := range token.BlockModels {
+				if blockModel == model {
+					SetAiAuthInfo(req, bfe_basic.CodeModelNotAllowed, nil)
+					return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeModelNotAllowed, bfe_basic.TypeInvalidRequestError, fmt.Sprintf("Model %s blocked by key %s", model, key),
+						&bfe_basic.AiErrorDetail{
+							ApiKey: key,
+							Model:  model,
+						})
+				}
 			}
 		}
-		if !inModels {
-			return nil, fmt.Errorf("model %s not allowed by token %s", model, token.Name)
+
+		if len(token.Models) > 0 {
+			inModels := false
+			for _, m := range token.Models {
+				if m == model {
+					inModels = true
+					break
+				}
+			}
+			if !inModels {
+				SetAiAuthInfo(req, bfe_basic.CodeModelNotAllowed, nil)
+				return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeModelNotAllowed, bfe_basic.TypeInvalidRequestError, fmt.Sprintf("Model %s not allowed by key %s", model, key),
+					&bfe_basic.AiErrorDetail{
+						ApiKey: key,
+						Model:  model,
+					})
+			}
 		}
 	}
-	
+
 	if len(token.Subnet) > 0 {
 		inSubnet := false
 		for _, subnet := range token.Subnet {
@@ -210,32 +246,12 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 			}
 		}
 		if !inSubnet {
-			return nil, fmt.Errorf("client IP not in subnet of token %s", token.Name)
+			SetAiAuthInfo(req, bfe_basic.CodeSubnetNotAllowed, nil)
+			return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeSubnetNotAllowed, bfe_basic.TypeAuthenticationError, fmt.Sprintf("Client IP not in subnet of key %s", key),
+				&bfe_basic.AiErrorDetail{
+					ApiKey: key,
+				})
 		}
 	}
 	return token, nil
-}
-
-func (m *ModuleAITokenAuth) GetTokenUsedQuota(t *Token) int64 {
-	if t == nil {
-		return 0
-	}
-	key := usedQuotaKey(t.Key, t.UpdateTime)
-	val, err := m.redisClient.GetInt64(key)
-	if err != nil {
-		return 0
-	}
-	return val
-}
-
-func (m *ModuleAITokenAuth) IncrTokenUsedQuotaBy(t *Token, delta int64) int64 {
-	if t == nil {
-		return 0
-	}
-	key := usedQuotaKey(t.Key, t.UpdateTime)
-	val, err := m.redisClient.IncrBy(key, delta)
-	if err != nil {
-		return 0
-	}
-	return val
 }

@@ -1,0 +1,44 @@
+{
+    "Version": "1.0",
+    "Config": {
+        "AI_product": [
+            {
+                "cond": "default_t()",
+                "action": {
+                    "cmd": "CHECK_TOKEN"
+                }
+            }
+        ]
+    },
+    "QuotaPlans": {
+        "AI_product": [
+            {
+                "id": "plan-unlimited",
+                "unlimited": true,
+                "pass_no_quota": false,
+                "redis_key": "",
+                "create_time": 0,
+                "expired_time": -1,
+                "quota": 0,
+                "reset_mode": 0
+            }
+        ]
+    },
+    "Tokens": {
+        "AI_product": {
+            "ak-123": {
+                "key": "ak-123",
+                "status": 1,
+                "name": "test-token",
+                "update_time": 0,
+                "expired_time": -1,
+                "unlimited_quota": true,
+                "allow_models": null,
+                "block_models": null,
+                "subnet": null,
+                "tags": [],
+                "quota_plans": []
+            }
+        }
+    }
+}

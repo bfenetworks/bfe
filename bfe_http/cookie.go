@@ -27,7 +27,7 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 // This implementation is done according to RFC 6265:

@@ -1,0 +1,13 @@
+{
+    "Version": "1.0",
+    "Config": {
+        "AI_product": [
+            {
+                "Cond": "default_t()",
+                "RequestProcess": {
+                    "Dec": "invalid_decoder"
+                }
+            }
+        ]
+    }
+}

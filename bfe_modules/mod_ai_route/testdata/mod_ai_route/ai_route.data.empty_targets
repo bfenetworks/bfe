@@ -1,0 +1,18 @@
+{
+    "Version": "20260720150000",
+    "route_rules": {
+        "global_default": {
+            "type": "global",
+            "owner": "global",
+            "rules": [
+                {
+                    "name": "global-default",
+                    "Cond": "default_t()",
+                    "targets": [],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {}
+}

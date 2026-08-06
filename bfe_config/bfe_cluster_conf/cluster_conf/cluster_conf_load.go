@@ -25,7 +25,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 
 	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util/json"

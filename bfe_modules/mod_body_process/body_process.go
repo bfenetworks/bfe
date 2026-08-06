@@ -20,11 +20,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
-	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_token_auth"
+	"github.com/tidwall/gjson"
 )
 
 // BodyProcessor 扩展中断支持
@@ -33,12 +32,12 @@ type BodyProcessor struct {
 	buffer     *bytes.Buffer
 	decoder    EventDecoder
 	processors []EventProcessor
-	encoder	    EventEncoder
+	encoder    EventEncoder
 	// mu         sync.Mutex
 	// closed     bool
-	err        error
-	rejection  *RejectionError // 中断时存储的违规信息
-	
+	err       error
+	rejection *RejectionError // 中断时存储的违规信息
+
 	// 中断时回调
 	onReject func(error, *BodyProcessor)
 }
@@ -91,6 +90,8 @@ type Event interface {
 	// GetType() string
 	// GetData() []byte
 	ToBytes() []byte // 转换为字节数组
+
+	GetQuotaUsage() QuotaUsage
 }
 
 type EventDecoder interface {
@@ -139,7 +140,7 @@ func (bp *BodyProcessor) CreateEventEncoder(fac EventEncoderFac) {
 func (bp *BodyProcessor) AddProcessor(p EventProcessor) {
 	// bp.mu.Lock()
 	// defer bp.mu.Unlock()
-	
+
 	bp.processors = append(bp.processors, p)
 }
 
@@ -154,22 +155,22 @@ func (f EventProcessorFunc) Process(events []Event) ([]Event, error) {
 func (bp *BodyProcessor) Read(p []byte) (n int, err error) {
 	// bp.mu.Lock()
 	// defer bp.mu.Unlock()
-	
+
 	// if bp.rejection != nil {
 	// 	return 0, bp.rejection // 返回违规错误
 	// }
-	
+
 	if bp.err != nil && bp.err != io.EOF {
 		return 0, bp.err
 	}
-	
+
 	// 检查缓冲区是否足够
 	if bp.buffer.Len() < len(p) && bp.err != io.EOF {
 		if err := bp.fillBuffer(); err != nil {
 			return 0, err
 		}
 	}
-	
+
 	return bp.buffer.Read(p)
 }
 
@@ -219,7 +220,7 @@ func (bp *BodyProcessor) fillBuffer() error {
 // handleRejection 处理内容违规事件
 func (bp *BodyProcessor) handleRejection(err *RejectionError) {
 	bp.rejection = err
-	
+
 	// 触发回调
 	if bp.onReject != nil {
 		bp.onReject(err, bp)
@@ -237,7 +238,7 @@ func (bp *BodyProcessor) RejectionResponse() *RejectionError {
 func (bp *BodyProcessor) Close() error {
 	// bp.mu.Lock()
 	// defer bp.mu.Unlock()
-	
+
 	return bp.source.Close()
 }
 
@@ -246,11 +247,11 @@ func (bp *BodyProcessor) Close() error {
 func (bp *BodyProcessor) FillBuffer() error {
 	// bp.mu.Lock()
 	// defer bp.mu.Unlock()
-	
+
 	if bp.err != nil {
 		return bp.err
 	}
-	
+
 	return bp.fillBuffer()
 }
 
@@ -271,8 +272,9 @@ func (m *ModuleBodyProcess) DoRequestProcess(req *bfe_basic.Request, conf *BodyP
 		bp.CreateEventDecoder(NewJsonDecoder)
 	default:
 		contentType := req.HttpRequest.Header.Get("Content-Type")
-		bp.CreateEventDecoder(func(source io.Reader)(EventDecoder, error) {
-			return NewContentTypeDecoder(source, contentType)} ) // 使用ContentTypeDecoder根据Content-Type自动选择解码器
+		bp.CreateEventDecoder(func(source io.Reader) (EventDecoder, error) {
+			return NewContentTypeDecoder(source, contentType)
+		}) // 使用ContentTypeDecoder根据Content-Type自动选择解码器
 		// bp.CreateEventDecoder(NewJsonDecoder) // 默认使用ndJson解码
 	}
 	bp.CreateEventEncoder(NewGeneralEncoder)
@@ -283,7 +285,7 @@ func (m *ModuleBodyProcess) DoRequestProcess(req *bfe_basic.Request, conf *BodyP
 			bp.AddProcessor(caf)
 		}
 	}
-	
+
 	req.HttpRequest.Body = bp
 	req.HttpRequest.ContentLength = -1 // 设置为-1表示不确定长度
 	req.HttpRequest.Header.Del("Content-Length")
@@ -292,14 +294,14 @@ func (m *ModuleBodyProcess) DoRequestProcess(req *bfe_basic.Request, conf *BodyP
 
 func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_http.Response, conf *BodyProcessConfig) *BodyProcessor {
 	// 检查是否需要处理streamcompletion
-	ccq := NewCalcCompletionQuota(req)
+	ccq := NewQuotaUsageProcessor(req, res)
 
 	if conf == nil && ccq == nil {
 		return nil // 没有配置，直接返回
 	}
 
 	m.state.ResProcess.Inc(1)
-	
+
 	bp := NewBodyProcessor(res.Body)
 	// 缺省添加streamcompletion处理器
 	if ccq != nil {
@@ -312,7 +314,7 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 	}
 
 	switch dec {
-	case "sse":  // sse is not available for request body
+	case "sse": // sse is not available for request body
 		bp.CreateEventDecoder(NewSSEEventDecoder)
 	case "line":
 		bp.CreateEventDecoder(NewLineDecoder)
@@ -320,8 +322,9 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 		bp.CreateEventDecoder(NewJsonDecoder)
 	default:
 		contentType := res.Header.Get("Content-Type")
-		bp.CreateEventDecoder(func(source io.Reader)(EventDecoder, error) {
-			return NewContentTypeDecoder(source, contentType)} ) // 使用ContentTypeDecoder根据Content-Type自动选择解码器
+		bp.CreateEventDecoder(func(source io.Reader) (EventDecoder, error) {
+			return NewContentTypeDecoder(source, contentType)
+		}) // 使用ContentTypeDecoder根据Content-Type自动选择解码器
 		// bp.CreateEventDecoder(NewJsonDecoder) // 默认使用ndJson解码
 	}
 
@@ -342,6 +345,7 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 	res.Header.Del("Content-Length")
 	return bp
 }
+
 /*
 func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_http.Response, conf *BodyProcessConfig) *BodyProcessor {
 	if conf == nil {
@@ -364,7 +368,7 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 			return NewContentTypeDecoder(source, contentType)} ) // 使用ContentTypeDecoder根据Content-Type自动选择解码器
 		// bp.CreateEventDecoder(NewJsonDecoder) // 默认使用ndJson解码
 	}
-	
+
 	bp.CreateEventEncoder(NewGeneralEncoder)
 
 	// 缺省添加streamcompletion处理器
@@ -387,39 +391,6 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 	return bp
 }
 */
-// SSEEvent 表示一个SSE事件
-type SSEEvent struct {
-	ID    string
-	Event string
-	Data  []byte
-	Retry int
-	// raw   []byte // 原始事件数据
-	truncated bool // 是否被截断
-}
-
-// ToBytes 将事件转换为SSE格式
-func (e *SSEEvent) ToBytes() []byte {
-	var buf bytes.Buffer
-	if e.ID != "" {
-		buf.WriteString("id: " + e.ID + "\n")
-	}
-	if e.Event != "" {
-		buf.WriteString("event: " + e.Event + "\n")
-	}
-	if len(e.Data) > 0 {
-		lines := strings.Split(string(e.Data), "\n")
-		for _, line := range lines {
-			buf.WriteString("data: " + line + "\n")
-		}
-	}
-	if e.Retry > 0 {
-		buf.WriteString(fmt.Sprintf("retry: %d\n", e.Retry))
-	}
-	if !e.truncated {
-		buf.WriteString("\n")
-	}
-	return buf.Bytes()
-}
 
 type GeneralEncoder struct {
 	dest io.Writer
@@ -442,62 +413,27 @@ func (enc *GeneralEncoder) Encode(events []Event) (int, error) {
 	return total, nil
 }
 
-type SSEEventDecoder struct {
-	scanner *bufio.Scanner
-}
-
-func NewSSEEventDecoder(source io.Reader) (EventDecoder, error) {
-	scanner := bufio.NewScanner(source)
-	return &SSEEventDecoder{scanner: scanner}, nil
-}
-
-func (dec *SSEEventDecoder) Decode() ([]Event, error) {
-	var current SSEEvent
-	dataLines := []string{}
-	for dec.scanner.Scan() {
-		line := dec.scanner.Text()
-		if line == "" {
-			// 空行表示一个完整的事件结束
-			if len(dataLines) == 0 && current.Event == "" && current.ID == "" && len(current.Data) == 0 {
-				continue // 跳过空事件
-			}
-			current.Data = []byte(strings.Join(dataLines, "\n"))
-			return []Event{&current}, nil
-		}
-
-		// 解析SSE事件
-		if strings.HasPrefix(line, "event:") {
-			current.Event = strings.TrimSpace(line[6:])
-		} else if strings.HasPrefix(line, "data:") {
-			dataLines = append(dataLines, strings.TrimSpace(line[5:]))
-		} else if strings.HasPrefix(line, "id:") {
-			current.ID = strings.TrimSpace(line[3:])
-		} else if strings.HasPrefix(line, "retry:") {
-			var retry int
-			_, err := fmt.Sscanf(line[6:], "%d", &retry)
-			if err != nil {
-				return nil, fmt.Errorf("invalid retry value: %s", line[6:])
-			}
-			current.Retry = retry
-		} else {
-			// 未知的SSE行，可能需要处理或忽略
-			return nil, fmt.Errorf("unknown SSE line: %s", line)
-		}
-	}
-	// 检查是否有未完成的事件
-	if len(dataLines) > 0 || current.Event != "" || current.ID != "" {
-		current.Data = []byte(strings.Join(dataLines, "\n"))
-		current.truncated = true // 标记为被截断
-		return []Event{&current}, nil
-	}
-
-	return []Event{}, dec.scanner.Err()
-}
-
 type RawEvent []byte
 
 func (e *RawEvent) ToBytes() []byte {
 	return *e
+}
+
+func (e *RawEvent) GetQuotaUsage() QuotaUsage {
+	curtoken := int64(0)
+	isguess := true
+
+	used := gjson.GetBytes(*e, "usage.total_tokens").Int()
+	prompt := gjson.GetBytes(*e, "usage.prompt_tokens").Int()
+	completion := gjson.GetBytes(*e, "usage.completion_tokens").Int()
+	if used > 0 {
+		isguess = false
+	} else {
+		curtoken = EstimateContentToken(string(*e))
+	}
+
+	return QuotaUsage{PromptTokens: prompt, CompletionTokens: completion, UsedQuota: used,
+		CurrentTokens: curtoken, IsGuess: isguess}
 }
 
 type LineDecoder struct {
@@ -564,36 +500,4 @@ func NewContentTypeDecoder(source io.Reader, contentType string) (EventDecoder, 
 
 func (ctd *ContentTypeDecoder) Decode() ([]Event, error) {
 	return ctd.dec.Decode()
-}
-
-func GetEventTokens(ev Event) int64 {
-	if ev == nil {
-		return 0
-	}
-
-	switch e := ev.(type) {
-	case *RawEvent:
-		return int64(len(*e)/4)
-	case *SSEEvent:
-		return int64(len(e.Data)/4)
-	default:
-		return 0
-	}
-}
-
-func NewCalcCompletionQuota(req *bfe_basic.Request) EventProcessorFunc {
-	ctx := mod_ai_token_auth.GetTokenAuthContext(req)
-	if ctx == nil || ctx.CompletionTokens != -1 {
-		return nil // 没有token上下文，或 CompletionTokens 已知，无需计算
-	}
-	return func(events []Event) ([]Event, error) {
-		for _, ev := range events {
-			if ctx.CompletionTokens == -1 {
-				ctx.CompletionTokens = 0 // 初始化为0
-			}
-			// 累加事件的token数
-			ctx.CompletionTokens += GetEventTokens(ev)
-		}
-		return events, nil // 没有事件，直接返回
-	}
 }

@@ -17,10 +17,11 @@ package mod_body_process
 import (
 	"fmt"
 	"net/url"
+	"time"
 
-	"github.com/baidu/go-lib/log"
-	"github.com/baidu/go-lib/web-monitor/metrics"
-	"github.com/baidu/go-lib/web-monitor/web_monitor"
+	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/go-lib/web-monitor/metrics"
+	"github.com/bfenetworks/go-lib/web-monitor/web_monitor"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
@@ -28,7 +29,7 @@ import (
 )
 
 const (
-	ModBodyProcess = "mod_body_process"
+	ModBodyProcess               = "mod_body_process"
 	BodyProcessResponseConfigKey = "mod_body_process.response_config"
 )
 
@@ -37,9 +38,10 @@ var (
 )
 
 type ModuleBodyProcessState struct {
-	ReqTotal           *metrics.Counter
-	ReqProcess         *metrics.Counter
-	ResProcess         *metrics.Counter
+	ReqTotal   *metrics.Counter
+	ReqProcess *metrics.Counter
+	ResProcess *metrics.Counter
+	InFlight   *metrics.Gauge
 }
 
 type ModuleBodyProcess struct {
@@ -106,6 +108,13 @@ func (m *ModuleBodyProcess) matchProcessRule(req *bfe_basic.Request) *processRul
 
 // found product handler
 func (m *ModuleBodyProcess) afterLocationHandler(req *bfe_basic.Request) (int, *bfe_http.Response) {
+	aiInfo := req.GetAiBasicInfo()
+	if aiInfo == nil {
+		return bfe_module.BfeHandlerGoOn, nil
+	}
+	m.state.InFlight.Inc(1)
+	aiInfo.TokenTimeInfo.TReqEnd = time.Now().UnixMicro()
+
 	matchedRule := m.matchProcessRule(req)
 	if matchedRule == nil {
 		// no rule, just pass
@@ -126,6 +135,15 @@ func (m *ModuleBodyProcess) afterLocationHandler(req *bfe_basic.Request) (int, *
 }
 
 func (m *ModuleBodyProcess) readResponseHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
+	aiInfo := req.GetAiBasicInfo()
+	if aiInfo == nil {
+		return bfe_module.BfeHandlerGoOn
+	}
+
+	if aiInfo.TokenTimeInfo.TFirstToken == 0 {
+		aiInfo.TokenTimeInfo.TFirstToken = time.Now().UnixMicro()
+	}
+
 	var conf *BodyProcessConfig
 	// get response config from request context
 	data := req.GetContext(BodyProcessResponseConfigKey)
@@ -136,10 +154,42 @@ func (m *ModuleBodyProcess) readResponseHandler(req *bfe_basic.Request, res *bfe
 			log.Logger.Warn("%s: type assertion fail, %v", m.name, data)
 		}
 	}
-	
+
 	m.DoResponseProcess(req, res, conf)
 
 	return bfe_module.BfeHandlerGoOn
+}
+
+func (m *ModuleBodyProcess) requestFinishHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
+	aiInfo := req.GetAiBasicInfo()
+	if aiInfo == nil {
+		return bfe_module.BfeHandlerGoOn
+	}
+	m.state.InFlight.Dec(1)
+
+	aiInfo.TokenTimeInfo.TLastToken = time.Now().UnixMicro()
+	calcTokenTime(aiInfo)
+
+	return bfe_module.BfeHandlerGoOn
+}
+
+func calcTokenTime(aiInfo *bfe_basic.AiBasicInfo) {
+	ti := &aiInfo.TokenTimeInfo
+
+	if openDebug {
+		log.Logger.Debug("ModBodyProcess.calcTokenTime, TReqEnd:%d,TFirstToken:%d,TLastToken:%d,", ti.TReqEnd, ti.TFirstToken, ti.TLastToken)
+	}
+
+	// TTFT = TFirstToken - TReqEnd
+	if ti.TFirstToken > 0 && ti.TReqEnd > 0 {
+		ti.TTFT = ti.TFirstToken - ti.TReqEnd
+	}
+
+	// TPOT = (TLastToken - TFirstToken) / (CompletionTokens - 1)
+	usage := aiInfo.GetTokenUsage()
+	if ti.TLastToken > 0 && ti.TFirstToken > 0 && usage.CompletionTokens > 1 {
+		ti.TPOT = (ti.TLastToken - ti.TFirstToken) / (usage.CompletionTokens - 1)
+	}
 }
 
 func (m *ModuleBodyProcess) getState(params map[string][]string) ([]byte, error) {
@@ -189,6 +239,11 @@ func (m *ModuleBodyProcess) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.
 	err = cbs.AddFilter(bfe_module.HandleReadResponse, m.readResponseHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.readResponseHandler): %v", m.name, err)
+	}
+
+	err = cbs.AddFilter(bfe_module.HandleRequestFinish, m.requestFinishHandler)
+	if err != nil {
+		return fmt.Errorf("%s.Init(): AddFilter(m.requestFinishHandler): %v", m.name, err)
 	}
 
 	err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())

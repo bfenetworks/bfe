@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,15 +17,10 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-)
 
-import (
-	"github.com/baidu/go-lib/log"
-	"github.com/baidu/go-lib/web-monitor/metrics"
-	"github.com/baidu/go-lib/web-monitor/web_monitor"
-)
-
-import (
+	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/go-lib/web-monitor/metrics"
+	"github.com/bfenetworks/go-lib/web-monitor/web_monitor"
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"

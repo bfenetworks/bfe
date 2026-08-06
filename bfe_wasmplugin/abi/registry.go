@@ -15,7 +15,7 @@
 package abi
 
 import (
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/bfe/bfe_wasmplugin/abi/proxywasm010"
 	"github.com/bfenetworks/proxy-wasm-go-host/proxywasm/common"
 	proxywasm "github.com/bfenetworks/proxy-wasm-go-host/proxywasm/v1"

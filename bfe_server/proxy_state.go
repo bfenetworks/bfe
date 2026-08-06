@@ -17,7 +17,7 @@
 package bfe_server
 
 import (
-	"github.com/baidu/go-lib/web-monitor/metrics"
+	"github.com/bfenetworks/go-lib/web-monitor/metrics"
 )
 
 type ProxyState struct {

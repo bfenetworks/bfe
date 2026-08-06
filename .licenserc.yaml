@@ -25,7 +25,7 @@ header:
     - '**/go.sum'
     - '**/*.md'
     - '**/testdata/*'
-    - '**/test_data/*/**'
+    - '**/test_data/**'
     - '**/*/testdata/*/**'
     - 'LICENSE'
     - 'NOTICE'

@@ -21,76 +21,17 @@ Users can customize the processing flow for request or response bodies via confi
 
 ## Basic Configuration
 
-### Configuration Description
-
-Module config file: conf/mod_body_process/mod_body_process.conf
-
-| Option              | Description                                        |
-| ------------------- | ------------------------------------------------- |
-| Basic.ProductRulePath      | String<br>Path to the rule config file |
-| Log.OpenDebug       | Boolean<br>Enable debug logs<br>Default: False |
-
-### Configuration Example
-
-```ini
-[basic]
-ProductRulePath = ../data/mod_body_process/body_process_rule.data
-
-[log]
-OpenDebug = false
-```
+For basic configuration, see [mod_body_process.conf](../../configuration/mod_body_process/mod_body_process.conf.md).
 
 ## Rule Configuration
 
-### Configuration Description
+For rule configuration, see [body_process_rule.data](../../configuration/mod_body_process/body_process_rule.data.md).
 
-| Option                | Description                                        |
-| --------------------- | ------------------------------------------------- |
-| Version | String<br>Config file version |
-| Config | Object<br>API-key authentication rule config for all product lines |
-| Config{k} | String<br>Product line name|
-| Config{v} | Array<br> API-key authentication rule list for the product line |
-| Config{v}[] | Object<br> API-key authentication rule |
-| Config{v}[].Cond | String<br>Matching condition, syntax see [Condition](../../condition/condition_grammar.md) |
-| Config{v}[].RequestProcess | Object<br>Request body processing flow config, see structure below |
-| Config{v}[].ResponseProcess | Object<br>Response body processing flow config, see structure below |
+## Metrics
 
-Data structure for body processing flow config:
-```
-// Processing flow
-struct {
-    Dec  string     // decoder, uses default if not specified
-    Enc  string     // encoder, uses default if not specified
-    Proc []ProcConf // processor list
-}
-// ProcConf
-struct {
-    Name string     // processor name, currently only supports "textfilter"
-    Params []string // processor parameter list. textfilter: Params[0] - ToolGood.TextFilter service URL
-}
-```
-
-### Configuration Example
-
-```json
-{
-    "Config": {
-        "example_product": [
-            {
-                "Cond": "!req_body_json_in(\"model\", \"\", false)",
-                "RequestProcess": {
-                        "Proc": [ 
-                                {"name":"textfilter", "params":["http://172.19.1.136:9191/api/"]} 
-                        ]
-                },
-                "ResponseProcess": {
-                        "Proc": [
-                                {"name":"textfilter", "params":["http://172.19.1.136:9191/api/"]}
-                        ]
-                }
-            }
-        ]
-    },
-    "Version": "20190101000000"
-}
-```
+| Metric | Description |
+| ------ | ----------- |
+| REQ_TOTAL | Total count of requests |
+| REQ_PROCESS | Count of request body processing |
+| RES_PROCESS | Count of response body processing |
+| IN_FLIGHT | Current number of in-flight requests |

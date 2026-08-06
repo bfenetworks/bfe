@@ -30,7 +30,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_tls"

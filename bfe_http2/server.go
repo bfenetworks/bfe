@@ -35,8 +35,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/baidu/go-lib/gotrack"
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/gotrack"
+	"github.com/bfenetworks/go-lib/log"
 
 	http "github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_http2/hpack"

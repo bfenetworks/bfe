@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 	"golang.org/x/crypto/ocsp"
 )
 

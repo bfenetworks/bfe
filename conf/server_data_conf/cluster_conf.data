@@ -155,6 +155,49 @@
                 "ResFlushInterval": -1,
                 "CancelOnClientClose": false
             }
-        }
+        },
+        "ai_cluster_example": {
+            "BackendConf": {
+                "TimeoutConnSrv": 50000,
+                "TimeoutResponseHeader": 50000,
+                "MaxIdleConnsPerHost": 0,
+                "RetryLevel": 0
+            },
+            "CheckConf": {
+                "Schem": "http",
+                "Uri": "/healthcheck",
+                "Host": "www.test1.com",
+                "StatusCode": 0,
+                "FailNum": 1000,
+                "SuccNum": 1,
+                "CheckTimeout": null,
+                "CheckInterval": 100000
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 2,
+                "HashConf": {
+                    "HashStrategy": 0,
+                    "HashHeader": "Cookie:UID",
+                    "SessionSticky": false
+                }
+            },
+            "ClusterBasic": {
+                "TimeoutReadClient": 30000,
+                "TimeoutWriteClient": 30000,
+                "TimeoutReadClientAgain": 30000,
+                "ReqWriteBufferSize": 0,
+                "ReqFlushInterval": 0,
+                "ResFlushInterval": -1,
+                "CancelOnClientClose": true
+            },
+            "AIConf": {
+                "Type": 1,
+                "ModelMapping": {
+                    "test-model":"gpt-5"
+                },
+                "Key": "YOURAPIKEY"
+            }
+        }        
     }
 }

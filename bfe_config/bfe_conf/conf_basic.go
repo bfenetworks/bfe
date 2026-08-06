@@ -16,13 +16,8 @@ package bfe_conf
 
 import (
 	"fmt"
-)
 
-import (
-	"github.com/baidu/go-lib/log"
-)
-
-import (
+	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/bfe/bfe_util"
 )
 
@@ -32,9 +27,12 @@ const (
 )
 
 type ConfigBasic struct {
-	HttpPort       int  // listen port for http
-	HttpsPort      int  // listen port for https
-	MonitorPort    int  // web server port for monitor
+	HttpPort       int    // listen port for http
+	HttpsPort      int    // listen port for https
+	HttpAddr       string // listen address for http, default all interfaces
+	HttpsAddr      string // listen address for https, default all interfaces
+	MonitorPort    int    // web server port for monitor
+	MonitorAddr    string // listen address for monitor, default all interfaces
 	MaxCpus        int  // number of max cpus to use
 	AcceptNum      int  // number of accept goroutine for each listener, default 1
 	MonitorEnabled bool // web server for monitor enable or not
@@ -51,6 +49,9 @@ type ConfigBasic struct {
 	MaxHeaderUriBytes       int  // max URI(in header) length in bytes in request
 	MaxProxyHeaderBytes     int  // max header length in bytes in Proxy protocol
 	KeepAliveEnabled        bool // if false, client connection is shutdown disregard of http headers
+
+	EnableAiGateway bool // enable ai gateway
+	EstimateToken   bool // whether estimate token usage from content length
 
 	Modules []string // modules to load
 

@@ -1,0 +1,27 @@
+{
+    "Version": "1.0",
+    "Config": {
+        "AI_product": [
+            {
+                "Cond": "default_t()",
+                "RequestProcess": {
+                    "Dec": "json",
+                    "Proc": [
+                        {"Name": "textfilter", "Params": ["http://127.0.0.1:9999"]}
+                    ]
+                },
+                "ResponseProcess": {
+                    "Dec": "sse",
+                    "Proc": [
+                        {"Name": "textfilter", "Params": ["http://127.0.0.1:9999"]}
+                    ]
+                }
+            }
+        ],
+        "empty_product": [
+            {
+                "Cond": "default_t()"
+            }
+        ]
+    }
+}

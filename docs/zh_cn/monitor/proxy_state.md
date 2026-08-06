@@ -17,6 +17,9 @@
 | CLIENT_REQ_ACTIVE               | 活跃请求数               |
 | CLIENT_REQ_SERVED               | 处理请求数               |
 | CLIENT_REQ_FAIL                 | 转发失败的请求数          |
+| CLIENT_REQ_WITH_RETRY           | 触发重试的请求数          |
+| CLIENT_REQ_WITH_CROSS_RETRY     | 触发跨集群重试的请求数    |
+| CLIENT_REQ_FAIL_WITH_NO_RETRY   | 未重试即失败的请求数      |
 
 ### 后端相关错误
 
@@ -27,6 +30,7 @@
 | ERR_BK_FIND_LOCATION            | 查找集群失败的请求数      |
 | ERR_BK_NO_BALANCE               | 无负载均衡配置的请求数    |
 | ERR_BK_NO_CLUSTER               | 无集群配置的请求数        |
+| ERR_BK_BODY_PROCESS             | 请求/响应体处理错误数     |
 | ERR_BK_READ_RESP_HEADER         | 读响应头失败的错误数      |
 | ERR_BK_REQUEST_BACKEND          | 转发请求到后端失败的错误数 |
 | ERR_BK_RESP_HEADER_TIMEOUT      | 读后端响应头超时的错误数   |
@@ -83,6 +87,13 @@
 | WS_CLIENT_CONN_ACTIVE           | WS协议活跃连接数     |
 | WS_CLIENT_CONN_SERVED           | WS协议处理连接数     |
 
+### SSE相关
+
+| 监控项                           | 描述               |
+| ------------------------------- | ------------------ |
+| SSE_REQ_SERVED                  | 已处理的SSE请求数    |
+| SSE_REQ_ACTIVE                  | 活跃的SSE请求数      |
+
 ### TLS协议相关
 
 | 监控项                           | 描述                       |
@@ -96,5 +107,13 @@
 | SESSION_CACHE_SET               | 写入session cache请求数      |
 | SESSION_CACHE_SET_FAIL          | 写入session cache失败请求数   |
 | SESSION_CACHE_TYPE_NOT_BYTES    | 查询session cache值类型异常数 |
+| SESSION_CACHE_NO_INSTANCE       | session cache无可用实例数    |
 | TLS_HANDSHAKE_ALL               | TLS握手总数                  |
 | TLS_HANDSHAKE_SUCC              | TLS握手成功数                |
+| TLS_MULTI_CERT_GET              | 获取多证书的次数             |
+| TLS_MULTI_CERT_CONN_WITHOUT_VIP | 连接无VIP的TLS多证书次数     |
+| TLS_MULTI_CERT_CONN_VIP_UNKNOWN | 连接VIP未知的TLS多证书次数   |
+| TLS_MULTI_CERT_CONN_WITHOUT_SNI | 连接无SNI的TLS多证书次数     |
+| TLS_MULTI_CERT_USE_DEFAULT      | 使用默认证书的次数           |
+| TLS_MULTI_CERT_UPDATE           | 更新证书的次数               |
+| TLS_MULTI_CERT_UPDATE_ERR       | 更新证书失败的次数           |

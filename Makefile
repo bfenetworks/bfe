@@ -74,7 +74,7 @@ strip: prepare compile-strip package
 # make prepare, download dependencies
 prepare: prepare-dep prepare-gen
 prepare-dep:
-	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc@latest)
+	$(call INSTALL_PKG, goyacc, golang.org/x/tools/cmd/goyacc@v0.27.0)
 prepare-gen:
 	cd "bfe_basic/condition/parser" && $(GOGEN)
 
@@ -145,6 +145,14 @@ BFE_IMAGE_NAME ?= bfe
 # Default: 0.0.2
 # Override example: make docker CONF_AGENT_VERSION=0.0.2
 CONF_AGENT_VERSION ?= 0.0.2
+CONF_AGENT_REPO ?= bfenetworks
+
+# log-reader version used in Docker image build.
+# Default: 1.0.0
+# Override example: make docker LOG_READER_VERSION=1.0.0
+LOG_READER_VERSION ?= 1.0.0
+LOG_READER_REPO ?= bfenetworks
+
 NO_CACHE ?= false
 
 # Optional cleanup controls
@@ -178,13 +186,19 @@ docker:
 	@echo "Building BFE docker images (prod + debug)..."
 	@NORM_BFE_VERSION=$$(echo "$(BFE_VERSION)" | sed 's/^v*/v/'); \
 	NORM_CONF_VERSION=$$(echo "$(CONF_AGENT_VERSION)" | sed 's/^v*/v/'); \
+	NORM_LR_VERSION=$$(echo "$(LOG_READER_VERSION)" | sed 's/^v*/v/'); \
 	echo "BFE version: $$NORM_BFE_VERSION"; \
 	echo "conf-agent version: $$NORM_CONF_VERSION"; \
+	echo "log-reader version: $$NORM_LR_VERSION"; \
 	echo "Step 1/2: build prod image"; \
 	docker build \
 		$$(if [ "$(NO_CACHE)" = "true" ]; then echo "--no-cache"; fi) \
+		--progress=plain \
 		--build-arg VARIANT=prod \
 		--build-arg CONF_AGENT_VERSION=$$NORM_CONF_VERSION \
+		--build-arg CONF_AGENT_REPO=$(CONF_AGENT_REPO) \
+		--build-arg LOG_READER_VERSION=$$NORM_LR_VERSION \
+		--build-arg LOG_READER_REPO=$(LOG_READER_REPO) \
 		-t $(BFE_IMAGE_NAME):$$NORM_BFE_VERSION \
 		-t $(BFE_IMAGE_NAME):latest \
 		-f Dockerfile \
@@ -192,8 +206,12 @@ docker:
 	echo "Step 2/2: build debug image"; \
 	docker build \
 		$$(if [ "$(NO_CACHE)" = "true" ]; then echo "--no-cache"; fi) \
+		--progress=plain \
 		--build-arg VARIANT=debug \
 		--build-arg CONF_AGENT_VERSION=$$NORM_CONF_VERSION \
+		--build-arg CONF_AGENT_REPO=$(CONF_AGENT_REPO) \
+		--build-arg LOG_READER_VERSION=$$NORM_LR_VERSION \
+		--build-arg LOG_READER_REPO=$(LOG_READER_REPO) \
 		-t $(BFE_IMAGE_NAME):$$NORM_BFE_VERSION-debug \
 		-f Dockerfile \
 		.
@@ -223,15 +241,20 @@ docker-push:
 	@$(MAKE) buildx-init
 	@NORM_BFE_VERSION=$$(echo "$(BFE_VERSION)" | sed 's/^v*/v/'); \
 	NORM_CONF_VERSION=$$(echo "$(CONF_AGENT_VERSION)" | sed 's/^v*/v/'); \
+	NORM_LR_VERSION=$$(echo "$(LOG_READER_VERSION)" | sed 's/^v*/v/'); \
 	NO_CACHE_OPT=$$(if [ "$(NO_CACHE)" = "true" ]; then echo "--no-cache"; fi); \
 	echo "BFE version: $$NORM_BFE_VERSION"; \
 	echo "conf-agent version: $$NORM_CONF_VERSION"; \
+	echo "log-reader version: $$NORM_LR_VERSION"; \
 	echo "Step 1/2: build+push prod (multi-arch)"; \
 	docker buildx build \
 		--platform $(PLATFORMS) \
 		$$NO_CACHE_OPT \
 		--build-arg VARIANT=prod \
 		--build-arg CONF_AGENT_VERSION=$$NORM_CONF_VERSION \
+		--build-arg CONF_AGENT_REPO=$(CONF_AGENT_REPO) \
+		--build-arg LOG_READER_VERSION=$$NORM_LR_VERSION \
+		--build-arg LOG_READER_REPO=$(LOG_READER_REPO) \
 		-t $(REGISTRY)/$(BFE_IMAGE_NAME):$$NORM_BFE_VERSION \
 		-t $(REGISTRY)/$(BFE_IMAGE_NAME):latest \
 		-f Dockerfile \
@@ -243,6 +266,9 @@ docker-push:
 		$$NO_CACHE_OPT \
 		--build-arg VARIANT=debug \
 		--build-arg CONF_AGENT_VERSION=$$NORM_CONF_VERSION \
+		--build-arg CONF_AGENT_REPO=$(CONF_AGENT_REPO) \
+		--build-arg LOG_READER_VERSION=$$NORM_LR_VERSION \
+		--build-arg LOG_READER_REPO=$(LOG_READER_REPO) \
 		-t $(REGISTRY)/$(BFE_IMAGE_NAME):$$NORM_BFE_VERSION-debug \
 		-f Dockerfile \
 		--push \

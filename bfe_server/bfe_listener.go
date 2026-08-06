@@ -33,7 +33,7 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 // BfeListener is used to wrap an underlying TCP listener, which accept connections

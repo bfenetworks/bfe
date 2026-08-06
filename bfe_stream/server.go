@@ -19,7 +19,7 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/gotrack"
+	"github.com/bfenetworks/go-lib/gotrack"
 )
 
 import (

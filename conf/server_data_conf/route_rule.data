@@ -22,6 +22,13 @@
                 "Cond": "default_t()",
                 "ClusterName": "cluster_example"
             }
+        ],
+        "example_ai_product": [
+            {
+                "Cond": "req_host_in(\"ai.example.org\")",
+                "ClusterName": "ai_cluster_example"
+            }
         ]
+
     }
 }

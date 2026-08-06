@@ -1,0 +1,16 @@
+{
+    "Version": "2020-12-29 16:20:53",
+    "Config": {
+        "global": [
+            {
+                "Cond": "default_t()"
+            }
+        ],
+        "unittest": [{
+                "Cond": "req_path_prefix_in(\"/unittest\", true)",
+                "Type": "Sticky",
+                "CookieKey": "JSessionID",
+                "MaxAge": 12000
+            }]
+     }
+}

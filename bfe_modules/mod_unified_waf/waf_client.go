@@ -23,8 +23,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/baidu/go-lib/gotrack"
-	"github.com/baidu/go-lib/log"
+	"github.com/bfenetworks/go-lib/gotrack"
+	"github.com/bfenetworks/go-lib/log"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
@@ -189,7 +189,7 @@ func (c *WafClient) Detect(req *bfe_basic.Request, wafReq *http.Request, param *
 
 	// call waf server
 	done := make(chan *WafDetectResult, 1)
-	go c.detect(wafReq, done, retryMax, req.LogId)
+	go c.detect(wafReq, done, retryMax, req.LogId, openDebug)
 
 	// wait result
 	select {
@@ -287,7 +287,7 @@ func (c *WafClient) getHcServerStr() string {
 	return addr
 }
 
-func (c *WafClient) detect(req *http.Request, done chan *WafDetectResult, retryMax int, logId string) {
+func (c *WafClient) detect(req *http.Request, done chan *WafDetectResult, retryMax int, logId string, openDebug bool) {
 	var res bwi.WafResult
 	var err error
 	defer func() {

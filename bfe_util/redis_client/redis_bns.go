@@ -40,15 +40,13 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-import (
-	"github.com/baidu/go-lib/log"
-	"github.com/baidu/go-lib/web-monitor/delay_counter"
-	"github.com/baidu/go-lib/web-monitor/module_state2"
-	"github.com/spaolacci/murmur3"
-	"github.com/gomodule/redigo/redis"
+	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/go-lib/web-monitor/delay_counter"
+	"github.com/bfenetworks/go-lib/web-monitor/module_state2"
 	"github.com/bfenetworks/bfe/bfe_util/bns"
+	"github.com/gomodule/redigo/redis"
+	"github.com/spaolacci/murmur3"
 )
 
 var (
@@ -82,9 +80,9 @@ type RedisClient struct {
 	redisClusterSlotMap  []int          // offset: hash slot, value: redisClusterId
 
 	// stateDelegate StateDelegate              // state delegate, this can be nil
-	moduleState2  *module_state2.State       // state in format to module_state2
-	delay         *delay_counter.DelayRecent // delay counter for reids
-	connDelay     *delay_counter.DelayRecent // delay counter for connect to redis
+	moduleState2 *module_state2.State       // state in format to module_state2
+	delay        *delay_counter.DelayRecent // delay counter for reids
+	connDelay    *delay_counter.DelayRecent // delay counter for connect to redis
 }
 
 type redisCluster struct {
@@ -175,15 +173,17 @@ func ParseRedisBnsConf(serviceConfRawStr string) ([]RedisClusterConf, error) {
 
 // NewRedisClient(): create a new redisClient with bns support
 // Notice:
-//    - if resolve bns error, c.Servers will be empty.
+//   - if resolve bns error, c.Servers will be empty.
+//
 // Params:
-//    - serviceConf: string, bns name or a batch of bns name with weight of redis server
-//    - maxIdle: int, max idle connections in connection pool
-//    - ct: int, connect redis server timeout, in ms
-//    - rt: int, read redis server timeout, in ms
-//    - wt: int, write redis server timeout, in ms
+//   - serviceConf: string, bns name or a batch of bns name with weight of redis server
+//   - maxIdle: int, max idle connections in connection pool
+//   - ct: int, connect redis server timeout, in ms
+//   - rt: int, read redis server timeout, in ms
+//   - wt: int, write redis server timeout, in ms
+//
 // Returns:
-//    - *redisClient: a new redis client
+//   - *redisClient: a new redis client
 func NewRedisClient1(serviceConf string, maxIdle int, ct, rt, wt int) *RedisClient {
 	return NewRedisBnsClient(&Options{
 		ServiceConf:    serviceConf,
@@ -196,18 +196,20 @@ func NewRedisClient1(serviceConf string, maxIdle int, ct, rt, wt int) *RedisClie
 
 // NewRedisClient2(): create a new redisClient with bns support
 // Notice:
-//    - if resolve bns error, c.Servers will be empty.
+//   - if resolve bns error, c.Servers will be empty.
+//
 // Params:
-//    - serviceConf: string, bns name or a batch of bns name with weight of redis server
-//    - maxIdle: int, max idle connections in connection pool
-//    - maxActive: int, max active connections in connection pool
-//    - wait: bool, if wait is true and pool at the maxActive limit,
-//                  command waits for a connection return to the pool
-//    - ct: int, connect redis server timeout, in ms
-//    - rt: int, read redis server timeout, in ms
-//    - wt: int, write redis server timeout, in ms
+//   - serviceConf: string, bns name or a batch of bns name with weight of redis server
+//   - maxIdle: int, max idle connections in connection pool
+//   - maxActive: int, max active connections in connection pool
+//   - wait: bool, if wait is true and pool at the maxActive limit,
+//     command waits for a connection return to the pool
+//   - ct: int, connect redis server timeout, in ms
+//   - rt: int, read redis server timeout, in ms
+//   - wt: int, write redis server timeout, in ms
+//
 // Returns:
-//    - *redisClient: a new redis client
+//   - *redisClient: a new redis client
 func NewRedisClient2(serviceConf string, maxIdle, maxActive int, wait bool, ct, rt, wt int) *RedisClient {
 	return NewRedisBnsClient(&Options{
 		ServiceConf:    serviceConf,
@@ -232,9 +234,10 @@ func (opts *Options) Format() error {
 
 // NewRedisBnsClient(): create a new redisClient with bns support
 // Notice:
-//    - if resolve bns error, c.Servers will be empty.
+//   - if resolve bns error, c.Servers will be empty.
+//
 // Returns:
-//    - *redisClient: a new redis client
+//   - *redisClient: a new redis client
 func NewRedisBnsClient(opts *Options) *RedisClient {
 	err := opts.Format()
 	if err != nil {
@@ -262,9 +265,9 @@ func NewRedisBnsClient(opts *Options) *RedisClient {
 
 		// module state
 		// stateDelegate: nil,
-		moduleState2:  nil,
-		delay:         nil,
-		connDelay:     nil,
+		moduleState2: nil,
+		delay:        nil,
+		connDelay:    nil,
 	}
 
 	// create redis clusters
@@ -404,12 +407,14 @@ func (c *RedisClient) ActiveConnNum() int {
 
 // Setex(): save key:value to redis server, and set expire time
 // Params:
-//    - key: string
-//    - value: []byte
-//    - expire: int, expire time in second
+//   - key: string
+//   - value: []byte
+//   - expire: int, expire time in second
+//
 // Returns:
-//    - nil, if success, otherwise return error
-//save sessionState to session cache
+//   - nil, if success, otherwise return error
+//
+// save sessionState to session cache
 func (c *RedisClient) Setex(key string, value []byte, expire int) (err error) {
 	c.incrModuleState2(RedisSetex)
 
@@ -587,6 +592,7 @@ func (c *RedisClient) IncrAndExpire(key string, expire int) (int64, error) {
 do redis pipeline incr command, filter the keys by redis cluster id
 set countList and errList as return value, only modify the members which belong to current cluster id
 param:
+
 	keyList []string	total key list, this function only use the members which belog to current cluster id
 	countList *[]int64		count list return value, only modify the members which belong to current cluster id
 	errList *[]error		error return value, only modify the member with the offset is current cluster id
@@ -688,7 +694,7 @@ func (c *RedisClient) PIncr(keyList []string) ([]int64, error) {
 
 	// hanele error response
 	if totalErrStr != "" {
-		err = fmt.Errorf(totalErrStr)
+		err = fmt.Errorf("%s", totalErrStr)
 	}
 
 	c.setDelayState(c.delay, procStart)
@@ -795,4 +801,30 @@ func getHash(value []byte, base uint64) int {
 	}
 
 	return int(hash % base)
+}
+
+type redisClientScriptImpl struct {
+	script *redis.Script
+	client *RedisClient
+}
+
+func (s *redisClientScriptImpl) Run(
+	key string,
+	args ...interface{},
+) (interface{}, error) {
+	conn := s.client.getConnByKey(key)
+	defer conn.Close()
+
+	keysAndArgs := make([]interface{}, 0, 1+len(args))
+	keysAndArgs = append(keysAndArgs, key)
+	keysAndArgs = append(keysAndArgs, args...)
+
+	return s.script.Do(conn, keysAndArgs...)
+}
+
+func (c *RedisClient) NewScript(src string) RedisScript {
+	return &redisClientScriptImpl{
+		script: redis.NewScript(1, src),
+		client: c,
+	}
 }

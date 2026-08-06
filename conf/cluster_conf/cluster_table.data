@@ -39,7 +39,23 @@
                     "Weight": 10
                 }
             ]
-        }
+        },
+        "ai_cluster_example": {
+            "ai.pool.bj": [
+                {
+                    "Addr": "172.27.152.27",
+                    "Name": "172.27.152.27_8083",
+                    "Port": 8083,
+                    "Weight": 10
+                },
+                {
+                    "Addr": "172.27.152.27",
+                    "Name": "172.27.152.27_8081",
+                    "Port": 8081,
+                    "Weight": 10
+                }
+            ]
+        }        
     }, 
     "Version": "init version"
 }

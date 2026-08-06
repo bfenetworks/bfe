@@ -23,12 +23,13 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"github.com/baidu/go-lib/log"
+
+	"github.com/bfenetworks/go-lib/log"
 )
 
 var (
 	httpClient *http.Client
-	mutex 	 sync.RWMutex
+	mutex      sync.RWMutex
 )
 
 func GetHTTPClient() *http.Client {
@@ -81,7 +82,7 @@ func GetAuditData(ev Event) ([]byte, error) {
 	case *RawEvent:
 		return *e, nil
 	case *SSEEvent:
-		return e.Data, nil
+		return e.ToBytes(), nil
 	default:
 		return nil, fmt.Errorf("unsupported event type: %T", ev)
 	}
@@ -96,7 +97,7 @@ func SetAuditData(ev Event, data []byte) error {
 	case *RawEvent:
 		*e = data
 	case *SSEEvent:
-		e.Data = data
+		e.SetData(data)
 	default:
 		return fmt.Errorf("unsupported event type: %T", ev)
 	}
@@ -112,7 +113,7 @@ func (caf *ContentAudit) Process(evs []Event) ([]Event, error) {
 			log.Logger.Error("failed to get audit data: %v", err)
 			continue // fail to get data, skip current event
 		}
-		resp, err := client.PostForm(caf.url, url.Values{ "txt": {string(data)} })
+		resp, err := client.PostForm(caf.url, url.Values{"txt": {string(data)}})
 		if err != nil {
 			log.Logger.Error("failed to audit content: %v", err)
 			continue // request failed, skip current event
@@ -159,11 +160,11 @@ type TextFilterResult struct {
 	Contacts []TextFilterContactItem
 }
 
-type TextFilterDetailItem struct{
+type TextFilterDetailItem struct {
 	RiskLevel string
-	RiskCode string
-	Position string
-	Text string
+	RiskCode  string
+	Position  string
+	Text      string
 }
 
 type TextFilterContactItem struct {

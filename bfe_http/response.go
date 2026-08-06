@@ -115,6 +115,15 @@ func (r *Response) Cookies() []*Cookie {
 	return readSetCookies(r.Header)
 }
 
+func (r *Response) Cookie(name string) (*Cookie, error) {
+	for _, c := range readSetCookies(r.Header) {
+		if c.Name == name {
+			return c, nil
+		}
+	}
+	return nil, ErrNoCookie
+}
+
 var ErrNoLocation = errors.New("http: no Location header in response")
 
 // Location returns the URL of the response's "Location" header,
@@ -289,4 +298,20 @@ func (r *Response) Write(w io.Writer) error {
 
 	// Success
 	return nil
+}
+
+func (r *Response) GetBodyAccessor() (BodyAccessor, error) {
+	if r.Body == nil {
+		return nil, nil
+	}
+	bodyAccessor, ok := r.Body.(BodyAccessor)
+	if !ok {
+		var err error
+		r.Body, err = NewBytesBody(r.Body, GetAccessibleBodySize())
+		if err != nil {
+			return nil, errors.New("can't get body")
+		}
+		bodyAccessor, _ = r.Body.(BodyAccessor)
+	}
+	return bodyAccessor, nil
 }

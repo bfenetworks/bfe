@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/log/log4go"
+	"github.com/bfenetworks/go-lib/log/log4go"
 )
 
 type LogConfig struct {
@@ -131,7 +131,7 @@ func LoggerInitWithFormat2(fileName, logDir, when string, backupCount int,
 	logger = make(log4go.Logger)
 	// create file writer for all log
 	fullPath := filepath.Join(logDir, fileName)
-	logWriter := log4go.NewTimeFileLogWriter(fullPath, when, backupCount)
+	logWriter := log4go.NewTimeFileLogWriter(fullPath, when, backupCount, false)
 	if logWriter == nil {
 		return logger, fmt.Errorf("error in log4go.NewTimeFileLogWriter(%s)", fullPath)
 	}

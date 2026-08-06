@@ -19,20 +19,18 @@ import (
 	"errors"
 	"fmt"
 	"os"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
 )
 
 type tokenRuleFile struct {
-        Cond   *string
-        Action *ActionFile
+	Cond   *string
+	Action *ActionFile
 }
 
 type tokenRule struct {
-        Cond   condition.Condition
-        Action Action
+	Cond   condition.Condition
+	Action Action
 }
 
 type tokenFileMap map[string]*TokenFile
@@ -47,16 +45,24 @@ type tokenRuleList []tokenRule
 type ProductRulesFile map[string]*tokenRuleFileList
 type ProductRules map[string]*tokenRuleList
 
+type quotaPlanFileList []QuotaPlan
+type ProductQuotaPlanFiles map[string]*quotaPlanFileList
+
+type QuotaPlanMap map[string]*QuotaPlan
+type ProductQuotaPlans map[string]*QuotaPlanMap
+
 type productRuleConfFile struct {
-	Version *string
-	Tokens  *ProductTokenFiles
-	Config  *ProductRulesFile
+	Version    *string
+	QuotaPlans *ProductQuotaPlanFiles
+	Tokens     *ProductTokenFiles
+	Config     *ProductRulesFile
 }
 
 type productRuleConf struct {
-	Version string
-	Tokens  ProductTokens
-	Config  ProductRules
+	Version    string
+	QuotaPlans ProductQuotaPlans
+	Tokens     ProductTokens
+	Config     ProductRules
 }
 
 func tokenMapCheck(conf *tokenFileMap) error {
@@ -108,6 +114,46 @@ func tokenRuleListCheck(conf *tokenRuleFileList) error {
 	return nil
 }
 
+func quotaPlanCheck(conf *QuotaPlan) error {
+	if conf.Id == "" {
+		return errors.New("no Id")
+	}
+	if conf.ExpiredTime < -1 {
+		return fmt.Errorf("invalid ExpiredTime: %d", conf.ExpiredTime)
+	}
+	if !conf.Unlimited && conf.Quota <= 0 {
+		return fmt.Errorf("invalid Quota: %d", conf.Quota)
+	}
+	if conf.ResetMode < 0 || conf.ResetMode > 1 {
+		return fmt.Errorf("invalid ResetMode: %d", conf.ResetMode)
+	}
+	return nil
+}
+
+func quotaPlanFileListCheck(conf *quotaPlanFileList) error {
+	for index, quotaPlan := range *conf {
+		if err := quotaPlanCheck(&quotaPlan); err != nil {
+			return fmt.Errorf("quotaPlan: %d, %v", index, err)
+		}
+	}
+	return nil
+}
+
+func productQuotaPlansCheck(conf *ProductQuotaPlanFiles) error {
+	for product, quotaPlanList := range *conf {
+		if quotaPlanList == nil {
+			return fmt.Errorf("no quotaPlanList for product: %s", product)
+		}
+
+		err := quotaPlanFileListCheck(quotaPlanList)
+		if err != nil {
+			return fmt.Errorf("ProductQuotaPlans: %s, %v", product, err)
+		}
+	}
+
+	return nil
+}
+
 func productRulesCheck(conf *ProductRulesFile) error {
 	for product, ruleList := range *conf {
 		if ruleList == nil {
@@ -136,6 +182,15 @@ func productRuleConfCheck(conf productRuleConfFile) error {
 
 	if conf.Tokens == nil {
 		return errors.New("no Tokens")
+	}
+
+	if conf.QuotaPlans == nil {
+		return errors.New("no QuotaPlans")
+	}
+
+	err = productQuotaPlansCheck(conf.QuotaPlans)
+	if err != nil {
+		return fmt.Errorf("QuotaPlans: %v", err)
 	}
 
 	err = productTokensCheck(conf.Tokens)
@@ -177,11 +232,18 @@ func ruleListConvert(ruleFileList *tokenRuleFileList) (*tokenRuleList, error) {
 	return &ruleList, nil
 }
 
-func tokenMapConvert(tokenFileMap *tokenFileMap) (*tokenMap, error) {
+func quotaPlanConvert(quotaPlan QuotaPlan) QuotaPlan {
+	return quotaPlan
+}
+
+func tokenMapConvert(tokenFileMap *tokenFileMap, quotaPlansMap *QuotaPlanMap) (*tokenMap, error) {
 	tokenMap := make(tokenMap)
 
 	for key, tokenFile := range *tokenFileMap {
-		token := tokenConvert(*tokenFile)
+		token, err := tokenConvert(*tokenFile, quotaPlansMap)
+		if err != nil {
+			return nil, err
+		}
 		tokenMap[key] = &token
 	}
 
@@ -220,10 +282,22 @@ func ProductRuleConfLoad(filename string) (productRuleConf, error) {
 		conf.Config[product] = ruleList
 	}
 
+	conf.QuotaPlans = make(ProductQuotaPlans)
+	if config.QuotaPlans != nil {
+		for product, quotaPlanFileList := range *config.QuotaPlans {
+			quotaPlanMap := make(QuotaPlanMap)
+			for _, quotaPlanFile := range *quotaPlanFileList {
+				quotaPlan := quotaPlanConvert(quotaPlanFile)
+				quotaPlanMap[quotaPlan.Id] = &quotaPlan
+			}
+			conf.QuotaPlans[product] = &quotaPlanMap
+		}
+	}
+
 	conf.Tokens = make(ProductTokens)
 	if config.Tokens != nil {
 		for product, tokenMap := range *config.Tokens {
-			tokenMap, err := tokenMapConvert(tokenMap)
+			tokenMap, err := tokenMapConvert(tokenMap, conf.QuotaPlans[product])
 			if err != nil {
 				return conf, err
 			}

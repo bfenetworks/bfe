@@ -1,0 +1,34 @@
+{
+    "clusters": {
+        "cluster_primary_a": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_a": 100
+        },
+        "cluster_primary_b": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_b": 100
+        },
+        "cluster_primary_c": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_c": 100
+        },
+        "cluster_fallback_1": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_fb1": 100
+        },
+        "cluster_fallback_2": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_fb2": 100
+        },
+        "cluster_entity_default": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_entity": 100
+        },
+        "cluster_global_default": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_global": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20260720150000"
+}

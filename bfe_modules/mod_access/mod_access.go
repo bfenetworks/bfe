@@ -27,8 +27,8 @@ import (
 )
 
 import (
-	"github.com/baidu/go-lib/log/log4go"
-	"github.com/baidu/go-lib/web-monitor/web_monitor"
+	"github.com/bfenetworks/go-lib/log/log4go"
+	"github.com/bfenetworks/go-lib/web-monitor/web_monitor"
 )
 
 type ModuleAccess struct {

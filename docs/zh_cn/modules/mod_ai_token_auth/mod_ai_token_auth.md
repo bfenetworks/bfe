@@ -11,97 +11,27 @@ Authorization: Bearer <api-key>
 
 ## 基础配置
 
-### 配置描述
-
-模块配置文件: conf/mod_ai_token_auth/mod_ai_token_auth.conf
-
-| 配置项              | 描述                                        |
-| ------------------- | ------------------------------------------- |
-| Basic.ProductRulePath      | String<br>api-key声明和规则配置的文件路径 |
-| redis.bns | String<br>redis服务的bns名。redis用于存储api-key的配额使用量。 |
-| Log.OpenDebug       | Boolean<br>是否开启 debug 日志<br>默认值False |
-
-### 配置示例
-
-```ini
-[basic]
-ProductRulePath = mod_ai_token_auth/token_rule.data
-
-[redis]
-# bns addr
-bns = BLB.ALB-redis
-
-# timeout in ms
-connectTimeout = 20
-readTimeout = 20
-writeTimeout = 20
-
-# max idle connections
-maxIdle = 20
-
-[log]
-OpenDebug = false
-```
+模块基础配置文件说明详见 [mod_ai_token_auth.conf](../../configuration/mod_ai_token_auth/mod_ai_token_auth.conf.md)。
 
 ## 规则配置
 
-### 配置描述
+模块规则配置文件说明详见 [token_rule.data](../../configuration/mod_ai_token_auth/token_rule.data.md)。
 
-| 配置项                | 描述                                        |
-| ---------------------| ------------------------------------------- |
-| Version | String<br>配置文件版本 |
-| Tokens | Object<br>所有产品线的 api-key 声明 |
-| Tokens{k} | String<br>产品线名称|
-| Tokens{v} | Object<br> 产品线下的所以 api-key |
-| Tokens{v}{k} | String<br> 一个 api-key |
-| Tokens{v}{v} | Object<br> 一个 api-key 声明，数据结构见下。 |
-| Config | Object<br>所有产品线的 api-key 鉴权规则配置 |
-| Config{k} | String<br>产品线名称|
-| Config{v} | Array<br> 产品线下 api-key 鉴权规则列表 |
-| Config{v}[] | Object<br> api-key 鉴权规则 |
-| Config{v}[].Cond | String<br>匹配条件, 语法详见[Condition](../../condition/condition_grammar.md) |
-| Config{v}[].Action | Object<br>动作。只支持一种动作：{ "cmd": "CHECK_TOKEN" } |
+## 工作原理
 
-api-key 声明的数据结构：
-```
-struct {
-	Key            string           // api-key
-	Status         int              // api-key的状态：1 - Enabled; 2 - Disabled; 3 - Expired; 4 - Exhausted
-	Name           string           // 名字
-	UpdateTime     int64            // 更新时间 (Unix Time)。改变意味着开启一个新的配额消费周期，重新开始计算UsedQuota。
-	ExpiredTime    int64            // 过期时间 (Unix Time)。 -1 - 永不过期
-	RemainQuota    int64            // 总可用配额 (单位： token)
-	UnlimitedQuota bool             // 是否无限配额
-	Models         *string          // 允许的模型列表，多个模型名由逗号分开
-	Subnet         *string          // 允许的源ip子网
-}
-```
+### Token 鉴权流程
 
-### 配置示例
+1. **请求进入**：当请求到达时，模块检查请求是否匹配鉴权规则
+2. **Token 验证**：从请求的 `Authorization` Header 中提取 api-key，验证其有效性（状态、过期时间等）
+3. **模型权限检查**：验证请求访问的模型是否在允许列表中，且不在禁止列表中
+4. **IP 子网检查**：验证请求来源 IP 是否在允许的子网范围内
+5. **配额检查**：检查关联的配额计划是否有足够的配额
+6. **配额扣除**：请求完成后，从响应体中提取 token 使用量，扣除相应配额
 
-```json
-{
-    "Config": {
-        "example_product" :[
-            {
-                "cond": "default_t()",
-                "action": {
-                    "cmd": "CHECK_TOKEN"
-                }
-            }
-        ]
-    },
-    "Tokens": {
-        "example_product": {
-            "TESTKEY": {
-                "key": "TESTKEY",
-                "status": 1,
-                "name": "test",
-                "expired_time": -1,
-                "unlimited_quota": true
-            }
-        }
-    },
-    Version": "20190101000000"
-}
-```
+### 监控指标
+
+| 指标名称 | 类型 | 描述 |
+| -------- | ---- | ---- |
+| REQ_TOTAL | Counter | 总请求数 |
+| REQ_AUTH | Counter | 触发鉴权的请求数 |
+| REQ_AUTH_FAIL | Counter | 鉴权失败的请求数 |

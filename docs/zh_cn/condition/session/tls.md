@@ -2,7 +2,7 @@
 
 ## ses_tls_sni_in(host_list)
 
-* 语义: 判断TLS握手中的sni字段是否为host_list之一
+* 语义: 判断TLS握手中的sni字段是否为host_list之一（忽略大小写）
 
 * 参数
 
@@ -22,7 +22,7 @@ ses_tls_sni_in("example.com|example.org")
 
 ## ses_tls_client_ca_in(ca_list)
 
-* 语义: 判断是否启用TLS双向认证且客户端证书签发根CA为ca_list之一
+* 语义: 判断是否启用TLS双向认证且客户端证书签发根CA为ca_list之一（区分大小写）
 
 * 参数
 

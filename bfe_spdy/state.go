@@ -15,7 +15,7 @@
 package bfe_spdy
 
 import (
-	"github.com/baidu/go-lib/web-monitor/metrics"
+	"github.com/bfenetworks/go-lib/web-monitor/metrics"
 )
 
 type SpdyState struct {
