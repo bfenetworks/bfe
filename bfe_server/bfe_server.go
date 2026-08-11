@@ -160,6 +160,9 @@ func (srv *BfeServer) InitConfig() {
 	} else {
 		srv.MaxHeaderUriBytes = bfe_http.DefaultMaxHeaderUriBytes
 	}
+
+	// set AccessibleBodySize
+	bfe_http.SetAccessibleBodySize(srv.Config.Server.AccessibleBodySize)
 }
 
 func (srv *BfeServer) InitHttp() (err error) {
