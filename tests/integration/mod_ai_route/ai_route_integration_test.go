@@ -49,12 +49,12 @@ func TestMain(m *testing.M) {
 // fakeConn implements net.Conn for test environment.
 type fakeConn struct{}
 
-func (c *fakeConn) Read(b []byte) (int, error)       { return 0, nil }
-func (c *fakeConn) Write(b []byte) (int, error)      { return len(b), nil }
-func (c *fakeConn) Close() error                     { return nil }
-func (c *fakeConn) LocalAddr() net.Addr              { return &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0} }
-func (c *fakeConn) RemoteAddr() net.Addr             { return &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0} }
-func (c *fakeConn) SetDeadline(t time.Time) error    { return nil }
+func (c *fakeConn) Read(b []byte) (int, error)         { return 0, nil }
+func (c *fakeConn) Write(b []byte) (int, error)        { return len(b), nil }
+func (c *fakeConn) Close() error                       { return nil }
+func (c *fakeConn) LocalAddr() net.Addr                { return &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0} }
+func (c *fakeConn) RemoteAddr() net.Addr               { return &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0} }
+func (c *fakeConn) SetDeadline(t time.Time) error      { return nil }
 func (c *fakeConn) SetReadDeadline(t time.Time) error  { return nil }
 func (c *fakeConn) SetWriteDeadline(t time.Time) error { return nil }
 
@@ -115,6 +115,7 @@ type backendServer struct {
 	hits        int
 	mu          sync.Mutex
 	models      []string
+	bodies      [][]byte
 }
 
 func newBackendServer(clusterName string, response int, body string) *backendServer {
@@ -128,6 +129,7 @@ func newBackendServer(clusterName string, response int, body string) *backendSer
 		b.hits++
 		if r.Body != nil {
 			bodyBytes, _ := io.ReadAll(r.Body)
+			b.bodies = append(b.bodies, append([]byte(nil), bodyBytes...))
 			var reqBody map[string]interface{}
 			if err := json.Unmarshal(bodyBytes, &reqBody); err == nil {
 				if model, ok := reqBody["model"].(string); ok {
@@ -154,6 +156,16 @@ func (b *backendServer) Models() []string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return append([]string(nil), b.models...)
+}
+
+func (b *backendServer) RequestBodies() [][]byte {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	result := make([][]byte, len(b.bodies))
+	for i, body := range b.bodies {
+		result[i] = append([]byte(nil), body...)
+	}
+	return result
 }
 
 func (b *backendServer) Close() {
@@ -554,6 +566,41 @@ func TestModelOverrideAndFallback(t *testing.T) {
 	fallbackModels := e.backends["cluster_fallback_1"].Models()
 	if len(fallbackModels) != 1 || fallbackModels[0] != "fallback-model-1" {
 		t.Fatalf("expected fallback model 'fallback-model-1', got %v", fallbackModels)
+	}
+}
+
+// TestFallbackBodyRewound verifies that the request body is rewound before
+// fallback attempts, so the fallback backend receives the complete body content.
+func TestFallbackBodyRewound(t *testing.T) {
+	e := newTestEnv(t, map[string]int{
+		"cluster_primary_a":  http.StatusInternalServerError,
+		"cluster_primary_b":  http.StatusInternalServerError,
+		"cluster_primary_c":  http.StatusInternalServerError,
+		"cluster_fallback_1": http.StatusOK,
+	})
+	defer e.Close()
+
+	body := []byte(`{"model":"origin-model","messages":[{"role":"user","content":"hello"}]}`)
+	rec := e.callServeHTTPForAI(apiHost, apiKeyUserA, body)
+	if rec.statusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.statusCode)
+	}
+
+	fallbackBodies := e.backends["cluster_fallback_1"].RequestBodies()
+	if len(fallbackBodies) != 1 {
+		t.Fatalf("expected exactly one fallback request body, got %d", len(fallbackBodies))
+	}
+
+	var fallbackBody map[string]interface{}
+	if err := json.Unmarshal(fallbackBodies[0], &fallbackBody); err != nil {
+		t.Fatalf("fallback body is not valid json: %v, body: %q", err, fallbackBodies[0])
+	}
+	if fallbackBody["model"] != "fallback-model-1" {
+		t.Fatalf("expected fallback model 'fallback-model-1', got %v", fallbackBody["model"])
+	}
+	messages, ok := fallbackBody["messages"].([]interface{})
+	if !ok || len(messages) != 1 {
+		t.Fatalf("expected fallback body to preserve messages, got %v", fallbackBody["messages"])
 	}
 }
 

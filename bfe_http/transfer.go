@@ -27,9 +27,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_net/textproto"
 )
@@ -755,19 +753,63 @@ type BodyAccessor interface {
 	SetBytes([]byte, bool)
 }
 
-//body with BodyAccessor interface
+type Rewindable interface {
+	Rewind() bool
+}
+
+// body with BodyAccessor interface
 type bytes_body struct {
-	src     io.ReadCloser	// source body
-	buf     []byte			// bytes read out from src
-	all     bool            // all already read out from src to buf 
-	r       io.Reader       // multiReader of buf and src
+	src       io.ReadCloser // source body
+	buf       []byte        // bytes read out from src
+	all       bool          // all already read out from src to buf
+	srcClosed bool          // source has been closed
+	r         *bodyReader   // reader of buf and src
+	err       error
+}
+
+// bodyReader tracks whether reading has moved from the buffer to the source.
+type bodyReader struct {
+	buf        *bytes.Buffer
+	src        io.Reader
+	srcStarted bool
+}
+
+func (br *bodyReader) Read(p []byte) (int, error) {
+	if !br.srcStarted {
+		n, err := br.buf.Read(p)
+		if err != io.EOF {
+			return n, err
+		}
+		br.srcStarted = true
+		if n > 0 {
+			return n, nil
+		}
+	}
+	if br.src == nil {
+		return 0, io.EOF
+	}
+	return br.src.Read(p)
 }
 
 func (b *bytes_body) Read(p []byte) (n int, err error) {
-	return b.r.Read(p)
+	if b.err != nil {
+		return 0, b.err
+	}
+	n, err = b.r.Read(p)
+	if err != nil {
+		b.err = err
+	}
+	return
 }
 
 func (b *bytes_body) Close() error {
+	if b.srcClosed {
+		return nil
+	}
+	b.srcClosed = true
+	if b.src == nil {
+		return nil
+	}
 	return b.src.Close()
 }
 
@@ -793,11 +835,27 @@ func (b *bytes_body) SetBytes(newBuf []byte, all bool) {
 	b.buf = newBuf
 	br := bytes.NewBuffer(newBuf)
 	b.all = b.all || all
+	b.err = nil
 	if b.all {
-		b.r = br
+		b.r = &bodyReader{buf: br}
 	} else {
-		b.r = io.MultiReader(br, b.src)
+		b.r = &bodyReader{buf: br, src: b.src}
 	}
+}
+
+func (b *bytes_body) SrcStarted() bool {
+	return b.r != nil && b.r.srcStarted
+}
+
+func (b *bytes_body) Rewind() bool {
+	// If all data is already in buffer, we can rewind regardless of
+	// src state. Otherwise, rewind is only possible before src is
+	// started or closed.
+	if (b.srcClosed || b.SrcStarted()) && !b.all {
+		return false
+	}
+	b.SetBytes(b.buf, b.all)
+	return true
 }
 
 func NewBytesBody(src io.ReadCloser, maxSize int64) (io.ReadCloser, error) {
@@ -821,14 +879,14 @@ func newBytesBody(src io.ReadCloser, maxSize int64) (*bytes_body, error) {
 			src: src,
 			buf: bb,
 			all: true,
-			r:   br,
+			r:   &bodyReader{buf: br},
 		}, nil
 	} else {
 		return &bytes_body{
 			src: src,
 			buf: bb,
 			all: false,
-			r:   io.MultiReader(br, src),
+			r:   &bodyReader{buf: br, src: src},
 		}, nil
 	}
 }
