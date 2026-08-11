@@ -62,6 +62,10 @@ func TestBfeConfigLoadNormal(t *testing.T) {
 		t.Errorf("err in ClusterConf")
 	}
 
+	if config.Server.AccessibleBodySize != 2097152 {
+		t.Errorf("config.AccessibleBodySize should be 2097152, got %d", config.Server.AccessibleBodySize)
+	}
+
 	if len(config.HttpsBasic.CipherSuites) != 3 {
 		t.Errorf("CipherSuites length should be 3")
 	}
@@ -116,6 +120,10 @@ func TestBfeConfigLoadUsingDefault(t *testing.T) {
 
 	if config.Server.ClusterConf != "/home/bfe/conf/server_data_conf/cluster_conf.data" {
 		t.Errorf("err in ClusterConf")
+	}
+
+	if config.Server.AccessibleBodySize != 2097152 {
+		t.Errorf("config.AccessibleBodySize should be 2097152 (default), got %d", config.Server.AccessibleBodySize)
 	}
 
 	if len(config.HttpsBasic.CipherSuites) != 9 {

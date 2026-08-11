@@ -16,9 +16,7 @@ package bfe_conf
 
 import (
 	"testing"
-)
 
-import (
 	gcfg "gopkg.in/gcfg.v1"
 )
 
@@ -68,6 +66,10 @@ func Test_conf_basic_case1(t *testing.T) {
 	if config.Server.HostRuleConf != "/home/bfe/conf/host_rule123.conf" {
 		t.Error("config.HostRuleConf should be '/home/bfe/conf/host_rule123.conf'")
 	}
+
+	if config.Server.AccessibleBodySize != 1048576 {
+		t.Errorf("config.AccessibleBodySize should be 1048576, got %d", config.Server.AccessibleBodySize)
+	}
 }
 
 func Test_conf_basic_case2(t *testing.T) {
@@ -101,13 +103,17 @@ func Test_conf_basic_check(t *testing.T) {
 		conf *ConfigBasic
 		err  string
 	}{
-		{&ConfigBasic{HttpPort: 80, HttpsPort: 443, MonitorPort: -1, MonitorEnabled: true},"MonitorPort[-1] should be in [1, 65535]"},
+		{&ConfigBasic{HttpPort: 80, HttpsPort: 443, MonitorPort: -1, MonitorEnabled: true}, "MonitorPort[-1] should be in [1, 65535]"},
 		{&ConfigBasic{HttpPort: 80, HttpsPort: 443, MonitorPort: 8080, MonitorEnabled: false, MaxCpus: -1}, "MaxCpus[-1] is too small"},
 		{&ConfigBasic{HttpPort: 80, HttpsPort: 443, MonitorPort: 8080, MonitorEnabled: true, MaxCpus: 10, TlsHandshakeTimeout: 30,
 			GracefulShutdownTimeout: 30}, "ClientReadTimeout[0] should > 0"},
 		{&ConfigBasic{HttpPort: 80, HttpsPort: 443, MonitorPort: 8080, MonitorEnabled: true, MaxCpus: 10, TlsHandshakeTimeout: 30,
 			GracefulShutdownTimeout: 30, ClientReadTimeout: 10, ClientWriteTimeout: 10, MonitorInterval: 33},
 			"MonitorInterval[33] can not divide 60"},
+		{&ConfigBasic{HttpPort: 80, HttpsPort: 443, MonitorPort: 8080, MonitorEnabled: true, MaxCpus: 10, TlsHandshakeTimeout: 30,
+			GracefulShutdownTimeout: 30, ClientReadTimeout: 10, ClientWriteTimeout: 10, MonitorInterval: 20,
+			MaxHeaderUriBytes: 8096, MaxHeaderBytes: 8096, AccessibleBodySize: 99999999},
+			"AccessibleBodySize[99999999] should <= 8388608"},
 	}
 
 	for _, c := range checks {
