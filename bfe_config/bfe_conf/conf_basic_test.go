@@ -114,6 +114,10 @@ func Test_conf_basic_check(t *testing.T) {
 			GracefulShutdownTimeout: 30, ClientReadTimeout: 10, ClientWriteTimeout: 10, MonitorInterval: 20,
 			MaxHeaderUriBytes: 8096, MaxHeaderBytes: 8096, AccessibleBodySize: 99999999},
 			"AccessibleBodySize[99999999] should <= 8388608"},
+		{&ConfigBasic{HttpPort: 80, HttpsPort: 443, MonitorPort: 8080, MonitorEnabled: true, MaxCpus: 10, TlsHandshakeTimeout: 30,
+			GracefulShutdownTimeout: 30, ClientReadTimeout: 10, ClientWriteTimeout: 10, MonitorInterval: 20,
+			MaxHeaderUriBytes: 8096, MaxHeaderBytes: 8096, AccessibleBodySize: 2097152, TotalBodyBufferSize: -1},
+			"TotalBodyBufferSize[-1] should >= 0"},
 	}
 
 	for _, c := range checks {

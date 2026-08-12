@@ -54,7 +54,8 @@ type ConfigBasic struct {
 	EnableAiGateway bool // enable ai gateway
 	EstimateToken   bool // whether estimate token usage from content length
 
-	AccessibleBodySize int64 // max size in bytes to buffer request body for rewriting/fallback
+	AccessibleBodySize  int64 // max size in bytes to buffer request body for rewriting/fallback
+	TotalBodyBufferSize int64 // max total bytes of all active bytes_body buffers (0 means unlimited)
 
 	Modules []string // modules to load
 
@@ -94,6 +95,7 @@ func (cfg *ConfigBasic) SetDefaultConf() {
 	cfg.KeepAliveEnabled = true
 
 	cfg.AccessibleBodySize = bfe_http.DefaultAccessibleBodySize
+	cfg.TotalBodyBufferSize = 0
 
 	cfg.HostRuleConf = "server_data_conf/host_rule.data"
 	cfg.VipRuleConf = "server_data_conf/vip_rule.data"
@@ -223,6 +225,11 @@ func basicConfCheck(cfg *ConfigBasic) error {
 	}
 	if cfg.AccessibleBodySize > bfe_http.MaxAccessibleBodySize {
 		return fmt.Errorf("AccessibleBodySize[%d] should <= %d", cfg.AccessibleBodySize, bfe_http.MaxAccessibleBodySize)
+	}
+
+	// check TotalBodyBufferSize
+	if cfg.TotalBodyBufferSize < 0 {
+		return fmt.Errorf("TotalBodyBufferSize[%d] should >= 0", cfg.TotalBodyBufferSize)
 	}
 
 	return nil

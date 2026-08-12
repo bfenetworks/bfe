@@ -31,6 +31,7 @@ bfe.conf是BFE的核心配置
 | Server.EnableAiGateway         | Boolean | 是否启用AI Gateway模式                             | N    | 默认值`False`                                                            | -                                               |
 | Server.EstimateToken           | Boolean | 是否基于请求Content-Length估算token使用量          | N    | 默认值`False`                                                            | -                                               |
 | Server.AccessibleBodySize      | Integer | 请求体可缓冲的最大长度，单位为Byte                 | N    | 默认值2097152；用于请求体改写及AI Gateway fallback重试；超过此大小的请求体无法被完整缓存并重传 | > 0 且 <= 8388608                             |
+| Server.TotalBodyBufferSize     | Integer | 所有活跃bytes_body buffer占用内存之和的上限，单位为Byte | N    | 默认值0（表示无限制）；达到上限时，AI Gateway fallback不再对请求体做缓存封装，即不重传 | >= 0                                          |
 | Server.HostRuleConf            | String  | [租户域名表配置](server_data_conf/host_rule.data.md)文件路径 | N    | 默认值`server_data_conf/host_rule.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
 | Server.VipRuleConf             | String  | [租户VIP表配置](server_data_conf/vip_rule.data.md)文件路径 | N    | 默认值`server_data_conf/vip_rule.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
 | Server.RouteRuleConf           | String  | [转发规则配置](server_data_conf/route_rule.data.md)文件路径 | N    | 默认值`server_data_conf/route_rule.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
@@ -114,6 +115,9 @@ MaxHeaderUriBytes = 8192
 
 # max request body size that can be buffered for rewriting/fallback (default 2MB, max 8MB)
 AccessibleBodySize = 2097152
+
+# max total bytes of all active bytes_body buffers (0 means unlimited)
+TotalBodyBufferSize = 0
 
 # routing related conf
 HostRuleConf = server_data_conf/host_rule.data

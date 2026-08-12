@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_net/textproto"
@@ -757,12 +758,71 @@ type Rewindable interface {
 	Rewind() bool
 }
 
+// totalBytesBodyBuffer tracks the sum of bytes_body.buf sizes currently in use.
+var totalBytesBodyBuffer int64
+
+// totalBytesBodyBufferLimit is the upper bound for totalBytesBodyBuffer.
+// 0 means unlimited.
+var totalBytesBodyBufferLimit int64
+
+// SetTotalBodyBufferSizeLimit sets the limit for total bytes_body buffer size.
+// 0 or negative means unlimited.
+func SetTotalBodyBufferSizeLimit(limit int64) {
+	if limit < 0 {
+		limit = 0
+	}
+	atomic.StoreInt64(&totalBytesBodyBufferLimit, limit)
+}
+
+// TotalBodyBufferSizeLimit returns the current limit.
+func TotalBodyBufferSizeLimit() int64 {
+	return atomic.LoadInt64(&totalBytesBodyBufferLimit)
+}
+
+// TotalBytesBodyBuffer returns the current total bytes_body buffer size.
+func TotalBytesBodyBuffer() int64 {
+	return atomic.LoadInt64(&totalBytesBodyBuffer)
+}
+
+// addTotalBytesBodyBuffer adds delta to the total buffer size and returns true.
+// If limit > 0 and the new total would exceed the limit, the addition is not
+// performed and false is returned.
+func addTotalBytesBodyBuffer(delta int64) bool {
+	if delta == 0 {
+		return true
+	}
+	limit := TotalBodyBufferSizeLimit()
+	if limit <= 0 {
+		atomic.AddInt64(&totalBytesBodyBuffer, delta)
+		return true
+	}
+	for {
+		old := atomic.LoadInt64(&totalBytesBodyBuffer)
+		new := old + delta
+		if new > limit {
+			return false
+		}
+		if atomic.CompareAndSwapInt64(&totalBytesBodyBuffer, old, new) {
+			return true
+		}
+	}
+}
+
+// subTotalBytesBodyBuffer subtracts delta from the total buffer size.
+func subTotalBytesBodyBuffer(delta int64) {
+	if delta == 0 {
+		return
+	}
+	atomic.AddInt64(&totalBytesBodyBuffer, -delta)
+}
+
 // body with BodyAccessor interface
 type bytes_body struct {
 	src       io.ReadCloser // source body
 	buf       []byte        // bytes read out from src
 	all       bool          // all already read out from src to buf
 	srcClosed bool          // source has been closed
+	released  bool          // whether buffer has been subtracted from total accounting
 	r         *bodyReader   // reader of buf and src
 	err       error
 }
@@ -807,6 +867,10 @@ func (b *bytes_body) Close() error {
 		return nil
 	}
 	b.srcClosed = true
+	if !b.released {
+		b.released = true
+		subTotalBytesBodyBuffer(int64(len(b.buf)))
+	}
 	if b.src == nil {
 		return nil
 	}
@@ -832,6 +896,10 @@ func (b *bytes_body) GetBytes() ([]byte, bool) {
 }
 
 func (b *bytes_body) SetBytes(newBuf []byte, all bool) {
+	if !b.released {
+		subTotalBytesBodyBuffer(int64(len(b.buf)))
+		addTotalBytesBodyBuffer(int64(len(newBuf)))
+	}
 	b.buf = newBuf
 	br := bytes.NewBuffer(newBuf)
 	b.all = b.all || all
@@ -873,6 +941,7 @@ func newBytesBody(src io.ReadCloser, maxSize int64) (*bytes_body, error) {
 	}
 
 	br := bytes.NewBuffer(bb)
+	addTotalBytesBodyBuffer(int64(len(bb)))
 
 	if len(bb) < int(maxSize) {
 		return &bytes_body{

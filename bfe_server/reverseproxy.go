@@ -1588,7 +1588,14 @@ func (p *ReverseProxy) resetRequestForRetry(basicReq *bfe_basic.Request) bool {
 // prepareRequestBodyForRetry makes the request body rewindable for fallback.
 // If the body already implements Rewindable, it returns true directly.
 // Otherwise, it tries to convert the body to bytes_body via GetBodyAccessor.
+// It rejects wrapping when the total bytes_body buffer size reaches the limit.
 func prepareRequestBodyForRetry(req *bfe_http.Request) bool {
+	// if total buffer size already reaches the limit, do not wrap (no retry)
+	if limit := bfe_http.TotalBodyBufferSizeLimit(); limit > 0 {
+		if bfe_http.TotalBytesBodyBuffer() >= limit {
+			return false
+		}
+	}
 	if req.Body == nil {
 		return true
 	}

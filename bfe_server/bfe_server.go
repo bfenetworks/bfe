@@ -25,7 +25,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/bfe/bfe_balance"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
@@ -40,6 +39,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util/signal_table"
 	"github.com/bfenetworks/bfe/bfe_websocket"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 type BfeServer struct {
@@ -163,6 +163,9 @@ func (srv *BfeServer) InitConfig() {
 
 	// set AccessibleBodySize
 	bfe_http.SetAccessibleBodySize(srv.Config.Server.AccessibleBodySize)
+
+	// set TotalBodyBufferSize limit
+	bfe_http.SetTotalBodyBufferSizeLimit(srv.Config.Server.TotalBodyBufferSize)
 }
 
 func (srv *BfeServer) InitHttp() (err error) {
