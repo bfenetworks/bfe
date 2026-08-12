@@ -1300,7 +1300,7 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 	// ensure request body is rewindable before attempting fallbacks
 	if len(attempts) > 1 && basicReq.HttpRequest.Body != nil {
 		if !prepareRequestBodyForRetry(basicReq.HttpRequest) {
-			log.Logger.Warn("mod_ai_route: request body is not rewindable, disable fallback")
+			log.Logger.Warn("ServeHTTPForAI: request body is not rewindable, disable fallback")
 			attempts = attempts[:1]
 		}
 	}
@@ -1309,7 +1309,7 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		if i > 0 {
 			// fallback attempt: reset request state
 			if !p.resetRequestForRetry(basicReq) {
-				log.Logger.Warn("mod_ai_route: fallback aborted, request body cannot be rewound")
+				log.Logger.Warn("ServeHTTPForAI: fallback aborted, request body cannot be rewound")
 				break
 			}
 		}
@@ -1330,7 +1330,7 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		}
 
 		// log fallback
-		log.Logger.Info("mod_ai_route: fallback triggered, cluster[%s] err[%v] status[%d]",
+		log.Logger.Info("ServeHTTPForAI: fallback triggered, cluster[%s] err[%v] status[%d]",
 			attempt.ClusterName, invokeErr, getResponseStatus(res))
 
 		if res != nil {
