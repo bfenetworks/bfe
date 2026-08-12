@@ -1297,10 +1297,21 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		})
 	}
 
+	// ensure request body is rewindable before attempting fallbacks
+	if len(attempts) > 1 && basicReq.HttpRequest.Body != nil {
+		if !prepareRequestBodyForRetry(basicReq.HttpRequest) {
+			log.Logger.Warn("ServeHTTPForAI: request body is not rewindable, disable fallback")
+			attempts = attempts[:1]
+		}
+	}
+
 	for i, attempt := range attempts {
 		if i > 0 {
 			// fallback attempt: reset request state
-			p.resetRequestForRetry(basicReq)
+			if !p.resetRequestForRetry(basicReq) {
+				log.Logger.Warn("ServeHTTPForAI: fallback aborted, request body cannot be rewound")
+				break
+			}
 		}
 
 		res, action, lastCluster, invokeErr = p.aiClusterInvoke(srv, serverConf, basicReq, rw, attempt, aiMeta)
@@ -1319,9 +1330,9 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		}
 
 		// log fallback
-		log.Logger.Info("mod_ai_route: fallback triggered, cluster[%s] err[%v] status[%d]",
+		log.Logger.Info("ServeHTTPForAI: fallback triggered, cluster[%s] err[%v] status[%d]",
 			attempt.ClusterName, invokeErr, getResponseStatus(res))
-		
+
 		if res != nil {
 			res.Body.Close()
 		}
@@ -1466,7 +1477,7 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 
 	// set deadline to finish read client request body
 	timeoutReadClient := cluster.TimeoutReadClient()
-	
+
 	if basicReq.IsSse {
 		timeoutReadClient = -1
 	}
@@ -1551,7 +1562,7 @@ func getResponseStatus(res *bfe_http.Response) int {
 	return res.StatusCode
 }
 
-func (p *ReverseProxy) resetRequestForRetry(basicReq *bfe_basic.Request) {
+func (p *ReverseProxy) resetRequestForRetry(basicReq *bfe_basic.Request) bool {
 	// desc backend connection counter
 	if basicReq.Trans.Backend != nil {
 		basicReq.Trans.Backend.DecConnNum()
@@ -1563,7 +1574,50 @@ func (p *ReverseProxy) resetRequestForRetry(basicReq *bfe_basic.Request) {
 	// reset out request so body can be re-read
 	basicReq.OutRequest = nil
 
+	// rewind request body for next fallback attempt
+	if !rewindRequestBody(basicReq.HttpRequest) {
+		return false
+	}
+
 	// clear error info from previous attempt
 	basicReq.ErrCode = nil
 	basicReq.ErrMsg = ""
+	return true
+}
+
+// prepareRequestBodyForRetry makes the request body rewindable for fallback.
+// If the body already implements Rewindable, it returns true directly.
+// Otherwise, it tries to convert the body to bytes_body via GetBodyAccessor.
+// It rejects wrapping when the total bytes_body buffer size reaches the limit.
+func prepareRequestBodyForRetry(req *bfe_http.Request) bool {
+	// if total buffer size already reaches the limit, do not wrap (no retry)
+	if limit := bfe_http.TotalBodyBufferSizeLimit(); limit > 0 {
+		if bfe_http.TotalBytesBodyBuffer() >= limit {
+			return false
+		}
+	}
+	if req.Body == nil {
+		return true
+	}
+	if _, ok := req.Body.(bfe_http.Rewindable); ok {
+		return true
+	}
+	if _, err := req.GetBodyAccessor(); err != nil {
+		return false
+	}
+	_, ok := req.Body.(bfe_http.Rewindable)
+	return ok
+}
+
+// rewindRequestBody rewinds the request body to the beginning.
+// It assumes the body already implements Rewindable.
+func rewindRequestBody(req *bfe_http.Request) bool {
+	if req.Body == nil {
+		return true
+	}
+	rewindable, ok := req.Body.(bfe_http.Rewindable)
+	if !ok {
+		return false
+	}
+	return rewindable.Rewind()
 }

@@ -17,8 +17,9 @@ package bfe_conf
 import (
 	"fmt"
 
-	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_util"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 const (
@@ -33,9 +34,9 @@ type ConfigBasic struct {
 	HttpsAddr      string // listen address for https, default all interfaces
 	MonitorPort    int    // web server port for monitor
 	MonitorAddr    string // listen address for monitor, default all interfaces
-	MaxCpus        int  // number of max cpus to use
-	AcceptNum      int  // number of accept goroutine for each listener, default 1
-	MonitorEnabled bool // web server for monitor enable or not
+	MaxCpus        int    // number of max cpus to use
+	AcceptNum      int    // number of accept goroutine for each listener, default 1
+	MonitorEnabled bool   // web server for monitor enable or not
 
 	// settings of layer-4 load balancer
 	Layer4LoadBalancer string
@@ -52,6 +53,9 @@ type ConfigBasic struct {
 
 	EnableAiGateway bool // enable ai gateway
 	EstimateToken   bool // whether estimate token usage from content length
+
+	AccessibleBodySize  int64 // max size in bytes to buffer request body for rewriting/fallback
+	TotalBodyBufferSize int64 // max total bytes of all active bytes_body buffers (0 means unlimited)
 
 	Modules []string // modules to load
 
@@ -89,6 +93,9 @@ func (cfg *ConfigBasic) SetDefaultConf() {
 	cfg.MaxHeaderBytes = 1048576
 	cfg.MaxHeaderUriBytes = 8192
 	cfg.KeepAliveEnabled = true
+
+	cfg.AccessibleBodySize = bfe_http.DefaultAccessibleBodySize
+	cfg.TotalBodyBufferSize = 0
 
 	cfg.HostRuleConf = "server_data_conf/host_rule.data"
 	cfg.VipRuleConf = "server_data_conf/vip_rule.data"
@@ -209,6 +216,20 @@ func basicConfCheck(cfg *ConfigBasic) error {
 	// check MaxHeaderBytes
 	if cfg.MaxHeaderBytes <= 0 {
 		return fmt.Errorf("MaxHeaderHeaderBytes[%d] should > 0", cfg.MaxHeaderBytes)
+	}
+
+	// check AccessibleBodySize
+	if cfg.AccessibleBodySize <= 0 {
+		cfg.AccessibleBodySize = bfe_http.DefaultAccessibleBodySize
+		log.Logger.Warn("AccessibleBodySize not set or invalid, use default value(%d)", cfg.AccessibleBodySize)
+	}
+	if cfg.AccessibleBodySize > bfe_http.MaxAccessibleBodySize {
+		return fmt.Errorf("AccessibleBodySize[%d] should <= %d", cfg.AccessibleBodySize, bfe_http.MaxAccessibleBodySize)
+	}
+
+	// check TotalBodyBufferSize
+	if cfg.TotalBodyBufferSize < 0 {
+		return fmt.Errorf("TotalBodyBufferSize[%d] should >= 0", cfg.TotalBodyBufferSize)
 	}
 
 	return nil

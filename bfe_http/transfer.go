@@ -27,9 +27,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-)
+	"sync/atomic"
 
-import (
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_net/textproto"
 )
@@ -755,19 +754,126 @@ type BodyAccessor interface {
 	SetBytes([]byte, bool)
 }
 
-//body with BodyAccessor interface
+type Rewindable interface {
+	Rewind() bool
+}
+
+// totalBytesBodyBuffer tracks the sum of bytes_body.buf sizes currently in use.
+var totalBytesBodyBuffer int64
+
+// totalBytesBodyBufferLimit is the upper bound for totalBytesBodyBuffer.
+// 0 means unlimited.
+var totalBytesBodyBufferLimit int64
+
+// SetTotalBodyBufferSizeLimit sets the limit for total bytes_body buffer size.
+// 0 or negative means unlimited.
+func SetTotalBodyBufferSizeLimit(limit int64) {
+	if limit < 0 {
+		limit = 0
+	}
+	atomic.StoreInt64(&totalBytesBodyBufferLimit, limit)
+}
+
+// TotalBodyBufferSizeLimit returns the current limit.
+func TotalBodyBufferSizeLimit() int64 {
+	return atomic.LoadInt64(&totalBytesBodyBufferLimit)
+}
+
+// TotalBytesBodyBuffer returns the current total bytes_body buffer size.
+func TotalBytesBodyBuffer() int64 {
+	return atomic.LoadInt64(&totalBytesBodyBuffer)
+}
+
+// addTotalBytesBodyBuffer adds delta to the total buffer size and returns true.
+// If limit > 0 and the new total would exceed the limit, the addition is not
+// performed and false is returned.
+func addTotalBytesBodyBuffer(delta int64) bool {
+	if delta == 0 {
+		return true
+	}
+	limit := TotalBodyBufferSizeLimit()
+	if limit <= 0 {
+		atomic.AddInt64(&totalBytesBodyBuffer, delta)
+		return true
+	}
+	for {
+		old := atomic.LoadInt64(&totalBytesBodyBuffer)
+		new := old + delta
+		if new > limit {
+			return false
+		}
+		if atomic.CompareAndSwapInt64(&totalBytesBodyBuffer, old, new) {
+			return true
+		}
+	}
+}
+
+// subTotalBytesBodyBuffer subtracts delta from the total buffer size.
+func subTotalBytesBodyBuffer(delta int64) {
+	if delta == 0 {
+		return
+	}
+	atomic.AddInt64(&totalBytesBodyBuffer, -delta)
+}
+
+// body with BodyAccessor interface
 type bytes_body struct {
-	src     io.ReadCloser	// source body
-	buf     []byte			// bytes read out from src
-	all     bool            // all already read out from src to buf 
-	r       io.Reader       // multiReader of buf and src
+	src       io.ReadCloser // source body
+	buf       []byte        // bytes read out from src
+	all       bool          // all already read out from src to buf
+	srcClosed bool          // source has been closed
+	released  bool          // whether buffer has been subtracted from total accounting
+	r         *bodyReader   // reader of buf and src
+	err       error
+}
+
+// bodyReader tracks whether reading has moved from the buffer to the source.
+type bodyReader struct {
+	buf        *bytes.Buffer
+	src        io.Reader
+	srcStarted bool
+}
+
+func (br *bodyReader) Read(p []byte) (int, error) {
+	if !br.srcStarted {
+		n, err := br.buf.Read(p)
+		if err != io.EOF {
+			return n, err
+		}
+		br.srcStarted = true
+		if n > 0 {
+			return n, nil
+		}
+	}
+	if br.src == nil {
+		return 0, io.EOF
+	}
+	return br.src.Read(p)
 }
 
 func (b *bytes_body) Read(p []byte) (n int, err error) {
-	return b.r.Read(p)
+	if b.err != nil {
+		return 0, b.err
+	}
+	n, err = b.r.Read(p)
+	if err != nil {
+		b.err = err
+	}
+	return
 }
 
 func (b *bytes_body) Close() error {
+	if b.srcClosed {
+		return nil
+	}
+	b.srcClosed = true
+	if !b.released {
+		b.released = true
+		subTotalBytesBodyBuffer(int64(len(b.buf)))
+	}
+	if b.src == nil {
+		return nil
+	}
 	return b.src.Close()
 }
 
@@ -790,14 +896,34 @@ func (b *bytes_body) GetBytes() ([]byte, bool) {
 }
 
 func (b *bytes_body) SetBytes(newBuf []byte, all bool) {
+	if !b.released {
+		subTotalBytesBodyBuffer(int64(len(b.buf)))
+		addTotalBytesBodyBuffer(int64(len(newBuf)))
+	}
 	b.buf = newBuf
 	br := bytes.NewBuffer(newBuf)
 	b.all = b.all || all
+	b.err = nil
 	if b.all {
-		b.r = br
+		b.r = &bodyReader{buf: br}
 	} else {
-		b.r = io.MultiReader(br, b.src)
+		b.r = &bodyReader{buf: br, src: b.src}
 	}
+}
+
+func (b *bytes_body) SrcStarted() bool {
+	return b.r != nil && b.r.srcStarted
+}
+
+func (b *bytes_body) Rewind() bool {
+	// If all data is already in buffer, we can rewind regardless of
+	// src state. Otherwise, rewind is only possible before src is
+	// started or closed.
+	if (b.srcClosed || b.SrcStarted()) && !b.all {
+		return false
+	}
+	b.SetBytes(b.buf, b.all)
+	return true
 }
 
 func NewBytesBody(src io.ReadCloser, maxSize int64) (io.ReadCloser, error) {
@@ -815,20 +941,21 @@ func newBytesBody(src io.ReadCloser, maxSize int64) (*bytes_body, error) {
 	}
 
 	br := bytes.NewBuffer(bb)
+	addTotalBytesBodyBuffer(int64(len(bb)))
 
 	if len(bb) < int(maxSize) {
 		return &bytes_body{
 			src: src,
 			buf: bb,
 			all: true,
-			r:   br,
+			r:   &bodyReader{buf: br},
 		}, nil
 	} else {
 		return &bytes_body{
 			src: src,
 			buf: bb,
 			all: false,
-			r:   io.MultiReader(br, src),
+			r:   &bodyReader{buf: br, src: src},
 		}, nil
 	}
 }

@@ -30,6 +30,8 @@ bfe.conf is the core configuration file of BFE.
 | Server.MaxProxyHeaderBytes     | Integer | Max length of PROXY protocol header, in bytes        | N         | Default 0                                                                                                      | >= 0                                                                 |
 | Server.EnableAiGateway         | Boolean | Whether AI Gateway mode is enabled                   | N         | Default `False`                                                                                                | -                                                                    |
 | Server.EstimateToken           | Boolean | Whether to estimate token usage based on request Content-Length | N | Default `False`                                                                                                | -                                                                    |
+| Server.AccessibleBodySize      | Integer | Max size of request body that can be buffered, in bytes | N      | Default 2097152; used for request body rewriting and AI Gateway fallback retry; request bodies larger than this cannot be fully cached and retransmitted | > 0 and <= 8388608                                                   |
+| Server.TotalBodyBufferSize     | Integer | Upper limit of total memory used by all active bytes_body buffers, in bytes | N      | Default 0 (unlimited); when reached, AI Gateway fallback will not wrap the request body for caching, i.e., no retry | >= 0                                                                 |
 | Server.HostRuleConf            | String  | Path of [host config](server_data_conf/host_rule.data.md) file | N     | Default `server_data_conf/host_rule.data`; see [FilePath](00-common.md#3-filepath) type definition            | Type is [FilePath](00-common.md#3-filepath)                          |
 | Server.VipRuleConf             | String  | Path of [VIP config](server_data_conf/vip_rule.data.md) file | N       | Default `server_data_conf/vip_rule.data`; see [FilePath](00-common.md#3-filepath) type definition             | Type is [FilePath](00-common.md#3-filepath)                          |
 | Server.RouteRuleConf           | String  | Path of [route rule config](server_data_conf/route_rule.data.md) file | N  | Default `server_data_conf/route_rule.data`; see [FilePath](00-common.md#3-filepath) type definition           | Type is [FilePath](00-common.md#3-filepath)                          |
@@ -110,6 +112,12 @@ MaxHeaderBytes = 1048576
 
 # max URI(in header) length in bytes in request
 MaxHeaderUriBytes = 8192
+
+# max request body size that can be buffered for rewriting/fallback (default 2MB, max 8MB)
+AccessibleBodySize = 2097152
+
+# max total bytes of all active bytes_body buffers (0 means unlimited)
+TotalBodyBufferSize = 0
 
 # routing related conf
 HostRuleConf = server_data_conf/host_rule.data
