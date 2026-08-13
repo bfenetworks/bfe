@@ -27,6 +27,10 @@
         "cluster_global_default": {
             "GSLB_BLACKHOLE": 0,
             "sub_global": 100
+        },
+        "cluster_holder": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_holder": 100
         }
     },
     "hostname": "gslb-test",

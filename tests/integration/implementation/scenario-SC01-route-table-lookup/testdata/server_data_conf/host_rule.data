@@ -5,7 +5,9 @@
             "api.example.org",
             "other.example.org",
             "entity.example.org",
-            "unknown.example.org"
+            "unknown.example.org",
+            "large.example.org",
+            "holder.example.org"
         ]
     },
     "HostTags": {

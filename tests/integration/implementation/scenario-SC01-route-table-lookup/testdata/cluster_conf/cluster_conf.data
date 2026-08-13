@@ -23,7 +23,8 @@
                 "RetryMax": 0,
                 "TimeoutReadClient": 5000,
                 "TimeoutWriteClient": 5000,
-                "TimeoutReadClientAgain": 5000
+                "TimeoutReadClientAgain": 5000,
+                "DisableHealthCheck": true
             }
         },
         "cluster_primary_b": {
@@ -48,7 +49,8 @@
                 "RetryMax": 0,
                 "TimeoutReadClient": 5000,
                 "TimeoutWriteClient": 5000,
-                "TimeoutReadClientAgain": 5000
+                "TimeoutReadClientAgain": 5000,
+                "DisableHealthCheck": true
             }
         },
         "cluster_primary_c": {
@@ -73,7 +75,8 @@
                 "RetryMax": 0,
                 "TimeoutReadClient": 5000,
                 "TimeoutWriteClient": 5000,
-                "TimeoutReadClientAgain": 5000
+                "TimeoutReadClientAgain": 5000,
+                "DisableHealthCheck": true
             }
         },
         "cluster_fallback_1": {
@@ -98,7 +101,8 @@
                 "RetryMax": 0,
                 "TimeoutReadClient": 5000,
                 "TimeoutWriteClient": 5000,
-                "TimeoutReadClientAgain": 5000
+                "TimeoutReadClientAgain": 5000,
+                "DisableHealthCheck": true
             }
         },
         "cluster_fallback_2": {
@@ -123,7 +127,8 @@
                 "RetryMax": 0,
                 "TimeoutReadClient": 5000,
                 "TimeoutWriteClient": 5000,
-                "TimeoutReadClientAgain": 5000
+                "TimeoutReadClientAgain": 5000,
+                "DisableHealthCheck": true
             }
         },
         "cluster_entity_default": {
@@ -148,7 +153,8 @@
                 "RetryMax": 0,
                 "TimeoutReadClient": 5000,
                 "TimeoutWriteClient": 5000,
-                "TimeoutReadClientAgain": 5000
+                "TimeoutReadClientAgain": 5000,
+                "DisableHealthCheck": true
             }
         },
         "cluster_global_default": {
@@ -173,7 +179,34 @@
                 "RetryMax": 0,
                 "TimeoutReadClient": 5000,
                 "TimeoutWriteClient": 5000,
-                "TimeoutReadClientAgain": 5000
+                "TimeoutReadClientAgain": 5000,
+                "DisableHealthCheck": true
+            }
+        },
+        "cluster_holder": {
+            "BackendConf": {
+                "TimeoutConnSrv": 1000,
+                "TimeoutWriteSrv": 60000,
+                "TimeoutReadSrv": 60000,
+                "TimeoutResponseHeader": 60000,
+                "SlowStartTime": 0
+            },
+            "CheckConf": {
+                "Uri": "/health",
+                "FailNum": 3,
+                "CheckInterval": 1000,
+                "Response": "200 OK"
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 0
+            },
+            "ClusterBasic": {
+                "RetryMax": 0,
+                "TimeoutReadClient": 30000,
+                "TimeoutWriteClient": 30000,
+                "TimeoutReadClientAgain": 30000,
+                "DisableHealthCheck": true
             }
         }
     }

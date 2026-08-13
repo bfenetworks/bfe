@@ -35,6 +35,40 @@
                             "Model": "fallback-model-2"
                         }
                     ]
+                },
+                {
+                    "name": "user_a-large",
+                    "Cond": "req_host_in(\"large.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_primary_a",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": [
+                        {
+                            "ClusterName": "cluster_fallback_1",
+                            "Model": ""
+                        }
+                    ]
+                },
+                {
+                    "name": "user_a-holder",
+                    "Cond": "req_host_in(\"holder.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_holder",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": [
+                        {
+                            "ClusterName": "cluster_fallback_2",
+                            "Model": ""
+                        }
+                    ]
                 }
             ]
         },
