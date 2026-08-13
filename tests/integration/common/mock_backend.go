@@ -53,10 +53,14 @@ type MockBackend struct {
 	// have been received and before the body is read. This can be used to keep
 	// BFE from closing the request body while another request is processed.
 	HoldBeforeRead <-chan struct{}
-	hits            int
-	mu              sync.Mutex
-	models          []string
-	bodies          [][]byte
+	// ResponseFunc, if non-nil, overrides Response/Body and is called for each
+	// request to determine the response status and body.
+	ResponseFunc func(r *http.Request, count int) (int, string)
+	hits         int
+	mu           sync.Mutex
+	models       []string
+	bodies       [][]byte
+	authHeaders  []string
 }
 
 // NewMockBackend starts a local HTTP server that returns the given status code.
@@ -69,6 +73,7 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 	b.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b.mu.Lock()
 		b.hits++
+		count := b.hits
 		if b.ReadNotify != nil {
 			close(b.ReadNotify)
 			b.ReadNotify = nil
@@ -94,6 +99,7 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 			bodyBytes, _ := io.ReadAll(r.Body)
 			b.mu.Lock()
 			b.bodies = append(b.bodies, append([]byte(nil), bodyBytes...))
+			b.authHeaders = append(b.authHeaders, r.Header.Get("Authorization"))
 			var reqBody map[string]interface{}
 			if err := json.Unmarshal(bodyBytes, &reqBody); err == nil {
 				if model, ok := reqBody["model"].(string); ok {
@@ -108,9 +114,14 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 		if b.DelayResponse > 0 {
 			time.Sleep(b.DelayResponse)
 		}
-		w.WriteHeader(b.Response)
-		if b.Body != "" {
-			w.Write([]byte(b.Body))
+
+		status, body := b.Response, b.Body
+		if b.ResponseFunc != nil {
+			status, body = b.ResponseFunc(r, count)
+		}
+		w.WriteHeader(status)
+		if body != "" {
+			w.Write([]byte(body))
 		}
 	}))
 	return b
@@ -139,6 +150,13 @@ func (b *MockBackend) RequestBodies() [][]byte {
 		result[i] = append([]byte(nil), body...)
 	}
 	return result
+}
+
+// AuthHeaders returns a deep copy of all observed Authorization headers.
+func (b *MockBackend) AuthHeaders() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]string(nil), b.authHeaders...)
 }
 
 // Close shuts down the mock backend.

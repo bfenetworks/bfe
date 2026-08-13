@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 )
 
 // BFEConfigBuilder builds a temporary BFE configuration directory from a template.
@@ -31,6 +33,8 @@ type BFEConfigBuilder struct {
 	TargetConfDir string
 	// Backends maps cluster names to mock backends.
 	Backends map[string]*MockBackend
+	// AIConfs optionally injects AIConf into cluster_conf.data for specific clusters.
+	AIConfs map[string]*cluster_conf.AIConf
 	// TotalBodyBufferSize overrides the totalBodyBufferSize value in bfe.conf.
 	// A value of 0 keeps the template value.
 	TotalBodyBufferSize int64
@@ -133,11 +137,31 @@ func (b *BFEConfigBuilder) generateClusterConfData() error {
 	config := clusterConf["Config"].(map[string]interface{})
 
 	for name := range b.Backends {
-		config[name] = clusterBasicConf()
+		conf := clusterBasicConf()
+		if aiConf, ok := b.AIConfs[name]; ok && aiConf != nil {
+			aiConfMap, err := aiConfToMap(aiConf)
+			if err != nil {
+				return fmt.Errorf("marshal AIConf for cluster %s failed: %w", name, err)
+			}
+			conf["AIConf"] = aiConfMap
+		}
+		config[name] = conf
 	}
 
 	path := filepath.Join(b.TargetConfDir, "cluster_conf", "cluster_conf.data")
 	return writeJSONFile(path, clusterConf)
+}
+
+func aiConfToMap(aiConf *cluster_conf.AIConf) (map[string]interface{}, error) {
+	bytes, err := json.Marshal(aiConf)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(bytes, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func clusterBasicConf() map[string]interface{} {

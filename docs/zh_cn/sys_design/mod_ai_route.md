@@ -1003,6 +1003,10 @@ if c.server.Config.Server.EnableAiGateway {
 - **连接管理**：复用 `ReverseProxy.transports` 和 `clusterInvoke()` 进行实际转发；
 - **降级重试**：在独立的 `ServeHTTPForAI()` 中实现 target/fallback 选择逻辑，调用 `clusterInvoke()` 完成每次转发尝试。
 
+### 7.4 多 API-Key 支持
+
+ai-gateway-api 支持为一个 cluster 配置多个 API-Key，BFE 在 `ServeHTTPForAI()` → `aiClusterInvoke()` 路径中消费 `cluster.AIConf.Keys` 与 `cluster.AIConf.KeyPolicy`，实现 Key 级加权随机选择、失败轮换与退避重试。多 API-Key 的详细设计见 [BFE 多 API-Key 支持](./multi_api_key.md)。
+
 ### 7.4 独立 ServeHTTPForAI
 
 为避免对原 `ServeHTTP()` 产生较大影响，已在 `bfe_server/reverseproxy.go` 中新增独立的 `ServeHTTPForAI()`：

@@ -126,10 +126,47 @@ type BackendHTTPS struct {
 	protocol string               // protocol of backend https
 }
 
+// AIKey represents a single API key for AI service
+type AIKey struct {
+	Name   string // identifier
+	Key    string // API key value
+	Weight int    // weight for weighted random selection, [0,100]
+}
+
+// AIKeyPolicy represents routing/retry policy for AI keys
+type AIKeyPolicy struct {
+	Strategy            string // "weighted_random" only in this version
+	MaxRetries          int    // total retry budget within one aiClusterInvoke call
+	RetryBackoffInitial int    // ms
+	RetryBackoffMax     int    // ms
+}
+
+// ModelPrice represents a single model pricing entry in AIConf.ModelTable
+type ModelPrice struct {
+	Provider            string
+	Model               string
+	BaseModel           string
+	Mode                string
+	Capabilities        []string
+	SupportedParameters []string
+	Limits              map[string]interface{}
+	Prices              map[string]float64
+	Metadata            map[string]interface{}
+}
+
+// ModelTable represents the cost/pricing table for a cluster
+type ModelTable struct {
+	Currency string       // fixed "RMB" in v0.4
+	Models   []ModelPrice
+}
+
 type AIConf struct {
-	Type               int                // type of LLM service, reserved for future use. should be 0 now.
-	ModelMapping       *map[string]string // model mapping, key is model name in req, value is model name in backend
-	Key                *string            // API key for AI service
+	Type         int                // type of LLM service, reserved for future use. should be 0 now.
+	ModelMapping *map[string]string // model mapping, key is model name in req, value is model name in backend
+	Provider     string             // provider name in model_prices
+	Keys         []AIKey            // multiple API keys; empty means no key injection
+	KeyPolicy    *AIKeyPolicy       // key selection & retry policy
+	ModelTable   *ModelTable        // pricing table, auto-filled by InnerAPI
 }
 
 func (conf *BackendHTTPS) GetProtocol() string {

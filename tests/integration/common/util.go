@@ -110,6 +110,10 @@ func clusterSubName(clusterName string) string {
 		return "global"
 	case "cluster_holder":
 		return "holder"
+	case "cluster_multi_key":
+		return "multi"
+	case "cluster_fallback_ok":
+		return "fb"
 	}
 	return "sub"
 }

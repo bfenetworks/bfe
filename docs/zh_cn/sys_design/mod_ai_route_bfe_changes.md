@@ -392,7 +392,7 @@ type aiForwardAttempt struct {
 
 #### 4.3.2 aiClusterInvoke()
 
-封装一次 AI 目标转发，复用 `clusterInvoke()`：
+封装一次 AI 目标转发，复用 `clusterInvoke()`。当 cluster 配置了多 API-Key 时，`aiClusterInvoke()` 内部会执行 Key 级选择/重试循环，再返回给外层 cluster 级 fallback 决策。多 API-Key 的详细设计见 [BFE 多 API-Key 支持](./multi_api_key.md)。
 
 ```go
 func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.ServerDataConf,
@@ -424,62 +424,56 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
     }
     p.setTimeout(bfe_basic.StageReadReqBody, basicReq.Connection, req, timeoutReadClient)
 
-    // prepare out request
-    outreq := new(bfe_http.Request)
-    *outreq = *req // includes shallow copies of maps, but okay
-    basicReq.OutRequest = outreq
-
-    httpProtoSet(outreq)
-    hopByHopHeaderRemove(outreq, req)
-
-    if cluster.DisableHostHeader {
-        outreq.Host = ""
+    // no API-Key configured: single forward
+    if cluster.AIConf == nil || len(cluster.AIConf.Keys) == 0 {
+        res, action, err = p.doSingleAIForward(srv, cluster, basicReq, rw, attempt, aiMeta, cluster_conf.AIKey{})
+        return res, action, cluster, err
     }
 
-    // apply model override from ai route target/fallback
-    if attempt.Model != "" && aiMeta != nil {
-        if err := condition.ReqBodyJsonSet(basicReq, "model", attempt.Model); err != nil {
-            log.Logger.Warn("Failed to set model in request body: %s", err)
-        } else {
-            if outreq.ContentLength >= 0 {
-                outreq.ContentLength = -1
-                outreq.Header.Del("Content-Length")
-            }
-            aiMeta.TargetModel = attempt.Model
-        }
+    // multi API-Key selection and retry loop
+    policy := defaultAIKeyPolicy()
+    if cluster.AIConf.KeyPolicy != nil {
+        policy = *cluster.AIConf.KeyPolicy
     }
 
-    // apply cluster.AIConf (api key, model mapping)
-    if cluster.AIConf != nil && aiMeta != nil {
-        if cluster.AIConf.Key != nil {
-            mod_ai_token_auth.SetApiKey(outreq, *cluster.AIConf.Key)
-        }
-        if cluster.AIConf.ModelMapping != nil {
-            model := aiMeta.ClientModel
-            if aiMeta.TargetModel != "" {
-                model = aiMeta.TargetModel
+    state := newAIKeyAttemptState()
+    var lastErr error
+    for retry := 0; retry <= policy.MaxRetries; retry++ {
+        if retry > 0 {
+            if !rewindRequestBody(basicReq.HttpRequest) {
+                break
             }
-            if model != "" {
-                if newModel, ok := (*cluster.AIConf.ModelMapping)[model]; ok {
-                    if err := condition.ReqBodyJsonSet(basicReq, "model", newModel); err != nil {
-                        log.Logger.Warn("Failed to set model in request body: %s", err)
-                    } else {
-                        if outreq.ContentLength >= 0 {
-                            outreq.ContentLength = -1
-                            outreq.Header.Del("Content-Length")
-                        }
-                        aiMeta.TargetModel = newModel
-                    }
-                }
-            }
+            time.Sleep(calcBackoff(policy.RetryBackoffInitial, policy.RetryBackoffMax, retry))
         }
+
+        idx, key, ok := chooseNextAIKey(cluster.AIConf.Keys, state)
+        if !ok {
+            break
+        }
+
+        res, action, err = p.doSingleAIForward(srv, cluster, basicReq, rw, attempt, aiMeta, key)
+
+        lastErr = err
+        statusCode := 0
+        if res != nil {
+            statusCode = res.StatusCode
+        }
+
+        // success or 4xx client error: stop key-level retry
+        if err == nil && statusCode < 500 {
+            return res, action, cluster, nil
+        }
+
+        // classify failure and decide next key/retry
+        // 429 -> rotate key; 401/403 -> dead key; 5xx/err -> same key retry with backoff
+        classifyAIKeyFailure(idx, statusCode, err, state)
     }
 
-    // invoke cluster
-    res, action, err = p.clusterInvoke(srv, cluster, basicReq, rw)
-    return res, action, cluster, err
+    return res, action, cluster, lastErr
 }
 ```
+
+> 说明：`doSingleAIForward()`、`chooseNextAIKey()`、`calcBackoff()`、`classifyAIKeyFailure()` 等函数的具体实现与失败分类细节，请参考 [BFE 多 API-Key 支持](./multi_api_key.md)。
 
 #### 4.3.3 shouldTriggerFallback()
 
