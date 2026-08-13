@@ -15,6 +15,7 @@
 package mod_ai_token_auth
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -26,6 +27,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 )
 
 const testConfRoot = "testdata/mod_ai_token_auth"
@@ -168,7 +170,7 @@ func TestConfCheckDefaultProductRulePath(t *testing.T) {
 	if err := cfg.Check(testConfRoot); err != nil {
 		t.Fatalf("Check failed: %s", err)
 	}
-	if !strings.Contains(cfg.Basic.ProductRulePath, "mod_ai_toekn_auth/token_rule.data") {
+	if !strings.Contains(cfg.Basic.ProductRulePath, "mod_ai_token_auth/token_rule.data") {
 		t.Errorf("unexpected default ProductRulePath: %s", cfg.Basic.ProductRulePath)
 	}
 }
@@ -703,7 +705,9 @@ func TestQuotaPlanCheck(t *testing.T) {
 	}{
 		{"missing id", QuotaPlan{Unlimited: true}, "no Id"},
 		{"invalid expired time", QuotaPlan{Id: "p1", Unlimited: true, ExpiredTime: -2}, "invalid ExpiredTime"},
-		{"invalid quota", QuotaPlan{Id: "p1", Unlimited: false, Quota: 0}, "invalid Quota"},
+		{"invalid token quota", QuotaPlan{Id: "p1", Unlimited: false, Quota: 0, Unit: "total_token"}, "invalid Quota"},
+		{"invalid rmb quota", QuotaPlan{Id: "p1", Unlimited: false, Quota: -1, Unit: "RMB"}, "invalid Quota for RMB"},
+		{"invalid unit", QuotaPlan{Id: "p1", Unlimited: true, Unit: "invalid"}, "invalid Unit"},
 		{"invalid reset mode", QuotaPlan{Id: "p1", Unlimited: true, ResetMode: 2}, "invalid ResetMode"},
 	}
 	for _, tc := range cases {
@@ -752,4 +756,155 @@ func TestSubnetValidation(t *testing.T) {
 	if !tf.subnet[0].Contains(ipNet.IP) && !tf.subnet[1].Contains(ipNet.IP) {
 		t.Error("expected subnet to contain 10.0.0.0")
 	}
+}
+
+
+// mockRedisClient is a simple in-memory redis client for unit tests.
+type mockRedisClient struct {
+	data map[string]int64
+}
+
+func newMockRedisClient() *mockRedisClient {
+	return &mockRedisClient{data: make(map[string]int64)}
+}
+
+func (m *mockRedisClient) Setex(key string, value []byte, expire int) error {
+	return nil
+}
+
+func (m *mockRedisClient) Get(key string) (interface{}, error) {
+	if v, ok := m.data[key]; ok {
+		return v, nil
+	}
+	return nil, fmt.Errorf("key not found")
+}
+
+func (m *mockRedisClient) Expire(key string, expire int) error {
+	return nil
+}
+
+func (m *mockRedisClient) Incr(key string) (int64, error) {
+	m.data[key]++
+	return m.data[key], nil
+}
+
+func (m *mockRedisClient) IncrAndExpire(key string, expire int) (int64, error) {
+	return m.Incr(key)
+}
+
+func (m *mockRedisClient) Decr(key string) (int64, error) {
+	m.data[key]--
+	return m.data[key], nil
+}
+
+func (m *mockRedisClient) PIncr(keys []string) ([]int64, error) {
+	return nil, nil
+}
+
+func (m *mockRedisClient) GetInt64(key string) (int64, error) {
+	if v, ok := m.data[key]; ok {
+		return v, nil
+	}
+	return 0, fmt.Errorf("key not found")
+}
+
+func (m *mockRedisClient) IncrBy(key string, delta int64) (int64, error) {
+	m.data[key] += delta
+	return m.data[key], nil
+}
+
+func (m *mockRedisClient) NewScript(src string) redis_client.RedisScript {
+	return &mockRedisScript{client: m, src: src}
+}
+
+type mockRedisScript struct {
+	client *mockRedisClient
+	src    string
+}
+
+func (s *mockRedisScript) Run(key string, args ...interface{}) (interface{}, error) {
+	isRMB := strings.Contains(s.src, "raw == false")
+	current := s.client.data[key]
+	amount, _ := args[0].(int64)
+	if isRMB {
+		if _, ok := s.client.data[key]; !ok {
+			initial, _ := args[1].(int64)
+			s.client.data[key] = initial
+			current = initial
+		}
+	}
+	deduct := current
+	if amount < current {
+		deduct = amount
+	}
+	if deduct > 0 {
+		s.client.data[key] = current - deduct
+	}
+	remaining := s.client.data[key]
+	if remaining < 0 {
+		remaining = 0
+		s.client.data[key] = 0
+	}
+	return remaining, nil
+}
+
+func TestQuotaPlanDeduct(t *testing.T) {
+	t.Run("token deduct", func(t *testing.T) {
+		client := newMockRedisClient()
+		client.data["token-key"] = 100
+		plan := &QuotaPlan{Id: "p1", RedisKey: "token-key", Unit: "total_token", Quota: 100}
+		remaining, err := plan.Deduct(client, 30)
+		if err != nil {
+			t.Fatalf("deduct failed: %v", err)
+		}
+		if remaining != 70 {
+			t.Errorf("remaining = %d, want 70", remaining)
+		}
+		if client.data["token-key"] != 70 {
+			t.Errorf("stored value = %d, want 70", client.data["token-key"])
+		}
+	})
+
+	t.Run("rmb deduct", func(t *testing.T) {
+		client := newMockRedisClient()
+		plan := &QuotaPlan{Id: "p1", RedisKey: "rmb-key", Unit: "RMB", Quota: 1000}
+		remaining, err := plan.Deduct(client, 200)
+		if err != nil {
+			t.Fatalf("deduct failed: %v", err)
+		}
+		if remaining != 800 {
+			t.Errorf("remaining = %d, want 800", remaining)
+		}
+		if client.data["rmb-key"] != 800 {
+			t.Errorf("stored value = %d, want 800", client.data["rmb-key"])
+		}
+	})
+
+	t.Run("rmb deduct insufficient", func(t *testing.T) {
+		client := newMockRedisClient()
+		client.data["rmb-key"] = 100
+		plan := &QuotaPlan{Id: "p1", RedisKey: "rmb-key", Unit: "RMB", Quota: 100}
+		remaining, err := plan.Deduct(client, 200)
+		if err != nil {
+			t.Fatalf("deduct failed: %v", err)
+		}
+		if remaining != 0 {
+			t.Errorf("remaining = %d, want 0", remaining)
+		}
+		if client.data["rmb-key"] != 0 {
+			t.Errorf("stored value = %d, want 0", client.data["rmb-key"])
+		}
+	})
+
+	t.Run("unlimited plan", func(t *testing.T) {
+		client := newMockRedisClient()
+		plan := &QuotaPlan{Id: "p1", RedisKey: "key", Unlimited: true, Unit: "RMB", Quota: 10000}
+		remaining, err := plan.Deduct(client, 200)
+		if err != nil {
+			t.Fatalf("deduct failed: %v", err)
+		}
+		if remaining != 10000 {
+			t.Errorf("remaining = %d, want 10000", remaining)
+		}
+	})
 }

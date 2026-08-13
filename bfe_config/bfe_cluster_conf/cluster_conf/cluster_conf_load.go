@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/go-lib/quota"
 
 	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util/json"
@@ -158,6 +159,9 @@ type ModelPrice struct {
 type ModelTable struct {
 	Currency string       // fixed "RMB" in v0.4
 	Models   []ModelPrice
+
+	// priceIndex is built at config load time: model -> mode -> *ModelPrice
+	priceIndex map[string]map[string]*ModelPrice
 }
 
 type AIConf struct {
@@ -168,6 +172,13 @@ type AIConf struct {
 	KeyPolicy    *AIKeyPolicy       // key selection & retry policy
 	ModelTable   *ModelTable        // pricing table, auto-filled by InnerAPI
 }
+
+const (
+	PriceInputCostPerToken  = "input_cost_per_token"
+	PriceOutputCostPerToken = "output_cost_per_token"
+	PriceInputCostPerTokenInt  = "input_cost_per_token_int"
+	PriceOutputCostPerTokenInt = "output_cost_per_token_int"
+)
 
 func (conf *BackendHTTPS) GetProtocol() string {
 	return conf.protocol
@@ -729,7 +740,82 @@ func ClusterConfCheck(conf *ClusterConf) error {
 		return fmt.Errorf("ClusterBasic:%s", err.Error())
 	}
 
+	// check AIConf
+	if conf.AIConf != nil {
+		err = AIConfCheck(conf.AIConf)
+		if err != nil {
+			return fmt.Errorf("AIConf:%s", err.Error())
+		}
+	}
+
 	return nil
+}
+
+// AIConfCheck checks AIConf config.
+func AIConfCheck(conf *AIConf) error {
+	if conf.ModelTable != nil {
+		if err := ModelTableCheck(conf.ModelTable); err != nil {
+			return fmt.Errorf("ModelTable:%s", err.Error())
+		}
+	}
+	return nil
+}
+
+// ModelTableCheck checks and initializes ModelTable.
+// It converts float prices to fixed-point integers and builds priceIndex.
+func ModelTableCheck(table *ModelTable) error {
+	if table == nil {
+		return nil
+	}
+
+	if table.Currency != quota.UnitRMB {
+		return fmt.Errorf("currency must be %s", quota.UnitRMB)
+	}
+
+	table.priceIndex = make(map[string]map[string]*ModelPrice)
+
+	for i := range table.Models {
+		price := &table.Models[i]
+
+		if price.Model == "" {
+			return errors.New("model is empty")
+		}
+		if price.Mode == "" {
+			return errors.New("mode is empty")
+		}
+
+		input := price.Prices[PriceInputCostPerToken]
+		output := price.Prices[PriceOutputCostPerToken]
+		if input < 0 || output < 0 {
+			return fmt.Errorf("negative price for model %s", price.Model)
+		}
+
+		price.Prices[PriceInputCostPerTokenInt] = float64(quota.RmbToFixedPoint(input))
+		price.Prices[PriceOutputCostPerTokenInt] = float64(quota.RmbToFixedPoint(output))
+
+		if table.priceIndex[price.Model] == nil {
+			table.priceIndex[price.Model] = make(map[string]*ModelPrice)
+		}
+		if table.priceIndex[price.Model][price.Mode] != nil {
+			return fmt.Errorf("duplicate model %s mode %s", price.Model, price.Mode)
+		}
+		table.priceIndex[price.Model][price.Mode] = price
+	}
+
+	return nil
+}
+
+// LookupModelPrice looks up a model price entry by model and mode.
+// It returns nil if not found.
+func LookupModelPrice(table *ModelTable, model, mode string) *ModelPrice {
+	if table == nil || table.priceIndex == nil {
+		return nil
+	}
+	idx, ok := table.priceIndex[model]
+	if !ok {
+		return nil
+	}
+	return idx[mode]
 }
 
 // ClusterToConfCheck check ClusterToConf.

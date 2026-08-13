@@ -6,6 +6,10 @@ github.com/Shopify/sarama v1.19.0/go.mod h1:FVkBWblsNy7DGZRfXLU0O9RCGt5g3g3yEuWX
 github.com/Shopify/toxiproxy v2.1.4+incompatible/go.mod h1:OXgGpZ6Cli1/URJOF1DMxUHB2q5Ap20/P/eIdh4G0pI=
 github.com/abbot/go-http-auth v0.4.1-0.20181019201920-860ed7f246ff h1:9ZqcMQ0fB+ywKACVjGfZM4C7Uq9D5rq0iSmwIjX187k=
 github.com/abbot/go-http-auth v0.4.1-0.20181019201920-860ed7f246ff/go.mod h1:Cz6ARTIzApMJDzh5bRMSUou6UMSp0IEXg9km/ci7TJM=
+github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302 h1:uvdUDbHQHO85qeSydJtItA4T55Pw6BtAejd0APRJOCE=
+github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302/go.mod h1:SGnFV6hVsYE877CKEZ6tDNTjaSXYUk6QqoIK6PrAtcc=
+github.com/alicebob/miniredis/v2 v2.34.0 h1:mBFWMaJSNL9RwdGRyEDoAAv8OQc5UlEhLDQggTglU/0=
+github.com/alicebob/miniredis/v2 v2.34.0/go.mod h1:kWShP4b58T1CW0Y5dViCd5ztzrDqRWqM3nksiyXk5s8=
 github.com/andybalholm/brotli v1.0.2 h1:JKnhI/XQ75uFBTiuzXpzFrUriDPiZjlOSzh6wXogP0E=
 github.com/andybalholm/brotli v1.0.2/go.mod h1:loMXtMfwqflxFJPmdbJO0a3KNoPuLBgiu3qAvBg8x/Y=
 github.com/armon/go-radix v1.0.0 h1:F4z6KzEeeQIMeLFa97iZU6vupzoecKdU5TX24SNppXI=
@@ -22,8 +26,8 @@ github.com/bfenetworks/bfe-mock-waf v0.1.0 h1:dTd540S3nv6qNlG6lLC0F8qx3gyo5WB4wn
 github.com/bfenetworks/bfe-mock-waf v0.1.0/go.mod h1:MWZHbihiRQXpoUCvY1l18s2bfOBWx4N4pghxBt+xUv0=
 github.com/bfenetworks/bwi v0.1.2 h1:3AcCzUjyzKm+FeLgTIVg58u+SUdEVZdJbQM58Ezwjcg=
 github.com/bfenetworks/bwi v0.1.2/go.mod h1:zCRIdSw521zVnNCM73qw/lZ9UknbRux9rk6UQvBJgMA=
-github.com/bfenetworks/go-lib v0.0.1 h1:LUTj+uInCnhUGjr/pXs95PEQzNfG/VeUEoruIjcxUx4=
-github.com/bfenetworks/go-lib v0.0.1/go.mod h1:DNiKiff30CaX7uOUGJpP85VyTn+JSFoY9gfG2AxmPgM=
+github.com/bfenetworks/go-lib v0.0.2 h1:ZjWas7Icd3svzVdegSSM1kMYSrnZHRvoCx6SQ458pqg=
+github.com/bfenetworks/go-lib v0.0.2/go.mod h1:DNiKiff30CaX7uOUGJpP85VyTn+JSFoY9gfG2AxmPgM=
 github.com/bfenetworks/proxy-wasm-go-host v0.0.1 h1:FzgCnKC+fkeY4NtsUVBcYONOdhvsJA1FXei01VP17Qo=
 github.com/bfenetworks/proxy-wasm-go-host v0.0.1/go.mod h1:ooQK7XyIovzGQIADKbPdpfUJ3w+b2ou6iqDZLMq0pww=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
@@ -179,6 +183,8 @@ github.com/uber/jaeger-client-go v2.25.0+incompatible/go.mod h1:WVhlPFC8FDjOFMMW
 github.com/uber/jaeger-lib v2.4.0+incompatible h1:fY7QsGQWiCt8pajv4r7JEvmATdCVaWxXbjwyYwsNaLQ=
 github.com/uber/jaeger-lib v2.4.0+incompatible/go.mod h1:ComeNDZlWwrWnDv8aPp0Ba6+uUTzImX/AauajbLI56U=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
+github.com/yuin/gopher-lua v1.1.1 h1:kYKnWBjvbNP4XLT3+bPEwAXJx262OhaHDWDVOPjL46M=
+github.com/yuin/gopher-lua v1.1.1/go.mod h1:GBR0iDaNXjAgGg9zfCvksxSRnQx76gclCIb7kdAd1Pw=
 github.com/zmap/go-iptree v0.0.0-20170831022036-1948b1097e25 h1:LRoXAcKX48QV4LV23W5ZtsG/MbJOgNUNvWiXwM0iLWw=
 github.com/zmap/go-iptree v0.0.0-20170831022036-1948b1097e25/go.mod h1:qOasALtPByO1Jk6LhgpNv6htPMK2QJfiGorUk57nO/U=
 go.elastic.co/apm v1.7.2/go.mod h1:tCw6CkOJgkWnzEthFN9HUP1uL3Gjc/Ur6m7gRPLaoH0=

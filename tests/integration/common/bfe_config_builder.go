@@ -22,8 +22,58 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 )
+
+// TokenRuleData holds the content of mod_ai_token_auth/token_rule.data.
+type TokenRuleData struct {
+	Version    string
+	QuotaPlans map[string][]QuotaPlan
+	Tokens     map[string]map[string]TokenFile
+	Config     map[string][]TokenRule
+}
+
+// QuotaPlan is the JSON representation of a quota plan.
+type QuotaPlan struct {
+	Id          string
+	Unlimited   bool
+	PassNoQuota bool
+	RedisKey    string
+	CreateTime  int64
+	ExpiredTime int64
+	Quota       int64
+	ResetMode   int
+	Unit        string
+	Currency    string
+}
+
+// TokenFile is the JSON representation of a token file.
+type TokenFile struct {
+	Key            string                `json:"key"`
+	Enabled        int                   `json:"enabled"`
+	Status         int                   `json:"status"`
+	Name           string                `json:"name"`
+	UpdateTime     int64                 `json:"update_time"`
+	ExpiredTime    int64                 `json:"expired_time"`
+	UnlimitedQuota bool                  `json:"unlimited_quota"`
+	Models         *string               `json:"allow_models"`
+	BlockModels    *string               `json:"block_models"`
+	Subnet         *string               `json:"subnet"`
+	Tags           []bfe_basic.ApikeyTag `json:"tags"`
+	QuotaPlans     []string              `json:"quota_plans"`
+}
+
+// TokenRule is the JSON representation of a token rule.
+type TokenRule struct {
+	Cond   string
+	Action ActionFile
+}
+
+// ActionFile is the JSON representation of an action.
+type ActionFile struct {
+	Cmd string
+}
 
 // BFEConfigBuilder builds a temporary BFE configuration directory from a template.
 type BFEConfigBuilder struct {
@@ -38,6 +88,11 @@ type BFEConfigBuilder struct {
 	// TotalBodyBufferSize overrides the totalBodyBufferSize value in bfe.conf.
 	// A value of 0 keeps the template value.
 	TotalBodyBufferSize int64
+	// RedisAddr is the address of the redis server used by mod_ai_token_auth.
+	// If empty, mod_ai_token_auth.conf is not rewritten.
+	RedisAddr string
+	// TokenRuleData optionally generates mod_ai_token_auth/token_rule.data.
+	TokenRuleData *TokenRuleData
 }
 
 // Build prepares the BFE configuration directory.
@@ -73,7 +128,115 @@ func (b *BFEConfigBuilder) Build() error {
 		}
 	}
 
+	if b.RedisAddr != "" {
+		if err := b.setupRedisBns(); err != nil {
+			return fmt.Errorf("setup redis bns failed: %w", err)
+		}
+	}
+
+	if b.TokenRuleData != nil {
+		if err := b.writeTokenRuleData(); err != nil {
+			return fmt.Errorf("write token_rule.data failed: %w", err)
+		}
+	}
+
 	return nil
+}
+
+const redisBnsName = "redis_bns"
+
+func (b *BFEConfigBuilder) setupRedisBns() error {
+	host, port, err := splitHostPort(b.RedisAddr)
+	if err != nil {
+		return fmt.Errorf("parse redis addr %s failed: %w", b.RedisAddr, err)
+	}
+
+	// rewrite mod_ai_token_auth.conf to use the fixed bns name
+	if err := b.rewriteModAITokenAuthBns(); err != nil {
+		return fmt.Errorf("rewrite mod_ai_token_auth bns failed: %w", err)
+	}
+
+	// generate name_conf.data mapping bns name to redis addr
+	nameConf := map[string]interface{}{
+		"Version": "1.0",
+		"Config": map[string][]map[string]interface{}{
+			redisBnsName: {
+				{"Host": host, "Port": port, "Weight": 100},
+			},
+		},
+	}
+	path := filepath.Join(b.TargetConfDir, "server_data_conf", "name_conf.data")
+	if err := writeJSONFile(path, nameConf); err != nil {
+		return fmt.Errorf("write name_conf.data failed: %w", err)
+	}
+
+	// rewrite bfe.conf to load name_conf
+	return b.rewriteBFEConfNameConf()
+}
+
+func (b *BFEConfigBuilder) rewriteModAITokenAuthBns() error {
+	path := filepath.Join(b.TargetConfDir, "mod_ai_token_auth", "mod_ai_token_auth.conf")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "Bns") {
+			lines[i] = "Bns = \"" + redisBnsName + "\""
+		}
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
+}
+
+func (b *BFEConfigBuilder) rewriteBFEConfNameConf() error {
+	path := filepath.Join(b.TargetConfDir, "bfe.conf")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	found := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "NameConf") {
+			lines[i] = "NameConf = server_data_conf/name_conf.data"
+			found = true
+		}
+	}
+	if !found {
+		// insert after vipRuleConf if not found
+		for i, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(line), "vipRuleConf") {
+				lines = append(lines[:i+1], append([]string{"NameConf = server_data_conf/name_conf.data"}, lines[i+1:]...)...)
+				break
+			}
+		}
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
+}
+
+func splitHostPort(addr string) (string, int, error) {
+	parts := strings.Split(addr, ":")
+	if len(parts) != 2 {
+		return "", 0, fmt.Errorf("invalid addr %s", addr)
+	}
+	port, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid port %s", parts[1])
+	}
+	return parts[0], port, nil
+}
+
+func (b *BFEConfigBuilder) writeTokenRuleData() error {
+	path := filepath.Join(b.TargetConfDir, "mod_ai_token_auth", "token_rule.data")
+	return writeJSONFile(path, b.TokenRuleData)
 }
 
 func (b *BFEConfigBuilder) normalizeAIRouteData() error {

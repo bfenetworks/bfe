@@ -20,6 +20,8 @@ import (
 	"net"
 	"strings"
 
+	"github.com/bfenetworks/go-lib/quota"
+
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 	"github.com/google/uuid"
@@ -75,8 +77,10 @@ type QuotaPlan struct {
 	RedisKey    string
 	CreateTime  int64
 	ExpiredTime int64 // -1 means never expired
-	Quota       int64 // 配额总量
+	Quota       int64 // 配额总量，固定点整数：total_token 时为 Token 数；RMB 时为 1e-8 元
 	ResetMode   int   // 0 – 非周期性；1 – 周期性的配额包
+	Unit        string // "total_token" or "RMB"
+	Currency    string // "RMB" when Unit is "RMB"
 }
 
 func (q *QuotaPlan) Deduct(client redis_client.Client, amount int64) (int64, error) {
@@ -92,6 +96,14 @@ func (q *QuotaPlan) Deduct(client redis_client.Client, amount int64) (int64, err
 		return 0, errors.New("RedisKey is empty")
 	}
 
+	if quota.IsRMB(q.Unit) {
+		return q.deductRMB(client, amount)
+	}
+
+	return q.deductToken(client, amount)
+}
+
+func (q *QuotaPlan) deductToken(client redis_client.Client, amount int64) (int64, error) {
 	lua := `
 		local current = tonumber(redis.call('GET', KEYS[1]) or '0')
 		local amount = tonumber(ARGV[1])
@@ -103,6 +115,37 @@ func (q *QuotaPlan) Deduct(client redis_client.Client, amount int64) (int64, err
 	`
 	script := client.NewScript(lua)
 	result, err := script.Run(q.RedisKey, amount)
+	if err != nil {
+		return 0, err
+	}
+
+	remaining, ok := result.(int64)
+	if !ok {
+		return 0, errors.New("invalid result type from redis")
+	}
+
+	return remaining, nil
+}
+
+func (q *QuotaPlan) deductRMB(client redis_client.Client, amount int64) (int64, error) {
+	lua := `
+		local raw = redis.call('GET', KEYS[1])
+		local current
+		if raw == false then
+			current = tonumber(ARGV[2])
+			redis.call('SET', KEYS[1], current)
+		else
+			current = tonumber(raw)
+		end
+		local cost = tonumber(ARGV[1])
+		local deduct = math.min(current, cost)
+		if deduct > 0 then
+			redis.call('DECRBY', KEYS[1], deduct)
+		end
+		return math.max(0, current - deduct)
+	`
+	script := client.NewScript(lua)
+	result, err := script.Run(q.RedisKey, amount, q.Quota)
 	if err != nil {
 		return 0, err
 	}

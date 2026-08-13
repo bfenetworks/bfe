@@ -114,6 +114,12 @@ func clusterSubName(clusterName string) string {
 		return "multi"
 	case "cluster_fallback_ok":
 		return "fb"
+	case "cluster_rmb":
+		return "rmb"
+	case "cluster_no_table":
+		return "notable"
+	case "cluster_fallback_rmb":
+		return "fallback_rmb"
 	}
 	return "sub"
 }
