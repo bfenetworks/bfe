@@ -76,11 +76,10 @@ type QuotaPlan struct {
 	PassNoQuota bool
 	RedisKey    string
 	CreateTime  int64
-	ExpiredTime int64 // -1 means never expired
-	Quota       int64 // 配额总量，固定点整数：total_token 时为 Token 数；RMB 时为 1e-8 元
-	ResetMode   int   // 0 – 非周期性；1 – 周期性的配额包
+	ExpiredTime int64  // -1 means never expired
+	Quota       int64  // 配额总量，固定点整数：total_token 时为 Token 数；RMB 时为 1e-8 元
+	ResetMode   int    // 0 – 非周期性；1 – 周期性的配额包
 	Unit        string // "total_token" or "RMB"
-	Currency    string // "RMB" when Unit is "RMB"
 }
 
 func (q *QuotaPlan) Deduct(client redis_client.Client, amount int64) (int64, error) {

@@ -19,7 +19,7 @@
 
 1. 配置层沿用 `AIConf.ModelTable`，价格以 `Prices` map（元/Token）下发，BFE 加载时转换为 1e-8 元/Token 定点整数；
 2. `bfe_basic.TokenUsage` 增加 `UsedCost`，用于记录本次请求的 RMB 成本；
-3. `mod_ai_token_auth.QuotaPlan` 增加 `Unit` / `Currency`，`Deduct` / `HasBalance` 支持 RMB；
+3. `mod_ai_token_auth.QuotaPlan` 增加 `Unit`，`Deduct` / `HasBalance` 支持 RMB；
 4. 新增共享库 `go-lib/quota`，提供 RMB 定点数转换，供 ai-gateway-api 与 BFE 共同引用；
 5. Redis Lua 支持 RMB 扣减脚本，当前暂时使用单 Key 定点数方案。
 
@@ -206,11 +206,12 @@ type QuotaPlan struct {
     Quota       int64  // 固定点整数：total_token 时为 Token 数；RMB 时为 1e-8 元
     ResetMode   int
     Unit        string // 新增："total_token" 或 "RMB"
-    Currency    string // 新增：RMB 时填 "RMB"
 }
 ```
 
-> 说明：`Quota` 保持 `int64` 不变，但语义由 `Unit` 字段解释。这样可完全避免 `float64` 在 Redis Lua 和大额余额中的精度问题。
+> 说明：
+> - `Quota` 保持 `int64` 不变，但语义由 `Unit` 字段解释。这样可完全避免 `float64` 在 Redis Lua 和大额余额中的精度问题。
+> - `Unit` 本身已隐含货币类型（如 `"RMB"`），`QuotaPlan` 不需要额外的 `Currency` 字段。
 
 ### 6.3 配置校验
 

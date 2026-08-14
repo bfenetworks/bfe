@@ -147,10 +147,6 @@ func quotaPlanCheck(conf *QuotaPlan) error {
 		}
 	}
 
-	if conf.Unit == quota.UnitRMB && conf.Currency == "" {
-		conf.Currency = quota.UnitRMB
-	}
-
 	return nil
 }
 

@@ -247,7 +247,6 @@ func rmbQuotaPlan(quota int64) common.QuotaPlan {
 		Quota:       quota,
 		ResetMode:   0,
 		Unit:        "RMB",
-		Currency:    "RMB",
 	}
 }
 

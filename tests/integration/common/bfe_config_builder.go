@@ -45,7 +45,6 @@ type QuotaPlan struct {
 	Quota       int64
 	ResetMode   int
 	Unit        string
-	Currency    string
 }
 
 // TokenFile is the JSON representation of a token file.
