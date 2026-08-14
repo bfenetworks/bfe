@@ -55,6 +55,7 @@
   * [mod_http_code](modules/mod_http_code/mod_http_code.md)
   * [mod_key_log](modules/mod_key_log/mod_key_log.md)
   * [mod_logid](modules/mod_logid/mod_logid.md)
+  * [mod_otel](modules/mod_otel/mod_otel.md)
   * [mod_prison](modules/mod_prison/mod_prison.md)
   * [mod_redirect](modules/mod_redirect/mod_redirect.md)
   * [mod_rewrite](modules/mod_rewrite/mod_rewrite.md)

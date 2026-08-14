@@ -12,6 +12,7 @@
 - [mod_http_code](mod_http_code/mod_http_code.md)
 - [mod_key_log](mod_key_log/mod_key_log.md)
 - [mod_logid](mod_logid/mod_logid.md)
+- [mod_otel](mod_otel/mod_otel.md)
 - [mod_prison](mod_prison/mod_prison.md)
 - [mod_redirect](mod_redirect/mod_redirect.md)
 - [mod_rewrite](mod_rewrite/mod_rewrite.md)
