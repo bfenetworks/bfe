@@ -145,6 +145,32 @@ var buildPrimitiveTests = []struct {
 		false,
 	},
 	{
+		"testBuildReqBodyJsonPrefixIn",
+		`req_body_json_prefix_in("model", "openrouter/", false)`,
+		&PrimitiveCond{
+			name:    "req_body_json_prefix_in",
+			fetcher: &ReqBodyJsonFetcher{path: "model"},
+			matcher: &PrefixInMatcher{
+				patterns: []string{"openrouter/"},
+				foldCase: false,
+			},
+		},
+		false,
+	},
+	{
+		"testBuildReqBodyJsonPrefixInIgnoreCase",
+		`req_body_json_prefix_in("model", "OpenRouter/", true)`,
+		&PrimitiveCond{
+			name:    "req_body_json_prefix_in",
+			fetcher: &ReqBodyJsonFetcher{path: "model"},
+			matcher: &PrefixInMatcher{
+				patterns: []string{"OPENROUTER/"},
+				foldCase: true,
+			},
+		},
+		false,
+	},
+	{
 		"testBuildUrlRegMatch",
 		"req_url_regmatch(\"123\")",
 		&PrimitiveCond{
