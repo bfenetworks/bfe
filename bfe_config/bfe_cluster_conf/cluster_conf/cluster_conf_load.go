@@ -171,6 +171,13 @@ type AIConf struct {
 	Keys         []AIKey            // multiple API keys; empty means no key injection
 	KeyPolicy    *AIKeyPolicy       // key selection & retry policy
 	ModelTable   *ModelTable        // pricing table, auto-filled by InnerAPI
+
+	// MatchPrefix defines the provider/model prefix this cluster matches.
+	// Must end with '/' to avoid matching model names themselves.
+	MatchPrefix string `json:"MatchPrefix,omitempty"`
+	// StripPrefix controls whether to strip MatchPrefix from the request model
+	// field before forwarding to the backend.
+	StripPrefix bool `json:"StripPrefix"`
 }
 
 const (
@@ -758,6 +765,16 @@ func AIConfCheck(conf *AIConf) error {
 			return fmt.Errorf("ModelTable:%s", err.Error())
 		}
 	}
+
+	if conf.StripPrefix {
+		if conf.MatchPrefix == "" {
+			return fmt.Errorf("MatchPrefix is required when StripPrefix is true")
+		}
+		if !strings.HasSuffix(conf.MatchPrefix, "/") {
+			return fmt.Errorf("MatchPrefix must end with '/'")
+		}
+	}
+
 	return nil
 }
 

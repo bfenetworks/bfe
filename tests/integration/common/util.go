@@ -120,6 +120,12 @@ func clusterSubName(clusterName string) string {
 		return "notable"
 	case "cluster_fallback_rmb":
 		return "fallback_rmb"
+	case "cluster_openrouter":
+		return "openrouter"
+	case "cluster_fallback":
+		return "fallback"
+	case "cluster_default":
+		return "default"
 	}
 	return "sub"
 }

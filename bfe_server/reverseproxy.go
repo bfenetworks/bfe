@@ -1424,6 +1424,45 @@ send_response:
 	return
 }
 
+// stripProviderPrefix strips the configured provider/model prefix from the request.
+// It updates the request body and aiMeta.TargetModel when stripping succeeds.
+func stripProviderPrefix(basicReq *bfe_basic.Request, outreq *bfe_http.Request,
+	aiMeta *bfe_basic.AiBasicInfo, matchPrefix string) bool {
+	model := aiMeta.ClientModel
+	if aiMeta.TargetModel != "" {
+		model = aiMeta.TargetModel
+	}
+	if model == "" || !strings.HasPrefix(model, matchPrefix) {
+		return false
+	}
+
+	stripped := strings.TrimPrefix(model, matchPrefix)
+	if stripped == "" {
+		log.Logger.Warn("Model %s stripped by prefix %s results in empty model, skip stripping",
+			model, matchPrefix)
+		return false
+	}
+
+	if err := condition.ReqBodyJsonSet(basicReq, "model", stripped); err != nil {
+		log.Logger.Warn("Failed to strip provider prefix in request body: %s", err)
+		return false
+	}
+
+	// outreq body already changed, need reset Content-Length
+	if outreq.ContentLength >= 0 {
+		outreq.ContentLength = -1
+		outreq.Header.Del("Content-Length")
+	}
+	// Also reset the original request's Content-Length so that fallback/retry
+	// creates a new outreq with consistent body length.
+	if basicReq.HttpRequest != nil && basicReq.HttpRequest.ContentLength >= 0 {
+		basicReq.HttpRequest.ContentLength = -1
+		basicReq.HttpRequest.Header.Del("Content-Length")
+	}
+	aiMeta.TargetModel = stripped
+	return true
+}
+
 // doSingleAIForward performs a single AI forward attempt with the given key.
 func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.BfeCluster,
 	basicReq *bfe_basic.Request, rw bfe_http.ResponseWriter,
@@ -1460,6 +1499,11 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 			}
 			aiMeta.TargetModel = attempt.Model
 		}
+	}
+
+	// strip provider/model prefix according to cluster AIConf
+	if cluster.AIConf != nil && aiMeta != nil && cluster.AIConf.StripPrefix && cluster.AIConf.MatchPrefix != "" {
+		stripProviderPrefix(basicReq, outreq, aiMeta, cluster.AIConf.MatchPrefix)
 	}
 
 	// apply cluster.AIConf (api key, model mapping)
@@ -1649,6 +1693,13 @@ func (p *ReverseProxy) resetRequestForRetry(basicReq *bfe_basic.Request) bool {
 	// rewind request body for next fallback attempt
 	if !rewindRequestBody(basicReq.HttpRequest) {
 		return false
+	}
+
+	// reset Content-Length so that the next outreq is created with a length
+	// consistent with the current (possibly modified) body.
+	if basicReq.HttpRequest.ContentLength >= 0 {
+		basicReq.HttpRequest.ContentLength = -1
+		basicReq.HttpRequest.Header.Del("Content-Length")
 	}
 
 	// clear error info from previous attempt

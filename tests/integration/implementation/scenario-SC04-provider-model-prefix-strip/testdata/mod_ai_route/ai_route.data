@@ -1,0 +1,44 @@
+{
+    "Version": "20260720150000",
+    "route_rules": {
+        "apikey_ak_user_a": {
+            "type": "apikey",
+            "owner": "ak_user_a",
+            "rules": [
+                {
+                    "name": "user_a-openrouter",
+                    "Cond": "req_body_json_prefix_in(\"model\", \"openrouter/\", false)",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_openrouter",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": [
+                        {
+                            "ClusterName": "cluster_fallback",
+                            "Model": ""
+                        }
+                    ]
+                },
+                {
+                    "name": "user_a-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_default",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_user_a": [
+            "apikey_ak_user_a"
+        ]
+    }
+}
