@@ -15,6 +15,8 @@
 package bfe_server
 
 import (
+	"io/ioutil"
+	"strings"
 	"testing"
 	"time"
 
@@ -219,5 +221,97 @@ func TestDefaultAIKeyPolicy(t *testing.T) {
 	}
 	if policy.RetryBackoffMax != 5000 {
 		t.Errorf("expected retry_backoff_max 5000, got %d", policy.RetryBackoffMax)
+	}
+}
+
+func TestStripProviderPrefix(t *testing.T) {
+	bodyContent := `{"model":"openrouter/anthropic/claude-sonnet-4.6","messages":[]}`
+	httpReq, err := bfe_http.NewRequest("POST", "http://example.com/v1/chat/completions",
+		ioutil.NopCloser(strings.NewReader(bodyContent)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.ContentLength = int64(len(bodyContent))
+
+	req := bfe_basic.NewRequest(httpReq, nil, nil, nil, nil)
+	aiMeta := req.InitAiBasicInfo()
+	aiMeta.ClientModel = "openrouter/anthropic/claude-sonnet-4.6"
+	aiMeta.TargetModel = "openrouter/anthropic/claude-sonnet-4.6"
+
+	outreq := new(bfe_http.Request)
+	*outreq = *httpReq
+	req.OutRequest = outreq
+
+	ok := stripProviderPrefix(req, outreq, aiMeta, "openrouter/")
+	if !ok {
+		t.Error("expected stripping to succeed")
+	}
+	if aiMeta.TargetModel != "anthropic/claude-sonnet-4.6" {
+		t.Errorf("expected TargetModel anthropic/claude-sonnet-4.6, got %s", aiMeta.TargetModel)
+	}
+	if aiMeta.ClientModel != "openrouter/anthropic/claude-sonnet-4.6" {
+		t.Errorf("expected ClientModel unchanged, got %s", aiMeta.ClientModel)
+	}
+	if outreq.ContentLength != -1 {
+		t.Errorf("expected ContentLength reset to -1, got %d", outreq.ContentLength)
+	}
+
+	bodyAccessor, err := req.OutRequest.GetBodyAccessor()
+	if err != nil {
+		t.Fatal(err)
+	}
+	bodyBytes, _ := bodyAccessor.GetBytes()
+	if !strings.Contains(string(bodyBytes), `"model":"anthropic/claude-sonnet-4.6"`) {
+		t.Errorf("expected stripped model in body, got %s", string(bodyBytes))
+	}
+}
+
+func TestStripProviderPrefixNoMatch(t *testing.T) {
+	bodyContent := `{"model":"anthropic/claude-sonnet-4.6","messages":[]}`
+	httpReq, err := bfe_http.NewRequest("POST", "http://example.com/v1/chat/completions",
+		ioutil.NopCloser(strings.NewReader(bodyContent)))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := bfe_basic.NewRequest(httpReq, nil, nil, nil, nil)
+	aiMeta := req.InitAiBasicInfo()
+	aiMeta.ClientModel = "anthropic/claude-sonnet-4.6"
+	aiMeta.TargetModel = "anthropic/claude-sonnet-4.6"
+
+	outreq := new(bfe_http.Request)
+	*outreq = *httpReq
+	req.OutRequest = outreq
+
+	ok := stripProviderPrefix(req, outreq, aiMeta, "openrouter/")
+	if ok {
+		t.Error("expected stripping to be skipped when prefix does not match")
+	}
+	if aiMeta.TargetModel != "anthropic/claude-sonnet-4.6" {
+		t.Errorf("expected TargetModel unchanged, got %s", aiMeta.TargetModel)
+	}
+}
+
+func TestStripProviderPrefixEmptyResult(t *testing.T) {
+	bodyContent := `{"model":"openrouter/","messages":[]}`
+	httpReq, err := bfe_http.NewRequest("POST", "http://example.com/v1/chat/completions",
+		ioutil.NopCloser(strings.NewReader(bodyContent)))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := bfe_basic.NewRequest(httpReq, nil, nil, nil, nil)
+	aiMeta := req.InitAiBasicInfo()
+	aiMeta.ClientModel = "openrouter/"
+	aiMeta.TargetModel = "openrouter/"
+
+	outreq := new(bfe_http.Request)
+	*outreq = *httpReq
+	req.OutRequest = outreq
+
+	ok := stripProviderPrefix(req, outreq, aiMeta, "openrouter/")
+	if ok {
+		t.Error("expected stripping to be skipped when result is empty")
 	}
 }

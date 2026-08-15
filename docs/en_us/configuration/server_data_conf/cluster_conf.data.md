@@ -96,6 +96,8 @@ Note: The following configuration items are located in the namespace `Config[v]`
 | AIConf.Keys | []Object | API-Key list for the backend large model service | N | Empty array means no API-Key is injected when accessing the backend service and the request's API-Key is retained; keys are selected by weighted random | See the "AIConf.Keys elements" table below |
 | AIConf.KeyPolicy | Object | API-Key selection policy and retry/backoff configuration | N | Takes effect in multi-Key scenarios; backoff logic does not take effect with single Key or no Key | See the "AIConf.KeyPolicy elements" table below |
 | AIConf.ModelMapping | Map[string]string | Mapping from original request model to backend service model | N | When accessing the backend service, the model field in the request will be looked up in this mapping; if matched, the model field in the request will be overwritten | Both keys and values are non-empty |
+| AIConf.MatchPrefix | String | Provider/model prefix to match | N | e.g. `openrouter/`; must end with `/`; used for aggregator providers such as OpenRouter | Required when `StripPrefix=true` |
+| AIConf.StripPrefix | Boolean | Whether to strip the prefix specified by `MatchPrefix` | N | When `true`, the prefix is removed from the request model field before forwarding to the backend; when `false`, the prefix is only used as a routing marker and not stripped | Defaults to `false` |
 | AIConf.ModelTable | Object | Model pricing table of this cluster | N | Automatically populated by ai-gateway-api by querying `model_prices` based on `Provider`; currency is fixed to `RMB` for now | See the "AIConf.ModelTable elements" table below |
 
 ##### AIConf.Keys elements
@@ -296,6 +298,8 @@ Note: The following configuration items are located in the namespace `Config[v]`
             "AIConf": {
                 "Type": 0,
                 "Provider": "deepseek",
+                "MatchPrefix": "openrouter/",
+                "StripPrefix": true,
                 "Keys": [
                     {
                         "Name": "key-primary",

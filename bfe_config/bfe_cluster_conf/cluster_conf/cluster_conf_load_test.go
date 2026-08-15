@@ -201,3 +201,33 @@ func TestModelTableCheck(t *testing.T) {
 		}
 	})
 }
+
+func TestAIConfCheck(t *testing.T) {
+	t.Run("strip prefix without match prefix", func(t *testing.T) {
+		conf := &AIConf{StripPrefix: true}
+		if err := AIConfCheck(conf); err == nil {
+			t.Error("expected error when StripPrefix=true but MatchPrefix is empty")
+		}
+	})
+
+	t.Run("match prefix without trailing slash", func(t *testing.T) {
+		conf := &AIConf{StripPrefix: true, MatchPrefix: "openrouter"}
+		if err := AIConfCheck(conf); err == nil {
+			t.Error("expected error when MatchPrefix does not end with '/'")
+		}
+	})
+
+	t.Run("valid strip prefix config", func(t *testing.T) {
+		conf := &AIConf{StripPrefix: true, MatchPrefix: "openrouter/"}
+		if err := AIConfCheck(conf); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("strip prefix disabled", func(t *testing.T) {
+		conf := &AIConf{StripPrefix: false, MatchPrefix: ""}
+		if err := AIConfCheck(conf); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+}

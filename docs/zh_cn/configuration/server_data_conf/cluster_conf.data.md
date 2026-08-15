@@ -96,6 +96,8 @@ cluster_conf.data为集群转发配置文件。
 | AIConf.Keys                         | []Object          | 后端大模型服务的 API-Key 列表                  | N    | 为空数组表示访问后端服务时不注入 API-Key，仍保持请求的 API-Key；按权重加权随机选择 | 元素见下表「AIConf.Keys 元素」                               |
 | AIConf.KeyPolicy                    | Object            | API-Key 选择策略与重试退避配置                 | N    | 多 Key 场景下生效；单 Key 或无 Key 时退避逻辑不生效          | 元素见下表「AIConf.KeyPolicy 元素」                          |
 | AIConf.ModelMapping                 | Map[string]string | 原请求model -> 后端服务的model 的映射关系      | N    | 访问后端服务时将根据请求的 model 字段查找此映射关系，命中则重写请求的 model 字段 | 键值均非空                                                   |
+| AIConf.MatchPrefix                  | String            | 需要匹配的 provider/model 前缀                 | N    | 例如 `openrouter/`；必须以 `/` 结尾；用于 OpenRouter 等聚合 provider 场景 | `StripPrefix=true` 时必填                                    |
+| AIConf.StripPrefix                  | Boolean           | 是否裁剪 `MatchPrefix` 指定前缀                | N    | `true` 时转发给下游前会从请求 model 字段中去掉该前缀；`false` 时仅用于路由标识，不裁剪 | 默认 `false`                                                 |
 | AIConf.ModelTable                   | Object            | 该集群的模型定价表                             | N    | 由 ai-gateway-api 根据 `Provider` 查询 model_prices 自动填充；当前货币固定为 RMB | 元素见下表「AIConf.ModelTable 元素」                         |
 
 ##### AIConf.Keys 元素
@@ -296,6 +298,8 @@ cluster_conf.data为集群转发配置文件。
             "AIConf": {
                 "Type": 0,
                 "Provider": "deepseek",
+                "MatchPrefix": "openrouter/",
+                "StripPrefix": true,
                 "Keys": [
                     {
                         "Name": "key-primary",
