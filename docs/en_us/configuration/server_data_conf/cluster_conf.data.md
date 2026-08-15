@@ -90,10 +90,50 @@ Note: The following configuration items are located in the namespace `Config[v]`
 #### AI Service Configuration
 
 | Configuration Item | Type | Meaning | Required | Supplementary Description | Validity Condition |
-| ----------------------------- | ----------------- | ---------------------------------------------- | -------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| ----------------------------------- | ----------------- | ---------------------------------------------- | -------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | AIConf.Type | Integer | AI service type | N | Currently reserved; keep it 0 | Only supports 0 |
-| AIConf.Key | String | API-Key for the backend large model service | N | If empty, the API-Key is not reset when accessing the backend service and the request's API-Key is retained | - |
+| AIConf.Provider | String | Provider name of this cluster in `model_prices` | N | Automatically populated by ai-gateway-api based on the OpenAPI `llm_config.provider`; used for cost statistics | - |
+| AIConf.Keys | []Object | API-Key list for the backend large model service | N | Empty array means no API-Key is injected when accessing the backend service and the request's API-Key is retained; keys are selected by weighted random | See the "AIConf.Keys elements" table below |
+| AIConf.KeyPolicy | Object | API-Key selection policy and retry/backoff configuration | N | Takes effect in multi-Key scenarios; backoff logic does not take effect with single Key or no Key | See the "AIConf.KeyPolicy elements" table below |
 | AIConf.ModelMapping | Map[string]string | Mapping from original request model to backend service model | N | When accessing the backend service, the model field in the request will be looked up in this mapping; if matched, the model field in the request will be overwritten | Both keys and values are non-empty |
+| AIConf.ModelTable | Object | Model pricing table of this cluster | N | Automatically populated by ai-gateway-api by querying `model_prices` based on `Provider`; currency is fixed to `RMB` for now | See the "AIConf.ModelTable elements" table below |
+
+##### AIConf.Keys elements
+
+| Configuration Item | Type | Meaning | Required | Supplementary Description | Validity Condition |
+| ------------------- | ------- | ------------------ | -------- | ------------------------------------------------ | ---------- |
+| AIConf.Keys[i].Name | String | API-Key name/identifier | Y | Used for logging, monitoring and operations identification | Non-empty |
+| AIConf.Keys[i].Key | String | API-Key value | Y | Secret key used for backend authentication | Non-empty |
+| AIConf.Keys[i].Weight | Integer | Weight | Y | Used for weighted random selection; range is `[0,100]`; `0` means no traffic is received | `[0,100]`; total weight of multiple keys must be 100 |
+
+##### AIConf.KeyPolicy elements
+
+| Configuration Item | Type | Meaning | Required | Supplementary Description | Validity Condition |
+| ------------------------------------- | ------- | -------------------- | -------- | ------------------------------------------------------------ | -------------------------------- |
+| AIConf.KeyPolicy.Strategy | String | Key selection strategy | N | Currently only supports `weighted_random` | Only supports `weighted_random` |
+| AIConf.KeyPolicy.MaxRetries | Integer | Total additional retry count | N | Maximum retry count excluding the first selection in one `aiClusterInvoke` call; `0` means no retry | >= 0 |
+| AIConf.KeyPolicy.RetryBackoffInitial | Integer | Initial backoff time, in milliseconds | N | Backoff time for the first retry | >= 0 |
+| AIConf.KeyPolicy.RetryBackoffMax | Integer | Maximum backoff time, in milliseconds | N | Upper limit of backoff time | >= 0, and must be >= RetryBackoffInitial |
+
+##### AIConf.ModelTable elements
+
+| Configuration Item | Type | Meaning | Required | Supplementary Description | Validity Condition |
+| ------------------------------- | -------- | ------------------ | -------- | ----------------------------------- | ---------- |
+| AIConf.ModelTable.Currency | String | Currency type | Y | Fixed to `RMB` in v0.4 | - |
+| AIConf.ModelTable.Models | []Object | Model pricing entry list | Y | Each entry corresponds to a model and its price/limit | See the "AIConf.ModelTable.Models elements" table below |
+
+##### AIConf.ModelTable.Models elements
+
+| Configuration Item | Type | Meaning | Required | Supplementary Description | Validity Condition |
+| ---------------------------------------------- | ----------------- | ------------------ | -------- | ----------------------------------- | ---------- |
+| AIConf.ModelTable.Models[i].Provider | String | Provider name | Y | - | Non-empty |
+| AIConf.ModelTable.Models[i].Model | String | Model name | Y | Used to match the `target_model` in the request | Non-empty |
+| AIConf.ModelTable.Models[i].BaseModel | String | Normalized model name | Y | - | Non-empty |
+| AIConf.ModelTable.Models[i].Mode | String | Request mode | N | e.g. `chat` | - |
+| AIConf.ModelTable.Models[i].Capabilities | []String | Capability list | N | e.g. `["chat", "reasoning"]` | - |
+| AIConf.ModelTable.Models[i].SupportedParameters | []String | Supported request parameter list | N | e.g. `["temperature", "max_tokens"]` | - |
+| AIConf.ModelTable.Models[i].Limits | Map[string]Integer | Limit object | N | e.g. `context_window`, etc. | - |
+| AIConf.ModelTable.Models[i].Prices | Map[string]Number | Price object | N | e.g. `input_cost_per_token`, etc. | - |
 
 ## Configuration Example
 
@@ -255,9 +295,49 @@ Note: The following configuration items are located in the namespace `Config[v]`
             },
             "AIConf": {
                 "Type": 0,
-                "Key": "sk-example-api-key",
+                "Provider": "deepseek",
+                "Keys": [
+                    {
+                        "Name": "key-primary",
+                        "Key": "sk-example-api-key-primary",
+                        "Weight": 70
+                    },
+                    {
+                        "Name": "key-secondary",
+                        "Key": "sk-example-api-key-secondary",
+                        "Weight": 30
+                    }
+                ],
+                "KeyPolicy": {
+                    "Strategy": "weighted_random",
+                    "MaxRetries": 3,
+                    "RetryBackoffInitial": 500,
+                    "RetryBackoffMax": 5000
+                },
                 "ModelMapping": {
                     "gpt-4": "backend-gpt-4-model"
+                },
+                "ModelTable": {
+                    "Currency": "RMB",
+                    "Models": [
+                        {
+                            "Provider": "deepseek",
+                            "Model": "deepseek-v3",
+                            "BaseModel": "deepseek-v3",
+                            "Mode": "chat",
+                            "Capabilities": ["chat", "reasoning", "tools"],
+                            "SupportedParameters": ["temperature", "max_tokens"],
+                            "Limits": {
+                                "context_window": 128000,
+                                "max_input_tokens": 128000,
+                                "max_output_tokens": 8192
+                            },
+                            "Prices": {
+                                "input_cost_per_token": 0.000002,
+                                "output_cost_per_token": 0.000008
+                            }
+                        }
+                    ]
                 }
             }
         }

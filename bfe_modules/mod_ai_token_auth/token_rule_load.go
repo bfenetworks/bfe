@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bfenetworks/go-lib/quota"
+
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
 )
 
@@ -121,12 +123,30 @@ func quotaPlanCheck(conf *QuotaPlan) error {
 	if conf.ExpiredTime < -1 {
 		return fmt.Errorf("invalid ExpiredTime: %d", conf.ExpiredTime)
 	}
-	if !conf.Unlimited && conf.Quota <= 0 {
-		return fmt.Errorf("invalid Quota: %d", conf.Quota)
-	}
 	if conf.ResetMode < 0 || conf.ResetMode > 1 {
 		return fmt.Errorf("invalid ResetMode: %d", conf.ResetMode)
 	}
+
+	// backward compatibility: empty unit means total_token
+	if conf.Unit == "" {
+		conf.Unit = quota.UnitTotalToken
+	}
+	if conf.Unit != quota.UnitTotalToken && conf.Unit != quota.UnitRMB {
+		return fmt.Errorf("invalid Unit: %s", conf.Unit)
+	}
+
+	if !conf.Unlimited {
+		if conf.Unit == quota.UnitRMB {
+			if conf.Quota < 0 {
+				return fmt.Errorf("invalid Quota for RMB: %d", conf.Quota)
+			}
+		} else {
+			if conf.Quota <= 0 {
+				return fmt.Errorf("invalid Quota: %d", conf.Quota)
+			}
+		}
+	}
+
 	return nil
 }
 

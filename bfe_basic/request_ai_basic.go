@@ -34,7 +34,8 @@ const (
 type TokenUsage struct {
 	PromptTokens     int64 // number of tokens in the prompt
 	CompletionTokens int64 // number of tokens in the completion
-	UsedQuota        int64 // used quota for this request
+	UsedQuota        int64 // used quota for this request (unit=total_token)
+	UsedCost         int64 // used RMB cost for this request, 1 unit = 1e-8 yuan (unit=RMB)
 }
 
 type TokenTimeInfo struct {

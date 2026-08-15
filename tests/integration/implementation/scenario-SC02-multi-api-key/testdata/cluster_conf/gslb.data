@@ -1,0 +1,14 @@
+{
+    "clusters": {
+        "cluster_multi_key": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_multi": 100
+        },
+        "cluster_fallback_ok": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_fb": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20260720150000"
+}

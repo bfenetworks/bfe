@@ -20,11 +20,13 @@ import (
 	"strings"
 
 	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/go-lib/quota"
 	"github.com/bfenetworks/go-lib/web-monitor/metrics"
 	"github.com/bfenetworks/go-lib/web-monitor/web_monitor"
 	"github.com/tidwall/gjson"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
@@ -143,6 +145,10 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 			tokenUsage.CompletionTokens = int64(res.ContentLength) / 4                                         // estimate completion tokens
 			tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens) // calculate used quota
 		}
+		// calculate RMB cost while SvrDataConf is still available
+		if hasRMBPlan(ctx.Token.QuotaPlans) {
+			tokenUsage.UsedCost = m.calcCostUnits(req, ctx.serverConf, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
+		}
 	}
 
 	return bfe_module.BfeHandlerGoOn
@@ -171,15 +177,29 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	if tokenUsage.UsedQuota <= 0 && ctx.aiBasicInfo.IsAllowEstimateToken() {
 		tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens) // calculate used quota
 	}
-	if tokenUsage.UsedQuota > 0 {
-		// deduct usedquota from every quotaplan
+
+	// use RMB cost calculated at response-read stage (SvrDataConf may be nil here)
+	costUnits := tokenUsage.UsedCost
+
+	if tokenUsage.UsedQuota > 0 || costUnits > 0 {
 		for _, plan := range ctx.Token.QuotaPlans {
 			if plan.Unlimited {
 				continue
 			}
-			_, err := plan.Deduct(m.redisClient, tokenUsage.UsedQuota)
-			if err != nil {
-				return bfe_module.BfeHandlerGoOn
+			if quota.IsRMB(plan.Unit) {
+				if costUnits > 0 {
+					_, err := plan.Deduct(m.redisClient, costUnits)
+					if err != nil {
+						log.Logger.Warn("deduct rmb quota failed: %v", err)
+					}
+				}
+			} else {
+				if tokenUsage.UsedQuota > 0 {
+					_, err := plan.Deduct(m.redisClient, tokenUsage.UsedQuota)
+					if err != nil {
+						log.Logger.Warn("deduct token quota failed: %v", err)
+					}
+				}
 			}
 		}
 	}
@@ -326,6 +346,9 @@ func (m *ModuleAITokenAuth) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.
 type TokenAuthContext struct {
 	Token       *Token
 	aiBasicInfo *bfe_basic.AiBasicInfo
+	// serverConf caches the SvrDataConf before it is cleared by the reverse proxy.
+	// It is used for RMB cost calculation at request finish time.
+	serverConf bfe_basic.ServerDataConfInterface
 }
 
 const REQ_TOKEN_AUTH_CONTEXT = "tokenauth_ctx"
@@ -353,6 +376,7 @@ func SetTokenAuthContext(req *bfe_basic.Request, tok *Token, promptToken int64, 
 	tokenCtx := &TokenAuthContext{
 		Token:       tok,
 		aiBasicInfo: aiBasicInfo,
+		serverConf:  req.SvrDataConf,
 	}
 	req.SetContext(REQ_TOKEN_AUTH_CONTEXT, tokenCtx)
 }
@@ -373,4 +397,51 @@ func GetPromptToken(req *bfe_basic.Request) int64 {
 
 	body, _ := bodyAccessor.GetBytes()
 	return int64(len(body)) / 4
+}
+
+
+func hasRMBPlan(plans []*QuotaPlan) bool {
+	for _, plan := range plans {
+		if quota.IsRMB(plan.Unit) {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe_basic.ServerDataConfInterface, promptTokens, completionTokens int64) int64 {
+	aiMeta := req.GetAiBasicInfo()
+	if aiMeta == nil {
+		return 0
+	}
+
+	clusterName := req.Route.ClusterName
+	targetModel := aiMeta.TargetModel
+	if clusterName == "" || targetModel == "" {
+		return 0
+	}
+
+	if serverConf == nil {
+		return 0
+	}
+	cluster, err := serverConf.ClusterTableLookup(clusterName)
+	if err != nil || cluster == nil || cluster.AIConf == nil || cluster.AIConf.ModelTable == nil {
+		log.Logger.Warn("model table not found for cluster %s", clusterName)
+		return 0
+	}
+
+	entry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, targetModel, "chat")
+	if entry == nil {
+		log.Logger.Warn("model price not found for cluster %s model %s", clusterName, targetModel)
+		return 0
+	}
+
+	inputCost := int64(entry.Prices[cluster_conf.PriceInputCostPerTokenInt])
+	outputCost := int64(entry.Prices[cluster_conf.PriceOutputCostPerTokenInt])
+	if inputCost < 0 || outputCost < 0 {
+		log.Logger.Warn("invalid model price for cluster %s model %s", clusterName, targetModel)
+		return 0
+	}
+
+	return promptTokens*inputCost + completionTokens*outputCost
 }

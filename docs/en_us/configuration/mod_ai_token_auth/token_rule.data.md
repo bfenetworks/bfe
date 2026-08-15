@@ -19,8 +19,9 @@
 | QuotaPlans{v}[].redis_key | String | Redis key for storing quota | N | Optional when `unlimited` is true | - |
 | QuotaPlans{v}[].create_time | Integer | Create time (Unix Time) | N | - | - |
 | QuotaPlans{v}[].expired_time | Integer | Expiry time (Unix Time) | N | `-1` means never expires | Must be greater than or equal to `-1` |
-| QuotaPlans{v}[].quota | Integer | Total quota (unit: token) | N | Required when `unlimited` is false | Must be greater than 0 when `unlimited` is false |
+| QuotaPlans{v}[].quota | Integer | Total quota | N | Unit is determined by the `unit` field; when `unit=RMB`, this is a fixed-point integer with precision `1e-8` yuan; required when `unlimited` is false | Must be greater than 0 when `unit=total_token` and `unlimited` is false; must be greater than or equal to 0 when `unit=RMB` and `unlimited` is false |
 | QuotaPlans{v}[].reset_mode | Integer | Reset mode | Y | `0` - non-periodic; `1` - periodic quota package | Value must be `0` or `1` |
+| QuotaPlans{v}[].unit | String | Quota unit | N | Defaults to `total_token` | Value must be `total_token` or `RMB` |
 | Tokens | Object | API-key declarations for all product lines | Y | Key is product line name | - |
 | Tokens{k} | String | Product line name | Y | - | - |
 | Tokens{v} | Object | All API-keys under a product line | Y | - | - |
@@ -64,7 +65,19 @@
                 "create_time": 1672531200,
                 "expired_time": -1,
                 "quota": 100000,
-                "reset_mode": 1
+                "reset_mode": 1,
+                "unit": "total_token"
+            },
+            {
+                "id": "daily_rmb_quota",
+                "unlimited": false,
+                "pass_no_quota": false,
+                "redis_key": "ai:quota:daily_rmb_quota",
+                "create_time": 1672531200,
+                "expired_time": -1,
+                "quota": 90000000,
+                "reset_mode": 0,
+                "unit": "RMB"
             }
         ]
     },
@@ -98,3 +111,7 @@
     }
 }
 ```
+
+> Note:
+> - When `unit = total_token`, `quota` is an integer number of tokens.
+> - When `unit = RMB`, `quota` is a fixed-point integer with precision `1e-8` yuan (i.e., 1 unit = 0.00000001 yuan). For example, `90000000` means `0.9` yuan.

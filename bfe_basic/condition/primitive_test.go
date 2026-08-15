@@ -17,6 +17,7 @@ package condition
 import (
 	"net"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -345,5 +346,82 @@ func TestPeriodicTimeMatcher(t *testing.T) {
 	tm = time.Date(2019, 2, 4, 13, 30, 1, 0, time.UTC)
 	if matcher.Match(tm) {
 		t.Fatalf("should not match %v", tm)
+	}
+}
+
+func buildRequestWithBody(body string) *bfe_basic.Request {
+	httpReq, _ := bfe_http.NewRequest("POST", "http://example.com/v1/chat/completions", strings.NewReader(body))
+	return bfe_basic.NewRequest(httpReq, nil, nil, &bfe_basic.Session{}, nil)
+}
+
+func TestReqBodyJsonPrefixIn(t *testing.T) {
+	cond, err := Build(`req_body_json_prefix_in("model", "openrouter/", false)`)
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+
+	cases := []struct {
+		body    string
+		matched bool
+	}{
+		{`{"model":"openrouter/anthropic/claude-sonnet-4.6"}`, true},
+		{`{"model":"openrouter/google/gemini-pro"}`, true},
+		{`{"model":"google/gemini-pro"}`, false},
+		{`{"model":"openrouter"}`, false},
+		{`{}`, false},
+	}
+
+	for _, c := range cases {
+		req := buildRequestWithBody(c.body)
+		if matched := cond.Match(req); matched != c.matched {
+			t.Errorf("body %s matched=%v, want=%v", c.body, matched, c.matched)
+		}
+	}
+}
+
+func TestReqBodyJsonPrefixInIgnoreCase(t *testing.T) {
+	cond, err := Build(`req_body_json_prefix_in("model", "OpenRouter/", true)`)
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+
+	req := buildRequestWithBody(`{"model":"openrouter/anthropic/claude-sonnet-4.6"}`)
+	if !cond.Match(req) {
+		t.Errorf("should match openrouter/ prefix with ignore case")
+	}
+}
+
+func TestReqBodyJsonPrefixInMulti(t *testing.T) {
+	cond, err := Build(`req_body_json_prefix_in("model", "gpt-|claude-", false)`)
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+
+	cases := []struct {
+		body    string
+		matched bool
+	}{
+		{`{"model":"gpt-4"}`, true},
+		{`{"model":"claude-3-opus"}`, true},
+		{`{"model":"openrouter/anthropic/claude-sonnet-4.6"}`, false},
+	}
+
+	for _, c := range cases {
+		req := buildRequestWithBody(c.body)
+		if matched := cond.Match(req); matched != c.matched {
+			t.Errorf("body %s matched=%v, want=%v", c.body, matched, c.matched)
+		}
+	}
+}
+
+func TestReqBodyJsonPrefixInCombineWithIn(t *testing.T) {
+	cond, err := Build(`req_body_json_in("model", "gpt-4", false) && req_body_json_prefix_in("model", "gpt-", false)`)
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+
+	req := buildRequestWithBody(`{"model":"gpt-4"}`)
+	if !cond.Match(req) {
+		t.Errorf("should match combined condition")
 	}
 }

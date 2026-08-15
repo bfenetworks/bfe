@@ -554,9 +554,18 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			name:    node.Fun.Name,
 			node:    node,
 			fetcher: &ReqBodyJsonFetcher{
-				path: node.Args[0].Value, 
+				path: node.Args[0].Value,
 			},
 			matcher: NewInMatcher(node.Args[1].Value, node.Args[2].ToBool()),
+		}, nil
+	case "req_body_json_prefix_in":
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &ReqBodyJsonFetcher{
+				path: node.Args[0].Value,
+			},
+			matcher: NewPrefixInMatcher(node.Args[1].Value, node.Args[2].ToBool()),
 		}, nil
 
 	default:
