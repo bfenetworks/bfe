@@ -367,6 +367,7 @@ func GetTokenAuthContext(req *bfe_basic.Request) *TokenAuthContext {
 func SetTokenAuthContext(req *bfe_basic.Request, tok *Token, promptToken int64, tags []bfe_basic.ApikeyTag) {
 	aiBasicInfo := req.GetAiBasicInfo()
 	if aiBasicInfo != nil {
+		aiBasicInfo.ClientKeyId = tok.KeyId
 		tusage := aiBasicInfo.GetTokenUsage()
 		tusage.PromptTokens = promptToken
 		tusage.CompletionTokens = bfe_basic.COMPLETION_TOKENS_UNKNOWN // -1 - unknown

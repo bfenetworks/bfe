@@ -320,7 +320,7 @@ func TestUpdateCtxByUsage(t *testing.T) {
 func TestTokenAuthContext(t *testing.T) {
 	req := newTestRequest("", "AI_product")
 	ai := req.InitAiBasicInfo()
-	tok := &Token{Key: "ak-123"}
+	tok := &Token{Key: "ak-123", KeyId: "ak-123-id"}
 
 	SetTokenAuthContext(req, tok, 5, []bfe_basic.ApikeyTag{{TagName: "t", TagValue: "v"}})
 	ctx := GetTokenAuthContext(req)
@@ -347,6 +347,7 @@ func TestTokenCheck(t *testing.T) {
 	valid := func() *TokenFile {
 		return &TokenFile{
 			Key:            "ak-123",
+			KeyId:          "ak-123-id",
 			Status:         TokenStatusEnabled,
 			ExpiredTime:    -1,
 			UnlimitedQuota: true,
@@ -368,6 +369,13 @@ func TestTokenCheck(t *testing.T) {
 				tf.Key = ""
 			},
 			errSub: "no Key",
+		},
+		{
+			name: "missing key_id",
+			mutate: func(tf *TokenFile) {
+				tf.KeyId = ""
+			},
+			errSub: "no KeyId",
 		},
 		{
 			name: "invalid status",
@@ -434,6 +442,7 @@ func TestTokenCheck(t *testing.T) {
 func TestTokenConvert(t *testing.T) {
 	tf := TokenFile{
 		Key:            "ak-123",
+		KeyId:          "ak-123-id",
 		Status:         TokenStatusEnabled,
 		ExpiredTime:    -1,
 		UnlimitedQuota: false,
@@ -445,7 +454,7 @@ func TestTokenConvert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tokenConvert failed: %s", err)
 	}
-	if token.Key != "ak-123" || len(token.QuotaPlans) != 1 {
+	if token.Key != "ak-123" || token.KeyId != "ak-123-id" || len(token.QuotaPlans) != 1 {
 		t.Errorf("unexpected token: %+v", token)
 	}
 
@@ -525,9 +534,9 @@ func TestValidateUserToken(t *testing.T) {
 		t.Errorf("unexpected token: %s", tok.Key)
 	}
 
-	exhausted := &Token{Key: "ak-exhausted", Status: TokenStatusExhausted, Name: "ex", ExpiredTime: -1}
-	disabled := &Token{Key: "ak-disabled", Status: TokenStatusDisabled, Name: "dis", ExpiredTime: -1}
-	expired := &Token{Key: "ak-expired", Status: TokenStatusEnabled, Name: "exp", ExpiredTime: time.Now().Unix() - 10}
+	exhausted := &Token{Key: "ak-exhausted", KeyId: "ak-exhausted-id", Status: TokenStatusExhausted, ExpiredTime: -1}
+	disabled := &Token{Key: "ak-disabled", KeyId: "ak-disabled-id", Status: TokenStatusDisabled, ExpiredTime: -1}
+	expired := &Token{Key: "ak-expired", KeyId: "ak-expired-id", Status: TokenStatusEnabled, ExpiredTime: time.Now().Unix() - 10}
 	table.lock.Lock()
 	(*table.productTokens["AI_product"])["ak-exhausted"] = exhausted
 	(*table.productTokens["AI_product"])["ak-disabled"] = disabled
@@ -599,7 +608,7 @@ func TestTokenReadResponseHandler(t *testing.T) {
 	m := NewModuleAITokenAuth()
 	req := newTestRequest("ak-123", "AI_product")
 	ai := req.InitAiBasicInfo()
-	SetTokenAuthContext(req, &Token{Key: "ak-123"}, 2, nil)
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 2, nil)
 
 	body := `{"usage":{"total_tokens":20,"prompt_tokens":5,"completion_tokens":15}}`
 	res := &bfe_http.Response{
@@ -640,7 +649,7 @@ func TestTokenRequestFinishHandler(t *testing.T) {
 	req2 := newTestRequest("ak-123", "AI_product")
 	ai2 := req2.InitAiBasicInfo()
 	ai2.SetAllowEstimateToken(true)
-	SetTokenAuthContext(req2, &Token{Key: "ak-123", UnlimitedQuota: true}, 4, nil)
+	SetTokenAuthContext(req2, &Token{Key: "ak-123", KeyId: "ak-123-id", UnlimitedQuota: true}, 4, nil)
 	if ret := m.tokenRequestFinishHandler(req2, res); ret != bfe_module.BfeHandlerGoOn {
 		t.Errorf("expected goon, got %d", ret)
 	}
@@ -740,6 +749,7 @@ func TestSubnetValidation(t *testing.T) {
 	s := "10.0.0.0/8, 192.168.1.0/24"
 	tf := &TokenFile{
 		Key:            "ak-subnet",
+		KeyId:          "ak-subnet-id",
 		Status:         TokenStatusEnabled,
 		ExpiredTime:    -1,
 		UnlimitedQuota: true,

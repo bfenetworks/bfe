@@ -30,9 +30,10 @@ import (
 )
 
 const (
-	apiHost = "rmb.example.org"
-	apiPath = "/v1/chat/completions"
-	apiKey  = "ak_user_a"
+	apiHost  = "rmb.example.org"
+	apiPath  = "/v1/chat/completions"
+	apiKey   = "ak_user_a"
+	apiKeyId = "user_a_key_id"
 
 	clusterRMB         = "cluster_rmb"
 	clusterNoTable     = "cluster_no_table"
@@ -87,9 +88,9 @@ func newTestEnv(t *testing.T, aiConfs map[string]*cluster_conf.AIConf, quotaPlan
 			"ai_product": {
 				apiKey: {
 					Key:            apiKey,
+					KeyId:          apiKeyId,
 					Enabled:        1,
 					Status:         1,
-					Name:           "user_a",
 					UpdateTime:     0,
 					ExpiredTime:    -1,
 					UnlimitedQuota: false,

@@ -58,6 +58,7 @@ type AiAuthInfo struct {
 
 type AiBasicInfo struct {
 	ClientApiKey  string
+	ClientKeyId   string
 	ClientModel   string
 	TargetModel   string
 	tokenUsage    TokenUsage
@@ -263,6 +264,7 @@ const (
 
 type AiErrorDetail struct {
 	ApiKey            string `json:"api_key"`
+	KeyId             string `json:"key_id"`
 	QuotaPlanId       string `json:"quota_plan_id"`
 	LimitType         string `json:"limit_type"`
 	Model             string `json:"model"`

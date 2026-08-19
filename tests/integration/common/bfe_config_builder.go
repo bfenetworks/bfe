@@ -50,9 +50,9 @@ type QuotaPlan struct {
 // TokenFile is the JSON representation of a token file.
 type TokenFile struct {
 	Key            string                `json:"key"`
+	KeyId          string                `json:"key_id"`
 	Enabled        int                   `json:"enabled"`
 	Status         int                   `json:"status"`
-	Name           string                `json:"name"`
 	UpdateTime     int64                 `json:"update_time"`
 	ExpiredTime    int64                 `json:"expired_time"`
 	UnlimitedQuota bool                  `json:"unlimited_quota"`

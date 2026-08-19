@@ -80,16 +80,16 @@ func (t *TokenRuleTable) ValidateUserToken(product, key string) (token *Token, e
 
 	switch token.Status {
 	case TokenStatusExhausted:
-		return nil, fmt.Errorf("token %s quota exhausted", token.Name)
+		return nil, fmt.Errorf("token %s quota exhausted", token.KeyId)
 	case TokenStatusExpired:
-		return nil, fmt.Errorf("token %s expired", token.Name)
+		return nil, fmt.Errorf("token %s expired", token.KeyId)
 	case TokenStatusDisabled:
-		return nil, fmt.Errorf("token %s disabled", token.Name)
+		return nil, fmt.Errorf("token %s disabled", token.KeyId)
 	}
 
 	if token.ExpiredTime != -1 && token.ExpiredTime < time.Now().Unix() {
 		token.Status = TokenStatusExpired
-		return nil, fmt.Errorf("token %s expired", token.Name)
+		return nil, fmt.Errorf("token %s expired", token.KeyId)
 	}
 
 	return token, nil
@@ -131,18 +131,21 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 		return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeInvalidApiKey, bfe_basic.TypeAuthenticationError, fmt.Sprintf("Invalid API key: %s. quota exhausted.", key),
 			&bfe_basic.AiErrorDetail{
 				ApiKey: key,
+				KeyId:  token.KeyId,
 			})
 	case TokenStatusExpired:
 		SetAiAuthInfo(req, bfe_basic.CodeKeyExpired, nil)
 		return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeKeyExpired, bfe_basic.TypeAuthenticationError, fmt.Sprintf("Invalid API key: %s. expired.", key),
 			&bfe_basic.AiErrorDetail{
 				ApiKey: key,
+				KeyId:  token.KeyId,
 			})
 	case TokenStatusDisabled:
 		SetAiAuthInfo(req, bfe_basic.CodeKeyDisabled, nil)
 		return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeKeyDisabled, bfe_basic.TypeAuthenticationError, fmt.Sprintf("Invalid API key: %s. disabled.", key),
 			&bfe_basic.AiErrorDetail{
 				ApiKey: key,
+				KeyId:  token.KeyId,
 			})
 	}
 
@@ -152,6 +155,7 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 		return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeKeyExpired, bfe_basic.TypeAuthenticationError, fmt.Sprintf("Invalid API key: %s. expired.", key),
 			&bfe_basic.AiErrorDetail{
 				ApiKey: key,
+				KeyId:  token.KeyId,
 			})
 	}
 
@@ -167,6 +171,7 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 				return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeQuotaExpired, bfe_basic.TypeQuotaError, fmt.Sprintf("Quota plan %s expired.", plan.Id),
 					&bfe_basic.AiErrorDetail{
 						ApiKey:      key,
+						KeyId:       token.KeyId,
 						QuotaPlanId: plan.Id,
 						LimitType:   bfe_basic.LimitTypeApiKeyQuota,
 					})
@@ -177,6 +182,7 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 				return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeInternalQuotaError, bfe_basic.TypeInternalError, fmt.Sprintf("Internal error during quota deduction for plan %s: %v", plan.Id, err),
 					&bfe_basic.AiErrorDetail{
 						ApiKey:      key,
+						KeyId:       token.KeyId,
 						QuotaPlanId: plan.Id,
 					})
 			}
@@ -185,6 +191,7 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 				return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeQuotaExhausted, bfe_basic.TypeQuotaError, fmt.Sprintf("Quota plan %s exhausted.", plan.Id),
 					&bfe_basic.AiErrorDetail{
 						ApiKey:      key,
+						KeyId:       token.KeyId,
 						QuotaPlanId: plan.Id,
 						LimitType:   bfe_basic.LimitTypeApiKeyQuota,
 					})
@@ -199,6 +206,7 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 			return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeInvalidRequest, bfe_basic.TypeInvalidRequestError, fmt.Sprintf("Model not found in request body: %v", err),
 				&bfe_basic.AiErrorDetail{
 					ApiKey: key,
+					KeyId:  token.KeyId,
 				})
 		}
 		model = strings.TrimSpace(model)
@@ -209,6 +217,7 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 					return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeModelNotAllowed, bfe_basic.TypeInvalidRequestError, fmt.Sprintf("Model %s blocked by key %s", model, key),
 						&bfe_basic.AiErrorDetail{
 							ApiKey: key,
+							KeyId:  token.KeyId,
 							Model:  model,
 						})
 				}
@@ -228,6 +237,7 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 				return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeModelNotAllowed, bfe_basic.TypeInvalidRequestError, fmt.Sprintf("Model %s not allowed by key %s", model, key),
 					&bfe_basic.AiErrorDetail{
 						ApiKey: key,
+						KeyId:  token.KeyId,
 						Model:  model,
 					})
 			}
@@ -250,6 +260,7 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 			return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeSubnetNotAllowed, bfe_basic.TypeAuthenticationError, fmt.Sprintf("Client IP not in subnet of key %s", key),
 				&bfe_basic.AiErrorDetail{
 					ApiKey: key,
+					KeyId:  token.KeyId,
 				})
 		}
 	}

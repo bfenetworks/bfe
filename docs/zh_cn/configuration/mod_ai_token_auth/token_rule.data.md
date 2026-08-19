@@ -28,9 +28,9 @@
 | Tokens{v}{k}                   | String  | api-key                          | Y    | -                                                            | -                                                            |
 | Tokens{v}{v}                   | Object  | 一个 api-key 声明                | Y    | -                                                            | -                                                            |
 | Tokens{v}{v}.key               | String  | api-key                          | Y    | 须与外层键一致                                               | -                                                            |
+| Tokens{v}{v}.key_id            | String  | api-key 标识 ID                  | Y    | 用于唯一标识该 api-key                                       | 非空字符串                                                   |
 | Tokens{v}{v}.enabled           | Integer | 是否启用                         | N    | -                                                            | -                                                            |
 | Tokens{v}{v}.status            | Integer | api-key 状态                     | Y    | `1` - Enabled；`2` - Disabled；`3` - Expired；`4` - Exhausted | 取值范围为 `1`、`2`、`3`、`4`                                |
-| Tokens{v}{v}.name              | String  | 名称                             | N    | -                                                            | -                                                            |
 | Tokens{v}{v}.update_time       | Integer | 更新时间（Unix Time）            | N    | 改变意味着开启一个新的配额消费周期                           | -                                                            |
 | Tokens{v}{v}.expired_time      | Integer | 过期时间（Unix Time）            | N    | `-1` 表示永不过期                                            | 必须大于等于 `-1`                                            |
 | Tokens{v}{v}.unlimited_quota   | Boolean | 是否无限配额                     | Y    | -                                                            | -                                                            |
@@ -85,8 +85,8 @@
         "example_product": {
             "TESTKEY": {
                 "key": "TESTKEY",
+                "key_id": "test_key_id",
                 "status": 1,
-                "name": "test",
                 "expired_time": -1,
                 "unlimited_quota": false,
                 "allow_models": "model_a,model_b",

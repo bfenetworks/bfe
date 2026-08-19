@@ -40,8 +40,8 @@ const (
 
 type Token struct {
 	Key            string
+	KeyId          string
 	Status         int
-	Name           string
 	UpdateTime     int64
 	ExpiredTime    int64
 	UnlimitedQuota bool
@@ -54,9 +54,9 @@ type Token struct {
 
 type TokenFile struct {
 	Key            string  `json:"key"`
+	KeyId          string  `json:"key_id"`
 	Enabled        int     `json:"enabled"`
 	Status         int     `json:"status"`
-	Name           string  `json:"name"`
 	UpdateTime     int64   `json:"update_time"`
 	ExpiredTime    int64   `json:"expired_time"` // -1 means never expired
 	UnlimitedQuota bool    `json:"unlimited_quota"`
@@ -178,6 +178,9 @@ func tokenCheck(conf *TokenFile) error {
 	if conf.Key == "" {
 		return errors.New("no Key")
 	}
+	if conf.KeyId == "" {
+		return errors.New("no KeyId")
+	}
 	if conf.Status < TokenStatusEnabled || conf.Status > TokenStatusExhausted {
 		return fmt.Errorf("invalid Status: %d", conf.Status)
 	}
@@ -235,8 +238,8 @@ func tokenConvert(tokenFile TokenFile, quotaPlansMap *QuotaPlanMap) (Token, erro
 
 	return Token{
 		Key:            tokenFile.Key,
+		KeyId:          tokenFile.KeyId,
 		Status:         tokenFile.Status,
-		Name:           tokenFile.Name,
 		UpdateTime:     tokenFile.UpdateTime,
 		ExpiredTime:    tokenFile.ExpiredTime,
 		UnlimitedQuota: tokenFile.UnlimitedQuota,

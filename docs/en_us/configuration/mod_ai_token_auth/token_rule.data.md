@@ -28,9 +28,9 @@
 | Tokens{v}{k} | String | An API-key | Y | - | - |
 | Tokens{v}{v} | Object | An API-key declaration | Y | - | - |
 | Tokens{v}{v}.key | String | API-key | Y | Must be consistent with the outer key | - |
+| Tokens{v}{v}.key_id | String | API-key ID | Y | Used to uniquely identify the API-key | Non-empty string |
 | Tokens{v}{v}.enabled | Integer | Whether enabled | N | - | - |
 | Tokens{v}{v}.status | Integer | API-key status | Y | `1` - Enabled; `2` - Disabled; `3` - Expired; `4` - Exhausted | Value must be `1`, `2`, `3`, or `4` |
-| Tokens{v}{v}.name | String | Name | N | - | - |
 | Tokens{v}{v}.update_time | Integer | Update time (Unix Time) | N | Change means a new quota consumption cycle starts, recalculating used quota | - |
 | Tokens{v}{v}.expired_time | Integer | Expiry time (Unix Time) | N | `-1` means never expires | Must be greater than or equal to `-1` |
 | Tokens{v}{v}.unlimited_quota | Boolean | Unlimited quota or not | Y | - | - |
@@ -85,8 +85,8 @@
         "example_product": {
             "TESTKEY": {
                 "key": "TESTKEY",
+                "key_id": "test_key_id",
                 "status": 1,
-                "name": "test",
                 "expired_time": -1,
                 "unlimited_quota": false,
                 "allow_models": "model_a,model_b",
