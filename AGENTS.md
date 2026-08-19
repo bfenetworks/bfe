@@ -69,6 +69,15 @@ Core request flow:
 6. Add unit tests using `testing` + `testify`.
 7. Run `make test` before submitting.
 
+### AI gateway module changes
+
+The AI gateway modules under `bfe_modules/mod_ai_*` and `bfe_modules/mod_body_process` have ordering and lifecycle interdependencies:
+
+- `mod_ai_route` runs early to select the target cluster/model.
+- `mod_ai_token_auth` runs at `HandleFoundProduct` for API Key validation and quota plan binding; it also performs final quota deduction at `HandleRequestFinish`.
+- `mod_body_process` runs at `HandleReadResponse` and is responsible for parsing token usage from streaming (SSE) responses. If you modify RMB quota deduction, ensure streaming scenarios still work when `mod_body_process` is loaded.
+- For RMB quota details, see `docs/zh_cn/sys_design/rmb_quota.md`.
+
 ### Routing changes
 - Host/cluster tables: `bfe_route/`.
 - Config loaders: `bfe_config/bfe_route_conf/`.

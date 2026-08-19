@@ -48,8 +48,14 @@ const (
 
 var defaultBody = []byte(`{"model":"deepseek-chat"}`)
 var modelMappingBody = []byte(`{"model":"gpt-4"}`)
+var streamBody = []byte(`{"model":"deepseek-chat","stream":true}`)
 
 var usageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`
+
+// SSE format: final chunk contains usage. The trailing blank line is required.
+var streamUsageResponse = "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n" +
+	"data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n" +
+	"data: {\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":50,\"total_tokens\":150}}\n\n"
 
 // testEnv holds all resources for a single SC03 integration test.
 type testEnv struct {
@@ -148,6 +154,13 @@ func (e *testEnv) logBFEException() {
 	data, err := os.ReadFile(filepath.Join(e.processEnv.WorkDir(), "log", "exception.log"))
 	if err == nil && len(data) > 0 {
 		e.t.Logf("bfe exception log:\n%s", string(data))
+	}
+}
+
+func (e *testEnv) logBFEAccess() {
+	data, err := os.ReadFile(filepath.Join(e.processEnv.WorkDir(), "log", "access.log"))
+	if err == nil && len(data) > 0 {
+		e.t.Logf("bfe access log:\n%s", string(data))
 	}
 }
 
@@ -453,5 +466,44 @@ func TestTC06_FallbackBilling(t *testing.T) {
 	want := int64(10000000000 - (100*300 + 50*400))
 	if remaining != want {
 		t.Fatalf("remaining quota = %d, want %d", remaining, want)
+	}
+}
+
+// TestTC07 verifies RMB quota deduction for streaming (SSE) responses.
+// This is the regression test for https://github.com/bfenetworks/bfe/issues/1316.
+func TestTC07_RMBQuotaDeduction_Streaming(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	// Configure backend to return SSE stream with usage in the final chunk.
+	e.backends[clusterRMB].ResponseHeaders = map[string]string{"Content-Type": "text/event-stream"}
+	e.backends[clusterRMB].Body = streamUsageResponse
+
+	resp, body, err := e.sendRequest(apiHost, streamBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for async redis deduction after response finishes.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - (100*100 + 50*200))
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
 	}
 }

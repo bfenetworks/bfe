@@ -270,7 +270,7 @@ func SetTokenAuthContext(req *bfe_basic.Request, tok *Token, promptToken int64, 
 
 `bfe/bfe_modules/mod_ai_token_auth/mod_ai_token_auth.go`
 
-RMB 成本需要在 `SvrDataConf` 仍可用时计算，因此放在 `HandleReadResponse` 阶段完成：
+响应阶段负责从响应体中提取 `usage`，或在未返回 `usage` 时按响应体长度估算 Token 数。对于非流式响应，`ContentLength >= 0` 时可直接读取完整响应体：
 
 ```go
 func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
@@ -288,21 +288,29 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
             tokenUsage.CompletionTokens = int64(res.ContentLength) / 4
             tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
         }
-        // 在 SvrDataConf 仍可用时计算 RMB 成本
-        if hasRMBPlan(ctx.Token.QuotaPlans) {
-            tokenUsage.UsedCost = m.calcCostUnits(req, ctx.serverConf, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
-        }
     }
 
     return bfe_module.BfeHandlerGoOn
 }
 ```
 
+> 说明：旧实现中 RMB 成本在此阶段计算，导致流式响应（`ContentLength = -1`）无法计费。当前实现已将成本计算移到请求结束阶段，见 7.4。
+
+#### 流式响应的 Token 用量收集
+
+对于 `stream: true` 的 SSE 流式响应，`mod_body_process` 默认会注册 `QuotaUsageProcessor`：
+
+- `mod_body_process.DoResponseProcess` 根据响应 `Content-Type` 选择 SSE 解码器；
+- 每个 SSE 事件经过 `QuotaUsageProcessor.Process` 时，会从事件数据中提取 `usage.*_tokens`；
+- 当遇到包含 `usage` 的最后一个事件时，将 `PromptTokens` / `CompletionTokens` / `UsedQuota` 写入 `AiBasicInfo.TokenUsage`。
+
+因此，到请求结束阶段，`tokenUsage.PromptTokens` 和 `tokenUsage.CompletionTokens` 已经就绪，无论流式还是非流式都可以统一计算 RMB 成本。
+
 ### 7.4 请求结束阶段：`tokenRequestFinishHandler`
 
 `bfe/bfe_modules/mod_ai_token_auth/mod_ai_token_auth.go`
 
-`tokenRequestFinishHandler` 直接使用 `tokenUsage.UsedCost`（已在响应阶段计算好），按 `Unit` 区分扣减：
+请求结束阶段统一计算 RMB 成本并扣减。`TokenAuthContext` 中已缓存 `serverConf`，因此即使 `req.SvrDataConf` 已被 reverse proxy 清空，仍然可以访问 cluster 定价表：
 
 ```go
 func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
@@ -320,7 +328,11 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
         tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
     }
 
-    // 使用响应阶段已计算好的 RMB 成本
+    // 统一在请求完成阶段计算 RMB 成本（流式由 mod_body_process 填充 token 用量）
+    if tokenUsage.UsedCost <= 0 && hasRMBPlan(ctx.Token.QuotaPlans) {
+        tokenUsage.UsedCost = m.calcCostUnits(req, ctx.serverConf, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
+    }
+
     costUnits := tokenUsage.UsedCost
 
     if tokenUsage.UsedQuota > 0 || costUnits > 0 {
@@ -574,6 +586,7 @@ return {yuan, frac}
    - 创建一个 `unit = "RMB"` 的 API Key，发一次 chat 请求，验证 Redis 余额按预期扣减。
    - 测试 `ModelMapping` 场景：请求模型是 `gpt-4`，实际后端模型是 `deepseek-chat`，验证按 `deepseek-chat` 的价格计费。
    - 测试 fallback 场景：请求最终 fallback 到另一个 cluster，验证按最终 cluster + target_model 计费。
+   - 测试流式（SSE）场景：请求体带 `stream: true`，后端返回 SSE 并在最后一个 chunk 中携带 `usage`，验证 RMB 配额仍能正确扣减。
 
 ## 11. 兼容性与注意事项
 
@@ -584,4 +597,6 @@ return {yuan, frac}
    - 本次请求不对该 RMB 配额进行扣减（相当于按 `0` 成本处理）；
    - 具体是否拒绝请求，需产品进一步确认。
 4. **与多 Key 改造的关系**：`AIConf.Keys` 与 `ModelTable` 相互独立，可并行下发、独立解析。
-5. **旧字段清理**：`AIConf.Key` 已移除，统一使用 `AIConf.Keys`。
+5. **流式响应计费**：RMB 成本在请求结束阶段计算，依赖 `mod_body_process`（或其他响应处理模块）在流式传输过程中填充 `PromptTokens` / `CompletionTokens`。生产环境若启用流式计费，需确保 `mod_body_process` 已加载。
+6. **模块顺序建议**：`mod_ai_token_auth` 的 `HandleReadResponse` 不再负责 RMB 成本计算，因此对模块加载顺序的敏感度降低；但仍建议保持 `mod_ai_token_auth` 在 `mod_body_process` 之前注册，以便非流式场景下 token 用量解析逻辑保持一致。
+7. **旧字段清理**：`AIConf.Key` 已移除，统一使用 `AIConf.Keys`。

@@ -56,11 +56,13 @@ type MockBackend struct {
 	// ResponseFunc, if non-nil, overrides Response/Body and is called for each
 	// request to determine the response status and body.
 	ResponseFunc func(r *http.Request, count int) (int, string)
-	hits         int
-	mu           sync.Mutex
-	models       []string
-	bodies       [][]byte
-	authHeaders  []string
+	// ResponseHeaders, if non-nil, is written to the response before the status code.
+	ResponseHeaders map[string]string
+	hits            int
+	mu              sync.Mutex
+	models          []string
+	bodies          [][]byte
+	authHeaders     []string
 }
 
 // NewMockBackend starts a local HTTP server that returns the given status code.
@@ -118,6 +120,9 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 		status, body := b.Response, b.Body
 		if b.ResponseFunc != nil {
 			status, body = b.ResponseFunc(r, count)
+		}
+		for k, v := range b.ResponseHeaders {
+			w.Header().Set(k, v)
 		}
 		w.WriteHeader(status)
 		if body != "" {

@@ -145,10 +145,6 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 			tokenUsage.CompletionTokens = int64(res.ContentLength) / 4                                         // estimate completion tokens
 			tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens) // calculate used quota
 		}
-		// calculate RMB cost while SvrDataConf is still available
-		if hasRMBPlan(ctx.Token.QuotaPlans) {
-			tokenUsage.UsedCost = m.calcCostUnits(req, ctx.serverConf, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
-		}
 	}
 
 	return bfe_module.BfeHandlerGoOn
@@ -178,7 +174,12 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 		tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens) // calculate used quota
 	}
 
-	// use RMB cost calculated at response-read stage (SvrDataConf may be nil here)
+	// calculate RMB cost at request finish time using token usage already populated
+	// by mod_body_process (streaming) or tokenReadResponseHandler (non-streaming).
+	if tokenUsage.UsedCost <= 0 && hasRMBPlan(ctx.Token.QuotaPlans) {
+		tokenUsage.UsedCost = m.calcCostUnits(req, ctx.serverConf, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
+	}
+
 	costUnits := tokenUsage.UsedCost
 
 	if tokenUsage.UsedQuota > 0 || costUnits > 0 {
@@ -399,7 +400,6 @@ func GetPromptToken(req *bfe_basic.Request) int64 {
 	body, _ := bodyAccessor.GetBytes()
 	return int64(len(body)) / 4
 }
-
 
 func hasRMBPlan(plans []*QuotaPlan) bool {
 	for _, plan := range plans {
