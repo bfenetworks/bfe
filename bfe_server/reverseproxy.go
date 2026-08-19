@@ -1286,8 +1286,8 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		}
 
 		res, action, lastCluster, invokeErr = p.aiClusterInvoke(srv, serverConf, basicReq, rw, attempt, aiMeta)
-		if invokeErr == nil && res != nil && res.StatusCode < 500 {
-			// success or 4xx (client error, do not fallback)
+		if invokeErr == nil && res != nil && res.StatusCode < 400 {
+			// success: 2xx/3xx, stop fallback loop
 			break
 		}
 
@@ -1661,11 +1661,28 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 	return res, action, cluster, lastErr
 }
 
+// aiFallbackStatusCodes defines the 4xx status codes that should trigger
+// cluster-level fallback by default. 5xx is handled uniformly by code >= 500.
+// This matches DeepSeek issue #1317 requirements (400/401/402/422/429) and
+// aligns with Bifrost's built-in status code classification.
+var aiFallbackStatusCodes = map[int]struct{}{
+	400: {},
+	401: {},
+	402: {},
+	403: {},
+	422: {},
+	429: {},
+}
+
 func shouldTriggerFallback(res *bfe_http.Response, err error) bool {
 	if err != nil {
 		return true
 	}
-	if res != nil && res.StatusCode >= 500 {
+	code := getResponseStatus(res)
+	if code >= 500 {
+		return true
+	}
+	if _, ok := aiFallbackStatusCodes[code]; ok {
 		return true
 	}
 	return false
