@@ -70,7 +70,7 @@ require (
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
-	github.com/bfenetworks/bfe-access-pb v0.1.0
+	github.com/bfenetworks/bfe-access-pb v0.2.0
 	github.com/bfenetworks/bfe-mock-waf v0.1.0
 	github.com/bfenetworks/bwi v0.1.2
 	github.com/davecgh/go-spew v1.1.1 // indirect

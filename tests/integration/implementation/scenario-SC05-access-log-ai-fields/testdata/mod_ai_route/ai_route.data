@@ -1,0 +1,45 @@
+{
+    "Version": "20260720150000",
+    "route_rules": {
+        "apikey_ak_user_a": {
+            "type": "apikey",
+            "owner": "ak_user_a",
+            "rules": [
+                {
+                    "name": "user_a-rmb",
+                    "Cond": "req_host_in(\"rmb.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_rmb",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": [
+                        {
+                            "ClusterName": "cluster_fallback_rmb",
+                            "Model": ""
+                        }
+                    ]
+                },
+                {
+                    "name": "user_a-notable",
+                    "Cond": "req_host_in(\"notable.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_no_table",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_user_a": [
+            "apikey_ak_user_a"
+        ]
+    }
+}

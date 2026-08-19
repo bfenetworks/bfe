@@ -1508,6 +1508,13 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 
 	// apply cluster.AIConf (api key, model mapping)
 	if cluster.AIConf != nil && aiMeta != nil {
+		if cluster.AIConf.Provider != "" {
+			aiMeta.Provider = cluster.AIConf.Provider
+		}
+		if cluster.AIConf.ModelTable != nil && cluster.AIConf.ModelTable.Currency != "" {
+			aiMeta.CostCurrency = cluster.AIConf.ModelTable.Currency
+		}
+		aiMeta.AppendClusterKeyName(cluster.Name, selectedKey.Name)
 		if selectedKey.Key != "" {
 			mod_ai_token_auth.SetApiKey(outreq, selectedKey.Key)
 		}
@@ -1601,6 +1608,9 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 	keepKey := false
 	for retry := 0; retry <= policy.MaxRetries; retry++ {
 		if retry > 0 {
+			if aiMeta != nil {
+				aiMeta.IncrementRetryCount()
+			}
 			// rewind body before retrying with another key
 			if !rewindRequestBody(basicReq.HttpRequest) {
 				log.Logger.Warn("aiClusterInvoke: failed to rewind request body, abort key-level retry for cluster[%s]",

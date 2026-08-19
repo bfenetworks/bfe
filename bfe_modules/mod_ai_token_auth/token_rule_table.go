@@ -125,6 +125,12 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 			})
 	}
 
+	// record key_id into AiBasicInfo as early as possible so that access log
+	// can still identify the token even if the request is later rejected.
+	if aiBasicInfo := req.GetAiBasicInfo(); aiBasicInfo != nil {
+		aiBasicInfo.ClientKeyId = token.KeyId
+	}
+
 	switch token.Status {
 	case TokenStatusExhausted:
 		SetAiAuthInfo(req, bfe_basic.CodeInvalidApiKey, nil)
@@ -195,6 +201,11 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 						QuotaPlanId: plan.Id,
 						LimitType:   bfe_basic.LimitTypeApiKeyQuota,
 					})
+			}
+
+			// record quota plan that passed balance check
+			if aiBasicInfo := req.GetAiBasicInfo(); aiBasicInfo != nil {
+				aiBasicInfo.AiAuthInfo.HitQuotaPlans = append(aiBasicInfo.AiAuthInfo.HitQuotaPlans, plan.Id)
 			}
 		}
 	}
