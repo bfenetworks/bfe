@@ -367,15 +367,29 @@ func calcBackoff(initial, max, attempt int) time.Duration {
 
 `aiClusterInvoke()` 将最终结果返回给 `ServeHTTPForAI()` 外层：
 
-- 若 Key 级重试最终得到 4xx（401/403/429），不触发 cluster fallback；
-- 若 Key 级重试最终得到 5xx 或发生连接错误，`shouldTriggerFallback()` 返回 true，触发 cluster fallback。
+- 若 Key 级重试最终得到 2xx/3xx，直接返回给客户端；
+- 若 Key 级重试最终得到 5xx、连接错误或特定 4xx（400/401/402/403/422/429），`shouldTriggerFallback()` 返回 true，触发 cluster fallback；
+- 若得到其他 4xx（如 404/405 等请求级错误），不触发 cluster fallback，直接返回。
 
 ```go
+var aiFallbackStatusCodes = map[int]struct{}{
+    400: {},
+    401: {},
+    402: {},
+    403: {},
+    422: {},
+    429: {},
+}
+
 func shouldTriggerFallback(res *bfe_http.Response, err error) bool {
     if err != nil {
         return true
     }
-    if res != nil && res.StatusCode >= 500 {
+    code := getResponseStatus(res)
+    if code >= 500 {
+        return true
+    }
+    if _, ok := aiFallbackStatusCodes[code]; ok {
         return true
     }
     return false

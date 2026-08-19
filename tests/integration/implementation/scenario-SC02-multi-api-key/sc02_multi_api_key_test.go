@@ -351,8 +351,8 @@ func TestTC04_5xxRetriesSameKey(t *testing.T) {
 	}
 }
 
-// TestTC05 verifies that when all keys are exhausted by 4xx errors, the last
-// response is returned and cluster fallback is not triggered.
+// TestTC05 verifies that when all keys are exhausted by 429/401/403 errors,
+// the final 4xx response triggers cluster-level fallback.
 func TestTC05_AllKeysExhausted(t *testing.T) {
 	e := newTestEnv(t, defaultMultiKeyAIConf())
 	defer e.Close()
@@ -373,15 +373,12 @@ func TestTC05_AllKeysExhausted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("send request failed: %v", err)
 	}
-	// The final 4xx status depends on which key was selected last.
-	if resp.StatusCode != http.StatusTooManyRequests &&
-		resp.StatusCode != http.StatusUnauthorized &&
-		resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("expected 4xx status, got %d, body: %s", resp.StatusCode, body)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 from fallback, got %d, body: %s", resp.StatusCode, body)
 	}
 
-	if e.backends[clusterFallbackOK].Hits() != 0 {
-		t.Fatalf("expected fallback not hit, got %d", e.backends[clusterFallbackOK].Hits())
+	if e.backends[clusterFallbackOK].Hits() != 1 {
+		t.Fatalf("expected fallback hit once, got %d", e.backends[clusterFallbackOK].Hits())
 	}
 	// With MaxRetries=3, BFE may try up to 4 times (including a reset of the
 	// used_set when only 429 keys remain).
