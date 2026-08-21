@@ -117,3 +117,117 @@ func TestStatusCodeRange(t *testing.T) {
 		}
 	})
 }
+
+
+func TestModelTableCheck(t *testing.T) {
+	t.Run("valid RMB table", func(t *testing.T) {
+		table := &ModelTable{
+			Currency: "RMB",
+			Models: []ModelPrice{
+				{
+					Model: "deepseek-chat",
+					Mode:  "chat",
+					Prices: map[string]float64{
+						PriceInputCostPerToken:  0.000001,
+						PriceOutputCostPerToken: 0.000002,
+					},
+				},
+			},
+		}
+		if err := ModelTableCheck(table); err != nil {
+			t.Fatalf("ModelTableCheck failed: %v", err)
+		}
+		if table.priceIndex == nil {
+			t.Fatal("priceIndex should be built")
+		}
+		entry := LookupModelPrice(table, "deepseek-chat", "chat")
+		if entry == nil {
+			t.Fatal("LookupModelPrice should return entry")
+		}
+		if entry.Prices[PriceInputCostPerTokenInt] != 100 {
+			t.Errorf("input cost int = %v, want 100", entry.Prices[PriceInputCostPerTokenInt])
+		}
+		if entry.Prices[PriceOutputCostPerTokenInt] != 200 {
+			t.Errorf("output cost int = %v, want 200", entry.Prices[PriceOutputCostPerTokenInt])
+		}
+	})
+
+	t.Run("invalid currency", func(t *testing.T) {
+		table := &ModelTable{
+			Currency: "USD",
+			Models: []ModelPrice{
+				{Model: "m", Mode: "chat", Prices: map[string]float64{PriceInputCostPerToken: 1, PriceOutputCostPerToken: 1}},
+			},
+		}
+		if err := ModelTableCheck(table); err == nil {
+			t.Error("expected error for invalid currency")
+		}
+	})
+
+	t.Run("negative price", func(t *testing.T) {
+		table := &ModelTable{
+			Currency: "RMB",
+			Models: []ModelPrice{
+				{Model: "m", Mode: "chat", Prices: map[string]float64{PriceInputCostPerToken: -1, PriceOutputCostPerToken: 1}},
+			},
+		}
+		if err := ModelTableCheck(table); err == nil {
+			t.Error("expected error for negative price")
+		}
+	})
+
+	t.Run("duplicate model mode", func(t *testing.T) {
+		table := &ModelTable{
+			Currency: "RMB",
+			Models: []ModelPrice{
+				{Model: "m", Mode: "chat", Prices: map[string]float64{PriceInputCostPerToken: 1, PriceOutputCostPerToken: 1}},
+				{Model: "m", Mode: "chat", Prices: map[string]float64{PriceInputCostPerToken: 2, PriceOutputCostPerToken: 2}},
+			},
+		}
+		if err := ModelTableCheck(table); err == nil {
+			t.Error("expected error for duplicate model/mode")
+		}
+	})
+
+	t.Run("missing model or mode", func(t *testing.T) {
+		table := &ModelTable{
+			Currency: "RMB",
+			Models: []ModelPrice{
+				{Model: "", Mode: "chat", Prices: map[string]float64{PriceInputCostPerToken: 1, PriceOutputCostPerToken: 1}},
+			},
+		}
+		if err := ModelTableCheck(table); err == nil {
+			t.Error("expected error for empty model")
+		}
+	})
+}
+
+func TestAIConfCheck(t *testing.T) {
+	t.Run("strip prefix without match prefix", func(t *testing.T) {
+		conf := &AIConf{StripPrefix: true}
+		if err := AIConfCheck(conf); err == nil {
+			t.Error("expected error when StripPrefix=true but MatchPrefix is empty")
+		}
+	})
+
+	t.Run("match prefix without trailing slash", func(t *testing.T) {
+		conf := &AIConf{StripPrefix: true, MatchPrefix: "openrouter"}
+		if err := AIConfCheck(conf); err == nil {
+			t.Error("expected error when MatchPrefix does not end with '/'")
+		}
+	})
+
+	t.Run("valid strip prefix config", func(t *testing.T) {
+		conf := &AIConf{StripPrefix: true, MatchPrefix: "openrouter/"}
+		if err := AIConfCheck(conf); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("strip prefix disabled", func(t *testing.T) {
+		conf := &AIConf{StripPrefix: false, MatchPrefix: ""}
+		if err := AIConfCheck(conf); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+}

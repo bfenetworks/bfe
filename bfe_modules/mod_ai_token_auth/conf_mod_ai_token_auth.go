@@ -54,7 +54,7 @@ type ConfModAITokenAuth struct {
 func (cfg *ConfModAITokenAuth) Check(confRoot string) error {
 	if cfg.Basic.ProductRulePath == "" {
 		log.Logger.Warn("ModAITokenAuth.ProductRulePath not set, use default value")
-		cfg.Basic.ProductRulePath = "mod_ai_toekn_auth/token_rule.data"
+		cfg.Basic.ProductRulePath = "mod_ai_token_auth/token_rule.data"
 	}
 
 	cfg.Basic.ProductRulePath = bfe_util.ConfPathProc(cfg.Basic.ProductRulePath, confRoot)

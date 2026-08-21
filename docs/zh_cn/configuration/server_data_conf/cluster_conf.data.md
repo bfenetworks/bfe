@@ -89,11 +89,53 @@ cluster_conf.data为集群转发配置文件。
 
 #### AI服务配置
 
-| 配置项                        | 类型              | 参数含义                                       | 必填 | 补充描述                                                     | 合法性条件                                                   |
-| ----------------------------- | ----------------- | ---------------------------------------------- | ---- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| AIConf.Type                   | Integer           | AI服务类型                                     | N    | 当前保留字段，请保持为0                                      | 仅支持 0                                                     |
-| AIConf.Key                    | String            | 后端大模型服务的API-Key                        | N    | 空字符串表示访问后端服务时不重置API-Key，仍保持请求的API-Key | -                                                            |
-| AIConf.ModelMapping           | Map[string]string | 原请求model -> 后端服务的model 的映射关系      | N    | 访问后端服务时将根据请求的 model 字段查找此映射关系，命中则重写请求的 model 字段 | 键值均非空                                                   |
+| 配置项                              | 类型              | 参数含义                                       | 必填 | 补充描述                                                     | 合法性条件                                                   |
+| ----------------------------------- | ----------------- | ---------------------------------------------- | ---- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| AIConf.Type                         | Integer           | AI服务类型                                     | N    | 当前保留字段，请保持为0                                      | 仅支持 0                                                     |
+| AIConf.Provider                     | String            | 该集群在 model_prices 中对应的 provider 名称   | N    | 由 ai-gateway-api 根据 OpenAPI `llm_config.provider` 自动填充；用于成本统计 | -                                                            |
+| AIConf.Keys                         | []Object          | 后端大模型服务的 API-Key 列表                  | N    | 为空数组表示访问后端服务时不注入 API-Key，仍保持请求的 API-Key；按权重加权随机选择 | 元素见下表「AIConf.Keys 元素」                               |
+| AIConf.KeyPolicy                    | Object            | API-Key 选择策略与重试退避配置                 | N    | 多 Key 场景下生效；单 Key 或无 Key 时退避逻辑不生效          | 元素见下表「AIConf.KeyPolicy 元素」                          |
+| AIConf.ModelMapping                 | Map[string]string | 原请求model -> 后端服务的model 的映射关系      | N    | 访问后端服务时将根据请求的 model 字段查找此映射关系，命中则重写请求的 model 字段 | 键值均非空                                                   |
+| AIConf.MatchPrefix                  | String            | 需要匹配的 provider/model 前缀                 | N    | 例如 `openrouter/`；必须以 `/` 结尾；用于 OpenRouter 等聚合 provider 场景 | `StripPrefix=true` 时必填                                    |
+| AIConf.StripPrefix                  | Boolean           | 是否裁剪 `MatchPrefix` 指定前缀                | N    | `true` 时转发给下游前会从请求 model 字段中去掉该前缀；`false` 时仅用于路由标识，不裁剪 | 默认 `false`                                                 |
+| AIConf.ModelTable                   | Object            | 该集群的模型定价表                             | N    | 由 ai-gateway-api 根据 `Provider` 查询 model_prices 自动填充；当前货币固定为 RMB | 元素见下表「AIConf.ModelTable 元素」                         |
+
+##### AIConf.Keys 元素
+
+| 配置项              | 类型    | 参数含义           | 必填 | 补充描述                                         | 合法性条件 |
+| ------------------- | ------- | ------------------ | ---- | ------------------------------------------------ | ---------- |
+| AIConf.Keys[i].Name | String  | API-Key 名称/标识  | Y    | 用于日志、监控、运维识别                         | 非空       |
+| AIConf.Keys[i].Key  | String  | API-Key 值         | Y    | 实际用于后端认证的密钥                           | 非空       |
+| AIConf.Keys[i].Weight | Integer | 权重             | Y    | 用于加权随机选择；范围为 `[0,100]`；`0` 表示不接收流量 | `[0,100]`；多 Key 时权重总和须为 100 |
+
+##### AIConf.KeyPolicy 元素
+
+| 配置项                                | 类型    | 参数含义             | 必填 | 补充描述                                                     | 合法性条件                       |
+| ------------------------------------- | ------- | -------------------- | ---- | ------------------------------------------------------------ | -------------------------------- |
+| AIConf.KeyPolicy.Strategy             | String  | Key 选择策略         | N    | 当前仅支持 `weighted_random`                                 | 仅支持 `weighted_random`         |
+| AIConf.KeyPolicy.MaxRetries           | Integer | 总额外重试次数       | N    | 一次 `aiClusterInvoke` 调用内，除首次选择外的最大重试次数；`0` 表示不重试 | >= 0                             |
+| AIConf.KeyPolicy.RetryBackoffInitial  | Integer | 初始退避时间，单位毫秒 | N    | 首次重试的退避时间                                           | >= 0                             |
+| AIConf.KeyPolicy.RetryBackoffMax      | Integer | 最大退避时间，单位毫秒 | N    | 退避时间上限                                                 | >= 0，且须 >= RetryBackoffInitial |
+
+##### AIConf.ModelTable 元素
+
+| 配置项                          | 类型     | 参数含义           | 必填 | 补充描述                            | 合法性条件 |
+| ------------------------------- | -------- | ------------------ | ---- | ----------------------------------- | ---------- |
+| AIConf.ModelTable.Currency      | String   | 货币类型           | Y    | v0.4 固定为 `RMB`                   | -          |
+| AIConf.ModelTable.Models        | []Object | 模型定价条目列表   | Y    | 每个条目对应一个模型及其价格/限制   | 元素见下表「AIConf.ModelTable.Models 元素」 |
+
+##### AIConf.ModelTable.Models 元素
+
+| 配置项                                         | 类型              | 参数含义           | 必填 | 补充描述                            | 合法性条件 |
+| ---------------------------------------------- | ----------------- | ------------------ | ---- | ----------------------------------- | ---------- |
+| AIConf.ModelTable.Models[i].Provider           | String            | Provider 名        | Y    | -                                   | 非空       |
+| AIConf.ModelTable.Models[i].Model              | String            | 模型名             | Y    | 用于匹配请求中的 target_model       | 非空       |
+| AIConf.ModelTable.Models[i].BaseModel          | String            | 归一化模型名       | Y    | -                                   | 非空       |
+| AIConf.ModelTable.Models[i].Mode               | String            | 请求模式           | N    | 例如 `chat`                         | -          |
+| AIConf.ModelTable.Models[i].Capabilities       | []String          | 能力列表           | N    | 例如 `["chat", "reasoning"]`        | -          |
+| AIConf.ModelTable.Models[i].SupportedParameters| []String          | 支持的请求参数列表 | N    | 例如 `["temperature", "max_tokens"]`| -          |
+| AIConf.ModelTable.Models[i].Limits             | Map[string]Integer| 限制对象           | N    | 例如 `context_window` 等            | -          |
+| AIConf.ModelTable.Models[i].Prices             | Map[string]Number | 价格对象           | N    | 例如 `input_cost_per_token` 等      | -          |
 
 ## 配置示例
 
@@ -255,9 +297,51 @@ cluster_conf.data为集群转发配置文件。
             },
             "AIConf": {
                 "Type": 0,
-                "Key": "sk-example-api-key",
+                "Provider": "deepseek",
+                "MatchPrefix": "openrouter/",
+                "StripPrefix": true,
+                "Keys": [
+                    {
+                        "Name": "key-primary",
+                        "Key": "sk-example-api-key-primary",
+                        "Weight": 70
+                    },
+                    {
+                        "Name": "key-secondary",
+                        "Key": "sk-example-api-key-secondary",
+                        "Weight": 30
+                    }
+                ],
+                "KeyPolicy": {
+                    "Strategy": "weighted_random",
+                    "MaxRetries": 3,
+                    "RetryBackoffInitial": 500,
+                    "RetryBackoffMax": 5000
+                },
                 "ModelMapping": {
                     "gpt-4": "backend-gpt-4-model"
+                },
+                "ModelTable": {
+                    "Currency": "RMB",
+                    "Models": [
+                        {
+                            "Provider": "deepseek",
+                            "Model": "deepseek-v3",
+                            "BaseModel": "deepseek-v3",
+                            "Mode": "chat",
+                            "Capabilities": ["chat", "reasoning", "tools"],
+                            "SupportedParameters": ["temperature", "max_tokens"],
+                            "Limits": {
+                                "context_window": 128000,
+                                "max_input_tokens": 128000,
+                                "max_output_tokens": 8192
+                            },
+                            "Prices": {
+                                "input_cost_per_token": 0.000002,
+                                "output_cost_per_token": 0.000008
+                            }
+                        }
+                    ]
                 }
             }
         }

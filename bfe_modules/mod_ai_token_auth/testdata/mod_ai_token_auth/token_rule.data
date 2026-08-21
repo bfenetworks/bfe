@@ -28,8 +28,8 @@
         "AI_product": {
             "ak-123": {
                 "key": "ak-123",
+                "key_id": "ak-123-id",
                 "status": 1,
-                "name": "test-token",
                 "update_time": 0,
                 "expired_time": -1,
                 "unlimited_quota": true,

@@ -14,7 +14,9 @@
 #
 .svn
 .tmp
+.omo
 .download
+.codegraph
 output/
 .*.swp
 .*.swo
@@ -27,6 +29,7 @@ coverage.txt
 .vscode/*
 dist/*
 conf/wasm_plugin
+tests/integration/.integration-test-bin/
 
 .DS_Store
 .git*

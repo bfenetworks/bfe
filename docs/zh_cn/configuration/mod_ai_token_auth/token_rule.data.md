@@ -19,17 +19,18 @@
 | QuotaPlans{v}[].redis_key      | String  | Redis 中存储配额的 key           | N    | unlimited 为 true 时可不配置                                 | -                                                            |
 | QuotaPlans{v}[].create_time    | Integer | 创建时间（Unix Time）            | N    | -                                                            | -                                                            |
 | QuotaPlans{v}[].expired_time   | Integer | 过期时间（Unix Time）            | N    | `-1` 表示永不过期                                            | 必须大于等于 `-1`                                            |
-| QuotaPlans{v}[].quota          | Integer | 配额总量（单位：token）          | N    | unlimited 为 false 时必填                                    | unlimited 为 false 时必须大于 0                              |
+| QuotaPlans{v}[].quota          | Integer | 配额总量                         | N    | 单位由 `unit` 字段决定；`unit=RMB` 时为定点整数，精度 `1e-8` 元；unlimited 为 false 时必填 | `unit=total_token` 且 unlimited 为 false 时必须大于 0；`unit=RMB` 且 unlimited 为 false 时必须大于等于 0 |
 | QuotaPlans{v}[].reset_mode     | Integer | 重置模式                         | Y    | `0` - 非周期性；`1` - 周期性的配额包                         | 取值范围为 `0`、`1`                                          |
+| QuotaPlans{v}[].unit           | String  | 配额单位                         | N    | 默认 `total_token`                                           | 取值为 `total_token` 或 `RMB`                                |
 | Tokens                         | Object  | 所有产品线的 api-key 声明        | Y    | 以产品线名称为键                                             | -                                                            |
 | Tokens{k}                      | String  | 产品线名称                       | Y    | -                                                            | -                                                            |
 | Tokens{v}                      | Object  | 该产品线下的所有 api-key         | Y    | -                                                            | -                                                            |
 | Tokens{v}{k}                   | String  | api-key                          | Y    | -                                                            | -                                                            |
 | Tokens{v}{v}                   | Object  | 一个 api-key 声明                | Y    | -                                                            | -                                                            |
 | Tokens{v}{v}.key               | String  | api-key                          | Y    | 须与外层键一致                                               | -                                                            |
+| Tokens{v}{v}.key_id            | String  | api-key 标识 ID                  | Y    | 用于唯一标识该 api-key                                       | 非空字符串                                                   |
 | Tokens{v}{v}.enabled           | Integer | 是否启用                         | N    | -                                                            | -                                                            |
 | Tokens{v}{v}.status            | Integer | api-key 状态                     | Y    | `1` - Enabled；`2` - Disabled；`3` - Expired；`4` - Exhausted | 取值范围为 `1`、`2`、`3`、`4`                                |
-| Tokens{v}{v}.name              | String  | 名称                             | N    | -                                                            | -                                                            |
 | Tokens{v}{v}.update_time       | Integer | 更新时间（Unix Time）            | N    | 改变意味着开启一个新的配额消费周期                           | -                                                            |
 | Tokens{v}{v}.expired_time      | Integer | 过期时间（Unix Time）            | N    | `-1` 表示永不过期                                            | 必须大于等于 `-1`                                            |
 | Tokens{v}{v}.unlimited_quota   | Boolean | 是否无限配额                     | Y    | -                                                            | -                                                            |
@@ -64,7 +65,19 @@
                 "create_time": 1672531200,
                 "expired_time": -1,
                 "quota": 100000,
-                "reset_mode": 1
+                "reset_mode": 1,
+                "unit": "total_token"
+            },
+            {
+                "id": "daily_rmb_quota",
+                "unlimited": false,
+                "pass_no_quota": false,
+                "redis_key": "ai:quota:daily_rmb_quota",
+                "create_time": 1672531200,
+                "expired_time": -1,
+                "quota": 90000000,
+                "reset_mode": 0,
+                "unit": "RMB"
             }
         ]
     },
@@ -72,8 +85,8 @@
         "example_product": {
             "TESTKEY": {
                 "key": "TESTKEY",
+                "key_id": "test_key_id",
                 "status": 1,
-                "name": "test",
                 "expired_time": -1,
                 "unlimited_quota": false,
                 "allow_models": "model_a,model_b",
@@ -98,3 +111,7 @@
     }
 }
 ```
+
+> 说明：
+> - `unit = total_token` 时，`quota` 为整数 Token 数。
+> - `unit = RMB` 时，`quota` 为定点整数，精度为 `1e-8` 元（即 1 单位 = 0.00000001 元）。例如 `90000000` 表示 `0.9` 元。

@@ -19,9 +19,7 @@ package bfe_server
 import (
 	"github.com/bfenetworks/go-lib/web-monitor/delay_counter"
 	"github.com/bfenetworks/go-lib/web-monitor/metrics"
-)
 
-import (
 	bal "github.com/bfenetworks/bfe/bfe_balance/bal_gslb"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_http2"
@@ -30,6 +28,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_spdy"
 	"github.com/bfenetworks/bfe/bfe_stream"
 	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 	"github.com/bfenetworks/bfe/bfe_websocket"
 )
 
@@ -195,6 +194,13 @@ func (srv *BfeServer) httpStateGetAll(params map[string][]string) ([]byte, error
 func (srv *BfeServer) httpStateGetDiff(params map[string][]string) ([]byte, error) {
 	s := srv.serverStatus.HttpMetrics.GetDiff()
 	return s.Format(params)
+}
+
+func (srv *BfeServer) serverStatGet(params map[string][]string) ([]byte, error) {
+	output := map[string]int64{
+		"total_bytes_body_buffer": bfe_http.TotalBytesBodyBuffer(),
+	}
+	return json.Marshal(output)
 }
 
 func (srv *BfeServer) streamStateGetAll(params map[string][]string) ([]byte, error) {
