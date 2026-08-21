@@ -9,7 +9,7 @@ require (
 	github.com/andybalholm/brotli v1.0.2
 	github.com/armon/go-radix v1.0.0
 	github.com/asergeyev/nradix v0.0.0-20170505151046-3872ab85bb56 // indirect
-	github.com/bfenetworks/go-lib v0.0.1
+	github.com/bfenetworks/go-lib v0.0.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/json-iterator/go v1.1.12
@@ -42,6 +42,7 @@ require (
 )
 
 require (
+	github.com/alicebob/miniredis/v2 v2.34.0
 	github.com/bfenetworks/proxy-wasm-go-host v0.0.1
 	github.com/envoyproxy/go-control-plane/envoy v1.32.3
 	github.com/go-jose/go-jose/v4 v4.0.5
@@ -52,6 +53,7 @@ require (
 )
 
 require (
+	github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20240723142845-024c85f92f20 // indirect
@@ -61,13 +63,14 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 )
 
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
-	github.com/bfenetworks/bfe-access-pb v0.1.0
+	github.com/bfenetworks/bfe-access-pb v0.2.0
 	github.com/bfenetworks/bfe-mock-waf v0.1.0
 	github.com/bfenetworks/bwi v0.1.2
 	github.com/davecgh/go-spew v1.1.1 // indirect

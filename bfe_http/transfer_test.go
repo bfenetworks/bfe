@@ -19,11 +19,12 @@
 package bfe_http
 
 import (
+	"bytes"
+	"io"
 	"strings"
+	"sync/atomic"
 	"testing"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_bufio"
 )
 
@@ -50,5 +51,91 @@ func TestBodyReadBadTrailer(t *testing.T) {
 	got = string(buf[:n])
 	if err == nil {
 		t.Errorf("final Read was successful (%q), expected error from trailer read", got)
+	}
+}
+
+func resetTotalBytesBodyBuffer() {
+	atomic.StoreInt64(&totalBytesBodyBuffer, 0)
+	SetTotalBodyBufferSizeLimit(0)
+}
+
+func TestBytesBodyBufferAccounting(t *testing.T) {
+	resetTotalBytesBodyBuffer()
+	defer resetTotalBytesBodyBuffer()
+
+	data := []byte("hello world")
+	body, err := NewBytesBody(io.NopCloser(bytes.NewReader(data)), int64(len(data)+1))
+	if err != nil {
+		t.Fatalf("NewBytesBody failed: %v", err)
+	}
+
+	if got := TotalBytesBodyBuffer(); got != int64(len(data)) {
+		t.Fatalf("expected total %d, got %d", len(data), got)
+	}
+
+	if err := body.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
+	}
+
+	if got := TotalBytesBodyBuffer(); got != 0 {
+		t.Fatalf("expected total 0 after close, got %d", got)
+	}
+}
+
+func TestBytesBodySetBytesAdjustsTotal(t *testing.T) {
+	resetTotalBytesBodyBuffer()
+	defer resetTotalBytesBodyBuffer()
+
+	data := []byte("hello")
+	body, err := NewBytesBody(io.NopCloser(bytes.NewReader(data)), int64(len(data)+1))
+	if err != nil {
+		t.Fatalf("NewBytesBody failed: %v", err)
+	}
+
+	if got := TotalBytesBodyBuffer(); got != int64(len(data)) {
+		t.Fatalf("expected total %d, got %d", len(data), got)
+	}
+
+	newData := []byte("hello world")
+	body.(BodyAccessor).SetBytes(newData, true)
+
+	if got := TotalBytesBodyBuffer(); got != int64(len(newData)) {
+		t.Fatalf("expected total %d after SetBytes, got %d", len(newData), got)
+	}
+
+	if err := body.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
+	}
+
+	if got := TotalBytesBodyBuffer(); got != 0 {
+		t.Fatalf("expected total 0 after close, got %d", got)
+	}
+}
+
+func TestAddTotalBytesBodyBufferLimit(t *testing.T) {
+	resetTotalBytesBodyBuffer()
+	defer resetTotalBytesBodyBuffer()
+
+	SetTotalBodyBufferSizeLimit(10)
+
+	if !addTotalBytesBodyBuffer(5) {
+		t.Fatal("expected add 5 to succeed")
+	}
+	if TotalBytesBodyBuffer() != 5 {
+		t.Fatalf("expected total 5, got %d", TotalBytesBodyBuffer())
+	}
+
+	if !addTotalBytesBodyBuffer(5) {
+		t.Fatal("expected add another 5 to succeed")
+	}
+	if TotalBytesBodyBuffer() != 10 {
+		t.Fatalf("expected total 10, got %d", TotalBytesBodyBuffer())
+	}
+
+	if addTotalBytesBodyBuffer(1) {
+		t.Fatal("expected add 1 to fail due to limit")
+	}
+	if TotalBytesBodyBuffer() != 10 {
+		t.Fatalf("expected total still 10, got %d", TotalBytesBodyBuffer())
 	}
 }

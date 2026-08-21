@@ -7,8 +7,8 @@
         "example_product": {
             "TESTKEY": {
                 "key": "TESTKEY",
+                "key_id": "TESTKEY_ID",
                 "status": 1,
-                "name": "test",
                 "expired_time": -1,
                 "unlimited_quota": true
             }

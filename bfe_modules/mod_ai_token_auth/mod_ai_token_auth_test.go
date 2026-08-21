@@ -15,6 +15,7 @@
 package mod_ai_token_auth
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -24,8 +25,12 @@ import (
 	"time"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
+	"github.com/bfenetworks/bfe/bfe_util/redis_client"
+	"github.com/bfenetworks/go-lib/quota"
 )
 
 const testConfRoot = "testdata/mod_ai_token_auth"
@@ -168,7 +173,7 @@ func TestConfCheckDefaultProductRulePath(t *testing.T) {
 	if err := cfg.Check(testConfRoot); err != nil {
 		t.Fatalf("Check failed: %s", err)
 	}
-	if !strings.Contains(cfg.Basic.ProductRulePath, "mod_ai_toekn_auth/token_rule.data") {
+	if !strings.Contains(cfg.Basic.ProductRulePath, "mod_ai_token_auth/token_rule.data") {
 		t.Errorf("unexpected default ProductRulePath: %s", cfg.Basic.ProductRulePath)
 	}
 }
@@ -318,7 +323,7 @@ func TestUpdateCtxByUsage(t *testing.T) {
 func TestTokenAuthContext(t *testing.T) {
 	req := newTestRequest("", "AI_product")
 	ai := req.InitAiBasicInfo()
-	tok := &Token{Key: "ak-123"}
+	tok := &Token{Key: "ak-123", KeyId: "ak-123-id"}
 
 	SetTokenAuthContext(req, tok, 5, []bfe_basic.ApikeyTag{{TagName: "t", TagValue: "v"}})
 	ctx := GetTokenAuthContext(req)
@@ -345,6 +350,7 @@ func TestTokenCheck(t *testing.T) {
 	valid := func() *TokenFile {
 		return &TokenFile{
 			Key:            "ak-123",
+			KeyId:          "ak-123-id",
 			Status:         TokenStatusEnabled,
 			ExpiredTime:    -1,
 			UnlimitedQuota: true,
@@ -366,6 +372,13 @@ func TestTokenCheck(t *testing.T) {
 				tf.Key = ""
 			},
 			errSub: "no Key",
+		},
+		{
+			name: "missing key_id",
+			mutate: func(tf *TokenFile) {
+				tf.KeyId = ""
+			},
+			errSub: "no KeyId",
 		},
 		{
 			name: "invalid status",
@@ -432,6 +445,7 @@ func TestTokenCheck(t *testing.T) {
 func TestTokenConvert(t *testing.T) {
 	tf := TokenFile{
 		Key:            "ak-123",
+		KeyId:          "ak-123-id",
 		Status:         TokenStatusEnabled,
 		ExpiredTime:    -1,
 		UnlimitedQuota: false,
@@ -443,7 +457,7 @@ func TestTokenConvert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tokenConvert failed: %s", err)
 	}
-	if token.Key != "ak-123" || len(token.QuotaPlans) != 1 {
+	if token.Key != "ak-123" || token.KeyId != "ak-123-id" || len(token.QuotaPlans) != 1 {
 		t.Errorf("unexpected token: %+v", token)
 	}
 
@@ -523,9 +537,9 @@ func TestValidateUserToken(t *testing.T) {
 		t.Errorf("unexpected token: %s", tok.Key)
 	}
 
-	exhausted := &Token{Key: "ak-exhausted", Status: TokenStatusExhausted, Name: "ex", ExpiredTime: -1}
-	disabled := &Token{Key: "ak-disabled", Status: TokenStatusDisabled, Name: "dis", ExpiredTime: -1}
-	expired := &Token{Key: "ak-expired", Status: TokenStatusEnabled, Name: "exp", ExpiredTime: time.Now().Unix() - 10}
+	exhausted := &Token{Key: "ak-exhausted", KeyId: "ak-exhausted-id", Status: TokenStatusExhausted, ExpiredTime: -1}
+	disabled := &Token{Key: "ak-disabled", KeyId: "ak-disabled-id", Status: TokenStatusDisabled, ExpiredTime: -1}
+	expired := &Token{Key: "ak-expired", KeyId: "ak-expired-id", Status: TokenStatusEnabled, ExpiredTime: time.Now().Unix() - 10}
 	table.lock.Lock()
 	(*table.productTokens["AI_product"])["ak-exhausted"] = exhausted
 	(*table.productTokens["AI_product"])["ak-disabled"] = disabled
@@ -597,7 +611,7 @@ func TestTokenReadResponseHandler(t *testing.T) {
 	m := NewModuleAITokenAuth()
 	req := newTestRequest("ak-123", "AI_product")
 	ai := req.InitAiBasicInfo()
-	SetTokenAuthContext(req, &Token{Key: "ak-123"}, 2, nil)
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 2, nil)
 
 	body := `{"usage":{"total_tokens":20,"prompt_tokens":5,"completion_tokens":15}}`
 	res := &bfe_http.Response{
@@ -638,9 +652,186 @@ func TestTokenRequestFinishHandler(t *testing.T) {
 	req2 := newTestRequest("ak-123", "AI_product")
 	ai2 := req2.InitAiBasicInfo()
 	ai2.SetAllowEstimateToken(true)
-	SetTokenAuthContext(req2, &Token{Key: "ak-123", UnlimitedQuota: true}, 4, nil)
+	SetTokenAuthContext(req2, &Token{Key: "ak-123", KeyId: "ak-123-id", UnlimitedQuota: true}, 4, nil)
 	if ret := m.tokenRequestFinishHandler(req2, res); ret != bfe_module.BfeHandlerGoOn {
 		t.Errorf("expected goon, got %d", ret)
+	}
+}
+
+func TestTokenReadResponseHandlerDoesNotCalcCost(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	req := newTestRequest("ak-123", "AI_product")
+	ai := req.InitAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+
+	// Simulate a non-streaming response with usage body.
+	body := `{"usage":{"total_tokens":20,"prompt_tokens":5,"completion_tokens":15}}`
+	res := &bfe_http.Response{
+		StatusCode:    200,
+		ContentLength: int64(len(body)),
+		Body:          ioutil.NopCloser(strings.NewReader(body)),
+	}
+
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 2, nil)
+
+	ret := m.tokenReadResponseHandler(req, res)
+	if ret != bfe_module.BfeHandlerGoOn {
+		t.Errorf("expected goon, got %d", ret)
+	}
+
+	usage := ai.GetTokenUsage()
+	if usage.UsedQuota != 20 {
+		t.Errorf("expected UsedQuota 20, got %d", usage.UsedQuota)
+	}
+	// UsedCost should NOT be calculated at read-response stage anymore.
+	if usage.UsedCost != 0 {
+		t.Errorf("expected UsedCost 0 at read-response stage, got %d", usage.UsedCost)
+	}
+}
+
+type mockServerDataConf struct {
+	clusters map[string]*bfe_cluster.BfeCluster
+}
+
+func (m *mockServerDataConf) ClusterTableLookup(clusterName string) (*bfe_cluster.BfeCluster, error) {
+	return m.clusters[clusterName], nil
+}
+
+func (m *mockServerDataConf) HostTableLookup(hostname string) (string, error) {
+	return hostname, nil
+}
+
+func newTestRequestWithCluster(apiKey, product, clusterName, targetModel string) *bfe_basic.Request {
+	req := newTestRequest(apiKey, product)
+	req.Route.ClusterName = clusterName
+	ai := req.InitAiBasicInfo()
+	ai.ClientModel = targetModel
+	ai.TargetModel = targetModel
+	return req
+}
+
+func buildTestClusterConf(model string, inputCost, outputCost float64) *bfe_cluster.BfeCluster {
+	modelTable := &cluster_conf.ModelTable{
+		Currency: "RMB",
+		Models: []cluster_conf.ModelPrice{
+			{
+				Model:     model,
+				BaseModel: model,
+				Mode:      "chat",
+				Prices: map[string]float64{
+					cluster_conf.PriceInputCostPerToken:  inputCost,
+					cluster_conf.PriceOutputCostPerToken: outputCost,
+				},
+			},
+		},
+	}
+	// ModelTableCheck builds price index and converts float prices to fixed-point integers.
+	if err := cluster_conf.ModelTableCheck(modelTable); err != nil {
+		panic(fmt.Sprintf("ModelTableCheck failed: %v", err))
+	}
+
+	c := bfe_cluster.NewBfeCluster("test-cluster")
+	c.AIConf = &cluster_conf.AIConf{
+		ModelTable: modelTable,
+	}
+	return c
+}
+
+func TestTokenRequestFinishHandler_RMB_Streaming(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+
+	cluster := buildTestClusterConf(model, 0.000003, 0.000009)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-ZEAoKAKdGnPpck1uPoUsdNCb",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+
+	// Simulate streaming: mod_body_process has filled token usage after context was set.
+	ai := req.GetAiBasicInfo()
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 100
+	usage.CompletionTokens = 200
+	usage.UsedQuota = 300
+
+	// input_cost=0.000003 yuan/token, output_cost=0.000009 yuan/token
+	// Expected cost = 100*0.000003 + 200*0.000009 = 0.0021 yuan
+	// In fixed point: 0.0021 * 1e8 = 210000
+
+	// Streaming response: ContentLength = -1.
+	res := &bfe_http.Response{StatusCode: 200, ContentLength: -1}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	expectedCost := quota.RmbToFixedPoint(0.0021)
+	if usage.UsedCost != expectedCost {
+		t.Errorf("expected UsedCost %d, got %d", expectedCost, usage.UsedCost)
+	}
+
+	remaining := client.data[rmbPlan.RedisKey]
+	if remaining != rmbPlan.Quota-expectedCost {
+		t.Errorf("expected remaining %d, got %d", rmbPlan.Quota-expectedCost, remaining)
+	}
+}
+
+func TestTokenRequestFinishHandler_RMB_NonStreaming(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+
+	body := `{"usage":{"total_tokens":30,"prompt_tokens":10,"completion_tokens":20}}`
+	res := &bfe_http.Response{
+		StatusCode:    200,
+		ContentLength: int64(len(body)),
+		Body:          ioutil.NopCloser(strings.NewReader(body)),
+	}
+
+	cluster := buildTestClusterConf(model, 0.000003, 0.000009)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-NonStreaming",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+
+	// First pass through read-response handler to parse usage.
+	if ret := m.tokenReadResponseHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("read response handler failed: %d", ret)
+	}
+
+	// Then finish handler should calculate cost and deduct.
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	// Expected cost = 10*0.000003 + 20*0.000009 = 0.00021 yuan
+	expectedCost := quota.RmbToFixedPoint(0.00021)
+	usage := req.GetAiBasicInfo().GetTokenUsage()
+	if usage.UsedCost != expectedCost {
+		t.Errorf("expected UsedCost %d, got %d", expectedCost, usage.UsedCost)
+	}
+
+	remaining := client.data[rmbPlan.RedisKey]
+	if remaining != rmbPlan.Quota-expectedCost {
+		t.Errorf("expected remaining %d, got %d", rmbPlan.Quota-expectedCost, remaining)
 	}
 }
 
@@ -703,7 +894,9 @@ func TestQuotaPlanCheck(t *testing.T) {
 	}{
 		{"missing id", QuotaPlan{Unlimited: true}, "no Id"},
 		{"invalid expired time", QuotaPlan{Id: "p1", Unlimited: true, ExpiredTime: -2}, "invalid ExpiredTime"},
-		{"invalid quota", QuotaPlan{Id: "p1", Unlimited: false, Quota: 0}, "invalid Quota"},
+		{"invalid token quota", QuotaPlan{Id: "p1", Unlimited: false, Quota: 0, Unit: "total_token"}, "invalid Quota"},
+		{"invalid rmb quota", QuotaPlan{Id: "p1", Unlimited: false, Quota: -1, Unit: "RMB"}, "invalid Quota for RMB"},
+		{"invalid unit", QuotaPlan{Id: "p1", Unlimited: true, Unit: "invalid"}, "invalid Unit"},
 		{"invalid reset mode", QuotaPlan{Id: "p1", Unlimited: true, ResetMode: 2}, "invalid ResetMode"},
 	}
 	for _, tc := range cases {
@@ -736,6 +929,7 @@ func TestSubnetValidation(t *testing.T) {
 	s := "10.0.0.0/8, 192.168.1.0/24"
 	tf := &TokenFile{
 		Key:            "ak-subnet",
+		KeyId:          "ak-subnet-id",
 		Status:         TokenStatusEnabled,
 		ExpiredTime:    -1,
 		UnlimitedQuota: true,
@@ -752,4 +946,154 @@ func TestSubnetValidation(t *testing.T) {
 	if !tf.subnet[0].Contains(ipNet.IP) && !tf.subnet[1].Contains(ipNet.IP) {
 		t.Error("expected subnet to contain 10.0.0.0")
 	}
+}
+
+// mockRedisClient is a simple in-memory redis client for unit tests.
+type mockRedisClient struct {
+	data map[string]int64
+}
+
+func newMockRedisClient() *mockRedisClient {
+	return &mockRedisClient{data: make(map[string]int64)}
+}
+
+func (m *mockRedisClient) Setex(key string, value []byte, expire int) error {
+	return nil
+}
+
+func (m *mockRedisClient) Get(key string) (interface{}, error) {
+	if v, ok := m.data[key]; ok {
+		return v, nil
+	}
+	return nil, fmt.Errorf("key not found")
+}
+
+func (m *mockRedisClient) Expire(key string, expire int) error {
+	return nil
+}
+
+func (m *mockRedisClient) Incr(key string) (int64, error) {
+	m.data[key]++
+	return m.data[key], nil
+}
+
+func (m *mockRedisClient) IncrAndExpire(key string, expire int) (int64, error) {
+	return m.Incr(key)
+}
+
+func (m *mockRedisClient) Decr(key string) (int64, error) {
+	m.data[key]--
+	return m.data[key], nil
+}
+
+func (m *mockRedisClient) PIncr(keys []string) ([]int64, error) {
+	return nil, nil
+}
+
+func (m *mockRedisClient) GetInt64(key string) (int64, error) {
+	if v, ok := m.data[key]; ok {
+		return v, nil
+	}
+	return 0, fmt.Errorf("key not found")
+}
+
+func (m *mockRedisClient) IncrBy(key string, delta int64) (int64, error) {
+	m.data[key] += delta
+	return m.data[key], nil
+}
+
+func (m *mockRedisClient) NewScript(src string) redis_client.RedisScript {
+	return &mockRedisScript{client: m, src: src}
+}
+
+type mockRedisScript struct {
+	client *mockRedisClient
+	src    string
+}
+
+func (s *mockRedisScript) Run(key string, args ...interface{}) (interface{}, error) {
+	isRMB := strings.Contains(s.src, "raw == false")
+	current := s.client.data[key]
+	amount, _ := args[0].(int64)
+	if isRMB {
+		if _, ok := s.client.data[key]; !ok {
+			initial, _ := args[1].(int64)
+			s.client.data[key] = initial
+			current = initial
+		}
+	}
+	deduct := current
+	if amount < current {
+		deduct = amount
+	}
+	if deduct > 0 {
+		s.client.data[key] = current - deduct
+	}
+	remaining := s.client.data[key]
+	if remaining < 0 {
+		remaining = 0
+		s.client.data[key] = 0
+	}
+	return remaining, nil
+}
+
+func TestQuotaPlanDeduct(t *testing.T) {
+	t.Run("token deduct", func(t *testing.T) {
+		client := newMockRedisClient()
+		client.data["token-key"] = 100
+		plan := &QuotaPlan{Id: "p1", RedisKey: "token-key", Unit: "total_token", Quota: 100}
+		remaining, err := plan.Deduct(client, 30)
+		if err != nil {
+			t.Fatalf("deduct failed: %v", err)
+		}
+		if remaining != 70 {
+			t.Errorf("remaining = %d, want 70", remaining)
+		}
+		if client.data["token-key"] != 70 {
+			t.Errorf("stored value = %d, want 70", client.data["token-key"])
+		}
+	})
+
+	t.Run("rmb deduct", func(t *testing.T) {
+		client := newMockRedisClient()
+		plan := &QuotaPlan{Id: "p1", RedisKey: "rmb-key", Unit: "RMB", Quota: 1000}
+		remaining, err := plan.Deduct(client, 200)
+		if err != nil {
+			t.Fatalf("deduct failed: %v", err)
+		}
+		if remaining != 800 {
+			t.Errorf("remaining = %d, want 800", remaining)
+		}
+		if client.data["rmb-key"] != 800 {
+			t.Errorf("stored value = %d, want 800", client.data["rmb-key"])
+		}
+	})
+
+	t.Run("rmb deduct insufficient", func(t *testing.T) {
+		client := newMockRedisClient()
+		client.data["rmb-key"] = 100
+		plan := &QuotaPlan{Id: "p1", RedisKey: "rmb-key", Unit: "RMB", Quota: 100}
+		remaining, err := plan.Deduct(client, 200)
+		if err != nil {
+			t.Fatalf("deduct failed: %v", err)
+		}
+		if remaining != 0 {
+			t.Errorf("remaining = %d, want 0", remaining)
+		}
+		if client.data["rmb-key"] != 0 {
+			t.Errorf("stored value = %d, want 0", client.data["rmb-key"])
+		}
+	})
+
+	t.Run("unlimited plan", func(t *testing.T) {
+		client := newMockRedisClient()
+		plan := &QuotaPlan{Id: "p1", RedisKey: "key", Unlimited: true, Unit: "RMB", Quota: 10000}
+		remaining, err := plan.Deduct(client, 200)
+		if err != nil {
+			t.Fatalf("deduct failed: %v", err)
+		}
+		if remaining != 10000 {
+			t.Errorf("remaining = %d, want 10000", remaining)
+		}
+	})
 }

@@ -371,9 +371,9 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		return
 	}
 
-	// API Key
-	if aiInfo.ClientApiKey != "" {
-		reqLog.AiApikey = proto.String(aiInfo.ClientApiKey)
+	// API Key ID (not the raw API Key value)
+	if aiInfo.ClientKeyId != "" {
+		reqLog.AiApikeyId = proto.String(aiInfo.ClientKeyId)
 	}
 
 	// API Key Tags
@@ -391,7 +391,12 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		reqLog.AiRequestedModel = proto.String(aiInfo.ClientModel)
 	}
 	if aiInfo.TargetModel != "" {
-		reqLog.AiMappedModel = proto.String(aiInfo.TargetModel)
+		reqLog.AiTargetModel = proto.String(aiInfo.TargetModel)
+	}
+
+	// Provider
+	if aiInfo.Provider != "" {
+		reqLog.AiProvider = proto.String(aiInfo.Provider)
 	}
 
 	// Stream
@@ -400,9 +405,22 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 	// Token usage
 	usage := aiInfo.GetTokenUsage()
 	if usage != nil {
-		reqLog.AiPromptTokens = proto.Int64(usage.PromptTokens)
+		reqLog.AiInputTokens = proto.Int64(usage.PromptTokens)
 		reqLog.AiOutputTokens = proto.Int64(usage.CompletionTokens)
 		reqLog.AiTotalTokens = proto.Int64(usage.UsedQuota)
+		if usage.UsedCost > 0 {
+			reqLog.AiCostValue = proto.Int64(usage.UsedCost)
+		}
+	}
+
+	// Cost currency
+	if aiInfo.CostCurrency != "" {
+		reqLog.AiCostCurrency = proto.String(aiInfo.CostCurrency)
+	}
+
+	// Retry count
+	if aiInfo.RetryCount > 0 {
+		reqLog.AiRetryCount = proto.Uint32(aiInfo.RetryCount)
 	}
 
 	// TTFT / TPOT
@@ -419,6 +437,26 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 	}
 	for _, item := range aiInfo.AiAuthInfo.RejectQuotaPlans {
 		reqLog.AiAuthRejectQuotaPlans = append(reqLog.AiAuthRejectQuotaPlans, item)
+	}
+	for _, item := range aiInfo.AiAuthInfo.HitQuotaPlans {
+		reqLog.AiAuthHitQuotaPlans = append(reqLog.AiAuthHitQuotaPlans, item)
+	}
+
+	// Route rule hits
+	if routeResult := req.GetAiRouteResult(); routeResult != nil {
+		reqLog.AiRouteRuleHits = append(reqLog.AiRouteRuleHits, &bfe_access_pb3.AIRouteRuleHit{
+			RuleOwner:     proto.String(routeResult.Owner),
+			RuleOwnerType: proto.String(routeResult.RouteType),
+			RuleName:      proto.String(routeResult.RuleName),
+		})
+	}
+
+	// Cluster / key attempts
+	for _, ckn := range aiInfo.ClusterKeyNames {
+		reqLog.AiClusterKeyNames = append(reqLog.AiClusterKeyNames, &bfe_access_pb3.ClusterKeyName{
+			ClusterName: proto.String(ckn.ClusterName),
+			KeyName:     proto.String(ckn.KeyName),
+		})
 	}
 
 	// Rate limit hit info

@@ -111,6 +111,9 @@ func (m *BfeMonitor) monitorHandlers() map[string]interface{} {
 		"module_status":   m.srv.ModuleStatusGetJSON,
 		"module_handlers": m.srv.ModuleHandlersGetJSON,
 
+		// for server stat
+		"server_stat": m.srv.serverStatGet,
+
 		// for proxy memory stat
 		"proxy_mem_stat": web_monitor.CreateMemStatsHandler("proxy_mem_stat"),
 	}

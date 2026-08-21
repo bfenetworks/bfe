@@ -1,0 +1,18 @@
+{
+    "clusters": {
+        "cluster_rmb": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_rmb": 100
+        },
+        "cluster_no_table": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_notable": 100
+        },
+        "cluster_fallback_rmb": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_fallback_rmb": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20260720150000"
+}

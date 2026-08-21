@@ -848,35 +848,6 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 		outreq.Host = ""
 	}
 
-	if cluster.AIConf != nil {
-		aiMeta := basicReq.GetAiBasicInfo()
-		if aiMeta != nil {
-			// if cluster has AIConf, do model mapping & set api key in outreq
-			if cluster.AIConf.Key != nil {
-				mod_ai_token_auth.SetApiKey(outreq, *cluster.AIConf.Key)
-			}
-			if cluster.AIConf.ModelMapping != nil {
-				model := aiMeta.ClientModel
-				if model != "" {
-					newModel, ok := (*cluster.AIConf.ModelMapping)[model]
-					if ok {
-						err = condition.ReqBodyJsonSet(basicReq, "model", newModel)
-						if err != nil {
-							log.Logger.Warn("Failed to set model in request body: %s", err)
-							// just continue, not return error
-						} else {
-							// outreq body already changed, need reset Content-Length
-							if outreq.ContentLength >= 0 {
-								outreq.ContentLength = -1
-								outreq.Header.Del("Content-Length")
-							}
-							aiMeta.TargetModel = newModel
-						}
-					}
-				}
-			}
-		}
-	}
 	/*
 		// do body process before forwarding
 		bf, ok = outreq.Body.(BufferFiller)
@@ -1297,15 +1268,26 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		})
 	}
 
+	// ensure request body is rewindable before attempting fallbacks
+	if len(attempts) > 1 && basicReq.HttpRequest.Body != nil {
+		if !prepareRequestBodyForRetry(basicReq.HttpRequest) {
+			log.Logger.Warn("ServeHTTPForAI: request body is not rewindable, disable fallback")
+			attempts = attempts[:1]
+		}
+	}
+
 	for i, attempt := range attempts {
 		if i > 0 {
 			// fallback attempt: reset request state
-			p.resetRequestForRetry(basicReq)
+			if !p.resetRequestForRetry(basicReq) {
+				log.Logger.Warn("ServeHTTPForAI: fallback aborted, request body cannot be rewound")
+				break
+			}
 		}
 
 		res, action, lastCluster, invokeErr = p.aiClusterInvoke(srv, serverConf, basicReq, rw, attempt, aiMeta)
-		if invokeErr == nil && res != nil && res.StatusCode < 500 {
-			// success or 4xx (client error, do not fallback)
+		if invokeErr == nil && res != nil && res.StatusCode < 400 {
+			// success: 2xx/3xx, stop fallback loop
 			break
 		}
 
@@ -1319,9 +1301,9 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		}
 
 		// log fallback
-		log.Logger.Info("mod_ai_route: fallback triggered, cluster[%s] err[%v] status[%d]",
+		log.Logger.Info("ServeHTTPForAI: fallback triggered, cluster[%s] err[%v] status[%d]",
 			attempt.ClusterName, invokeErr, getResponseStatus(res))
-		
+
 		if res != nil {
 			res.Body.Close()
 		}
@@ -1442,6 +1424,112 @@ send_response:
 	return
 }
 
+// stripProviderPrefix strips the configured provider/model prefix from model.
+// It returns the stripped model and true when stripping succeeds; otherwise it
+// returns the original model and false.
+func stripProviderPrefix(model string, matchPrefix string) (string, bool) {
+	if model == "" || !strings.HasPrefix(model, matchPrefix) {
+		return model, false
+	}
+
+	stripped := strings.TrimPrefix(model, matchPrefix)
+	if stripped == "" {
+		log.Logger.Warn("Model %s stripped by prefix %s results in empty model, skip stripping",
+			model, matchPrefix)
+		return model, false
+	}
+
+	return stripped, true
+}
+
+// doSingleAIForward performs a single AI forward attempt with the given key.
+func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.BfeCluster,
+	basicReq *bfe_basic.Request, rw bfe_http.ResponseWriter,
+	attempt aiForwardAttempt, aiMeta *bfe_basic.AiBasicInfo,
+	selectedKey cluster_conf.AIKey) (
+	res *bfe_http.Response, action int, err error) {
+
+	req := basicReq.HttpRequest
+
+	// prepare out request to downstream RS backend
+	outreq := new(bfe_http.Request)
+	*outreq = *req // includes shallow copies of maps, but okay
+	basicReq.OutRequest = outreq
+
+	// set http proto for out request
+	httpProtoSet(outreq)
+	// remove hop-by-hop headers
+	hopByHopHeaderRemove(outreq, req)
+
+	if cluster.DisableHostHeader {
+		// if cluster.DisableHostHeader is true, del outreq.Host
+		outreq.Host = ""
+	}
+
+	// Calculate the final model in order: route target/fallback override ->
+	// provider/model prefix stripping -> cluster model mapping. Then write it
+	// to the request body at most once to avoid repeated JSON parsing/serialization.
+	model := aiMeta.ClientModel
+	if aiMeta.TargetModel != "" {
+		model = aiMeta.TargetModel
+	}
+
+	// apply model override from ai route target/fallback
+	if attempt.Model != "" {
+		model = attempt.Model
+	}
+
+	// strip provider/model prefix according to cluster AIConf
+	if cluster.AIConf != nil && cluster.AIConf.StripPrefix && cluster.AIConf.MatchPrefix != "" {
+		if stripped, ok := stripProviderPrefix(model, cluster.AIConf.MatchPrefix); ok {
+			model = stripped
+		}
+	}
+
+	// apply cluster model mapping
+	if cluster.AIConf != nil && cluster.AIConf.ModelMapping != nil && model != "" {
+		if newModel, ok := (*cluster.AIConf.ModelMapping)[model]; ok {
+			model = newModel
+		}
+	}
+
+	if model != aiMeta.ClientModel {
+		if err := condition.ReqBodyJsonSet(basicReq, "model", model); err != nil {
+			log.Logger.Warn("Failed to set model in request body: %s", err)
+		} else {
+			// outreq body already changed, need reset Content-Length
+			if outreq.ContentLength >= 0 {
+				outreq.ContentLength = -1
+				outreq.Header.Del("Content-Length")
+			}
+			// Also reset the original request's Content-Length so that fallback/retry
+			// creates a new outreq with consistent body length.
+			if basicReq.HttpRequest != nil && basicReq.HttpRequest.ContentLength >= 0 {
+				basicReq.HttpRequest.ContentLength = -1
+				basicReq.HttpRequest.Header.Del("Content-Length")
+			}
+			aiMeta.TargetModel = model
+		}
+	}
+
+	// apply cluster.AIConf (api key, provider, cost currency)
+	if cluster.AIConf != nil {
+		if cluster.AIConf.Provider != "" {
+			aiMeta.Provider = cluster.AIConf.Provider
+		}
+		if cluster.AIConf.ModelTable != nil && cluster.AIConf.ModelTable.Currency != "" {
+			aiMeta.CostCurrency = cluster.AIConf.ModelTable.Currency
+		}
+		aiMeta.AppendClusterKeyName(cluster.Name, selectedKey.Name)
+		if selectedKey.Key != "" {
+			mod_ai_token_auth.SetApiKey(outreq, selectedKey.Key)
+		}
+	}
+
+	// invoke cluster to get response
+	return p.clusterInvoke(srv, cluster, basicReq, rw)
+}
+
 func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.ServerDataConf,
 	basicReq *bfe_basic.Request, rw bfe_http.ResponseWriter,
 	attempt aiForwardAttempt, aiMeta *bfe_basic.AiBasicInfo) (
@@ -1466,79 +1554,131 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 
 	// set deadline to finish read client request body
 	timeoutReadClient := cluster.TimeoutReadClient()
-	
+
 	if basicReq.IsSse {
 		timeoutReadClient = -1
 	}
 
 	p.setTimeout(bfe_basic.StageReadReqBody, basicReq.Connection, req, timeoutReadClient)
 
-	// prepare out request to downstream RS backend
-	outreq := new(bfe_http.Request)
-	*outreq = *req // includes shallow copies of maps, but okay
-	basicReq.OutRequest = outreq
-
-	// set http proto for out request
-	httpProtoSet(outreq)
-	// remove hop-by-hop headers
-	hopByHopHeaderRemove(outreq, req)
-
-	if cluster.DisableHostHeader {
-		// if cluster.DisableHostHeader is true, del outreq.Host
-		outreq.Host = ""
+	// no api keys configured, skip key injection
+	if cluster.AIConf == nil || len(cluster.AIConf.Keys) == 0 {
+		res, action, err = p.doSingleAIForward(srv, cluster, basicReq, rw, attempt, aiMeta, cluster_conf.AIKey{})
+		return res, action, cluster, err
 	}
 
-	// apply model override from ai route target/fallback
-	if attempt.Model != "" && aiMeta != nil {
-		if err := condition.ReqBodyJsonSet(basicReq, "model", attempt.Model); err != nil {
-			log.Logger.Warn("Failed to set model in request body: %s", err)
-		} else {
-			// outreq body already changed, need reset Content-Length
-			if outreq.ContentLength >= 0 {
-				outreq.ContentLength = -1
-				outreq.Header.Del("Content-Length")
-			}
-			aiMeta.TargetModel = attempt.Model
+	policy := defaultAIKeyPolicy()
+	if cluster.AIConf.KeyPolicy != nil {
+		policy = *cluster.AIConf.KeyPolicy
+	}
+
+	keys := cluster.AIConf.Keys
+
+	// ensure request body is rewindable when key-level retry is possible
+	keyRetryEnabled := policy.MaxRetries > 0
+	if keyRetryEnabled {
+		if !prepareRequestBodyForRetry(basicReq.HttpRequest) {
+			log.Logger.Warn("aiClusterInvoke: request body is not rewindable, disable key-level retry for cluster[%s]",
+				attempt.ClusterName)
+			keyRetryEnabled = false
+			policy.MaxRetries = 0
 		}
 	}
 
-	// apply cluster.AIConf (api key, model mapping)
-	if cluster.AIConf != nil && aiMeta != nil {
-		if cluster.AIConf.Key != nil {
-			mod_ai_token_auth.SetApiKey(outreq, *cluster.AIConf.Key)
+	state := newAIKeyAttemptState()
+
+	var lastErr error
+	var idx int
+	var key cluster_conf.AIKey
+	var ok bool
+	keepKey := false
+	for retry := 0; retry <= policy.MaxRetries; retry++ {
+		if retry > 0 {
+			if aiMeta != nil {
+				aiMeta.IncrementRetryCount()
+			}
+			// rewind body before retrying with another key
+			if !rewindRequestBody(basicReq.HttpRequest) {
+				log.Logger.Warn("aiClusterInvoke: failed to rewind request body, abort key-level retry for cluster[%s]",
+					attempt.ClusterName)
+				break
+			}
+			backoff := calcBackoff(policy.RetryBackoffInitial, policy.RetryBackoffMax, retry)
+			time.Sleep(backoff)
 		}
-		if cluster.AIConf.ModelMapping != nil {
-			model := aiMeta.ClientModel
-			if aiMeta.TargetModel != "" {
-				model = aiMeta.TargetModel
+
+		if !keepKey {
+			idx, key, ok = chooseNextAIKey(keys, state)
+			if !ok {
+				log.Logger.Warn("aiClusterInvoke: all ai keys exhausted for cluster[%s]", attempt.ClusterName)
+				break
 			}
-			if model != "" {
-				if newModel, ok := (*cluster.AIConf.ModelMapping)[model]; ok {
-					if err := condition.ReqBodyJsonSet(basicReq, "model", newModel); err != nil {
-						log.Logger.Warn("Failed to set model in request body: %s", err)
-					} else {
-						// outreq body already changed, need reset Content-Length
-						if outreq.ContentLength >= 0 {
-							outreq.ContentLength = -1
-							outreq.Header.Del("Content-Length")
-						}
-						aiMeta.TargetModel = newModel
-					}
-				}
-			}
+
+			log.Logger.Info("aiClusterInvoke: select ai key [name=%s weight=%d] for cluster[%s]",
+				key.Name, key.Weight, attempt.ClusterName)
+		}
+		keepKey = false
+
+		res, action, err = p.doSingleAIForward(srv, cluster, basicReq, rw, attempt, aiMeta, key)
+
+		lastErr = err
+		statusCode := 0
+		if res != nil {
+			statusCode = res.StatusCode
+		}
+
+		// success: stop key-level retry
+		if err == nil && statusCode < 400 {
+			return res, action, cluster, nil
+		}
+
+		// classify failure
+		switch {
+		case statusCode == 429:
+			// rate limit: mark key as used and rotate to another key
+			state.usedSet[idx] = struct{}{}
+			log.Logger.Info("aiClusterInvoke: ai key [name=%s] rate limited (429), rotate", key.Name)
+		case statusCode == 401 || statusCode == 402 || statusCode == 403:
+			// auth failure: mark key as dead
+			state.deadSet[idx] = struct{}{}
+			log.Logger.Info("aiClusterInvoke: ai key [name=%s] auth failed (%d), dead", key.Name, statusCode)
+		case statusCode >= 500 || err != nil:
+			// transient server failure or connection error:
+			// keep current key selected for next retry (with backoff)
+			keepKey = true
+			log.Logger.Info("aiClusterInvoke: ai key [name=%s] transient failure [status=%d err=%v], retry same key",
+				key.Name, statusCode, err)
+		default:
+			// other 4xx client errors (e.g. 400, 404): stop key-level retry
+			return res, action, cluster, nil
 		}
 	}
 
-	// invoke cluster to get response
-	res, action, err = p.clusterInvoke(srv, cluster, basicReq, rw)
-	return res, action, cluster, err
+	return res, action, cluster, lastErr
+}
+
+// aiFallbackStatusCodes defines the 4xx status codes that should trigger
+// cluster-level fallback by default. 5xx is handled uniformly by code >= 500.
+// This matches DeepSeek issue #1317 requirements (400/401/402/422/429) and
+// aligns with Bifrost's built-in status code classification.
+var aiFallbackStatusCodes = map[int]struct{}{
+	400: {},
+	401: {},
+	402: {},
+	403: {},
+	422: {},
+	429: {},
 }
 
 func shouldTriggerFallback(res *bfe_http.Response, err error) bool {
 	if err != nil {
 		return true
 	}
-	if res != nil && res.StatusCode >= 500 {
+	code := getResponseStatus(res)
+	if code >= 500 {
+		return true
+	}
+	if _, ok := aiFallbackStatusCodes[code]; ok {
 		return true
 	}
 	return false
@@ -1551,7 +1691,7 @@ func getResponseStatus(res *bfe_http.Response) int {
 	return res.StatusCode
 }
 
-func (p *ReverseProxy) resetRequestForRetry(basicReq *bfe_basic.Request) {
+func (p *ReverseProxy) resetRequestForRetry(basicReq *bfe_basic.Request) bool {
 	// desc backend connection counter
 	if basicReq.Trans.Backend != nil {
 		basicReq.Trans.Backend.DecConnNum()
@@ -1563,7 +1703,175 @@ func (p *ReverseProxy) resetRequestForRetry(basicReq *bfe_basic.Request) {
 	// reset out request so body can be re-read
 	basicReq.OutRequest = nil
 
+	// rewind request body for next fallback attempt
+	if !rewindRequestBody(basicReq.HttpRequest) {
+		return false
+	}
+
+	// reset Content-Length so that the next outreq is created with a length
+	// consistent with the current (possibly modified) body.
+	if basicReq.HttpRequest.ContentLength >= 0 {
+		basicReq.HttpRequest.ContentLength = -1
+		basicReq.HttpRequest.Header.Del("Content-Length")
+	}
+
 	// clear error info from previous attempt
 	basicReq.ErrCode = nil
 	basicReq.ErrMsg = ""
+	return true
+}
+
+// prepareRequestBodyForRetry makes the request body rewindable for fallback.
+// If the body already implements Rewindable, it returns true directly.
+// Otherwise, it tries to convert the body to bytes_body via GetBodyAccessor.
+// It rejects wrapping when the total bytes_body buffer size reaches the limit.
+func prepareRequestBodyForRetry(req *bfe_http.Request) bool {
+	// if total buffer size already reaches the limit, do not wrap (no retry)
+	if limit := bfe_http.TotalBodyBufferSizeLimit(); limit > 0 {
+		if bfe_http.TotalBytesBodyBuffer() >= limit {
+			return false
+		}
+	}
+	if req.Body == nil {
+		return true
+	}
+	if _, ok := req.Body.(bfe_http.Rewindable); ok {
+		return true
+	}
+	if _, err := req.GetBodyAccessor(); err != nil {
+		return false
+	}
+	_, ok := req.Body.(bfe_http.Rewindable)
+	return ok
+}
+
+// rewindRequestBody rewinds the request body to the beginning.
+// It assumes the body already implements Rewindable.
+func rewindRequestBody(req *bfe_http.Request) bool {
+	if req.Body == nil {
+		return true
+	}
+	rewindable, ok := req.Body.(bfe_http.Rewindable)
+	if !ok {
+		return false
+	}
+	return rewindable.Rewind()
+}
+
+// aiKeyAttemptState tracks key usage within one aiClusterInvoke call.
+type aiKeyAttemptState struct {
+	usedSet map[int]struct{} // index of keys used for 429 in this request
+	deadSet map[int]struct{} // index of keys dead for 401/402/403 in this request
+}
+
+func newAIKeyAttemptState() *aiKeyAttemptState {
+	return &aiKeyAttemptState{
+		usedSet: make(map[int]struct{}),
+		deadSet: make(map[int]struct{}),
+	}
+}
+
+// aiKeyRand is used for weighted random AI key selection.
+var aiKeyRand = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+// selectAIKey selects one key by weighted random.
+// keys should have weight > 0 and total weight > 0.
+func selectAIKey(keys []cluster_conf.AIKey) (cluster_conf.AIKey, int) {
+	if len(keys) == 1 {
+		return keys[0], 0
+	}
+
+	total := 0
+	for _, k := range keys {
+		total += k.Weight
+	}
+	if total <= 0 {
+		return cluster_conf.AIKey{}, -1
+	}
+
+	r := aiKeyRand.Intn(total)
+	sum := 0
+	for i, k := range keys {
+		sum += k.Weight
+		if r < sum {
+			return k, i
+		}
+	}
+	return keys[len(keys)-1], len(keys) - 1
+}
+
+// chooseNextAIKey returns next eligible key and its index.
+// If all keys are dead, returns (-1, empty key, false).
+// If all alive keys are in used_set, clears used_set and retries.
+func chooseNextAIKey(keys []cluster_conf.AIKey, state *aiKeyAttemptState) (int, cluster_conf.AIKey, bool) {
+	var eligible []cluster_conf.AIKey
+	var indices []int
+
+	for i, k := range keys {
+		if k.Weight == 0 {
+			continue
+		}
+		if _, dead := state.deadSet[i]; dead {
+			continue
+		}
+		eligible = append(eligible, k)
+		indices = append(indices, i)
+	}
+
+	if len(eligible) == 0 {
+		return -1, cluster_conf.AIKey{}, false
+	}
+
+	// filter out used_set keys
+	var filteredKeys []cluster_conf.AIKey
+	var filteredIdx []int
+	for j, k := range eligible {
+		idx := indices[j]
+		if _, used := state.usedSet[idx]; used {
+			continue
+		}
+		filteredKeys = append(filteredKeys, k)
+		filteredIdx = append(filteredIdx, idx)
+	}
+
+	if len(filteredKeys) == 0 {
+		// all alive keys used (429 only), reset used_set and try again
+		state.usedSet = make(map[int]struct{})
+		filteredKeys = eligible
+		filteredIdx = indices
+	}
+
+	_, selectedIdx := selectAIKey(filteredKeys)
+	if selectedIdx < 0 {
+		return -1, cluster_conf.AIKey{}, false
+	}
+	return filteredIdx[selectedIdx], filteredKeys[selectedIdx], true
+}
+
+// calcBackoff calculates exponential backoff with jitter.
+func calcBackoff(initial, max, attempt int) time.Duration {
+	backoff := initial
+	for i := 1; i < attempt; i++ {
+		backoff *= 2
+		if backoff > max {
+			backoff = max
+			break
+		}
+	}
+	// add jitter (±20%)
+	jitter := backoff / 5
+	if jitter > 0 {
+		backoff = backoff - jitter/2 + aiKeyRand.Intn(jitter)
+	}
+	return time.Duration(backoff) * time.Millisecond
+}
+
+// defaultAIKeyPolicy returns the default key policy.
+func defaultAIKeyPolicy() cluster_conf.AIKeyPolicy {
+	return cluster_conf.AIKeyPolicy{
+		Strategy:            "weighted_random",
+		MaxRetries:          0,
+		RetryBackoffInitial: 500,
+		RetryBackoffMax:     5000,
+	}
 }

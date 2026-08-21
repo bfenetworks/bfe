@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/go-lib/quota"
 
 	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util/json"
@@ -126,11 +127,65 @@ type BackendHTTPS struct {
 	protocol string               // protocol of backend https
 }
 
-type AIConf struct {
-	Type               int                // type of LLM service, reserved for future use. should be 0 now.
-	ModelMapping       *map[string]string // model mapping, key is model name in req, value is model name in backend
-	Key                *string            // API key for AI service
+// AIKey represents a single API key for AI service
+type AIKey struct {
+	Name   string // identifier
+	Key    string // API key value
+	Weight int    // weight for weighted random selection, [0,100]
 }
+
+// AIKeyPolicy represents routing/retry policy for AI keys
+type AIKeyPolicy struct {
+	Strategy            string // "weighted_random" only in this version
+	MaxRetries          int    // total retry budget within one aiClusterInvoke call
+	RetryBackoffInitial int    // ms
+	RetryBackoffMax     int    // ms
+}
+
+// ModelPrice represents a single model pricing entry in AIConf.ModelTable
+type ModelPrice struct {
+	Provider            string
+	Model               string
+	BaseModel           string
+	Mode                string
+	Capabilities        []string
+	SupportedParameters []string
+	Limits              map[string]interface{}
+	Prices              map[string]float64
+	Metadata            map[string]interface{}
+}
+
+// ModelTable represents the cost/pricing table for a cluster
+type ModelTable struct {
+	Currency string       // fixed "RMB" in v0.4
+	Models   []ModelPrice
+
+	// priceIndex is built at config load time: model -> mode -> *ModelPrice
+	priceIndex map[string]map[string]*ModelPrice
+}
+
+type AIConf struct {
+	Type         int                // type of LLM service, reserved for future use. should be 0 now.
+	ModelMapping *map[string]string // model mapping, key is model name in req, value is model name in backend
+	Provider     string             // provider name in model_prices
+	Keys         []AIKey            // multiple API keys; empty means no key injection
+	KeyPolicy    *AIKeyPolicy       // key selection & retry policy
+	ModelTable   *ModelTable        // pricing table, auto-filled by InnerAPI
+
+	// MatchPrefix defines the provider/model prefix this cluster matches.
+	// Must end with '/' to avoid matching model names themselves.
+	MatchPrefix string `json:"MatchPrefix,omitempty"`
+	// StripPrefix controls whether to strip MatchPrefix from the request model
+	// field before forwarding to the backend.
+	StripPrefix bool `json:"StripPrefix"`
+}
+
+const (
+	PriceInputCostPerToken  = "input_cost_per_token"
+	PriceOutputCostPerToken = "output_cost_per_token"
+	PriceInputCostPerTokenInt  = "input_cost_per_token_int"
+	PriceOutputCostPerTokenInt = "output_cost_per_token_int"
+)
 
 func (conf *BackendHTTPS) GetProtocol() string {
 	return conf.protocol
@@ -692,7 +747,92 @@ func ClusterConfCheck(conf *ClusterConf) error {
 		return fmt.Errorf("ClusterBasic:%s", err.Error())
 	}
 
+	// check AIConf
+	if conf.AIConf != nil {
+		err = AIConfCheck(conf.AIConf)
+		if err != nil {
+			return fmt.Errorf("AIConf:%s", err.Error())
+		}
+	}
+
 	return nil
+}
+
+// AIConfCheck checks AIConf config.
+func AIConfCheck(conf *AIConf) error {
+	if conf.ModelTable != nil {
+		if err := ModelTableCheck(conf.ModelTable); err != nil {
+			return fmt.Errorf("ModelTable:%s", err.Error())
+		}
+	}
+
+	if conf.StripPrefix {
+		if conf.MatchPrefix == "" {
+			return fmt.Errorf("MatchPrefix is required when StripPrefix is true")
+		}
+		if !strings.HasSuffix(conf.MatchPrefix, "/") {
+			return fmt.Errorf("MatchPrefix must end with '/'")
+		}
+	}
+
+	return nil
+}
+
+// ModelTableCheck checks and initializes ModelTable.
+// It converts float prices to fixed-point integers and builds priceIndex.
+func ModelTableCheck(table *ModelTable) error {
+	if table == nil {
+		return nil
+	}
+
+	if table.Currency != quota.UnitRMB {
+		return fmt.Errorf("currency must be %s", quota.UnitRMB)
+	}
+
+	table.priceIndex = make(map[string]map[string]*ModelPrice)
+
+	for i := range table.Models {
+		price := &table.Models[i]
+
+		if price.Model == "" {
+			return errors.New("model is empty")
+		}
+		if price.Mode == "" {
+			return errors.New("mode is empty")
+		}
+
+		input := price.Prices[PriceInputCostPerToken]
+		output := price.Prices[PriceOutputCostPerToken]
+		if input < 0 || output < 0 {
+			return fmt.Errorf("negative price for model %s", price.Model)
+		}
+
+		price.Prices[PriceInputCostPerTokenInt] = float64(quota.RmbToFixedPoint(input))
+		price.Prices[PriceOutputCostPerTokenInt] = float64(quota.RmbToFixedPoint(output))
+
+		if table.priceIndex[price.Model] == nil {
+			table.priceIndex[price.Model] = make(map[string]*ModelPrice)
+		}
+		if table.priceIndex[price.Model][price.Mode] != nil {
+			return fmt.Errorf("duplicate model %s mode %s", price.Model, price.Mode)
+		}
+		table.priceIndex[price.Model][price.Mode] = price
+	}
+
+	return nil
+}
+
+// LookupModelPrice looks up a model price entry by model and mode.
+// It returns nil if not found.
+func LookupModelPrice(table *ModelTable, model, mode string) *ModelPrice {
+	if table == nil || table.priceIndex == nil {
+		return nil
+	}
+	idx, ok := table.priceIndex[model]
+	if !ok {
+		return nil
+	}
+	return idx[mode]
 }
 
 // ClusterToConfCheck check ClusterToConf.

@@ -34,7 +34,8 @@ const (
 type TokenUsage struct {
 	PromptTokens     int64 // number of tokens in the prompt
 	CompletionTokens int64 // number of tokens in the completion
-	UsedQuota        int64 // used quota for this request
+	UsedQuota        int64 // used quota for this request (unit=total_token)
+	UsedCost         int64 // used RMB cost for this request, 1 unit = 1e-8 yuan (unit=RMB)
 }
 
 type TokenTimeInfo struct {
@@ -53,18 +54,30 @@ type ApikeyTag struct {
 type AiAuthInfo struct {
 	RejectReason     string   // reason for rejection
 	RejectQuotaPlans []string // quota plan IDs rejected due to insufficient quota
+	HitQuotaPlans    []string // quota plan IDs hit (passed balance check) for successful requests
 }
 
 type AiBasicInfo struct {
-	ClientApiKey  string
-	ClientModel   string
-	TargetModel   string
-	tokenUsage    TokenUsage
-	ApikeyTags    []ApikeyTag
-	TokenTimeInfo TokenTimeInfo
-	AiAuthInfo    AiAuthInfo
+	ClientApiKey    string
+	ClientKeyId     string
+	ClientModel     string
+	TargetModel     string
+	Provider        string          // upstream model provider, e.g. openai, deepseek
+	RetryCount      uint32          // model invocation retry count (key-level retry)
+	CostCurrency    string          // cost currency, e.g. RMB, USD
+	tokenUsage      TokenUsage
+	ApikeyTags      []ApikeyTag
+	TokenTimeInfo   TokenTimeInfo
+	AiAuthInfo      AiAuthInfo
+	ClusterKeyNames []ClusterKeyName // tried (cluster, key) pairs during request processing
 
 	allowEstimateToken bool
+}
+
+// ClusterKeyName represents a tried cluster and API-Key pair during request processing
+type ClusterKeyName struct {
+	ClusterName string
+	KeyName     string
 }
 
 func (aiinfo *AiBasicInfo) GetTokenUsage() *TokenUsage {
@@ -100,6 +113,17 @@ func (r *Request) InitAiBasicInfo() *AiBasicInfo {
 
 	r.SetContext(REQ_AI_BASIC_CONTEXT, ret)
 	return ret
+}
+
+func (aiinfo *AiBasicInfo) AppendClusterKeyName(clusterName, keyName string) {
+	aiinfo.ClusterKeyNames = append(aiinfo.ClusterKeyNames, ClusterKeyName{
+		ClusterName: clusterName,
+		KeyName:     keyName,
+	})
+}
+
+func (aiinfo *AiBasicInfo) IncrementRetryCount() {
+	aiinfo.RetryCount++
 }
 
 // Get user context by key.
@@ -262,6 +286,7 @@ const (
 
 type AiErrorDetail struct {
 	ApiKey            string `json:"api_key"`
+	KeyId             string `json:"key_id"`
 	QuotaPlanId       string `json:"quota_plan_id"`
 	LimitType         string `json:"limit_type"`
 	Model             string `json:"model"`

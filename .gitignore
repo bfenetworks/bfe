@@ -27,6 +27,7 @@ coverage.txt
 .vscode/*
 dist/*
 conf/wasm_plugin
+tests/integration/.integration-test-bin/
 
 .DS_Store
 .git*
