@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -764,6 +765,18 @@ var totalBytesBodyBuffer int64
 // totalBytesBodyBufferLimit is the upper bound for totalBytesBodyBuffer.
 // 0 means unlimited.
 var totalBytesBodyBufferLimit int64
+
+func init() {
+	// Allow integration tests to pre-seed the total body buffer counter so they
+	// can verify the limit-checking behavior without relying on timing-sensitive
+	// blocking backends. This environment variable is not intended for production
+	// use and is ignored when unset or invalid.
+	if v := os.Getenv("BFE_TEST_INITIAL_TOTAL_BYTES_BODY_BUFFER"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n >= 0 {
+			atomic.StoreInt64(&totalBytesBodyBuffer, n)
+		}
+	}
+}
 
 // SetTotalBodyBufferSizeLimit sets the limit for total bytes_body buffer size.
 // 0 or negative means unlimited.

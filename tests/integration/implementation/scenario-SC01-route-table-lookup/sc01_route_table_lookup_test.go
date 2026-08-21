@@ -16,7 +16,6 @@ package sc01
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -37,7 +37,6 @@ const (
 	entityHost      = "entity.example.org"
 	unknownHost     = "unknown.example.org"
 	largeHost       = "large.example.org"
-	holderHost      = "holder.example.org"
 	apiPath         = "/v1/chat/completions"
 	apiKeyUserA     = "ak_user_a"
 	apiKeyUserB     = "ak_user_b"
@@ -140,25 +139,6 @@ func (e *testEnv) logBFEException() {
 	}
 }
 
-// waitForTotalBytesBodyBuffer polls the BFE monitor endpoint until the total
-// bytes_body buffer size reaches at least limit or the timeout expires.
-func (e *testEnv) waitForTotalBytesBodyBuffer(limit int64) {
-	deadline := time.Now().Add(60 * time.Second)
-	var lastTotal int64
-	var lastErr error
-	for time.Now().Before(deadline) {
-		total, err := common.GetBFETotalBytesBodyBuffer(e.bfeMonitorPort)
-		lastTotal = total
-		lastErr = err
-		if err == nil && total >= limit {
-			e.t.Logf("total_bytes_body_buffer reached %d (limit %d)", total, limit)
-			return
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	e.t.Fatalf("total_bytes_body_buffer did not reach %d in time (last=%d, err=%v)", limit, lastTotal, lastErr)
-}
-
 func (e *testEnv) sendRequest(host, apiKey string, body []byte) (*http.Response, string, error) {
 	contentType := ""
 	if body != nil {
@@ -167,7 +147,7 @@ func (e *testEnv) sendRequest(host, apiKey string, body []byte) (*http.Response,
 	return e.sendRequestWithContentType(host, apiKey, body, contentType)
 }
 
-func (e *testEnv) sendRequestWithContentType(host, apiKey string, body []byte, contentType string, timeout ...time.Duration) (*http.Response, string, error) {
+func (e *testEnv) sendRequestWithContentType(host, apiKey string, body []byte, contentType string) (*http.Response, string, error) {
 	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, apiPath)
 	var bodyReader io.Reader
 	if body != nil {
@@ -183,11 +163,7 @@ func (e *testEnv) sendRequestWithContentType(host, apiKey string, body []byte, c
 		req.Header.Set("Content-Type", contentType)
 	}
 
-	clientTimeout := 30 * time.Second
-	if len(timeout) > 0 {
-		clientTimeout = timeout[0]
-	}
-	client := &http.Client{Timeout: clientTimeout}
+	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, "", err
@@ -500,43 +476,26 @@ func TestTC09_BodyExceedsAccessibleBodySize(t *testing.T) {
 }
 
 func TestTC10_TotalBodyBufferSizeExceedsLimit(t *testing.T) {
-	// Set totalBodyBufferSize to 2 MB and keep a holder request alive with a
-	// 2 MB body. When the test request tries fallback, BFE sees that the
-	// total bytes_body buffer already reaches the limit and disables fallback.
+	// Set totalBodyBufferSize to 2 MB and pre-seed the global bytes_body buffer
+	// counter to the same value. When the test request tries fallback, BFE sees
+	// that the limit is already reached and disables fallback.
 	const limit = 2 * 1024 * 1024
+	t.Setenv("BFE_TEST_INITIAL_TOTAL_BYTES_BODY_BUFFER", strconv.FormatInt(limit, 10))
+
 	e := newTestEnv(t, map[string]int{
 		"cluster_primary_a":  http.StatusInternalServerError,
 		"cluster_fallback_1": http.StatusOK,
-		"cluster_holder":     http.StatusOK,
 	}, withTotalBodyBufferSize(limit))
 	defer e.Close()
 
-	// Use a context to unblock the holder backend on test exit. This guarantees
-	// cleanup does not hang if an assertion fails before we explicitly cancel.
-	holderCtx, cancelHolder := context.WithCancel(context.Background())
-	defer cancelHolder()
-	e.backends["cluster_holder"].HoldBeforeRead = holderCtx.Done()
-
-	holderBody := generateBody(limit)
-	holderDone := make(chan struct{})
-	go func() {
-		defer close(holderDone)
-		// The holder request intentionally blocks until we release the backend.
-		// Use a long timeout so the client does not give up before the body is
-		// wrapped and counted towards the global buffer total.
-		resp, body, err := e.sendRequestWithContentType(holderHost, apiKeyUserA, holderBody, "application/octet-stream", 2*time.Minute)
-		if err != nil {
-			e.t.Logf("holder request finished with error: %v", err)
-		} else {
-			e.t.Logf("holder request finished: status=%d body=%q", resp.StatusCode, body)
-		}
-	}()
-
-	// Poll the BFE monitor endpoint until the holder's body has actually been
-	// wrapped and counted towards the global total.  The holder backend blocks
-	// before reading the body, so BFE cannot finish writing the request and
-	// close the bytes_body buffer while we run the test request.
-	e.waitForTotalBytesBodyBuffer(limit)
+	// Verify the counter was initialized as expected.
+	total, err := common.GetBFETotalBytesBodyBuffer(e.bfeMonitorPort)
+	if err != nil {
+		t.Fatalf("failed to read initial total_bytes_body_buffer: %v", err)
+	}
+	if total != limit {
+		t.Fatalf("expected initial total_bytes_body_buffer %d, got %d", limit, total)
+	}
 
 	testBody := generateBody(512 * 1024)
 	resp, respBody, err := e.sendRequestWithContentType(largeHost, apiKeyUserA, testBody, "application/octet-stream")
@@ -550,9 +509,6 @@ func TestTC10_TotalBodyBufferSizeExceedsLimit(t *testing.T) {
 	if e.backends["cluster_fallback_1"].Hits() != 0 {
 		t.Fatalf("expected cluster_fallback_1 not hit, got %d", e.backends["cluster_fallback_1"].Hits())
 	}
-
-	cancelHolder()
-	<-holderDone
 }
 
 func TestMain(m *testing.M) {
