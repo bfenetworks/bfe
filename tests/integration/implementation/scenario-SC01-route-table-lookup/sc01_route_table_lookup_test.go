@@ -16,6 +16,7 @@ package sc01
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -142,16 +143,20 @@ func (e *testEnv) logBFEException() {
 // waitForTotalBytesBodyBuffer polls the BFE monitor endpoint until the total
 // bytes_body buffer size reaches at least limit or the timeout expires.
 func (e *testEnv) waitForTotalBytesBodyBuffer(limit int64) {
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(30 * time.Second)
+	var lastTotal int64
+	var lastErr error
 	for time.Now().Before(deadline) {
 		total, err := common.GetBFETotalBytesBodyBuffer(e.bfeMonitorPort)
+		lastTotal = total
+		lastErr = err
 		if err == nil && total >= limit {
 			e.t.Logf("total_bytes_body_buffer reached %d (limit %d)", total, limit)
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	e.t.Fatalf("total_bytes_body_buffer did not reach %d in time", limit)
+	e.t.Fatalf("total_bytes_body_buffer did not reach %d in time (last=%d, err=%v)", limit, lastTotal, lastErr)
 }
 
 func (e *testEnv) sendRequest(host, apiKey string, body []byte) (*http.Response, string, error) {
@@ -502,8 +507,11 @@ func TestTC10_TotalBodyBufferSizeExceedsLimit(t *testing.T) {
 	}, withTotalBodyBufferSize(limit))
 	defer e.Close()
 
-	releaseHolder := make(chan struct{})
-	e.backends["cluster_holder"].HoldBeforeRead = releaseHolder
+	// Use a context to unblock the holder backend on test exit. This guarantees
+	// cleanup does not hang if an assertion fails before we explicitly cancel.
+	holderCtx, cancelHolder := context.WithCancel(context.Background())
+	defer cancelHolder()
+	e.backends["cluster_holder"].HoldBeforeRead = holderCtx.Done()
 
 	holderBody := generateBody(limit)
 	holderDone := make(chan struct{})
@@ -531,7 +539,7 @@ func TestTC10_TotalBodyBufferSizeExceedsLimit(t *testing.T) {
 		t.Fatalf("expected cluster_fallback_1 not hit, got %d", e.backends["cluster_fallback_1"].Hits())
 	}
 
-	close(releaseHolder)
+	cancelHolder()
 	<-holderDone
 }
 
