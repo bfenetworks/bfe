@@ -17,10 +17,8 @@
                 "unlimited": true,
                 "pass_no_quota": false,
                 "redis_key": "",
-                "create_time": 0,
                 "expired_time": -1,
-                "quota": 0,
-                "reset_mode": 0
+                "quota": 0
             }
         ]
     },
@@ -29,8 +27,7 @@
             "ak-123": {
                 "key": "ak-123",
                 "key_id": "ak-123-id",
-                "status": 1,
-                "update_time": 0,
+                "enabled": true,
                 "expired_time": -1,
                 "unlimited_quota": true,
                 "allow_models": null,

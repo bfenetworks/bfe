@@ -351,7 +351,7 @@ func TestTokenCheck(t *testing.T) {
 		return &TokenFile{
 			Key:            "ak-123",
 			KeyId:          "ak-123-id",
-			Status:         TokenStatusEnabled,
+			Enabled:        true,
 			ExpiredTime:    -1,
 			UnlimitedQuota: true,
 		}
@@ -379,13 +379,6 @@ func TestTokenCheck(t *testing.T) {
 				tf.KeyId = ""
 			},
 			errSub: "no KeyId",
-		},
-		{
-			name: "invalid status",
-			mutate: func(tf *TokenFile) {
-				tf.Status = 0
-			},
-			errSub: "invalid Status",
 		},
 		{
 			name: "invalid expired time",
@@ -446,7 +439,7 @@ func TestTokenConvert(t *testing.T) {
 	tf := TokenFile{
 		Key:            "ak-123",
 		KeyId:          "ak-123-id",
-		Status:         TokenStatusEnabled,
+		Enabled:        true,
 		ExpiredTime:    -1,
 		UnlimitedQuota: false,
 		QuotaPlans:     []string{"plan1"},
@@ -537,18 +530,13 @@ func TestValidateUserToken(t *testing.T) {
 		t.Errorf("unexpected token: %s", tok.Key)
 	}
 
-	exhausted := &Token{Key: "ak-exhausted", KeyId: "ak-exhausted-id", Status: TokenStatusExhausted, ExpiredTime: -1}
-	disabled := &Token{Key: "ak-disabled", KeyId: "ak-disabled-id", Status: TokenStatusDisabled, ExpiredTime: -1}
-	expired := &Token{Key: "ak-expired", KeyId: "ak-expired-id", Status: TokenStatusEnabled, ExpiredTime: time.Now().Unix() - 10}
+	disabled := &Token{Key: "ak-disabled", KeyId: "ak-disabled-id", Enabled: false, ExpiredTime: -1}
+	expired := &Token{Key: "ak-expired", KeyId: "ak-expired-id", Enabled: true, ExpiredTime: time.Now().Unix() - 10}
 	table.lock.Lock()
-	(*table.productTokens["AI_product"])["ak-exhausted"] = exhausted
 	(*table.productTokens["AI_product"])["ak-disabled"] = disabled
 	(*table.productTokens["AI_product"])["ak-expired"] = expired
 	table.lock.Unlock()
 
-	if _, err := table.ValidateUserToken("AI_product", "ak-exhausted"); err == nil {
-		t.Error("expected error for exhausted token")
-	}
 	if _, err := table.ValidateUserToken("AI_product", "ak-disabled"); err == nil {
 		t.Error("expected error for disabled token")
 	}
@@ -882,7 +870,7 @@ func TestTokenRuleCheck(t *testing.T) {
 }
 
 func TestQuotaPlanCheck(t *testing.T) {
-	valid := QuotaPlan{Id: "p1", Unlimited: true, ExpiredTime: -1, ResetMode: 0}
+	valid := QuotaPlan{Id: "p1", Unlimited: true, ExpiredTime: -1}
 	if err := quotaPlanCheck(&valid); err != nil {
 		t.Errorf("valid quota plan failed: %s", err)
 	}
@@ -897,7 +885,6 @@ func TestQuotaPlanCheck(t *testing.T) {
 		{"invalid token quota", QuotaPlan{Id: "p1", Unlimited: false, Quota: 0, Unit: "total_token"}, "invalid Quota"},
 		{"invalid rmb quota", QuotaPlan{Id: "p1", Unlimited: false, Quota: -1, Unit: "RMB"}, "invalid Quota for RMB"},
 		{"invalid unit", QuotaPlan{Id: "p1", Unlimited: true, Unit: "invalid"}, "invalid Unit"},
-		{"invalid reset mode", QuotaPlan{Id: "p1", Unlimited: true, ResetMode: 2}, "invalid ResetMode"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -930,7 +917,7 @@ func TestSubnetValidation(t *testing.T) {
 	tf := &TokenFile{
 		Key:            "ak-subnet",
 		KeyId:          "ak-subnet-id",
-		Status:         TokenStatusEnabled,
+		Enabled:        true,
 		ExpiredTime:    -1,
 		UnlimitedQuota: true,
 		Subnet:         &s,

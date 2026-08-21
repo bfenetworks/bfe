@@ -20,8 +20,8 @@ github.com/aymerick/douceur v0.2.0 h1:Mv+mAeH1Q+n9Fr+oyamOlAkUNPWPlA8PPGR0QAaYuP
 github.com/aymerick/douceur v0.2.0/go.mod h1:wlT5vV2O3h55X9m7iVYN0TBM0NH/MmbLnd30/FjWUq4=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
-github.com/bfenetworks/bfe-access-pb v0.2.0 h1:2JBUPJt2ZckqDUoL5F5cBhtqoY94MllIX3m4hJ3jVK4=
-github.com/bfenetworks/bfe-access-pb v0.2.0/go.mod h1:3qunybhMV5hEeT/2qDwbchxo4t/9LPKEvwwZkmekRho=
+github.com/bfenetworks/bfe-access-pb v0.3.0 h1:DXfFJ3RdBRTrsllFsGA0ElYjd6Whbj0JxDMV7NnbTj0=
+github.com/bfenetworks/bfe-access-pb v0.3.0/go.mod h1:3qunybhMV5hEeT/2qDwbchxo4t/9LPKEvwwZkmekRho=
 github.com/bfenetworks/bfe-mock-waf v0.1.0 h1:dTd540S3nv6qNlG6lLC0F8qx3gyo5WB4wnci3+d4J78=
 github.com/bfenetworks/bfe-mock-waf v0.1.0/go.mod h1:MWZHbihiRQXpoUCvY1l18s2bfOBWx4N4pghxBt+xUv0=
 github.com/bfenetworks/bwi v0.1.2 h1:3AcCzUjyzKm+FeLgTIVg58u+SUdEVZdJbQM58Ezwjcg=

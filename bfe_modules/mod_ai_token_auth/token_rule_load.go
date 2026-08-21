@@ -123,9 +123,6 @@ func quotaPlanCheck(conf *QuotaPlan) error {
 	if conf.ExpiredTime < -1 {
 		return fmt.Errorf("invalid ExpiredTime: %d", conf.ExpiredTime)
 	}
-	if conf.ResetMode < 0 || conf.ResetMode > 1 {
-		return fmt.Errorf("invalid ResetMode: %d", conf.ResetMode)
-	}
 
 	// backward compatibility: empty unit means total_token
 	if conf.Unit == "" {

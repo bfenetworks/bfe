@@ -201,11 +201,9 @@ type QuotaPlan struct {
     Unlimited   bool
     PassNoQuota bool
     RedisKey    string
-    CreateTime  int64
     ExpiredTime int64
     Quota       int64  // 固定点整数：total_token 时为 Token 数；RMB 时为 1e-8 元
-    ResetMode   int
-    Unit        string // 新增："total_token" 或 "RMB"
+    Unit        string // "total_token" 或 "RMB"
 }
 ```
 

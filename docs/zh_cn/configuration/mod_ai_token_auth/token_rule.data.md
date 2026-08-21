@@ -1,56 +1,131 @@
 # mod_ai_token_auth 规则配置
 
-## 配置简介
+## 1. 配置简介
 
 `token_rule.data` 是 `mod_ai_token_auth` 模块的规则配置文件，用于声明 api-key、配额计划以及按产品线的鉴权规则。
 
-## 配置描述
+## 2. 顶层结构
 
-| 配置项                         | 类型    | 参数含义                         | 必填 | 补充描述                                                     | 合法性条件                                                   |
-| ------------------------------ | ------- | -------------------------------- | ---- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| Version                        | String  | 配置文件版本                     | Y    | 通常采用时间戳格式，如 `20190101000000`                      | 类型为 [Version](../00-common.md#5-配置文件版本version)         |
-| QuotaPlans                     | Object  | 所有产品线的配额计划声明         | Y    | 以产品线名称为键                                             | -                                                            |
-| QuotaPlans{k}                  | String  | 产品线名称                       | Y    | -                                                            | -                                                            |
-| QuotaPlans{v}                  | Array   | 产品线下的配额计划列表           | Y    | -                                                            | -                                                            |
-| QuotaPlans{v}[]                | Object  | 配额计划                         | Y    | -                                                            | -                                                            |
-| QuotaPlans{v}[].id             | String  | 配额计划 ID                      | Y    | -                                                            | -                                                            |
-| QuotaPlans{v}[].unlimited      | Boolean | 是否无限配额                     | Y    | -                                                            | -                                                            |
-| QuotaPlans{v}[].pass_no_quota  | Boolean | 配额不足时是否放行               | Y    | -                                                            | -                                                            |
-| QuotaPlans{v}[].redis_key      | String  | Redis 中存储配额的 key           | N    | unlimited 为 true 时可不配置                                 | -                                                            |
-| QuotaPlans{v}[].create_time    | Integer | 创建时间（Unix Time）            | N    | -                                                            | -                                                            |
-| QuotaPlans{v}[].expired_time   | Integer | 过期时间（Unix Time）            | N    | `-1` 表示永不过期                                            | 必须大于等于 `-1`                                            |
-| QuotaPlans{v}[].quota          | Integer | 配额总量                         | N    | 单位由 `unit` 字段决定；`unit=RMB` 时为定点整数，精度 `1e-8` 元；unlimited 为 false 时必填 | `unit=total_token` 且 unlimited 为 false 时必须大于 0；`unit=RMB` 且 unlimited 为 false 时必须大于等于 0 |
-| QuotaPlans{v}[].reset_mode     | Integer | 重置模式                         | Y    | `0` - 非周期性；`1` - 周期性的配额包                         | 取值范围为 `0`、`1`                                          |
-| QuotaPlans{v}[].unit           | String  | 配额单位                         | N    | 默认 `total_token`                                           | 取值为 `total_token` 或 `RMB`                                |
-| Tokens                         | Object  | 所有产品线的 api-key 声明        | Y    | 以产品线名称为键                                             | -                                                            |
-| Tokens{k}                      | String  | 产品线名称                       | Y    | -                                                            | -                                                            |
-| Tokens{v}                      | Object  | 该产品线下的所有 api-key         | Y    | -                                                            | -                                                            |
-| Tokens{v}{k}                   | String  | api-key                          | Y    | -                                                            | -                                                            |
-| Tokens{v}{v}                   | Object  | 一个 api-key 声明                | Y    | -                                                            | -                                                            |
-| Tokens{v}{v}.key               | String  | api-key                          | Y    | 须与外层键一致                                               | -                                                            |
-| Tokens{v}{v}.key_id            | String  | api-key 标识 ID                  | Y    | 用于唯一标识该 api-key                                       | 非空字符串                                                   |
-| Tokens{v}{v}.enabled           | Integer | 是否启用                         | N    | -                                                            | -                                                            |
-| Tokens{v}{v}.status            | Integer | api-key 状态                     | Y    | `1` - Enabled；`2` - Disabled；`3` - Expired；`4` - Exhausted | 取值范围为 `1`、`2`、`3`、`4`                                |
-| Tokens{v}{v}.update_time       | Integer | 更新时间（Unix Time）            | N    | 改变意味着开启一个新的配额消费周期                           | -                                                            |
-| Tokens{v}{v}.expired_time      | Integer | 过期时间（Unix Time）            | N    | `-1` 表示永不过期                                            | 必须大于等于 `-1`                                            |
-| Tokens{v}{v}.unlimited_quota   | Boolean | 是否无限配额                     | Y    | -                                                            | -                                                            |
-| Tokens{v}{v}.allow_models      | String  | 允许的模型列表                   | N    | 多个模型名以逗号分隔                                         | 不能包含空字符串                                             |
-| Tokens{v}{v}.block_models      | String  | 禁止的模型列表                   | N    | 多个模型名以逗号分隔                                         | 不能包含空字符串                                             |
-| Tokens{v}{v}.subnet            | String  | 允许的源 IP 子网                 | N    | 多个子网以逗号分隔                                           | 须为有效的 CIDR 格式                                         |
-| Tokens{v}{v}.tags              | Array   | api-key 标签列表                 | N    | -                                                            | -                                                            |
-| Tokens{v}{v}.tags[]            | Object  | api-key 标签                     | N    | -                                                            | -                                                            |
-| Tokens{v}{v}.tags[].key        | String  | 标签名                           | N    | 如 `department`                                              | -                                                            |
-| Tokens{v}{v}.tags[].value      | String  | 标签值                           | N    | 如 `engineering`                                             | -                                                            |
-| Tokens{v}{v}.quota_plans       | Array   | 关联的配额计划 ID 列表           | N    | unlimited_quota 为 false 时必填                              | unlimited_quota 为 false 时须非空                            |
-| Config                         | Object  | 所有产品线的 api-key 鉴权规则配置 | Y    | 以产品线名称为键                                             | -                                                            |
-| Config{k}                      | String  | 产品线名称                       | Y    | -                                                            | -                                                            |
-| Config{v}                      | Array   | 产品线下 api-key 鉴权规则列表    | Y    | -                                                            | -                                                            |
-| Config{v}[]                    | Object  | api-key 鉴权规则                 | Y    | -                                                            | -                                                            |
-| Config{v}[].cond               | String  | 匹配条件                         | Y    | 语法详见 [Condition](../../condition/condition_grammar.md)   | -                                                            |
-| Config{v}[].action             | Object  | 动作                             | Y    | 只支持 `{ "cmd": "CHECK_TOKEN" }`                          | -                                                            |
-| Config{v}[].action.cmd         | String  | 动作命令                         | Y    | 固定为 `CHECK_TOKEN`                                         | 取值范围为 `CHECK_TOKEN`                                     |
+```json
+{
+    "Version": "20190101000000",
+    "QuotaPlans": { /* 按产品线分组的配额计划定义 */ },
+    "Tokens": { /* 按产品线分组的 api-key 声明 */ },
+    "Config": { /* 按产品线分组的 api-key 鉴权规则 */ }
+}
+```
 
-## 配置示例
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| Version | string | Y | 配置文件版本，通常采用时间戳格式，如 `20190101000000` |
+| QuotaPlans | object | Y | 按产品线分组的配额计划声明 |
+| Tokens | object | Y | 按产品线分组的 api-key 声明 |
+| Config | object | Y | 按产品线分组的 api-key 鉴权规则配置 |
+
+## 3. QuotaPlans 结构（配额计划定义）
+
+配额计划在顶层 `QuotaPlans` 中按产品线分组，Token 通过 `quota_plans` 数组引用这些计划的 ID。
+
+```json
+{
+    "QuotaPlans": {
+        "example_product": [
+            {
+                "Id": "daily_quota",
+                "Unlimited": false,
+                "PassNoQuota": false,
+                "RedisKey": "ai:quota:daily_quota",
+                "ExpiredTime": -1,
+                "Quota": 100000,
+                "Unit": "total_token"
+            }
+        ]
+    }
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 | 合法性条件 |
+|------|------|------|------|------------|
+| Id | string | Y | 配额计划 ID | 非空字符串 |
+| Unlimited | bool | Y | 是否无限配额 | - |
+| PassNoQuota | bool | Y | 配额不足时是否放行；为 `true` 时跳过该计划的余额检查 | - |
+| RedisKey | string | N | Redis 中存储配额余额的 Key | `Unlimited` 为 `false` 时必须有有效值，否则运行时扣减/校验余额会失败 |
+| ExpiredTime | int64 | N | 过期时间；`-1` 表示永不过期 | 必须大于等于 `-1` |
+| Quota | int64 | N | 配额总量 | `Unit=total_token` 且 `Unlimited=false` 时必须大于 0；`Unit=RMB` 且 `Unlimited=false` 时必须大于等于 0 |
+| Unit | string | N | 配额单位 | `total_token` 或 `RMB`；为空时默认 `total_token` |
+
+## 4. Tokens 结构（api-key 声明）
+
+api-key 在顶层 `Tokens` 中按产品线分组，外层 key 为 api-key 值。
+
+```json
+{
+    "Tokens": {
+        "example_product": {
+            "TESTKEY": {
+                "key": "TESTKEY",
+                "key_id": "test_key_id",
+                "enabled": true,
+                "expired_time": -1,
+                "unlimited_quota": false,
+                "allow_models": "model_a,model_b",
+                "block_models": "model_c",
+                "subnet": "192.168.0.0/24",
+                "Tags": [
+                    {"TagName": "department", "TagValue": "engineering", "TagLevel": 3}
+                ],
+                "quota_plans": ["daily_quota"]
+            }
+        }
+    }
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 | 合法性条件 |
+|------|------|------|------|------------|
+| key | string | Y | api-key 值 | - |
+| key_id | string | Y | api-key 标识 ID | 非空字符串 |
+| enabled | bool | Y | 是否启用 | `true` 启用，`false` 禁用 |
+| expired_time | int64 | N | 过期时间；`-1` 表示永不过期 | 必须大于等于 `-1` |
+| unlimited_quota | bool | Y | 是否无限配额 | - |
+| allow_models | string | N | 允许的模型列表 | 多个模型名以逗号分隔；不能包含空字符串；空或 `""` 表示不限制 |
+| block_models | string | N | 禁止的模型列表 | 多个模型名以逗号分隔；不能包含空字符串；空或 `""` 表示无禁止模型 |
+| subnet | string | N | 允许的源 IP 子网 | 多个子网以逗号分隔；须为有效的 CIDR 格式；空或 `""` 表示不限制 |
+| Tags | []ApikeyTag | N | api-key 标签列表 | JSON 字段名为 `Tags`；因结构体未设置 json tag，标签项字段名为 `TagName`/`TagValue`（大小写不敏感） |
+| quota_plans | []string | N | 关联的配额计划 ID 列表 | `unlimited_quota` 为 `false` 时必填非空；引用的 ID 必须在同产品线的 `QuotaPlans` 中已定义 |
+
+### 4.1 ApikeyTag 结构
+
+| 字段 | 类型 | 必填 | 说明 | 示例 |
+|------|------|------|------|------|
+| TagName | string | N | 标签名 | `department` |
+| TagValue | string | N | 标签值 | `engineering` |
+| TagLevel | int | N | 标签级别，取值为 1~5 的整数 | `3` |
+
+## 5. Config 结构（api-key 鉴权规则）
+
+```json
+{
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "default_t()",
+                "Action": {
+                    "Cmd": "CHECK_TOKEN"
+                }
+            }
+        ]
+    }
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| Cond | string | Y | 路由匹配条件表达式，语法详见 [Condition](../../condition/condition_grammar.md) |
+| Action | object | Y | 匹配后执行的动作 |
+| Action.Cmd | string | Y | 动作命令，固定为 `CHECK_TOKEN` |
+
+## 6. 完整配置示例
 
 ```json
 {
@@ -58,26 +133,22 @@
     "QuotaPlans": {
         "example_product": [
             {
-                "id": "daily_quota",
-                "unlimited": false,
-                "pass_no_quota": false,
-                "redis_key": "ai:quota:daily_quota",
-                "create_time": 1672531200,
-                "expired_time": -1,
-                "quota": 100000,
-                "reset_mode": 1,
-                "unit": "total_token"
+                "Id": "daily_quota",
+                "Unlimited": false,
+                "PassNoQuota": false,
+                "RedisKey": "ai:quota:daily_quota",
+                "ExpiredTime": -1,
+                "Quota": 100000,
+                "Unit": "total_token"
             },
             {
-                "id": "daily_rmb_quota",
-                "unlimited": false,
-                "pass_no_quota": false,
-                "redis_key": "ai:quota:daily_rmb_quota",
-                "create_time": 1672531200,
-                "expired_time": -1,
-                "quota": 90000000,
-                "reset_mode": 0,
-                "unit": "RMB"
+                "Id": "daily_rmb_quota",
+                "Unlimited": false,
+                "PassNoQuota": false,
+                "RedisKey": "ai:quota:daily_rmb_quota",
+                "ExpiredTime": -1,
+                "Quota": 90000000,
+                "Unit": "RMB"
             }
         ]
     },
@@ -86,14 +157,14 @@
             "TESTKEY": {
                 "key": "TESTKEY",
                 "key_id": "test_key_id",
-                "status": 1,
+                "enabled": true,
                 "expired_time": -1,
                 "unlimited_quota": false,
                 "allow_models": "model_a,model_b",
                 "block_models": "model_c",
                 "subnet": "192.168.0.0/24",
-                "tags": [
-                    {"key": "department", "value": "engineering"}
+                "Tags": [
+                    {"TagName": "department", "TagValue": "engineering", "TagLevel": 3}
                 ],
                 "quota_plans": ["daily_quota"]
             }
@@ -102,9 +173,9 @@
     "Config": {
         "example_product": [
             {
-                "cond": "default_t()",
-                "action": {
-                    "cmd": "CHECK_TOKEN"
+                "Cond": "default_t()",
+                "Action": {
+                    "Cmd": "CHECK_TOKEN"
                 }
             }
         ]
@@ -112,6 +183,8 @@
 }
 ```
 
-> 说明：
-> - `unit = total_token` 时，`quota` 为整数 Token 数。
-> - `unit = RMB` 时，`quota` 为定点整数，精度为 `1e-8` 元（即 1 单位 = 0.00000001 元）。例如 `90000000` 表示 `0.9` 元。
+## 7. 说明
+
+- `Unit = total_token` 时，`Quota` 为整数 Token 数。
+- `Unit = RMB` 时，`Quota` 为定点整数，精度为 `1e-8` 元（即 1 单位 = 0.00000001 元）。例如 `90000000` 表示 `0.9` 元。
+- BFE 使用 Go 的 `encoding/json` 解析配置文件，字段匹配不区分大小写；但 `QuotaPlan`、`Cond`、`Action`、`Cmd`、`Tags` 等结构体未设置 json tag，因此示例中保留与 Go 字段同名的 CamelCase 写法。若使用 snake_case，部分字段（如 `PassNoQuota`、`RedisKey`、`ExpiredTime`）可能无法被正确解析。

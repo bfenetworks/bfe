@@ -40,10 +40,8 @@ type QuotaPlan struct {
 	Unlimited   bool
 	PassNoQuota bool
 	RedisKey    string
-	CreateTime  int64
 	ExpiredTime int64
 	Quota       int64
-	ResetMode   int
 	Unit        string
 }
 
@@ -51,9 +49,7 @@ type QuotaPlan struct {
 type TokenFile struct {
 	Key            string                `json:"key"`
 	KeyId          string                `json:"key_id"`
-	Enabled        int                   `json:"enabled"`
-	Status         int                   `json:"status"`
-	UpdateTime     int64                 `json:"update_time"`
+	Enabled        bool                  `json:"enabled"`
 	ExpiredTime    int64                 `json:"expired_time"`
 	UnlimitedQuota bool                  `json:"unlimited_quota"`
 	Models         *string               `json:"allow_models"`
