@@ -49,6 +49,7 @@ type TokenTimeInfo struct {
 type ApikeyTag struct {
 	TagName  string //eg entity.type
 	TagValue string //eg entity.name
+	TagLevel int    // entity type level, value range 1~5
 }
 
 type AiAuthInfo struct {

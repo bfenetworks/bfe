@@ -28,21 +28,13 @@ import (
 )
 
 const (
-	TokenStatusEnabled   = 1
-	TokenStatusDisabled  = 2
-	TokenStatusExpired   = 3
-	TokenStatusExhausted = 4
-)
-
-const (
 	ActionCheckToken = "CHECK_TOKEN"
 )
 
 type Token struct {
 	Key            string
 	KeyId          string
-	Status         int
-	UpdateTime     int64
+	Enabled        bool
 	ExpiredTime    int64
 	UnlimitedQuota bool
 	Models         []string
@@ -55,9 +47,7 @@ type Token struct {
 type TokenFile struct {
 	Key            string  `json:"key"`
 	KeyId          string  `json:"key_id"`
-	Enabled        int     `json:"enabled"`
-	Status         int     `json:"status"`
-	UpdateTime     int64   `json:"update_time"`
+	Enabled        bool    `json:"enabled"`
 	ExpiredTime    int64   `json:"expired_time"` // -1 means never expired
 	UnlimitedQuota bool    `json:"unlimited_quota"`
 	Models         *string `json:"allow_models"` // allowed models
@@ -75,10 +65,8 @@ type QuotaPlan struct {
 	Unlimited   bool
 	PassNoQuota bool
 	RedisKey    string
-	CreateTime  int64
 	ExpiredTime int64  // -1 means never expired
 	Quota       int64  // 配额总量，固定点整数：total_token 时为 Token 数；RMB 时为 1e-8 元
-	ResetMode   int    // 0 – 非周期性；1 – 周期性的配额包
 	Unit        string // "total_token" or "RMB"
 }
 
@@ -181,9 +169,6 @@ func tokenCheck(conf *TokenFile) error {
 	if conf.KeyId == "" {
 		return errors.New("no KeyId")
 	}
-	if conf.Status < TokenStatusEnabled || conf.Status > TokenStatusExhausted {
-		return fmt.Errorf("invalid Status: %d", conf.Status)
-	}
 	if conf.ExpiredTime < -1 {
 		return fmt.Errorf("invalid ExpiredTime: %d", conf.ExpiredTime)
 	}
@@ -239,8 +224,7 @@ func tokenConvert(tokenFile TokenFile, quotaPlansMap *QuotaPlanMap) (Token, erro
 	return Token{
 		Key:            tokenFile.Key,
 		KeyId:          tokenFile.KeyId,
-		Status:         tokenFile.Status,
-		UpdateTime:     tokenFile.UpdateTime,
+		Enabled:        tokenFile.Enabled,
 		ExpiredTime:    tokenFile.ExpiredTime,
 		UnlimitedQuota: tokenFile.UnlimitedQuota,
 		Models:         tokenFile.models,

@@ -78,17 +78,11 @@ func (t *TokenRuleTable) ValidateUserToken(product, key string) (token *Token, e
 		return nil, errors.New("token not found")
 	}
 
-	switch token.Status {
-	case TokenStatusExhausted:
-		return nil, fmt.Errorf("token %s quota exhausted", token.KeyId)
-	case TokenStatusExpired:
-		return nil, fmt.Errorf("token %s expired", token.KeyId)
-	case TokenStatusDisabled:
+	if !token.Enabled {
 		return nil, fmt.Errorf("token %s disabled", token.KeyId)
 	}
 
 	if token.ExpiredTime != -1 && token.ExpiredTime < time.Now().Unix() {
-		token.Status = TokenStatusExpired
 		return nil, fmt.Errorf("token %s expired", token.KeyId)
 	}
 
@@ -131,22 +125,7 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 		aiBasicInfo.ClientKeyId = token.KeyId
 	}
 
-	switch token.Status {
-	case TokenStatusExhausted:
-		SetAiAuthInfo(req, bfe_basic.CodeInvalidApiKey, nil)
-		return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeInvalidApiKey, bfe_basic.TypeAuthenticationError, fmt.Sprintf("Invalid API key: %s. quota exhausted.", key),
-			&bfe_basic.AiErrorDetail{
-				ApiKey: key,
-				KeyId:  token.KeyId,
-			})
-	case TokenStatusExpired:
-		SetAiAuthInfo(req, bfe_basic.CodeKeyExpired, nil)
-		return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeKeyExpired, bfe_basic.TypeAuthenticationError, fmt.Sprintf("Invalid API key: %s. expired.", key),
-			&bfe_basic.AiErrorDetail{
-				ApiKey: key,
-				KeyId:  token.KeyId,
-			})
-	case TokenStatusDisabled:
+	if !token.Enabled {
 		SetAiAuthInfo(req, bfe_basic.CodeKeyDisabled, nil)
 		return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeKeyDisabled, bfe_basic.TypeAuthenticationError, fmt.Sprintf("Invalid API key: %s. disabled.", key),
 			&bfe_basic.AiErrorDetail{
@@ -156,7 +135,6 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 	}
 
 	if token.ExpiredTime != -1 && token.ExpiredTime < time.Now().Unix() {
-		token.Status = TokenStatusExpired
 		SetAiAuthInfo(req, bfe_basic.CodeKeyExpired, nil)
 		return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeKeyExpired, bfe_basic.TypeAuthenticationError, fmt.Sprintf("Invalid API key: %s. expired.", key),
 			&bfe_basic.AiErrorDetail{

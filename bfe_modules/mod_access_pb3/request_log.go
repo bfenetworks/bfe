@@ -382,6 +382,7 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 			reqLog.AiApikeytags = append(reqLog.AiApikeytags, &bfe_access_pb3.ApikeyTag{
 				Tagname:  proto.String(tag.TagName),
 				Tagvalue: proto.String(tag.TagValue),
+				Taglevel: proto.Int32(int32(tag.TagLevel)),
 			})
 		}
 	}

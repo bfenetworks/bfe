@@ -100,9 +100,7 @@ func newTestEnv(t *testing.T, aiConfs map[string]*cluster_conf.AIConf, quotaPlan
 				apiKey: {
 					Key:            apiKey,
 					KeyId:          apiKeyId,
-					Enabled:        1,
-					Status:         1,
-					UpdateTime:     0,
+					Enabled:        true,
 					ExpiredTime:    -1,
 					UnlimitedQuota: false,
 					QuotaPlans:     planIDs(quotaPlans),
@@ -294,10 +292,8 @@ func rmbQuotaPlan(quota int64) common.QuotaPlan {
 		Unlimited:   false,
 		PassNoQuota: false,
 		RedisKey:    redisKeyRMB,
-		CreateTime:  0,
 		ExpiredTime: -1,
 		Quota:       quota,
-		ResetMode:   0,
 		Unit:        "RMB",
 	}
 }
@@ -308,10 +304,8 @@ func tokenQuotaPlan(quota int64) common.QuotaPlan {
 		Unlimited:   false,
 		PassNoQuota: false,
 		RedisKey:    redisKeyToken,
-		CreateTime:  0,
 		ExpiredTime: -1,
 		Quota:       quota,
-		ResetMode:   0,
 		Unit:        "total_token",
 	}
 }
