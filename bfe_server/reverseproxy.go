@@ -21,6 +21,7 @@
 package bfe_server
 
 import (
+	"bytes"
 	"crypto/tls"
 	"errors"
 	"io"
@@ -1469,10 +1470,10 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 	// Calculate the final model in order: route target/fallback override ->
 	// provider/model prefix stripping -> cluster model mapping. Then write it
 	// to the request body at most once to avoid repeated JSON parsing/serialization.
+	// Always start from ClientModel so that each cluster attempt is independent;
+	// otherwise the previous attempt's TargetModel would leak into the next
+	// fallback/retry when the next cluster has no model override/mapping of its own.
 	model := aiMeta.ClientModel
-	if aiMeta.TargetModel != "" {
-		model = aiMeta.TargetModel
-	}
 
 	// apply model override from ai route target/fallback
 	if attempt.Model != "" {
@@ -1494,6 +1495,28 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 	}
 
 	if model != aiMeta.ClientModel {
+		// Need to rewrite the body. Isolate outreq.Body from req.Body so that
+		// the rewrite does not leak into the next fallback/retry attempt.
+		// bytes_body.Rewind() only resets the read position and does not restore
+		// the original content modified by ReqBodyJsonSet.
+		if req.Body != nil {
+			if bodyAccessor, err := req.GetBodyAccessor(); err != nil {
+				log.Logger.Warn("doSingleAIForward: failed to get body accessor: %s", err)
+			} else if bodyAccessor != nil {
+				bodyBytes, all := bodyAccessor.GetBytes()
+				if !all {
+					log.Logger.Warn("doSingleAIForward: request body not fully buffered, model rewrite may leak between attempts")
+				} else {
+					newBody, err := bfe_http.NewBytesBody(io.NopCloser(bytes.NewReader(bodyBytes)), int64(len(bodyBytes)))
+					if err != nil {
+						log.Logger.Warn("doSingleAIForward: failed to copy request body: %s", err)
+					} else {
+						outreq.Body = newBody
+					}
+				}
+			}
+		}
+
 		if err := condition.ReqBodyJsonSet(basicReq, "model", model); err != nil {
 			log.Logger.Warn("Failed to set model in request body: %s", err)
 		} else {

@@ -616,22 +616,45 @@ func SelectTarget(targets []bfe_basic.AiRouteTarget) bfe_basic.AiRouteTarget {
 
 ### 7.1 覆盖优先级
 
+每次 cluster 尝试都按以下顺序、从 `aiMeta.ClientModel` 重新计算最终 model：
+
 1. **target/fallback.Model 非空**：覆盖请求体中的 `model` 字段；
-2. **cluster.AIConf.ModelMapping**：将当前 `model`（可能是原始 model 或 target 覆盖后的 model）映射为后端模型；
+2. **cluster.AIConf.ModelMapping**：将当前 `model`（原始 model 或 target 覆盖后的 model）映射为后端模型；
 3. **均空**：透传原始 `model`。
+
+> 注意：计算从 `aiMeta.ClientModel` 开始，而不是 `aiMeta.TargetModel`。因为 `TargetModel` 会在每次改写成功后被更新，若跨 cluster fallback 时继承 `TargetModel`，则没有自身改写规则的 cluster 会错误地使用上一个 cluster 改写后的模型名。
 
 ### 7.2 请求体处理
 
-`doSingleAIForward()` 中按以下顺序计算最终模型名：
+`doSingleAIForward()` 先按 7.1 的顺序计算最终 model。只有当最终 model 与 `aiMeta.ClientModel` 不同时，才需要改写请求体。
 
-1. `attempt.Model` 覆盖（若非空）；
-2. `cluster.AIConf.MatchPrefix` 前缀裁剪（若 `StripPrefix=true`）；
-3. `cluster.AIConf.ModelMapping` 模型映射（若配置）。
+改写前先把 `outreq.Body` 复制为独立于 `req.Body` 的副本。原因是 `bytes_body.Rewind()` 只重置读取位置，不会恢复被 `ReqBodyJsonSet()` 修改过的内容；若 `outreq.Body` 与 `req.Body` 共享同一对象，本次 cluster 尝试的 model 改写会泄漏到下一次 fallback/retry。
 
-计算得到最终 `model` 后，**最多调用一次** `condition.ReqBodyJsonSet()` 写入请求体，避免重复 JSON 解析/序列化：
+复制时检查 `bodyAccessor.GetBytes()` 返回的 `all` 标志：若 body 未被完整缓冲（通常因为超过 `AccessibleBodySize`），跳过复制并记录 warn，此时 fallback 本来就会被禁用，不会触发跨 cluster 泄漏。
+
+然后**最多调用一次** `condition.ReqBodyJsonSet()` 写入 `outreq.Body` 副本，避免重复 JSON 解析/序列化：
 
 ```go
 if model != aiMeta.ClientModel {
+    // copy outreq.Body if fully buffered
+    if req.Body != nil {
+        if bodyAccessor, err := req.GetBodyAccessor(); err != nil {
+            log.Logger.Warn("doSingleAIForward: failed to get body accessor: %s", err)
+        } else if bodyAccessor != nil {
+            bodyBytes, all := bodyAccessor.GetBytes()
+            if !all {
+                log.Logger.Warn("doSingleAIForward: request body not fully buffered, model rewrite may leak between attempts")
+            } else {
+                newBody, err := bfe_http.NewBytesBody(io.NopCloser(bytes.NewReader(bodyBytes)), int64(len(bodyBytes)))
+                if err != nil {
+                    log.Logger.Warn("doSingleAIForward: failed to copy request body: %s", err)
+                } else {
+                    outreq.Body = newBody
+                }
+            }
+        }
+    }
+
     if err := condition.ReqBodyJsonSet(basicReq, "model", model); err != nil {
         log.Logger.Warn("Failed to set model in request body: %s", err)
     } else {

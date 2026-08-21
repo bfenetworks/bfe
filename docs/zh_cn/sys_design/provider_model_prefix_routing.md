@@ -102,16 +102,18 @@ func AIConfCheck(conf *AIConf) error {
 
 **文件：** `bfe/bfe_server/reverseproxy.go`
 
-在 `doSingleAIForward()` 函数中，按 **route target model override** → **provider 前缀裁剪** → **cluster `ModelMapping`** 的顺序计算最终模型名，然后统一写入请求体：
+在 `doSingleAIForward()` 函数中，按 **route target model override** → **provider 前缀裁剪** → **cluster `ModelMapping`** 的顺序计算最终模型名。计算始终从 `aiMeta.ClientModel` 开始，避免上一次尝试的 `aiMeta.TargetModel` 泄漏到本次尝试。只有当最终 model 与 `ClientModel` 不同时，才复制独立 body 副本并写入请求体：
 
 ```go
+// prepare out request
+outreq := new(bfe_http.Request)
+*outreq = *req
+basicReq.OutRequest = outreq
+
 // Calculate the final model in order: route target/fallback override ->
-// provider/model prefix stripping -> cluster model mapping. Then write it
-// to the request body at most once.
+// provider/model prefix stripping -> cluster model mapping.
+// Always start from ClientModel so that each cluster attempt is independent.
 model := aiMeta.ClientModel
-if aiMeta.TargetModel != "" {
-    model = aiMeta.TargetModel
-}
 
 // apply model override from ai route target/fallback
 if attempt.Model != "" {
@@ -132,8 +134,26 @@ if cluster.AIConf != nil && cluster.AIConf.ModelMapping != nil && model != "" {
     }
 }
 
-// 统一写入请求体（最多一次）
+// 统一写入请求体（最多一次）。先复制独立 body，避免改写泄漏到下一次 fallback/retry。
 if model != aiMeta.ClientModel {
+    if req.Body != nil {
+        if bodyAccessor, err := req.GetBodyAccessor(); err != nil {
+            log.Logger.Warn("doSingleAIForward: failed to get body accessor: %s", err)
+        } else if bodyAccessor != nil {
+            bodyBytes, all := bodyAccessor.GetBytes()
+            if !all {
+                log.Logger.Warn("doSingleAIForward: request body not fully buffered, model rewrite may leak between attempts")
+            } else {
+                newBody, err := bfe_http.NewBytesBody(io.NopCloser(bytes.NewReader(bodyBytes)), int64(len(bodyBytes)))
+                if err != nil {
+                    log.Logger.Warn("doSingleAIForward: failed to copy request body: %s", err)
+                } else {
+                    outreq.Body = newBody
+                }
+            }
+        }
+    }
+
     if err := condition.ReqBodyJsonSet(basicReq, "model", model); err != nil {
         log.Logger.Warn("Failed to set model in request body: %s", err)
     } else {

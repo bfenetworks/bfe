@@ -332,3 +332,34 @@ func TestTC06_FallbackPrefixStrip(t *testing.T) {
 		t.Fatalf("expected fallback model stripped to 'anthropic/claude-sonnet-4.6', got '%s'", model)
 	}
 }
+
+// TestTC07 verifies that when the primary cluster strips the prefix and fails,
+// the fallback cluster without prefix stripping receives the original client model.
+// This prevents model rewriting from leaking across cluster attempts.
+func TestTC07_FallbackNoPrefixStripGetsOriginalModel(t *testing.T) {
+	e := newTestEnv(t, http.StatusInternalServerError, http.StatusOK, http.StatusOK,
+		openrouterAIConf(true), nil)
+	defer e.Close()
+
+	body := []byte(`{"model":"openrouter/anthropic/claude-sonnet-4.6","messages":[{"role":"user","content":"hello"}]}`)
+	resp, respBody, err := e.sendRequest(body)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, respBody)
+	}
+
+	if e.backends[clusterOpenRouter].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterOpenRouter, e.backends[clusterOpenRouter].Hits())
+	}
+	if e.backends[clusterFallback].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterFallback, e.backends[clusterFallback].Hits())
+	}
+
+	model := findModelInBodies(e.backends[clusterFallback].RequestBodies())
+	if model != "openrouter/anthropic/claude-sonnet-4.6" {
+		t.Fatalf("expected fallback to receive original model 'openrouter/anthropic/claude-sonnet-4.6', got '%s'", model)
+	}
+}
