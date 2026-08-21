@@ -88,6 +88,9 @@ func locateBFESourceRoot() (string, error) {
 }
 
 // Build compiles the BFE binary if not already cached.
+// The binary path includes the current git commit hash so that switching
+// commits forces a rebuild. Within the same commit, source mtime is checked
+// to catch uncommitted local edits.
 func (p *ProcessEnv) Build() {
 	p.buildOnce.Do(func() {
 		if err := os.MkdirAll(p.binDir, 0755); err != nil {
@@ -98,9 +101,10 @@ func (p *ProcessEnv) Build() {
 		if runtime.GOOS == "windows" {
 			binName += ".exe"
 		}
-		binPath := filepath.Join(p.binDir, fmt.Sprintf("bfe-%s-%s-%s", runtime.GOOS, runtime.GOARCH, binName))
+		commit := gitCommitHash(p.sourceRoot)
+		binPath := filepath.Join(p.binDir, fmt.Sprintf("bfe-%s-%s-%s-%s", runtime.GOOS, runtime.GOARCH, commit, binName))
 
-		if _, err := os.Stat(binPath); err == nil {
+		if !p.binaryNeedsRebuild(binPath) {
 			p.t.Logf("use cached bfe binary: %s", binPath)
 			p.bfeBinaryPath = binPath
 			return
@@ -117,6 +121,53 @@ func (p *ProcessEnv) Build() {
 		p.t.Logf("built bfe -> %s", binPath)
 		p.bfeBinaryPath = binPath
 	})
+}
+
+// gitCommitHash returns the current git commit hash, or "unknown" if git is
+// not available or the directory is not a git repository.
+func gitCommitHash(dir string) string {
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return "unknown"
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// binaryNeedsRebuild returns true if the binary does not exist or if any
+// .go file under the source root is newer than the binary.
+func (p *ProcessEnv) binaryNeedsRebuild(binPath string) bool {
+	binInfo, err := os.Stat(binPath)
+	if err != nil {
+		return true
+	}
+
+	needsRebuild := false
+	err = filepath.Walk(p.sourceRoot, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			// Skip hidden directories and test binary cache to avoid
+			// unnecessary rebuilds caused by generated artifacts.
+			name := info.Name()
+			if name != "." && strings.HasPrefix(name, ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasSuffix(path, ".go") && info.ModTime().After(binInfo.ModTime()) {
+			needsRebuild = true
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	if err != nil {
+		p.t.Logf("failed to check source mtime, rebuilding: %v", err)
+		return true
+	}
+	return needsRebuild
 }
 
 // StartBFE starts a real BFE process with the given conf root and log dir.
