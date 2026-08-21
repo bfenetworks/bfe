@@ -143,7 +143,7 @@ func (e *testEnv) logBFEException() {
 // waitForTotalBytesBodyBuffer polls the BFE monitor endpoint until the total
 // bytes_body buffer size reaches at least limit or the timeout expires.
 func (e *testEnv) waitForTotalBytesBodyBuffer(limit int64) {
-	deadline := time.Now().Add(30 * time.Second)
+	deadline := time.Now().Add(60 * time.Second)
 	var lastTotal int64
 	var lastErr error
 	for time.Now().Before(deadline) {
@@ -167,7 +167,7 @@ func (e *testEnv) sendRequest(host, apiKey string, body []byte) (*http.Response,
 	return e.sendRequestWithContentType(host, apiKey, body, contentType)
 }
 
-func (e *testEnv) sendRequestWithContentType(host, apiKey string, body []byte, contentType string) (*http.Response, string, error) {
+func (e *testEnv) sendRequestWithContentType(host, apiKey string, body []byte, contentType string, timeout ...time.Duration) (*http.Response, string, error) {
 	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, apiPath)
 	var bodyReader io.Reader
 	if body != nil {
@@ -183,7 +183,11 @@ func (e *testEnv) sendRequestWithContentType(host, apiKey string, body []byte, c
 		req.Header.Set("Content-Type", contentType)
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	clientTimeout := 30 * time.Second
+	if len(timeout) > 0 {
+		clientTimeout = timeout[0]
+	}
+	client := &http.Client{Timeout: clientTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, "", err
@@ -517,7 +521,10 @@ func TestTC10_TotalBodyBufferSizeExceedsLimit(t *testing.T) {
 	holderDone := make(chan struct{})
 	go func() {
 		defer close(holderDone)
-		resp, body, err := e.sendRequestWithContentType(holderHost, apiKeyUserA, holderBody, "application/octet-stream")
+		// The holder request intentionally blocks until we release the backend.
+		// Use a long timeout so the client does not give up before the body is
+		// wrapped and counted towards the global buffer total.
+		resp, body, err := e.sendRequestWithContentType(holderHost, apiKeyUserA, holderBody, "application/octet-stream", 2*time.Minute)
 		if err != nil {
 			e.t.Logf("holder request finished with error: %v", err)
 		} else {
