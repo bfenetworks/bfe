@@ -21,6 +21,7 @@
 package bfe_server
 
 import (
+	"bytes"
 	"crypto/tls"
 	"errors"
 	"io"
@@ -1424,43 +1425,22 @@ send_response:
 	return
 }
 
-// stripProviderPrefix strips the configured provider/model prefix from the request.
-// It updates the request body and aiMeta.TargetModel when stripping succeeds.
-func stripProviderPrefix(basicReq *bfe_basic.Request, outreq *bfe_http.Request,
-	aiMeta *bfe_basic.AiBasicInfo, matchPrefix string) bool {
-	model := aiMeta.ClientModel
-	if aiMeta.TargetModel != "" {
-		model = aiMeta.TargetModel
-	}
+// stripProviderPrefix strips the configured provider/model prefix from model.
+// It returns the stripped model and true when stripping succeeds; otherwise it
+// returns the original model and false.
+func stripProviderPrefix(model string, matchPrefix string) (string, bool) {
 	if model == "" || !strings.HasPrefix(model, matchPrefix) {
-		return false
+		return model, false
 	}
 
 	stripped := strings.TrimPrefix(model, matchPrefix)
 	if stripped == "" {
 		log.Logger.Warn("Model %s stripped by prefix %s results in empty model, skip stripping",
 			model, matchPrefix)
-		return false
+		return model, false
 	}
 
-	if err := condition.ReqBodyJsonSet(basicReq, "model", stripped); err != nil {
-		log.Logger.Warn("Failed to strip provider prefix in request body: %s", err)
-		return false
-	}
-
-	// outreq body already changed, need reset Content-Length
-	if outreq.ContentLength >= 0 {
-		outreq.ContentLength = -1
-		outreq.Header.Del("Content-Length")
-	}
-	// Also reset the original request's Content-Length so that fallback/retry
-	// creates a new outreq with consistent body length.
-	if basicReq.HttpRequest != nil && basicReq.HttpRequest.ContentLength >= 0 {
-		basicReq.HttpRequest.ContentLength = -1
-		basicReq.HttpRequest.Header.Del("Content-Length")
-	}
-	aiMeta.TargetModel = stripped
-	return true
+	return stripped, true
 }
 
 // doSingleAIForward performs a single AI forward attempt with the given key.
@@ -1487,9 +1467,57 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 		outreq.Host = ""
 	}
 
+	// Calculate the final model in order: route target/fallback override ->
+	// provider/model prefix stripping -> cluster model mapping. Then write it
+	// to the request body at most once to avoid repeated JSON parsing/serialization.
+	// Always start from ClientModel so that each cluster attempt is independent;
+	// otherwise the previous attempt's TargetModel would leak into the next
+	// fallback/retry when the next cluster has no model override/mapping of its own.
+	model := aiMeta.ClientModel
+
 	// apply model override from ai route target/fallback
-	if attempt.Model != "" && aiMeta != nil {
-		if err := condition.ReqBodyJsonSet(basicReq, "model", attempt.Model); err != nil {
+	if attempt.Model != "" {
+		model = attempt.Model
+	}
+
+	// strip provider/model prefix according to cluster AIConf
+	if cluster.AIConf != nil && cluster.AIConf.StripPrefix && cluster.AIConf.MatchPrefix != "" {
+		if stripped, ok := stripProviderPrefix(model, cluster.AIConf.MatchPrefix); ok {
+			model = stripped
+		}
+	}
+
+	// apply cluster model mapping
+	if cluster.AIConf != nil && cluster.AIConf.ModelMapping != nil && model != "" {
+		if newModel, ok := (*cluster.AIConf.ModelMapping)[model]; ok {
+			model = newModel
+		}
+	}
+
+	if model != aiMeta.ClientModel {
+		// Need to rewrite the body. Isolate outreq.Body from req.Body so that
+		// the rewrite does not leak into the next fallback/retry attempt.
+		// bytes_body.Rewind() only resets the read position and does not restore
+		// the original content modified by ReqBodyJsonSet.
+		if req.Body != nil {
+			if bodyAccessor, err := req.GetBodyAccessor(); err != nil {
+				log.Logger.Warn("doSingleAIForward: failed to get body accessor: %s", err)
+			} else if bodyAccessor != nil {
+				bodyBytes, all := bodyAccessor.GetBytes()
+				if !all {
+					log.Logger.Warn("doSingleAIForward: request body not fully buffered, model rewrite may leak between attempts")
+				} else {
+					newBody, err := bfe_http.NewBytesBody(io.NopCloser(bytes.NewReader(bodyBytes)), int64(len(bodyBytes)))
+					if err != nil {
+						log.Logger.Warn("doSingleAIForward: failed to copy request body: %s", err)
+					} else {
+						outreq.Body = newBody
+					}
+				}
+			}
+		}
+
+		if err := condition.ReqBodyJsonSet(basicReq, "model", model); err != nil {
 			log.Logger.Warn("Failed to set model in request body: %s", err)
 		} else {
 			// outreq body already changed, need reset Content-Length
@@ -1497,39 +1525,27 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 				outreq.ContentLength = -1
 				outreq.Header.Del("Content-Length")
 			}
-			aiMeta.TargetModel = attempt.Model
+			// Also reset the original request's Content-Length so that fallback/retry
+			// creates a new outreq with consistent body length.
+			if basicReq.HttpRequest != nil && basicReq.HttpRequest.ContentLength >= 0 {
+				basicReq.HttpRequest.ContentLength = -1
+				basicReq.HttpRequest.Header.Del("Content-Length")
+			}
+			aiMeta.TargetModel = model
 		}
 	}
 
-	// strip provider/model prefix according to cluster AIConf
-	if cluster.AIConf != nil && aiMeta != nil && cluster.AIConf.StripPrefix && cluster.AIConf.MatchPrefix != "" {
-		stripProviderPrefix(basicReq, outreq, aiMeta, cluster.AIConf.MatchPrefix)
-	}
-
-	// apply cluster.AIConf (api key, model mapping)
-	if cluster.AIConf != nil && aiMeta != nil {
+	// apply cluster.AIConf (api key, provider, cost currency)
+	if cluster.AIConf != nil {
+		if cluster.AIConf.Provider != "" {
+			aiMeta.Provider = cluster.AIConf.Provider
+		}
+		if cluster.AIConf.ModelTable != nil && cluster.AIConf.ModelTable.Currency != "" {
+			aiMeta.CostCurrency = cluster.AIConf.ModelTable.Currency
+		}
+		aiMeta.AppendClusterKeyName(cluster.Name, selectedKey.Name)
 		if selectedKey.Key != "" {
 			mod_ai_token_auth.SetApiKey(outreq, selectedKey.Key)
-		}
-		if cluster.AIConf.ModelMapping != nil {
-			model := aiMeta.ClientModel
-			if aiMeta.TargetModel != "" {
-				model = aiMeta.TargetModel
-			}
-			if model != "" {
-				if newModel, ok := (*cluster.AIConf.ModelMapping)[model]; ok {
-					if err := condition.ReqBodyJsonSet(basicReq, "model", newModel); err != nil {
-						log.Logger.Warn("Failed to set model in request body: %s", err)
-					} else {
-						// outreq body already changed, need reset Content-Length
-						if outreq.ContentLength >= 0 {
-							outreq.ContentLength = -1
-							outreq.Header.Del("Content-Length")
-						}
-						aiMeta.TargetModel = newModel
-					}
-				}
-			}
 		}
 	}
 
@@ -1601,6 +1617,9 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 	keepKey := false
 	for retry := 0; retry <= policy.MaxRetries; retry++ {
 		if retry > 0 {
+			if aiMeta != nil {
+				aiMeta.IncrementRetryCount()
+			}
 			// rewind body before retrying with another key
 			if !rewindRequestBody(basicReq.HttpRequest) {
 				log.Logger.Warn("aiClusterInvoke: failed to rewind request body, abort key-level retry for cluster[%s]",

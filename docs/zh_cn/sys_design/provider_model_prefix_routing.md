@@ -102,40 +102,74 @@ func AIConfCheck(conf *AIConf) error {
 
 **文件：** `bfe/bfe_server/reverseproxy.go`
 
-在 `doSingleAIForward()` 函数中，在 **route target model override** 之后、**cluster `ModelMapping`** 之前，插入前缀裁剪逻辑：
+在 `doSingleAIForward()` 函数中，按 **route target model override** → **provider 前缀裁剪** → **cluster `ModelMapping`** 的顺序计算最终模型名。计算始终从 `aiMeta.ClientModel` 开始，避免上一次尝试的 `aiMeta.TargetModel` 泄漏到本次尝试。只有当最终 model 与 `ClientModel` 不同时，才复制独立 body 副本并写入请求体：
 
 ```go
+// prepare out request
+outreq := new(bfe_http.Request)
+*outreq = *req
+basicReq.OutRequest = outreq
+
+// Calculate the final model in order: route target/fallback override ->
+// provider/model prefix stripping -> cluster model mapping.
+// Always start from ClientModel so that each cluster attempt is independent.
+model := aiMeta.ClientModel
+
 // apply model override from ai route target/fallback
-if attempt.Model != "" && aiMeta != nil {
-    // ... 现有逻辑
+if attempt.Model != "" {
+    model = attempt.Model
 }
 
-// 新增：按 cluster AIConf 裁剪 provider 前缀
-if cluster.AIConf != nil && aiMeta != nil && cluster.AIConf.StripPrefix && cluster.AIConf.MatchPrefix != "" {
-    model := aiMeta.ClientModel
-    if aiMeta.TargetModel != "" {
-        model = aiMeta.TargetModel
+// 按 cluster AIConf 裁剪 provider 前缀
+if cluster.AIConf != nil && cluster.AIConf.StripPrefix && cluster.AIConf.MatchPrefix != "" {
+    if stripped, ok := stripProviderPrefix(model, cluster.AIConf.MatchPrefix); ok {
+        model = stripped
     }
-    if model != "" && strings.HasPrefix(model, cluster.AIConf.MatchPrefix) {
-        stripped := strings.TrimPrefix(model, cluster.AIConf.MatchPrefix)
-        if stripped != "" {
-            if err := condition.ReqBodyJsonSet(basicReq, "model", stripped); err != nil {
-                log.Logger.Warn("Failed to strip provider prefix in request body: %s", err)
+}
+
+// apply cluster model mapping
+if cluster.AIConf != nil && cluster.AIConf.ModelMapping != nil && model != "" {
+    if newModel, ok := (*cluster.AIConf.ModelMapping)[model]; ok {
+        model = newModel
+    }
+}
+
+// 统一写入请求体（最多一次）。先复制独立 body，避免改写泄漏到下一次 fallback/retry。
+if model != aiMeta.ClientModel {
+    if req.Body != nil {
+        if bodyAccessor, err := req.GetBodyAccessor(); err != nil {
+            log.Logger.Warn("doSingleAIForward: failed to get body accessor: %s", err)
+        } else if bodyAccessor != nil {
+            bodyBytes, all := bodyAccessor.GetBytes()
+            if !all {
+                log.Logger.Warn("doSingleAIForward: request body not fully buffered, model rewrite may leak between attempts")
             } else {
-                // outreq body already changed, need reset Content-Length
-                if outreq.ContentLength >= 0 {
-                    outreq.ContentLength = -1
-                    outreq.Header.Del("Content-Length")
+                newBody, err := bfe_http.NewBytesBody(io.NopCloser(bytes.NewReader(bodyBytes)), int64(len(bodyBytes)))
+                if err != nil {
+                    log.Logger.Warn("doSingleAIForward: failed to copy request body: %s", err)
+                } else {
+                    outreq.Body = newBody
                 }
-                aiMeta.TargetModel = stripped
             }
         }
     }
-}
 
-// apply cluster.AIConf (api key, model mapping)
-if cluster.AIConf != nil && aiMeta != nil {
-    // ... 现有逻辑
+    if err := condition.ReqBodyJsonSet(basicReq, "model", model); err != nil {
+        log.Logger.Warn("Failed to set model in request body: %s", err)
+    } else {
+        // outreq body already changed, need reset Content-Length
+        if outreq.ContentLength >= 0 {
+            outreq.ContentLength = -1
+            outreq.Header.Del("Content-Length")
+        }
+        // Also reset the original request's Content-Length so that fallback/retry
+        // creates a new outreq with consistent body length.
+        if basicReq.HttpRequest != nil && basicReq.HttpRequest.ContentLength >= 0 {
+            basicReq.HttpRequest.ContentLength = -1
+            basicReq.HttpRequest.Header.Del("Content-Length")
+        }
+        aiMeta.TargetModel = model
+    }
 }
 ```
 

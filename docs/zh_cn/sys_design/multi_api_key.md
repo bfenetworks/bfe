@@ -130,43 +130,73 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
         outreq.Host = ""
     }
 
+    // Calculate the final model in order: route target/fallback override ->
+    // provider/model prefix stripping -> cluster model mapping. Then write it
+    // to the request body at most once to avoid repeated JSON parsing/serialization.
+    // Always start from ClientModel so that each cluster attempt is independent.
+    model := aiMeta.ClientModel
+
     // apply model override from ai route target/fallback
-    if attempt.Model != "" && aiMeta != nil {
-        if err := condition.ReqBodyJsonSet(basicReq, "model", attempt.Model); err != nil {
-            log.Logger.Warn("Failed to set model in request body: %s", err)
-        } else {
-            if outreq.ContentLength >= 0 {
-                outreq.ContentLength = -1
-                outreq.Header.Del("Content-Length")
-            }
-            aiMeta.TargetModel = attempt.Model
+    if attempt.Model != "" {
+        model = attempt.Model
+    }
+
+    // strip provider/model prefix according to cluster AIConf
+    if cluster.AIConf != nil && cluster.AIConf.StripPrefix && cluster.AIConf.MatchPrefix != "" {
+        if stripped, ok := stripProviderPrefix(model, cluster.AIConf.MatchPrefix); ok {
+            model = stripped
         }
     }
 
-    // apply cluster.AIConf (api key, model mapping)
-    if cluster.AIConf != nil && aiMeta != nil {
-        if selectedKey.Key != "" {
-            mod_ai_token_auth.SetApiKey(outreq, selectedKey.Key)
+    // apply cluster model mapping
+    if cluster.AIConf != nil && cluster.AIConf.ModelMapping != nil && model != "" {
+        if newModel, ok := (*cluster.AIConf.ModelMapping)[model]; ok {
+            model = newModel
         }
-        if cluster.AIConf.ModelMapping != nil {
-            model := aiMeta.ClientModel
-            if aiMeta.TargetModel != "" {
-                model = aiMeta.TargetModel
-            }
-            if model != "" {
-                if newModel, ok := (*cluster.AIConf.ModelMapping)[model]; ok {
-                    if err := condition.ReqBodyJsonSet(basicReq, "model", newModel); err != nil {
-                        log.Logger.Warn("Failed to set model in request body: %s", err)
+    }
+
+    if model != aiMeta.ClientModel {
+        // Need to rewrite the body. Isolate outreq.Body from req.Body so that
+        // the rewrite does not leak into the next fallback/retry attempt.
+        if req.Body != nil {
+            if bodyAccessor, err := req.GetBodyAccessor(); err != nil {
+                log.Logger.Warn("doSingleAIForward: failed to get body accessor: %s", err)
+            } else if bodyAccessor != nil {
+                bodyBytes, all := bodyAccessor.GetBytes()
+                if !all {
+                    log.Logger.Warn("doSingleAIForward: request body not fully buffered, model rewrite may leak between attempts")
+                } else {
+                    newBody, err := bfe_http.NewBytesBody(io.NopCloser(bytes.NewReader(bodyBytes)), int64(len(bodyBytes)))
+                    if err != nil {
+                        log.Logger.Warn("doSingleAIForward: failed to copy request body: %s", err)
                     } else {
-                        if outreq.ContentLength >= 0 {
-                            outreq.ContentLength = -1
-                            outreq.Header.Del("Content-Length")
-                        }
-                        aiMeta.TargetModel = newModel
+                        outreq.Body = newBody
                     }
                 }
             }
         }
+
+        if err := condition.ReqBodyJsonSet(basicReq, "model", model); err != nil {
+            log.Logger.Warn("Failed to set model in request body: %s", err)
+        } else {
+            // outreq body already changed, need reset Content-Length
+            if outreq.ContentLength >= 0 {
+                outreq.ContentLength = -1
+                outreq.Header.Del("Content-Length")
+            }
+            // Also reset the original request's Content-Length so that fallback/retry
+            // creates a new outreq with consistent body length.
+            if basicReq.HttpRequest != nil && basicReq.HttpRequest.ContentLength >= 0 {
+                basicReq.HttpRequest.ContentLength = -1
+                basicReq.HttpRequest.Header.Del("Content-Length")
+            }
+            aiMeta.TargetModel = model
+        }
+    }
+
+    // apply cluster.AIConf (api key)
+    if cluster.AIConf != nil && selectedKey.Key != "" {
+        mod_ai_token_auth.SetApiKey(outreq, selectedKey.Key)
     }
 
     // invoke cluster

@@ -351,9 +351,15 @@ func TestReqAiInfoGen(t *testing.T) {
 	_, req, res := makeRequestLogTest(t)
 
 	aiInfo := &bfe_basic.AiBasicInfo{
-		ClientApiKey: "apikey123",
+		ClientKeyId:  "key-id-123",
 		ClientModel:  "model-a",
 		TargetModel:  "model-b",
+		Provider:     "deepseek",
+		RetryCount:   1,
+		CostCurrency: "RMB",
+		ClusterKeyNames: []bfe_basic.ClusterKeyName{
+			{ClusterName: "cluster-a", KeyName: "key-001"},
+		},
 		TokenTimeInfo: bfe_basic.TokenTimeInfo{
 			TTFT: 1000,
 			TPOT: 2000,
@@ -361,13 +367,21 @@ func TestReqAiInfoGen(t *testing.T) {
 		AiAuthInfo: bfe_basic.AiAuthInfo{
 			RejectReason:     "quota exhausted",
 			RejectQuotaPlans: []string{"plan1", "plan2"},
+			HitQuotaPlans:    []string{"plan3", "plan4"},
 		},
 	}
 	usage := aiInfo.GetTokenUsage()
 	usage.PromptTokens = 10
 	usage.CompletionTokens = 20
 	usage.UsedQuota = 30
+	usage.UsedCost = 5000
 	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	req.SetAiRouteResult(&bfe_basic.AiRouteResult{
+		RouteType: "apikey",
+		Owner:     "ak_user_a",
+		RuleName:  "user_a-rule1",
+	})
 
 	hitInfo := &bfe_basic.AiRateLimitHitInfo{
 		HitPolicyDict: map[string]*bfe_basic.HitPolicyInfo{
@@ -384,20 +398,32 @@ func TestReqAiInfoGen(t *testing.T) {
 	reqLog := &bfe_access_pb3.RequestLog{}
 	reqAiInfoGen(reqLog, req, res)
 
-	if reqLog.AiApikey == nil || *reqLog.AiApikey != "apikey123" {
-		t.Error("AiApikey error")
+	if reqLog.AiApikeyId == nil || *reqLog.AiApikeyId != "key-id-123" {
+		t.Error("AiApikeyId error")
 	}
 	if reqLog.AiRequestedModel == nil || *reqLog.AiRequestedModel != "model-a" {
 		t.Error("AiRequestedModel error")
 	}
-	if reqLog.AiMappedModel == nil || *reqLog.AiMappedModel != "model-b" {
-		t.Error("AiMappedModel error")
+	if reqLog.AiTargetModel == nil || *reqLog.AiTargetModel != "model-b" {
+		t.Error("AiTargetModel error")
+	}
+	if reqLog.AiProvider == nil || *reqLog.AiProvider != "deepseek" {
+		t.Error("AiProvider error")
 	}
 	if reqLog.AiStream == nil || !*reqLog.AiStream {
 		t.Error("AiStream error")
 	}
-	if reqLog.AiPromptTokens == nil || *reqLog.AiPromptTokens != 10 {
-		t.Error("AiPromptTokens error")
+	if reqLog.AiInputTokens == nil || *reqLog.AiInputTokens != 10 {
+		t.Error("AiInputTokens error")
+	}
+	if reqLog.AiCostValue == nil || *reqLog.AiCostValue != 5000 {
+		t.Error("AiCostValue error")
+	}
+	if reqLog.AiCostCurrency == nil || *reqLog.AiCostCurrency != "RMB" {
+		t.Error("AiCostCurrency error")
+	}
+	if reqLog.AiRetryCount == nil || *reqLog.AiRetryCount != 1 {
+		t.Error("AiRetryCount error")
 	}
 	if reqLog.AiTtftUs == nil || *reqLog.AiTtftUs != 1000 {
 		t.Error("AiTtftUs error")
@@ -411,6 +437,15 @@ func TestReqAiInfoGen(t *testing.T) {
 	if len(reqLog.AiAuthRejectQuotaPlans) != 2 {
 		t.Error("AiAuthRejectQuotaPlans length error")
 	}
+	if len(reqLog.AiAuthHitQuotaPlans) != 2 {
+		t.Error("AiAuthHitQuotaPlans length error")
+	}
+	if len(reqLog.AiRouteRuleHits) != 1 {
+		t.Error("AiRouteRuleHits length error")
+	}
+	if len(reqLog.AiClusterKeyNames) != 1 {
+		t.Error("AiClusterKeyNames length error")
+	}
 	if len(reqLog.AiRateLimitHits) != 4 {
 		t.Errorf("AiRateLimitHits length error, got: %d", len(reqLog.AiRateLimitHits))
 	}
@@ -421,7 +456,7 @@ func TestReqAiInfoGenNil(t *testing.T) {
 	reqLog := &bfe_access_pb3.RequestLog{}
 	reqAiInfoGen(reqLog, req, res)
 
-	if reqLog.AiApikey != nil {
-		t.Error("AiApikey should be nil when no ai info")
+	if reqLog.AiApikeyId != nil {
+		t.Error("AiApikeyId should be nil when no ai info")
 	}
 }
