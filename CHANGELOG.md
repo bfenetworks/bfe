@@ -10,6 +10,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.8.5] - 2026-08-21
+
+### Added
+- Add multi-API-Key support for AI backend clusters ([Pull #1314](https://github.com/bfenetworks/bfe/pull/1314))
+- Add RMB quota support in mod_ai_token_auth ([Pull #1314](https://github.com/bfenetworks/bfe/pull/1314))
+- Add key_id field for API-Key token in access logs ([Pull #1318](https://github.com/bfenetworks/bfe/pull/1318))
+- Add provider/model prefix routing support ([Pull #1315](https://github.com/bfenetworks/bfe/pull/1315))
+- Add req_body_json_prefix_in condition primitive ([Pull #1314](https://github.com/bfenetworks/bfe/pull/1314))
+- Adapt bfe-access-pb v0.2.0 AI observability fields in access logs ([Pull #1321](https://github.com/bfenetworks/bfe/pull/1321))
+- Support body rewind when fallback ([Pull #1313](https://github.com/bfenetworks/bfe/pull/1313))
+- Add AccessibleBodySize config in bfe.conf ([Pull #1313](https://github.com/bfenetworks/bfe/pull/1313))
+- Monitor and limit TotalBodyBufferSize ([Pull #1313](https://github.com/bfenetworks/bfe/pull/1313))
+- Add release target to Makefile
+
+### Changed
+- Trigger cluster-level fallback on 4xx status codes ([Pull #1318](https://github.com/bfenetworks/bfe/pull/1318))
+- Merge multiple AI model body rewrites into one ([Pull #1321](https://github.com/bfenetworks/bfe/pull/1321))
+
+### Fixed
+- Fix ai token auth default rule path ([Pull #1251](https://github.com/bfenetworks/bfe/pull/1251))
+- Fix RMB cost calculation at request finish for streaming responses ([Pull #1318](https://github.com/bfenetworks/bfe/pull/1318))
+- Fix log messages ([Pull #1313](https://github.com/bfenetworks/bfe/pull/1313))
+
+
 ## [v1.8.4] - 2026-08-05
 
 ### Added
@@ -267,7 +291,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix textproto: not normalize headers with spaces before the colon (CVE-2019-16276)
 
-## [v0.10.0] - 2020-05-25  
+## [v0.10.0] - 2020-05-25
 
 ### Added
 
@@ -441,6 +465,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
+[v1.8.5]: https://github.com/bfenetworks/bfe/compare/v1.8.4...v1.8.5
+[v1.8.4]: https://github.com/bfenetworks/bfe/compare/v1.8.3...v1.8.4
 [v1.6.0]: https://github.com/bfenetworks/bfe/compare/v1.5.0...v1.6.0
 [v1.5.0]: https://github.com/bfenetworks/bfe/compare/v1.4.0...v1.5.0
 [v1.4.0]: https://github.com/bfenetworks/bfe/compare/v1.3.0...v1.4.0

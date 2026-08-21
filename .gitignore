@@ -14,7 +14,9 @@
 #
 .svn
 .tmp
+.omo
 .download
+.codegraph
 output/
 .*.swp
 .*.swo
