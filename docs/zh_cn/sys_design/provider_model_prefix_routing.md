@@ -102,40 +102,54 @@ func AIConfCheck(conf *AIConf) error {
 
 **文件：** `bfe/bfe_server/reverseproxy.go`
 
-在 `doSingleAIForward()` 函数中，在 **route target model override** 之后、**cluster `ModelMapping`** 之前，插入前缀裁剪逻辑：
+在 `doSingleAIForward()` 函数中，按 **route target model override** → **provider 前缀裁剪** → **cluster `ModelMapping`** 的顺序计算最终模型名，然后统一写入请求体：
 
 ```go
+// Calculate the final model in order: route target/fallback override ->
+// provider/model prefix stripping -> cluster model mapping. Then write it
+// to the request body at most once.
+model := aiMeta.ClientModel
+if aiMeta.TargetModel != "" {
+    model = aiMeta.TargetModel
+}
+
 // apply model override from ai route target/fallback
-if attempt.Model != "" && aiMeta != nil {
-    // ... 现有逻辑
+if attempt.Model != "" {
+    model = attempt.Model
 }
 
-// 新增：按 cluster AIConf 裁剪 provider 前缀
-if cluster.AIConf != nil && aiMeta != nil && cluster.AIConf.StripPrefix && cluster.AIConf.MatchPrefix != "" {
-    model := aiMeta.ClientModel
-    if aiMeta.TargetModel != "" {
-        model = aiMeta.TargetModel
+// 按 cluster AIConf 裁剪 provider 前缀
+if cluster.AIConf != nil && cluster.AIConf.StripPrefix && cluster.AIConf.MatchPrefix != "" {
+    if stripped, ok := stripProviderPrefix(model, cluster.AIConf.MatchPrefix); ok {
+        model = stripped
     }
-    if model != "" && strings.HasPrefix(model, cluster.AIConf.MatchPrefix) {
-        stripped := strings.TrimPrefix(model, cluster.AIConf.MatchPrefix)
-        if stripped != "" {
-            if err := condition.ReqBodyJsonSet(basicReq, "model", stripped); err != nil {
-                log.Logger.Warn("Failed to strip provider prefix in request body: %s", err)
-            } else {
-                // outreq body already changed, need reset Content-Length
-                if outreq.ContentLength >= 0 {
-                    outreq.ContentLength = -1
-                    outreq.Header.Del("Content-Length")
-                }
-                aiMeta.TargetModel = stripped
-            }
+}
+
+// apply cluster model mapping
+if cluster.AIConf != nil && cluster.AIConf.ModelMapping != nil && model != "" {
+    if newModel, ok := (*cluster.AIConf.ModelMapping)[model]; ok {
+        model = newModel
+    }
+}
+
+// 统一写入请求体（最多一次）
+if model != aiMeta.ClientModel {
+    if err := condition.ReqBodyJsonSet(basicReq, "model", model); err != nil {
+        log.Logger.Warn("Failed to set model in request body: %s", err)
+    } else {
+        // outreq body already changed, need reset Content-Length
+        if outreq.ContentLength >= 0 {
+            outreq.ContentLength = -1
+            outreq.Header.Del("Content-Length")
         }
+        // Also reset the original request's Content-Length so that fallback/retry
+        // creates a new outreq with consistent body length.
+        if basicReq.HttpRequest != nil && basicReq.HttpRequest.ContentLength >= 0 {
+            basicReq.HttpRequest.ContentLength = -1
+            basicReq.HttpRequest.Header.Del("Content-Length")
+        }
+        aiMeta.TargetModel = model
     }
-}
-
-// apply cluster.AIConf (api key, model mapping)
-if cluster.AIConf != nil && aiMeta != nil {
-    // ... 现有逻辑
 }
 ```
 

@@ -622,16 +622,36 @@ func SelectTarget(targets []bfe_basic.AiRouteTarget) bfe_basic.AiRouteTarget {
 
 ### 7.2 请求体处理
 
-每次调用 `condition.ReqBodyJsonSet()` 后，必须：
+`doSingleAIForward()` 中按以下顺序计算最终模型名：
+
+1. `attempt.Model` 覆盖（若非空）；
+2. `cluster.AIConf.MatchPrefix` 前缀裁剪（若 `StripPrefix=true`）；
+3. `cluster.AIConf.ModelMapping` 模型映射（若配置）。
+
+计算得到最终 `model` 后，**最多调用一次** `condition.ReqBodyJsonSet()` 写入请求体，避免重复 JSON 解析/序列化：
 
 ```go
-if outreq.ContentLength >= 0 {
-    outreq.ContentLength = -1
-    outreq.Header.Del("Content-Length")
+if model != aiMeta.ClientModel {
+    if err := condition.ReqBodyJsonSet(basicReq, "model", model); err != nil {
+        log.Logger.Warn("Failed to set model in request body: %s", err)
+    } else {
+        // outreq body already changed, need reset Content-Length
+        if outreq.ContentLength >= 0 {
+            outreq.ContentLength = -1
+            outreq.Header.Del("Content-Length")
+        }
+        // Also reset the original request's Content-Length so that fallback/retry
+        // creates a new outreq with consistent body length.
+        if basicReq.HttpRequest != nil && basicReq.HttpRequest.ContentLength >= 0 {
+            basicReq.HttpRequest.ContentLength = -1
+            basicReq.HttpRequest.Header.Del("Content-Length")
+        }
+        aiMeta.TargetModel = model
+    }
 }
 ```
 
-以避免 `Content-Length` 与实际 body 长度不一致。
+以避免 `Content-Length` 与实际 body 长度不一致，并保证 fallback/retry 时能从原始请求体重新构造 `OutRequest`。
 
 ## 8. Fallback 机制
 
