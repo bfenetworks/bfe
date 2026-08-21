@@ -517,7 +517,12 @@ func TestTC10_TotalBodyBufferSizeExceedsLimit(t *testing.T) {
 	holderDone := make(chan struct{})
 	go func() {
 		defer close(holderDone)
-		_, _, _ = e.sendRequestWithContentType(holderHost, apiKeyUserA, holderBody, "application/octet-stream")
+		resp, body, err := e.sendRequestWithContentType(holderHost, apiKeyUserA, holderBody, "application/octet-stream")
+		if err != nil {
+			e.t.Logf("holder request finished with error: %v", err)
+		} else {
+			e.t.Logf("holder request finished: status=%d body=%q", resp.StatusCode, body)
+		}
 	}()
 
 	// Poll the BFE monitor endpoint until the holder's body has actually been
