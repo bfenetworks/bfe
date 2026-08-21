@@ -103,6 +103,13 @@ func (b *BFEConfigBuilder) Build() error {
 		return fmt.Errorf("copy template dir failed: %w", err)
 	}
 
+	// BFE defaults ClientCRLBaseDir to "tls_conf/client_crl" and fails startup
+	// if the directory does not exist. Ensure it is present even if the template
+	// does not include it.
+	if err := os.MkdirAll(filepath.Join(b.TargetConfDir, "tls_conf", "client_crl"), 0755); err != nil {
+		return fmt.Errorf("create tls_conf/client_crl dir failed: %w", err)
+	}
+
 	if err := b.normalizeAIRouteData(); err != nil {
 		return fmt.Errorf("normalize ai_route.data failed: %w", err)
 	}
