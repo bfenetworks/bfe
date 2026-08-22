@@ -26,9 +26,9 @@ import (
 	"testing"
 	"time"
 
+	bfe_access_pb "github.com/bfenetworks/bfe-access-pb/bfe_access_pb"
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	bfe_access_pb "github.com/bfenetworks/bfe-access-pb/bfe_access_pb"
 	"github.com/bfenetworks/bfe/tests/integration/common"
 )
 
@@ -55,6 +55,7 @@ var streamBody = []byte(`{"model":"deepseek-chat","stream":true}`)
 
 var usageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`
 var cacheUsageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150,"cache_read_tokens":30,"cache_write_tokens":20}}`
+var audioUsageResponse = `{"usage":{"prompt_tokens":4000,"completion_tokens":500,"total_tokens":4500,"audio_input_tokens":1000,"audio_output_tokens":200}}`
 
 // SSE format: final chunk contains usage. The trailing blank line is required.
 var streamUsageResponse = "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n" +
@@ -275,10 +276,32 @@ func fallbackRMBAIConf() *cluster_conf.AIConf {
 func cacheRMBAIConf() *cluster_conf.AIConf {
 	conf := defaultRMBAIConf()
 	conf.ModelTable.Models[0].Prices = map[string]float64{
-		"input_cost_per_token":              0.000001,
-		"output_cost_per_token":             0.000002,
-		"cache_read_input_token_cost":       0.0000005,
-		"cache_creation_input_token_cost":   0.0000015,
+		"input_cost_per_token":            0.000001,
+		"output_cost_per_token":           0.000002,
+		"cache_read_input_token_cost":     0.0000005,
+		"cache_creation_input_token_cost": 0.0000015,
+	}
+	return conf
+}
+
+func audioRMBAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models[0] = cluster_conf.ModelPrice{
+		Provider:            "mock-provider",
+		Model:               "gpt-audio-1.5",
+		BaseModel:           "gpt-audio-1.5",
+		Mode:                "chat",
+		Capabilities:        []string{"chat", "audio_input"},
+		SupportedParameters: []string{"temperature", "max_tokens"},
+		Limits: map[string]interface{}{
+			"context_window": 128000,
+		},
+		Prices: map[string]float64{
+			"input_cost_per_token":        0.00000178,
+			"output_cost_per_token":       0.00000715,
+			"input_cost_per_audio_token":  0.00002288,
+			"output_cost_per_audio_token": 0.00004576,
+		},
 	}
 	return conf
 }
@@ -321,7 +344,6 @@ func tokenQuotaPlan(quota int64) common.QuotaPlan {
 		Unit:        "total_token",
 	}
 }
-
 
 // TestTC01 verifies all major AI access log fields for a successful RMB request.
 func TestTC01_SuccessfulRequestAIFields(t *testing.T) {
@@ -590,7 +612,6 @@ func TestTC06_StreamingFields(t *testing.T) {
 	assertInt64Field(t, reqLog.AiOutputTokens, "ai_output_tokens", 50)
 }
 
-
 type expectedRouteRuleHit struct {
 	Owner     string
 	OwnerType string
@@ -759,9 +780,6 @@ OpenDebug = false
 	return os.WriteFile(filepath.Join(modDir, "ai_rate_limit.data"), data, 0644)
 }
 
-
-
-
 // TestTC07 verifies ai_rate_limit_hits when RPM limit is triggered.
 func TestTC07_RateLimitHits(t *testing.T) {
 	aiConfs := map[string]*cluster_conf.AIConf{
@@ -862,5 +880,46 @@ func TestTC08_CacheTokenFields(t *testing.T) {
 	assertInt64Field(t, reqLog.AiCacheWriteTokens, "ai_cache_write_tokens", 20)
 	// cost = (100-30)*100 + 30*50 + 20*150 + 50*200 = 21500
 	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 21500)
+	assertStringField(t, reqLog.AiCostCurrency, "ai_cost_currency", "RMB")
+}
+
+// TestTC09 verifies ai_audio_input_tokens, ai_audio_output_tokens and audio-aware cost.
+func TestTC09_AudioTokenFields(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: audioRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	e.backends[clusterRMB].Body = audioUsageResponse
+
+	resp, body, err := e.sendRequest(apiHost, []byte(`{"model":"gpt-audio-1.5"}`))
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLog := e.mustFindSingleLog(e.accessLogs())
+	assertInt64Field(t, reqLog.AiInputTokens, "ai_input_tokens", 4000)
+	assertInt64Field(t, reqLog.AiOutputTokens, "ai_output_tokens", 500)
+	assertInt64Field(t, reqLog.AiTotalTokens, "ai_total_tokens", 4500)
+	assertInt64Field(t, reqLog.AiAudioInputTokens, "ai_audio_input_tokens", 1000)
+	assertInt64Field(t, reqLog.AiAudioOutputTokens, "ai_audio_output_tokens", 200)
+	// cost = (4000-1000)*178 + 1000*2288 + (500-200)*715 + 200*4576 = 3951700
+	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 3951700)
 	assertStringField(t, reqLog.AiCostCurrency, "ai_cost_currency", "RMB")
 }

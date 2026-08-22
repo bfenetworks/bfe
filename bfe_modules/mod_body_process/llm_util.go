@@ -30,11 +30,13 @@ const UnknownModel = "unknown"
 
 type QuotaUsage struct {
 	//return from reponse
-	PromptTokens     int64 // number of tokens in the prompt
-	CompletionTokens int64 // number of tokens in the completion
-	CacheReadTokens  int64 // usage.cache_read_tokens, already included in PromptTokens
-	CacheWriteTokens int64 // usage.cache_write_tokens, independent add-on item
-	UsedQuota        int64 // used quota for this request
+	PromptTokens      int64 // number of tokens in the prompt
+	CompletionTokens  int64 // number of tokens in the completion
+	CacheReadTokens   int64 // usage.cache_read_tokens, already included in PromptTokens
+	CacheWriteTokens  int64 // usage.cache_write_tokens, independent add-on item
+	AudioInputTokens  int64 // usage.audio_input_tokens, already included in PromptTokens
+	AudioOutputTokens int64 // usage.audio_output_tokens, already included in CompletionTokens
+	UsedQuota         int64 // used quota for this request
 
 	//estimate for current response
 	CurrentTokens int64 //effect when IsGuess is true
@@ -124,6 +126,8 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 	completion := gjson.GetBytes(data, "usage.completion_tokens").Int()
 	cacheRead := gjson.GetBytes(data, "usage.cache_read_tokens").Int()
 	cacheWrite := gjson.GetBytes(data, "usage.cache_write_tokens").Int()
+	audioInput := gjson.GetBytes(data, "usage.audio_input_tokens").Int()
+	audioOutput := gjson.GetBytes(data, "usage.audio_output_tokens").Int()
 
 	curtoken := int64(0)
 	isguess := true
@@ -134,13 +138,15 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 	}
 
 	return QuotaUsage{
-		PromptTokens:     prompt,
-		CompletionTokens: completion,
-		CacheReadTokens:  cacheRead,
-		CacheWriteTokens: cacheWrite,
-		UsedQuota:        used,
-		CurrentTokens:    curtoken,
-		IsGuess:          isguess,
+		PromptTokens:      prompt,
+		CompletionTokens:  completion,
+		CacheReadTokens:   cacheRead,
+		CacheWriteTokens:  cacheWrite,
+		AudioInputTokens:  audioInput,
+		AudioOutputTokens: audioOutput,
+		UsedQuota:         used,
+		CurrentTokens:     curtoken,
+		IsGuess:           isguess,
 	}
 }
 

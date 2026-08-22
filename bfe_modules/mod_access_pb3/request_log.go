@@ -415,6 +415,12 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		if usage.CacheWriteTokens > 0 {
 			reqLog.AiCacheWriteTokens = proto.Int64(usage.CacheWriteTokens)
 		}
+		if usage.AudioInputTokens > 0 {
+			reqLog.AiAudioInputTokens = proto.Int64(usage.AudioInputTokens)
+		}
+		if usage.AudioOutputTokens > 0 {
+			reqLog.AiAudioOutputTokens = proto.Int64(usage.AudioOutputTokens)
+		}
 		if usage.UsedCost > 0 {
 			reqLog.AiCostValue = proto.Int64(usage.UsedCost)
 		}

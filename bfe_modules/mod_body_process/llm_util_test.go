@@ -98,6 +98,29 @@ func TestSSEEventGetQuotaUsage(t *testing.T) {
 	}
 }
 
+func TestSSEEventGetQuotaUsageWithAudio(t *testing.T) {
+	ev := &SSEEvent{DataLines: [][]byte{[]byte(`{"usage":{"total_tokens":4500,"prompt_tokens":4000,"completion_tokens":500,"audio_input_tokens":1000,"audio_output_tokens":200}}`)}}
+	q := ev.GetQuotaUsage()
+	if q.UsedQuota != 4500 {
+		t.Errorf("expected UsedQuota 4500, got %d", q.UsedQuota)
+	}
+	if q.PromptTokens != 4000 {
+		t.Errorf("expected PromptTokens 4000, got %d", q.PromptTokens)
+	}
+	if q.CompletionTokens != 500 {
+		t.Errorf("expected CompletionTokens 500, got %d", q.CompletionTokens)
+	}
+	if q.AudioInputTokens != 1000 {
+		t.Errorf("expected AudioInputTokens 1000, got %d", q.AudioInputTokens)
+	}
+	if q.AudioOutputTokens != 200 {
+		t.Errorf("expected AudioOutputTokens 200, got %d", q.AudioOutputTokens)
+	}
+	if q.IsGuess {
+		t.Error("expected IsGuess false")
+	}
+}
+
 func TestSSEEventSetJsonField(t *testing.T) {
 	ev := &SSEEvent{DataLines: [][]byte{[]byte(`{"text":"hello"}`)}}
 	if err := ev.SetJsonField("text", "world"); err != nil {

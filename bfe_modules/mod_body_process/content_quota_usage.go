@@ -55,6 +55,8 @@ func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 					tctx.PromptTokens = rquota.PromptTokens
 					tctx.CacheReadTokens = rquota.CacheReadTokens
 					tctx.CacheWriteTokens = rquota.CacheWriteTokens
+					tctx.AudioInputTokens = rquota.AudioInputTokens
+					tctx.AudioOutputTokens = rquota.AudioOutputTokens
 					tctx.UsedQuota = rquota.UsedQuota
 				} else if rquota.PromptTokens > 0 || rquota.CompletionTokens > 0 {
 					tctx.UsedQuota = rquota.PromptTokens + rquota.CompletionTokens
@@ -62,6 +64,8 @@ func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 					tctx.CompletionTokens = rquota.CompletionTokens
 					tctx.CacheReadTokens = rquota.CacheReadTokens
 					tctx.CacheWriteTokens = rquota.CacheWriteTokens
+					tctx.AudioInputTokens = rquota.AudioInputTokens
+					tctx.AudioOutputTokens = rquota.AudioOutputTokens
 				}
 			}
 		}

@@ -104,3 +104,32 @@ func TestQuotaUsageProcessorProcessWithCache(t *testing.T) {
 		t.Errorf("expected CacheWriteTokens 1000, got %d", usage.CacheWriteTokens)
 	}
 }
+
+func TestQuotaUsageProcessorProcessWithAudio(t *testing.T) {
+	req := newTestRequest("AI_product")
+	ai := req.InitAiBasicInfo()
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	p := NewQuotaUsageProcessor(req, res)
+
+	events := []Event{newRawEvent(`{"usage":{"total_tokens":4500,"prompt_tokens":4000,"completion_tokens":500,"audio_input_tokens":1000,"audio_output_tokens":200}}`)}
+	out, err := p.Process(events)
+	if err != nil {
+		t.Fatalf("Process failed: %s", err)
+	}
+	if len(out) != 1 {
+		t.Errorf("expected 1 event, got %d", len(out))
+	}
+	usage := ai.GetTokenUsage()
+	if usage.UsedQuota != 4500 {
+		t.Errorf("expected UsedQuota 4500, got %d", usage.UsedQuota)
+	}
+	if usage.PromptTokens != 4000 || usage.CompletionTokens != 500 {
+		t.Errorf("unexpected prompt/completion: %+v", usage)
+	}
+	if usage.AudioInputTokens != 1000 {
+		t.Errorf("expected AudioInputTokens 1000, got %d", usage.AudioInputTokens)
+	}
+	if usage.AudioOutputTokens != 200 {
+		t.Errorf("expected AudioOutputTokens 200, got %d", usage.AudioOutputTokens)
+	}
+}

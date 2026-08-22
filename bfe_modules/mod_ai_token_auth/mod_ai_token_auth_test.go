@@ -15,6 +15,7 @@
 package mod_ai_token_auth
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -731,6 +732,10 @@ func buildTestClusterConf(model string, inputCost, outputCost float64) *bfe_clus
 }
 
 func buildTestClusterConfWithCache(model string, inputCost, outputCost, cacheReadCost, cacheWriteCost float64) *bfe_cluster.BfeCluster {
+	return buildTestClusterConfWithAudio(model, inputCost, outputCost, cacheReadCost, cacheWriteCost, 0, 0)
+}
+
+func buildTestClusterConfWithAudio(model string, inputCost, outputCost, cacheReadCost, cacheWriteCost, audioInputCost, audioOutputCost float64) *bfe_cluster.BfeCluster {
 	modelTable := &cluster_conf.ModelTable{
 		Currency: "RMB",
 		Models: []cluster_conf.ModelPrice{
@@ -743,6 +748,8 @@ func buildTestClusterConfWithCache(model string, inputCost, outputCost, cacheRea
 					cluster_conf.PriceOutputCostPerToken:          outputCost,
 					cluster_conf.PriceCacheReadInputTokenCost:     cacheReadCost,
 					cluster_conf.PriceCacheCreationInputTokenCost: cacheWriteCost,
+					cluster_conf.PriceInputCostPerAudioToken:      audioInputCost,
+					cluster_conf.PriceOutputCostPerAudioToken:     audioOutputCost,
 				},
 			},
 		},
@@ -1018,6 +1025,236 @@ func TestCalcCostUnits_CacheReadExceedsPrompt(t *testing.T) {
 	got := m.calcCostUnits(req, req.SvrDataConf, usage)
 	if got != expectedCost {
 		t.Errorf("expected truncated cost %d, got %d", expectedCost, got)
+	}
+}
+
+func TestCalcCostUnits_Audio(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	clusterName := "audio-backup"
+	model := "gpt-audio-1.5"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	cluster := buildTestClusterConfWithAudio(model, 0.00000178, 0.00000715, 0, 0, 0.00002288, 0.00004576)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:      4000,
+		CompletionTokens:  500,
+		AudioInputTokens:  1000,
+		AudioOutputTokens: 200,
+	}
+
+	expectedCost := int64(3951700)
+	got := m.calcCostUnits(req, req.SvrDataConf, usage)
+	if got != expectedCost {
+		t.Errorf("expected cost %d, got %d", expectedCost, got)
+	}
+}
+
+func TestCalcCostUnits_AudioFallback(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	cluster := buildTestClusterConf(model, 0.000003, 0.000009)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:      100,
+		CompletionTokens:  200,
+		AudioInputTokens:  30,
+		AudioOutputTokens: 20,
+	}
+
+	// No audio prices configured, should fallback to legacy formula.
+	expectedCost := quota.RmbToFixedPoint(100*0.000003 + 200*0.000009)
+	got := m.calcCostUnits(req, req.SvrDataConf, usage)
+	if got != expectedCost {
+		t.Errorf("expected fallback cost %d, got %d", expectedCost, got)
+	}
+}
+
+func TestCalcCostUnits_AudioInputExceedsPrompt(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	clusterName := "audio-backup"
+	model := "gpt-audio-1.5"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	cluster := buildTestClusterConfWithAudio(model, 0.00000178, 0.00000715, 0, 0, 0.00002288, 0.00004576)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:      4000,
+		CompletionTokens:  500,
+		AudioInputTokens:  5000, // exceeds prompt, should be truncated
+		AudioOutputTokens: 200,
+	}
+
+	// normal_input = 0 after truncation, audio_input = 4000
+	expectedCost := int64(4000*2288 + 300*715 + 200*4576)
+	got := m.calcCostUnits(req, req.SvrDataConf, usage)
+	if got != expectedCost {
+		t.Errorf("expected truncated cost %d, got %d", expectedCost, got)
+	}
+}
+
+func TestCalcCostUnits_AudioOutputExceedsCompletion(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	clusterName := "audio-backup"
+	model := "gpt-audio-1.5"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	cluster := buildTestClusterConfWithAudio(model, 0.00000178, 0.00000715, 0, 0, 0.00002288, 0.00004576)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:      4000,
+		CompletionTokens:  500,
+		AudioInputTokens:  1000,
+		AudioOutputTokens: 800, // exceeds completion, should be truncated
+	}
+
+	// normal_output = 0 after truncation, audio_output = 500
+	expectedCost := int64(3000*178 + 1000*2288 + 500*4576)
+	got := m.calcCostUnits(req, req.SvrDataConf, usage)
+	if got != expectedCost {
+		t.Errorf("expected truncated cost %d, got %d", expectedCost, got)
+	}
+}
+
+func TestCalcCostUnits_CacheAndAudio(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	clusterName := "multi-backup"
+	model := "claude-audio-4-6"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	cluster := buildTestClusterConfWithAudio(model, 0.00000452, 0.00002262, 0.00000045, 0.00000565, 0.00002288, 0.00004576)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:      8000,
+		CompletionTokens:  500,
+		CacheReadTokens:   3000,
+		CacheWriteTokens:  1000,
+		AudioInputTokens:  1000,
+		AudioOutputTokens: 200,
+	}
+
+	// normal_input = 8000 - 3000 - 1000 = 4000
+	// normal_output = 500 - 200 = 300
+	expectedCost := int64(4000*452 + 3000*45 + 1000*565 + 1000*2288 + 300*2262 + 200*4576)
+	got := m.calcCostUnits(req, req.SvrDataConf, usage)
+	if got != expectedCost {
+		t.Errorf("expected cost %d, got %d", expectedCost, got)
+	}
+}
+
+func TestUpdateCtxByUsage_Audio(t *testing.T) {
+	req := newTestRequest("", "AI_product")
+	ai := req.InitAiBasicInfo()
+	ctx := &TokenAuthContext{aiBasicInfo: ai}
+
+	data := []byte(`{"usage":{"total_tokens":4500,"prompt_tokens":4000,"completion_tokens":500,"audio_input_tokens":1000,"audio_output_tokens":200}}`)
+	UpdateCtxByUsage(ctx, data)
+
+	usage := ai.GetTokenUsage()
+	if usage.UsedQuota != 4500 {
+		t.Errorf("expected UsedQuota 4500, got %d", usage.UsedQuota)
+	}
+	if usage.PromptTokens != 4000 {
+		t.Errorf("expected PromptTokens 4000, got %d", usage.PromptTokens)
+	}
+	if usage.CompletionTokens != 500 {
+		t.Errorf("expected CompletionTokens 500, got %d", usage.CompletionTokens)
+	}
+	if usage.AudioInputTokens != 1000 {
+		t.Errorf("expected AudioInputTokens 1000, got %d", usage.AudioInputTokens)
+	}
+	if usage.AudioOutputTokens != 200 {
+		t.Errorf("expected AudioOutputTokens 200, got %d", usage.AudioOutputTokens)
+	}
+}
+
+func TestTokenRequestFinishHandler_RMB_Audio_NonStreaming(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "audio-backup"
+	model := "gpt-audio-1.5"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+
+	cluster := buildTestClusterConfWithAudio(model, 0.00000178, 0.00000715, 0, 0, 0.00002288, 0.00004576)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-AudioNonStreaming",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+
+	res := &bfe_http.Response{StatusCode: 200, ContentLength: int64(len(`{"usage":{"prompt_tokens":4000,"completion_tokens":500,"audio_input_tokens":1000,"audio_output_tokens":200}}`))}
+	res.Body = ioutil.NopCloser(bytes.NewBufferString(`{"usage":{"prompt_tokens":4000,"completion_tokens":500,"audio_input_tokens":1000,"audio_output_tokens":200}}`))
+	if ret := m.tokenReadResponseHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	usage := req.GetAiBasicInfo().GetTokenUsage()
+	expectedCost := int64(3951700)
+	if usage.UsedCost != expectedCost {
+		t.Errorf("expected UsedCost %d, got %d", expectedCost, usage.UsedCost)
+	}
+
+	remaining := client.data[rmbPlan.RedisKey]
+	if remaining != rmbPlan.Quota-expectedCost {
+		t.Errorf("expected remaining %d, got %d", rmbPlan.Quota-expectedCost, remaining)
+	}
+}
+
+func TestTokenRequestFinishHandler_RMB_Audio_Streaming(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "audio-backup"
+	model := "gpt-audio-1.5"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+
+	cluster := buildTestClusterConfWithAudio(model, 0.00000178, 0.00000715, 0, 0, 0.00002288, 0.00004576)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-AudioStreaming",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+
+	// Simulate streaming: mod_body_process has filled token usage (including audio fields).
+	ai := req.GetAiBasicInfo()
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 4000
+	usage.CompletionTokens = 500
+	usage.AudioInputTokens = 1000
+	usage.AudioOutputTokens = 200
+	usage.UsedQuota = 4500
+
+	res := &bfe_http.Response{StatusCode: 200, ContentLength: -1}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	expectedCost := int64(3951700)
+	if usage.UsedCost != expectedCost {
+		t.Errorf("expected UsedCost %d, got %d", expectedCost, usage.UsedCost)
+	}
+
+	remaining := client.data[rmbPlan.RedisKey]
+	if remaining != rmbPlan.Quota-expectedCost {
+		t.Errorf("expected remaining %d, got %d", rmbPlan.Quota-expectedCost, remaining)
 	}
 }
 

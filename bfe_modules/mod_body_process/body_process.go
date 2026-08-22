@@ -428,6 +428,8 @@ func (e *RawEvent) GetQuotaUsage() QuotaUsage {
 	completion := gjson.GetBytes(*e, "usage.completion_tokens").Int()
 	cacheRead := gjson.GetBytes(*e, "usage.cache_read_tokens").Int()
 	cacheWrite := gjson.GetBytes(*e, "usage.cache_write_tokens").Int()
+	audioInput := gjson.GetBytes(*e, "usage.audio_input_tokens").Int()
+	audioOutput := gjson.GetBytes(*e, "usage.audio_output_tokens").Int()
 	if used > 0 {
 		isguess = false
 	} else {
@@ -435,13 +437,15 @@ func (e *RawEvent) GetQuotaUsage() QuotaUsage {
 	}
 
 	return QuotaUsage{
-		PromptTokens:     prompt,
-		CompletionTokens: completion,
-		CacheReadTokens:  cacheRead,
-		CacheWriteTokens: cacheWrite,
-		UsedQuota:        used,
-		CurrentTokens:    curtoken,
-		IsGuess:          isguess,
+		PromptTokens:      prompt,
+		CompletionTokens:  completion,
+		CacheReadTokens:   cacheRead,
+		CacheWriteTokens:  cacheWrite,
+		AudioInputTokens:  audioInput,
+		AudioOutputTokens: audioOutput,
+		UsedQuota:         used,
+		CurrentTokens:     curtoken,
+		IsGuess:           isguess,
 	}
 }
 

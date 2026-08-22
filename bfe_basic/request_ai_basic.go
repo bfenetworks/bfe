@@ -32,12 +32,14 @@ const (
 )
 
 type TokenUsage struct {
-	PromptTokens     int64 // number of tokens in the prompt (includes cache_read_tokens)
-	CompletionTokens int64 // number of tokens in the completion
-	CacheReadTokens  int64 // usage.cache_read_tokens, already included in PromptTokens
-	CacheWriteTokens int64 // usage.cache_write_tokens, independent add-on item
-	UsedQuota        int64 // used quota for this request (unit=total_token)
-	UsedCost         int64 // used RMB cost for this request, 1 unit = 1e-8 yuan (unit=RMB)
+	PromptTokens      int64 // number of tokens in the prompt (includes cache_read_tokens, audio_input_tokens)
+	CompletionTokens  int64 // number of tokens in the completion (includes audio_output_tokens)
+	CacheReadTokens   int64 // usage.cache_read_tokens, already included in PromptTokens
+	CacheWriteTokens  int64 // usage.cache_write_tokens, independent add-on item
+	AudioInputTokens  int64 // usage.audio_input_tokens, already included in PromptTokens
+	AudioOutputTokens int64 // usage.audio_output_tokens, already included in CompletionTokens
+	UsedQuota         int64 // used quota for this request (unit=total_token)
+	UsedCost          int64 // used RMB cost for this request, 1 unit = 1e-8 yuan (unit=RMB)
 }
 
 type TokenTimeInfo struct {
@@ -65,9 +67,9 @@ type AiBasicInfo struct {
 	ClientKeyId     string
 	ClientModel     string
 	TargetModel     string
-	Provider        string          // upstream model provider, e.g. openai, deepseek
-	RetryCount      uint32          // model invocation retry count (key-level retry)
-	CostCurrency    string          // cost currency, e.g. RMB, USD
+	Provider        string // upstream model provider, e.g. openai, deepseek
+	RetryCount      uint32 // model invocation retry count (key-level retry)
+	CostCurrency    string // cost currency, e.g. RMB, USD
 	tokenUsage      TokenUsage
 	ApikeyTags      []ApikeyTag
 	TokenTimeInfo   TokenTimeInfo

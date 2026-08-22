@@ -60,7 +60,7 @@ const (
 const (
 	BalanceModeWrr = "WRR" // weighted round robin
 	BalanceModeWlc = "WLC" // weighted least connection
-	BalanceModeEPP     = "EPP" // balance by epp
+	BalanceModeEPP = "EPP" // balance by epp
 )
 
 const (
@@ -157,7 +157,7 @@ type ModelPrice struct {
 
 // ModelTable represents the cost/pricing table for a cluster
 type ModelTable struct {
-	Currency string       // fixed "RMB" in v0.4
+	Currency string // fixed "RMB" in v0.4
 	Models   []ModelPrice
 
 	// priceIndex is built at config load time: model -> mode -> *ModelPrice
@@ -185,11 +185,15 @@ const (
 	PriceOutputCostPerToken          = "output_cost_per_token"
 	PriceCacheReadInputTokenCost     = "cache_read_input_token_cost"
 	PriceCacheCreationInputTokenCost = "cache_creation_input_token_cost"
+	PriceInputCostPerAudioToken      = "input_cost_per_audio_token"
+	PriceOutputCostPerAudioToken     = "output_cost_per_audio_token"
 
 	PriceInputCostPerTokenInt           = "input_cost_per_token_int"
 	PriceOutputCostPerTokenInt          = "output_cost_per_token_int"
 	PriceCacheReadInputTokenCostInt     = "cache_read_input_token_cost_int"
 	PriceCacheCreationInputTokenCostInt = "cache_creation_input_token_cost_int"
+	PriceInputCostPerAudioTokenInt      = "input_cost_per_audio_token_int"
+	PriceOutputCostPerAudioTokenInt     = "output_cost_per_audio_token_int"
 )
 
 func (conf *BackendHTTPS) GetProtocol() string {
@@ -267,7 +271,7 @@ type GslbBasicConf struct {
 	RetryMax   *int // inner cluster retry
 	HashConf   *HashConf
 
-	BalanceMode *string // balanceMode, default WRR
+	BalanceMode *string   // balanceMode, default WRR
 	EPPAddr     *[]string // EPP address
 }
 
@@ -293,7 +297,7 @@ type ClusterConf struct {
 	GslbBasic    *GslbBasicConf    // gslb basic conf for cluster
 	ClusterBasic *ClusterBasicConf // basic conf for cluster
 	HTTPSConf    *BackendHTTPS     // backend's https conf
-	AIConf             *AIConf         // ai conf for cluster
+	AIConf       *AIConf           // ai conf for cluster
 }
 
 type ClusterToConf map[string]ClusterConf
@@ -810,7 +814,10 @@ func ModelTableCheck(table *ModelTable) error {
 		output := price.Prices[PriceOutputCostPerToken]
 		cacheRead := price.Prices[PriceCacheReadInputTokenCost]
 		cacheWrite := price.Prices[PriceCacheCreationInputTokenCost]
-		if input < 0 || output < 0 || cacheRead < 0 || cacheWrite < 0 {
+		audioInput := price.Prices[PriceInputCostPerAudioToken]
+		audioOutput := price.Prices[PriceOutputCostPerAudioToken]
+		if input < 0 || output < 0 || cacheRead < 0 || cacheWrite < 0 ||
+			audioInput < 0 || audioOutput < 0 {
 			return fmt.Errorf("negative price for model %s", price.Model)
 		}
 
@@ -818,6 +825,8 @@ func ModelTableCheck(table *ModelTable) error {
 		price.Prices[PriceOutputCostPerTokenInt] = float64(quota.RmbToFixedPoint(output))
 		price.Prices[PriceCacheReadInputTokenCostInt] = float64(quota.RmbToFixedPoint(cacheRead))
 		price.Prices[PriceCacheCreationInputTokenCostInt] = float64(quota.RmbToFixedPoint(cacheWrite))
+		price.Prices[PriceInputCostPerAudioTokenInt] = float64(quota.RmbToFixedPoint(audioInput))
+		price.Prices[PriceOutputCostPerAudioTokenInt] = float64(quota.RmbToFixedPoint(audioOutput))
 
 		if table.priceIndex[price.Model] == nil {
 			table.priceIndex[price.Model] = make(map[string]*ModelPrice)
