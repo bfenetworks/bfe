@@ -112,21 +112,27 @@ func (m *ModuleAITokenAuth) matchTokenRule(req *bfe_basic.Request) bool {
 }
 
 func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
-	var used, prompt, completion int64
+	var used, prompt, completion, cacheRead, cacheWrite int64
 
 	used = gjson.GetBytes(data, "usage.total_tokens").Int()
 	prompt = gjson.GetBytes(data, "usage.prompt_tokens").Int()
 	completion = gjson.GetBytes(data, "usage.completion_tokens").Int()
+	cacheRead = gjson.GetBytes(data, "usage.cache_read_tokens").Int()
+	cacheWrite = gjson.GetBytes(data, "usage.cache_write_tokens").Int()
 
 	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
 	if used > 0 {
 		tokenUsage.UsedQuota = used
 		tokenUsage.PromptTokens = prompt
 		tokenUsage.CompletionTokens = completion
+		tokenUsage.CacheReadTokens = cacheRead
+		tokenUsage.CacheWriteTokens = cacheWrite
 	} else if prompt > 0 || completion > 0 {
 		tokenUsage.UsedQuota = prompt + completion
 		tokenUsage.PromptTokens = prompt
 		tokenUsage.CompletionTokens = completion
+		tokenUsage.CacheReadTokens = cacheRead
+		tokenUsage.CacheWriteTokens = cacheWrite
 	}
 }
 
@@ -177,7 +183,7 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	// calculate RMB cost at request finish time using token usage already populated
 	// by mod_body_process (streaming) or tokenReadResponseHandler (non-streaming).
 	if tokenUsage.UsedCost <= 0 && hasRMBPlan(ctx.Token.QuotaPlans) {
-		tokenUsage.UsedCost = m.calcCostUnits(req, ctx.serverConf, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
+		tokenUsage.UsedCost = m.calcCostUnits(req, ctx.serverConf, tokenUsage)
 	}
 
 	costUnits := tokenUsage.UsedCost
@@ -410,9 +416,9 @@ func hasRMBPlan(plans []*QuotaPlan) bool {
 	return false
 }
 
-func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe_basic.ServerDataConfInterface, promptTokens, completionTokens int64) int64 {
+func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe_basic.ServerDataConfInterface, usage *bfe_basic.TokenUsage) int64 {
 	aiMeta := req.GetAiBasicInfo()
-	if aiMeta == nil {
+	if aiMeta == nil || usage == nil {
 		return 0
 	}
 
@@ -444,5 +450,40 @@ func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe
 		return 0
 	}
 
-	return promptTokens*inputCost + completionTokens*outputCost
+	promptTokens := usage.PromptTokens
+	completionTokens := usage.CompletionTokens
+	cacheReadTokens := usage.CacheReadTokens
+	cacheWriteTokens := usage.CacheWriteTokens
+
+	// sanitize cache usage to avoid negative normal input or negative cache charges
+	if cacheReadTokens < 0 {
+		cacheReadTokens = 0
+	}
+	if cacheReadTokens > promptTokens {
+		cacheReadTokens = promptTokens
+	}
+	if cacheWriteTokens < 0 {
+		cacheWriteTokens = 0
+	}
+
+	cacheReadCost := int64(entry.Prices[cluster_conf.PriceCacheReadInputTokenCostInt])
+	cacheWriteCost := int64(entry.Prices[cluster_conf.PriceCacheCreationInputTokenCostInt])
+
+	var cost int64
+	if cacheReadCost > 0 || cacheWriteCost > 0 {
+		// cache-aware billing: split prompt into normal input and cache read
+		normalInput := promptTokens - cacheReadTokens
+		if normalInput < 0 {
+			normalInput = 0
+		}
+		cost = normalInput*inputCost +
+			cacheReadTokens*cacheReadCost +
+			cacheWriteTokens*cacheWriteCost +
+			completionTokens*outputCost
+	} else {
+		// fallback to legacy billing when no cache price is configured
+		cost = promptTokens*inputCost + completionTokens*outputCost
+	}
+
+	return cost
 }

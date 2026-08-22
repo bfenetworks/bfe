@@ -320,6 +320,34 @@ func TestUpdateCtxByUsage(t *testing.T) {
 	}
 }
 
+func TestUpdateCtxByUsage_Cache(t *testing.T) {
+	req := newTestRequest("", "AI_product")
+	ai := req.InitAiBasicInfo()
+	ctx := &TokenAuthContext{aiBasicInfo: ai}
+
+	UpdateCtxByUsage(ctx, []byte(`{"usage":{"total_tokens":12,"prompt_tokens":8,"completion_tokens":4,"cache_read_tokens":5,"cache_write_tokens":2}}`))
+	usage := ai.GetTokenUsage()
+	if usage.UsedQuota != 12 || usage.PromptTokens != 8 || usage.CompletionTokens != 4 {
+		t.Errorf("unexpected base usage: %+v", usage)
+	}
+	if usage.CacheReadTokens != 5 {
+		t.Errorf("expected CacheReadTokens 5, got %d", usage.CacheReadTokens)
+	}
+	if usage.CacheWriteTokens != 2 {
+		t.Errorf("expected CacheWriteTokens 2, got %d", usage.CacheWriteTokens)
+	}
+
+	ctx2 := &TokenAuthContext{aiBasicInfo: ai}
+	UpdateCtxByUsage(ctx2, []byte(`{"usage":{"prompt_tokens":3,"completion_tokens":1,"cache_read_tokens":1,"cache_write_tokens":1}}`))
+	usage = ai.GetTokenUsage()
+	if usage.UsedQuota != 4 || usage.PromptTokens != 3 || usage.CompletionTokens != 1 {
+		t.Errorf("unexpected usage without total_tokens: %+v", usage)
+	}
+	if usage.CacheReadTokens != 1 || usage.CacheWriteTokens != 1 {
+		t.Errorf("unexpected cache usage: %+v", usage)
+	}
+}
+
 func TestTokenAuthContext(t *testing.T) {
 	req := newTestRequest("", "AI_product")
 	ai := req.InitAiBasicInfo()
@@ -699,6 +727,10 @@ func newTestRequestWithCluster(apiKey, product, clusterName, targetModel string)
 }
 
 func buildTestClusterConf(model string, inputCost, outputCost float64) *bfe_cluster.BfeCluster {
+	return buildTestClusterConfWithCache(model, inputCost, outputCost, 0, 0)
+}
+
+func buildTestClusterConfWithCache(model string, inputCost, outputCost, cacheReadCost, cacheWriteCost float64) *bfe_cluster.BfeCluster {
 	modelTable := &cluster_conf.ModelTable{
 		Currency: "RMB",
 		Models: []cluster_conf.ModelPrice{
@@ -707,8 +739,10 @@ func buildTestClusterConf(model string, inputCost, outputCost float64) *bfe_clus
 				BaseModel: model,
 				Mode:      "chat",
 				Prices: map[string]float64{
-					cluster_conf.PriceInputCostPerToken:  inputCost,
-					cluster_conf.PriceOutputCostPerToken: outputCost,
+					cluster_conf.PriceInputCostPerToken:           inputCost,
+					cluster_conf.PriceOutputCostPerToken:          outputCost,
+					cluster_conf.PriceCacheReadInputTokenCost:     cacheReadCost,
+					cluster_conf.PriceCacheCreationInputTokenCost: cacheWriteCost,
 				},
 			},
 		},
@@ -820,6 +854,170 @@ func TestTokenRequestFinishHandler_RMB_NonStreaming(t *testing.T) {
 	remaining := client.data[rmbPlan.RedisKey]
 	if remaining != rmbPlan.Quota-expectedCost {
 		t.Errorf("expected remaining %d, got %d", rmbPlan.Quota-expectedCost, remaining)
+	}
+}
+
+func TestTokenRequestFinishHandler_RMB_Cache_NonStreaming(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "claude-backup"
+	model := "claude-opus-4-6"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+
+	body := `{"usage":{"total_tokens":9500,"prompt_tokens":8000,"completion_tokens":1500,"cache_read_tokens":5000,"cache_write_tokens":1000}}`
+	res := &bfe_http.Response{
+		StatusCode:    200,
+		ContentLength: int64(len(body)),
+		Body:          ioutil.NopCloser(strings.NewReader(body)),
+	}
+
+	// Prices chosen so that RmbToFixedPoint yields exact integers:
+	// input=452, output=2262, cache_read=45, cache_write=565.
+	cluster := buildTestClusterConfWithCache(model, 0.00000452, 0.00002262, 0.00000045, 0.00000565)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-CacheNonStreaming",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+
+	if ret := m.tokenReadResponseHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("read response handler failed: %d", ret)
+	}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	// normal_input = 8000 - 5000 = 3000
+	// cost = 3000*452 + 5000*45 + 1000*565 + 1500*2262 = 5539000
+	expectedCost := int64(5539000)
+	usage := req.GetAiBasicInfo().GetTokenUsage()
+	if usage.UsedCost != expectedCost {
+		t.Errorf("expected UsedCost %d, got %d", expectedCost, usage.UsedCost)
+	}
+
+	remaining := client.data[rmbPlan.RedisKey]
+	if remaining != rmbPlan.Quota-expectedCost {
+		t.Errorf("expected remaining %d, got %d", rmbPlan.Quota-expectedCost, remaining)
+	}
+}
+
+func TestTokenRequestFinishHandler_RMB_Cache_Streaming(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "claude-backup"
+	model := "claude-opus-4-6"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+
+	cluster := buildTestClusterConfWithCache(model, 0.00000452, 0.00002262, 0.00000045, 0.00000565)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-CacheStreaming",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+
+	// Simulate streaming: mod_body_process has filled token usage (including cache fields).
+	ai := req.GetAiBasicInfo()
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 8000
+	usage.CompletionTokens = 1500
+	usage.CacheReadTokens = 5000
+	usage.CacheWriteTokens = 1000
+	usage.UsedQuota = 9500
+
+	res := &bfe_http.Response{StatusCode: 200, ContentLength: -1}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	expectedCost := int64(5539000)
+	if usage.UsedCost != expectedCost {
+		t.Errorf("expected UsedCost %d, got %d", expectedCost, usage.UsedCost)
+	}
+
+	remaining := client.data[rmbPlan.RedisKey]
+	if remaining != rmbPlan.Quota-expectedCost {
+		t.Errorf("expected remaining %d, got %d", rmbPlan.Quota-expectedCost, remaining)
+	}
+}
+
+func TestCalcCostUnits_Cache(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	clusterName := "claude-backup"
+	model := "claude-opus-4-6"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	cluster := buildTestClusterConfWithCache(model, 0.00000452, 0.00002262, 0.00000045, 0.00000565)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:     8000,
+		CompletionTokens: 1500,
+		CacheReadTokens:  5000,
+		CacheWriteTokens: 1000,
+	}
+
+	expectedCost := int64(5539000)
+	got := m.calcCostUnits(req, req.SvrDataConf, usage)
+	if got != expectedCost {
+		t.Errorf("expected cost %d, got %d", expectedCost, got)
+	}
+}
+
+func TestCalcCostUnits_CacheFallback(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	cluster := buildTestClusterConf(model, 0.000003, 0.000009)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:     100,
+		CompletionTokens: 200,
+		CacheReadTokens:  50,
+		CacheWriteTokens: 20,
+	}
+
+	// No cache prices configured, should fallback to legacy formula.
+	expectedCost := quota.RmbToFixedPoint(100*0.000003 + 200*0.000009)
+	got := m.calcCostUnits(req, req.SvrDataConf, usage)
+	if got != expectedCost {
+		t.Errorf("expected fallback cost %d, got %d", expectedCost, got)
+	}
+}
+
+func TestCalcCostUnits_CacheReadExceedsPrompt(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	clusterName := "claude-backup"
+	model := "claude-opus-4-6"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	cluster := buildTestClusterConfWithCache(model, 0.00000452, 0.00002262, 0.00000045, 0.00000565)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:     8000,
+		CompletionTokens: 1500,
+		CacheReadTokens:  10000, // exceeds prompt, should be truncated
+		CacheWriteTokens: 1000,
+	}
+
+	// normal_input = 0 after truncation
+	// cost = 8000*45 + 1000*565 + 1500*2262 = 4318000
+	expectedCost := int64(4318000)
+	got := m.calcCostUnits(req, req.SvrDataConf, usage)
+	if got != expectedCost {
+		t.Errorf("expected truncated cost %d, got %d", expectedCost, got)
 	}
 }
 

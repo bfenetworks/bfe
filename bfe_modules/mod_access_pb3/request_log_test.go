@@ -374,6 +374,8 @@ func TestReqAiInfoGen(t *testing.T) {
 	usage.PromptTokens = 10
 	usage.CompletionTokens = 20
 	usage.UsedQuota = 30
+	usage.CacheReadTokens = 5
+	usage.CacheWriteTokens = 2
 	usage.UsedCost = 5000
 	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
 
@@ -415,6 +417,12 @@ func TestReqAiInfoGen(t *testing.T) {
 	}
 	if reqLog.AiInputTokens == nil || *reqLog.AiInputTokens != 10 {
 		t.Error("AiInputTokens error")
+	}
+	if reqLog.AiCacheReadTokens == nil || *reqLog.AiCacheReadTokens != 5 {
+		t.Errorf("AiCacheReadTokens error, got: %v", reqLog.AiCacheReadTokens)
+	}
+	if reqLog.AiCacheWriteTokens == nil || *reqLog.AiCacheWriteTokens != 2 {
+		t.Errorf("AiCacheWriteTokens error, got: %v", reqLog.AiCacheWriteTokens)
 	}
 	if reqLog.AiCostValue == nil || *reqLog.AiCostValue != 5000 {
 		t.Error("AiCostValue error")

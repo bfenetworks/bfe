@@ -32,8 +32,10 @@ const (
 )
 
 type TokenUsage struct {
-	PromptTokens     int64 // number of tokens in the prompt
+	PromptTokens     int64 // number of tokens in the prompt (includes cache_read_tokens)
 	CompletionTokens int64 // number of tokens in the completion
+	CacheReadTokens  int64 // usage.cache_read_tokens, already included in PromptTokens
+	CacheWriteTokens int64 // usage.cache_write_tokens, independent add-on item
 	UsedQuota        int64 // used quota for this request (unit=total_token)
 	UsedCost         int64 // used RMB cost for this request, 1 unit = 1e-8 yuan (unit=RMB)
 }

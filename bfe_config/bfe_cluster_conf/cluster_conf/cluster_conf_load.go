@@ -181,10 +181,15 @@ type AIConf struct {
 }
 
 const (
-	PriceInputCostPerToken  = "input_cost_per_token"
-	PriceOutputCostPerToken = "output_cost_per_token"
-	PriceInputCostPerTokenInt  = "input_cost_per_token_int"
-	PriceOutputCostPerTokenInt = "output_cost_per_token_int"
+	PriceInputCostPerToken           = "input_cost_per_token"
+	PriceOutputCostPerToken          = "output_cost_per_token"
+	PriceCacheReadInputTokenCost     = "cache_read_input_token_cost"
+	PriceCacheCreationInputTokenCost = "cache_creation_input_token_cost"
+
+	PriceInputCostPerTokenInt           = "input_cost_per_token_int"
+	PriceOutputCostPerTokenInt          = "output_cost_per_token_int"
+	PriceCacheReadInputTokenCostInt     = "cache_read_input_token_cost_int"
+	PriceCacheCreationInputTokenCostInt = "cache_creation_input_token_cost_int"
 )
 
 func (conf *BackendHTTPS) GetProtocol() string {
@@ -803,12 +808,16 @@ func ModelTableCheck(table *ModelTable) error {
 
 		input := price.Prices[PriceInputCostPerToken]
 		output := price.Prices[PriceOutputCostPerToken]
-		if input < 0 || output < 0 {
+		cacheRead := price.Prices[PriceCacheReadInputTokenCost]
+		cacheWrite := price.Prices[PriceCacheCreationInputTokenCost]
+		if input < 0 || output < 0 || cacheRead < 0 || cacheWrite < 0 {
 			return fmt.Errorf("negative price for model %s", price.Model)
 		}
 
 		price.Prices[PriceInputCostPerTokenInt] = float64(quota.RmbToFixedPoint(input))
 		price.Prices[PriceOutputCostPerTokenInt] = float64(quota.RmbToFixedPoint(output))
+		price.Prices[PriceCacheReadInputTokenCostInt] = float64(quota.RmbToFixedPoint(cacheRead))
+		price.Prices[PriceCacheCreationInputTokenCostInt] = float64(quota.RmbToFixedPoint(cacheWrite))
 
 		if table.priceIndex[price.Model] == nil {
 			table.priceIndex[price.Model] = make(map[string]*ModelPrice)

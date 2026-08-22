@@ -32,6 +32,8 @@ type QuotaUsage struct {
 	//return from reponse
 	PromptTokens     int64 // number of tokens in the prompt
 	CompletionTokens int64 // number of tokens in the completion
+	CacheReadTokens  int64 // usage.cache_read_tokens, already included in PromptTokens
+	CacheWriteTokens int64 // usage.cache_write_tokens, independent add-on item
 	UsedQuota        int64 // used quota for this request
 
 	//estimate for current response
@@ -120,6 +122,8 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 	used := gjson.GetBytes(data, "usage.total_tokens").Int()
 	prompt := gjson.GetBytes(data, "usage.prompt_tokens").Int()
 	completion := gjson.GetBytes(data, "usage.completion_tokens").Int()
+	cacheRead := gjson.GetBytes(data, "usage.cache_read_tokens").Int()
+	cacheWrite := gjson.GetBytes(data, "usage.cache_write_tokens").Int()
 
 	curtoken := int64(0)
 	isguess := true
@@ -129,7 +133,15 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 		curtoken = EstimateContentToken(string(data))
 	}
 
-	return QuotaUsage{PromptTokens: prompt, CompletionTokens: completion, UsedQuota: used, CurrentTokens: curtoken, IsGuess: isguess}
+	return QuotaUsage{
+		PromptTokens:     prompt,
+		CompletionTokens: completion,
+		CacheReadTokens:  cacheRead,
+		CacheWriteTokens: cacheWrite,
+		UsedQuota:        used,
+		CurrentTokens:    curtoken,
+		IsGuess:          isguess,
+	}
 }
 
 func (e *SSEEvent) ToBytes() []byte {

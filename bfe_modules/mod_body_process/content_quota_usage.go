@@ -53,11 +53,15 @@ func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 				if rquota.UsedQuota > 0 {
 					tctx.CompletionTokens = rquota.CompletionTokens
 					tctx.PromptTokens = rquota.PromptTokens
+					tctx.CacheReadTokens = rquota.CacheReadTokens
+					tctx.CacheWriteTokens = rquota.CacheWriteTokens
 					tctx.UsedQuota = rquota.UsedQuota
 				} else if rquota.PromptTokens > 0 || rquota.CompletionTokens > 0 {
 					tctx.UsedQuota = rquota.PromptTokens + rquota.CompletionTokens
 					tctx.PromptTokens = rquota.PromptTokens
 					tctx.CompletionTokens = rquota.CompletionTokens
+					tctx.CacheReadTokens = rquota.CacheReadTokens
+					tctx.CacheWriteTokens = rquota.CacheWriteTokens
 				}
 			}
 		}

@@ -75,3 +75,32 @@ func TestQuotaUsageProcessorProcessEstimate(t *testing.T) {
 		t.Errorf("expected positive completion tokens, got %d", usage.CompletionTokens)
 	}
 }
+
+func TestQuotaUsageProcessorProcessWithCache(t *testing.T) {
+	req := newTestRequest("AI_product")
+	ai := req.InitAiBasicInfo()
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	p := NewQuotaUsageProcessor(req, res)
+
+	events := []Event{newRawEvent(`{"usage":{"total_tokens":9500,"prompt_tokens":8000,"completion_tokens":1500,"cache_read_tokens":5000,"cache_write_tokens":1000}}`)}
+	out, err := p.Process(events)
+	if err != nil {
+		t.Fatalf("Process failed: %s", err)
+	}
+	if len(out) != 1 {
+		t.Errorf("expected 1 event, got %d", len(out))
+	}
+	usage := ai.GetTokenUsage()
+	if usage.UsedQuota != 9500 {
+		t.Errorf("expected UsedQuota 9500, got %d", usage.UsedQuota)
+	}
+	if usage.PromptTokens != 8000 || usage.CompletionTokens != 1500 {
+		t.Errorf("unexpected prompt/completion: %+v", usage)
+	}
+	if usage.CacheReadTokens != 5000 {
+		t.Errorf("expected CacheReadTokens 5000, got %d", usage.CacheReadTokens)
+	}
+	if usage.CacheWriteTokens != 1000 {
+		t.Errorf("expected CacheWriteTokens 1000, got %d", usage.CacheWriteTokens)
+	}
+}
