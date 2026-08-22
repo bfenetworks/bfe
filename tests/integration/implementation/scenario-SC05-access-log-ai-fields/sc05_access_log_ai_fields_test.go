@@ -54,6 +54,7 @@ var modelMappingBody = []byte(`{"model":"gpt-4"}`)
 var streamBody = []byte(`{"model":"deepseek-chat","stream":true}`)
 
 var usageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`
+var cacheUsageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150,"cache_read_tokens":30,"cache_write_tokens":20}}`
 
 // SSE format: final chunk contains usage. The trailing blank line is required.
 var streamUsageResponse = "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n" +
@@ -267,6 +268,17 @@ func fallbackRMBAIConf() *cluster_conf.AIConf {
 	conf.ModelTable.Models[0].Prices = map[string]float64{
 		"input_cost_per_token":  0.000003,
 		"output_cost_per_token": 0.000004,
+	}
+	return conf
+}
+
+func cacheRMBAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models[0].Prices = map[string]float64{
+		"input_cost_per_token":              0.000001,
+		"output_cost_per_token":             0.000002,
+		"cache_read_input_token_cost":       0.0000005,
+		"cache_creation_input_token_cost":   0.0000015,
 	}
 	return conf
 }
@@ -810,4 +822,45 @@ func TestTC07_RateLimitHits(t *testing.T) {
 	if len(hit.GetRuleNames()) == 0 {
 		t.Errorf("rate_limit rule_names should not be empty")
 	}
+}
+
+// TestTC08 verifies ai_cache_read_tokens, ai_cache_write_tokens and cache-aware cost.
+func TestTC08_CacheTokenFields(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: cacheRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	e.backends[clusterRMB].Body = cacheUsageResponse
+
+	resp, body, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLog := e.mustFindSingleLog(e.accessLogs())
+	assertInt64Field(t, reqLog.AiInputTokens, "ai_input_tokens", 100)
+	assertInt64Field(t, reqLog.AiOutputTokens, "ai_output_tokens", 50)
+	assertInt64Field(t, reqLog.AiTotalTokens, "ai_total_tokens", 150)
+	assertInt64Field(t, reqLog.AiCacheReadTokens, "ai_cache_read_tokens", 30)
+	assertInt64Field(t, reqLog.AiCacheWriteTokens, "ai_cache_write_tokens", 20)
+	// cost = (100-30)*100 + 30*50 + 20*150 + 50*200 = 21500
+	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 21500)
+	assertStringField(t, reqLog.AiCostCurrency, "ai_cost_currency", "RMB")
 }

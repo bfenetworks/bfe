@@ -339,6 +339,13 @@ cost = prompt_tokens × input_cost_per_token
    - 后端返回 SSE 流，最终 chunk 含 cache usage；
    - 验证流式场景下 Redis 仍按 cache 拆分公式扣减。
 
+在 `bfe/tests/integration/implementation/scenario-SC05-access-log-ai-fields/sc05_access_log_ai_fields_test.go` 中新增：
+
+3. `TestTC08_CacheTokenFields`：
+   - 后端返回含 `cache_read_tokens` / `cache_write_tokens` 的 usage；
+   - `ModelTable` 配置 cache 单价；
+   - 验证 `mod_access_pb3` 输出的 b2log 中 `ai_cache_read_tokens`、`ai_cache_write_tokens` 与 cache-aware `ai_cost_value` 正确。
+
 ### 9.3 配置加载测试
 
 在 `bfe/bfe_config/bfe_cluster_conf/cluster_conf/` 中：
@@ -371,6 +378,7 @@ cost = prompt_tokens × input_cost_per_token
 | `bfe-access-pb/bfe_access_pb/bfe_access.proto` | 访问日志新增 cache 字段 |
 | `bfe/bfe_modules/mod_access_pb3/request_log.go` | 序列化 cache 字段 |
 | `bfe/tests/integration/implementation/scenario-SC03-rmb-quota/sc03_rmb_quota_test.go` | 新增 cache 计费集成测试 |
+| `bfe/tests/integration/implementation/scenario-SC05-access-log-ai-fields/sc05_access_log_ai_fields_test.go` | 新增 cache 访问日志字段集成测试 |
 | `bfe/docs/zh_cn/modifications/2026-08-22-cache-billing-support/design-changes.md` | 本设计变更文档 |
 
 ---
