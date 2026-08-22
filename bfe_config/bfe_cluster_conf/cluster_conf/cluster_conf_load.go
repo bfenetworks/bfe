@@ -60,7 +60,7 @@ const (
 const (
 	BalanceModeWrr = "WRR" // weighted round robin
 	BalanceModeWlc = "WLC" // weighted least connection
-	BalanceModeEPP     = "EPP" // balance by epp
+	BalanceModeEPP = "EPP" // balance by epp
 )
 
 const (
@@ -157,7 +157,7 @@ type ModelPrice struct {
 
 // ModelTable represents the cost/pricing table for a cluster
 type ModelTable struct {
-	Currency string       // fixed "RMB" in v0.4
+	Currency string // fixed "RMB" in v0.4
 	Models   []ModelPrice
 
 	// priceIndex is built at config load time: model -> mode -> *ModelPrice
@@ -181,10 +181,21 @@ type AIConf struct {
 }
 
 const (
-	PriceInputCostPerToken  = "input_cost_per_token"
-	PriceOutputCostPerToken = "output_cost_per_token"
-	PriceInputCostPerTokenInt  = "input_cost_per_token_int"
-	PriceOutputCostPerTokenInt = "output_cost_per_token_int"
+	PriceInputCostPerToken           = "input_cost_per_token"
+	PriceOutputCostPerToken          = "output_cost_per_token"
+	PriceCacheReadInputTokenCost     = "cache_read_input_token_cost"
+	PriceCacheCreationInputTokenCost = "cache_creation_input_token_cost"
+	PriceInputCostPerAudioToken      = "input_cost_per_audio_token"
+	PriceOutputCostPerAudioToken     = "output_cost_per_audio_token"
+	PriceOutputCostPerImage          = "output_cost_per_image"
+
+	PriceInputCostPerTokenInt           = "input_cost_per_token_int"
+	PriceOutputCostPerTokenInt          = "output_cost_per_token_int"
+	PriceCacheReadInputTokenCostInt     = "cache_read_input_token_cost_int"
+	PriceCacheCreationInputTokenCostInt = "cache_creation_input_token_cost_int"
+	PriceInputCostPerAudioTokenInt      = "input_cost_per_audio_token_int"
+	PriceOutputCostPerAudioTokenInt     = "output_cost_per_audio_token_int"
+	PriceOutputCostPerImageInt          = "output_cost_per_image_int"
 )
 
 func (conf *BackendHTTPS) GetProtocol() string {
@@ -262,7 +273,7 @@ type GslbBasicConf struct {
 	RetryMax   *int // inner cluster retry
 	HashConf   *HashConf
 
-	BalanceMode *string // balanceMode, default WRR
+	BalanceMode *string   // balanceMode, default WRR
 	EPPAddr     *[]string // EPP address
 }
 
@@ -288,7 +299,7 @@ type ClusterConf struct {
 	GslbBasic    *GslbBasicConf    // gslb basic conf for cluster
 	ClusterBasic *ClusterBasicConf // basic conf for cluster
 	HTTPSConf    *BackendHTTPS     // backend's https conf
-	AIConf             *AIConf         // ai conf for cluster
+	AIConf       *AIConf           // ai conf for cluster
 }
 
 type ClusterToConf map[string]ClusterConf
@@ -803,12 +814,23 @@ func ModelTableCheck(table *ModelTable) error {
 
 		input := price.Prices[PriceInputCostPerToken]
 		output := price.Prices[PriceOutputCostPerToken]
-		if input < 0 || output < 0 {
+		cacheRead := price.Prices[PriceCacheReadInputTokenCost]
+		cacheWrite := price.Prices[PriceCacheCreationInputTokenCost]
+		audioInput := price.Prices[PriceInputCostPerAudioToken]
+		audioOutput := price.Prices[PriceOutputCostPerAudioToken]
+		outputCostPerImage := price.Prices[PriceOutputCostPerImage]
+		if input < 0 || output < 0 || cacheRead < 0 || cacheWrite < 0 ||
+			audioInput < 0 || audioOutput < 0 || outputCostPerImage < 0 {
 			return fmt.Errorf("negative price for model %s", price.Model)
 		}
 
 		price.Prices[PriceInputCostPerTokenInt] = float64(quota.RmbToFixedPoint(input))
 		price.Prices[PriceOutputCostPerTokenInt] = float64(quota.RmbToFixedPoint(output))
+		price.Prices[PriceCacheReadInputTokenCostInt] = float64(quota.RmbToFixedPoint(cacheRead))
+		price.Prices[PriceCacheCreationInputTokenCostInt] = float64(quota.RmbToFixedPoint(cacheWrite))
+		price.Prices[PriceInputCostPerAudioTokenInt] = float64(quota.RmbToFixedPoint(audioInput))
+		price.Prices[PriceOutputCostPerAudioTokenInt] = float64(quota.RmbToFixedPoint(audioOutput))
+		price.Prices[PriceOutputCostPerImageInt] = float64(quota.RmbToFixedPoint(outputCostPerImage))
 
 		if table.priceIndex[price.Model] == nil {
 			table.priceIndex[price.Model] = make(map[string]*ModelPrice)

@@ -49,13 +49,33 @@ const (
 var defaultBody = []byte(`{"model":"deepseek-chat"}`)
 var modelMappingBody = []byte(`{"model":"gpt-4"}`)
 var streamBody = []byte(`{"model":"deepseek-chat","stream":true}`)
+var cacheBody = []byte(`{"model":"claude-opus-4-6"}`)
+var cacheStreamBody = []byte(`{"model":"claude-opus-4-6","stream":true}`)
+var audioBody = []byte(`{"model":"gpt-audio-1.5"}`)
+var audioStreamBody = []byte(`{"model":"gpt-audio-1.5","stream":true}`)
+var imageGenerationBody = []byte(`{"model":"flux-2-pro","n":2}`)
 
 var usageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`
+var imageGenerationUsageResponse = `{"usage":{"image_count":2}}`
 
 // SSE format: final chunk contains usage. The trailing blank line is required.
 var streamUsageResponse = "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n" +
 	"data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n" +
 	"data: {\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":50,\"total_tokens\":150}}\n\n"
+
+var cacheUsageResponse = `{"usage":{"prompt_tokens":8000,"completion_tokens":1500,"total_tokens":9500,"cache_read_tokens":5000,"cache_write_tokens":1000}}`
+
+// SSE format with cache usage in the final chunk.
+var cacheStreamUsageResponse = "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n" +
+	"data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n" +
+	"data: {\"usage\":{\"prompt_tokens\":8000,\"completion_tokens\":1500,\"total_tokens\":9500,\"cache_read_tokens\":5000,\"cache_write_tokens\":1000}}\n\n"
+
+var audioUsageResponse = `{"usage":{"prompt_tokens":4000,"completion_tokens":500,"total_tokens":4500,"audio_input_tokens":1000,"audio_output_tokens":200}}`
+
+// SSE format with audio usage in the final chunk.
+var audioStreamUsageResponse = "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n" +
+	"data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n" +
+	"data: {\"usage\":{\"prompt_tokens\":4000,\"completion_tokens\":500,\"total_tokens\":4500,\"audio_input_tokens\":1000,\"audio_output_tokens\":200}}\n\n"
 
 // testEnv holds all resources for a single SC03 integration test.
 type testEnv struct {
@@ -163,7 +183,11 @@ func (e *testEnv) logBFEAccess() {
 }
 
 func (e *testEnv) sendRequest(host string, body []byte) (*http.Response, string, error) {
-	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, apiPath)
+	return e.sendRequestToPath(host, apiPath, body)
+}
+
+func (e *testEnv) sendRequestToPath(host string, path string, body []byte) (*http.Response, string, error) {
+	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, path)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, "", err
@@ -219,6 +243,40 @@ func defaultRMBAIConf() *cluster_conf.AIConf {
 						"output_cost_per_token": 0.000002,
 					},
 				},
+				{
+					Provider:            "mock-provider",
+					Model:               "claude-opus-4-6",
+					BaseModel:           "claude-opus-4-6",
+					Mode:                "chat",
+					Capabilities:        []string{"chat"},
+					SupportedParameters: []string{"temperature", "max_tokens"},
+					Limits: map[string]interface{}{
+						"context_window": 128000,
+					},
+					Prices: map[string]float64{
+						"input_cost_per_token":            0.00000452,
+						"output_cost_per_token":           0.00002262,
+						"cache_read_input_token_cost":     0.00000045,
+						"cache_creation_input_token_cost": 0.00000565,
+					},
+				},
+				{
+					Provider:            "mock-provider",
+					Model:               "gpt-audio-1.5",
+					BaseModel:           "gpt-audio-1.5",
+					Mode:                "chat",
+					Capabilities:        []string{"chat", "audio_input"},
+					SupportedParameters: []string{"temperature", "max_tokens"},
+					Limits: map[string]interface{}{
+						"context_window": 128000,
+					},
+					Prices: map[string]float64{
+						"input_cost_per_token":        0.00000178,
+						"output_cost_per_token":       0.00000715,
+						"input_cost_per_audio_token":  0.00002288,
+						"output_cost_per_audio_token": 0.00004576,
+					},
+				},
 			},
 		},
 	}
@@ -230,6 +288,25 @@ func fallbackRMBAIConf() *cluster_conf.AIConf {
 		"input_cost_per_token":  0.000003,
 		"output_cost_per_token": 0.000004,
 	}
+	return conf
+}
+
+func imageGenerationAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models = append(conf.ModelTable.Models, cluster_conf.ModelPrice{
+		Provider:            "mock-provider",
+		Model:               "flux-2-pro",
+		BaseModel:           "flux-2-pro",
+		Mode:                "image_generation",
+		Capabilities:        []string{"image_generation"},
+		SupportedParameters: []string{"prompt", "n", "size"},
+		Limits: map[string]interface{}{
+			"context_window": 128000,
+		},
+		Prices: map[string]float64{
+			"output_cost_per_image": 0.03,
+		},
+	})
 	return conf
 }
 
@@ -495,6 +572,197 @@ func TestTC07_RMBQuotaDeduction_Streaming(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 	remaining := e.redis.GetQuota(redisKeyRMB)
 	want := int64(10000000000 - (100*100 + 50*200))
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
+	}
+}
+
+// TestTC08 verifies RMB quota deduction with cache pricing for non-streaming responses.
+func TestTC08_RMBQuotaDeduction_Cache_NonStreaming(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	// Configure backend to return response with cache usage.
+	e.backends[clusterRMB].Body = cacheUsageResponse
+
+	resp, body, err := e.sendRequest(apiHost, cacheBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for async redis deduction.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	// normal_input = 8000 - 5000 = 3000
+	// cost = 3000*452 + 5000*45 + 1000*565 + 1500*2262 = 5539000
+	want := int64(10000000000 - 5539000)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
+	}
+}
+
+// TestTC09 verifies RMB quota deduction with cache pricing for streaming (SSE) responses.
+func TestTC09_RMBQuotaDeduction_Cache_Streaming(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	// Configure backend to return SSE stream with cache usage in the final chunk.
+	e.backends[clusterRMB].ResponseHeaders = map[string]string{"Content-Type": "text/event-stream"}
+	e.backends[clusterRMB].Body = cacheStreamUsageResponse
+
+	resp, body, err := e.sendRequest(apiHost, cacheStreamBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for async redis deduction after response finishes.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - 5539000)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
+	}
+}
+
+// TestTC10 verifies RMB quota deduction with audio pricing for non-streaming responses.
+func TestTC10_RMBQuotaDeduction_Audio_NonStreaming(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	// Configure backend to return response with audio usage.
+	e.backends[clusterRMB].Body = audioUsageResponse
+
+	resp, body, err := e.sendRequest(apiHost, audioBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for async redis deduction.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	// normal_input = 4000 - 1000 = 3000
+	// normal_output = 500 - 200 = 300
+	// cost = 3000*178 + 1000*2288 + 300*715 + 200*4576 = 3951700
+	want := int64(10000000000 - 3951700)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
+	}
+}
+
+// TestTC11 verifies RMB quota deduction with audio pricing for streaming (SSE) responses.
+func TestTC11_RMBQuotaDeduction_Audio_Streaming(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	// Configure backend to return SSE stream with audio usage in the final chunk.
+	e.backends[clusterRMB].ResponseHeaders = map[string]string{"Content-Type": "text/event-stream"}
+	e.backends[clusterRMB].Body = audioStreamUsageResponse
+
+	resp, body, err := e.sendRequest(apiHost, audioStreamBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for async redis deduction after response finishes.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - 3951700)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
+	}
+}
+
+// TestTC12 verifies RMB quota deduction for image generation by image count.
+func TestTC12_RMBQuotaDeduction_ImageGeneration(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: imageGenerationAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	e.backends[clusterRMB].Body = imageGenerationUsageResponse
+
+	resp, body, err := e.sendRequestToPath(apiHost, "/v1/images/generations", imageGenerationBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for async redis deduction after response finishes.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	// cost = 2 * 0.03 RMB = 2 * 3000000 fixed-point units
+	want := int64(10000000000 - 2*3000000)
 	if remaining != want {
 		e.logBFEException()
 		e.logBFEAccess()

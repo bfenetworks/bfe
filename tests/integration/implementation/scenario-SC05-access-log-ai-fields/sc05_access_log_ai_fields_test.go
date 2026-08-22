@@ -26,9 +26,9 @@ import (
 	"testing"
 	"time"
 
+	bfe_access_pb "github.com/bfenetworks/bfe-access-pb/bfe_access_pb"
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	bfe_access_pb "github.com/bfenetworks/bfe-access-pb/bfe_access_pb"
 	"github.com/bfenetworks/bfe/tests/integration/common"
 )
 
@@ -52,8 +52,12 @@ const (
 var defaultBody = []byte(`{"model":"deepseek-chat"}`)
 var modelMappingBody = []byte(`{"model":"gpt-4"}`)
 var streamBody = []byte(`{"model":"deepseek-chat","stream":true}`)
+var imageGenerationBody = []byte(`{"model":"flux-2-pro","n":2}`)
 
 var usageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`
+var imageGenerationUsageResponse = `{"usage":{"image_count":2}}`
+var cacheUsageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150,"cache_read_tokens":30,"cache_write_tokens":20}}`
+var audioUsageResponse = `{"usage":{"prompt_tokens":4000,"completion_tokens":500,"total_tokens":4500,"audio_input_tokens":1000,"audio_output_tokens":200}}`
 
 // SSE format: final chunk contains usage. The trailing blank line is required.
 var streamUsageResponse = "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n" +
@@ -173,7 +177,11 @@ func (e *testEnv) logBFEException() {
 }
 
 func (e *testEnv) sendRequest(host string, body []byte) (*http.Response, string, error) {
-	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, apiPath)
+	return e.sendRequestToPath(host, apiPath, body)
+}
+
+func (e *testEnv) sendRequestToPath(host string, path string, body []byte) (*http.Response, string, error) {
+	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, path)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, "", err
@@ -271,6 +279,58 @@ func fallbackRMBAIConf() *cluster_conf.AIConf {
 	return conf
 }
 
+func cacheRMBAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models[0].Prices = map[string]float64{
+		"input_cost_per_token":            0.000001,
+		"output_cost_per_token":           0.000002,
+		"cache_read_input_token_cost":     0.0000005,
+		"cache_creation_input_token_cost": 0.0000015,
+	}
+	return conf
+}
+
+func audioRMBAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models[0] = cluster_conf.ModelPrice{
+		Provider:            "mock-provider",
+		Model:               "gpt-audio-1.5",
+		BaseModel:           "gpt-audio-1.5",
+		Mode:                "chat",
+		Capabilities:        []string{"chat", "audio_input"},
+		SupportedParameters: []string{"temperature", "max_tokens"},
+		Limits: map[string]interface{}{
+			"context_window": 128000,
+		},
+		Prices: map[string]float64{
+			"input_cost_per_token":        0.00000178,
+			"output_cost_per_token":       0.00000715,
+			"input_cost_per_audio_token":  0.00002288,
+			"output_cost_per_audio_token": 0.00004576,
+		},
+	}
+	return conf
+}
+
+func imageGenerationAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models = append(conf.ModelTable.Models, cluster_conf.ModelPrice{
+		Provider:            "mock-provider",
+		Model:               "flux-2-pro",
+		BaseModel:           "flux-2-pro",
+		Mode:                "image_generation",
+		Capabilities:        []string{"image_generation"},
+		SupportedParameters: []string{"prompt", "n", "size"},
+		Limits: map[string]interface{}{
+			"context_window": 128000,
+		},
+		Prices: map[string]float64{
+			"output_cost_per_image": 0.03,
+		},
+	})
+	return conf
+}
+
 func noTableAIConf() *cluster_conf.AIConf {
 	return &cluster_conf.AIConf{
 		Type: 0,
@@ -309,7 +369,6 @@ func tokenQuotaPlan(quota int64) common.QuotaPlan {
 		Unit:        "total_token",
 	}
 }
-
 
 // TestTC01 verifies all major AI access log fields for a successful RMB request.
 func TestTC01_SuccessfulRequestAIFields(t *testing.T) {
@@ -578,7 +637,6 @@ func TestTC06_StreamingFields(t *testing.T) {
 	assertInt64Field(t, reqLog.AiOutputTokens, "ai_output_tokens", 50)
 }
 
-
 type expectedRouteRuleHit struct {
 	Owner     string
 	OwnerType string
@@ -747,9 +805,6 @@ OpenDebug = false
 	return os.WriteFile(filepath.Join(modDir, "ai_rate_limit.data"), data, 0644)
 }
 
-
-
-
 // TestTC07 verifies ai_rate_limit_hits when RPM limit is triggered.
 func TestTC07_RateLimitHits(t *testing.T) {
 	aiConfs := map[string]*cluster_conf.AIConf{
@@ -810,4 +865,127 @@ func TestTC07_RateLimitHits(t *testing.T) {
 	if len(hit.GetRuleNames()) == 0 {
 		t.Errorf("rate_limit rule_names should not be empty")
 	}
+}
+
+// TestTC08 verifies ai_cache_read_tokens, ai_cache_write_tokens and cache-aware cost.
+func TestTC08_CacheTokenFields(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: cacheRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	e.backends[clusterRMB].Body = cacheUsageResponse
+
+	resp, body, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLog := e.mustFindSingleLog(e.accessLogs())
+	assertInt64Field(t, reqLog.AiInputTokens, "ai_input_tokens", 100)
+	assertInt64Field(t, reqLog.AiOutputTokens, "ai_output_tokens", 50)
+	assertInt64Field(t, reqLog.AiTotalTokens, "ai_total_tokens", 150)
+	assertInt64Field(t, reqLog.AiCacheReadTokens, "ai_cache_read_tokens", 30)
+	assertInt64Field(t, reqLog.AiCacheWriteTokens, "ai_cache_write_tokens", 20)
+	// cost = (100-30)*100 + 30*50 + 20*150 + 50*200 = 21500
+	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 21500)
+	assertStringField(t, reqLog.AiCostCurrency, "ai_cost_currency", "RMB")
+}
+
+// TestTC09 verifies ai_audio_input_tokens, ai_audio_output_tokens and audio-aware cost.
+func TestTC09_AudioTokenFields(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: audioRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	e.backends[clusterRMB].Body = audioUsageResponse
+
+	resp, body, err := e.sendRequest(apiHost, []byte(`{"model":"gpt-audio-1.5"}`))
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLog := e.mustFindSingleLog(e.accessLogs())
+	assertInt64Field(t, reqLog.AiInputTokens, "ai_input_tokens", 4000)
+	assertInt64Field(t, reqLog.AiOutputTokens, "ai_output_tokens", 500)
+	assertInt64Field(t, reqLog.AiTotalTokens, "ai_total_tokens", 4500)
+	assertInt64Field(t, reqLog.AiAudioInputTokens, "ai_audio_input_tokens", 1000)
+	assertInt64Field(t, reqLog.AiAudioOutputTokens, "ai_audio_output_tokens", 200)
+	// cost = (4000-1000)*178 + 1000*2288 + (500-200)*715 + 200*4576 = 3951700
+	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 3951700)
+	assertStringField(t, reqLog.AiCostCurrency, "ai_cost_currency", "RMB")
+}
+
+// TestTC10 verifies ai_mode, ai_image_count and image-generation cost.
+func TestTC10_ImageGenerationFields(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: imageGenerationAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	e.backends[clusterRMB].Body = imageGenerationUsageResponse
+
+	resp, body, err := e.sendRequestToPath(apiHost, "/v1/images/generations", imageGenerationBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLog := e.mustFindSingleLog(e.accessLogs())
+	assertStringField(t, reqLog.AiMode, "ai_mode", "image_generation")
+	assertStringField(t, reqLog.AiRequestedModel, "ai_requested_model", "flux-2-pro")
+	assertStringField(t, reqLog.AiTargetModel, "ai_target_model", "flux-2-pro")
+	assertInt64Field(t, reqLog.AiImageCount, "ai_image_count", 2)
+	assertInt64Field(t, reqLog.AiTotalTokens, "ai_total_tokens", 2)
+	// cost = 2 * 0.03 RMB = 2 * 3000000 fixed-point units
+	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 2*3000000)
+	assertStringField(t, reqLog.AiCostCurrency, "ai_cost_currency", "RMB")
 }

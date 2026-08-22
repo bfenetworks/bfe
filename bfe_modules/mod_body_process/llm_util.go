@@ -30,9 +30,14 @@ const UnknownModel = "unknown"
 
 type QuotaUsage struct {
 	//return from reponse
-	PromptTokens     int64 // number of tokens in the prompt
-	CompletionTokens int64 // number of tokens in the completion
-	UsedQuota        int64 // used quota for this request
+	PromptTokens      int64 // number of tokens in the prompt
+	CompletionTokens  int64 // number of tokens in the completion
+	CacheReadTokens   int64 // usage.cache_read_tokens, already included in PromptTokens
+	CacheWriteTokens  int64 // usage.cache_write_tokens, independent add-on item
+	AudioInputTokens  int64 // usage.audio_input_tokens, already included in PromptTokens
+	AudioOutputTokens int64 // usage.audio_output_tokens, already included in CompletionTokens
+	ImageCount        int64 // number of generated images for image generation models
+	UsedQuota         int64 // used quota for this request
 
 	//estimate for current response
 	CurrentTokens int64 //effect when IsGuess is true
@@ -120,16 +125,35 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 	used := gjson.GetBytes(data, "usage.total_tokens").Int()
 	prompt := gjson.GetBytes(data, "usage.prompt_tokens").Int()
 	completion := gjson.GetBytes(data, "usage.completion_tokens").Int()
+	cacheRead := gjson.GetBytes(data, "usage.cache_read_tokens").Int()
+	cacheWrite := gjson.GetBytes(data, "usage.cache_write_tokens").Int()
+	audioInput := gjson.GetBytes(data, "usage.audio_input_tokens").Int()
+	audioOutput := gjson.GetBytes(data, "usage.audio_output_tokens").Int()
+	imageCount := gjson.GetBytes(data, "usage.image_count").Int()
+	if imageCount == 0 {
+		imageCount = gjson.GetBytes(data, "data.#").Int()
+	}
 
 	curtoken := int64(0)
 	isguess := true
-	if used > 0 {
+	if used > 0 || imageCount > 0 {
 		isguess = false
 	} else {
 		curtoken = EstimateContentToken(string(data))
 	}
 
-	return QuotaUsage{PromptTokens: prompt, CompletionTokens: completion, UsedQuota: used, CurrentTokens: curtoken, IsGuess: isguess}
+	return QuotaUsage{
+		PromptTokens:      prompt,
+		CompletionTokens:  completion,
+		CacheReadTokens:   cacheRead,
+		CacheWriteTokens:  cacheWrite,
+		AudioInputTokens:  audioInput,
+		AudioOutputTokens: audioOutput,
+		ImageCount:        imageCount,
+		UsedQuota:         used,
+		CurrentTokens:     curtoken,
+		IsGuess:           isguess,
+	}
 }
 
 func (e *SSEEvent) ToBytes() []byte {

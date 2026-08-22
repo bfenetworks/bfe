@@ -152,6 +152,68 @@ func TestModelTableCheck(t *testing.T) {
 		}
 	})
 
+	t.Run("valid RMB table with cache prices", func(t *testing.T) {
+		table := &ModelTable{
+			Currency: "RMB",
+			Models: []ModelPrice{
+				{
+					Model: "claude-opus-4-6",
+					Mode:  "chat",
+					Prices: map[string]float64{
+						PriceInputCostPerToken:           0.000004525,
+						PriceOutputCostPerToken:          0.000022625,
+						PriceCacheReadInputTokenCost:     0.0000004525,
+						PriceCacheCreationInputTokenCost: 0.00000565625,
+					},
+				},
+			},
+		}
+		if err := ModelTableCheck(table); err != nil {
+			t.Fatalf("ModelTableCheck failed: %v", err)
+		}
+		entry := LookupModelPrice(table, "claude-opus-4-6", "chat")
+		if entry == nil {
+			t.Fatal("LookupModelPrice should return entry")
+		}
+		if entry.Prices[PriceCacheReadInputTokenCostInt] != 45 {
+			t.Errorf("cache read cost int = %v, want 45", entry.Prices[PriceCacheReadInputTokenCostInt])
+		}
+		if entry.Prices[PriceCacheCreationInputTokenCostInt] != 565 {
+			t.Errorf("cache write cost int = %v, want 565", entry.Prices[PriceCacheCreationInputTokenCostInt])
+		}
+	})
+
+	t.Run("valid RMB table with audio prices", func(t *testing.T) {
+		table := &ModelTable{
+			Currency: "RMB",
+			Models: []ModelPrice{
+				{
+					Model: "gpt-audio-1.5",
+					Mode:  "chat",
+					Prices: map[string]float64{
+						PriceInputCostPerToken:       0.00000178,
+						PriceOutputCostPerToken:      0.00000715,
+						PriceInputCostPerAudioToken:  0.00002288,
+						PriceOutputCostPerAudioToken: 0.00004576,
+					},
+				},
+			},
+		}
+		if err := ModelTableCheck(table); err != nil {
+			t.Fatalf("ModelTableCheck failed: %v", err)
+		}
+		entry := LookupModelPrice(table, "gpt-audio-1.5", "chat")
+		if entry == nil {
+			t.Fatal("LookupModelPrice should return entry")
+		}
+		if entry.Prices[PriceInputCostPerAudioTokenInt] != 2288 {
+			t.Errorf("audio input cost int = %v, want 2288", entry.Prices[PriceInputCostPerAudioTokenInt])
+		}
+		if entry.Prices[PriceOutputCostPerAudioTokenInt] != 4576 {
+			t.Errorf("audio output cost int = %v, want 4576", entry.Prices[PriceOutputCostPerAudioTokenInt])
+		}
+	})
+
 	t.Run("invalid currency", func(t *testing.T) {
 		table := &ModelTable{
 			Currency: "USD",

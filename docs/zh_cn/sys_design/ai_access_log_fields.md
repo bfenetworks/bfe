@@ -19,7 +19,7 @@ BFE 作为 AI 网关，需要把请求在认证、路由、转发、计费等各
 
 ## 2. 字段总览
 
-AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前已定义 20 个字段：
+AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前已定义 26 个字段：
 
 | 编号 | 字段名 | 类型 | 说明 | 采集模块 |
 |------|--------|------|------|----------|
@@ -38,8 +38,14 @@ AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前
 | 713 | `ai_auth_reject_quota_plans` | `repeated string` | 拒绝时余额不足的 Quota Plan ID 列表 | `mod_ai_token_auth` |
 | 714 | `ai_provider` | `string` | 上游模型提供商标识 | `bfe_server/reverseproxy.go` |
 | 715 | `ai_retry_count` | `uint32` | 模型调用层 key-level 重试次数 | `bfe_server/reverseproxy.go` |
+| 716 | `ai_mode` | `string` | AI 请求模式，如 `chat`、`image_generation` | `bfe_server/http_conn.go` |
 | 761 | `ai_cost_value` | `int64` | 估算成本（定点整数，精度由币种决定） | `mod_ai_token_auth` |
 | 762 | `ai_cost_currency` | `string` | 成本币种，如 `RMB` / `USD` | `bfe_server/reverseproxy.go` |
+| 781 | `ai_cache_read_tokens` | `int64` | 从 cache 读取的 Token 数（已包含在 `ai_input_tokens` 中） | `mod_ai_token_auth` / `mod_body_process` |
+| 782 | `ai_cache_write_tokens` | `int64` | 写入 cache 的 Token 数（独立附加项） | `mod_ai_token_auth` / `mod_body_process` |
+| 783 | `ai_audio_input_tokens` | `int64` | 音频输入 Token 数（已包含在 `ai_input_tokens` 中） | `mod_ai_token_auth` / `mod_body_process` |
+| 784 | `ai_audio_output_tokens` | `int64` | 音频输出 Token 数（已包含在 `ai_output_tokens` 中） | `mod_ai_token_auth` / `mod_body_process` |
+| 785 | `ai_image_count` | `int64` | 生成的图像张数（image_generation 模式） | `mod_ai_token_auth` / `mod_body_process` |
 | 801 | `ai_route_rule_hits` | `repeated AIRouteRuleHit` | 命中的 AI 路由规则列表 | `mod_ai_route` |
 | 802 | `ai_cluster_key_names` | `repeated ClusterKeyName` | 请求处理过程中尝试过的 (cluster, key) 列表 | `bfe_server/reverseproxy.go` |
 | 841 | `ai_auth_hit_quota_plans` | `repeated string` | 正常请求时命中的 Quota Plan ID 列表 | `mod_ai_token_auth` |
@@ -50,10 +56,12 @@ AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前
 |----------|------|
 | 701 - 713 | 已投入使用字段，保持现状，不再调整 |
 | 714 - 760 | 模型与请求基础信息（model、provider、stream、retry、cache 等） |
-| 761 - 800 | Token 与成本计量 |
+| 761 - 800 | Token 与成本计量（761-780 为普通 token/cost；781-790 为 cache/audio/image 子项） |
 | 801 - 840 | 路由、转换与插件 |
 | 841 - 880 | 安全、合规与隐私 |
 | 881 - 900 | 厂商扩展与预留 |
+
+> 说明：编号 781-790 已用于 `cache_read` / `cache_write` / `audio_input` / `audio_output` / `image_count` 等子项字段，后续新增子项可继续向 786-790 扩展。
 
 ---
 
@@ -115,6 +123,7 @@ type AiBasicInfo struct {
     ClientKeyId     string            // 701 ai_apikey_id
     ClientModel     string            // 703 ai_requested_model
     TargetModel     string            // 704 ai_target_model
+    Mode            string            // 716 ai_mode
     Provider        string            // 714 ai_provider
     RetryCount      uint32            // 715 ai_retry_count
     CostCurrency    string            // 762 ai_cost_currency
@@ -128,10 +137,15 @@ type AiBasicInfo struct {
 }
 
 type TokenUsage struct {
-    PromptTokens     int64 // 706 ai_input_tokens
-    CompletionTokens int64 // 707 ai_output_tokens
-    UsedQuota        int64 // 708 ai_total_tokens
-    UsedCost         int64 // 761 ai_cost_value
+    PromptTokens      int64 // 706 ai_input_tokens（包含 cache_read_tokens 与 audio_input_tokens）
+    CompletionTokens  int64 // 707 ai_output_tokens（包含 audio_output_tokens）
+    CacheReadTokens   int64 // 781 ai_cache_read_tokens，已包含在 PromptTokens 中
+    CacheWriteTokens  int64 // 782 ai_cache_write_tokens，独立附加项
+    AudioInputTokens  int64 // 783 ai_audio_input_tokens，已包含在 PromptTokens 中
+    AudioOutputTokens int64 // 784 ai_audio_output_tokens，已包含在 CompletionTokens 中
+    ImageCount        int64 // 785 ai_image_count，图像生成模式下的图像张数
+    UsedQuota         int64 // 708 ai_total_tokens（image_generation 模式下等于 image_count）
+    UsedCost          int64 // 761 ai_cost_value
 }
 
 type AiAuthInfo struct {
@@ -179,14 +193,16 @@ message AIRouteRuleHit {
 在 `EnableAiGateway` 开启时初始化 `AiBasicInfo`：
 
 - 从 `Authorization` 头提取原始 API Key，写入 `ClientApiKey`（后续会被 `ClientKeyId` 覆盖）；
-- 从请求 JSON body 提取 `model` 字段，写入 `ClientModel` 和 `TargetModel`。
+- 从请求 JSON body 提取 `model` 字段，写入 `ClientModel` 和 `TargetModel`；
+- 根据请求路径推断 `Mode`（如 `/v1/images/generations` → `image_generation`），用于访问日志 `ai_mode` 与后续定价匹配。
 
 ### 5.2 `mod_ai_token_auth`
 
 - 在 `ValidateUserTokenByReq()` 中找到 Token 后，立即把 `Token.KeyId` 写入 `AiBasicInfo.ClientKeyId`，确保即使后续拒绝也能在日志中识别 key；
 - 通过 `SetTokenAuthContext()` 写入 `ApikeyTags` 和初始 `PromptTokens`；
-- 在响应阶段解析 `usage` 并估算 token，填充 `TokenUsage`；
-- 对 RMB 配额调用 `calcCostUnits()` 计算 `UsedCost`；
+- 在响应阶段解析 `usage`（含 `prompt_tokens`、`completion_tokens`、`cache_read_tokens`、`cache_write_tokens`、`audio_input_tokens`、`audio_output_tokens`、`image_count`）并估算 token，填充 `TokenUsage`；
+- 对 `image_generation` 模式，在认证阶段预读请求体 `n` 字段作为 `ImageCount` 兜底；
+- 对 RMB 配额调用 `calcCostUnits()` 计算 `UsedCost`，支持 input/output、cache read/write、audio input/output 多价格子项拆分；
 - 在认证成功时记录 `HitQuotaPlans`，拒绝时记录 `RejectReason` 和 `RejectQuotaPlans`。
 
 ### 5.3 `mod_ai_route`
@@ -224,7 +240,7 @@ message AIRouteRuleHit {
 `reqAiInfoGen()` 负责把上述所有字段从 `AiBasicInfo`、`AiRateLimitHitInfo`、`AiRouteResult` 映射到 `RequestLog`：
 
 - 字段重命名：`AiApikey`→`AiApikeyId`、`AiMappedModel`→`AiTargetModel`、`AiPromptTokens`→`AiInputTokens`；
-- 新增字段：`AiProvider`、`AiRetryCount`、`AiCostValue`、`AiCostCurrency`、`AiRouteRuleHits`、`AiClusterKeyNames`、`AiAuthHitQuotaPlans`。
+- 新增字段：`AiMode`、`AiProvider`、`AiRetryCount`、`AiCostValue`、`AiCostCurrency`、`AiCacheReadTokens`、`AiCacheWriteTokens`、`AiAudioInputTokens`、`AiAudioOutputTokens`、`AiImageCount`、`AiRouteRuleHits`、`AiClusterKeyNames`、`AiAuthHitQuotaPlans`。
 
 ---
 
@@ -239,12 +255,15 @@ message AIRouteRuleHit {
 ## 7. 测试与验证
 
 1. **单元测试**：`bfe_modules/mod_access_pb3/request_log_test.go` 覆盖所有字段的赋值逻辑；
-2. **集成测试**：`tests/integration/implementation/scenario-SC05-access-log-ai-fields/` 启动真实 BFE 进程，发送 AI 请求后解码 b2log，校验全部 20 个字段。
+2. **集成测试**：`tests/integration/implementation/scenario-SC05-access-log-ai-fields/` 启动真实 BFE 进程，发送 AI 请求后解码 b2log，校验全部 26 个字段（包括 `ai_mode`、`ai_image_count` 等图像生成场景字段）。
 
 ---
 
 ## 8. 参考文档
 
 - `bfe-access-pb/docs/protobuf.md`
+- `bfe-access-pb/RELEASE_NOTES_v0.3.3.md`
 - `bfe/docs/zh_cn/modifications/2026-08-19-update-ai-access-log-fields/design-changes.md`
+- `bfe/docs/zh_cn/modifications/2026-08-22-audio-token-billing-support/design-changes.md`
+- `bfe/docs/zh_cn/modifications/2026-08-22-image-generation-billing-support/design-changes.md`
 - `bfe/tests/integration/测试设计文档/scenario-SC05-AI访问日志字段校验/场景说明.md`

@@ -50,14 +50,25 @@ func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 			if !rquota.IsGuess {
 				// not got usage yet, try to get from event data
 				//mod_ai_token_auth.UpdateCtxByUsage(tctx, data)
-				if rquota.UsedQuota > 0 {
+				if rquota.ImageCount > 0 {
+					tctx.ImageCount = rquota.ImageCount
+					tctx.UsedQuota = rquota.ImageCount
+				} else if rquota.UsedQuota > 0 {
 					tctx.CompletionTokens = rquota.CompletionTokens
 					tctx.PromptTokens = rquota.PromptTokens
+					tctx.CacheReadTokens = rquota.CacheReadTokens
+					tctx.CacheWriteTokens = rquota.CacheWriteTokens
+					tctx.AudioInputTokens = rquota.AudioInputTokens
+					tctx.AudioOutputTokens = rquota.AudioOutputTokens
 					tctx.UsedQuota = rquota.UsedQuota
 				} else if rquota.PromptTokens > 0 || rquota.CompletionTokens > 0 {
 					tctx.UsedQuota = rquota.PromptTokens + rquota.CompletionTokens
 					tctx.PromptTokens = rquota.PromptTokens
 					tctx.CompletionTokens = rquota.CompletionTokens
+					tctx.CacheReadTokens = rquota.CacheReadTokens
+					tctx.CacheWriteTokens = rquota.CacheWriteTokens
+					tctx.AudioInputTokens = rquota.AudioInputTokens
+					tctx.AudioOutputTokens = rquota.AudioOutputTokens
 				}
 			}
 		}

@@ -112,21 +112,43 @@ func (m *ModuleAITokenAuth) matchTokenRule(req *bfe_basic.Request) bool {
 }
 
 func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
-	var used, prompt, completion int64
+	var used, prompt, completion, cacheRead, cacheWrite, audioInput, audioOutput, imageCount int64
 
 	used = gjson.GetBytes(data, "usage.total_tokens").Int()
 	prompt = gjson.GetBytes(data, "usage.prompt_tokens").Int()
 	completion = gjson.GetBytes(data, "usage.completion_tokens").Int()
+	cacheRead = gjson.GetBytes(data, "usage.cache_read_tokens").Int()
+	cacheWrite = gjson.GetBytes(data, "usage.cache_write_tokens").Int()
+	audioInput = gjson.GetBytes(data, "usage.audio_input_tokens").Int()
+	audioOutput = gjson.GetBytes(data, "usage.audio_output_tokens").Int()
+	imageCount = gjson.GetBytes(data, "usage.image_count").Int()
+	if imageCount == 0 {
+		imageCount = gjson.GetBytes(data, "data.#").Int()
+	}
 
 	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
 	if used > 0 {
 		tokenUsage.UsedQuota = used
 		tokenUsage.PromptTokens = prompt
 		tokenUsage.CompletionTokens = completion
-	} else if prompt > 0 || completion > 0 {
-		tokenUsage.UsedQuota = prompt + completion
+		tokenUsage.CacheReadTokens = cacheRead
+		tokenUsage.CacheWriteTokens = cacheWrite
+		tokenUsage.AudioInputTokens = audioInput
+		tokenUsage.AudioOutputTokens = audioOutput
+		tokenUsage.ImageCount = imageCount
+	} else if prompt > 0 || completion > 0 || imageCount > 0 {
+		if imageCount > 0 {
+			tokenUsage.UsedQuota = imageCount
+		} else {
+			tokenUsage.UsedQuota = prompt + completion
+		}
 		tokenUsage.PromptTokens = prompt
 		tokenUsage.CompletionTokens = completion
+		tokenUsage.CacheReadTokens = cacheRead
+		tokenUsage.CacheWriteTokens = cacheWrite
+		tokenUsage.AudioInputTokens = audioInput
+		tokenUsage.AudioOutputTokens = audioOutput
+		tokenUsage.ImageCount = imageCount
 	}
 }
 
@@ -177,7 +199,7 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	// calculate RMB cost at request finish time using token usage already populated
 	// by mod_body_process (streaming) or tokenReadResponseHandler (non-streaming).
 	if tokenUsage.UsedCost <= 0 && hasRMBPlan(ctx.Token.QuotaPlans) {
-		tokenUsage.UsedCost = m.calcCostUnits(req, ctx.serverConf, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
+		tokenUsage.UsedCost = m.calcCostUnits(req, ctx.serverConf, tokenUsage)
 	}
 
 	costUnits := tokenUsage.UsedCost
@@ -364,6 +386,21 @@ func GetTokenAuthContext(req *bfe_basic.Request) *TokenAuthContext {
 	return tokenCtx
 }
 
+// GetImageCountFromReq reads the request body "n" field for image generation requests.
+// It returns at least 1 to avoid under-billing when the field is missing or invalid.
+func GetImageCountFromReq(req *bfe_basic.Request) int64 {
+	bodyAccessor, _ := req.HttpRequest.GetBodyAccessor()
+	if bodyAccessor == nil {
+		return 1
+	}
+	body, _ := bodyAccessor.GetBytes()
+	n := gjson.GetBytes(body, "n").Int()
+	if n <= 0 {
+		return 1
+	}
+	return n
+}
+
 // SetTokenAuthContext sets the token authentication context in the request
 func SetTokenAuthContext(req *bfe_basic.Request, tok *Token, promptToken int64, tags []bfe_basic.ApikeyTag) {
 	aiBasicInfo := req.GetAiBasicInfo()
@@ -372,6 +409,9 @@ func SetTokenAuthContext(req *bfe_basic.Request, tok *Token, promptToken int64, 
 		tusage := aiBasicInfo.GetTokenUsage()
 		tusage.PromptTokens = promptToken
 		tusage.CompletionTokens = bfe_basic.COMPLETION_TOKENS_UNKNOWN // -1 - unknown
+		if aiBasicInfo.Mode == bfe_basic.ModeImageGeneration {
+			tusage.ImageCount = GetImageCountFromReq(req)
+		}
 		aiBasicInfo.ApikeyTags = tags
 	}
 
@@ -410,14 +450,18 @@ func hasRMBPlan(plans []*QuotaPlan) bool {
 	return false
 }
 
-func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe_basic.ServerDataConfInterface, promptTokens, completionTokens int64) int64 {
+func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe_basic.ServerDataConfInterface, usage *bfe_basic.TokenUsage) int64 {
 	aiMeta := req.GetAiBasicInfo()
-	if aiMeta == nil {
+	if aiMeta == nil || usage == nil {
 		return 0
 	}
 
 	clusterName := req.Route.ClusterName
 	targetModel := aiMeta.TargetModel
+	mode := aiMeta.Mode
+	if mode == "" {
+		mode = bfe_basic.ModeChat
+	}
 	if clusterName == "" || targetModel == "" {
 		return 0
 	}
@@ -431,18 +475,130 @@ func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe
 		return 0
 	}
 
-	entry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, targetModel, "chat")
+	entry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, targetModel, mode)
 	if entry == nil {
-		log.Logger.Warn("model price not found for cluster %s model %s", clusterName, targetModel)
+		log.Logger.Warn("model price not found for cluster %s model %s mode %s", clusterName, targetModel, mode)
 		return 0
 	}
 
+	switch mode {
+	case bfe_basic.ModeImageGeneration:
+		return calcImageGenerationCost(entry, usage)
+	default:
+		return calcChatCost(entry, usage)
+	}
+}
+
+func calcImageGenerationCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage) int64 {
+	imageCount := usage.ImageCount
+	if imageCount < 0 {
+		imageCount = 0
+	}
+
+	costPerImage := int64(entry.Prices[cluster_conf.PriceOutputCostPerImageInt])
+	if costPerImage < 0 {
+		log.Logger.Warn("invalid model price for image generation model %s", entry.Model)
+		return 0
+	}
+
+	return imageCount * costPerImage
+}
+
+func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage) int64 {
 	inputCost := int64(entry.Prices[cluster_conf.PriceInputCostPerTokenInt])
 	outputCost := int64(entry.Prices[cluster_conf.PriceOutputCostPerTokenInt])
 	if inputCost < 0 || outputCost < 0 {
-		log.Logger.Warn("invalid model price for cluster %s model %s", clusterName, targetModel)
+		log.Logger.Warn("invalid model price for model %s", entry.Model)
 		return 0
 	}
 
-	return promptTokens*inputCost + completionTokens*outputCost
+	promptTokens := usage.PromptTokens
+	completionTokens := usage.CompletionTokens
+	cacheReadTokens := usage.CacheReadTokens
+	cacheWriteTokens := usage.CacheWriteTokens
+	audioInputTokens := usage.AudioInputTokens
+	audioOutputTokens := usage.AudioOutputTokens
+
+	// sanitize sub-token usage to avoid negative normal input/output or negative charges
+	if cacheReadTokens < 0 {
+		cacheReadTokens = 0
+	}
+	if cacheReadTokens > promptTokens {
+		cacheReadTokens = promptTokens
+	}
+	if cacheWriteTokens < 0 {
+		cacheWriteTokens = 0
+	}
+	if audioInputTokens < 0 {
+		audioInputTokens = 0
+	}
+	if audioInputTokens > promptTokens-cacheReadTokens {
+		audioInputTokens = promptTokens - cacheReadTokens
+	}
+	if audioOutputTokens < 0 {
+		audioOutputTokens = 0
+	}
+	if audioOutputTokens > completionTokens {
+		audioOutputTokens = completionTokens
+	}
+
+	cacheReadCost := int64(entry.Prices[cluster_conf.PriceCacheReadInputTokenCostInt])
+	cacheWriteCost := int64(entry.Prices[cluster_conf.PriceCacheCreationInputTokenCostInt])
+	audioInputCost := int64(entry.Prices[cluster_conf.PriceInputCostPerAudioTokenInt])
+	audioOutputCost := int64(entry.Prices[cluster_conf.PriceOutputCostPerAudioTokenInt])
+
+	// normal input/output start as the full totals
+	normalInput := promptTokens
+	normalOutput := completionTokens
+
+	// cache-aware billing: split cache read from prompt
+	if cacheReadCost > 0 || cacheWriteCost > 0 {
+		normalInput = promptTokens - cacheReadTokens
+		if normalInput < 0 {
+			normalInput = 0
+		}
+	}
+
+	// audio-aware billing: split audio input from normal input
+	if audioInputCost > 0 {
+		if audioInputTokens > normalInput {
+			audioInputTokens = normalInput
+		}
+		normalInput = normalInput - audioInputTokens
+		if normalInput < 0 {
+			normalInput = 0
+		}
+	} else {
+		// no audio input price configured: bill audio input as normal input
+		audioInputTokens = 0
+	}
+
+	// audio-aware billing: split audio output from completion
+	if audioOutputCost > 0 {
+		if audioOutputTokens > completionTokens {
+			audioOutputTokens = completionTokens
+		}
+		normalOutput = completionTokens - audioOutputTokens
+		if normalOutput < 0 {
+			normalOutput = 0
+		}
+	} else {
+		// no audio output price configured: bill audio output as normal output
+		audioOutputTokens = 0
+	}
+
+	var cost int64
+	if cacheReadCost > 0 || cacheWriteCost > 0 || audioInputCost > 0 || audioOutputCost > 0 {
+		cost = normalInput*inputCost +
+			cacheReadTokens*cacheReadCost +
+			cacheWriteTokens*cacheWriteCost +
+			audioInputTokens*audioInputCost +
+			normalOutput*outputCost +
+			audioOutputTokens*audioOutputCost
+	} else {
+		// fallback to legacy billing when no cache/audio price is configured
+		cost = promptTokens*inputCost + completionTokens*outputCost
+	}
+
+	return cost
 }
