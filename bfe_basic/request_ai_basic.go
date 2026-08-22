@@ -31,6 +31,22 @@ const (
 	COMPLETION_TOKENS_UNKNOWN = -1
 )
 
+// AI request modes, inferred from request path.
+const (
+	ModeChat               = "chat"
+	ModeCompletion         = "completion"
+	ModeImageGeneration    = "image_generation"
+	ModeImageEdit          = "image_edit"
+	ModeEmbedding          = "embedding"
+	ModeAudioSpeech        = "audio_speech"
+	ModeAudioTranscription = "audio_transcription"
+	ModeRerank             = "rerank"
+	ModeVideoGeneration    = "video_generation"
+	ModeOcr                = "ocr"
+	ModeSearch             = "search"
+	ModeRealtime           = "realtime"
+)
+
 type TokenUsage struct {
 	PromptTokens      int64 // number of tokens in the prompt (includes cache_read_tokens, audio_input_tokens)
 	CompletionTokens  int64 // number of tokens in the completion (includes audio_output_tokens)
@@ -38,6 +54,7 @@ type TokenUsage struct {
 	CacheWriteTokens  int64 // usage.cache_write_tokens, independent add-on item
 	AudioInputTokens  int64 // usage.audio_input_tokens, already included in PromptTokens
 	AudioOutputTokens int64 // usage.audio_output_tokens, already included in CompletionTokens
+	ImageCount        int64 // number of generated images for image generation models
 	UsedQuota         int64 // used quota for this request (unit=total_token)
 	UsedCost          int64 // used RMB cost for this request, 1 unit = 1e-8 yuan (unit=RMB)
 }
@@ -67,6 +84,7 @@ type AiBasicInfo struct {
 	ClientKeyId     string
 	ClientModel     string
 	TargetModel     string
+	Mode            string // request mode, e.g. chat, image_generation
 	Provider        string // upstream model provider, e.g. openai, deepseek
 	RetryCount      uint32 // model invocation retry count (key-level retry)
 	CostCurrency    string // cost currency, e.g. RMB, USD
@@ -109,6 +127,31 @@ func GetApiKey(req *Request) string {
 	authHeader = strings.TrimPrefix(authHeader, "sk-")
 
 	return authHeader
+}
+
+// DetectModeFromPath infers the AI request mode from the request path.
+// It defaults to ModeChat for unknown paths to keep backward compatibility.
+func DetectModeFromPath(path string) string {
+	switch {
+	case strings.HasPrefix(path, "/v1/images/generations"):
+		return ModeImageGeneration
+	case strings.HasPrefix(path, "/v1/images/edits"):
+		return ModeImageEdit
+	case strings.HasPrefix(path, "/v1/chat/completions"):
+		return ModeChat
+	case strings.HasPrefix(path, "/v1/completions"):
+		return ModeCompletion
+	case strings.HasPrefix(path, "/v1/embeddings"):
+		return ModeEmbedding
+	case strings.HasPrefix(path, "/v1/audio/speech"):
+		return ModeAudioSpeech
+	case strings.HasPrefix(path, "/v1/audio/transcriptions"):
+		return ModeAudioTranscription
+	case strings.HasPrefix(path, "/v1/rerank"):
+		return ModeRerank
+	default:
+		return ModeChat
+	}
 }
 
 // Set user context by key and val.

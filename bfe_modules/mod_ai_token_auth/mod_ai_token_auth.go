@@ -112,7 +112,7 @@ func (m *ModuleAITokenAuth) matchTokenRule(req *bfe_basic.Request) bool {
 }
 
 func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
-	var used, prompt, completion, cacheRead, cacheWrite, audioInput, audioOutput int64
+	var used, prompt, completion, cacheRead, cacheWrite, audioInput, audioOutput, imageCount int64
 
 	used = gjson.GetBytes(data, "usage.total_tokens").Int()
 	prompt = gjson.GetBytes(data, "usage.prompt_tokens").Int()
@@ -121,6 +121,10 @@ func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
 	cacheWrite = gjson.GetBytes(data, "usage.cache_write_tokens").Int()
 	audioInput = gjson.GetBytes(data, "usage.audio_input_tokens").Int()
 	audioOutput = gjson.GetBytes(data, "usage.audio_output_tokens").Int()
+	imageCount = gjson.GetBytes(data, "usage.image_count").Int()
+	if imageCount == 0 {
+		imageCount = gjson.GetBytes(data, "data.#").Int()
+	}
 
 	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
 	if used > 0 {
@@ -131,14 +135,20 @@ func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
 		tokenUsage.CacheWriteTokens = cacheWrite
 		tokenUsage.AudioInputTokens = audioInput
 		tokenUsage.AudioOutputTokens = audioOutput
-	} else if prompt > 0 || completion > 0 {
-		tokenUsage.UsedQuota = prompt + completion
+		tokenUsage.ImageCount = imageCount
+	} else if prompt > 0 || completion > 0 || imageCount > 0 {
+		if imageCount > 0 {
+			tokenUsage.UsedQuota = imageCount
+		} else {
+			tokenUsage.UsedQuota = prompt + completion
+		}
 		tokenUsage.PromptTokens = prompt
 		tokenUsage.CompletionTokens = completion
 		tokenUsage.CacheReadTokens = cacheRead
 		tokenUsage.CacheWriteTokens = cacheWrite
 		tokenUsage.AudioInputTokens = audioInput
 		tokenUsage.AudioOutputTokens = audioOutput
+		tokenUsage.ImageCount = imageCount
 	}
 }
 
@@ -376,6 +386,21 @@ func GetTokenAuthContext(req *bfe_basic.Request) *TokenAuthContext {
 	return tokenCtx
 }
 
+// GetImageCountFromReq reads the request body "n" field for image generation requests.
+// It returns at least 1 to avoid under-billing when the field is missing or invalid.
+func GetImageCountFromReq(req *bfe_basic.Request) int64 {
+	bodyAccessor, _ := req.HttpRequest.GetBodyAccessor()
+	if bodyAccessor == nil {
+		return 1
+	}
+	body, _ := bodyAccessor.GetBytes()
+	n := gjson.GetBytes(body, "n").Int()
+	if n <= 0 {
+		return 1
+	}
+	return n
+}
+
 // SetTokenAuthContext sets the token authentication context in the request
 func SetTokenAuthContext(req *bfe_basic.Request, tok *Token, promptToken int64, tags []bfe_basic.ApikeyTag) {
 	aiBasicInfo := req.GetAiBasicInfo()
@@ -384,6 +409,9 @@ func SetTokenAuthContext(req *bfe_basic.Request, tok *Token, promptToken int64, 
 		tusage := aiBasicInfo.GetTokenUsage()
 		tusage.PromptTokens = promptToken
 		tusage.CompletionTokens = bfe_basic.COMPLETION_TOKENS_UNKNOWN // -1 - unknown
+		if aiBasicInfo.Mode == bfe_basic.ModeImageGeneration {
+			tusage.ImageCount = GetImageCountFromReq(req)
+		}
 		aiBasicInfo.ApikeyTags = tags
 	}
 
@@ -430,6 +458,10 @@ func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe
 
 	clusterName := req.Route.ClusterName
 	targetModel := aiMeta.TargetModel
+	mode := aiMeta.Mode
+	if mode == "" {
+		mode = bfe_basic.ModeChat
+	}
 	if clusterName == "" || targetModel == "" {
 		return 0
 	}
@@ -443,16 +475,40 @@ func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe
 		return 0
 	}
 
-	entry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, targetModel, "chat")
+	entry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, targetModel, mode)
 	if entry == nil {
-		log.Logger.Warn("model price not found for cluster %s model %s", clusterName, targetModel)
+		log.Logger.Warn("model price not found for cluster %s model %s mode %s", clusterName, targetModel, mode)
 		return 0
 	}
 
+	switch mode {
+	case bfe_basic.ModeImageGeneration:
+		return calcImageGenerationCost(entry, usage)
+	default:
+		return calcChatCost(entry, usage)
+	}
+}
+
+func calcImageGenerationCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage) int64 {
+	imageCount := usage.ImageCount
+	if imageCount < 0 {
+		imageCount = 0
+	}
+
+	costPerImage := int64(entry.Prices[cluster_conf.PriceOutputCostPerImageInt])
+	if costPerImage < 0 {
+		log.Logger.Warn("invalid model price for image generation model %s", entry.Model)
+		return 0
+	}
+
+	return imageCount * costPerImage
+}
+
+func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage) int64 {
 	inputCost := int64(entry.Prices[cluster_conf.PriceInputCostPerTokenInt])
 	outputCost := int64(entry.Prices[cluster_conf.PriceOutputCostPerTokenInt])
 	if inputCost < 0 || outputCost < 0 {
-		log.Logger.Warn("invalid model price for cluster %s model %s", clusterName, targetModel)
+		log.Logger.Warn("invalid model price for model %s", entry.Model)
 		return 0
 	}
 

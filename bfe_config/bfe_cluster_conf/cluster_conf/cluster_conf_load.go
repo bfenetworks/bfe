@@ -187,6 +187,7 @@ const (
 	PriceCacheCreationInputTokenCost = "cache_creation_input_token_cost"
 	PriceInputCostPerAudioToken      = "input_cost_per_audio_token"
 	PriceOutputCostPerAudioToken     = "output_cost_per_audio_token"
+	PriceOutputCostPerImage          = "output_cost_per_image"
 
 	PriceInputCostPerTokenInt           = "input_cost_per_token_int"
 	PriceOutputCostPerTokenInt          = "output_cost_per_token_int"
@@ -194,6 +195,7 @@ const (
 	PriceCacheCreationInputTokenCostInt = "cache_creation_input_token_cost_int"
 	PriceInputCostPerAudioTokenInt      = "input_cost_per_audio_token_int"
 	PriceOutputCostPerAudioTokenInt     = "output_cost_per_audio_token_int"
+	PriceOutputCostPerImageInt          = "output_cost_per_image_int"
 )
 
 func (conf *BackendHTTPS) GetProtocol() string {
@@ -816,8 +818,9 @@ func ModelTableCheck(table *ModelTable) error {
 		cacheWrite := price.Prices[PriceCacheCreationInputTokenCost]
 		audioInput := price.Prices[PriceInputCostPerAudioToken]
 		audioOutput := price.Prices[PriceOutputCostPerAudioToken]
+		outputCostPerImage := price.Prices[PriceOutputCostPerImage]
 		if input < 0 || output < 0 || cacheRead < 0 || cacheWrite < 0 ||
-			audioInput < 0 || audioOutput < 0 {
+			audioInput < 0 || audioOutput < 0 || outputCostPerImage < 0 {
 			return fmt.Errorf("negative price for model %s", price.Model)
 		}
 
@@ -827,6 +830,7 @@ func ModelTableCheck(table *ModelTable) error {
 		price.Prices[PriceCacheCreationInputTokenCostInt] = float64(quota.RmbToFixedPoint(cacheWrite))
 		price.Prices[PriceInputCostPerAudioTokenInt] = float64(quota.RmbToFixedPoint(audioInput))
 		price.Prices[PriceOutputCostPerAudioTokenInt] = float64(quota.RmbToFixedPoint(audioOutput))
+		price.Prices[PriceOutputCostPerImageInt] = float64(quota.RmbToFixedPoint(outputCostPerImage))
 
 		if table.priceIndex[price.Model] == nil {
 			table.priceIndex[price.Model] = make(map[string]*ModelPrice)

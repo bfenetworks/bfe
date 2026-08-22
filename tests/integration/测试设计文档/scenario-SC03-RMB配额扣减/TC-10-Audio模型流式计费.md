@@ -11,7 +11,7 @@ SC03 RMB 配额扣减
 ## 版本声明
 
 - `bfe`：当前源码版本
-- `bfe-access-pb`：`v0.3.2`
+- `bfe-access-pb`：`v0.3.3`
 
 ## 测试目的
 

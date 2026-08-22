@@ -36,6 +36,7 @@ type QuotaUsage struct {
 	CacheWriteTokens  int64 // usage.cache_write_tokens, independent add-on item
 	AudioInputTokens  int64 // usage.audio_input_tokens, already included in PromptTokens
 	AudioOutputTokens int64 // usage.audio_output_tokens, already included in CompletionTokens
+	ImageCount        int64 // number of generated images for image generation models
 	UsedQuota         int64 // used quota for this request
 
 	//estimate for current response
@@ -128,10 +129,14 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 	cacheWrite := gjson.GetBytes(data, "usage.cache_write_tokens").Int()
 	audioInput := gjson.GetBytes(data, "usage.audio_input_tokens").Int()
 	audioOutput := gjson.GetBytes(data, "usage.audio_output_tokens").Int()
+	imageCount := gjson.GetBytes(data, "usage.image_count").Int()
+	if imageCount == 0 {
+		imageCount = gjson.GetBytes(data, "data.#").Int()
+	}
 
 	curtoken := int64(0)
 	isguess := true
-	if used > 0 {
+	if used > 0 || imageCount > 0 {
 		isguess = false
 	} else {
 		curtoken = EstimateContentToken(string(data))
@@ -144,6 +149,7 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 		CacheWriteTokens:  cacheWrite,
 		AudioInputTokens:  audioInput,
 		AudioOutputTokens: audioOutput,
+		ImageCount:        imageCount,
 		UsedQuota:         used,
 		CurrentTokens:     curtoken,
 		IsGuess:           isguess,

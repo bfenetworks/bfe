@@ -395,6 +395,11 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		reqLog.AiTargetModel = proto.String(aiInfo.TargetModel)
 	}
 
+	// Mode
+	if aiInfo.Mode != "" {
+		reqLog.AiMode = proto.String(aiInfo.Mode)
+	}
+
 	// Provider
 	if aiInfo.Provider != "" {
 		reqLog.AiProvider = proto.String(aiInfo.Provider)
@@ -420,6 +425,9 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		}
 		if usage.AudioOutputTokens > 0 {
 			reqLog.AiAudioOutputTokens = proto.Int64(usage.AudioOutputTokens)
+		}
+		if usage.ImageCount > 0 {
+			reqLog.AiImageCount = proto.Int64(usage.ImageCount)
 		}
 		if usage.UsedCost > 0 {
 			reqLog.AiCostValue = proto.Int64(usage.UsedCost)

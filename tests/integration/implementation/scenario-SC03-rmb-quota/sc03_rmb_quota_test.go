@@ -53,8 +53,10 @@ var cacheBody = []byte(`{"model":"claude-opus-4-6"}`)
 var cacheStreamBody = []byte(`{"model":"claude-opus-4-6","stream":true}`)
 var audioBody = []byte(`{"model":"gpt-audio-1.5"}`)
 var audioStreamBody = []byte(`{"model":"gpt-audio-1.5","stream":true}`)
+var imageGenerationBody = []byte(`{"model":"flux-2-pro","n":2}`)
 
 var usageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`
+var imageGenerationUsageResponse = `{"usage":{"image_count":2}}`
 
 // SSE format: final chunk contains usage. The trailing blank line is required.
 var streamUsageResponse = "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n" +
@@ -181,7 +183,11 @@ func (e *testEnv) logBFEAccess() {
 }
 
 func (e *testEnv) sendRequest(host string, body []byte) (*http.Response, string, error) {
-	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, apiPath)
+	return e.sendRequestToPath(host, apiPath, body)
+}
+
+func (e *testEnv) sendRequestToPath(host string, path string, body []byte) (*http.Response, string, error) {
+	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, path)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, "", err
@@ -282,6 +288,25 @@ func fallbackRMBAIConf() *cluster_conf.AIConf {
 		"input_cost_per_token":  0.000003,
 		"output_cost_per_token": 0.000004,
 	}
+	return conf
+}
+
+func imageGenerationAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models = append(conf.ModelTable.Models, cluster_conf.ModelPrice{
+		Provider:            "mock-provider",
+		Model:               "flux-2-pro",
+		BaseModel:           "flux-2-pro",
+		Mode:                "image_generation",
+		Capabilities:        []string{"image_generation"},
+		SupportedParameters: []string{"prompt", "n", "size"},
+		Limits: map[string]interface{}{
+			"context_window": 128000,
+		},
+		Prices: map[string]float64{
+			"output_cost_per_image": 0.03,
+		},
+	})
 	return conf
 }
 
@@ -702,6 +727,42 @@ func TestTC11_RMBQuotaDeduction_Audio_Streaming(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 	remaining := e.redis.GetQuota(redisKeyRMB)
 	want := int64(10000000000 - 3951700)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
+	}
+}
+
+// TestTC12 verifies RMB quota deduction for image generation by image count.
+func TestTC12_RMBQuotaDeduction_ImageGeneration(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: imageGenerationAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	e.backends[clusterRMB].Body = imageGenerationUsageResponse
+
+	resp, body, err := e.sendRequestToPath(apiHost, "/v1/images/generations", imageGenerationBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for async redis deduction after response finishes.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	// cost = 2 * 0.03 RMB = 2 * 3000000 fixed-point units
+	want := int64(10000000000 - 2*3000000)
 	if remaining != want {
 		e.logBFEException()
 		e.logBFEAccess()

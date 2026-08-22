@@ -553,7 +553,9 @@ func (c *conn) serveRequest(w bfe_http.ResponseWriter, request *bfe_basic.Reques
 			aiMeta.ClientModel = model
 			aiMeta.TargetModel = model
 		}
-		log.Logger.Debug("conn.serveRequest(), ClientApiKey:%s, ClientModel:%s", apikey, model)
+
+		aiMeta.Mode = bfe_basic.DetectModeFromPath(request.HttpRequest.URL.Path)
+		log.Logger.Debug("conn.serveRequest(), ClientApiKey:%s, ClientModel:%s, Mode:%s", apikey, model, aiMeta.Mode)
 	}
 
 	// serve the request

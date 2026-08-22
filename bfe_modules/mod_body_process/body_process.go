@@ -430,7 +430,11 @@ func (e *RawEvent) GetQuotaUsage() QuotaUsage {
 	cacheWrite := gjson.GetBytes(*e, "usage.cache_write_tokens").Int()
 	audioInput := gjson.GetBytes(*e, "usage.audio_input_tokens").Int()
 	audioOutput := gjson.GetBytes(*e, "usage.audio_output_tokens").Int()
-	if used > 0 {
+	imageCount := gjson.GetBytes(*e, "usage.image_count").Int()
+	if imageCount == 0 {
+		imageCount = gjson.GetBytes(*e, "data.#").Int()
+	}
+	if used > 0 || imageCount > 0 {
 		isguess = false
 	} else {
 		curtoken = EstimateContentToken(string(*e))
@@ -443,6 +447,7 @@ func (e *RawEvent) GetQuotaUsage() QuotaUsage {
 		CacheWriteTokens:  cacheWrite,
 		AudioInputTokens:  audioInput,
 		AudioOutputTokens: audioOutput,
+		ImageCount:        imageCount,
 		UsedQuota:         used,
 		CurrentTokens:     curtoken,
 		IsGuess:           isguess,
