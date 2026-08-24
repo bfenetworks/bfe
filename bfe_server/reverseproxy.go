@@ -1121,6 +1121,7 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 	var attempts []aiForwardAttempt
 	var lastCluster *bfe_cluster.BfeCluster
 	var invokeErr error
+	var bodyModel string
 
 	isRedirect := false
 	resFlushInterval := time.Duration(0)
@@ -1276,6 +1277,13 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		}
 	}
 
+	// bodyModel tracks the model currently in the request body.
+	// aiMeta.ClientModel was already extracted from the request body before
+	// entering the reverse proxy, so we can use it as the initial value without
+	// parsing the body again. Only this loop modifies the body model, so we
+	// keep the value in a variable instead of parsing the body on every attempt.
+	bodyModel = aiMeta.ClientModel
+
 	for i, attempt := range attempts {
 		if i > 0 {
 			// fallback attempt: reset request state
@@ -1285,7 +1293,7 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 			}
 		}
 
-		res, action, lastCluster, invokeErr = p.aiClusterInvoke(srv, serverConf, basicReq, rw, attempt, aiMeta)
+		res, action, lastCluster, invokeErr, bodyModel = p.aiClusterInvoke(srv, serverConf, basicReq, rw, attempt, aiMeta, bodyModel)
 		if invokeErr == nil && res != nil && res.StatusCode < 400 {
 			// success: 2xx/3xx, stop fallback loop
 			break
@@ -1446,8 +1454,8 @@ func stripProviderPrefix(model string, matchPrefix string) (string, bool) {
 func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.BfeCluster,
 	basicReq *bfe_basic.Request, rw bfe_http.ResponseWriter,
 	attempt aiForwardAttempt, aiMeta *bfe_basic.AiBasicInfo,
-	selectedKey cluster_conf.AIKey) (
-	res *bfe_http.Response, action int, err error) {
+	selectedKey cluster_conf.AIKey, bodyModel string) (
+	res *bfe_http.Response, action int, err error, newBodyModel string) {
 
 	req := basicReq.HttpRequest
 
@@ -1468,33 +1476,38 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 
 	// Calculate the final model in order: route target/fallback override ->
 	// provider/model prefix stripping -> cluster model mapping. Then write it
-	// to the request body at most once to avoid repeated JSON parsing/serialization.
-	model := aiMeta.ClientModel
-	if aiMeta.TargetModel != "" {
-		model = aiMeta.TargetModel
-	}
+	// to the request body only when it differs from the current body value.
+	// Always start from ClientModel for every cluster attempt, so fallbacks
+	// recompute the target model from the original client value.
+	targetModel := aiMeta.ClientModel
 
 	// apply model override from ai route target/fallback
 	if attempt.Model != "" {
-		model = attempt.Model
+		targetModel = attempt.Model
 	}
 
 	// strip provider/model prefix according to cluster AIConf
 	if cluster.AIConf != nil && cluster.AIConf.StripPrefix && cluster.AIConf.MatchPrefix != "" {
-		if stripped, ok := stripProviderPrefix(model, cluster.AIConf.MatchPrefix); ok {
-			model = stripped
+		if stripped, ok := stripProviderPrefix(targetModel, cluster.AIConf.MatchPrefix); ok {
+			targetModel = stripped
 		}
 	}
 
 	// apply cluster model mapping
-	if cluster.AIConf != nil && cluster.AIConf.ModelMapping != nil && model != "" {
-		if newModel, ok := (*cluster.AIConf.ModelMapping)[model]; ok {
-			model = newModel
+	if cluster.AIConf != nil && cluster.AIConf.ModelMapping != nil && targetModel != "" {
+		if mapped, ok := (*cluster.AIConf.ModelMapping)[targetModel]; ok {
+			targetModel = mapped
 		}
 	}
 
-	if model != aiMeta.ClientModel {
-		if err := condition.ReqBodyJsonSet(basicReq, "model", model); err != nil {
+	// record the final target model for this cluster attempt
+	aiMeta.TargetModel = targetModel
+
+	// bodyModel is cached by the caller and updated here only when we actually
+	// change the body, so we avoid parsing the request body on every attempt.
+	newBodyModel = bodyModel
+	if targetModel != bodyModel {
+		if err := condition.ReqBodyJsonSet(basicReq, "model", targetModel); err != nil {
 			log.Logger.Warn("Failed to set model in request body: %s", err)
 		} else {
 			// outreq body already changed, need reset Content-Length
@@ -1508,7 +1521,7 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 				basicReq.HttpRequest.ContentLength = -1
 				basicReq.HttpRequest.Header.Del("Content-Length")
 			}
-			aiMeta.TargetModel = model
+			newBodyModel = targetModel
 		}
 	}
 
@@ -1527,15 +1540,17 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 	}
 
 	// invoke cluster to get response
-	return p.clusterInvoke(srv, cluster, basicReq, rw)
+	res, action, err = p.clusterInvoke(srv, cluster, basicReq, rw)
+	return res, action, err, newBodyModel
 }
 
 func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.ServerDataConf,
 	basicReq *bfe_basic.Request, rw bfe_http.ResponseWriter,
-	attempt aiForwardAttempt, aiMeta *bfe_basic.AiBasicInfo) (
-	res *bfe_http.Response, action int, cluster *bfe_cluster.BfeCluster, err error) {
+	attempt aiForwardAttempt, aiMeta *bfe_basic.AiBasicInfo, bodyModel string) (
+	res *bfe_http.Response, action int, cluster *bfe_cluster.BfeCluster, err error, newBodyModel string) {
 
 	req := basicReq.HttpRequest
+	newBodyModel = bodyModel
 
 	// update route info
 	basicReq.Route.ClusterName = attempt.ClusterName
@@ -1549,7 +1564,7 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 		basicReq.ErrCode = bfe_basic.ErrBkNoCluster
 		basicReq.ErrMsg = err.Error()
 		p.proxyState.ErrBkNoCluster.Inc(1)
-		return nil, closeAfterReply, nil, err
+		return nil, closeAfterReply, nil, err, newBodyModel
 	}
 
 	// set deadline to finish read client request body
@@ -1563,8 +1578,8 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 
 	// no api keys configured, skip key injection
 	if cluster.AIConf == nil || len(cluster.AIConf.Keys) == 0 {
-		res, action, err = p.doSingleAIForward(srv, cluster, basicReq, rw, attempt, aiMeta, cluster_conf.AIKey{})
-		return res, action, cluster, err
+		res, action, err, newBodyModel = p.doSingleAIForward(srv, cluster, basicReq, rw, attempt, aiMeta, cluster_conf.AIKey{}, newBodyModel)
+		return res, action, cluster, err, newBodyModel
 	}
 
 	policy := defaultAIKeyPolicy()
@@ -1619,7 +1634,7 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 		}
 		keepKey = false
 
-		res, action, err = p.doSingleAIForward(srv, cluster, basicReq, rw, attempt, aiMeta, key)
+		res, action, err, newBodyModel = p.doSingleAIForward(srv, cluster, basicReq, rw, attempt, aiMeta, key, newBodyModel)
 
 		lastErr = err
 		statusCode := 0
@@ -1629,7 +1644,7 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 
 		// success: stop key-level retry
 		if err == nil && statusCode < 400 {
-			return res, action, cluster, nil
+			return res, action, cluster, nil, newBodyModel
 		}
 
 		// classify failure
@@ -1650,11 +1665,11 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 				key.Name, statusCode, err)
 		default:
 			// other 4xx client errors (e.g. 400, 404): stop key-level retry
-			return res, action, cluster, nil
+			return res, action, cluster, nil, newBodyModel
 		}
 	}
 
-	return res, action, cluster, lastErr
+	return res, action, cluster, lastErr, newBodyModel
 }
 
 // aiFallbackStatusCodes defines the 4xx status codes that should trigger
@@ -1706,13 +1721,6 @@ func (p *ReverseProxy) resetRequestForRetry(basicReq *bfe_basic.Request) bool {
 	// rewind request body for next fallback attempt
 	if !rewindRequestBody(basicReq.HttpRequest) {
 		return false
-	}
-
-	// reset Content-Length so that the next outreq is created with a length
-	// consistent with the current (possibly modified) body.
-	if basicReq.HttpRequest.ContentLength >= 0 {
-		basicReq.HttpRequest.ContentLength = -1
-		basicReq.HttpRequest.Header.Del("Content-Length")
 	}
 
 	// clear error info from previous attempt

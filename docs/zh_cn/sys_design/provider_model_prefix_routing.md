@@ -102,39 +102,60 @@ func AIConfCheck(conf *AIConf) error {
 
 **文件：** `bfe/bfe_server/reverseproxy.go`
 
-在 `doSingleAIForward()` 函数中，按 **route target model override** → **provider 前缀裁剪** → **cluster `ModelMapping`** 的顺序计算最终模型名，然后统一写入请求体：
+`ServeHTTPForAI()` 在 cluster 级 fallback 循环开始前，从 `aiMeta.ClientModel` 初始化 `bodyModel`。`aiMeta.ClientModel` 在进入反向代理前已从请求体中解析出来，因此这里不需要再解析 body。后续每次 cluster/key 级尝试都复用 `bodyModel` 变量，不再重复解析请求体：
+
+```go
+// bodyModel tracks the model currently in the request body.
+// aiMeta.ClientModel was already extracted from the request body before
+// entering the reverse proxy, so we can use it as the initial value without
+// parsing the body again. Only this loop modifies the body model, so we
+// keep the value in a variable instead of parsing the body on every attempt.
+bodyModel = aiMeta.ClientModel
+
+for i, attempt := range attempts {
+    ...
+    res, action, lastCluster, invokeErr, bodyModel =
+        p.aiClusterInvoke(srv, serverConf, basicReq, rw, attempt, aiMeta, bodyModel)
+    ...
+}
+```
+
+在 `doSingleAIForward()` 函数中，按 **route target model override** → **provider 前缀裁剪** → **cluster `ModelMapping`** 的顺序计算最终模型名，然后只在最终值与当前 body 中的 model 不一致时才写入请求体：
 
 ```go
 // Calculate the final model in order: route target/fallback override ->
 // provider/model prefix stripping -> cluster model mapping. Then write it
-// to the request body at most once.
-model := aiMeta.ClientModel
-if aiMeta.TargetModel != "" {
-    model = aiMeta.TargetModel
-}
+// to the request body only when it differs from the current body value.
+// Always start from ClientModel for every cluster attempt, so fallbacks
+// recompute the target model from the original client value.
+targetModel := aiMeta.ClientModel
 
 // apply model override from ai route target/fallback
 if attempt.Model != "" {
-    model = attempt.Model
+    targetModel = attempt.Model
 }
 
 // 按 cluster AIConf 裁剪 provider 前缀
 if cluster.AIConf != nil && cluster.AIConf.StripPrefix && cluster.AIConf.MatchPrefix != "" {
-    if stripped, ok := stripProviderPrefix(model, cluster.AIConf.MatchPrefix); ok {
-        model = stripped
+    if stripped, ok := stripProviderPrefix(targetModel, cluster.AIConf.MatchPrefix); ok {
+        targetModel = stripped
     }
 }
 
 // apply cluster model mapping
-if cluster.AIConf != nil && cluster.AIConf.ModelMapping != nil && model != "" {
-    if newModel, ok := (*cluster.AIConf.ModelMapping)[model]; ok {
-        model = newModel
+if cluster.AIConf != nil && cluster.AIConf.ModelMapping != nil && targetModel != "" {
+    if mapped, ok := (*cluster.AIConf.ModelMapping)[targetModel]; ok {
+        targetModel = mapped
     }
 }
 
-// 统一写入请求体（最多一次）
-if model != aiMeta.ClientModel {
-    if err := condition.ReqBodyJsonSet(basicReq, "model", model); err != nil {
+// 记录本次 cluster 尝试最终要使用的目标模型名
+aiMeta.TargetModel = targetModel
+
+// bodyModel 由调用方缓存；只有真正需要改写 body 时才调用 ReqBodyJsonSet
+newBodyModel = bodyModel
+if targetModel != bodyModel {
+    if err := condition.ReqBodyJsonSet(basicReq, "model", targetModel); err != nil {
         log.Logger.Warn("Failed to set model in request body: %s", err)
     } else {
         // outreq body already changed, need reset Content-Length
@@ -148,7 +169,7 @@ if model != aiMeta.ClientModel {
             basicReq.HttpRequest.ContentLength = -1
             basicReq.HttpRequest.Header.Del("Content-Length")
         }
-        aiMeta.TargetModel = model
+        newBodyModel = targetModel
     }
 }
 ```
@@ -159,6 +180,8 @@ if model != aiMeta.ClientModel {
 - 裁剪后再执行 `ModelMapping`，因此 `ModelMapping` 的 key 应使用裁剪后的模型名。
 - 如果 `attempt.Model` 已覆盖目标模型，则基于覆盖后的模型进行前缀裁剪。
 - 裁剪后内容为空时（如 `openrouter/`），跳过裁剪并记录 warn，避免下发空 model。
+- **每个 cluster 尝试都从 `ClientModel` 开始计算**，`aiMeta.TargetModel` 只用于记录当前 cluster 尝试的最终结果，不作为下一次 cluster 尝试的输入，避免 fallback 时继承上一次改写后的 model。
+- `bodyModel` 缓存当前请求体中实际 model；只有 `targetModel != bodyModel` 时才调用 `ReqBodyJsonSet`，同 cluster 的 key 级重试不会重复改写。
 
 ### 4.2 `ClientModel` 与 `TargetModel` 的区分
 
@@ -178,15 +201,28 @@ if err == nil || len(model) > 0 {
 
 `ClientModel` 保持原始值不变，`TargetModel` 在 `doSingleAIForward()` 中随裁剪/映射更新。
 
-## 5. 重试安全性分析
+## 5. 重试与 fallback 正确性分析
 
-修改 `aiMeta.TargetModel` 不会影响下一次重试的正确性，原因如下：
+### 5.1 cluster 级 fallback
 
-1. **请求体不会被回滚为原始请求体**：BFE 的 `bytes_body.Rewind()` 只是将当前 buffer 重新设为读取起点，不会恢复到客户端原始 body。因此已裁剪的请求内容在重试时会被保留。
-2. **`HasPrefix` 保护避免重复裁剪**：第一次裁剪后 `TargetModel` 已不含该前缀，下次进入 `doSingleAIForward()` 时不会再命中 `MatchPrefix`，不会二次裁剪。
-3. **`ClientModel` 始终保持原始值**：日志、计费等地方仍能看到客户端原始模型名。
+每次 fallback 到新 cluster 时，必须重新按当前 cluster 的配置计算目标模型，而不是继承上一个 cluster 改写后的结果。当前实现通过两点保证这一点：
 
-下文给出关键结论。
+1. **`doSingleAIForward()` 中 `targetModel` 始终从 `aiMeta.ClientModel` 开始计算**，不再读取 `aiMeta.TargetModel`。因此即使上一次尝试已经把 `TargetModel` 改写为其他值，下一次 cluster 尝试仍会基于原始客户端 model 重新应用 `attempt.Model`、strip、mapping。
+2. **`bodyModel` 缓存请求体中实际 model**：`ServeHTTPForAI()` 进入 fallback 循环前从 `aiMeta.ClientModel` 初始化 `bodyModel`（`ClientModel` 在进入反向代理前已从请求体中解析）。后续每次尝试都通过 `aiClusterInvoke` → `doSingleAIForward` 透传该变量。`doSingleAIForward` 只有在 `targetModel != bodyModel` 时才调用 `ReqBodyJsonSet`，改写成功后同步更新 `newBodyModel = targetModel`。因此：
+   - 如果新 cluster 算出的 targetModel 与 body 中当前 model 相同，不会重复改写；
+   - 如果新 cluster 算出的 targetModel 与 body 中当前 model 不同（例如 fallback 后需要改回 ClientModel，或换了一个 target model），会正确改写。
+
+注意：BFE 的 `bytes_body.Rewind()` 只是将当前 buffer 重新设为读取起点，不会恢复到客户端原始 body。因此 `bodyModel` 缓存是必要的，不能假设 body 在 fallback 后仍等于 `ClientModel`。
+
+### 5.2 key 级重试
+
+同一个 cluster 内因为 429/5xx 等原因进行 key 级重试时，配置不变，`targetModel` 计算结果也不变。由于第一次重试已经改写 body 并把 `newBodyModel` 设为 targetModel，后续重试传入的 `bodyModel` 已经等于 targetModel，`ReqBodyJsonSet` 不会再被调用，避免重复 JSON 解析/序列化。
+
+### 5.3 状态一致性
+
+- `ClientModel` 始终保持客户端原始值，用于日志、计费等场景。
+- `aiMeta.TargetModel` 记录**当前 cluster 尝试**最终计算出的目标模型，每次 `doSingleAIForward()` 都会无条件更新，无论 body 是否需要改写。
+- 请求体中的 `model` 字段与 `bodyModel` 缓存保持同步，只在真正变化时写入。
 
 ## 6. 对 Token 鉴权和限流的影响
 
