@@ -1,0 +1,18 @@
+{
+    "clusters": {
+        "cluster_openrouter": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_openrouter": 100
+        },
+        "cluster_fallback": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_fallback": 100
+        },
+        "cluster_default": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_default": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20260720150000"
+}
