@@ -126,6 +126,8 @@ func clusterSubName(clusterName string) string {
 		return "fallback"
 	case "cluster_default":
 		return "default"
+	case "cluster_billing_fix":
+		return "billing_fix"
 	}
 	return "sub"
 }
