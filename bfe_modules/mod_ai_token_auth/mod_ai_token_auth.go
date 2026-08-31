@@ -17,6 +17,7 @@ package mod_ai_token_auth
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/bfenetworks/go-lib/log"
@@ -204,6 +205,11 @@ func CalcReqUsedQuota(req *bfe_basic.Request, promptTokens, completionTokens int
 }
 
 func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
+	// Skip token-count endpoints which should never be billed.
+	if strings.Contains(req.HttpRequest.RequestURI, "/count_tokens") {
+		return bfe_module.BfeHandlerGoOn
+	}
+
 	if res == nil || res.StatusCode != bfe_http.StatusOK {
 		// only count used quota for successful requests
 		return bfe_module.BfeHandlerGoOn
@@ -211,6 +217,11 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 
 	ctx := GetTokenAuthContext(req) // ensure token auth context is set
 	if ctx == nil {
+		return bfe_module.BfeHandlerGoOn
+	}
+
+	// Prevent duplicate deduction when HandleRequestFinish is triggered more than once.
+	if ctx.deducted {
 		return bfe_module.BfeHandlerGoOn
 	}
 
@@ -250,6 +261,7 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 		}
 	}
 
+	ctx.deducted = true
 	return bfe_module.BfeHandlerGoOn
 }
 
@@ -391,6 +403,10 @@ type TokenAuthContext struct {
 	// serverConf caches the SvrDataConf before it is cleared by the reverse proxy.
 	// It is used for RMB cost calculation at request finish time.
 	serverConf bfe_basic.ServerDataConfInterface
+	// deducted marks whether the quota/cost deduction has already been executed
+	// for this request, preventing duplicate charges when HandleRequestFinish is
+	// triggered multiple times.
+	deducted bool
 }
 
 const REQ_TOKEN_AUTH_CONTEXT = "tokenauth_ctx"
@@ -546,9 +562,6 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 	// sanitize sub-token usage to avoid negative normal input/output or negative charges
 	if cacheReadTokens < 0 {
 		cacheReadTokens = 0
-	}
-	if cacheReadTokens > promptTokens {
-		cacheReadTokens = promptTokens
 	}
 	if cacheWriteTokens < 0 {
 		cacheWriteTokens = 0

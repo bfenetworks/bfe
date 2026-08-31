@@ -713,6 +713,85 @@ func TestTokenRequestFinishHandler(t *testing.T) {
 	}
 }
 
+func TestTokenRequestFinishHandler_SkipCountTokens(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "claude-backup"
+	model := "claude-opus-4-6"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	req.HttpRequest.RequestURI = "/anthropic/v1/messages/count_tokens"
+
+	cluster := buildTestClusterConf(model, 0.00000452, 0.00002262)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-CountTokens",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan}}, 100, nil)
+
+	res := &bfe_http.Response{StatusCode: 200}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if _, ok := client.data[rmbPlan.RedisKey]; ok {
+		t.Errorf("count_tokens should not trigger any deduction")
+	}
+}
+
+func TestTokenRequestFinishHandler_NoDuplicateDeduction(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+
+	cluster := buildTestClusterConf(model, 0.000003, 0.000009)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-NoDuplicate",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+
+	ai := req.GetAiBasicInfo()
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 100
+	usage.CompletionTokens = 200
+	usage.UsedQuota = 300
+
+	res := &bfe_http.Response{StatusCode: 200, ContentLength: -1}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("first finish handler failed: %d", ret)
+	}
+
+	expectedCost := quota.RmbToFixedPoint(0.0021)
+	if client.data[rmbPlan.RedisKey] != rmbPlan.Quota-expectedCost {
+		t.Fatalf("expected remaining %d after first deduction, got %d",
+			rmbPlan.Quota-expectedCost, client.data[rmbPlan.RedisKey])
+	}
+
+	// Simulate HandleRequestFinish being triggered a second time.
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("second finish handler failed: %d", ret)
+	}
+
+	if client.data[rmbPlan.RedisKey] != rmbPlan.Quota-expectedCost {
+		t.Errorf("duplicate deduction detected: expected remaining %d, got %d",
+			rmbPlan.Quota-expectedCost, client.data[rmbPlan.RedisKey])
+	}
+}
+
 func TestTokenReadResponseHandlerDoesNotCalcCost(t *testing.T) {
 	m := NewModuleAITokenAuth()
 	req := newTestRequest("ak-123", "AI_product")
@@ -1053,16 +1132,42 @@ func TestCalcCostUnits_CacheReadExceedsPrompt(t *testing.T) {
 	usage := &bfe_basic.TokenUsage{
 		PromptTokens:     8000,
 		CompletionTokens: 1500,
-		CacheReadTokens:  10000, // exceeds prompt, should be truncated
+		CacheReadTokens:  10000, // exceeds prompt, should NOT be truncated (Anthropic semantics)
 		CacheWriteTokens: 1000,
 	}
 
-	// normal_input = 0 after truncation
-	// cost = 8000*45 + 1000*565 + 1500*2262 = 4318000
-	expectedCost := int64(4318000)
+	// normal_input = 0, cache read is billed using the real cache read count
+	// cost = 10000*45 + 1000*565 + 1500*2262 = 4408000
+	expectedCost := int64(4408000)
 	got := m.calcCostUnits(req, req.SvrDataConf, usage)
 	if got != expectedCost {
-		t.Errorf("expected truncated cost %d, got %d", expectedCost, got)
+		t.Errorf("expected cost %d, got %d", expectedCost, got)
+	}
+}
+
+func TestCalcCostUnits_AnthropicHighCacheHit(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	clusterName := "claude-backup"
+	model := "claude-opus-4-6"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	cluster := buildTestClusterConfWithCache(model, 0.00000452, 0.00002262, 0.00000045, 0.00000565)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	// Anthropic: input_tokens only contains cache miss tokens; cache_read_input_tokens
+	// can be much larger than input_tokens.
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:     320, // cache miss
+		CompletionTokens: 150,
+		CacheReadTokens:  8000, // cache hit
+		CacheWriteTokens: 200,
+	}
+
+	// normal_input = 0
+	// cost = 8000*45 + 200*565 + 150*2262 = 360000 + 113000 + 339300 = 812300
+	expectedCost := int64(812300)
+	got := m.calcCostUnits(req, req.SvrDataConf, usage)
+	if got != expectedCost {
+		t.Errorf("expected anthropic cache cost %d, got %d", expectedCost, got)
 	}
 }
 

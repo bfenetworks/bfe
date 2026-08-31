@@ -1,0 +1,10 @@
+{
+    "clusters": {
+        "cluster_billing_fix": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_billing_fix": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20260720150000"
+}
