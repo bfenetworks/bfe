@@ -349,5 +349,5 @@ BFE 会根据每个请求的 `AuthStyle` 自动选择认证头注入方式，不
 - `bfe/docs/zh_cn/sys_design/multi_api_key.md`
 - `bfe/docs/zh_cn/sys_design/provider_model_prefix_routing.md`
 - `bfe/docs/zh_cn/sys_design/rmb_quota.md`
-- `bfe-access-pb/RELEASE_NOTES_v0.3.4.md`
+- `bfe-access-pb/CHANGELOG.md`
 - `bfe-access-pb/docs/protobuf.md`

@@ -113,7 +113,7 @@ func (m *ModuleAITokenAuth) matchTokenRule(req *bfe_basic.Request) bool {
 }
 
 func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
-	var used, prompt, completion, cacheRead, cacheWrite, audioInput, audioOutput, imageCount int64
+	var used, prompt, completion, cacheRead, cacheWrite, audioInput, audioOutput, imageInput, imageCount, videoCount int64
 
 	used = gjson.GetBytes(data, "usage.total_tokens").Int()
 	prompt = gjson.GetBytes(data, "usage.prompt_tokens").Int()
@@ -122,9 +122,17 @@ func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
 	cacheWrite = gjson.GetBytes(data, "usage.cache_write_tokens").Int()
 	audioInput = gjson.GetBytes(data, "usage.audio_input_tokens").Int()
 	audioOutput = gjson.GetBytes(data, "usage.audio_output_tokens").Int()
+	imageInput = gjson.GetBytes(data, "usage.input_token_details.image_tokens").Int()
+	if imageInput == 0 {
+		imageInput = gjson.GetBytes(data, "usage.image_input_tokens").Int()
+	}
 	imageCount = gjson.GetBytes(data, "usage.image_count").Int()
 	if imageCount == 0 {
 		imageCount = gjson.GetBytes(data, "data.#").Int()
+	}
+	videoCount = gjson.GetBytes(data, "usage.video_count").Int()
+	if videoCount == 0 {
+		videoCount = gjson.GetBytes(data, "data.#").Int()
 	}
 
 	// DeepSeek fallback: prompt_cache_hit_tokens / prompt_tokens_details.cached_tokens
@@ -133,6 +141,11 @@ func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
 	}
 	if cacheRead == 0 {
 		cacheRead = gjson.GetBytes(data, "usage.prompt_tokens_details.cached_tokens").Int()
+	}
+
+	// Responses API fallback: input_token_details.cached_tokens
+	if cacheRead == 0 {
+		cacheRead = gjson.GetBytes(data, "usage.input_token_details.cached_tokens").Int()
 	}
 
 	// Claude fallback: input_tokens / output_tokens / cache_read_input_tokens / cache_creation_input_tokens
@@ -159,10 +172,14 @@ func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
 		tokenUsage.CacheWriteTokens = cacheWrite
 		tokenUsage.AudioInputTokens = audioInput
 		tokenUsage.AudioOutputTokens = audioOutput
+		tokenUsage.ImageInputTokens = imageInput
 		tokenUsage.ImageCount = imageCount
-	} else if prompt > 0 || completion > 0 || imageCount > 0 {
+		tokenUsage.VideoCount = videoCount
+	} else if prompt > 0 || completion > 0 || imageCount > 0 || videoCount > 0 {
 		if imageCount > 0 {
 			tokenUsage.UsedQuota = imageCount
+		} else if videoCount > 0 {
+			tokenUsage.UsedQuota = videoCount
 		} else {
 			tokenUsage.UsedQuota = prompt + completion
 		}
@@ -172,7 +189,9 @@ func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
 		tokenUsage.CacheWriteTokens = cacheWrite
 		tokenUsage.AudioInputTokens = audioInput
 		tokenUsage.AudioOutputTokens = audioOutput
+		tokenUsage.ImageInputTokens = imageInput
 		tokenUsage.ImageCount = imageCount
+		tokenUsage.VideoCount = videoCount
 	}
 }
 
@@ -436,6 +455,21 @@ func GetImageCountFromReq(req *bfe_basic.Request) int64 {
 	return n
 }
 
+// GetVideoCountFromReq reads the request body "n" field for video generation requests.
+// It returns at least 1 to avoid under-billing when the field is missing or invalid.
+func GetVideoCountFromReq(req *bfe_basic.Request) int64 {
+	bodyAccessor, _ := req.HttpRequest.GetBodyAccessor()
+	if bodyAccessor == nil {
+		return 1
+	}
+	body, _ := bodyAccessor.GetBytes()
+	n := gjson.GetBytes(body, "n").Int()
+	if n <= 0 {
+		return 1
+	}
+	return n
+}
+
 // SetTokenAuthContext sets the token authentication context in the request
 func SetTokenAuthContext(req *bfe_basic.Request, tok *Token, promptToken int64, tags []bfe_basic.ApikeyTag) {
 	aiBasicInfo := req.GetAiBasicInfo()
@@ -446,6 +480,9 @@ func SetTokenAuthContext(req *bfe_basic.Request, tok *Token, promptToken int64, 
 		tusage.CompletionTokens = bfe_basic.COMPLETION_TOKENS_UNKNOWN // -1 - unknown
 		if aiBasicInfo.Mode == bfe_basic.ModeImageGeneration {
 			tusage.ImageCount = GetImageCountFromReq(req)
+		}
+		if aiBasicInfo.Mode == bfe_basic.ModeVideoGeneration {
+			tusage.VideoCount = GetVideoCountFromReq(req)
 		}
 		aiBasicInfo.ApikeyTags = tags
 	}
@@ -524,9 +561,32 @@ func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe
 	switch mode {
 	case bfe_basic.ModeImageGeneration:
 		return calcImageGenerationCost(entry, usage, tierName)
+	case bfe_basic.ModeVideoGeneration:
+		return calcVideoGenerationCost(entry, usage, tierName)
+	case bfe_basic.ModeResponses:
+		return calcResponsesCost(entry, usage, tierName)
 	default:
 		return calcChatCost(entry, usage, tierName)
 	}
+}
+
+func calcResponsesCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, tierName string) int64 {
+	return calcChatCost(entry, usage, tierName)
+}
+
+func calcVideoGenerationCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, tierName string) int64 {
+	videoCount := usage.VideoCount
+	if videoCount < 0 {
+		videoCount = 0
+	}
+
+	costPerVideo := entry.GetPriceInt(tierName, cluster_conf.PriceOutputCostPerVideoInt)
+	if costPerVideo < 0 {
+		log.Logger.Warn("invalid model price for video generation model %s", entry.Model)
+		return 0
+	}
+
+	return videoCount * costPerVideo
 }
 
 func calcImageGenerationCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, tierName string) int64 {
@@ -536,12 +596,13 @@ func calcImageGenerationCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.To
 	}
 
 	costPerImage := entry.GetPriceInt(tierName, cluster_conf.PriceOutputCostPerImageInt)
-	if costPerImage < 0 {
+	inputImageTokenCost := entry.GetPriceInt(tierName, cluster_conf.PriceInputCostPerImageTokenInt)
+	if costPerImage < 0 || inputImageTokenCost < 0 {
 		log.Logger.Warn("invalid model price for image generation model %s", entry.Model)
 		return 0
 	}
 
-	return imageCount * costPerImage
+	return imageCount*costPerImage + usage.ImageInputTokens*inputImageTokenCost
 }
 
 func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, tierName string) int64 {
@@ -583,6 +644,7 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 	cacheWriteCost := entry.GetPriceInt(tierName, cluster_conf.PriceCacheCreationInputTokenCostInt)
 	audioInputCost := entry.GetPriceInt(tierName, cluster_conf.PriceInputCostPerAudioTokenInt)
 	audioOutputCost := entry.GetPriceInt(tierName, cluster_conf.PriceOutputCostPerAudioTokenInt)
+	imageInputCost := entry.GetPriceInt(tierName, cluster_conf.PriceInputCostPerImageTokenInt)
 
 	// normal input/output start as the full totals
 	normalInput := promptTokens
@@ -594,6 +656,21 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 		if normalInput < 0 {
 			normalInput = 0
 		}
+	}
+
+	// image-aware billing: split image input from normal input
+	imageInputTokens := usage.ImageInputTokens
+	if imageInputCost > 0 {
+		if imageInputTokens > normalInput {
+			imageInputTokens = normalInput
+		}
+		normalInput = normalInput - imageInputTokens
+		if normalInput < 0 {
+			normalInput = 0
+		}
+	} else {
+		// no image input price configured: bill image input as normal input
+		imageInputTokens = 0
 	}
 
 	// audio-aware billing: split audio input from normal input
@@ -625,15 +702,16 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 	}
 
 	var cost int64
-	if cacheReadCost > 0 || cacheWriteCost > 0 || audioInputCost > 0 || audioOutputCost > 0 {
+	if cacheReadCost > 0 || cacheWriteCost > 0 || audioInputCost > 0 || audioOutputCost > 0 || imageInputCost > 0 {
 		cost = normalInput*inputCost +
 			cacheReadTokens*cacheReadCost +
 			cacheWriteTokens*cacheWriteCost +
 			audioInputTokens*audioInputCost +
+			imageInputTokens*imageInputCost +
 			normalOutput*outputCost +
 			audioOutputTokens*audioOutputCost
 	} else {
-		// fallback to legacy billing when no cache/audio price is configured
+		// fallback to legacy billing when no cache/audio/image price is configured
 		cost = promptTokens*inputCost + completionTokens*outputCost
 	}
 

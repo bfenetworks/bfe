@@ -306,6 +306,8 @@ const (
 	PriceInputCostPerAudioToken      = "input_cost_per_audio_token"
 	PriceOutputCostPerAudioToken     = "output_cost_per_audio_token"
 	PriceOutputCostPerImage          = "output_cost_per_image"
+	PriceInputCostPerImageToken      = "input_cost_per_image_token"
+	PriceOutputCostPerVideo          = "output_cost_per_video"
 
 	PriceInputCostPerTokenInt           = "input_cost_per_token_int"
 	PriceOutputCostPerTokenInt          = "output_cost_per_token_int"
@@ -314,6 +316,8 @@ const (
 	PriceInputCostPerAudioTokenInt      = "input_cost_per_audio_token_int"
 	PriceOutputCostPerAudioTokenInt     = "output_cost_per_audio_token_int"
 	PriceOutputCostPerImageInt          = "output_cost_per_image_int"
+	PriceInputCostPerImageTokenInt      = "input_cost_per_image_token_int"
+	PriceOutputCostPerVideoInt          = "output_cost_per_video_int"
 )
 
 // priceKeyToIntKey maps the public price keys (used in config files) to the
@@ -326,6 +330,8 @@ var priceKeyToIntKey = map[string]string{
 	PriceInputCostPerAudioToken:      PriceInputCostPerAudioTokenInt,
 	PriceOutputCostPerAudioToken:     PriceOutputCostPerAudioTokenInt,
 	PriceOutputCostPerImage:          PriceOutputCostPerImageInt,
+	PriceInputCostPerImageToken:      PriceInputCostPerImageTokenInt,
+	PriceOutputCostPerVideo:          PriceOutputCostPerVideoInt,
 }
 
 func (conf *BackendHTTPS) GetProtocol() string {
@@ -1085,8 +1091,11 @@ func ModelTableCheck(table *ModelTable) error {
 		audioInput := price.Prices[PriceInputCostPerAudioToken]
 		audioOutput := price.Prices[PriceOutputCostPerAudioToken]
 		outputCostPerImage := price.Prices[PriceOutputCostPerImage]
+		inputImageToken := price.Prices[PriceInputCostPerImageToken]
+		outputCostPerVideo := price.Prices[PriceOutputCostPerVideo]
 		if input < 0 || output < 0 || cacheRead < 0 || cacheWrite < 0 ||
-			audioInput < 0 || audioOutput < 0 || outputCostPerImage < 0 {
+			audioInput < 0 || audioOutput < 0 || outputCostPerImage < 0 ||
+			inputImageToken < 0 || outputCostPerVideo < 0 {
 			return fmt.Errorf("negative price for model %s", price.Model)
 		}
 
@@ -1098,6 +1107,8 @@ func ModelTableCheck(table *ModelTable) error {
 		price.pricesInt[PriceInputCostPerAudioTokenInt] = quota.RmbToFixedPoint(audioInput)
 		price.pricesInt[PriceOutputCostPerAudioTokenInt] = quota.RmbToFixedPoint(audioOutput)
 		price.pricesInt[PriceOutputCostPerImageInt] = quota.RmbToFixedPoint(outputCostPerImage)
+		price.pricesInt[PriceInputCostPerImageTokenInt] = quota.RmbToFixedPoint(inputImageToken)
+		price.pricesInt[PriceOutputCostPerVideoInt] = quota.RmbToFixedPoint(outputCostPerVideo)
 
 		price.tierPricesInt = make(map[string]map[string]int64)
 		for tierName, tierPriceMap := range price.TierPrices {

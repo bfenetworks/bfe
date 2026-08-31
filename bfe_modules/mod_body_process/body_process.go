@@ -430,9 +430,17 @@ func (e *RawEvent) GetQuotaUsage() QuotaUsage {
 	cacheWrite := gjson.GetBytes(*e, "usage.cache_write_tokens").Int()
 	audioInput := gjson.GetBytes(*e, "usage.audio_input_tokens").Int()
 	audioOutput := gjson.GetBytes(*e, "usage.audio_output_tokens").Int()
+	imageInput := gjson.GetBytes(*e, "usage.input_token_details.image_tokens").Int()
+	if imageInput == 0 {
+		imageInput = gjson.GetBytes(*e, "usage.image_input_tokens").Int()
+	}
 	imageCount := gjson.GetBytes(*e, "usage.image_count").Int()
 	if imageCount == 0 {
 		imageCount = gjson.GetBytes(*e, "data.#").Int()
+	}
+	videoCount := gjson.GetBytes(*e, "usage.video_count").Int()
+	if videoCount == 0 {
+		videoCount = gjson.GetBytes(*e, "data.#").Int()
 	}
 
 	// DeepSeek fallback: prompt_cache_hit_tokens / prompt_tokens_details.cached_tokens
@@ -441,6 +449,11 @@ func (e *RawEvent) GetQuotaUsage() QuotaUsage {
 	}
 	if cacheRead == 0 {
 		cacheRead = gjson.GetBytes(*e, "usage.prompt_tokens_details.cached_tokens").Int()
+	}
+
+	// Responses API fallback: input_token_details.cached_tokens
+	if cacheRead == 0 {
+		cacheRead = gjson.GetBytes(*e, "usage.input_token_details.cached_tokens").Int()
 	}
 
 	// Claude fallback: input_tokens / output_tokens / cache_read_input_tokens / cache_creation_input_tokens
@@ -458,7 +471,7 @@ func (e *RawEvent) GetQuotaUsage() QuotaUsage {
 		}
 	}
 
-	if used > 0 || imageCount > 0 {
+	if used > 0 || imageCount > 0 || videoCount > 0 {
 		isguess = false
 	} else {
 		curtoken = EstimateContentToken(string(*e))
@@ -471,6 +484,8 @@ func (e *RawEvent) GetQuotaUsage() QuotaUsage {
 		CacheWriteTokens:  cacheWrite,
 		AudioInputTokens:  audioInput,
 		AudioOutputTokens: audioOutput,
+		ImageInputTokens:  imageInput,
+		VideoCount:        videoCount,
 		ImageCount:        imageCount,
 		UsedQuota:         used,
 		CurrentTokens:     curtoken,
