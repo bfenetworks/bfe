@@ -2242,7 +2242,7 @@ func testServerResponse(t testing.TB,
 
 	select {
 	case <-donec:
-		return
+		break
 	case <-time.After(5 * time.Second):
 		t.Fatal("timeout")
 	}
