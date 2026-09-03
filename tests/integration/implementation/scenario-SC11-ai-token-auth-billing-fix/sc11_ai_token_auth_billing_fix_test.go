@@ -255,9 +255,11 @@ func TestTC01_AnthropicHighCacheHit(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 	remaining := e.redis.GetQuota(redisKeyRMB)
 
-	// normal_input = max(0, 320 - 8000) = 0
-	// cost = 8000*45 + 200*565 + 150*2262 = 812300
-	want := int64(10000000000 - 812300)
+	// Anthropic usage is normalized at parse time:
+	// PromptTokens = input_tokens + cache_read + cache_write = 320 + 8000 + 200 = 8520
+	// normal_input = 8520 - 8000 - 200 = 320
+	// cost = 320*452 + 8000*45 + 200*565 + 150*2262 = 956940
+	want := int64(10000000000 - 956940)
 	if remaining != want {
 		t.Fatalf("remaining quota = %d, want %d", remaining, want)
 	}

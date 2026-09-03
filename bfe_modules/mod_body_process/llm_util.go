@@ -33,9 +33,11 @@ type QuotaUsage struct {
 	PromptTokens      int64 // number of tokens in the prompt
 	CompletionTokens  int64 // number of tokens in the completion
 	CacheReadTokens   int64 // usage.cache_read_tokens, already included in PromptTokens
-	CacheWriteTokens  int64 // usage.cache_write_tokens, independent add-on item
+	CacheWriteTokens  int64 // usage.cache_write_tokens, already included in PromptTokens (normalized for Anthropic)
 	AudioInputTokens  int64 // usage.audio_input_tokens, already included in PromptTokens
 	AudioOutputTokens int64 // usage.audio_output_tokens, already included in CompletionTokens
+	ImageInputTokens  int64 // usage.image_input_tokens / input_token_details.image_tokens, already included in PromptTokens
+	VideoCount        int64 // number of generated videos for video generation models
 	ImageCount        int64 // number of generated images for image generation models
 	UsedQuota         int64 // used quota for this request
 
@@ -129,9 +131,17 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 	cacheWrite := gjson.GetBytes(data, "usage.cache_write_tokens").Int()
 	audioInput := gjson.GetBytes(data, "usage.audio_input_tokens").Int()
 	audioOutput := gjson.GetBytes(data, "usage.audio_output_tokens").Int()
+	imageInput := gjson.GetBytes(data, "usage.input_token_details.image_tokens").Int()
+	if imageInput == 0 {
+		imageInput = gjson.GetBytes(data, "usage.image_input_tokens").Int()
+	}
 	imageCount := gjson.GetBytes(data, "usage.image_count").Int()
 	if imageCount == 0 {
 		imageCount = gjson.GetBytes(data, "data.#").Int()
+	}
+	videoCount := gjson.GetBytes(data, "usage.video_count").Int()
+	if videoCount == 0 {
+		videoCount = gjson.GetBytes(data, "data.#").Int()
 	}
 
 	// DeepSeek fallback: prompt_cache_hit_tokens / prompt_tokens_details.cached_tokens
@@ -140,6 +150,11 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 	}
 	if cacheRead == 0 {
 		cacheRead = gjson.GetBytes(data, "usage.prompt_tokens_details.cached_tokens").Int()
+	}
+
+	// Responses API fallback: input_token_details.cached_tokens
+	if cacheRead == 0 {
+		cacheRead = gjson.GetBytes(data, "usage.input_token_details.cached_tokens").Int()
 	}
 
 	// Claude fallback: input_tokens / output_tokens / cache_read_input_tokens / cache_creation_input_tokens
@@ -152,6 +167,8 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 		if cacheWrite == 0 {
 			cacheWrite = gjson.GetBytes(data, "usage.cache_creation_input_tokens").Int()
 		}
+		// Anthropic input_tokens excludes cache read/write tokens; normalize to total input.
+		prompt += cacheRead + cacheWrite
 		if used == 0 {
 			used = prompt + completion
 		}
@@ -159,7 +176,7 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 
 	curtoken := int64(0)
 	isguess := true
-	if used > 0 || imageCount > 0 {
+	if used > 0 || imageCount > 0 || videoCount > 0 {
 		isguess = false
 	} else {
 		curtoken = EstimateContentToken(string(data))
@@ -172,6 +189,8 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 		CacheWriteTokens:  cacheWrite,
 		AudioInputTokens:  audioInput,
 		AudioOutputTokens: audioOutput,
+		ImageInputTokens:  imageInput,
+		VideoCount:        videoCount,
 		ImageCount:        imageCount,
 		UsedQuota:         used,
 		CurrentTokens:     curtoken,

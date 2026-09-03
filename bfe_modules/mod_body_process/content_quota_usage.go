@@ -53,6 +53,9 @@ func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 				if rquota.ImageCount > 0 {
 					tctx.ImageCount = rquota.ImageCount
 					tctx.UsedQuota = rquota.ImageCount
+				} else if rquota.VideoCount > 0 {
+					tctx.VideoCount = rquota.VideoCount
+					tctx.UsedQuota = rquota.VideoCount
 				} else if rquota.UsedQuota > 0 {
 					tctx.CompletionTokens = rquota.CompletionTokens
 					tctx.PromptTokens = rquota.PromptTokens
@@ -60,6 +63,8 @@ func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 					tctx.CacheWriteTokens = rquota.CacheWriteTokens
 					tctx.AudioInputTokens = rquota.AudioInputTokens
 					tctx.AudioOutputTokens = rquota.AudioOutputTokens
+					tctx.ImageInputTokens = rquota.ImageInputTokens
+					tctx.VideoCount = rquota.VideoCount
 					tctx.UsedQuota = rquota.UsedQuota
 				} else if rquota.PromptTokens > 0 || rquota.CompletionTokens > 0 {
 					tctx.UsedQuota = rquota.PromptTokens + rquota.CompletionTokens
@@ -69,6 +74,8 @@ func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 					tctx.CacheWriteTokens = rquota.CacheWriteTokens
 					tctx.AudioInputTokens = rquota.AudioInputTokens
 					tctx.AudioOutputTokens = rquota.AudioOutputTokens
+					tctx.ImageInputTokens = rquota.ImageInputTokens
+					tctx.VideoCount = rquota.VideoCount
 				}
 			}
 		}

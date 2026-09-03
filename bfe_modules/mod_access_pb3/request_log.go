@@ -434,6 +434,12 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		if usage.ImageCount > 0 {
 			reqLog.AiImageCount = proto.Int64(usage.ImageCount)
 		}
+		if usage.ImageInputTokens > 0 {
+			reqLog.AiImageInputTokens = proto.Int64(usage.ImageInputTokens)
+		}
+		if usage.VideoCount > 0 {
+			reqLog.AiVideoCount = proto.Int64(usage.VideoCount)
+		}
 		if usage.UsedCost > 0 {
 			reqLog.AiCostValue = proto.Int64(usage.UsedCost)
 		}

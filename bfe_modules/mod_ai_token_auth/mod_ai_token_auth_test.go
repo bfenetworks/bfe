@@ -387,6 +387,48 @@ func TestUpdateCtxByUsage_DeepSeekCache(t *testing.T) {
 	}
 }
 
+func TestUpdateCtxByUsage_AnthropicCache(t *testing.T) {
+	req := newTestRequest("", "AI_product")
+	ai := req.InitAiBasicInfo()
+	ctx := &TokenAuthContext{aiBasicInfo: ai}
+
+	// Anthropic: input_tokens only counts fresh (cache-missing) tokens.
+	// PromptTokens must be normalized to the total input
+	// (input_tokens + cache_read + cache_write) so that cost splitting works.
+	UpdateCtxByUsage(ctx, []byte(`{"usage":{"input_tokens":320,"output_tokens":150,"cache_read_input_tokens":8000,"cache_creation_input_tokens":200}}`))
+	usage := ai.GetTokenUsage()
+	if usage.PromptTokens != 8520 {
+		t.Errorf("expected PromptTokens 8520 (320+8000+200), got %d", usage.PromptTokens)
+	}
+	if usage.CompletionTokens != 150 {
+		t.Errorf("expected CompletionTokens 150, got %d", usage.CompletionTokens)
+	}
+	if usage.CacheReadTokens != 8000 {
+		t.Errorf("expected CacheReadTokens 8000, got %d", usage.CacheReadTokens)
+	}
+	if usage.CacheWriteTokens != 200 {
+		t.Errorf("expected CacheWriteTokens 200, got %d", usage.CacheWriteTokens)
+	}
+	if usage.UsedQuota != 8670 {
+		t.Errorf("expected UsedQuota 8670 (8520+150), got %d", usage.UsedQuota)
+	}
+
+	// Full cache hit: input_tokens = 0. Usage must still be recognized (not guessed).
+	ai2 := newTestRequest("", "AI_product").InitAiBasicInfo()
+	ctx2 := &TokenAuthContext{aiBasicInfo: ai2}
+	UpdateCtxByUsage(ctx2, []byte(`{"usage":{"input_tokens":0,"output_tokens":42,"cache_read_input_tokens":5000}}`))
+	usage2 := ai2.GetTokenUsage()
+	if usage2.PromptTokens != 5000 {
+		t.Errorf("expected PromptTokens 5000 (0+5000), got %d", usage2.PromptTokens)
+	}
+	if usage2.CacheReadTokens != 5000 {
+		t.Errorf("expected CacheReadTokens 5000, got %d", usage2.CacheReadTokens)
+	}
+	if usage2.UsedQuota != 5042 {
+		t.Errorf("expected UsedQuota 5042 (5000+42), got %d", usage2.UsedQuota)
+	}
+}
+
 func TestTokenAuthContext(t *testing.T) {
 	req := newTestRequest("", "AI_product")
 	ai := req.InitAiBasicInfo()
@@ -1017,9 +1059,9 @@ func TestTokenRequestFinishHandler_RMB_Cache_NonStreaming(t *testing.T) {
 		t.Fatalf("expected goon, got %d", ret)
 	}
 
-	// normal_input = 8000 - 5000 = 3000
-	// cost = 3000*452 + 5000*45 + 1000*565 + 1500*2262 = 5539000
-	expectedCost := int64(5539000)
+	// normal_input = 8000 - 5000 - 1000 = 2000
+	// cost = 2000*452 + 5000*45 + 1000*565 + 1500*2262 = 5087000
+	expectedCost := int64(5087000)
 	usage := req.GetAiBasicInfo().GetTokenUsage()
 	if usage.UsedCost != expectedCost {
 		t.Errorf("expected UsedCost %d, got %d", expectedCost, usage.UsedCost)
@@ -1065,7 +1107,9 @@ func TestTokenRequestFinishHandler_RMB_Cache_Streaming(t *testing.T) {
 		t.Fatalf("expected goon, got %d", ret)
 	}
 
-	expectedCost := int64(5539000)
+	// normal_input = 8000 - 5000 - 1000 = 2000
+	// cost = 2000*452 + 5000*45 + 1000*565 + 1500*2262 = 5087000
+	expectedCost := int64(5087000)
 	if usage.UsedCost != expectedCost {
 		t.Errorf("expected UsedCost %d, got %d", expectedCost, usage.UsedCost)
 	}
@@ -1091,7 +1135,9 @@ func TestCalcCostUnits_Cache(t *testing.T) {
 		CacheWriteTokens: 1000,
 	}
 
-	expectedCost := int64(5539000)
+	// normal_input = 8000 - 5000 - 1000 = 2000
+	// cost = 2000*452 + 5000*45 + 1000*565 + 1500*2262 = 5087000
+	expectedCost := int64(5087000)
 	got := m.calcCostUnits(req, req.SvrDataConf, usage)
 	if got != expectedCost {
 		t.Errorf("expected cost %d, got %d", expectedCost, got)
@@ -1153,18 +1199,19 @@ func TestCalcCostUnits_AnthropicHighCacheHit(t *testing.T) {
 	cluster := buildTestClusterConfWithCache(model, 0.00000452, 0.00002262, 0.00000045, 0.00000565)
 	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
 
-	// Anthropic: input_tokens only contains cache miss tokens; cache_read_input_tokens
-	// can be much larger than input_tokens.
+	// Anthropic raw usage: input_tokens only contains fresh (cache-missing)
+	// tokens; cache_read_input_tokens / cache_creation_input_tokens are extra.
+	// After parse-time normalization, PromptTokens = 320 + 8000 + 200 = 8520.
 	usage := &bfe_basic.TokenUsage{
-		PromptTokens:     320, // cache miss
+		PromptTokens:     8520, // total input: 320 fresh + 8000 cache read + 200 cache write
 		CompletionTokens: 150,
 		CacheReadTokens:  8000, // cache hit
 		CacheWriteTokens: 200,
 	}
 
-	// normal_input = 0
-	// cost = 8000*45 + 200*565 + 150*2262 = 360000 + 113000 + 339300 = 812300
-	expectedCost := int64(812300)
+	// normal_input = 8520 - 8000 - 200 = 320
+	// cost = 320*452 + 8000*45 + 200*565 + 150*2262 = 956940
+	expectedCost := int64(956940)
 	got := m.calcCostUnits(req, req.SvrDataConf, usage)
 	if got != expectedCost {
 		t.Errorf("expected anthropic cache cost %d, got %d", expectedCost, got)
@@ -1279,9 +1326,9 @@ func TestCalcCostUnits_CacheAndAudio(t *testing.T) {
 		AudioOutputTokens: 200,
 	}
 
-	// normal_input = 8000 - 3000 - 1000 = 4000
+	// normal_input = 8000 - 3000 - 1000 (cache) - 1000 (audio) = 3000
 	// normal_output = 500 - 200 = 300
-	expectedCost := int64(4000*452 + 3000*45 + 1000*565 + 1000*2288 + 300*2262 + 200*4576)
+	expectedCost := int64(3000*452 + 3000*45 + 1000*565 + 1000*2288 + 300*2262 + 200*4576)
 	got := m.calcCostUnits(req, req.SvrDataConf, usage)
 	if got != expectedCost {
 		t.Errorf("expected cost %d, got %d", expectedCost, got)

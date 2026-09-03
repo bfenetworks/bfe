@@ -206,11 +206,11 @@ func DetectAuthStyle(req *Request) string {
 
 - `SetApiKey(req, apiKey, authStyle)` 按协议注入对应认证头；
 - `UpdateCtxByUsage()` 在 OpenAI 字段后增加 Claude fallback：
-  - `usage.input_tokens` → `PromptTokens`；
+  - `usage.input_tokens` → `PromptTokens`（**注意**：Anthropic 的 `input_tokens` 仅含 cache miss 的 fresh token，不含 cache 读写；解析时归一化为总输入 `input_tokens + cache_read_input_tokens + cache_creation_input_tokens`，与 OpenAI `prompt_tokens` 语义一致）；
   - `usage.output_tokens` → `CompletionTokens`；
   - `usage.cache_read_input_tokens` → `CacheReadTokens`；
   - `usage.cache_creation_input_tokens` → `CacheWriteTokens`；
-  - `UsedQuota` 由 `input + output` 推导。
+  - `UsedQuota` 由归一化后的 `input + output` 推导。
 
 ### 5.5 `mod_body_process`
 
@@ -349,5 +349,5 @@ BFE 会根据每个请求的 `AuthStyle` 自动选择认证头注入方式，不
 - `bfe/docs/zh_cn/sys_design/multi_api_key.md`
 - `bfe/docs/zh_cn/sys_design/provider_model_prefix_routing.md`
 - `bfe/docs/zh_cn/sys_design/rmb_quota.md`
-- `bfe-access-pb/RELEASE_NOTES_v0.3.4.md`
+- `bfe-access-pb/CHANGELOG.md`
 - `bfe-access-pb/docs/protobuf.md`

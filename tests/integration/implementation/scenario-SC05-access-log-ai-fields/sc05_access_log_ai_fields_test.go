@@ -53,11 +53,17 @@ var defaultBody = []byte(`{"model":"deepseek-chat"}`)
 var modelMappingBody = []byte(`{"model":"gpt-4"}`)
 var streamBody = []byte(`{"model":"deepseek-chat","stream":true}`)
 var imageGenerationBody = []byte(`{"model":"flux-2-pro","n":2}`)
+var videoGenerationBody = []byte(`{"model":"kling-1","n":3}`)
+var responsesBody = []byte(`{"model":"o3-deep-research"}`)
 
 var usageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`
 var imageGenerationUsageResponse = `{"usage":{"image_count":2}}`
+var imageGenerationWithImageInputUsageResponse = `{"usage":{"image_count":1,"input_token_details":{"image_tokens":200}}}`
 var cacheUsageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150,"cache_read_tokens":30,"cache_write_tokens":20}}`
 var audioUsageResponse = `{"usage":{"prompt_tokens":4000,"completion_tokens":500,"total_tokens":4500,"audio_input_tokens":1000,"audio_output_tokens":200}}`
+var videoGenerationUsageResponse = `{"usage":{"video_count":3}}`
+var responsesUsageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`
+var imageInputChatUsageResponse = `{"usage":{"prompt_tokens":1000,"completion_tokens":200,"total_tokens":1200,"input_token_details":{"image_tokens":300}}}`
 
 // SSE format: final chunk contains usage. The trailing blank line is required.
 var streamUsageResponse = "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n" +
@@ -328,6 +334,86 @@ func imageGenerationAIConf() *cluster_conf.AIConf {
 			"output_cost_per_image": 0.03,
 		},
 	})
+	return conf
+}
+
+func imageGenerationWithImageInputAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models = append(conf.ModelTable.Models, cluster_conf.ModelPrice{
+		Provider:            "mock-provider",
+		Model:               "gpt-image-1",
+		BaseModel:           "gpt-image-1",
+		Mode:                "image_generation",
+		Capabilities:        []string{"image_generation"},
+		SupportedParameters: []string{"prompt", "n", "size"},
+		Limits: map[string]interface{}{
+			"context_window": 128000,
+		},
+		Prices: cluster_conf.PriceMap{
+			"output_cost_per_image":   0.04,
+			"input_cost_per_image_token": 0.0000005,
+		},
+	})
+	return conf
+}
+
+func videoGenerationAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models = append(conf.ModelTable.Models, cluster_conf.ModelPrice{
+		Provider:            "mock-provider",
+		Model:               "kling-1",
+		BaseModel:           "kling-1",
+		Mode:                "video_generation",
+		Capabilities:        []string{"video_generation"},
+		SupportedParameters: []string{"prompt", "n", "duration"},
+		Limits: map[string]interface{}{
+			"context_window": 128000,
+		},
+		Prices: cluster_conf.PriceMap{
+			"output_cost_per_video": 0.5,
+		},
+	})
+	return conf
+}
+
+func responsesRMBAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models = append(conf.ModelTable.Models, cluster_conf.ModelPrice{
+		Provider:            "mock-provider",
+		Model:               "o3-deep-research",
+		BaseModel:           "o3-deep-research",
+		Mode:                "responses",
+		Capabilities:        []string{"chat"},
+		SupportedParameters: []string{"temperature", "max_tokens"},
+		Limits: map[string]interface{}{
+			"context_window": 128000,
+		},
+		Prices: cluster_conf.PriceMap{
+			"input_cost_per_token":  0.00001,
+			"output_cost_per_token": 0.00002,
+		},
+	})
+	return conf
+}
+
+func imageInputChatRMBAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models[0] = cluster_conf.ModelPrice{
+		Provider:            "mock-provider",
+		Model:               "qwen3-vl-embedding",
+		BaseModel:           "qwen3-vl-embedding",
+		Mode:                "chat",
+		Capabilities:        []string{"chat", "vision"},
+		SupportedParameters: []string{"temperature", "max_tokens"},
+		Limits: map[string]interface{}{
+			"context_window": 128000,
+		},
+		Prices: cluster_conf.PriceMap{
+			"input_cost_per_token":        0.000001,
+			"output_cost_per_token":       0.000002,
+			"input_cost_per_image_token":  0.0000005,
+		},
+	}
 	return conf
 }
 
@@ -987,5 +1073,169 @@ func TestTC10_ImageGenerationFields(t *testing.T) {
 	assertInt64Field(t, reqLog.AiTotalTokens, "ai_total_tokens", 2)
 	// cost = 2 * 0.03 RMB = 2 * 3000000 fixed-point units
 	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 2*3000000)
+	assertStringField(t, reqLog.AiCostCurrency, "ai_cost_currency", "RMB")
+}
+
+// TestTC11 verifies responses mode and cost.
+func TestTC11_ResponsesFields(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: responsesRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	e.backends[clusterRMB].Body = responsesUsageResponse
+
+	resp, body, err := e.sendRequestToPath(apiHost, "/v1/responses", responsesBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLog := e.mustFindSingleLog(e.accessLogs())
+	assertStringField(t, reqLog.AiMode, "ai_mode", "responses")
+	assertStringField(t, reqLog.AiRequestedModel, "ai_requested_model", "o3-deep-research")
+	assertStringField(t, reqLog.AiTargetModel, "ai_target_model", "o3-deep-research")
+	assertInt64Field(t, reqLog.AiInputTokens, "ai_input_tokens", 100)
+	assertInt64Field(t, reqLog.AiOutputTokens, "ai_output_tokens", 50)
+	assertInt64Field(t, reqLog.AiTotalTokens, "ai_total_tokens", 150)
+	// cost = 100*0.00001 + 50*0.00002 RMB = 100*1000 + 50*2000 fixed-point units = 200000
+	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 100*1000+50*2000)
+	assertStringField(t, reqLog.AiCostCurrency, "ai_cost_currency", "RMB")
+}
+
+// TestTC12 verifies video_generation mode, ai_video_count and cost.
+func TestTC12_VideoGenerationFields(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: videoGenerationAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	e.backends[clusterRMB].Body = videoGenerationUsageResponse
+
+	resp, body, err := e.sendRequestToPath(apiHost, "/v1/video/generations", videoGenerationBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLog := e.mustFindSingleLog(e.accessLogs())
+	assertStringField(t, reqLog.AiMode, "ai_mode", "video_generation")
+	assertStringField(t, reqLog.AiRequestedModel, "ai_requested_model", "kling-1")
+	assertStringField(t, reqLog.AiTargetModel, "ai_target_model", "kling-1")
+	assertInt64Field(t, reqLog.AiVideoCount, "ai_video_count", 3)
+	assertInt64Field(t, reqLog.AiTotalTokens, "ai_total_tokens", 3)
+	// cost = 3 * 0.5 RMB = 3 * 50000000 fixed-point units
+	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 3*50000000)
+	assertStringField(t, reqLog.AiCostCurrency, "ai_cost_currency", "RMB")
+}
+
+// TestTC13 verifies ai_image_input_tokens and image-aware cost for image generation.
+func TestTC13_ImageGenerationWithImageInputFields(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: imageGenerationWithImageInputAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	e.backends[clusterRMB].Body = imageGenerationWithImageInputUsageResponse
+
+	resp, body, err := e.sendRequestToPath(apiHost, "/v1/images/generations", []byte(`{"model":"gpt-image-1","n":1}`))
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLog := e.mustFindSingleLog(e.accessLogs())
+	assertStringField(t, reqLog.AiMode, "ai_mode", "image_generation")
+	assertStringField(t, reqLog.AiRequestedModel, "ai_requested_model", "gpt-image-1")
+	assertStringField(t, reqLog.AiTargetModel, "ai_target_model", "gpt-image-1")
+	assertInt64Field(t, reqLog.AiImageCount, "ai_image_count", 1)
+	assertInt64Field(t, reqLog.AiImageInputTokens, "ai_image_input_tokens", 200)
+	assertInt64Field(t, reqLog.AiTotalTokens, "ai_total_tokens", 1)
+	// cost = 1*0.04 + 200*0.0000005 RMB = 1*4000000 + 200*50 fixed-point units
+	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 4000000+200*50)
+	assertStringField(t, reqLog.AiCostCurrency, "ai_cost_currency", "RMB")
+}
+
+// TestTC14 verifies ai_image_input_tokens and image-aware cost for chat mode.
+func TestTC14_ChatWithImageInputFields(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: imageInputChatRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	e.backends[clusterRMB].Body = imageInputChatUsageResponse
+
+	resp, body, err := e.sendRequest(apiHost, []byte(`{"model":"qwen3-vl-embedding"}`))
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLog := e.mustFindSingleLog(e.accessLogs())
+	assertStringField(t, reqLog.AiMode, "ai_mode", "chat")
+	assertStringField(t, reqLog.AiRequestedModel, "ai_requested_model", "qwen3-vl-embedding")
+	assertStringField(t, reqLog.AiTargetModel, "ai_target_model", "qwen3-vl-embedding")
+	assertInt64Field(t, reqLog.AiInputTokens, "ai_input_tokens", 1000)
+	assertInt64Field(t, reqLog.AiOutputTokens, "ai_output_tokens", 200)
+	assertInt64Field(t, reqLog.AiImageInputTokens, "ai_image_input_tokens", 300)
+	assertInt64Field(t, reqLog.AiTotalTokens, "ai_total_tokens", 1200)
+	// cost = (1000-300)*100 + 300*50 + 200*200 = 70000 + 15000 + 40000 = 125000 fixed-point units
+	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 125000)
 	assertStringField(t, reqLog.AiCostCurrency, "ai_cost_currency", "RMB")
 }
