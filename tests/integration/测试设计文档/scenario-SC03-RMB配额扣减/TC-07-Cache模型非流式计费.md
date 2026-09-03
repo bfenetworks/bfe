@@ -17,7 +17,7 @@ SC03 RMB 配额扣减
 验证当模型价格表中配置了 cache 相关单价时，BFE 对非流式响应按 cache 拆分公式计费：
 
 ```
-normal_input = prompt_tokens - cache_read_tokens
+normal_input = prompt_tokens - cache_read_tokens - cache_write_tokens
 cost = normal_input * input_cost + cache_read_tokens * cache_read_cost
      + cache_write_tokens * cache_creation_cost + completion_tokens * output_cost
 ```
@@ -73,9 +73,9 @@ cost = normal_input * input_cost + cache_read_tokens * cache_read_cost
 - 响应状态码：200。
 - `cluster_rmb` 收到 1 次命中（200）。
 - Redis 中 `quota:plan_rmb` 的余额按 cache 拆分公式扣减：
-  - normal_input = 8000 - 5000 = 3000
-  - 扣减金额 = 3000 * 452 + 5000 * 45 + 1000 * 565 + 1500 * 2262 = 5539000
-  - 剩余 = `10000000000 - 5539000 = 99994461000`
+  - normal_input = 8000 - 5000 - 1000 = 2000
+  - 扣减金额 = 2000 * 452 + 5000 * 45 + 1000 * 565 + 1500 * 2262 = 5087000
+  - 剩余 = `10000000000 - 5087000 = 99994913000`
 
 ## 清理
 
