@@ -158,6 +158,11 @@ func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
 		if cacheWrite == 0 {
 			cacheWrite = gjson.GetBytes(data, "usage.cache_creation_input_tokens").Int()
 		}
+		// Anthropic input_tokens only counts fresh (cache-missing) tokens and
+		// excludes cache read/write tokens. Normalize PromptTokens to the total
+		// input token count so downstream cost splitting (prompt - cacheRead -
+		// cacheWrite) works the same as the OpenAI/DeepSeek semantics.
+		prompt += cacheRead + cacheWrite
 		if used == 0 {
 			used = prompt + completion
 		}
@@ -630,8 +635,11 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 	if audioInputTokens < 0 {
 		audioInputTokens = 0
 	}
-	if audioInputTokens > promptTokens-cacheReadTokens {
-		audioInputTokens = promptTokens - cacheReadTokens
+	if audioInputTokens > promptTokens-cacheReadTokens-cacheWriteTokens {
+		audioInputTokens = promptTokens - cacheReadTokens - cacheWriteTokens
+		if audioInputTokens < 0 {
+			audioInputTokens = 0
+		}
 	}
 	if audioOutputTokens < 0 {
 		audioOutputTokens = 0
@@ -650,9 +658,12 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 	normalInput := promptTokens
 	normalOutput := completionTokens
 
-	// cache-aware billing: split cache read from prompt
+	// cache-aware billing: split cache read/write from prompt.
+	// PromptTokens is the total input (for Anthropic it is normalized to
+	// input_tokens + cache read + cache write at parse time), so both cache
+	// parts must be removed to get the normal (fresh) input tokens.
 	if cacheReadCost > 0 || cacheWriteCost > 0 {
-		normalInput = promptTokens - cacheReadTokens
+		normalInput = promptTokens - cacheReadTokens - cacheWriteTokens
 		if normalInput < 0 {
 			normalInput = 0
 		}

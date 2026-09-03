@@ -145,6 +145,34 @@ func TestQuotaUsageProcessorProcessWithDeepSeekCacheDetails(t *testing.T) {
 	}
 }
 
+func TestQuotaUsageProcessorProcessWithAnthropicCache(t *testing.T) {
+	req := newTestRequest("AI_product")
+	ai := req.InitAiBasicInfo()
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	p := NewQuotaUsageProcessor(req, res)
+
+	// Anthropic: input_tokens excludes cache read/write; PromptTokens is
+	// normalized to the total input (320 + 8000 + 200 = 8520).
+	events := []Event{newRawEvent(`{"usage":{"input_tokens":320,"output_tokens":150,"cache_read_input_tokens":8000,"cache_creation_input_tokens":200}}`)}
+	_, err := p.Process(events)
+	if err != nil {
+		t.Fatalf("Process failed: %s", err)
+	}
+	usage := ai.GetTokenUsage()
+	if usage.PromptTokens != 8520 {
+		t.Errorf("expected PromptTokens 8520, got %d", usage.PromptTokens)
+	}
+	if usage.CompletionTokens != 150 {
+		t.Errorf("expected CompletionTokens 150, got %d", usage.CompletionTokens)
+	}
+	if usage.CacheReadTokens != 8000 || usage.CacheWriteTokens != 200 {
+		t.Errorf("unexpected cache tokens: %+v", usage)
+	}
+	if usage.UsedQuota != 8670 {
+		t.Errorf("expected UsedQuota 8670 (8520+150), got %d", usage.UsedQuota)
+	}
+}
+
 func TestQuotaUsageProcessorProcessWithAudio(t *testing.T) {
 	req := newTestRequest("AI_product")
 	ai := req.InitAiBasicInfo()

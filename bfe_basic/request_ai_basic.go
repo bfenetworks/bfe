@@ -59,7 +59,7 @@ type TokenUsage struct {
 	PromptTokens      int64 // number of tokens in the prompt (includes cache_read_tokens, audio_input_tokens, image_input_tokens)
 	CompletionTokens  int64 // number of tokens in the completion (includes audio_output_tokens)
 	CacheReadTokens   int64 // usage.cache_read_tokens, already included in PromptTokens
-	CacheWriteTokens  int64 // usage.cache_write_tokens, independent add-on item
+	CacheWriteTokens  int64 // usage.cache_write_tokens, already included in PromptTokens (normalized for Anthropic)
 	AudioInputTokens  int64 // usage.audio_input_tokens, already included in PromptTokens
 	AudioOutputTokens int64 // usage.audio_output_tokens, already included in CompletionTokens
 	ImageInputTokens  int64 // usage.image_input_tokens / input_token_details.image_tokens, already included in PromptTokens

@@ -209,3 +209,27 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 - 删除 cache 截断后，Anthropic 高 cache 命中场景的计费会 **上升**，这是修正错误少收后的正确行为，需要在运营侧提前告知用户。
 - `count_tokens` 端点此前多收的费用，需在计费对账层单独处理。
 - `deducted` 标记仅影响同一请求生命周期内的重复扣费，不跨请求生效，不影响正常流量。
+
+---
+
+## 7. 后续修复（issue #1343 仍未彻底解决）
+
+### 7.1 残留问题
+
+第一次修复（删除 `cacheReadTokens > promptTokens` 截断）后，高 cache 命中场景仍少收。根因是 **Anthropic 协议语义与 OpenAI 不一致**：
+
+- Anthropic `usage.input_tokens` **仅含 cache miss（fresh）token**，不含 `cache_read_input_tokens` 与 `cache_creation_input_tokens`（参考 [Anthropic API 文档](https://docs.anthropic.com/en/api/messages) 及 [envoy ai-gateway #2290](https://github.com/envoyproxy/ai-gateway/issues/2290)）；
+- OpenAI / DeepSeek `usage.prompt_tokens` **已包含** cache 命中部分。
+
+三处解析（`UpdateCtxByUsage`、`SSEEvent.GetQuotaUsage`、`RawEvent.GetQuotaUsage`）的 Claude fallback 直接把 `input_tokens` 赋给 `PromptTokens`，导致 `calcChatCost` 中 `normalInput = promptTokens - cacheReadTokens` 在 cache 命中很高时为 0：**fresh token 被计费为 0**。此外 100% cache 命中（`input_tokens = 0`）时 `used = 0`，usage 被误判为 guess 而丢弃。
+
+### 7.2 修复方案
+
+1. **解析层归一化**：Claude fallback 分支中 `PromptTokens = input_tokens + cacheRead + cacheWrite`（总输入 token 数，与 OpenAI `prompt_tokens` 语义一致），`UsedQuota = PromptTokens + CompletionTokens`。100% cache 命中场景随之变为可识别（不再被当成 guess）。
+2. **计费层拆分**：`calcChatCost` 中 `normalInput = max(promptTokens - cacheReadTokens - cacheWriteTokens, 0)`，cache write 从 normal input 中扣除，避免 cache creation token 既按输入全价又按 cache 写入价重复计费；audio input 的预截断基准同步扣除 cache write。
+
+### 7.3 影响
+
+- Anthropic + 高 cache 命中：fresh token 恢复按输入全价计费，cache read 按 `cache_read_input_token_cost` 计费，cache write 按 `cache_creation_input_token_cost` 计费，与上游账单一致。
+- OpenAI / DeepSeek：`cacheWriteTokens` 恒为 0，计费行为不变。
+- 未配置 cache 价格时回退公式 `promptTokens * inputCost` 因 `PromptTokens` 归一化为总输入而变得更准确（此前对 Anthropic 只按 fresh 部分计费）。

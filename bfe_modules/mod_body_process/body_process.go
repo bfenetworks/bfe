@@ -466,6 +466,8 @@ func (e *RawEvent) GetQuotaUsage() QuotaUsage {
 		if cacheWrite == 0 {
 			cacheWrite = gjson.GetBytes(*e, "usage.cache_creation_input_tokens").Int()
 		}
+		// Anthropic input_tokens excludes cache read/write tokens; normalize to total input.
+		prompt += cacheRead + cacheWrite
 		if used == 0 {
 			used = prompt + completion
 		}

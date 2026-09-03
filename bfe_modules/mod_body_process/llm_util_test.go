@@ -144,6 +144,41 @@ func TestSSEEventGetQuotaUsage_DeepSeekCache(t *testing.T) {
 	}
 }
 
+func TestSSEEventGetQuotaUsage_AnthropicCache(t *testing.T) {
+	// Anthropic message_start: input_tokens excludes cache read/write tokens;
+	// PromptTokens must be normalized to the total input.
+	ev := &SSEEvent{DataLines: [][]byte{[]byte(`{"type":"message_start","usage":{"input_tokens":320,"output_tokens":0,"cache_read_input_tokens":8000,"cache_creation_input_tokens":200}}`)}}
+	q := ev.GetQuotaUsage()
+	if q.PromptTokens != 8520 {
+		t.Errorf("expected PromptTokens 8520 (320+8000+200), got %d", q.PromptTokens)
+	}
+	if q.CompletionTokens != 0 {
+		t.Errorf("expected CompletionTokens 0, got %d", q.CompletionTokens)
+	}
+	if q.CacheReadTokens != 8000 {
+		t.Errorf("expected CacheReadTokens 8000, got %d", q.CacheReadTokens)
+	}
+	if q.CacheWriteTokens != 200 {
+		t.Errorf("expected CacheWriteTokens 200, got %d", q.CacheWriteTokens)
+	}
+	if q.UsedQuota != 8520 {
+		t.Errorf("expected UsedQuota 8520, got %d", q.UsedQuota)
+	}
+	if q.IsGuess {
+		t.Error("expected IsGuess false for full-cache-hit message_start")
+	}
+
+	// Full cache hit: input_tokens = 0, usage must still be recognized.
+	ev2 := &SSEEvent{DataLines: [][]byte{[]byte(`{"type":"message_start","usage":{"input_tokens":0,"output_tokens":0,"cache_read_input_tokens":5000}}`)}}
+	q2 := ev2.GetQuotaUsage()
+	if q2.PromptTokens != 5000 || q2.CacheReadTokens != 5000 {
+		t.Errorf("expected PromptTokens/CacheReadTokens 5000, got %d/%d", q2.PromptTokens, q2.CacheReadTokens)
+	}
+	if q2.IsGuess {
+		t.Error("expected IsGuess false for 100% cache hit")
+	}
+}
+
 func TestSSEEventSetJsonField(t *testing.T) {
 	ev := &SSEEvent{DataLines: [][]byte{[]byte(`{"text":"hello"}`)}}
 	if err := ev.SetJsonField("text", "world"); err != nil {

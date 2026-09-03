@@ -278,10 +278,10 @@ func FromRedisValue(value int64, unit string) float64
 
 ```go
 type TokenUsage struct {
-    PromptTokens      int64 // 请求侧 Token 数（包含 cache_read_tokens、audio_input_tokens、image_input_tokens）
+    PromptTokens      int64 // 请求侧 Token 数（包含 cache_read_tokens、cache_write_tokens、audio_input_tokens、image_input_tokens）
     CompletionTokens  int64 // 响应侧 Token 数（包含 audio_output_tokens）
     CacheReadTokens   int64 // 从 cache 读取的 Token 数，已包含在 PromptTokens 中
-    CacheWriteTokens  int64 // 写入 cache 的 Token 数，独立附加项
+    CacheWriteTokens  int64 // 写入 cache 的 Token 数，已包含在 PromptTokens 中
     AudioInputTokens  int64 // 音频输入 Token 数，已包含在 PromptTokens 中
     AudioOutputTokens int64 // 音频输出 Token 数，已包含在 CompletionTokens 中
     ImageInputTokens  int64 // 图片输入 Token 数，已包含在 PromptTokens 中
@@ -631,8 +631,11 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
     if audioInputTokens < 0 {
         audioInputTokens = 0
     }
-    if audioInputTokens > promptTokens-cacheReadTokens {
-        audioInputTokens = promptTokens - cacheReadTokens
+    if audioInputTokens > promptTokens-cacheReadTokens-cacheWriteTokens {
+        audioInputTokens = promptTokens - cacheReadTokens - cacheWriteTokens
+        if audioInputTokens < 0 {
+            audioInputTokens = 0
+        }
     }
     if audioOutputTokens < 0 {
         audioOutputTokens = 0
@@ -651,9 +654,12 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
     normalInput := promptTokens
     normalOutput := completionTokens
 
-    // cache-aware billing: split cache read from prompt
+    // cache-aware billing: split cache read/write from prompt.
+    // PromptTokens is the total input (for Anthropic it is normalized to
+    // input_tokens + cache read + cache write at parse time), so both cache
+    // parts must be removed to get the normal (fresh) input tokens.
     if cacheReadCost > 0 || cacheWriteCost > 0 {
-        normalInput = promptTokens - cacheReadTokens
+        normalInput = promptTokens - cacheReadTokens - cacheWriteTokens
         if normalInput < 0 {
             normalInput = 0
         }
@@ -748,14 +754,14 @@ cost = image_count * output_cost_per_image
 
 在 `calcChatCost` 中，RMB 成本按如下优先级拆分：
 
-1. **Cache read 从 prompt 中剥离**：若配置了 `cache_read_input_token_cost`，则 `normal_input = prompt_tokens - cache_read_tokens`。`cache_read_tokens` 除直接读取 `usage.cache_read_tokens` 外，也支持 DeepSeek 的 `usage.prompt_cache_hit_tokens` / `usage.prompt_tokens_details.cached_tokens` 字段，以及 Responses API 的 `usage.input_token_details.cached_tokens` 字段。
+1. **Cache read/write 从 prompt 中剥离**：若配置了 `cache_read_input_token_cost` 或 `cache_creation_input_token_cost`，则 `normal_input = max(prompt_tokens - cache_read_tokens - cache_write_tokens, 0)`。`cache_read_tokens` 除直接读取 `usage.cache_read_tokens` 外，也支持 DeepSeek 的 `usage.prompt_cache_hit_tokens` / `usage.prompt_tokens_details.cached_tokens` 字段，以及 Responses API 的 `usage.input_token_details.cached_tokens` 字段。`PromptTokens` 为总输入 token 数；对 Anthropic 协议，解析时已把 `input_tokens`（仅含 cache miss）归一化为 `input_tokens + cache_read_input_tokens + cache_creation_input_tokens`，与 OpenAI `prompt_tokens` 语义一致。
 2. **Image input 从剩余 normal input 中剥离**：若配置了 `input_cost_per_image_token`，则 `image_input_tokens` 按图片 input 价格计费，其余仍按普通 input 价格计费。
 3. **Audio input 从剩余 normal input 中剥离**：若配置了 `input_cost_per_audio_token`，则 `audio_input_tokens` 按 audio 价格计费，其余仍按普通 input 价格计费。
 4. **Audio output 从 completion 中剥离**：若配置了 `output_cost_per_audio_token`，则 `audio_output_tokens` 按 audio 价格计费，其余仍按普通 output 价格计费。
-5. **Cache write 独立计费**：`cache_write_tokens` 不参与 prompt/completion 总量拆分，单独按 `cache_creation_input_token_cost` 计费。
+5. **Cache write 独立计费**：`cache_write_tokens` 单独按 `cache_creation_input_token_cost` 计费，同时从 `normal_input` 中扣除，避免重复计费。
 6. **未配置子项价格时回退**：若某类子项价格未配置（`<= 0`），对应子项仍按普通 input/output 价格计费，保证向后兼容。
 
-> **计费修复说明**： Anthropic 协议下 `prompt_tokens` 仅包含 cache miss 部分，`cache_read_tokens` 可能远大于 `prompt_tokens`。旧逻辑曾对 `cache_read_tokens` 做 `min(prompt_tokens)` 截断，导致高 cache 命中场景少收；修复后已移除该截断，仅保留 `normal_input = max(prompt_tokens - cache_read_tokens, 0)` 的非负保护。
+> **计费修复说明**： Anthropic 协议下 `input_tokens` 仅包含 cache miss 部分，`cache_read_input_tokens` 可能远大于 `input_tokens`。旧逻辑曾对 `cache_read_tokens` 做 `min(prompt_tokens)` 截断，导致高 cache 命中场景少收；第一次修复移除了截断，但 `normal_input = max(prompt_tokens - cache_read_tokens, 0)` 仍把 cache miss（fresh）token 计费为 0。第二次修复在解析层把 `PromptTokens` 归一化为总输入 token 数（`input_tokens + cache_read + cache_write`），并让 `normal_input` 同时扣除 cache read 与 cache write，保证 fresh token 按输入全价计费、cache 子项不重复计费。
 
 #### 视频生成计费公式
 
