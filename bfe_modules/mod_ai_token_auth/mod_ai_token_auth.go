@@ -29,6 +29,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_http"
+	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 )
@@ -113,60 +114,21 @@ func (m *ModuleAITokenAuth) matchTokenRule(req *bfe_basic.Request) bool {
 }
 
 func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
-	var used, prompt, completion, cacheRead, cacheWrite, audioInput, audioOutput, imageInput, imageCount, videoCount int64
-
-	used = gjson.GetBytes(data, "usage.total_tokens").Int()
-	prompt = gjson.GetBytes(data, "usage.prompt_tokens").Int()
-	completion = gjson.GetBytes(data, "usage.completion_tokens").Int()
-	cacheRead = gjson.GetBytes(data, "usage.cache_read_tokens").Int()
-	cacheWrite = gjson.GetBytes(data, "usage.cache_write_tokens").Int()
-	audioInput = gjson.GetBytes(data, "usage.audio_input_tokens").Int()
-	audioOutput = gjson.GetBytes(data, "usage.audio_output_tokens").Int()
-	imageInput = gjson.GetBytes(data, "usage.input_token_details.image_tokens").Int()
-	if imageInput == 0 {
-		imageInput = gjson.GetBytes(data, "usage.image_input_tokens").Int()
-	}
-	imageCount = gjson.GetBytes(data, "usage.image_count").Int()
-	if imageCount == 0 {
-		imageCount = gjson.GetBytes(data, "data.#").Int()
-	}
-	videoCount = gjson.GetBytes(data, "usage.video_count").Int()
-	if videoCount == 0 {
-		videoCount = gjson.GetBytes(data, "data.#").Int()
-	}
-
-	// DeepSeek fallback: prompt_cache_hit_tokens / prompt_tokens_details.cached_tokens
-	if cacheRead == 0 {
-		cacheRead = gjson.GetBytes(data, "usage.prompt_cache_hit_tokens").Int()
-	}
-	if cacheRead == 0 {
-		cacheRead = gjson.GetBytes(data, "usage.prompt_tokens_details.cached_tokens").Int()
-	}
-
-	// Responses API fallback: input_token_details.cached_tokens
-	if cacheRead == 0 {
-		cacheRead = gjson.GetBytes(data, "usage.input_token_details.cached_tokens").Int()
-	}
-
-	// Claude fallback: input_tokens / output_tokens / cache_read_input_tokens / cache_creation_input_tokens
-	if prompt == 0 && completion == 0 {
-		prompt = gjson.GetBytes(data, "usage.input_tokens").Int()
-		completion = gjson.GetBytes(data, "usage.output_tokens").Int()
-		if cacheRead == 0 {
-			cacheRead = gjson.GetBytes(data, "usage.cache_read_input_tokens").Int()
-		}
-		if cacheWrite == 0 {
-			cacheWrite = gjson.GetBytes(data, "usage.cache_creation_input_tokens").Int()
-		}
-		// Anthropic input_tokens only counts fresh (cache-missing) tokens and
-		// excludes cache read/write tokens. Normalize PromptTokens to the total
-		// input token count so downstream cost splitting (prompt - cacheRead -
-		// cacheWrite) works the same as the OpenAI/DeepSeek semantics.
-		prompt += cacheRead + cacheWrite
-		if used == 0 {
-			used = prompt + completion
-		}
-	}
+	// The protocol/auth style is identified per request before the response
+	// is processed (GetApiKey / DetectAuthStyle), so the adapter for
+	// aiMeta.AuthStyle carries the same usage chain the legacy all-chain
+	// extraction applied to this response.
+	fields := modelprotocol.Get(ctx.aiBasicInfo.AuthStyle).ExtractUsageFields(data)
+	used := fields.UsedQuota
+	prompt := fields.PromptTokens
+	completion := fields.CompletionTokens
+	cacheRead := fields.CacheReadTokens
+	cacheWrite := fields.CacheWriteTokens
+	audioInput := fields.AudioInputTokens
+	audioOutput := fields.AudioOutputTokens
+	imageInput := fields.ImageInputTokens
+	imageCount := fields.ImageCount
+	videoCount := fields.VideoCount
 
 	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
 	if used > 0 {
@@ -291,16 +253,7 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 
 func SetApiKey(req *bfe_http.Request, apiKey string, authStyle string) {
 	// set api key according to protocol/auth style
-	if apiKey == "" {
-		return
-	}
-
-	switch authStyle {
-	case bfe_basic.AuthStyleAnthropic:
-		req.Header.Set("x-api-key", apiKey)
-	default:
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
-	}
+	_ = modelprotocol.Get(authStyle).InjectAuth(req, apiKey)
 }
 
 func GetApiKey(req *bfe_basic.Request) string {

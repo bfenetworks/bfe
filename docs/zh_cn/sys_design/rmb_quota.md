@@ -442,11 +442,11 @@ DeepSeek 与 OpenAI Responses API 在 usage 中使用与常规 OpenAI/Claude 不
 - `usage.prompt_tokens_details.cached_tokens`（DeepSeek / OpenAI）
 - `usage.input_token_details.cached_tokens`（Responses API）
 
-BFE 在以下三处解析中，当 `cache_read_tokens` / `cache_read_input_tokens` 为 0 时，会依次 fallback 到上述字段：
+BFE 在以下三处解析中，当 `cache_read_tokens` / `cache_read_input_tokens` 为 0 时，会依次 fallback 到上述字段（2026-09 起，字段链实现已收敛到协议适配层 `bfe/bfe_model_protocol/`，见 `sys_design/model_protocol_adapter.md`；三处调用方仅保留累加语义，行为不变）：
 
-- `bfe_modules/mod_ai_token_auth/mod_ai_token_auth.go`：`UpdateCtxByUsage`（非流式）
-- `bfe_modules/mod_body_process/llm_util.go`：`SSEEvent.GetQuotaUsage`（SSE 流式）
-- `bfe_modules/mod_body_process/body_process.go`：`RawEvent.GetQuotaUsage`（RawEvent 非流式）
+- `bfe_modules/mod_ai_token_auth/mod_ai_token_auth.go`：`UpdateCtxByUsage`（非流式，按 `AuthStyle` 委托适配器 `ExtractUsageFields`）
+- `bfe_modules/mod_body_process/llm_util.go`：`SSEEvent.GetQuotaUsage`（SSE 流式，经共享 helper `extractUsageFields`）
+- `bfe_modules/mod_body_process/body_process.go`：`RawEvent.GetQuotaUsage`（RawEvent 非流式，同上）
 
 这样无论后端返回哪种字段名，`TokenUsage.CacheReadTokens` 都能被正确填充，后续 `calcChatCost` 按统一逻辑拆分计费。
 

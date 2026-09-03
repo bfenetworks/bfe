@@ -32,6 +32,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/server_cert_conf"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/session_ticket_key_conf"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/tls_rule_conf"
+	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_route"
 	"github.com/bfenetworks/bfe/bfe_util/bns"
 )
@@ -49,6 +50,11 @@ func (srv *BfeServer) InitDataLoad() error {
 	srv.ServerConf = serverConf
 	srv.ReverseProxy.setTransports(srv.ServerConf.ClusterTable.ClusterMap())
 	log.Logger.Info("init serverDataConf success")
+
+	// validate AIConf.ModelProtocols against known model protocols
+	if err := validateClusterModelProtocols(serverConf); err != nil {
+		return fmt.Errorf("InitDataLoad():validateClusterModelProtocols Error %s", err)
+	}
 
 	// load bal table
 	if err := srv.balTable.Init(srv.Config.Server.GslbConf,
@@ -72,6 +78,24 @@ func (srv *BfeServer) InitDataLoad() error {
 		log.Logger.Info("init name conf success")
 	}
 
+	return nil
+}
+
+// validateClusterModelProtocols checks that every cluster's
+// AIConf.ModelProtocols contains only protocols known to the model-protocol
+// registry. An empty list is valid (defaults to ["openai"]).
+func validateClusterModelProtocols(serverConf *bfe_route.ServerDataConf) error {
+	if serverConf == nil || serverConf.ClusterTable == nil {
+		return nil
+	}
+	for clusterName, cluster := range serverConf.ClusterTable.ClusterMap() {
+		if cluster == nil || cluster.AIConf == nil {
+			continue
+		}
+		if err := modelprotocol.ValidateProtocols(cluster.AIConf.ModelProtocols); err != nil {
+			return fmt.Errorf("cluster %s: %s", clusterName, err)
+		}
+	}
 	return nil
 }
 
@@ -106,6 +130,13 @@ func (srv *BfeServer) serverDataConfReload(hostFile, vipFile, routeFile, cluster
 	newServerConf, err := bfe_route.LoadServerDataConf(hostFile, vipFile, routeFile, clusterConfFile)
 	if err != nil {
 		log.Logger.Error("ServerDataConfReload():bfe_route.LoadServerDataConf: %s", err)
+		return err
+	}
+
+	// validate AIConf.ModelProtocols against known model protocols before
+	// swapping in the new config
+	if err := validateClusterModelProtocols(newServerConf); err != nil {
+		log.Logger.Error("ServerDataConfReload():validateClusterModelProtocols: %s", err)
 		return err
 	}
 
