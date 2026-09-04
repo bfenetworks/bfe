@@ -141,6 +141,11 @@ type AiBasicInfo struct {
     ClusterKeyNames []ClusterKeyName  // 802 ai_cluster_key_names
 
     allowEstimateToken bool
+    // 请求完成状态（issue #1352，不参与访问日志输出，详见 rmb_quota.md 6.4）：
+    // responseCompleted 表示上游响应正常完成；finalUsageSeen 表示已解析到最终 usage
+    // （Anthropic message_start 的初始 usage 不算）
+    responseCompleted bool
+    finalUsageSeen    bool
 }
 
 type TokenUsage struct {

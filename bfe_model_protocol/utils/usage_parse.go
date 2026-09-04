@@ -86,15 +86,35 @@ func ParseOpenAIUsageFields(data []byte) UsageFields {
 // excludes cache read/write tokens. Normalize PromptTokens to the total
 // input token count so downstream cost splitting (prompt - cacheRead -
 // cacheWrite) works the same as the OpenAI/DeepSeek semantics.
+//
+// In streaming responses the initial usage is nested under message.usage
+// (message_start); the final usage arrives in the top-level usage of the
+// message_delta event. Both shapes are accepted.
 func ParseAnthropicUsageFields(data []byte) UsageFields {
 	var fields UsageFields
 
-	fields.PromptTokens = gjson.GetBytes(data, "usage.input_tokens").Int()
-	fields.CompletionTokens = gjson.GetBytes(data, "usage.output_tokens").Int()
+	prompt := gjson.GetBytes(data, "usage.input_tokens")
+	completion := gjson.GetBytes(data, "usage.output_tokens")
+	if !prompt.Exists() && !completion.Exists() {
+		// streaming message_start nests usage under message.usage
+		prompt = gjson.GetBytes(data, "message.usage.input_tokens")
+		completion = gjson.GetBytes(data, "message.usage.output_tokens")
+	}
+	fields.PromptTokens = prompt.Int()
+	fields.CompletionTokens = completion.Int()
 	fields.CacheReadTokens = gjson.GetBytes(data, "usage.cache_read_input_tokens").Int()
+	if fields.CacheReadTokens == 0 {
+		fields.CacheReadTokens = gjson.GetBytes(data, "message.usage.cache_read_input_tokens").Int()
+	}
 	fields.CacheWriteTokens = gjson.GetBytes(data, "usage.cache_creation_input_tokens").Int()
+	if fields.CacheWriteTokens == 0 {
+		fields.CacheWriteTokens = gjson.GetBytes(data, "message.usage.cache_creation_input_tokens").Int()
+	}
 	fields.PromptTokens += fields.CacheReadTokens + fields.CacheWriteTokens
 	fields.UsedQuota = gjson.GetBytes(data, "usage.total_tokens").Int()
+	if fields.UsedQuota == 0 {
+		fields.UsedQuota = gjson.GetBytes(data, "message.usage.total_tokens").Int()
+	}
 	if fields.UsedQuota == 0 {
 		fields.UsedQuota = fields.PromptTokens + fields.CompletionTokens
 	}

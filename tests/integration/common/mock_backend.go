@@ -58,6 +58,16 @@ type MockBackend struct {
 	ResponseFunc func(r *http.Request, count int) (int, string)
 	// ResponseHeaders, if non-nil, is written to the response before the status code.
 	ResponseHeaders   map[string]string
+	// SSEEvents, if non-nil, switches the handler to server-sent event mode:
+	// each entry is written as one "data: <event>\n\n" frame followed by a
+	// flush. ResponseFunc/Response/Body are ignored in this mode.
+	SSEEvents []string
+	// SSEHold, if non-nil, blocks the handler after SSEEvents have been
+	// flushed and before SSETrailing is written. Closing it releases the stream.
+	SSEHold <-chan struct{}
+	// SSETrailing, if non-nil, is written (and flushed) after SSEHold is
+	// released, simulating backend data arriving after a client abort.
+	SSETrailing []string
 	hits              int
 	mu                sync.Mutex
 	models            []string
@@ -125,6 +135,27 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 		if b.ResponseFunc != nil {
 			status, body = b.ResponseFunc(r, count)
 		}
+
+		if b.SSEEvents != nil {
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.WriteHeader(status)
+			flusher, _ := w.(http.Flusher)
+			writeSSE := func(events []string) {
+				for _, event := range events {
+					fmt.Fprintf(w, "data: %s\n\n", event)
+					if flusher != nil {
+						flusher.Flush()
+					}
+				}
+			}
+			writeSSE(b.SSEEvents)
+			if b.SSEHold != nil {
+				<-b.SSEHold
+			}
+			writeSSE(b.SSETrailing)
+			return
+		}
+
 		for k, v := range b.ResponseHeaders {
 			w.Header().Set(k, v)
 		}

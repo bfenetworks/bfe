@@ -815,6 +815,7 @@ func TestTokenRequestFinishHandler_NoDuplicateDeduction(t *testing.T) {
 	usage.PromptTokens = 100
 	usage.CompletionTokens = 200
 	usage.UsedQuota = 300
+	ai.MarkFinalUsageSeen()
 
 	res := &bfe_http.Response{StatusCode: 200, ContentLength: -1}
 	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
@@ -955,6 +956,7 @@ func TestTokenRequestFinishHandler_RMB_Streaming(t *testing.T) {
 	usage.PromptTokens = 100
 	usage.CompletionTokens = 200
 	usage.UsedQuota = 300
+	ai.MarkFinalUsageSeen()
 
 	// input_cost=0.000003 yuan/token, output_cost=0.000009 yuan/token
 	// Expected cost = 100*0.000003 + 200*0.000009 = 0.0021 yuan
@@ -1105,6 +1107,7 @@ func TestTokenRequestFinishHandler_RMB_Cache_Streaming(t *testing.T) {
 	usage.CacheReadTokens = 5000
 	usage.CacheWriteTokens = 1000
 	usage.UsedQuota = 9500
+	ai.MarkFinalUsageSeen()
 
 	res := &bfe_http.Response{StatusCode: 200, ContentLength: -1}
 	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
@@ -1435,6 +1438,7 @@ func TestTokenRequestFinishHandler_RMB_Audio_Streaming(t *testing.T) {
 	usage.AudioInputTokens = 1000
 	usage.AudioOutputTokens = 200
 	usage.UsedQuota = 4500
+	ai.MarkFinalUsageSeen()
 
 	res := &bfe_http.Response{StatusCode: 200, ContentLength: -1}
 	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
@@ -1847,5 +1851,160 @@ func TestCalcCostUnits_Tier(t *testing.T) {
 	peakExpected := 1000*quota.RmbToFixedPoint(0.000009) + 500*quota.RmbToFixedPoint(0.000027)
 	if got != offPeakExpected && got != peakExpected {
 		t.Errorf("cost = %d, want either off-peak %d or peak %d", got, offPeakExpected, peakExpected)
+	}
+}
+
+// Issue #1352: a client abort (RST/close/write-fail) before the final usage
+// must not be billed by full-request estimation.
+func TestTokenRequestFinishHandler_ClientAbortNoFinalUsage(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+
+	cluster := buildTestClusterConf(model, 0.000003, 0.000009)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-ClientAbortNoFinalUsage",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	// Seed the prompt token estimate as done at auth time when EstimateToken=true.
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan}}, 100, nil)
+	ai := req.GetAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+
+	// Client aborts right after message_start: ErrClientWrite, no final usage.
+	req.ErrCode = bfe_basic.ErrClientWrite
+
+	res := &bfe_http.Response{StatusCode: 200, ContentLength: -1}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if _, ok := client.data[rmbPlan.RedisKey]; ok {
+		t.Errorf("client abort without final usage must not be deducted")
+	}
+	if !GetTokenAuthContext(req).deducted {
+		t.Errorf("expected request context to be marked deducted")
+	}
+
+	// EstimateToken=false behaves the same.
+	req2 := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	req2.SvrDataConf = req.SvrDataConf
+	rmbPlan2 := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-ClientAbortNoFinalUsage2",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req2, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan2}}, 100, nil)
+	req2.ErrCode = bfe_basic.ErrClientWrite
+	if ret := m.tokenRequestFinishHandler(req2, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+	if _, ok := client.data[rmbPlan2.RedisKey]; ok {
+		t.Errorf("client abort without final usage must not be deducted (EstimateToken=false)")
+	}
+}
+
+// Issue #1352: if the final usage was already seen, a later client abort is
+// still billed by the actual usage.
+func TestTokenRequestFinishHandler_ClientAbortWithFinalUsage(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+
+	cluster := buildTestClusterConf(model, 0.000003, 0.000009)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-ClientAbortWithFinalUsage",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+
+	ai := req.GetAiBasicInfo()
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 100
+	usage.CompletionTokens = 200
+	usage.UsedQuota = 300
+	ai.MarkFinalUsageSeen()
+
+	req.ErrCode = bfe_basic.ErrClientWrite
+
+	res := &bfe_http.Response{StatusCode: 200, ContentLength: -1}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	// Expected cost = 100*0.000003 + 200*0.000009 = 0.0021 yuan
+	expectedCost := quota.RmbToFixedPoint(0.0021)
+	if remaining := client.data[rmbPlan.RedisKey]; remaining != rmbPlan.Quota-expectedCost {
+		t.Errorf("expected remaining %d, got %d", rmbPlan.Quota-expectedCost, remaining)
+	}
+}
+
+// Issue #1352: EstimateToken estimation only applies to completed responses;
+// a response cut before completion must not be estimated by full request size.
+func TestTokenRequestFinishHandler_EstimateRequiresCompletedResponse(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+
+	cluster := buildTestClusterConf(model, 0.000003, 0.000009)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-EstimateRequiresCompletion",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan}}, 100, nil)
+	ai := req.GetAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+	ai.GetTokenUsage().CompletionTokens = 50
+
+	res := &bfe_http.Response{StatusCode: 200, ContentLength: -1}
+
+	// Response not completed yet: estimation must not kick in.
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+	if _, ok := client.data[rmbPlan.RedisKey]; ok {
+		t.Errorf("incomplete response must not be estimated and deducted")
+	}
+
+	// Response completes (e.g. message_stop seen): estimation applies.
+	// The first call reset the estimated values, so seed them again.
+	ctx := GetTokenAuthContext(req)
+	ctx.deducted = false
+	ai.MarkResponseCompleted()
+	ai.GetTokenUsage().PromptTokens = 100
+	ai.GetTokenUsage().CompletionTokens = 50
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	// Expected cost = 100*0.000003 + 50*0.000009 = 0.00075 yuan
+	expectedCost := quota.RmbToFixedPoint(0.00075)
+	if remaining := client.data[rmbPlan.RedisKey]; remaining != rmbPlan.Quota-expectedCost {
+		t.Errorf("expected remaining %d, got %d", rmbPlan.Quota-expectedCost, remaining)
 	}
 }

@@ -169,9 +169,14 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 	}
 	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
 	if res.StatusCode == bfe_http.StatusOK && res.ContentLength >= 0 {
+		// The full non-streaming body was read: the response is complete.
+		ctx.aiBasicInfo.MarkResponseCompleted()
 		if bodyAccessor, err := res.GetBodyAccessor(); err == nil {
 			body, _ := bodyAccessor.GetBytes()
 			UpdateCtxByUsage(ctx, body)
+		}
+		if tokenUsage.UsedQuota > 0 {
+			ctx.aiBasicInfo.MarkFinalUsageSeen()
 		}
 		if tokenUsage.UsedQuota <= 0 && ctx.aiBasicInfo.IsAllowEstimateToken() {
 			tokenUsage.CompletionTokens = int64(res.ContentLength) / 4                                         // estimate completion tokens
@@ -188,6 +193,15 @@ func CalcReqUsedQuota(req *bfe_basic.Request, promptTokens, completionTokens int
 		return 0
 	}
 	return promptTokens + completionTokens
+}
+
+// isClientAbortErr reports whether err is a client-side abort error:
+// the client reset/closed the connection or the response could not be
+// written to the client.
+func isClientAbortErr(err error) bool {
+	return err == bfe_basic.ErrClientWrite ||
+		err == bfe_basic.ErrClientClose ||
+		err == bfe_basic.ErrClientReset
 }
 
 func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
@@ -211,8 +225,27 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 		return bfe_module.BfeHandlerGoOn
 	}
 
+	// Client aborted (RST/close/write-fail) before the final usage was
+	// seen: never bill by full-request estimation (issue #1352).
+	aborted := isClientAbortErr(req.ErrCode)
+	if aborted && !ctx.aiBasicInfo.IsFinalUsageSeen() {
+		ctx.deducted = true
+		return bfe_module.BfeHandlerGoOn
+	}
+
 	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
-	if tokenUsage.UsedQuota <= 0 && ctx.aiBasicInfo.IsAllowEstimateToken() {
+	// Values populated by EstimateToken (prompt tokens seeded from request
+	// size, completion tokens accumulated from response content) are only
+	// billable when the response completed normally. Reset them otherwise:
+	// calcCostUnits below bills from the token fields directly, so guarding
+	// UsedQuota alone is not enough.
+	estimateBillable := ctx.aiBasicInfo.IsAllowEstimateToken() && ctx.aiBasicInfo.IsResponseCompleted()
+	if !ctx.aiBasicInfo.IsFinalUsageSeen() && !estimateBillable {
+		tokenUsage.PromptTokens = 0
+		tokenUsage.CompletionTokens = 0
+		tokenUsage.UsedQuota = 0
+	}
+	if tokenUsage.UsedQuota <= 0 && estimateBillable {
 		tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens) // calculate used quota
 	}
 

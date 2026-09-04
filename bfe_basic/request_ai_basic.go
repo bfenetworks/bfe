@@ -107,6 +107,16 @@ type AiBasicInfo struct {
 	ClusterKeyNames []ClusterKeyName // tried (cluster, key) pairs during request processing
 
 	allowEstimateToken bool
+
+	// responseCompleted marks whether the upstream response finished
+	// normally: the termination event was seen for streaming responses
+	// (e.g. Anthropic message_stop, OpenAI [DONE]) or the full body was
+	// read for non-streaming responses.
+	responseCompleted bool
+	// finalUsageSeen marks whether the final usage was parsed from the
+	// response. An initial usage such as Anthropic message_start
+	// (output_tokens = 0) does not count.
+	finalUsageSeen bool
 }
 
 // ClusterKeyName represents a tried cluster and API-Key pair during request processing
@@ -125,6 +135,22 @@ func (aiinfo *AiBasicInfo) SetAllowEstimateToken(allow bool) {
 
 func (aiinfo *AiBasicInfo) IsAllowEstimateToken() bool {
 	return aiinfo.allowEstimateToken
+}
+
+func (aiinfo *AiBasicInfo) MarkResponseCompleted() {
+	aiinfo.responseCompleted = true
+}
+
+func (aiinfo *AiBasicInfo) IsResponseCompleted() bool {
+	return aiinfo.responseCompleted
+}
+
+func (aiinfo *AiBasicInfo) MarkFinalUsageSeen() {
+	aiinfo.finalUsageSeen = true
+}
+
+func (aiinfo *AiBasicInfo) IsFinalUsageSeen() bool {
+	return aiinfo.finalUsageSeen
 }
 
 func GetApiKey(req *Request) string {

@@ -43,6 +43,30 @@ func TestExtractUsageFieldsClaudeCache(t *testing.T) {
 	}
 }
 
+func TestExtractUsageFieldsClaudeStreamingMessageUsage(t *testing.T) {
+	// Real Anthropic streaming nests the initial usage under message.usage
+	// (message_start); the final usage arrives in the top-level usage of
+	// message_delta. Both shapes must be parsed (issue #1352).
+	start := []byte(`{"type":"message_start","message":{"id":"msg_1","usage":{"input_tokens":320,"output_tokens":0,"cache_read_input_tokens":8000,"cache_creation_input_tokens":200}}}`)
+	f := New().ExtractUsageFields(start)
+	want := utils.UsageFields{
+		UsedQuota:        8520,
+		PromptTokens:     8520,
+		CompletionTokens: 0,
+		CacheReadTokens:  8000,
+		CacheWriteTokens: 200,
+	}
+	if f != want {
+		t.Errorf("message_start: got %+v, want %+v", f, want)
+	}
+
+	delta := []byte(`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":150}}`)
+	f = New().ExtractUsageFields(delta)
+	if f.CompletionTokens != 150 || f.UsedQuota != 150 {
+		t.Errorf("message_delta: got %+v, want CompletionTokens 150 UsedQuota 150", f)
+	}
+}
+
 func TestExtractUsageFieldsFullCacheHit(t *testing.T) {
 	// 100% cache hit: input_tokens = 0. Usage must still be recognized.
 	data := []byte(`{"type":"message_start","usage":{"input_tokens":0,"output_tokens":42,"cache_read_input_tokens":5000}}`)
