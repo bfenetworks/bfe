@@ -179,7 +179,7 @@ http_conn.serveRequest()
 拆分后：
 
 - **openai 适配器**：OpenAI 主链 + DeepSeek + Responses fallback（无 Claude 链）；
-- **anthropic 适配器**：Claude 链（含 prompt 归一）。
+- **anthropic 适配器**：Claude 链（含 prompt 归一）。2026-09-04 起增加真实流式报文结构解析（issue #1352）：Anthropic 流式 `message_start` 的初始 usage 位于 `message.usage.*`（此前只解析顶层 `usage.*`），`message_delta` 的最终 usage 位于顶层 `usage.*`，两条路径均支持。
 
 等价性：各链互斥（OpenAI 系响应有 `prompt_tokens`；Claude 有 `input_tokens`；全零→estimate），按协议拆分后与全链结果逐字段等价。
 

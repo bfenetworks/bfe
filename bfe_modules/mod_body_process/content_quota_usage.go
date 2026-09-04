@@ -38,14 +38,21 @@ func NewQuotaUsageProcessor(req *bfe_basic.Request, res *bfe_http.Response) *Quo
 func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 	tctx := caf.aiBasicInfo.GetTokenUsage()
 	for _, ev := range events {
-		// data, err := GetAuditData(ev)
-		// if err != nil {
-		// 	log.Logger.Error("failed to get audit data: %v", err)
-		// 	continue // 如果获取数据失败，跳过当前事件
-		// }
+		rquota := ev.GetQuotaUsage()
+		// Track response completion for billing decisions (issue #1352),
+		// regardless of whether usage was already collected.
+		if rquota.IsFinalUsage || (!rquota.IsGuess && (rquota.ImageCount > 0 || rquota.VideoCount > 0)) {
+			caf.aiBasicInfo.MarkFinalUsageSeen()
+		}
+		if rquota.IsTermination {
+			caf.aiBasicInfo.MarkResponseCompleted()
+		}
+
 		curCompletionToken := int64(0)
-		if tctx.UsedQuota <= 0 {
-			rquota := ev.GetQuotaUsage()
+		// The final usage event (e.g. Anthropic message_delta) must always be
+		// processed, even if an initial usage (message_start) was already
+		// collected; otherwise the completion tokens would be lost.
+		if tctx.UsedQuota <= 0 || rquota.IsFinalUsage {
 			curCompletionToken = rquota.CurrentTokens
 			if !rquota.IsGuess {
 				// not got usage yet, try to get from event data
@@ -57,6 +64,19 @@ func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 					tctx.VideoCount = rquota.VideoCount
 					tctx.UsedQuota = rquota.VideoCount
 				} else if rquota.UsedQuota > 0 {
+					if rquota.IsFinalUsage && rquota.PromptTokens == 0 && tctx.PromptTokens > 0 {
+						// Anthropic message_delta carries only output tokens;
+						// keep the prompt (and sub-token) fields parsed earlier
+						// from message_start.
+						rquota.PromptTokens = tctx.PromptTokens
+						rquota.CacheReadTokens = tctx.CacheReadTokens
+						rquota.CacheWriteTokens = tctx.CacheWriteTokens
+						rquota.AudioInputTokens = tctx.AudioInputTokens
+						rquota.AudioOutputTokens = tctx.AudioOutputTokens
+						rquota.ImageInputTokens = tctx.ImageInputTokens
+						rquota.VideoCount = tctx.VideoCount
+						rquota.UsedQuota = rquota.PromptTokens + rquota.CompletionTokens
+					}
 					tctx.CompletionTokens = rquota.CompletionTokens
 					tctx.PromptTokens = rquota.PromptTokens
 					tctx.CacheReadTokens = rquota.CacheReadTokens

@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
@@ -48,6 +49,10 @@ type QuotaUsage struct {
 	//estimate for current response
 	CurrentTokens int64 //effect when IsGuess is true
 	IsGuess       bool  //true = is estimate
+
+	//response completion status (issue #1352)
+	IsFinalUsage  bool //true = this event carries the final usage of the response
+	IsTermination bool //true = this event terminates the response stream (message_stop, [DONE])
 }
 
 type SSEEvent struct {
@@ -162,6 +167,23 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 		curtoken = EstimateContentToken(string(data))
 	}
 
+	// Detect stream termination and final usage (issue #1352).
+	// Anthropic streams end with message_stop; the final usage arrives in
+	// the preceding message_delta event. The usage in message_start is
+	// initial only (output_tokens = 0) and must not be treated as final.
+	// OpenAI streams end with [DONE]; when stream_options.include_usage is
+	// set, the final chunk carries the usage.
+	evType := gjson.GetBytes(data, "type").String()
+	isTermination := evType == "message_stop" || strings.TrimSpace(string(data)) == "[DONE]"
+	isFinalUsage := false
+	if !isguess && fields.CompletionTokens > 0 {
+		if evType == "message_delta" || evType == "" {
+			// Anthropic message_delta, or a protocol-agnostic final usage
+			// chunk (e.g. OpenAI with stream_options.include_usage)
+			isFinalUsage = true
+		}
+	}
+
 	return QuotaUsage{
 		PromptTokens:      fields.PromptTokens,
 		CompletionTokens:  fields.CompletionTokens,
@@ -175,6 +197,8 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 		UsedQuota:         fields.UsedQuota,
 		CurrentTokens:     curtoken,
 		IsGuess:           isguess,
+		IsFinalUsage:      isFinalUsage,
+		IsTermination:     isTermination,
 	}
 }
 

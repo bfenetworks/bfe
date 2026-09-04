@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 )
 
@@ -429,5 +430,79 @@ func TestBPError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "BodyProcessError") {
 		t.Error("Error should contain BodyProcessError prefix")
+	}
+}
+
+// Issue #1352: the quota usage processor tracks response completion so that
+// aborted requests are not billed by full-request estimation.
+func TestQuotaUsageProcessorMarksResponseCompletion(t *testing.T) {
+	sseEvent := func(data string) Event {
+		return &SSEEvent{DataLines: [][]byte{[]byte(data)}}
+	}
+
+	newProcessor := func() (*QuotaUsageProcessor, *bfe_basic.AiBasicInfo) {
+		httpReq, _ := bfe_http.NewRequest("POST", "http://example.com/v1/chat/completions", nil)
+		req := bfe_basic.NewRequest(httpReq, nil, nil, nil, nil)
+		ai := req.InitAiBasicInfo()
+		res := &bfe_http.Response{StatusCode: 200}
+		return NewQuotaUsageProcessor(req, res), ai
+	}
+
+	// Stream cut right after message_start (client abort): neither the final
+	// usage nor stream completion was seen.
+	p, ai := newProcessor()
+	events := []Event{
+		sseEvent(`{"type":"message_start","usage":{"input_tokens":320,"output_tokens":0}}`),
+	}
+	if _, err := p.Process(events); err != nil {
+		t.Fatalf("Process failed: %v", err)
+	}
+	if ai.IsFinalUsageSeen() {
+		t.Error("message_start usage must not be treated as final usage")
+	}
+	if ai.IsResponseCompleted() {
+		t.Error("stream without message_stop must not be treated as completed")
+	}
+
+	// Full stream: message_delta carries the final usage, message_stop
+	// terminates the stream.
+	p, ai = newProcessor()
+	events = []Event{
+		sseEvent(`{"type":"message_start","usage":{"input_tokens":320,"output_tokens":0}}`),
+		sseEvent(`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":15}}`),
+		sseEvent(`{"type":"message_stop"}`),
+	}
+	if _, err := p.Process(events); err != nil {
+		t.Fatalf("Process failed: %v", err)
+	}
+	if !ai.IsFinalUsageSeen() {
+		t.Error("expected final usage seen after message_delta")
+	}
+	if !ai.IsResponseCompleted() {
+		t.Error("expected response completed after message_stop")
+	}
+	// message_delta carries only output tokens; the prompt tokens parsed
+	// from message_start must be preserved in the merged usage.
+	usage := ai.GetTokenUsage()
+	if usage.PromptTokens != 320 || usage.CompletionTokens != 15 || usage.UsedQuota != 335 {
+		t.Errorf("expected merged usage prompt=320 completion=15 quota=335, got %d/%d/%d",
+			usage.PromptTokens, usage.CompletionTokens, usage.UsedQuota)
+	}
+
+	// OpenAI stream with [DONE] terminator.
+	p, ai = newProcessor()
+	events = []Event{
+		sseEvent(`{"id":"chatcmpl-1","choices":[{"delta":{"content":"hi"}}]}`),
+		sseEvent(`{"id":"chatcmpl-1","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}`),
+		sseEvent(`[DONE]`),
+	}
+	if _, err := p.Process(events); err != nil {
+		t.Fatalf("Process failed: %v", err)
+	}
+	if !ai.IsFinalUsageSeen() {
+		t.Error("expected final usage seen after OpenAI final usage chunk")
+	}
+	if !ai.IsResponseCompleted() {
+		t.Error("expected response completed after [DONE]")
 	}
 }

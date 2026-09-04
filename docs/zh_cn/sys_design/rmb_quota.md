@@ -322,6 +322,31 @@ type QuotaPlan struct {
 - `Unit = "total_token"`：`Unlimited=false` 时 `Quota > 0`。
 - `Unit = "RMB"`：`Unlimited=false` 时 `Quota >= 0`。
 
+### 6.4 `AiBasicInfo` 请求完成状态
+
+`bfe/bfe_basic/request_ai_basic.go`
+
+为区分"响应正常完成但缺少 usage"与"客户端中断/写失败"两类场景（issue #1352），`AiBasicInfo` 增加两个状态字段：
+
+```go
+type AiBasicInfo struct {
+    // ... 原有字段 ...
+    allowEstimateToken bool
+
+    // responseCompleted：上游响应是否正常完成
+    // （流式：收到终止事件，如 Anthropic message_stop、OpenAI [DONE]；
+    //  非流式：完整读取响应体）
+    responseCompleted bool
+    // finalUsageSeen：是否已解析到最终 usage。
+    // Anthropic message_start 的初始 usage（output_tokens = 0）不算。
+    finalUsageSeen bool
+}
+```
+
+- `mod_body_process`（流式）在解析到最终 usage / 终止事件时置位，见 7.4。
+- `mod_ai_token_auth`（非流式）在 `tokenReadResponseHandler` 完整读取响应体后置位，见 7.4。
+- 计费语义：EstimateToken 的估算值仅在 `responseCompleted` 为 true 时可计费；客户端中断（`ErrClientWrite` / `ErrClientClose` / `ErrClientReset`）且未拿到最终 usage 的请求零扣费，已拿到最终 usage 的按实际 usage 扣费，见 7.5。
+
 ## 7. 请求运行时改动
 
 ### 7.1 认证阶段：`ValidateUserTokenByReq`
@@ -408,9 +433,14 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
     }
     tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
     if res.StatusCode == bfe_http.StatusOK && res.ContentLength >= 0 {
+        // 完整读取非流式响应体：响应视为完成（issue #1352）
+        ctx.aiBasicInfo.MarkResponseCompleted()
         if bodyAccessor, err := res.GetBodyAccessor(); err == nil {
             body, _ := bodyAccessor.GetBytes()
             UpdateCtxByUsage(ctx, body)
+        }
+        if tokenUsage.UsedQuota > 0 {
+            ctx.aiBasicInfo.MarkFinalUsageSeen()
         }
         if tokenUsage.UsedQuota <= 0 && ctx.aiBasicInfo.IsAllowEstimateToken() {
             tokenUsage.CompletionTokens = int64(res.ContentLength) / 4
@@ -433,6 +463,23 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 - 当遇到包含 `usage` 的最后一个事件时，将 `PromptTokens` / `CompletionTokens` / `UsedQuota` 写入 `AiBasicInfo.TokenUsage`。
 
 因此，到请求结束阶段，`tokenUsage.PromptTokens` 和 `tokenUsage.CompletionTokens` 已经就绪，无论流式还是非流式都可以统一计算 RMB 成本。
+
+#### 流式响应的完成状态与最终 usage（issue #1352）
+
+SSE 事件的 `QuotaUsage` 携带 `IsFinalUsage` / `IsTermination` 标志（`bfe_modules/mod_body_process/llm_util.go` 的 `SSEEvent.GetQuotaUsage`）：
+
+| 事件 | IsFinalUsage | IsTermination |
+|------|--------------|---------------|
+| Anthropic `message_start`（初始 usage，`output_tokens = 0`） | false | false |
+| Anthropic `message_delta`（最终 usage，`output_tokens > 0`） | true | false |
+| Anthropic `message_stop` | - | true |
+| OpenAI 最终 usage chunk（`stream_options.include_usage`，无 `type` 且 `completion_tokens > 0`） | true | false |
+| OpenAI `[DONE]` | - | true |
+
+`QuotaUsageProcessor.Process` 据此在 `AiBasicInfo` 上置位 `MarkFinalUsageSeen()` / `MarkResponseCompleted()`（图片/视频按次计费事件同样置位 `finalUsageSeen`），并做两件与计费正确性相关的事：
+
+1. **最终 usage 合并**：Anthropic `message_delta` 只携带输出 token。原实现在 `message_start` 设置 `UsedQuota` 后，`message_delta` 的 completion tokens 会被 `UsedQuota <= 0` 门槛忽略，导致输出 token 漏计；现改为 `UsedQuota <= 0 || IsFinalUsage` 都进入处理，`message_delta` 落账时从已解析的上下文补齐 prompt 及子 token 字段（`UsedQuota = prompt + completion`）。
+2. **真实报文结构解析**：线上 Anthropic 流式的初始 usage 位于 `message_start.message.usage`，`bfe_model_protocol/utils/usage_parse.go` 的 `ParseAnthropicUsageFields` 增加 `message.usage.*` 回退路径。
 
 #### DeepSeek / Responses API cache 字段兜底
 
@@ -477,8 +524,26 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
         return bfe_module.BfeHandlerGoOn
     }
 
+    // 客户端中断（RST/断开/写客户端失败）且未拿到最终 usage：零扣费（issue #1352）。
+    // 注意 SSE 场景下响应头已以 200 刷出，res.StatusCode 无区分度，必须看 req.ErrCode。
+    aborted := isClientAbortErr(req.ErrCode) // ErrClientWrite / ErrClientClose / ErrClientReset
+    if aborted && !ctx.aiBasicInfo.IsFinalUsageSeen() {
+        ctx.deducted = true
+        return bfe_module.BfeHandlerGoOn
+    }
+
     tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
-    if tokenUsage.UsedQuota <= 0 && ctx.aiBasicInfo.IsAllowEstimateToken() {
+    // EstimateToken 播种的值（鉴权阶段按请求体长度估算的 prompt、
+    // 流式按内容长度累加的 completion）只有响应正常完成时才可计费。
+    // calcCostUnits 直接按 token 字段计费、与 UsedQuota 守卫无关，
+    // 因此不可计费时必须把估算字段清零，否则鉴权阶段的估算值会流向扣费。
+    estimateBillable := ctx.aiBasicInfo.IsAllowEstimateToken() && ctx.aiBasicInfo.IsResponseCompleted()
+    if !ctx.aiBasicInfo.IsFinalUsageSeen() && !estimateBillable {
+        tokenUsage.PromptTokens = 0
+        tokenUsage.CompletionTokens = 0
+        tokenUsage.UsedQuota = 0
+    }
+    if tokenUsage.UsedQuota <= 0 && estimateBillable {
         tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
     }
 
@@ -516,6 +581,15 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
     return bfe_module.BfeHandlerGoOn
 }
 ```
+
+计费判定规则汇总（issue #1352）：
+
+| 场景 | finalUsageSeen | 扣费 |
+|------|----------------|------|
+| 正常完成，有 usage | true | 按实际 usage |
+| 正常完成，无 usage + EstimateToken | false（responseCompleted=true） | 按估算计费 |
+| 客户端中断/写失败，未拿到最终 usage | false | 零扣费 |
+| 客户端中断/写失败，已拿到最终 usage | true | 按实际 usage |
 
 ### 7.6 成本计算辅助方法
 
@@ -1145,7 +1219,8 @@ return {yuan, frac}
      - 覆盖 chat 模式下 `image_input_tokens` 从 normal input 中拆分计费；
      - 覆盖 Anthropic 高 cache 命中场景（`cache_read_tokens > prompt_tokens`）不再被截断，cache 按实际值计费；
      - 覆盖 `tokenRequestFinishHandler` 对 `/count_tokens` 端点跳过扣费；
-     - 覆盖 `HandleRequestFinish` 多次触发时仅扣费一次（`deducted` 幂等标记）。
+     - 覆盖 `HandleRequestFinish` 多次触发时仅扣费一次（`deducted` 幂等标记）；
+     - 覆盖客户端中断场景（issue #1352）：`ErrClientWrite` 且未拿到最终 usage 时零扣费（`EstimateToken` 开/关一致）、已拿到最终 usage 后中断按实际 usage 扣费、响应未完成时估算不生效（`TestTokenRequestFinishHandler_ClientAbort*` 系列）。
    - `ActiveTierName`：验证北京时区周一 10:00 命中 `peak`、周一 13:00 未命中、周六 10:00 未命中、周一 18:00 不命中（左闭右开）。
    - `GetPriceInt`：验证命中 `peak` 时取 `TierPrices.peak`、未命中时 fallback 到 `Prices`、tier 中未配置某键时 fallback 到默认价格。
 
@@ -1165,6 +1240,7 @@ return {yuan, frac}
    - 测试 Responses API 计费场景：请求 `/v1/responses`，`ModelTable` 配置 `input_cost_per_token` / `output_cost_per_token`，后端返回 `usage.input_tokens` / `output_tokens`，验证按 chat 公式扣减；
    - 测试 Anthropic `/count_tokens` 端点不计费：请求 `/anthropic/v1/messages/count_tokens`，验证 RMB 与 token 配额均不被扣减；
    - 测试计费幂等场景：模拟 `HandleRequestFinish` 被触发两次，验证 Redis 余额只扣减一次；
+   - 测试客户端中断场景（issue #1352，集成测试场景 SC12）：EstimateToken = true，客户端在 `message_start` 后发送 TCP RST，验证零扣费；收到最终 usage 后中断，验证仍按实际 usage 扣费；完整 SSE 流计费不变；
    - 测试分时段计费场景：`ModelTable` 配置 `Tiers` 与 `TierPrices`；分别在北京时间高峰时段（如周一 10:00）与非高峰时段（如周一 13:00 或周六 10:00）发起请求，验证 Redis 扣减金额分别按 `TierPrices.peak` 与默认 `Prices` 计算。
    - 测试分时段 + cache 命中组合场景：高峰时段且后端返回 `usage.cache_read_tokens`（或 DeepSeek 的 `usage.prompt_cache_hit_tokens` / `usage.prompt_tokens_details.cached_tokens`），验证缓存命中部分按 `TierPrices.peak.cache_read_input_token_cost` 计费，未命中部分按 `TierPrices.peak.input_cost_per_token` 计费。
 
@@ -1185,3 +1261,4 @@ return {yuan, frac}
    - 移除 `cache_read_tokens > prompt_tokens` 截断后，Anthropic 高 cache 命中场景的计费会 **上升**，这是修正错误少收后的正确行为；
    - `count_tokens` 端点此前被误扣费，修复后该端点不再扣费，运营侧需在计费对账层单独处理历史差异；
    - `deducted` 幂等标记仅防止同一请求生命周期内的重复扣费，不跨请求生效，不影响正常流量。
+10. **EstimateToken 语义收窄**（issue #1352）：`EstimateToken = true` 播种的估算值仅在响应正常完成时计费；客户端中断（RST/断开/写客户端失败）且未拿到最终 usage 的请求零扣费，已拿到最终 usage 的按实际 usage 扣费。客户端中断请求的收费金额会 **下降**（从按全量估算变为零扣费或按实际 usage），历史多扣需在计费对账层单独处理。

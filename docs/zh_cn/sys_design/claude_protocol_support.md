@@ -131,6 +131,11 @@ type AiBasicInfo struct {
     ClusterKeyNames []ClusterKeyName
 
     allowEstimateToken bool
+    // 请求完成状态（issue #1352，详见 rmb_quota.md 6.4）：
+    // responseCompleted 表示上游响应正常完成；finalUsageSeen 表示已解析到最终 usage
+    // （Anthropic message_start 的初始 usage 不算）
+    responseCompleted bool
+    finalUsageSeen    bool
 }
 ```
 
@@ -213,10 +218,12 @@ func DetectAuthStyle(req *Request) string {
   - `usage.cache_read_input_tokens` → `CacheReadTokens`；
   - `usage.cache_creation_input_tokens` → `CacheWriteTokens`；
   - `UsedQuota` 由归一化后的 `input + output` 推导。
+  - 2026-09-04 起（issue #1352）：流式 `message_start` 的初始 usage 位于 `message.usage.*`，解析时增加该路径回退；`message_start` 的初始 usage（`output_tokens = 0`）不得当作最终 usage，最终 usage 以 `message_delta` 为准。
 
 ### 5.5 `mod_body_process`
 
 - `SSEEvent.GetQuotaUsage()` 与 `RawEvent.GetQuotaUsage()` 同样支持 Claude usage 字段 fallback；
+- 2026-09-04 起（issue #1352）：`QuotaUsage` 携带 `IsFinalUsage` / `IsTermination` 标志，`QuotaUsageProcessor.Process` 据此在 `AiBasicInfo` 上置位 `finalUsageSeen` / `responseCompleted`，并把 `message_delta` 的最终 usage 与 `message_start` 的输入 token 合并落账（详见 `rmb_quota.md` 7.4）；
 - 继续负责流式场景的 `TTFT` / `TPOT` 计算。
 
 ### 5.6 `mod_access_pb3`

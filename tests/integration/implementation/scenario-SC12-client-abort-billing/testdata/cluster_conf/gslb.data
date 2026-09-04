@@ -1,0 +1,10 @@
+{
+    "clusters": {
+        "cluster_client_abort": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_client_abort": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20260720150000"
+}

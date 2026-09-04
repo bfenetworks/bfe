@@ -247,3 +247,67 @@ func TestSSEEventDecoderEOF(t *testing.T) {
 		t.Errorf("expected 0 events, got %d", len(events))
 	}
 }
+
+func TestSSEEventGetQuotaUsage_CompletionFlags(t *testing.T) {
+	tests := []struct {
+		name            string
+		data            string
+		wantTermination bool
+		wantFinalUsage  bool
+	}{
+		{
+			// Anthropic initial usage: output_tokens = 0, must not be final
+			name:            "anthropic message_start",
+			data:            `{"type":"message_start","usage":{"input_tokens":320,"output_tokens":0}}`,
+			wantTermination: false,
+			wantFinalUsage:  false,
+		},
+		{
+			// Anthropic final usage arrives in message_delta
+			name:            "anthropic message_delta",
+			data:            `{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":15}}`,
+			wantTermination: false,
+			wantFinalUsage:  true,
+		},
+		{
+			name:            "anthropic message_stop",
+			data:            `{"type":"message_stop"}`,
+			wantTermination: true,
+			wantFinalUsage:  false,
+		},
+		{
+			// OpenAI stream termination marker
+			name:            "openai done",
+			data:            `[DONE]`,
+			wantTermination: true,
+			wantFinalUsage:  false,
+		},
+		{
+			// OpenAI final chunk with stream_options.include_usage
+			name:            "openai final usage chunk",
+			data:            `{"id":"chatcmpl-1","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}`,
+			wantTermination: false,
+			wantFinalUsage:  true,
+		},
+		{
+			// Intermediate chunk without usage is neither final nor termination
+			name:            "openai intermediate chunk",
+			data:            `{"id":"chatcmpl-1","choices":[{"delta":{"content":"hi"}}]}`,
+			wantTermination: false,
+			wantFinalUsage:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ev := &SSEEvent{DataLines: [][]byte{[]byte(tt.data)}}
+			q := ev.GetQuotaUsage()
+			if q.IsTermination != tt.wantTermination {
+				t.Errorf("IsTermination = %v, want %v", q.IsTermination, tt.wantTermination)
+			}
+			if q.IsFinalUsage != tt.wantFinalUsage {
+				t.Errorf("IsFinalUsage = %v, want %v", q.IsFinalUsage, tt.wantFinalUsage)
+			}
+		})
+	}
+}
