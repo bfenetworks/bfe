@@ -123,7 +123,7 @@ BFE 在 `doSingleAIForward()` 中根据请求特征识别协议/认证风格（`
 识别结果写入 `AiBasicInfo.AuthStyle`，并用于：
 
 1. **协议匹配校验**：比较 `AuthStyle` 与 `cluster.AIConf.ModelProtocols`，不匹配时直接返回 400 `PROVIDER_PROTOCOL_MISMATCH`；
-2. **认证头注入**：`mod_ai_token_auth.SetApiKey()` 按 `AuthStyle` 注入 `Authorization: Bearer`（OpenAI）或 `x-api-key`（Anthropic）；
+2. **认证头注入**：`mod_ai_token_auth.SetApiKey()` 按 `AuthStyle` 注入 `Authorization: Bearer`（OpenAI）或 `x-api-key`（Anthropic）（2026-09 起内部委托协议适配层 `bfe/bfe_model_protocol/` 的适配器 `InjectAuth`，见 `sys_design/model_protocol_adapter.md`）；
 3. **版本头注入**：Anthropic 风格下自动补 `anthropic-version: 2023-06-01`。
 
 `AIConf.ModelProtocols` 为空时默认仅支持 `openai`，保证旧配置向后兼容。

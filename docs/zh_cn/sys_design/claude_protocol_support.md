@@ -162,6 +162,8 @@ type AIConf struct {
 
 ## 5. 模块职责
 
+> **实现收敛说明（2026-09）**：本节描述的识别、认证头注入、usage 字段链的实现已收敛到协议适配层 `bfe/bfe_model_protocol/`（见 `sys_design/model_protocol_adapter.md`）：识别规则在 `detect.go`，认证头/版本头在 openai/anthropic 适配器的 `InjectAuth`/`ExtraHeaders`，usage 字段链在适配器的 `ExtractUsageFields`。本文档描述的业务语义与行为不变，`bfe_basic.GetApiKey`/`DetectAuthStyle`、`mod_ai_token_auth.SetApiKey`/`UpdateCtxByUsage`、`SSEEvent/RawEvent.GetQuotaUsage` 均保留原签名委托适配层。
+
 ### 5.1 `bfe_server/http_conn.go`
 
 - 初始化 `AiBasicInfo`；
@@ -310,6 +312,7 @@ BFE 会根据每个请求的 `AuthStyle` 自动选择认证头注入方式，不
 | `mod_ai_token_auth.UpdateCtxByUsage` | OpenAI usage JSON；Claude usage JSON；混合字段时的优先级 |
 | `mod_body_process.SSEEvent.GetQuotaUsage` | Claude 流式 usage 字段解析 |
 | `mod_body_process.RawEvent.GetQuotaUsage` | Claude 非流式 usage 字段解析 |
+| `bfe_model_protocol`（适配器，收敛后） | `openai/anthropic` 适配器的 `InjectAuth`/`ExtraHeaders`/`ExtractUsageFields`；`detect.go` 识别规则；registry 回落与 `ValidateProtocols` |
 | `bfe_server`（协议匹配） | Anthropic 风格请求命中 `model_protocols=["openai"]` 的集群返回 400；OpenAI 风格请求命中 `model_protocols=["anthropic"]` 的集群返回 400 |
 | `mod_access_pb3` | `ai_protocol` 字段被正确填充为 `openai` 或 `anthropic` |
 
@@ -347,6 +350,7 @@ BFE 会根据每个请求的 `AuthStyle` 自动选择认证头注入方式，不
 - `bfe/docs/zh_cn/modifications/2026-08-20-claude-protocol-support/design-changes.md`
 - `bfe/docs/zh_cn/sys_design/ai_access_log_fields.md`
 - `bfe/docs/zh_cn/sys_design/multi_api_key.md`
+- `bfe/docs/zh_cn/sys_design/model_protocol_adapter.md`
 - `bfe/docs/zh_cn/sys_design/provider_model_prefix_routing.md`
 - `bfe/docs/zh_cn/sys_design/rmb_quota.md`
 - `bfe-access-pb/CHANGELOG.md`

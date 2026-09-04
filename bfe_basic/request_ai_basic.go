@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_model_protocol"
 )
 
 const (
@@ -127,27 +128,15 @@ func (aiinfo *AiBasicInfo) IsAllowEstimateToken() bool {
 }
 
 func GetApiKey(req *Request) string {
-	// 1. prefer Authorization: Bearer <key> for OpenAI style
-	authHeader := req.HttpRequest.Header.Get("Authorization")
-	if authHeader != "" {
-		// remove "Bearer " prefix if exists
-		authHeader = strings.TrimPrefix(authHeader, "Bearer ")
-		authHeader = strings.TrimPrefix(authHeader, "sk-")
+	protocol, key := bfe_model_protocol.DetectProtocolAndKey(req.HttpRequest)
+	// preserve the legacy side effect: AuthStyle is set only when a
+	// credential header was found (Authorization preferred over x-api-key)
+	if protocol != "" {
 		if ai := req.GetAiBasicInfo(); ai != nil {
-			ai.AuthStyle = AuthStyleOpenAI
+			ai.AuthStyle = protocol
 		}
-		return authHeader
 	}
-
-	// 2. fallback to x-api-key for Anthropic style
-	if xApiKey := req.HttpRequest.Header.Get("x-api-key"); xApiKey != "" {
-		if ai := req.GetAiBasicInfo(); ai != nil {
-			ai.AuthStyle = AuthStyleAnthropic
-		}
-		return xApiKey
-	}
-
-	return ""
+	return key
 }
 
 // DetectAuthStyle infers the AI protocol/auth style from request characteristics.
@@ -157,18 +146,7 @@ func DetectAuthStyle(req *Request) string {
 		return AuthStyleUnknown
 	}
 
-	path := req.HttpRequest.URL.Path
-	if strings.HasPrefix(path, "/v1/messages") {
-		return AuthStyleAnthropic
-	}
-
-	// x-api-key without Authorization indicates Anthropic style
-	if req.HttpRequest.Header.Get("x-api-key") != "" &&
-		req.HttpRequest.Header.Get("Authorization") == "" {
-		return AuthStyleAnthropic
-	}
-
-	return AuthStyleOpenAI
+	return bfe_model_protocol.DetectProtocol(req.HttpRequest)
 }
 
 // DetectModeFromPath infers the AI request mode from the request path.

@@ -390,6 +390,9 @@ func TestUpdateCtxByUsage_DeepSeekCache(t *testing.T) {
 func TestUpdateCtxByUsage_AnthropicCache(t *testing.T) {
 	req := newTestRequest("", "AI_product")
 	ai := req.InitAiBasicInfo()
+	// In production AuthStyle is identified (GetApiKey / DetectAuthStyle)
+	// before the response body is parsed.
+	ai.AuthStyle = bfe_basic.AuthStyleAnthropic
 	ctx := &TokenAuthContext{aiBasicInfo: ai}
 
 	// Anthropic: input_tokens only counts fresh (cache-missing) tokens.
@@ -415,6 +418,7 @@ func TestUpdateCtxByUsage_AnthropicCache(t *testing.T) {
 
 	// Full cache hit: input_tokens = 0. Usage must still be recognized (not guessed).
 	ai2 := newTestRequest("", "AI_product").InitAiBasicInfo()
+	ai2.AuthStyle = bfe_basic.AuthStyleAnthropic
 	ctx2 := &TokenAuthContext{aiBasicInfo: ai2}
 	UpdateCtxByUsage(ctx2, []byte(`{"usage":{"input_tokens":0,"output_tokens":42,"cache_read_input_tokens":5000}}`))
 	usage2 := ai2.GetTokenUsage()

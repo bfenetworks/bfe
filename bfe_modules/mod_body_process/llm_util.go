@@ -22,8 +22,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+)
+
+import (
+	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
+	"github.com/bfenetworks/bfe/bfe_model_protocol/utils"
 )
 
 const UnknownModel = "unknown"
@@ -122,77 +126,53 @@ func (e *SSEEvent) GetAuditData() []byte {
 	return e.GetData()
 }
 
+// extractUsageFields extracts usage fields from one response body by
+// composing the protocol adapters: the openai adapter chain first, then
+// the anthropic (Claude) chain when no OpenAI-style prompt/completion
+// tokens are present. This mirrors the legacy all-chain extraction
+// field-for-field.
+func extractUsageFields(data []byte) modelprotocol.UsageFields {
+	fields := modelprotocol.Get(modelprotocol.ProtocolOpenAI).ExtractUsageFields(data)
+	if fields.PromptTokens == 0 && fields.CompletionTokens == 0 {
+		claude := modelprotocol.Get(modelprotocol.ProtocolAnthropic).ExtractUsageFields(data)
+		fields.PromptTokens = claude.PromptTokens
+		fields.CompletionTokens = claude.CompletionTokens
+		if fields.CacheReadTokens == 0 {
+			fields.CacheReadTokens = claude.CacheReadTokens
+		}
+		if fields.CacheWriteTokens == 0 {
+			fields.CacheWriteTokens = claude.CacheWriteTokens
+		}
+		if fields.UsedQuota == 0 {
+			fields.UsedQuota = claude.UsedQuota
+		}
+	}
+	return fields
+}
+
 func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 	data := e.GetData()
-	used := gjson.GetBytes(data, "usage.total_tokens").Int()
-	prompt := gjson.GetBytes(data, "usage.prompt_tokens").Int()
-	completion := gjson.GetBytes(data, "usage.completion_tokens").Int()
-	cacheRead := gjson.GetBytes(data, "usage.cache_read_tokens").Int()
-	cacheWrite := gjson.GetBytes(data, "usage.cache_write_tokens").Int()
-	audioInput := gjson.GetBytes(data, "usage.audio_input_tokens").Int()
-	audioOutput := gjson.GetBytes(data, "usage.audio_output_tokens").Int()
-	imageInput := gjson.GetBytes(data, "usage.input_token_details.image_tokens").Int()
-	if imageInput == 0 {
-		imageInput = gjson.GetBytes(data, "usage.image_input_tokens").Int()
-	}
-	imageCount := gjson.GetBytes(data, "usage.image_count").Int()
-	if imageCount == 0 {
-		imageCount = gjson.GetBytes(data, "data.#").Int()
-	}
-	videoCount := gjson.GetBytes(data, "usage.video_count").Int()
-	if videoCount == 0 {
-		videoCount = gjson.GetBytes(data, "data.#").Int()
-	}
-
-	// DeepSeek fallback: prompt_cache_hit_tokens / prompt_tokens_details.cached_tokens
-	if cacheRead == 0 {
-		cacheRead = gjson.GetBytes(data, "usage.prompt_cache_hit_tokens").Int()
-	}
-	if cacheRead == 0 {
-		cacheRead = gjson.GetBytes(data, "usage.prompt_tokens_details.cached_tokens").Int()
-	}
-
-	// Responses API fallback: input_token_details.cached_tokens
-	if cacheRead == 0 {
-		cacheRead = gjson.GetBytes(data, "usage.input_token_details.cached_tokens").Int()
-	}
-
-	// Claude fallback: input_tokens / output_tokens / cache_read_input_tokens / cache_creation_input_tokens
-	if prompt == 0 && completion == 0 {
-		prompt = gjson.GetBytes(data, "usage.input_tokens").Int()
-		completion = gjson.GetBytes(data, "usage.output_tokens").Int()
-		if cacheRead == 0 {
-			cacheRead = gjson.GetBytes(data, "usage.cache_read_input_tokens").Int()
-		}
-		if cacheWrite == 0 {
-			cacheWrite = gjson.GetBytes(data, "usage.cache_creation_input_tokens").Int()
-		}
-		// Anthropic input_tokens excludes cache read/write tokens; normalize to total input.
-		prompt += cacheRead + cacheWrite
-		if used == 0 {
-			used = prompt + completion
-		}
-	}
+	fields := extractUsageFields(data)
 
 	curtoken := int64(0)
 	isguess := true
-	if used > 0 || imageCount > 0 || videoCount > 0 {
+	if fields.UsedQuota > 0 || fields.ImageCount > 0 || fields.VideoCount > 0 {
 		isguess = false
 	} else {
 		curtoken = EstimateContentToken(string(data))
 	}
 
 	return QuotaUsage{
-		PromptTokens:      prompt,
-		CompletionTokens:  completion,
-		CacheReadTokens:   cacheRead,
-		CacheWriteTokens:  cacheWrite,
-		AudioInputTokens:  audioInput,
-		AudioOutputTokens: audioOutput,
-		ImageInputTokens:  imageInput,
-		VideoCount:        videoCount,
-		ImageCount:        imageCount,
-		UsedQuota:         used,
+		PromptTokens:      fields.PromptTokens,
+		CompletionTokens:  fields.CompletionTokens,
+		CacheReadTokens:   fields.CacheReadTokens,
+		CacheWriteTokens:  fields.CacheWriteTokens,
+		AudioInputTokens:  fields.AudioInputTokens,
+		AudioOutputTokens: fields.AudioOutputTokens,
+		ImageInputTokens:  fields.ImageInputTokens,
+		VideoCount:        fields.VideoCount,
+		ImageCount:        fields.ImageCount,
+		UsedQuota:         fields.UsedQuota,
 		CurrentTokens:     curtoken,
 		IsGuess:           isguess,
 	}
@@ -335,6 +315,9 @@ func remarshal(src any, dst any) error {
 	return json.Unmarshal(b, dst)
 }
 
+// EstimateContentToken estimates the token count of a response body chunk
+// (roughly 4 bytes per token). The implementation lives in
+// bfe_model_protocol/utils and is kept re-exported here for compatibility.
 func EstimateContentToken(val string) int64 {
-	return int64(len(val)) / 4
+	return utils.EstimateContentToken(val)
 }

@@ -23,7 +23,6 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
-	"github.com/tidwall/gjson"
 )
 
 // BodyProcessor 扩展中断支持
@@ -420,76 +419,28 @@ func (e *RawEvent) ToBytes() []byte {
 }
 
 func (e *RawEvent) GetQuotaUsage() QuotaUsage {
+	data := *e
+	fields := extractUsageFields(data)
+
 	curtoken := int64(0)
 	isguess := true
-
-	used := gjson.GetBytes(*e, "usage.total_tokens").Int()
-	prompt := gjson.GetBytes(*e, "usage.prompt_tokens").Int()
-	completion := gjson.GetBytes(*e, "usage.completion_tokens").Int()
-	cacheRead := gjson.GetBytes(*e, "usage.cache_read_tokens").Int()
-	cacheWrite := gjson.GetBytes(*e, "usage.cache_write_tokens").Int()
-	audioInput := gjson.GetBytes(*e, "usage.audio_input_tokens").Int()
-	audioOutput := gjson.GetBytes(*e, "usage.audio_output_tokens").Int()
-	imageInput := gjson.GetBytes(*e, "usage.input_token_details.image_tokens").Int()
-	if imageInput == 0 {
-		imageInput = gjson.GetBytes(*e, "usage.image_input_tokens").Int()
-	}
-	imageCount := gjson.GetBytes(*e, "usage.image_count").Int()
-	if imageCount == 0 {
-		imageCount = gjson.GetBytes(*e, "data.#").Int()
-	}
-	videoCount := gjson.GetBytes(*e, "usage.video_count").Int()
-	if videoCount == 0 {
-		videoCount = gjson.GetBytes(*e, "data.#").Int()
-	}
-
-	// DeepSeek fallback: prompt_cache_hit_tokens / prompt_tokens_details.cached_tokens
-	if cacheRead == 0 {
-		cacheRead = gjson.GetBytes(*e, "usage.prompt_cache_hit_tokens").Int()
-	}
-	if cacheRead == 0 {
-		cacheRead = gjson.GetBytes(*e, "usage.prompt_tokens_details.cached_tokens").Int()
-	}
-
-	// Responses API fallback: input_token_details.cached_tokens
-	if cacheRead == 0 {
-		cacheRead = gjson.GetBytes(*e, "usage.input_token_details.cached_tokens").Int()
-	}
-
-	// Claude fallback: input_tokens / output_tokens / cache_read_input_tokens / cache_creation_input_tokens
-	if prompt == 0 && completion == 0 {
-		prompt = gjson.GetBytes(*e, "usage.input_tokens").Int()
-		completion = gjson.GetBytes(*e, "usage.output_tokens").Int()
-		if cacheRead == 0 {
-			cacheRead = gjson.GetBytes(*e, "usage.cache_read_input_tokens").Int()
-		}
-		if cacheWrite == 0 {
-			cacheWrite = gjson.GetBytes(*e, "usage.cache_creation_input_tokens").Int()
-		}
-		// Anthropic input_tokens excludes cache read/write tokens; normalize to total input.
-		prompt += cacheRead + cacheWrite
-		if used == 0 {
-			used = prompt + completion
-		}
-	}
-
-	if used > 0 || imageCount > 0 || videoCount > 0 {
+	if fields.UsedQuota > 0 || fields.ImageCount > 0 || fields.VideoCount > 0 {
 		isguess = false
 	} else {
-		curtoken = EstimateContentToken(string(*e))
+		curtoken = EstimateContentToken(string(data))
 	}
 
 	return QuotaUsage{
-		PromptTokens:      prompt,
-		CompletionTokens:  completion,
-		CacheReadTokens:   cacheRead,
-		CacheWriteTokens:  cacheWrite,
-		AudioInputTokens:  audioInput,
-		AudioOutputTokens: audioOutput,
-		ImageInputTokens:  imageInput,
-		VideoCount:        videoCount,
-		ImageCount:        imageCount,
-		UsedQuota:         used,
+		PromptTokens:      fields.PromptTokens,
+		CompletionTokens:  fields.CompletionTokens,
+		CacheReadTokens:   fields.CacheReadTokens,
+		CacheWriteTokens:  fields.CacheWriteTokens,
+		AudioInputTokens:  fields.AudioInputTokens,
+		AudioOutputTokens: fields.AudioOutputTokens,
+		ImageInputTokens:  fields.ImageInputTokens,
+		VideoCount:        fields.VideoCount,
+		ImageCount:        fields.ImageCount,
+		UsedQuota:         fields.UsedQuota,
 		CurrentTokens:     curtoken,
 		IsGuess:           isguess,
 	}

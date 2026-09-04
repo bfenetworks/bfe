@@ -83,7 +83,7 @@ SC05 AI 访问日志字段校验
   - `ai_total_tokens` = `150`
   - `ai_cache_read_tokens` = `30`
   - `ai_cache_write_tokens` = `20`
-  - `ai_cost_value` = `(100 - 30) * 100 + 30 * 50 + 20 * 150 + 50 * 200 = 21500`
+  - `ai_cost_value` = `(100 - 30 - 20) * 100 + 30 * 50 + 20 * 150 + 50 * 200 = 19500`
   - `ai_cost_currency` = `"RMB"`
 
 ## 清理

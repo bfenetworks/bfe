@@ -608,9 +608,9 @@ func TestTC08_RMBQuotaDeduction_Cache_NonStreaming(t *testing.T) {
 	// Wait for async redis deduction.
 	time.Sleep(500 * time.Millisecond)
 	remaining := e.redis.GetQuota(redisKeyRMB)
-	// normal_input = 8000 - 5000 = 3000
-	// cost = 3000*452 + 5000*45 + 1000*565 + 1500*2262 = 5539000
-	want := int64(10000000000 - 5539000)
+	// normal_input = 8000 - 5000 - 1000 = 2000
+	// cost = 2000*452 + 5000*45 + 1000*565 + 1500*2262 = 5087000
+	want := int64(10000000000 - 5087000)
 	if remaining != want {
 		e.logBFEException()
 		e.logBFEAccess()
@@ -648,7 +648,9 @@ func TestTC09_RMBQuotaDeduction_Cache_Streaming(t *testing.T) {
 	// Wait for async redis deduction after response finishes.
 	time.Sleep(500 * time.Millisecond)
 	remaining := e.redis.GetQuota(redisKeyRMB)
-	want := int64(10000000000 - 5539000)
+	// normal_input = 8000 - 5000 - 1000 = 2000
+	// cost = 2000*452 + 5000*45 + 1000*565 + 1500*2262 = 5087000
+	want := int64(10000000000 - 5087000)
 	if remaining != want {
 		e.logBFEException()
 		e.logBFEAccess()

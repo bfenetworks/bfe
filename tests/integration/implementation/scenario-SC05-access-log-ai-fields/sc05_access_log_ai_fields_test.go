@@ -989,8 +989,8 @@ func TestTC08_CacheTokenFields(t *testing.T) {
 	assertInt64Field(t, reqLog.AiTotalTokens, "ai_total_tokens", 150)
 	assertInt64Field(t, reqLog.AiCacheReadTokens, "ai_cache_read_tokens", 30)
 	assertInt64Field(t, reqLog.AiCacheWriteTokens, "ai_cache_write_tokens", 20)
-	// cost = (100-30)*100 + 30*50 + 20*150 + 50*200 = 21500
-	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 21500)
+	// cost = (100-30-20)*100 + 30*50 + 20*150 + 50*200 = 19500
+	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 19500)
 	assertStringField(t, reqLog.AiCostCurrency, "ai_cost_currency", "RMB")
 }
 

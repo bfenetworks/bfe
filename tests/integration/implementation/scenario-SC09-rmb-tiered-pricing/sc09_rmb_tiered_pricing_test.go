@@ -363,10 +363,10 @@ func TestTC03_RMBQuotaDeduction_Peak_Cache_NonStreaming(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 	remaining := e.redis.GetQuota(redisKeyRMB)
-	// normal_input = 8000 - 5000 = 3000
-	// peak: input=200, cache_read=100, output=400
-	// cost = 3000*200 + 5000*100 + 1500*400 = 1,700,000
-	want := int64(10000000000 - 1700000)
+	// normal_input = 8000 - 5000 - 1000 = 2000
+	// peak: input=200, cache_read=100, cache_creation not configured (0), output=400
+	// cost = 2000*200 + 5000*100 + 1000*0 + 1500*400 = 1,500,000
+	want := int64(10000000000 - 1500000)
 	if remaining != want {
 		e.logBFEException()
 		e.logBFEAccess()
@@ -401,7 +401,10 @@ func TestTC04_RMBQuotaDeduction_Peak_Cache_Streaming(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 	remaining := e.redis.GetQuota(redisKeyRMB)
-	want := int64(10000000000 - 1700000)
+	// normal_input = 8000 - 5000 - 1000 = 2000
+	// peak: input=200, cache_read=100, cache_creation not configured (0), output=400
+	// cost = 2000*200 + 5000*100 + 1000*0 + 1500*400 = 1,500,000
+	want := int64(10000000000 - 1500000)
 	if remaining != want {
 		e.logBFEException()
 		e.logBFEAccess()
@@ -436,7 +439,7 @@ func TestTC05_RMBQuotaDeduction_DeepSeekCacheField_NonStreaming(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 	remaining := e.redis.GetQuota(redisKeyRMB)
-	// normal_input = 8000 - 5000 = 3000
+	// normal_input = 8000 - 5000 - 0 = 3000 (response has no cache_write_tokens)
 	// peak: input=200, cache_read=100, output=400
 	// cost = 3000*200 + 5000*100 + 1500*400 = 1,700,000
 	want := int64(10000000000 - 1700000)
@@ -477,6 +480,9 @@ func TestTC06_RMBQuotaDeduction_DeepSeekCacheDetailsField_Streaming(t *testing.T
 
 	time.Sleep(500 * time.Millisecond)
 	remaining := e.redis.GetQuota(redisKeyRMB)
+	// normal_input = 8000 - 5000 - 0 = 3000 (response has no cache_write_tokens)
+	// peak: input=200, cache_read=100, output=400
+	// cost = 3000*200 + 5000*100 + 1500*400 = 1,700,000
 	want := int64(10000000000 - 1700000)
 	if remaining != want {
 		e.logBFEException()

@@ -79,7 +79,7 @@ SC09 RMB 分时段计费
 - `cluster_rmb` 收到 1 次命中。
 - BFE 解析 `prompt_cache_hit_tokens = 5000` 作为 `CacheReadTokens`。
 - Redis 中 `quota:plan_rmb` 的余额变为：
-  - `normal_input = 8000 - 5000 = 3000`
+  - `normal_input = 8000 - 5000 - 0 = 3000`（响应不含 `cache_write_tokens`）
   - 扣减金额 = `3000 * 200 + 5000 * 100 + 1500 * 400 = 1700000`
   - 剩余 = `10000000000 - 1700000 = 9999830000`
 
