@@ -230,15 +230,29 @@ func (srv *BfeServer) TLSConfReload(query url.Values) error {
 	// reload tls conf
 	certConfFile := srv.Config.HttpsBasic.ServerCertConf
 	tlsRuleFile := srv.Config.HttpsBasic.TlsRuleConf
+	clientCABaseDir := srv.Config.HttpsBasic.ClientCABaseDir
+	clientCRLBaseDir := srv.Config.HttpsBasic.ClientCRLBaseDir
 	if path := query.Get("path"); path != "" {
 		certConfFile = joinPath(path, certConfFile)
 		tlsRuleFile = joinPath(path, tlsRuleFile)
+
+		// Relocate client CA / CRL base dirs to the versioned config dir as
+		// well, so a reload with "path" reads a self-contained config unit.
+		// Custom base dirs outside tls_conf are left untouched.
+		tlsConfRoot := filepath.Join(srv.ConfRoot, "tls_conf")
+		if strings.HasPrefix(clientCABaseDir, tlsConfRoot+string(filepath.Separator)) {
+			clientCABaseDir = joinPath(path, clientCABaseDir)
+		}
+		if strings.HasPrefix(clientCRLBaseDir, tlsConfRoot+string(filepath.Separator)) {
+			clientCRLBaseDir = joinPath(path, clientCRLBaseDir)
+		}
 	}
 
-	return srv.tlsConfLoad(certConfFile, tlsRuleFile)
+	return srv.tlsConfLoad(certConfFile, tlsRuleFile, clientCABaseDir, clientCRLBaseDir)
 }
 
-func (srv *BfeServer) tlsConfLoad(certConfFile string, tlsRuleFile string) error {
+func (srv *BfeServer) tlsConfLoad(certConfFile string, tlsRuleFile string,
+	clientCABaseDir string, clientCRLBaseDir string) error {
 	// load certificate conf
 	certConf, err := server_cert_conf.ServerCertConfLoad(certConfFile, srv.ConfRoot)
 	if err != nil {
@@ -258,14 +272,12 @@ func (srv *BfeServer) tlsConfLoad(certConfFile string, tlsRuleFile string) error
 	}
 
 	// load client CA certificates
-	clientCABaseDir := srv.Config.HttpsBasic.ClientCABaseDir
 	clientCAMap, err := tls_rule_conf.ClientCALoad(tlsRule.Config, clientCABaseDir)
 	if err != nil {
 		return fmt.Errorf("in ClientCALoad() :%s", err.Error())
 	}
 
 	// load client cert CRL
-	clientCRLBaseDir := srv.Config.HttpsBasic.ClientCRLBaseDir
 	clientCRLPoolMap, err := tls_rule_conf.ClientCRLLoad(clientCAMap, clientCRLBaseDir)
 	if err != nil {
 		return fmt.Errorf("in ClientCRLLoad(): %s", err.Error())
