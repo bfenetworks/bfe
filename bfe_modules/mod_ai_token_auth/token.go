@@ -156,6 +156,11 @@ func (q *QuotaPlan) HasBalance(client redis_client.Client) (bool, int64, error) 
 
 	current, err := client.GetInt64(q.RedisKey)
 	if err != nil {
+		// key not initialized (e.g. quota set to 0 and never synced to redis)
+		// means no balance, not an internal error
+		if redis_client.IsKeyNotFound(err) {
+			return false, 0, nil
+		}
 		return false, 0, err
 	}
 

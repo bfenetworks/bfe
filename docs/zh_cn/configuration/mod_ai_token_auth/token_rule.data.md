@@ -51,7 +51,7 @@
 | PassNoQuota | bool | Y | 配额不足时是否放行；为 `true` 时跳过该计划的余额检查 | - |
 | RedisKey | string | N | Redis 中存储配额余额的 Key | `Unlimited` 为 `false` 时必须有有效值，否则运行时扣减/校验余额会失败 |
 | ExpiredTime | int64 | N | 过期时间；`-1` 表示永不过期 | 必须大于等于 `-1` |
-| Quota | int64 | N | 配额总量 | `Unit=total_token` 且 `Unlimited=false` 时必须大于 0；`Unit=RMB` 且 `Unlimited=false` 时必须大于等于 0 |
+| Quota | int64 | N | 配额总量 | `Unlimited=false` 时必须大于等于 0；`Unit=total_token` 时 `Quota=0` 表示无余额，绑定该计划的请求将被拒绝（`QuotaExhausted`） |
 | Unit | string | N | 配额单位 | `total_token` 或 `RMB`；为空时默认 `total_token` |
 
 ## 4. Tokens 结构（api-key 声明）

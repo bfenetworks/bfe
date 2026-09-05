@@ -138,7 +138,9 @@ func quotaPlanCheck(conf *QuotaPlan) error {
 				return fmt.Errorf("invalid Quota for RMB: %d", conf.Quota)
 			}
 		} else {
-			if conf.Quota <= 0 {
+			// quota 0 is allowed: it means the plan has no balance and
+			// requests bound to it will be rejected with QuotaExhausted
+			if conf.Quota < 0 {
 				return fmt.Errorf("invalid Quota: %d", conf.Quota)
 			}
 		}

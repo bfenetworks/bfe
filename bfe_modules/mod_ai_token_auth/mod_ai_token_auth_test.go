@@ -32,6 +32,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 	"github.com/bfenetworks/go-lib/quota"
+	"github.com/gomodule/redigo/redis"
 )
 
 const testConfRoot = "testdata/mod_ai_token_auth"
@@ -1508,6 +1509,11 @@ func TestQuotaPlanCheck(t *testing.T) {
 		t.Errorf("valid quota plan failed: %s", err)
 	}
 
+	zeroQuota := QuotaPlan{Id: "p1", Unlimited: false, Quota: 0, Unit: "total_token", ExpiredTime: -1}
+	if err := quotaPlanCheck(&zeroQuota); err != nil {
+		t.Errorf("zero quota plan should be allowed: %s", err)
+	}
+
 	cases := []struct {
 		name string
 		plan QuotaPlan
@@ -1515,7 +1521,7 @@ func TestQuotaPlanCheck(t *testing.T) {
 	}{
 		{"missing id", QuotaPlan{Unlimited: true}, "no Id"},
 		{"invalid expired time", QuotaPlan{Id: "p1", Unlimited: true, ExpiredTime: -2}, "invalid ExpiredTime"},
-		{"invalid token quota", QuotaPlan{Id: "p1", Unlimited: false, Quota: 0, Unit: "total_token"}, "invalid Quota"},
+		{"invalid token quota", QuotaPlan{Id: "p1", Unlimited: false, Quota: -1, Unit: "total_token"}, "invalid Quota"},
 		{"invalid rmb quota", QuotaPlan{Id: "p1", Unlimited: false, Quota: -1, Unit: "RMB"}, "invalid Quota for RMB"},
 		{"invalid unit", QuotaPlan{Id: "p1", Unlimited: true, Unit: "invalid"}, "invalid Unit"},
 	}
@@ -1614,7 +1620,7 @@ func (m *mockRedisClient) GetInt64(key string) (int64, error) {
 	if v, ok := m.data[key]; ok {
 		return v, nil
 	}
-	return 0, fmt.Errorf("key not found")
+	return 0, redis.ErrNil
 }
 
 func (m *mockRedisClient) GetInt64Batch(keys []string) ([]int64, error) {
@@ -1731,6 +1737,52 @@ func TestQuotaPlanDeduct(t *testing.T) {
 		}
 		if remaining != 10000 {
 			t.Errorf("remaining = %d, want 10000", remaining)
+		}
+	})
+}
+
+func TestQuotaPlanHasBalance(t *testing.T) {
+	t.Run("missing key means no balance", func(t *testing.T) {
+		client := newMockRedisClient()
+		plan := &QuotaPlan{Id: "p1", RedisKey: "absent-key", Unit: "total_token", Quota: 0}
+		has, remaining, err := plan.HasBalance(client)
+		if err != nil {
+			t.Fatalf("HasBalance failed: %v", err)
+		}
+		if has {
+			t.Error("expected no balance for missing key")
+		}
+		if remaining != 0 {
+			t.Errorf("remaining = %d, want 0", remaining)
+		}
+	})
+
+	t.Run("zero balance", func(t *testing.T) {
+		client := newMockRedisClient()
+		client.data["zero-key"] = 0
+		plan := &QuotaPlan{Id: "p1", RedisKey: "zero-key", Unit: "total_token", Quota: 0}
+		has, _, err := plan.HasBalance(client)
+		if err != nil {
+			t.Fatalf("HasBalance failed: %v", err)
+		}
+		if has {
+			t.Error("expected no balance for zero value")
+		}
+	})
+
+	t.Run("positive balance", func(t *testing.T) {
+		client := newMockRedisClient()
+		client.data["pos-key"] = 50
+		plan := &QuotaPlan{Id: "p1", RedisKey: "pos-key", Unit: "total_token", Quota: 100}
+		has, remaining, err := plan.HasBalance(client)
+		if err != nil {
+			t.Fatalf("HasBalance failed: %v", err)
+		}
+		if !has {
+			t.Error("expected balance for positive value")
+		}
+		if remaining != 50 {
+			t.Errorf("remaining = %d, want 50", remaining)
 		}
 	})
 }

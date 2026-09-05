@@ -15,7 +15,10 @@
 package redis_client
 
 import (
+	"errors"
 	"fmt"
+
+	"github.com/gomodule/redigo/redis"
 )
 
 type RedisScript interface {
@@ -23,6 +26,11 @@ type RedisScript interface {
 		key string,
 		args ...interface{},
 	) (interface{}, error)
+}
+
+// IsKeyNotFound reports whether err indicates the redis key does not exist.
+func IsKeyNotFound(err error) bool {
+	return errors.Is(err, redis.ErrNil)
 }
 
 // Client: redis client interface
