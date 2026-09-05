@@ -275,7 +275,8 @@ func (srv *BfeServer) initTLSSessionTicket() error {
 func (srv *BfeServer) initTLSRule(httpsConf bfe_conf.ConfigHttpsBasic) error {
 	srv.MultiCert = NewMultiCertMap(srv.serverStatus.ProxyState)
 	srv.TLSServerRule = NewTLSServerRuleMap(srv.serverStatus.ProxyState)
-	if err := srv.tlsConfLoad(httpsConf.ServerCertConf, httpsConf.TlsRuleConf); err != nil {
+	if err := srv.tlsConfLoad(httpsConf.ServerCertConf, httpsConf.TlsRuleConf,
+		httpsConf.ClientCABaseDir, httpsConf.ClientCRLBaseDir); err != nil {
 		return err
 	}
 

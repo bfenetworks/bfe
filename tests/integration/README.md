@@ -49,6 +49,7 @@ go test ./tests/integration/implementation/scenario-SC01-route-table-lookup/ -ru
 | 场景 | 说明 |
 |------|------|
 | SC01 路由表查找与绑定 | 验证 `mod_ai_route` 在多级路由表（apikey/entity/global）中的搜索与回退顺序，以及 fallback 时 body 回绕行为 |
+| SC13 TLS 热加载路径重定向 | 验证 `/reload/tls_conf?path=` 时 client CA/CRL 基目录随版本目录切换（conf-agent#19），通过真实 TLS 握手验证 reload 前后客户端证书校验行为 |
 
 ## 参考文档
 
