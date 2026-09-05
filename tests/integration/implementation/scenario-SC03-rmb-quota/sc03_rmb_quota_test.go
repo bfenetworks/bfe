@@ -771,3 +771,59 @@ func TestTC12_RMBQuotaDeduction_ImageGeneration(t *testing.T) {
 		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
 	}
 }
+
+
+// TestTC13 verifies that a total_token quota plan with quota=0 can be loaded
+// and rejects requests with QuotaExhausted.
+func TestTC13_TokenQuotaZeroLoaded(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{tokenQuotaPlan(0)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyToken, 0)
+
+	resp, body, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusTooManyRequests {
+		e.logBFEException()
+		t.Fatalf("expected status 429, got %d, body: %s", resp.StatusCode, body)
+	}
+	if !strings.Contains(body, "quota") {
+		t.Fatalf("expected quota error in body, got: %s", body)
+	}
+	if e.backends[clusterRMB].Hits() != 0 {
+		t.Fatalf("expected no backend hit, got %d", e.backends[clusterRMB].Hits())
+	}
+}
+
+// TestTC14 verifies that a total_token quota plan with quota=0 rejects requests
+// with QuotaExhausted even when its redis key was never initialized
+// (regression test for https://github.com/rainway-ai-gateway/ai-gateway-api/issues/136).
+func TestTC14_TokenQuotaZeroMissingRedisKey(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{tokenQuotaPlan(0)})
+	defer e.Close()
+
+	// note: redis key redisKeyToken is intentionally not initialized
+
+	resp, body, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusTooManyRequests {
+		e.logBFEException()
+		t.Fatalf("expected status 429, got %d, body: %s", resp.StatusCode, body)
+	}
+	if !strings.Contains(body, "quota") {
+		t.Fatalf("expected quota error in body, got: %s", body)
+	}
+	if e.backends[clusterRMB].Hits() != 0 {
+		t.Fatalf("expected no backend hit, got %d", e.backends[clusterRMB].Hits())
+	}
+}

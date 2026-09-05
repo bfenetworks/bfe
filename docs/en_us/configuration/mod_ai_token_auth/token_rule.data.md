@@ -19,7 +19,7 @@
 | QuotaPlans{v}[].redis_key | String | Redis key for storing quota | N | Optional when `unlimited` is true | - |
 | QuotaPlans{v}[].create_time | Integer | Create time (Unix Time) | N | - | - |
 | QuotaPlans{v}[].expired_time | Integer | Expiry time (Unix Time) | N | `-1` means never expires | Must be greater than or equal to `-1` |
-| QuotaPlans{v}[].quota | Integer | Total quota | N | Unit is determined by the `unit` field; when `unit=RMB`, this is a fixed-point integer with precision `1e-8` yuan; required when `unlimited` is false | Must be greater than 0 when `unit=total_token` and `unlimited` is false; must be greater than or equal to 0 when `unit=RMB` and `unlimited` is false |
+| QuotaPlans{v}[].quota | Integer | Total quota | N | Unit is determined by the `unit` field; when `unit=RMB`, this is a fixed-point integer with precision `1e-8` yuan; required when `unlimited` is false | Must be greater than or equal to 0 when `unlimited` is false; when `unit=total_token`, `quota=0` means the plan has no balance and requests bound to it are rejected with `QuotaExhausted` |
 | QuotaPlans{v}[].reset_mode | Integer | Reset mode | Y | `0` - non-periodic; `1` - periodic quota package | Value must be `0` or `1` |
 | QuotaPlans{v}[].unit | String | Quota unit | N | Defaults to `total_token` | Value must be `total_token` or `RMB` |
 | Tokens | Object | API-key declarations for all product lines | Y | Key is product line name | - |
@@ -115,3 +115,4 @@
 > Note:
 > - When `unit = total_token`, `quota` is an integer number of tokens.
 > - When `unit = RMB`, `quota` is a fixed-point integer with precision `1e-8` yuan (i.e., 1 unit = 0.00000001 yuan). For example, `90000000` means `0.9` yuan.
+> - When `unlimited` is false, `quota` must be greater than or equal to 0. A `quota` of 0 means the plan has no balance; requests bound to such a plan are rejected with `QuotaExhausted` (HTTP 429).

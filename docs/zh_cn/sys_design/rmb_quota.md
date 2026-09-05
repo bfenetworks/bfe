@@ -319,7 +319,7 @@ type QuotaPlan struct {
 `quotaPlanCheck` 需要调整：
 
 - `Unit` 为空时默认 `"total_token"`，保持兼容。
-- `Unit = "total_token"`：`Unlimited=false` 时 `Quota > 0`。
+- `Unit = "total_token"`：`Unlimited=false` 时 `Quota >= 0`；`Quota = 0` 表示该计划无余额，绑定它的请求将被拒绝（`QuotaExhausted`）。
 - `Unit = "RMB"`：`Unlimited=false` 时 `Quota >= 0`。
 
 ### 6.4 `AiBasicInfo` 请求完成状态
