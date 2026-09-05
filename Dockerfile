@@ -31,7 +31,7 @@ ARG TARGETARCH
 ARG CONF_AGENT_VERSION=0.0.2
 ARG CONF_AGENT_REPO=bfenetworks
 
-RUN apk add --no-cache ca-certificates wget tar
+RUN apk add --no-cache ca-certificates wget tar tzdata
 
 RUN set -ex; \
 	CONF_AGENT_VERSION_NO_V="${CONF_AGENT_VERSION#v}"; \
@@ -58,7 +58,7 @@ ARG TARGETARCH
 ARG LOG_READER_VERSION=1.0.0
 ARG LOG_READER_REPO=bfenetworks
 
-RUN apk add --no-cache ca-certificates wget tar
+RUN apk add --no-cache ca-certificates wget tar tzdata
 
 RUN set -ex; \
 	LOG_READER_VERSION_NO_V="${LOG_READER_VERSION#v}"; \
@@ -89,7 +89,7 @@ FROM alpine:3.19
 ARG VARIANT=prod
 
 RUN set -ex; \
-	apk add --no-cache ca-certificates tini; \
+	apk add --no-cache ca-certificates tini tzdata; \
 	if [ "${VARIANT}" = "debug" ]; then \
 		apk add --no-cache bash curl wget vim; \
 	fi
