@@ -267,7 +267,7 @@ message AIRouteRuleHit {
 
 ## 6. 安全与合规
 
-1. **API Key 不落地**：`ai_apikey_id` 只记录内部 `key_id`，不记录原始 key 值。`ClientApiKey` 仍保留在内存中用于上游转发，但不会写入访问日志。
+1. **API Key 不落地**：`ai_apikey_id` 只记录内部 `key_id`，不记录原始 key 值。`ClientApiKey` 仍保留在内存中用于上游转发，但不会写入访问日志。除 701 外，通用字段 49 `authorization` 不再输出（认证头原文无保留价值），字段 801 `ai_route_rule_hits[].rule_owner` 与 841 `ai_auth_hit_quota_plans[]` 等字段中若携带原始 Key（apikey 型规则 owner、由原始 Key 构成的 plan Id），由 `mod_access_pb3` 的统一凭据脱敏闸口在日志输出前替换为 `key_id`；未认证请求（含暴破 Key）一律置空。详见 `docs/zh_cn/modifications/2026-09-07-access-log-apikey-masking/design-changes.md`（bfenetworks/bfe#1357）。
 2. **成本精度**：`ai_cost_value` 使用定点整数（RMB 为 1e-8 元），避免浮点误差。
 3. **字段可选**：所有 AI 字段均为 `optional`，未启用 AI 网关或非 AI 请求不会输出这些字段。
 

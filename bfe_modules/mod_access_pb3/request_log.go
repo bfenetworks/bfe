@@ -76,6 +76,10 @@ func (m *ModuleAccessPb3) requestLogGen(req *bfe_basic.Request, res *bfe_http.Re
 	// AI info
 	reqAiInfoGen(requestLog, req, res)
 
+	// credential masking gate: the last line of defense before log output,
+	// ensure raw API Key never lands in any field (see bfenetworks/bfe#1357)
+	maskSensitiveCredentials(requestLog, req)
+
 	return bfeLog
 }
 
@@ -218,11 +222,8 @@ func reqReqHeaderInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Reque
 	}
 
 	// Authorization
-	values, found = req.HttpRequest.Header["Authorization"]
-	if found {
-		data := strings.Join(values, ",")
-		reqLog.Authorization = proto.String(data)
-	}
+	// The raw Authorization header (which carries the consumer API Key) must
+	// never be written to the access log (see bfenetworks/bfe#1357).
 
 	// User-Agent
 	values, found = req.HttpRequest.Header["User-Agent"]
