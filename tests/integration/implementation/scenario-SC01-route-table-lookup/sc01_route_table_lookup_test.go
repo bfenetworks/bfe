@@ -511,6 +511,33 @@ func TestTC10_TotalBodyBufferSizeExceedsLimit(t *testing.T) {
 	}
 }
 
+// TestTC11_InternalResp404WithModHeaderLoaded is a regression test for
+// bfenetworks/bfe#1359: with mod_header loaded and a global RSP_HEADER_SET
+// rule configured, an internally-constructed 404 response (AI route not
+// found) must be returned normally (instead of panicking on a nil
+// request.HttpResponse and tearing down the connection), and the mod_header
+// rule must be applied to it.
+func TestTC11_InternalResp404WithModHeaderLoaded(t *testing.T) {
+	e := newTestEnv(t, nil)
+	defer e.Close()
+
+	resp, body, err := e.sendRequest(apiHost, apiKeyNoBinding, emptyJSONBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		e.logBFEException()
+		t.Fatalf("expected status 404, got %d, body: %s", resp.StatusCode, body)
+	}
+	if !strings.Contains(body, "AI route not found") {
+		t.Fatalf("expected 'AI route not found' in body, got %q", body)
+	}
+	if v := resp.Header.Get("X-Proxied-By"); v != "bfe" {
+		t.Fatalf("X-Proxied-By = %q, want bfe", v)
+	}
+}
+
 func TestMain(m *testing.M) {
 	rand.Seed(time.Now().UnixNano())
 	os.Exit(m.Run())
