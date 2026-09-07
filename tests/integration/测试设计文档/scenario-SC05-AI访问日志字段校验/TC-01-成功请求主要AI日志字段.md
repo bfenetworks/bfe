@@ -80,10 +80,12 @@ SC05 AI 访问日志字段校验
   - `ai_input_tokens` = `100`
   - `ai_output_tokens` = `50`
   - `ai_total_tokens` = `150`
-  - `ai_route_rule_hits` 包含 1 条记录：`rule_owner="ak_user_a"`、`rule_owner_type="apikey"`、`rule_name="user_a-rmb"`
+  - `ai_route_rule_hits` 包含 1 条记录：`rule_owner="user_a_key_id"`、`rule_owner_type="apikey"`、`rule_name="user_a-rmb"`（apikey 型规则的 owner 即原始 Key，日志输出前由统一凭据脱敏闸口替换为 key_id，见 bfenetworks/bfe#1357）
   - `ai_cluster_key_names` 包含 1 条记录：`cluster_name="cluster_rmb"`、`key_name="key-primary"`
   - `ai_auth_hit_quota_plans` 包含 `["plan_rmb"]`
   - `ai_retry_count` 未设置或为 0
+  - `authorization`（字段 49）不输出
+  - 整条 `RequestLog` 序列化字节中不包含原始 Key `ak_user_a`（公共断言 `assertNoSensitiveCredential`，所有 TC 均执行）
 
 ## 清理
 

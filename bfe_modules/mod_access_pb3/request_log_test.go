@@ -15,6 +15,7 @@
 package mod_access_pb3
 
 import (
+	"bytes"
 	"errors"
 	"net"
 	"testing"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
+	"google.golang.org/protobuf/proto"
 
 	bfe_access_pb3 "github.com/bfenetworks/bfe-access-pb/bfe_access_pb"
 )
@@ -118,6 +120,9 @@ func TestRequestLogGen(t *testing.T) {
 	}
 	if bfeLog.RequestLog == nil {
 		t.Fatal("RequestLog is nil")
+	}
+	if bfeLog.RequestLog.Authorization != nil {
+		t.Error("Authorization must never be written to access log (bfenetworks/bfe#1357)")
 	}
 }
 
@@ -233,8 +238,8 @@ func TestReqReqHeaderInfoGen(t *testing.T) {
 	if reqLog.AcceptLanguage == nil || *reqLog.AcceptLanguage != "zh-CN" {
 		t.Error("AcceptLanguage error")
 	}
-	if reqLog.Authorization == nil || *reqLog.Authorization != "Bearer token123" {
-		t.Error("Authorization error")
+	if reqLog.Authorization != nil {
+		t.Error("Authorization must never be written to access log (bfenetworks/bfe#1357)")
 	}
 	if reqLog.UserAgent == nil || *reqLog.UserAgent != "test-agent" {
 		t.Error("UserAgent error")
@@ -474,5 +479,113 @@ func TestReqAiInfoGenNil(t *testing.T) {
 
 	if reqLog.AiApikeyId != nil {
 		t.Error("AiApikeyId should be nil when no ai info")
+	}
+}
+
+// assertNoRawKeyInLog serializes the log and asserts the raw key bytes are absent.
+func assertNoRawKeyInLog(t *testing.T, reqLog *bfe_access_pb3.RequestLog, rawKey string) {
+	t.Helper()
+	data, err := proto.Marshal(reqLog)
+	if err != nil {
+		t.Fatalf("marshal RequestLog error: %v", err)
+	}
+	if bytes.Contains(data, []byte(rawKey)) {
+		t.Errorf("serialized RequestLog still contains raw API Key %q", rawKey)
+	}
+}
+
+func TestMaskSensitiveCredentialsAuthenticated(t *testing.T) {
+	m, req, res := makeRequestLogTest(t)
+
+	rawKey := "#AI_product-abc123"
+	aiInfo := &bfe_basic.AiBasicInfo{
+		ClientApiKey: rawKey,
+		ClientKeyId:  "key-id-123",
+		AiAuthInfo: bfe_basic.AiAuthInfo{
+			HitQuotaPlans: []string{"plan-" + rawKey + "-monthly"},
+		},
+	}
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+	req.SetAiRouteResult(&bfe_basic.AiRouteResult{
+		RouteType: "apikey",
+		Owner:     rawKey,
+		RuleName:  "user_a-rule1",
+	})
+
+	// go through the full pipeline so the masking gate is exercised end-to-end
+	reqLog := m.requestLogGen(req, res).RequestLog
+
+	if got := reqLog.AiRouteRuleHits[0].GetRuleOwner(); got != "key-id-123" {
+		t.Errorf("RuleOwner error, got: %q, want key id", got)
+	}
+	if got := reqLog.AiAuthHitQuotaPlans[0]; got != "plan-key-id-123-monthly" {
+		t.Errorf("AiAuthHitQuotaPlans error, got: %q", got)
+	}
+	assertNoRawKeyInLog(t, reqLog, rawKey)
+}
+
+func TestMaskSensitiveCredentialsFallbackScan(t *testing.T) {
+	// the generic scan must cover any field, not only 801/841
+	_, req, _ := makeRequestLogTest(t)
+
+	rawKey := "#AI_product-abc123"
+	aiInfo := &bfe_basic.AiBasicInfo{
+		ClientApiKey: rawKey,
+		ClientKeyId:  "key-id-123",
+		AiAuthInfo: bfe_basic.AiAuthInfo{
+			RejectReason: "rejected for key " + rawKey,
+		},
+	}
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, nil)
+	maskSensitiveCredentials(reqLog, req)
+
+	if got := reqLog.GetAiAuthRejectReason(); got != "rejected for key key-id-123" {
+		t.Errorf("AiAuthRejectReason error, got: %q", got)
+	}
+}
+
+func TestMaskSensitiveCredentialsUnauthenticated(t *testing.T) {
+	m, req, res := makeRequestLogTest(t)
+
+	// brute-forged key: presented but never authenticated, no key id known
+	rawKey := "#AI_product-forged999"
+	aiInfo := &bfe_basic.AiBasicInfo{
+		ClientApiKey: rawKey,
+		AiAuthInfo: bfe_basic.AiAuthInfo{
+			RejectReason:  "INVALID_API_KEY",
+			HitQuotaPlans: []string{"plan-" + rawKey},
+		},
+	}
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+	req.SetAiRouteResult(&bfe_basic.AiRouteResult{
+		RouteType: "apikey",
+		Owner:     rawKey,
+		RuleName:  "user_a-rule1",
+	})
+
+	reqLog := m.requestLogGen(req, res).RequestLog
+
+	if got := reqLog.AiRouteRuleHits[0].GetRuleOwner(); got != "" {
+		t.Errorf("RuleOwner should be emptied for unauthenticated key, got: %q", got)
+	}
+	if got := reqLog.AiAuthHitQuotaPlans[0]; got != "" {
+		t.Errorf("AiAuthHitQuotaPlans should be emptied for unauthenticated key, got: %q", got)
+	}
+	assertNoRawKeyInLog(t, reqLog, rawKey)
+}
+
+func TestMaskSensitiveCredentialsNoAiInfo(t *testing.T) {
+	_, req, _ := makeRequestLogTest(t)
+
+	reqLog := &bfe_access_pb3.RequestLog{
+		UserAgent: proto.String("test-agent"),
+	}
+	maskSensitiveCredentials(reqLog, req)
+
+	if reqLog.GetUserAgent() != "test-agent" {
+		t.Error("fields must be untouched when request has no AiBasicInfo")
 	}
 }

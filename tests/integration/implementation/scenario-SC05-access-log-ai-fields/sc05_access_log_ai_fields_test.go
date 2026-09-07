@@ -30,6 +30,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/tests/integration/common"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -223,7 +224,26 @@ func (e *testEnv) mustFindSingleLog(reqLogs []*bfe_access_pb.RequestLog) *bfe_ac
 	if len(reqLogs) == 0 {
 		e.t.Fatalf("expected at least 1 access log, got 0")
 	}
-	return reqLogs[len(reqLogs)-1]
+	reqLog := reqLogs[len(reqLogs)-1]
+	assertNoSensitiveCredential(e.t, reqLog)
+	return reqLog
+}
+
+// assertNoSensitiveCredential scans the serialized log to ensure the raw
+// consumer API Key never lands in any field and the Authorization header is
+// never logged (bfenetworks/bfe#1357).
+func assertNoSensitiveCredential(t *testing.T, reqLog *bfe_access_pb.RequestLog) {
+	t.Helper()
+	data, err := proto.Marshal(reqLog)
+	if err != nil {
+		t.Fatalf("marshal access log error: %v", err)
+	}
+	if bytes.Contains(data, []byte(apiKey)) {
+		t.Errorf("access log contains raw API Key %q (bfenetworks/bfe#1357)", apiKey)
+	}
+	if reqLog.Authorization != nil {
+		t.Errorf("authorization header must never be written to access log (bfenetworks/bfe#1357)")
+	}
 }
 
 func defaultRMBAIConf() *cluster_conf.AIConf {
@@ -499,7 +519,7 @@ func TestTC01_SuccessfulRequestAIFields(t *testing.T) {
 	if reqLog.AiRetryCount != nil && *reqLog.AiRetryCount != 0 {
 		t.Errorf("ai_retry_count should be 0 or nil, got %d", *reqLog.AiRetryCount)
 	}
-	assertRouteRuleHits(t, reqLog.AiRouteRuleHits, []expectedRouteRuleHit{{Owner: "ak_user_a", OwnerType: "apikey", RuleName: "user_a-rmb"}})
+	assertRouteRuleHits(t, reqLog.AiRouteRuleHits, []expectedRouteRuleHit{{Owner: apiKeyId, OwnerType: "apikey", RuleName: "user_a-rmb"}})
 	assertClusterKeyNames(t, reqLog.AiClusterKeyNames, []expectedClusterKeyName{{ClusterName: clusterRMB, KeyName: "key-primary"}})
 	assertStringSliceField(t, reqLog.AiAuthHitQuotaPlans, "ai_auth_hit_quota_plans", []string{planRMB})
 }
@@ -672,7 +692,7 @@ func TestTC05_FallbackProviderAndClusterKeyNames(t *testing.T) {
 	reqLog := e.mustFindSingleLog(e.accessLogs())
 	assertStringField(t, reqLog.AiProvider, "ai_provider", "mock-provider-fallback")
 	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 100*300+50*400)
-	assertRouteRuleHits(t, reqLog.AiRouteRuleHits, []expectedRouteRuleHit{{Owner: "ak_user_a", OwnerType: "apikey", RuleName: "user_a-rmb"}})
+	assertRouteRuleHits(t, reqLog.AiRouteRuleHits, []expectedRouteRuleHit{{Owner: apiKeyId, OwnerType: "apikey", RuleName: "user_a-rmb"}})
 	if len(reqLog.AiClusterKeyNames) < 2 {
 		t.Errorf("expected at least 2 cluster_key_names, got %d: %s", len(reqLog.AiClusterKeyNames), common.FormatAccessLogError(reqLog))
 	}
