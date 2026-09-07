@@ -70,6 +70,9 @@ func (m *BfeMonitor) monitorHandlers() map[string]interface{} {
 		"bal_state":      m.srv.balStateGetAll,
 		"bal_state_diff": m.srv.balStateGetDiff,
 
+		// for epp (labeled metrics, prometheus text format)
+		"epp_metrics": m.srv.eppMetricsGet,
+
 		// for proxy protocol
 		"proxy_protocol_state":      m.srv.proxyProtocolStateGetAll,
 		"proxy_protocol_state_diff": m.srv.proxyProtocolStateGetDiff,

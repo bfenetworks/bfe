@@ -119,6 +119,7 @@
   * 开发参考文档
     * [代码结构说明](development/source_code_layout.md)
   * 系统设计
+    * [BFE 对接 EPP 调度设计（ext-proc）](sys_design/epp_integration.md)
     * [mod_ai_route 系统设计](sys_design/mod_ai_route.md)
     * [mod_ai_route 对应 BFE 主程序修改方案](sys_design/mod_ai_route_bfe_changes.md)
     * [BFE 多 API-Key 支持](sys_design/multi_api_key.md)

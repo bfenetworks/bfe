@@ -1,0 +1,47 @@
+{
+    "Version": "20260720150000",
+    "route_rules": {
+        "apikey_ak_epp": {
+            "type": "apikey",
+            "owner": "ak_epp",
+            "rules": [
+                {
+                    "name": "ak_epp-rule1",
+                    "Cond": "req_host_in(\"epp.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_epp_sim",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        },
+        "global_default": {
+            "type": "global",
+            "owner": "global",
+            "rules": [
+                {
+                    "name": "global-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_epp_sim",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_epp": [
+            "apikey_ak_epp",
+            "global_default"
+        ]
+    }
+}
