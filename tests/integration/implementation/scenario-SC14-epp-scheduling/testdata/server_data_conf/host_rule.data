@@ -1,0 +1,13 @@
+{
+    "Version": "20260720150000",
+    "Hosts": {
+        "epp_product": [
+            "epp.example.org"
+        ]
+    },
+    "HostTags": {
+        "epp_product": [
+            "epp_product"
+        ]
+    }
+}

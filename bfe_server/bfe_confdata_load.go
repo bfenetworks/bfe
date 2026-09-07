@@ -100,12 +100,9 @@ func validateClusterModelProtocols(serverConf *bfe_route.ServerDataConf) error {
 }
 
 func joinPath(path, suffix string) string {
-	words := strings.Split(suffix, "/")
-	if len(words) == 0 {
-		return ""
-	}
-
-	return filepath.Join(path, words[len(words)-1])
+	// filepath.Base splits on os.PathSeparator; on Windows it accepts both
+	// '/' and '\\', unlike a literal strings.Split(suffix, "/").
+	return filepath.Join(path, filepath.Base(suffix))
 }
 
 // ServerDataConfReload reloads host/route/cluster conf

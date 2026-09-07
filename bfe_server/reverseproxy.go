@@ -901,6 +901,14 @@ func (p *ReverseProxy) ServeHTTP(rw bfe_http.ResponseWriter, basicReq *bfe_basic
 	}
 
 response_got:
+	// Invariant guard: for any response about to be sent, HttpResponse must
+	// be attached. Internal response construction paths (e.g. an early
+	// version of CreateSpecifiedContentResp) once omitted the assignment,
+	// causing a nil pointer panic in HandleReadResponse/HandleRequestFinish
+	// callbacks (bfenetworks/bfe#1359).
+	if res != nil && basicReq.HttpResponse == nil {
+		basicReq.HttpResponse = res
+	}
 	if res != nil && res.IsSse {
 		if !basicReq.IsSse {
 			timeoutReadClient = -1
@@ -1356,6 +1364,11 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 	}
 
 response_got:
+	// Invariant guard: for any response about to be sent, HttpResponse must
+	// be attached. See the identical guard in ServeHTTP.
+	if res != nil && basicReq.HttpResponse == nil {
+		basicReq.HttpResponse = res
+	}
 	if res != nil && res.IsSse {
 		timeoutReadClient = -1
 		p.setTimeout(bfe_basic.StageReadReqBody, basicReq.Connection, req, timeoutReadClient)

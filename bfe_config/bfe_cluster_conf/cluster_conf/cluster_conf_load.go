@@ -19,10 +19,11 @@ package cluster_conf
 import (
 	"bytes"
 	"crypto/x509"
-	"encoding/pem"
 	stdjson "encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"regexp"
 	"strconv"
@@ -403,14 +404,132 @@ type HashConf struct {
 	SessionSticky *bool
 }
 
+// Default values for EPP related conf (see GslbBasicConf).
+const (
+	DefaultEPPCheckInterval           = "2s"
+	DefaultEPPFailThreshold           = 3
+	DefaultEPPCooldown                = "45s"
+	DefaultEPPSuccessThreshold        = 2
+	DefaultEPPConnectTimeout          = "500ms"
+	DefaultEPPCallTimeout             = "3s"
+	DefaultEPPBreakerWindowSize       = 100
+	DefaultEPPBreakerMinVolume        = 20
+	DefaultEPPBreakerErrorRatePercent = 50
+	DefaultEPPBreakerOpenTimeout      = "30s"
+)
+
+// Parsed forms of default EPP conf values.
+func DefaultEPPCheckIntervalValue() time.Duration {
+	d, _ := time.ParseDuration(DefaultEPPCheckInterval)
+	return d
+}
+
+func DefaultEPPCooldownValue() time.Duration {
+	d, _ := time.ParseDuration(DefaultEPPCooldown)
+	return d
+}
+
+func DefaultEPPConnectTimeoutValue() time.Duration {
+	d, _ := time.ParseDuration(DefaultEPPConnectTimeout)
+	return d
+}
+
+func DefaultEPPCallTimeoutValue() time.Duration {
+	d, _ := time.ParseDuration(DefaultEPPCallTimeout)
+	return d
+}
+
+func DefaultEPPBreakerOpenTimeoutValue() time.Duration {
+	d, _ := time.ParseDuration(DefaultEPPBreakerOpenTimeout)
+	return d
+}
+
+// EPPCheckConf is health check and failover hysteresis conf for EPP,
+// only effective when BalanceMode is EPP.
+type EPPCheckConf struct {
+	Disabled bool // disable background health check (not recommended in production)
+
+	CheckInterval    *string // duration string, health check probe interval
+	FailThreshold    *int    // consecutive probe fails of active addr before failover
+	Cooldown         *string // duration string, no failback to a failed addr within cooldown
+	SuccessThreshold *int    // consecutive probe successes before failback to higher priority addr
+}
+
+// CheckIntervalDuration returns probe interval, default if unset or unparsable.
+func (c *EPPCheckConf) CheckIntervalDuration() time.Duration {
+	return parseEPPDuration(c.CheckInterval, DefaultEPPCheckInterval)
+}
+
+// CooldownDuration returns failover cooldown, default if unset or unparsable.
+func (c *EPPCheckConf) CooldownDuration() time.Duration {
+	return parseEPPDuration(c.Cooldown, DefaultEPPCooldown)
+}
+
+// EPPTimeoutConf is timeout conf for EPP calls, only effective when BalanceMode is EPP.
+type EPPTimeoutConf struct {
+	Connect *string // duration string, timeout for establishing gRPC connection/stream
+	Call    *string // duration string, timeout for first message (RequestHeaders Send+Recv)
+}
+
+// ConnectDuration returns connect timeout, default if unset or unparsable.
+func (c *EPPTimeoutConf) ConnectDuration() time.Duration {
+	return parseEPPDuration(c.Connect, DefaultEPPConnectTimeout)
+}
+
+// CallDuration returns first-message call timeout, default if unset or unparsable.
+func (c *EPPTimeoutConf) CallDuration() time.Duration {
+	return parseEPPDuration(c.Call, DefaultEPPCallTimeout)
+}
+
+// EPPTLSConf is transport security conf for EPP connections,
+// only effective when BalanceMode is EPP.
+type EPPTLSConf struct {
+	Insecure bool   // true = skip certificate verification (testing only)
+	CAFile   string // CA certificate file for verifying EPP server, required if Insecure is false
+}
+
+// EPPBreakerConf is circuit breaker conf of the EPP path, only effective
+// when BalanceMode is EPP. Breaker stops going to EPP entirely (falling back
+// to local balance) when the error rate of recent calls is too high,
+// complementing address-level failover.
+type EPPBreakerConf struct {
+	Disabled bool // true = disable circuit breaker
+
+	WindowSize       *int    // sliding window size (recent call results), default 100
+	MinVolume        *int    // min calls in window before evaluating, default 20
+	ErrorRatePercent *int    // error rate threshold (percent), default 50
+	OpenTimeout      *string // duration string, OPEN duration before HALF-OPEN probing, default "30s"
+}
+
+// OpenTimeoutDuration returns open timeout, default if unset or unparsable.
+func (c *EPPBreakerConf) OpenTimeoutDuration() time.Duration {
+	return parseEPPDuration(c.OpenTimeout, DefaultEPPBreakerOpenTimeout)
+}
+
+func parseEPPDuration(v *string, def string) time.Duration {
+	s := def
+	if v != nil && *v != "" {
+		s = *v
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		d, _ = time.ParseDuration(def)
+	}
+	return d
+}
+
 // GslbBasicConf is basic conf for Gslb
 type GslbBasicConf struct {
 	CrossRetry *int // retry cross sub clusters
 	RetryMax   *int // inner cluster retry
 	HashConf   *HashConf
 
-	BalanceMode *string   // balanceMode, default WRR
-	EPPAddr     *[]string // EPP address
+	BalanceMode *string         // balanceMode, default WRR
+	EPPAddr     *[]string       // EPP addresses, ordered primary/backup, effective when BalanceMode is EPP
+	EPPCheck    *EPPCheckConf   // EPP health check and failover hysteresis
+	EPPTimeout  *EPPTimeoutConf // EPP call timeouts
+	EPPTLS      *EPPTLSConf     // EPP transport security
+	EPPBreaker  *EPPBreakerConf // EPP circuit breaker
 }
 
 // ClusterBasicConf is basic conf for cluster.
@@ -766,8 +885,199 @@ func GslbBasicConfCheck(conf *GslbBasicConf) error {
 		if conf.EPPAddr == nil || len(*conf.EPPAddr) == 0 {
 			return errors.New("EPPAddr is nil or empty")
 		}
+		if err := checkEPPAddrs(*conf.EPPAddr); err != nil {
+			return err
+		}
+		if conf.EPPCheck == nil {
+			conf.EPPCheck = &EPPCheckConf{}
+		}
+		if conf.EPPTimeout == nil {
+			conf.EPPTimeout = &EPPTimeoutConf{}
+		}
+		if conf.EPPBreaker == nil {
+			conf.EPPBreaker = &EPPBreakerConf{}
+		}
+		if err := EPPCheckConfCheck(conf.EPPCheck); err != nil {
+			return err
+		}
+		if err := EPPTimeoutConfCheck(conf.EPPTimeout); err != nil {
+			return err
+		}
+		if err := EPPBreakerConfCheck(conf.EPPBreaker); err != nil {
+			return err
+		}
+		if err := EPPTLSConfCheck(conf.EPPTLS); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unsupported bal mode %s", *conf.BalanceMode)
+	}
+
+	return nil
+}
+
+// checkEPPAddrs validates EPP address list: each element must be host:port,
+// and duplicate addresses are rejected (primary/backup must be different instances).
+func checkEPPAddrs(addrs []string) error {
+	seen := make(map[string]bool)
+	for _, addr := range addrs {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil || host == "" || port == "" {
+			return fmt.Errorf("EPPAddr element %q is not valid host:port", addr)
+		}
+		if seen[addr] {
+			return fmt.Errorf("EPPAddr element %q is duplicated", addr)
+		}
+		seen[addr] = true
+	}
+	return nil
+}
+
+// EPPCheckConfCheck checks EPPCheckConf, filling defaults for unset fields.
+func EPPCheckConfCheck(conf *EPPCheckConf) error {
+	if conf == nil {
+		return nil
+	}
+
+	if conf.CheckInterval == nil {
+		s := DefaultEPPCheckInterval
+		conf.CheckInterval = &s
+	}
+	if conf.FailThreshold == nil {
+		v := DefaultEPPFailThreshold
+		conf.FailThreshold = &v
+	}
+	if conf.Cooldown == nil {
+		s := DefaultEPPCooldown
+		conf.Cooldown = &s
+	}
+	if conf.SuccessThreshold == nil {
+		v := DefaultEPPSuccessThreshold
+		conf.SuccessThreshold = &v
+	}
+
+	if _, err := time.ParseDuration(*conf.CheckInterval); err != nil {
+		return fmt.Errorf("EPPCheck.CheckInterval %q is not valid duration: %v", *conf.CheckInterval, err)
+	}
+	if _, err := time.ParseDuration(*conf.Cooldown); err != nil {
+		return fmt.Errorf("EPPCheck.Cooldown %q is not valid duration: %v", *conf.Cooldown, err)
+	}
+	checkInterval, _ := time.ParseDuration(*conf.CheckInterval)
+	cooldown, _ := time.ParseDuration(*conf.Cooldown)
+	if checkInterval <= 0 {
+		return errors.New("EPPCheck.CheckInterval should be positive")
+	}
+	if *conf.FailThreshold < 1 {
+		return errors.New("EPPCheck.FailThreshold should be >= 1")
+	}
+	if cooldown <= 0 {
+		return errors.New("EPPCheck.Cooldown should be positive")
+	}
+	if *conf.SuccessThreshold < 1 {
+		return errors.New("EPPCheck.SuccessThreshold should be >= 1")
+	}
+
+	return nil
+}
+
+// EPPTimeoutConfCheck checks EPPTimeoutConf, filling defaults for unset fields.
+func EPPTimeoutConfCheck(conf *EPPTimeoutConf) error {
+	if conf == nil {
+		return nil
+	}
+
+	if conf.Connect == nil {
+		s := DefaultEPPConnectTimeout
+		conf.Connect = &s
+	}
+	if conf.Call == nil {
+		s := DefaultEPPCallTimeout
+		conf.Call = &s
+	}
+
+	if _, err := time.ParseDuration(*conf.Connect); err != nil {
+		return fmt.Errorf("EPPTimeout.Connect %q is not valid duration: %v", *conf.Connect, err)
+	}
+	if _, err := time.ParseDuration(*conf.Call); err != nil {
+		return fmt.Errorf("EPPTimeout.Call %q is not valid duration: %v", *conf.Call, err)
+	}
+	connect, _ := time.ParseDuration(*conf.Connect)
+	call, _ := time.ParseDuration(*conf.Call)
+	if connect <= 0 {
+		return errors.New("EPPTimeout.Connect should be positive")
+	}
+	if call <= 0 {
+		return errors.New("EPPTimeout.Call should be positive")
+	}
+
+	return nil
+}
+
+// EPPBreakerConfCheck checks EPPBreakerConf, filling defaults for unset fields.
+func EPPBreakerConfCheck(conf *EPPBreakerConf) error {
+	if conf == nil {
+		return nil
+	}
+
+	if conf.WindowSize == nil {
+		v := DefaultEPPBreakerWindowSize
+		conf.WindowSize = &v
+	}
+	if conf.MinVolume == nil {
+		v := DefaultEPPBreakerMinVolume
+		conf.MinVolume = &v
+	}
+	if conf.ErrorRatePercent == nil {
+		v := DefaultEPPBreakerErrorRatePercent
+		conf.ErrorRatePercent = &v
+	}
+	if conf.OpenTimeout == nil {
+		s := DefaultEPPBreakerOpenTimeout
+		conf.OpenTimeout = &s
+	}
+
+	if *conf.WindowSize < 1 {
+		return errors.New("EPPBreaker.WindowSize should be >= 1")
+	}
+	if *conf.MinVolume < 1 {
+		return errors.New("EPPBreaker.MinVolume should be >= 1")
+	}
+	if *conf.MinVolume > *conf.WindowSize {
+		return errors.New("EPPBreaker.MinVolume should not be bigger than WindowSize")
+	}
+	if *conf.ErrorRatePercent < 1 || *conf.ErrorRatePercent > 100 {
+		return errors.New("EPPBreaker.ErrorRatePercent should be in [1, 100]")
+	}
+	openTimeout, err := time.ParseDuration(*conf.OpenTimeout)
+	if err != nil {
+		return fmt.Errorf("EPPBreaker.OpenTimeout %q is not valid duration: %v", *conf.OpenTimeout, err)
+	}
+	if openTimeout <= 0 {
+		return errors.New("EPPBreaker.OpenTimeout should be positive")
+	}
+
+	return nil
+}
+
+// EPPTLSConfCheck checks EPPTLSConf.
+func EPPTLSConfCheck(conf *EPPTLSConf) error {
+	if conf == nil {
+		// Compat: existing deployments upgraded to this version do not configure
+		// EPPTLS at all. Rejecting them at load time would break rolling upgrades,
+		// so a nil EPPTLS keeps the legacy behavior (skip certificate verification)
+		// and only logs a warning to prompt migration. Certificate verification is
+		// enabled only when EPPTLS is explicitly configured.
+		log.Logger.Warn("EPPTLS not configured, EPP connections skip certificate verification (legacy behavior), please configure EPPTLS")
+		return nil
+	}
+
+	if !conf.Insecure && conf.CAFile == "" {
+		return errors.New("EPPTLS.CAFile is required when Insecure is false")
+	}
+	if !conf.Insecure {
+		if _, err := os.Stat(conf.CAFile); err != nil {
+			return fmt.Errorf("EPPTLS.CAFile %q is not readable: %v", conf.CAFile, err)
+		}
 	}
 
 	return nil

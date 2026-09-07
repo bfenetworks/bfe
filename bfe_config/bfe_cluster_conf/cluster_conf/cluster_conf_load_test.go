@@ -119,7 +119,6 @@ func TestStatusCodeRange(t *testing.T) {
 	})
 }
 
-
 func TestModelTableCheck(t *testing.T) {
 	t.Run("valid RMB table", func(t *testing.T) {
 		table := &ModelTable{
@@ -297,8 +296,8 @@ func TestAIConfCheck(t *testing.T) {
 	t.Run("key policy affinity defaults", func(t *testing.T) {
 		conf := &AIConf{
 			KeyPolicy: &AIKeyPolicy{
-				Strategy:       "weighted_random",
-				MaxRetries:     3,
+				Strategy:        "weighted_random",
+				MaxRetries:      3,
 				SessionAffinity: true,
 			},
 		}

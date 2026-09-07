@@ -55,13 +55,102 @@ Note: The following configuration items are located in the namespace `Config[v]`
 | Configuration Item | Type | Meaning | Required | Supplementary Description | Validity Condition |
 | ----------------------------------- | --------- | ---------------------------------------------- | -------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | GslbBasic.CrossRetry | Integer | Maximum cross-sub-cluster retry count | N | Default value 0 | >= 0 |
-| GslbBasic.RetryMax | Integer | Maximum retry count within a sub-cluster | N | Default value 2 | >= 0 |
-| GslbBasic.BalanceMode | String | Load balancing mode | N | Default value `WRR` | Only supports `WRR` (Weighted Round Robin), `WLC` (Weighted Least Connections), `EPP` (External Policy-based Load Balancing) |
-| GslbBasic.EPPAddr | []String | List of EPP server addresses | Conditional | Effective only when BalanceMode is `EPP` | Non-empty list; each element is a valid address |
-| GslbBasic.HashConf | Object | Hash strategy configuration for session persistence | N | - | - |
+| GslbBasic.RetryMax | Integer | Maximum retry count within a sub-cluster | N | Default value 2; when `BalanceMode` is `EPP` it also bounds retries on the EPP scheduling path | >= 0 |
+| GslbBasic.BalanceMode | String | Load balancing mode | N | Default value `WRR` | `WRR` (Weighted Round Robin), `WLC` (Weighted Least Connections), `EPP` (external scheduling via ext-proc, see [EPP Scheduling Configuration](#epp-scheduling-configuration-balancemode--epp)) |
+| GslbBasic.HashConf | Object | Hash strategy configuration for session persistence | N | Ineffective when `BalanceMode` is `EPP` (backends are chosen by EPP); kept to ease mode rollback | - |
 | GslbBasic.HashConf.HashStrategy | Integer | Hash strategy for session persistence | N | Default value 1 (ClientIpOnly) | Only supports 0 (ClientIdOnly), 1 (ClientIpOnly), 2 (ClientIdPreferred), 3 (RequestURI) |
 | GslbBasic.HashConf.HashHeader | String | Hash request header for session persistence | N | Optional; can be configured as a Header that uniquely identifies a client; if it is a cookie header, the format is `"Cookie:key"` | - |
 | GslbBasic.HashConf.SessionSticky | Boolean | Whether to enable session persistence | N | Default value `False`; when set to `False`, the session persistence level is at the sub-cluster level | - |
+| GslbBasic.EPPAddr | []String | Ordered EPP server address list | Conditional | Required when `BalanceMode` is `EPP`; element `[0]` = primary, `[1]` = backup (see [EPPAddr semantics](#eppaddr-semantics)) | Non-empty list; each element is `host:port`; no duplicates allowed |
+| GslbBasic.EPPCheck | Object | EPP health check and failover hysteresis parameters; effective only when `BalanceMode` is `EPP`, enabled with defaults when omitted | N | - | See [EPPCheck elements](#eppcheck-elements) |
+| GslbBasic.EPPTimeout | Object | EPP call timeout parameters; effective only when `BalanceMode` is `EPP` | N | - | See [EPPTimeout elements](#epptimeout-elements) |
+| GslbBasic.EPPTLS | Object | EPP connection TLS parameters; effective only when `BalanceMode` is `EPP`; defaults to TLS without certificate verification (compatible with legacy deployments) | N | - | See [EPPTLS elements](#epptls-elements) |
+| GslbBasic.EPPBreaker | Object | EPP call circuit breaker parameters; effective only when `BalanceMode` is `EPP`, enabled with defaults when omitted | N | - | See [EPPBreaker elements](#eppbreaker-elements) |
+
+##### EPP Scheduling Configuration (BalanceMode = "EPP")
+
+When `BalanceMode` is `EPP`, BFE delegates scheduling decisions to an EPP service over the [ext-proc](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/ext_proc/v3/ext_proc.proto) gRPC protocol: BFE carries the cluster name in the request message (`llm-d.ai/inference-pool` metadata), and EPP returns the selected backend address in the response dynamic metadata `envoy.lb -> x-gateway-destination-endpoint`. When EPP is unavailable, BFE falls back to local load balancing (WRR) per the existing degradation semantics. EPP-related metrics are exposed at `/monitor/epp_metrics`.
+
+###### EPPAddr semantics
+
+`EPPAddr` is an **ordered** address list:
+
+- `[0]` is the **primary** EPP instance of this cluster; `[1]` is the **backup** EPP instance of the same instance group; more than 2 entries are reserved for scaling and are consumed in order.
+- Requests go to `[0]` first; the active index only moves to a later address after consecutive health check failures reach the threshold (hysteresis, see [EPPCheck](#eppcheck-elements)).
+- A single-element list is valid: no backup instance (test / single-instance-group setups); instance failure degrades to local load balancing.
+- The list is usually derived and distributed by ai-gateway-api according to the "instance group primary/backup assignment".
+
+###### EPPCheck elements
+
+```json
+{
+    "Disabled": false,
+    "CheckInterval": "2s",
+    "FailThreshold": 3,
+    "Cooldown": "45s",
+    "SuccessThreshold": 2
+}
+```
+
+| Field | Type | Required | Description | Validity Condition |
+|------|------|------|------|------------|
+| Disabled | Boolean | N | Disable background health checks; default `false`; when enabled, only per-request error-driven retry remains (not recommended for production) | - |
+| CheckInterval | String | N | Health probe interval (gRPC health, `grpc.health.v1`, probed towards EPPAddr); default `"2s"` | Valid duration string, > 0 |
+| FailThreshold | Integer | N | Failover to the next address after this many consecutive failures of the active address; default `3` | > 0 |
+| Cooldown | String | N | Cooldown after failover; no failback within this period (anti-flapping); default `"45s"` | Valid duration string, > 0 |
+| SuccessThreshold | Integer | N | After cooldown, a higher-priority address must pass this many consecutive probes before failback; default `2` | > 0 |
+
+###### EPPTimeout elements
+
+```json
+{
+    "Connect": "500ms",
+    "Call": "3s"
+}
+```
+
+| Field | Type | Required | Description | Validity Condition |
+|------|------|------|------|------------|
+| Connect | String | N | Timeout for establishing the gRPC connection/stream; default `"500ms"` | Valid duration string, > 0 |
+| Call | String | N | Timeout for the first message round trip (RequestHeaders Send+Recv); a timeout counts as a failed EPP call and follows the failure fallback path; default `"3s"` | Valid duration string, > 0 |
+
+###### EPPTLS elements
+
+```json
+{
+    "Insecure": false,
+    "CAFile": "/bfe/conf/epp/epp_ca.crt"
+}
+```
+
+| Field | Type | Required | Description | Validity Condition |
+|------|------|------|------|------------|
+| Insecure | Boolean | N | Skip verification of the EPP server certificate; default `false`; `true` is for test environments only | - |
+| CAFile | String | Conditional | CA file path for verifying the EPP server certificate; required when `Insecure` is `false` | [FilePath](../00-common.md#3-file-pathfilepath); must be readable at load time |
+
+Note: EPP connections always use **TLS** transport. When `EPPTLS` is omitted entirely, BFE keeps TLS but skips certificate verification (compatible with pre-upgrade EPP deployments; a migration warning is logged). Production should configure `EPPTLS` explicitly to enable verification. The CA certificate file can be distributed to a fixed path via the server_data_conf extra_files channel.
+
+###### EPPBreaker elements
+
+```json
+{
+    "Disabled": false,
+    "WindowSize": 100,
+    "MinVolume": 20,
+    "ErrorRatePercent": 50,
+    "OpenTimeout": "30s"
+}
+```
+
+| Field | Type | Required | Description | Validity Condition |
+|------|------|------|------|------------|
+| Disabled | Boolean | N | Disable the circuit breaker; default `false` | - |
+| WindowSize | Integer | N | Sliding window size (number of recent call results); default `100` | >= 1 |
+| MinVolume | Integer | N | Minimum call volume before evaluation; default `20` | >= 1 and <= `WindowSize` |
+| ErrorRatePercent | Integer | N | Error rate (percent) at which the breaker opens (OPEN), short-circuiting all EPP calls and degrading to local load balancing; default `50` | [1, 100] |
+| OpenTimeout | String | N | After OPEN lasts this long the breaker turns half-open (probe requests allowed); a successful probe closes the breaker and clears the window, a failed one re-opens it; default `"30s"` | Valid duration string, > 0 |
+
+Configuration hot-reload does not reset the OPEN state (avoiding a thundering herd on config reload).
 
 #### Cluster Basic Configuration
 
@@ -360,6 +449,65 @@ Note: The following configuration items are located in the namespace `Config[v]`
                         }
                     ]
                 }
+            }
+        },
+        "epp_cluster_example": {
+            "BackendConf": {
+                "TimeoutConnSrv": 2000,
+                "TimeoutResponseHeader": 50000,
+                "MaxIdleConnsPerHost": 0,
+                "RetryLevel": 0
+            },
+            "CheckConf": {
+                "Schem": "http",
+                "Uri": "/healthcheck",
+                "Host": "example.org",
+                "StatusCode": 200,
+                "FailNum": 10,
+                "CheckInterval": 1000
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 2,
+                "BalanceMode": "EPP",
+                "HashConf": {
+                    "HashStrategy": 0,
+                    "HashHeader": "Cookie:UID",
+                    "SessionSticky": false
+                },
+                "EPPAddr": [
+                    "10.0.0.1:9002",
+                    "10.0.0.2:9002"
+                ],
+                "EPPCheck": {
+                    "CheckInterval": "2s",
+                    "FailThreshold": 3,
+                    "Cooldown": "45s",
+                    "SuccessThreshold": 2
+                },
+                "EPPTimeout": {
+                    "Connect": "500ms",
+                    "Call": "3s"
+                },
+                "EPPTLS": {
+                    "Insecure": false,
+                    "CAFile": "../conf/epp/epp_ca.crt"
+                },
+                "EPPBreaker": {
+                    "WindowSize": 100,
+                    "MinVolume": 20,
+                    "ErrorRatePercent": 50,
+                    "OpenTimeout": "30s"
+                }
+            },
+            "ClusterBasic": {
+                "TimeoutReadClient": 30000,
+                "TimeoutWriteClient": 60000,
+                "TimeoutReadClientAgain": 60000,
+                "ReqWriteBufferSize": 512,
+                "ReqFlushInterval": 0,
+                "ResFlushInterval": -1,
+                "CancelOnClientClose": false
             }
         }
     }

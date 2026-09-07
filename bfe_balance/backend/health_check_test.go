@@ -671,7 +671,7 @@ func TestCheckConnect_checkHTTPSConnect(t *testing.T) {
 				tlsConfig.RootCAs = cas
 			}
 
-			listener, err := net.Listen("tcp", ":0")
+			listener, err := net.Listen("tcp", "127.0.0.1:0")
 			if err != nil {
 				t.Errorf("failed to listen: %v", err)
 			}

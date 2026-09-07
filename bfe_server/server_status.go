@@ -28,6 +28,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_spdy"
 	"github.com/bfenetworks/bfe/bfe_stream"
 	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util/epp"
 	"github.com/bfenetworks/bfe/bfe_util/json"
 	"github.com/bfenetworks/bfe/bfe_websocket"
 )
@@ -83,6 +84,10 @@ type ServerStatus struct {
 	BalState   *bal.BalErrState
 	BalMetrics metrics.Metrics
 
+	// for epp client
+	EppState   *epp.EppState
+	EppMetrics metrics.Metrics
+
 	// for proxy
 	ProxyState   *ProxyState
 	ProxyMetrics metrics.Metrics
@@ -112,6 +117,7 @@ func NewServerStatus() *ServerStatus {
 	m.WebSocketState = bfe_websocket.GetWebSocketState()
 	m.ProxyState = new(ProxyState)
 	m.BalState = bal.GetBalErrState()
+	m.EppState = epp.GetEppState()
 
 	// initialize metrics
 	m.ProxyProtocolMetrics.Init(m.ProxyProtocolState, KP_PROXY_STATE, 0)
@@ -123,6 +129,7 @@ func NewServerStatus() *ServerStatus {
 	m.WebSocketMetrics.Init(m.WebSocketState, KP_PROXY_STATE, 0)
 	m.ProxyMetrics.Init(m.ProxyState, KP_PROXY_STATE, 0)
 	m.BalMetrics.Init(m.BalState, KP_PROXY_STATE, 0)
+	m.EppMetrics.Init(m.EppState, KP_PROXY_STATE, 0)
 
 	// initialize delay counter
 	m.ProxyDelay = new(delay_counter.DelayRecent)
@@ -226,6 +233,12 @@ func (srv *BfeServer) websocketStateGetDiff(params map[string][]string) ([]byte,
 func (srv *BfeServer) proxyStateGetAll(params map[string][]string) ([]byte, error) {
 	s := srv.serverStatus.ProxyMetrics.GetAll()
 	return s.Format(params)
+}
+
+// eppMetricsGet dumps labeled EPP metrics (cluster dimension) in
+// prometheus text format.
+func (srv *BfeServer) eppMetricsGet(params map[string][]string) ([]byte, error) {
+	return bal.EppMetricsText()
 }
 
 func (srv *BfeServer) proxyStateGetDiff(params map[string][]string) ([]byte, error) {

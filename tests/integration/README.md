@@ -15,6 +15,8 @@ bfe/tests/integration/
 │   ├── process_env.go                         # 编译/启动/停止真实 BFE 进程
 │   ├── bfe_config_builder.go                  # 生成临时 BFE 配置
 │   ├── mock_backend.go                        # 本地 mock AI 后端
+│   ├── mock_epp.go                            # 进程内 mock EPP（ext-proc + health，TLS）
+│   ├── sim.go                                 # 启动 llm-d-inference-sim 后端
 │   └── util.go                                # 工具函数
 ├── implementation/                            # Go 实现代码（ASCII 目录名）
 │   └── scenario-SC01-route-table-lookup/
@@ -50,6 +52,7 @@ go test ./tests/integration/implementation/scenario-SC01-route-table-lookup/ -ru
 |------|------|
 | SC01 路由表查找与绑定 | 验证 `mod_ai_route` 在多级路由表（apikey/entity/global）中的搜索与回退顺序，以及 fallback 时 body 回绕行为 |
 | SC13 TLS 热加载路径重定向 | 验证 `/reload/tls_conf?path=` 时 client CA/CRL 基目录随版本目录切换（conf-agent#19），通过真实 TLS 握手验证 reload 前后客户端证书校验行为 |
+| SC14 EPP 调度对接 | 验证 `BalanceMode=EPP` 下 ext-proc 调度的决策转发、pool metadata 注入、SSE 响应回传、主备 failover、错误驱动重试、降级本地均衡与熔断（EPP 为进程内 mock server，后端为真实 llm-d-inference-sim） |
 
 ## 参考文档
 

@@ -123,12 +123,32 @@
     "GslbBasic": {
         "CrossRetry": 0,
         "RetryMax": 2,
-        "BalanceMode": "WRR",
-        "EPPAddr": [],
+        "BalanceMode": "EPP",
         "HashConf": {
             "HashStrategy": 1,
             "HashHeader": "",
             "SessionSticky": false
+        },
+        "EPPAddr": ["epp-a.internal:9002", "epp-b.internal:9002"],
+        "EPPCheck": {
+            "CheckInterval": "2s",
+            "FailThreshold": 3,
+            "Cooldown": "45s",
+            "SuccessThreshold": 2
+        },
+        "EPPTimeout": {
+            "Connect": "500ms",
+            "Call": "3s"
+        },
+        "EPPTLS": {
+            "Insecure": false,
+            "CAFile": "/bfe/conf/epp/epp_ca.crt"
+        },
+        "EPPBreaker": {
+            "WindowSize": 100,
+            "MinVolume": 20,
+            "ErrorRatePercent": 50,
+            "OpenTimeout": "30s"
         }
     }
 }
@@ -137,13 +157,102 @@
 | 字段 | 类型 | 必填 | 说明 | 合法性条件 |
 |------|------|------|------|------------|
 | CrossRetry | integer | N | 跨子集群最大重试次数；默认 `0` | >= 0 |
-| RetryMax | integer | N | 子集群内最大重试次数；默认 `2` | >= 0 |
-| BalanceMode | string | N | 负载均衡模式；默认 `WRR` | `WRR`（加权轮询）、`WLC`（加权最小连接数）、`EPP`（基于外部策略） |
-| EPPAddr | []string | 条件 | EPP 服务端地址列表；`BalanceMode` 为 `EPP` 时必填 | 非空列表；每个元素为有效地址 |
-| HashConf | object | N | 会话保持的 HASH 策略配置 | - |
+| RetryMax | integer | N | 子集群内最大重试次数；默认 `2`；`BalanceMode` 为 `EPP` 时同样约束 EPP 调度路径的重试 | >= 0 |
+| BalanceMode | string | N | 负载均衡模式；默认 `WRR` | `WRR`（加权轮询）、`WLC`（加权最小连接数）、`EPP`（基于外部策略，见 [6.1](#61-epp-调度配置balancemode--epp)） |
+| HashConf | object | N | 会话保持的 HASH 策略配置；`BalanceMode` 为 `EPP` 时不生效（后端由 EPP 决策），保留便于模式回切 | - |
 | HashConf.HashStrategy | integer | N | 哈希策略；默认 `1`（ClientIpOnly） | `0` ClientIdOnly；`1` ClientIpOnly；`2` ClientIdPreferred；`3` RequestURI |
 | HashConf.HashHeader | string | N | 会话保持的 hash 请求头；Cookie 格式为 `"Cookie:key"` | - |
 | HashConf.SessionSticky | boolean | N | 是否开启会话保持；默认 `false` | - |
+| EPPAddr | []string | 条件 | EPP 服务端地址列表；`BalanceMode` 为 `EPP` 时必填 | 非空列表；元素为 `host:port`；列表内不允许重复 |
+| EPPCheck | object | N | EPP 健康检查与故障转移滞回参数；仅 `BalanceMode` 为 `EPP` 时生效，缺省按默认值启用 | 见 [6.1.2](#612-eppcheck-元素) |
+| EPPTimeout | object | N | EPP 调用超时参数；仅 `BalanceMode` 为 `EPP` 时生效 | 见 [6.1.3](#613-epptimeout-元素) |
+| EPPTLS | object | N | EPP 连接 TLS 参数；仅 `BalanceMode` 为 `EPP` 时生效；缺省时保持 TLS 但跳过证书校验（兼容旧部署） | 见 [6.1.4](#614-epptls-元素) |
+| EPPBreaker | object | N | EPP 调用熔断参数；仅 `BalanceMode` 为 `EPP` 时生效，缺省按默认值启用 | 见 [6.1.5](#615-eppbreaker-元素) |
+
+### 6.1 EPP 调度配置（BalanceMode = "EPP"）
+
+`BalanceMode` 为 `EPP` 时，BFE 通过 [ext-proc](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/ext_proc/v3/ext_proc.proto) gRPC 协议将调度决策委托给 EPP 服务：BFE 在请求消息中携带 cluster 名（`llm-d.ai/inference-pool` metadata），EPP 在响应 dynamic metadata 的 `envoy.lb → x-gateway-destination-endpoint` 中返回选中的后端地址；EPP 不可用时按既有降级语义回退本地负载均衡（WRR）。EPP 相关指标见 `/monitor/epp_metrics`。
+
+#### 6.1.1 EPPAddr 语义
+
+`EPPAddr` 是**有序**地址列表：
+
+- `[0]` = 该 cluster 的**主** EPP 实例；`[1]` = 同实例组内的**备** EPP 实例；超过 2 个为扩容预留，按序消费。
+- 请求优先发往 `[0]`；仅在 `[0]` 连续健康检查失败达到阈值后切换到后续地址（见 6.1.2 滞回）。
+- 单元素列表合法：无备实例（测试/单实例组场景），实例故障时降级本地负载均衡。
+- 该列表通常由 ai-gateway-api 按"实例组主备分配"派生下发。
+
+#### 6.1.2 EPPCheck 元素
+
+```json
+{
+    "Disabled": false,
+    "CheckInterval": "2s",
+    "FailThreshold": 3,
+    "Cooldown": "45s",
+    "SuccessThreshold": 2
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 | 合法性条件 |
+|------|------|------|------|------------|
+| Disabled | boolean | N | 是否关闭后台健康检查；默认 `false`；开启后仅依赖请求级错误重试，生产环境不建议 | - |
+| CheckInterval | string | N | 健康检查探活周期（gRPC health，`grpc.health.v1`，朝 EPPAddr 探测）；默认 `"2s"` | 合法 duration 字符串，> 0 |
+| FailThreshold | integer | N | 活跃地址连续失败该次数后故障转移到下一地址；默认 `3` | > 0 |
+| Cooldown | string | N | 故障转移后的冷却期，期内不回切（防抖动）；默认 `"45s"` | 合法 duration 字符串，> 0 |
+| SuccessThreshold | integer | N | 冷却期后，更高优先级地址需连续成功该次数才回切；默认 `2` | > 0 |
+
+#### 6.1.3 EPPTimeout 元素
+
+```json
+{
+    "Connect": "500ms",
+    "Call": "3s"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 | 合法性条件 |
+|------|------|------|------|------------|
+| Connect | string | N | 建立 gRPC 连接/stream 的超时；默认 `"500ms"` | 合法 duration 字符串，> 0 |
+| Call | string | N | 首消息（RequestHeaders 的 Send+Recv 往返）超时；超时即视为本次 EPP 调用失败，走失败回退路径；默认 `"3s"` | 合法 duration 字符串，> 0 |
+
+#### 6.1.4 EPPTLS 元素
+
+```json
+{
+    "Insecure": false,
+    "CAFile": "/bfe/conf/epp/epp_ca.crt"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 | 合法性条件 |
+|------|------|------|------|------------|
+| Insecure | boolean | N | 是否跳过 EPP 服务端证书校验；默认 `false`；`true` 仅用于测试环境 | - |
+| CAFile | string | 条件 | 校验 EPP 服务端证书的 CA 文件路径；`Insecure` 为 `false` 时必填 | 类型为 [FilePath](../00-common.md#3-文件路径filepath)；加载时校验文件可读 |
+
+注意：**EPP 连接始终使用 TLS 传输**。未配置 `EPPTLS`（整个字段缺省）时保持 TLS 但跳过服务端证书校验，兼容升级前的既有 EPP 部署（会输出迁移告警日志）；生产环境应显式配置 `EPPTLS` 启用证书校验。CA 证书文件可经 server_data_conf 的 extra_files 通道下发到固定路径。
+
+#### 6.1.5 EPPBreaker 元素
+
+```json
+{
+    "Disabled": false,
+    "WindowSize": 100,
+    "MinVolume": 20,
+    "ErrorRatePercent": 50,
+    "OpenTimeout": "30s"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 | 合法性条件 |
+|------|------|------|------|------------|
+| Disabled | boolean | N | 是否关闭熔断；默认 `false` | - |
+| WindowSize | integer | N | 滑动窗口大小（最近调用结果数）；默认 `100` | >= 1 |
+| MinVolume | integer | N | 触发评估的最小调用量；默认 `20` | >= 1 且 <= `WindowSize` |
+| ErrorRatePercent | integer | N | 窗口内错误率达到该百分比即熔断（OPEN），短路全部 EPP 调用并降级本地负载均衡；默认 `50` | [1, 100] |
+| OpenTimeout | string | N | OPEN 持续该时长后进入半开（放行探测请求），探测成功关闭熔断并清空窗口、失败重新 OPEN；默认 `"30s"` | 合法 duration 字符串，> 0 |
+
+配置热更新不会重置 OPEN 状态（避免配置重载导致击穿）。
 
 ---
 
@@ -744,6 +853,61 @@
                         }
                     ]
                 }
+            }
+        },
+        "epp_cluster_example": {
+            "BackendConf": {
+                "Protocol": "http",
+                "TimeoutConnSrv": 2000,
+                "TimeoutResponseHeader": 60000,
+                "MaxIdleConnsPerHost": 2,
+                "RetryLevel": 0
+            },
+            "CheckConf": {
+                "Schem": "http",
+                "Uri": "/healthcheck",
+                "StatusCode": 200,
+                "FailNum": 5,
+                "CheckInterval": 1000
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 2,
+                "BalanceMode": "EPP",
+                "EPPAddr": [
+                    "epp-a.internal:9002",
+                    "epp-b.internal:9002"
+                ],
+                "EPPCheck": {
+                    "CheckInterval": "2s",
+                    "FailThreshold": 3,
+                    "Cooldown": "45s",
+                    "SuccessThreshold": 2
+                },
+                "EPPTimeout": {
+                    "Connect": "500ms",
+                    "Call": "3s"
+                },
+                "EPPTLS": {
+                    "Insecure": false,
+                    "CAFile": "../conf/epp/epp_ca.crt"
+                },
+                "EPPBreaker": {
+                    "WindowSize": 100,
+                    "MinVolume": 20,
+                    "ErrorRatePercent": 50,
+                    "OpenTimeout": "30s"
+                },
+                "HashConf": {
+                    "HashStrategy": 0,
+                    "HashHeader": "",
+                    "SessionSticky": false
+                }
+            },
+            "ClusterBasic": {
+                "TimeoutReadClient": 30000,
+                "TimeoutWriteClient": 60000,
+                "TimeoutReadClientAgain": 60000
             }
         }
     }

@@ -36,7 +36,12 @@ import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/gslb_conf"
 	"github.com/bfenetworks/bfe/bfe_util/epp"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	extprocv3 "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const (
@@ -61,11 +66,10 @@ type BalanceGslb struct {
 	BalanceMode string                // balanceMode, WRR or WLC, defined in cluster_conf
 
 	// EPP related
-	eppClient      epp.EppGrpcClient
-	eppAddrs       []string
-	eppConnTimeout time.Duration
-	eppCallRetry   uint32
-	eppConcurrency int
+	eppMu      sync.Mutex
+	eppRt      *eppRuntime   // current EPP runtime, nil if not in EPP mode
+	eppRetired []*eppRuntime // old runtimes pending graceful close
+	eppBreaker *eppBreaker   // circuit breaker of EPP path, nil if not in EPP mode
 }
 
 func NewBalanceGslb(name string) *BalanceGslb {
@@ -94,15 +98,16 @@ func (bal *BalanceGslb) SetGslbBasic(gslbBasic cluster_conf.GslbBasicConf) {
 	bal.BalanceMode = *gslbBasic.BalanceMode
 
 	bal.lock.Unlock()
-	// close EPP client if any
-	bal.closeEPP()
 
-	// init or close EPP client according to balance mode
+	// init or close EPP runtime according to balance mode
 	if gslbBasic.BalanceMode != nil && strings.ToUpper(*gslbBasic.BalanceMode) == cluster_conf.BalanceModeEPP {
 		if gslbBasic.EPPAddr != nil && len(*gslbBasic.EPPAddr) > 0 {
-			if err := bal.initEPP(*gslbBasic.EPPAddr); err != nil {
+			if err := bal.initEPP(*gslbBasic.EPPAddr, gslbBasic); err != nil {
 				log.Logger.Error("initEPP failed: %v", err)
 			}
+		} else {
+			// EPP mode without address, ensure EPP is closed
+			bal.closeEPP()
 		}
 	} else {
 		// non-EPP mode, ensure EPP is closed
@@ -120,94 +125,251 @@ func (bal *BalanceGslb) SetSlowStart(backendConf cluster_conf.BackendBasic) {
 	bal.lock.Unlock()
 }
 
-// initEPP initializes or refreshes EPP client with given addresses.
-func (bal *BalanceGslb) initEPP(addrs []string) error {
+// eppRetireGrace is the time in-flight requests may keep using connections
+// of a retired EPP runtime before they are closed. It is a var (not const)
+// so tests can shorten it.
+var eppRetireGrace = 60 * time.Second
+
+// buildEPPRuntimeConf extracts EPP runtime parameters from gslb basic conf,
+// applying defaults for unset (nil) sections.
+func buildEPPRuntimeConf(gslbBasic cluster_conf.GslbBasicConf) eppRuntimeConf {
+	conf := eppRuntimeConf{
+		connectTimeout:   cluster_conf.DefaultEPPConnectTimeoutValue(),
+		callTimeout:      cluster_conf.DefaultEPPCallTimeoutValue(),
+		checkInterval:    cluster_conf.DefaultEPPCheckIntervalValue(),
+		failThreshold:    cluster_conf.DefaultEPPFailThreshold,
+		cooldown:         cluster_conf.DefaultEPPCooldownValue(),
+		successThreshold: cluster_conf.DefaultEPPSuccessThreshold,
+	}
+
+	if gslbBasic.EPPCheck != nil {
+		conf.checkDisabled = gslbBasic.EPPCheck.Disabled
+		conf.checkInterval = gslbBasic.EPPCheck.CheckIntervalDuration()
+		if gslbBasic.EPPCheck.FailThreshold != nil {
+			conf.failThreshold = *gslbBasic.EPPCheck.FailThreshold
+		}
+		conf.cooldown = gslbBasic.EPPCheck.CooldownDuration()
+		if gslbBasic.EPPCheck.SuccessThreshold != nil {
+			conf.successThreshold = *gslbBasic.EPPCheck.SuccessThreshold
+		}
+	}
+
+	if gslbBasic.EPPTimeout != nil {
+		conf.connectTimeout = gslbBasic.EPPTimeout.ConnectDuration()
+		conf.callTimeout = gslbBasic.EPPTimeout.CallDuration()
+	}
+
+	// Compat: nil EPPTLS keeps legacy behavior (skip certificate verification).
+	// Only an explicitly configured EPPTLS enables verification.
+	if gslbBasic.EPPTLS != nil {
+		conf.tlsInsecure = gslbBasic.EPPTLS.Insecure
+		conf.tlsCAFile = gslbBasic.EPPTLS.CAFile
+	} else {
+		conf.tlsInsecure = true
+	}
+
+	return conf
+}
+
+// buildEPPBreakerConf extracts EPP breaker parameters from gslb basic conf,
+// applying defaults for unset fields.
+func buildEPPBreakerConf(gslbBasic cluster_conf.GslbBasicConf) eppBreakerConf {
+	conf := eppBreakerConf{
+		windowSize:       cluster_conf.DefaultEPPBreakerWindowSize,
+		minVolume:        cluster_conf.DefaultEPPBreakerMinVolume,
+		errorRatePercent: cluster_conf.DefaultEPPBreakerErrorRatePercent,
+		openTimeout:      cluster_conf.DefaultEPPBreakerOpenTimeoutValue(),
+	}
+
+	if gslbBasic.EPPBreaker != nil {
+		conf.disabled = gslbBasic.EPPBreaker.Disabled
+		if gslbBasic.EPPBreaker.WindowSize != nil {
+			conf.windowSize = *gslbBasic.EPPBreaker.WindowSize
+		}
+		if gslbBasic.EPPBreaker.MinVolume != nil {
+			conf.minVolume = *gslbBasic.EPPBreaker.MinVolume
+		}
+		if gslbBasic.EPPBreaker.ErrorRatePercent != nil {
+			conf.errorRatePercent = *gslbBasic.EPPBreaker.ErrorRatePercent
+		}
+		conf.openTimeout = gslbBasic.EPPBreaker.OpenTimeoutDuration()
+	}
+
+	return conf
+}
+
+// initEPP initializes or refreshes EPP runtime with given addresses.
+// If only check/timeout/tls parameters changed (address table unchanged),
+// they are applied to the existing runtime so in-flight requests are not
+// interrupted; address table change swaps in a new runtime and the old one
+// is closed after a grace period.
+func (bal *BalanceGslb) initEPP(addrs []string, gslbBasic cluster_conf.GslbBasicConf) error {
+	conf := buildEPPRuntimeConf(gslbBasic)
+	breakerConf := buildEPPBreakerConf(gslbBasic)
+
+	bal.eppMu.Lock()
+	defer bal.eppMu.Unlock()
+
 	if len(addrs) == 0 {
-		bal.closeEPP()
+		bal.closeEPPLocked()
 		return nil
 	}
 
-	// if same as existing, do nothing
-	if len(bal.eppAddrs) == len(addrs) {
-		same := true
-		for i := range addrs {
-			if bal.eppAddrs[i] != addrs[i] {
-				same = false
-				break
-			}
-		}
-		if same {
-			return nil
-		}
+	// create or refresh the circuit breaker (EPP path only)
+	if bal.eppBreaker == nil {
+		bal.eppBreaker = newEppBreaker(bal.name, breakerConf)
+	} else {
+		bal.eppBreaker.updateConf(breakerConf)
 	}
 
-	// build client via grpc_pool wrapper
-	// use default small timeouts/concurrency; tune as needed
-	// client, err := epp.NewClient(addrs, 100*time.Second, 2, 2)
-	client, err := epp.NewSimpleGrpcClient(addrs[0], 100*time.Second)
+	if bal.eppRt != nil && bal.eppRt.sameAddrs(addrs) {
+		bal.eppRt.updateConf(conf)
+		return nil
+	}
+
+	rt, err := newEPPRuntime(bal.name, addrs, conf)
 	if err != nil {
 		return err
 	}
 
-	// swap in new client
-	if bal.eppClient != nil {
-		bal.eppClient.Close()
+	old := bal.eppRt
+	bal.eppRt = rt
+	if old != nil {
+		bal.retireEPPLocked(old)
 	}
-	bal.eppClient = client
-	bal.eppAddrs = append([]string(nil), addrs...)
 	return nil
 }
 
-// closeEPP closes and clears EPP client if exists
-func (bal *BalanceGslb) closeEPP() {
-	if bal.eppClient != nil {
-		bal.eppClient.Close()
-		bal.eppClient = nil
-	}
-	bal.eppAddrs = nil
+// retireEPPLocked stops the health check of an old runtime and closes its
+// connections after eppRetireGrace, so in-flight requests are not interrupted.
+// Caller must hold bal.eppMu.
+func (bal *BalanceGslb) retireEPPLocked(rt *eppRuntime) {
+	rt.stopProbes()
+	bal.eppRetired = append(bal.eppRetired, rt)
+	time.AfterFunc(eppRetireGrace, func() {
+		rt.closeConns()
+	})
 }
 
-// chooseBackendFromEPP is a hook to call EPP service to get target backend address.
-// Current implementation is a stub that returns empty result (meaning no decision).
-// Implement actual gRPC call to EPP service here using bal.eppClient.Conn().
-func (bal *BalanceGslb) chooseBackendFromEPP(req *bfe_basic.Request) (string, *epp.EppClient, error) {
-	if bal.eppClient == nil {
+// closeEPP closes and clears EPP runtime if exists.
+func (bal *BalanceGslb) closeEPP() {
+	bal.eppMu.Lock()
+	defer bal.eppMu.Unlock()
+	bal.closeEPPLocked()
+}
+
+// closeEPPLocked closes current and retired EPP runtimes.
+// Caller must hold bal.eppMu.
+func (bal *BalanceGslb) closeEPPLocked() {
+	if bal.eppRt != nil {
+		bal.eppRt.stopProbes()
+		bal.eppRt.closeConns()
+		bal.eppRt = nil
+	}
+	for _, rt := range bal.eppRetired {
+		rt.stopProbes()
+		rt.closeConns()
+	}
+	bal.eppRetired = nil
+	bal.eppBreaker = nil
+}
+
+// getEPPRt returns current EPP runtime, or nil if not in EPP mode.
+func (bal *BalanceGslb) getEPPRt() *eppRuntime {
+	bal.eppMu.Lock()
+	defer bal.eppMu.Unlock()
+	return bal.eppRt
+}
+
+// chooseBackendFromEPP calls EPP service to get target backend address.
+// The first message carries "llm-d.ai/inference-pool" metadata so that EPP
+// can route the stream to the cell of this cluster. If the chosen address
+// fails with a retryable error (cell draining / unknown pool / transport),
+// the following addresses are tried in order for this request only (one
+// pass); this does not affect the health check state machine.
+func (bal *BalanceGslb) chooseBackendFromEPP(req *bfe_basic.Request) (addr string, c *epp.EppClient, err error) {
+	rt := bal.getEPPRt()
+	if rt == nil {
 		return "", nil, fmt.Errorf("no epp client")
 	}
 
-	conn := bal.eppClient.Conn()
+	n := rt.addrCount()
+	if n == 0 {
+		return "", nil, fmt.Errorf("no epp address")
+	}
+
+	// inject pool metadata: {"llm-d.ai": {"inference-pool": <cluster name>}}
+	md, err := structpb.NewStruct(map[string]any{"inference-pool": bal.name})
+	if err != nil {
+		return "", nil, err
+	}
+	metadata := &corev3.Metadata{
+		FilterMetadata: map[string]*structpb.Struct{"llm-d.ai": md},
+	}
+
+	hasBody := req.OutRequest.ContentLength != 0
+	callTimeout := rt.callTimeout()
+	start := rt.activeIndex()
+
+	// record the final outcome of this request's EPP call(s) for metrics
+	attempted := false
+	defer func() {
+		if attempted {
+			recordEPPCall(bal.name, err)
+		}
+	}()
+
+	var lastErr error
+	for i := 0; i < n; i++ {
+		idx := (start + i) % n
+		conn := rt.connFor(idx)
+		if conn == nil {
+			lastErr = fmt.Errorf("epp conn %s not ready", rt.addrAt(idx))
+			continue
+		}
+
+		attempted = true
+		addrinfo, eppClient, callErr := bal.callEPP(conn, metadata, req, hasBody, callTimeout)
+		if callErr == nil {
+			return addrinfo, eppClient, nil
+		}
+		lastErr = callErr
+		if !isEPPRetryable(callErr) {
+			// e.g. missing inference-pool metadata is a BFE defect, do not retry
+			break
+		}
+		log.Logger.Info("EPP addr %s failed (%v), try next address", rt.addrAt(idx), callErr)
+	}
+
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no epp address available")
+	}
+	return "", nil, lastErr
+}
+
+// callEPP talks to one EPP address: opens a stream on the shared connection,
+// sends RequestHeaders (+RequestBody), receives scheduling decision from
+// dynamic metadata.
+func (bal *BalanceGslb) callEPP(conn *grpc.ClientConn, metadata *corev3.Metadata,
+	req *bfe_basic.Request, hasBody bool, callTimeout time.Duration) (string, *epp.EppClient, error) {
 	if conn == nil {
 		return "", nil, fmt.Errorf("epp conn not ready")
 	}
 
-	client, err := epp.NewEppClient(conn)
+	eppClient, err := epp.NewEppClient(conn, callTimeout)
 	if err != nil {
 		return "", nil, err
-	}
-
-	// build subset hint metadata if request provides backend subset (optional)
-	// For now, we only send minimal metadata and headers: host and path
-	// Build filter metadata: {"envoy.lb.subset_hint": {"x-gateway-destination-endpoint-subset": [..]}}
-	//filterMeta := map[string]*structpb.Struct{}
-	// no subset by default
-	//metadata := &corev3.Metadata{FilterMetadata: filterMeta}
-
-	// construct ProcessingRequest with request_headers
-	// HttpHeaders requires HeaderMap; construct minimal representation using attributes map
-	hasBody := true
-	if req.OutRequest.ContentLength == 0 {
-		hasBody = false
 	}
 
 	reqMsg := &extprocv3.ProcessingRequest{
 		Request: &extprocv3.ProcessingRequest_RequestHeaders{
 			RequestHeaders: epp.BuildEnvoyGRPCHeaders(req.OutRequest.Header, true, !hasBody),
 		},
-		//MetadataContext: metadata,
+		MetadataContext: metadata,
 	}
 
-	if err := client.Send(reqMsg); err != nil {
-		client.Close()
+	if err := eppClient.Send(reqMsg); err != nil {
+		eppClient.Close()
 		return "", nil, err
 	}
 
@@ -225,19 +387,18 @@ func (bal *BalanceGslb) chooseBackendFromEPP(req *bfe_basic.Request) (string, *e
 					EndOfStream: true,
 				},
 			},
-			//MetadataContext: metadata,
 		}
 
-		if err := client.Send(reqMsg); err != nil {
-			client.Close()
+		if err := eppClient.Send(reqMsg); err != nil {
+			eppClient.Close()
 			return "", nil, err
 		}
 	}
 
-	// receive response
-	resp, err := client.Recv()
+	// receive response with deadline for first message round trip
+	resp, err := eppClient.RecvTimeout(callTimeout)
 	if err != nil {
-		client.Close()
+		eppClient.Close()
 		return "", nil, err
 	}
 
@@ -260,20 +421,43 @@ func (bal *BalanceGslb) chooseBackendFromEPP(req *bfe_basic.Request) (string, *e
 
 	if hasBody && resp.Response != nil && resp.GetRequestHeaders() != nil {
 		// receive response for request body
-		resp, err = client.Recv()
+		resp, err = eppClient.RecvTimeout(callTimeout)
 		// the response should be resp.GetRequestBody()
 		if err != nil {
-			client.Close()
+			eppClient.Close()
 			return "", nil, err
 		}
 	}
 
 	if addrinfo != "" {
-		return addrinfo, client, nil
+		return addrinfo, eppClient, nil
 	}
 
-	client.Close()
+	eppClient.Close()
 	return "", nil, fmt.Errorf("no endpoint from epp")
+}
+
+// isEPPRetryable reports whether an EPP error allows retrying the request on
+// the next address (per-request retry; does not change health check state):
+//   - Unavailable / cell is not serving (cell draining): try backup instance
+//   - Internal / unknown inference pool: EPP has no cell of this cluster
+func isEPPRetryable(err error) bool {
+	st, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+
+	switch st.Code() {
+	case codes.Unavailable:
+		return true
+	case codes.Internal:
+		msg := st.Message()
+		return strings.Contains(msg, "unknown inference pool") ||
+			strings.Contains(msg, "cell is not serving") ||
+			strings.Contains(msg, "draining")
+	default:
+		return false
+	}
 }
 
 // Init initializes gslb cluster with config
@@ -436,6 +620,9 @@ func (bal *BalanceGslb) Release() {
 	}
 
 	bal.lock.Unlock()
+
+	// stop EPP health check and close EPP connections
+	bal.closeEPP()
 }
 
 // getHashKey returns hash key according hash strategy
@@ -500,13 +687,34 @@ func (bal *BalanceGslb) BalanceEpp(req *bfe_basic.Request) (*bal_backend.BfeBack
 	if req.RetryTime > bal.retryMax {
 		// for epp only check in-cluster.
 		state.ErrBkRetryTooMany.Inc(1)
+		state.ErrEppFallbackLocal.Inc(1)
+		recordEPPFallbackLocal(bal.name)
 		// Note: not modify req.ErrCode to just record last error
 		return nil, bfe_basic.ErrBkRetryTooMany
 	}
 
+	// circuit breaker: too many recent EPP failures, short-circuit to
+	// local balance without calling EPP at all
+	bal.eppMu.Lock()
+	breaker := bal.eppBreaker
+	bal.eppMu.Unlock()
+	if breaker != nil && !breaker.allow() {
+		state.ErrEppFallbackLocal.Inc(1)
+		recordEPPFallbackLocal(bal.name)
+		return nil, fmt.Errorf("epp breaker open")
+	}
+
 	// If BalanceMode == EPP, try to get backend from EPP service first
 	addrinfo, eppClient, err := bal.chooseBackendFromEPP(req)
-	if err == nil && addrinfo != "" {
+	if breaker != nil {
+		breaker.record(err == nil)
+	}
+	if err != nil {
+		state.ErrEppFallbackLocal.Inc(1)
+		recordEPPFallbackLocal(bal.name)
+		return nil, fmt.Errorf("EPP no decision: %v", err)
+	}
+	if addrinfo != "" {
 		req.SetContext(REQ_CTX_EPP, eppClient)
 		// try to find backend in subclusters
 		for _, sub := range bal.subClusters {
@@ -761,6 +969,15 @@ type BalErrState struct {
 	ErrBkNoBackend         *metrics.Counter
 	ErrBkRetryTooMany      *metrics.Counter
 	ErrGslbBlackhole       *metrics.Counter
+
+	// EPP related (flat counters; labeled cluster-dimension metrics
+	// are exposed via /monitor/epp_metrics, see epp_metrics.go)
+	ErrEppFailover        *metrics.Counter // EPP failover to backup address
+	ErrEppFailback        *metrics.Counter // EPP failback to higher priority address
+	ErrEppFallbackLocal   *metrics.Counter // EPP failure, fallback to local balance
+	ErrEppBreakerOpen     *metrics.Counter // breaker transitioned to open
+	ErrEppBreakerHalfOpen *metrics.Counter // breaker transitioned to half-open
+	ErrEppBreakerClosed   *metrics.Counter // breaker transitioned to closed
 }
 
 var state BalErrState

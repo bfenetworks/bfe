@@ -68,10 +68,10 @@ type RateLimitProductRule struct {
 
 // RateLimitPolicyData holds the content of mod_ai_rate_limit/ai_rate_limit.data.
 type RateLimitPolicyData struct {
-	Version                       string                         `json:"Version"`
+	Version                       string                            `json:"Version"`
 	Config                        map[string][]RateLimitProductRule `json:"Config"`
-	RateLimitPolicies             map[string]RateLimitPolicy     `json:"RateLimitPolicies"`
-	ApikeyRateLimitPolicyBindings map[string][]string            `json:"ApikeyRateLimitPolicyBindings"`
+	RateLimitPolicies             map[string]RateLimitPolicy        `json:"RateLimitPolicies"`
+	ApikeyRateLimitPolicyBindings map[string][]string               `json:"ApikeyRateLimitPolicyBindings"`
 }
 
 // QuotaPlan is the JSON representation of a quota plan.
@@ -110,6 +110,22 @@ type ActionFile struct {
 	Cmd string
 }
 
+// EPPClusterConf describes the EPP scheduling configuration written into the
+// GslbBasic section of cluster_conf.data for a cluster.
+type EPPClusterConf struct {
+	// Addrs is the ordered EPP address list ([0]=primary, [1]=backup).
+	Addrs []string
+	// EPPCheck optionally overrides health check / failover hysteresis
+	// parameters (map merged into GslbBasic, e.g. {"CheckInterval": "200ms"}).
+	EPPCheck map[string]interface{}
+	// EPPTimeout optionally overrides EPP call timeouts.
+	EPPTimeout map[string]interface{}
+	// EPPTLS optionally configures TLS verification for EPP connections.
+	EPPTLS map[string]interface{}
+	// EPPBreaker optionally overrides circuit breaker parameters.
+	EPPBreaker map[string]interface{}
+}
+
 // BFEConfigBuilder builds a temporary BFE configuration directory from a template.
 type BFEConfigBuilder struct {
 	// TemplateDir contains static BFE data files (bfe.conf, cluster_conf, mod_ai_route, etc.).
@@ -118,6 +134,12 @@ type BFEConfigBuilder struct {
 	TargetConfDir string
 	// Backends maps cluster names to mock backends.
 	Backends map[string]*MockBackend
+	// StaticBackends maps cluster names to host:port addresses of real
+	// backend processes (e.g. llm-d-inference-sim) that are not MockBackends.
+	StaticBackends map[string]string
+	// EPPClusters optionally enables EPP scheduling (BalanceMode=EPP) for the
+	// given clusters in the generated cluster_conf.data.
+	EPPClusters map[string]*EPPClusterConf
 	// AIConfs optionally injects AIConf into cluster_conf.data for specific clusters.
 	AIConfs map[string]*cluster_conf.AIConf
 	// TotalBodyBufferSize overrides the totalBodyBufferSize value in bfe.conf.
@@ -340,6 +362,22 @@ func (b *BFEConfigBuilder) generateClusterTable() error {
 			},
 		}
 	}
+	for name, addr := range b.StaticBackends {
+		host, port, err := splitHostPort(addr)
+		if err != nil {
+			return fmt.Errorf("parse static backend addr for %s failed: %w", name, err)
+		}
+		config[name] = map[string]interface{}{
+			"sub_" + clusterSubName(name): []map[string]interface{}{
+				{
+					"Name":   name + "-backend-0",
+					"Addr":   host,
+					"Port":   port,
+					"Weight": 100,
+				},
+			},
+		}
+	}
 
 	data, err := json.MarshalIndent(clusterTable, "", "    ")
 	if err != nil {
@@ -368,9 +406,38 @@ func (b *BFEConfigBuilder) generateClusterConfData() error {
 		}
 		config[name] = conf
 	}
+	for name := range b.StaticBackends {
+		conf := clusterBasicConf()
+		applyEPPConf(conf, b.EPPClusters[name])
+		config[name] = conf
+	}
 
 	path := filepath.Join(b.TargetConfDir, "cluster_conf", "cluster_conf.data")
 	return writeJSONFile(path, clusterConf)
+}
+
+// applyEPPConf merges an EPPClusterConf into the GslbBasic section of a
+// generated cluster conf. A nil eppConf leaves the plain WRR config.
+func applyEPPConf(conf map[string]interface{}, eppConf *EPPClusterConf) {
+	if eppConf == nil {
+		return
+	}
+	gslb := conf["GslbBasic"].(map[string]interface{})
+	gslb["BalanceMode"] = "EPP"
+	gslb["EPPAddr"] = eppConf.Addrs
+	for _, section := range []struct {
+		key string
+		val map[string]interface{}
+	}{
+		{"EPPCheck", eppConf.EPPCheck},
+		{"EPPTimeout", eppConf.EPPTimeout},
+		{"EPPTLS", eppConf.EPPTLS},
+		{"EPPBreaker", eppConf.EPPBreaker},
+	} {
+		if section.val != nil {
+			gslb[section.key] = section.val
+		}
+	}
 }
 
 func aiConfToMap(aiConf *cluster_conf.AIConf) (map[string]interface{}, error) {

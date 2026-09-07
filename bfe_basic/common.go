@@ -97,6 +97,7 @@ func CreateSpecifiedContentResp(request *Request, responseCode int, contentType 
 	resp.Header.Set("Content-Length", strconv.Itoa(len(content)))
 	resp.Body = ioutil.NopCloser(strings.NewReader(content))
 
+	request.HttpResponse = resp
 	return resp
 }
 
