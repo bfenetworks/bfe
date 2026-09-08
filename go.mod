@@ -9,7 +9,7 @@ require (
 	github.com/andybalholm/brotli v1.0.2
 	github.com/armon/go-radix v1.0.0
 	github.com/asergeyev/nradix v0.0.0-20170505151046-3872ab85bb56 // indirect
-	github.com/bfenetworks/go-lib v0.0.2
+	github.com/bfenetworks/go-lib v0.0.4
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/json-iterator/go v1.1.12

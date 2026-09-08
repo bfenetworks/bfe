@@ -571,13 +571,10 @@ func calcVideoGenerationCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.To
 		videoCount = 0
 	}
 
-	costPerVideo := entry.GetPriceInt(tierName, cluster_conf.PriceOutputCostPerVideoInt)
-	if costPerVideo < 0 {
-		log.Logger.Warn("invalid model price for video generation model %s", entry.Model)
-		return 0
-	}
-
-	return videoCount * costPerVideo
+	// Prices stay float64 (yuan per unit); quota.CalcCostUnits converts each
+	// billing item to a fixed-point integer with rounding, so prices with
+	// more than 8 decimal places keep their precision.
+	return quota.CalcCostUnits(videoCount, entry.GetPrice(tierName, cluster_conf.PriceOutputCostPerVideo))
 }
 
 func calcImageGenerationCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, tierName string) int64 {
@@ -586,24 +583,12 @@ func calcImageGenerationCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.To
 		imageCount = 0
 	}
 
-	costPerImage := entry.GetPriceInt(tierName, cluster_conf.PriceOutputCostPerImageInt)
-	inputImageTokenCost := entry.GetPriceInt(tierName, cluster_conf.PriceInputCostPerImageTokenInt)
-	if costPerImage < 0 || inputImageTokenCost < 0 {
-		log.Logger.Warn("invalid model price for image generation model %s", entry.Model)
-		return 0
-	}
-
-	return imageCount*costPerImage + usage.ImageInputTokens*inputImageTokenCost
+	cost := quota.CalcCostUnits(imageCount, entry.GetPrice(tierName, cluster_conf.PriceOutputCostPerImage))
+	cost += quota.CalcCostUnits(usage.ImageInputTokens, entry.GetPrice(tierName, cluster_conf.PriceInputCostPerImageToken))
+	return cost
 }
 
 func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, tierName string) int64 {
-	inputCost := entry.GetPriceInt(tierName, cluster_conf.PriceInputCostPerTokenInt)
-	outputCost := entry.GetPriceInt(tierName, cluster_conf.PriceOutputCostPerTokenInt)
-	if inputCost < 0 || outputCost < 0 {
-		log.Logger.Warn("invalid model price for model %s", entry.Model)
-		return 0
-	}
-
 	promptTokens := usage.PromptTokens
 	completionTokens := usage.CompletionTokens
 	cacheReadTokens := usage.CacheReadTokens
@@ -634,11 +619,11 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 		audioOutputTokens = completionTokens
 	}
 
-	cacheReadCost := entry.GetPriceInt(tierName, cluster_conf.PriceCacheReadInputTokenCostInt)
-	cacheWriteCost := entry.GetPriceInt(tierName, cluster_conf.PriceCacheCreationInputTokenCostInt)
-	audioInputCost := entry.GetPriceInt(tierName, cluster_conf.PriceInputCostPerAudioTokenInt)
-	audioOutputCost := entry.GetPriceInt(tierName, cluster_conf.PriceOutputCostPerAudioTokenInt)
-	imageInputCost := entry.GetPriceInt(tierName, cluster_conf.PriceInputCostPerImageTokenInt)
+	cacheReadPrice := entry.GetPrice(tierName, cluster_conf.PriceCacheReadInputTokenCost)
+	cacheWritePrice := entry.GetPrice(tierName, cluster_conf.PriceCacheCreationInputTokenCost)
+	audioInputPrice := entry.GetPrice(tierName, cluster_conf.PriceInputCostPerAudioToken)
+	audioOutputPrice := entry.GetPrice(tierName, cluster_conf.PriceOutputCostPerAudioToken)
+	imageInputPrice := entry.GetPrice(tierName, cluster_conf.PriceInputCostPerImageToken)
 
 	// normal input/output start as the full totals
 	normalInput := promptTokens
@@ -648,7 +633,7 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 	// PromptTokens is the total input (for Anthropic it is normalized to
 	// input_tokens + cache read + cache write at parse time), so both cache
 	// parts must be removed to get the normal (fresh) input tokens.
-	if cacheReadCost > 0 || cacheWriteCost > 0 {
+	if cacheReadPrice > 0 || cacheWritePrice > 0 {
 		normalInput = promptTokens - cacheReadTokens - cacheWriteTokens
 		if normalInput < 0 {
 			normalInput = 0
@@ -657,7 +642,7 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 
 	// image-aware billing: split image input from normal input
 	imageInputTokens := usage.ImageInputTokens
-	if imageInputCost > 0 {
+	if imageInputPrice > 0 {
 		if imageInputTokens > normalInput {
 			imageInputTokens = normalInput
 		}
@@ -671,7 +656,7 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 	}
 
 	// audio-aware billing: split audio input from normal input
-	if audioInputCost > 0 {
+	if audioInputPrice > 0 {
 		if audioInputTokens > normalInput {
 			audioInputTokens = normalInput
 		}
@@ -685,7 +670,7 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 	}
 
 	// audio-aware billing: split audio output from completion
-	if audioOutputCost > 0 {
+	if audioOutputPrice > 0 {
 		if audioOutputTokens > completionTokens {
 			audioOutputTokens = completionTokens
 		}
@@ -698,19 +683,18 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 		audioOutputTokens = 0
 	}
 
-	var cost int64
-	if cacheReadCost > 0 || cacheWriteCost > 0 || audioInputCost > 0 || audioOutputCost > 0 || imageInputCost > 0 {
-		cost = normalInput*inputCost +
-			cacheReadTokens*cacheReadCost +
-			cacheWriteTokens*cacheWriteCost +
-			audioInputTokens*audioInputCost +
-			imageInputTokens*imageInputCost +
-			normalOutput*outputCost +
-			audioOutputTokens*audioOutputCost
-	} else {
-		// fallback to legacy billing when no cache/audio/image price is configured
-		cost = promptTokens*inputCost + completionTokens*outputCost
-	}
+	// Each billing item is converted to a fixed-point integer separately and
+	// the integers are summed, so floating point only participates in single
+	// multiplications well below 2^53. Items with an unconfigured price (0)
+	// contribute nothing, which preserves the legacy fallback semantics of
+	// billing unconfigured sub-token usage at the normal input/output price.
+	cost := quota.CalcCostUnits(normalInput, entry.GetPrice(tierName, cluster_conf.PriceInputCostPerToken))
+	cost += quota.CalcCostUnits(cacheReadTokens, cacheReadPrice)
+	cost += quota.CalcCostUnits(cacheWriteTokens, cacheWritePrice)
+	cost += quota.CalcCostUnits(audioInputTokens, audioInputPrice)
+	cost += quota.CalcCostUnits(imageInputTokens, imageInputPrice)
+	cost += quota.CalcCostUnits(normalOutput, entry.GetPrice(tierName, cluster_conf.PriceOutputCostPerToken))
+	cost += quota.CalcCostUnits(audioOutputTokens, audioOutputPrice)
 
 	return cost
 }

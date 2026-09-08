@@ -17,9 +17,7 @@
 package cluster_conf
 
 import (
-	"bytes"
 	"crypto/x509"
-	stdjson "encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -168,82 +166,13 @@ type PriceTier struct {
 	TimeRanges []TimeRange // hit any range means the request belongs to this tier
 }
 
-// PriceMap is a map of price keys to their numeric values.
-// It marshals to JSON using decimal notation instead of scientific notation.
+// PriceMap is a map of price keys to their numeric values (yuan per unit).
+// Prices may use more than 8 decimal places and are serialized with the
+// default JSON encoder, which may emit scientific notation (e.g. 1.5e-6).
 type PriceMap map[string]float64
 
-// MarshalJSON serializes PriceMap using decimal notation for all values.
-func (p PriceMap) MarshalJSON() ([]byte, error) {
-	if p == nil {
-		return []byte("null"), nil
-	}
-	var buf bytes.Buffer
-	buf.WriteByte('{')
-	first := true
-	for k, v := range p {
-		if !first {
-			buf.WriteByte(',')
-		}
-		first = false
-		keyBytes, err := stdjson.Marshal(k)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(keyBytes)
-		buf.WriteByte(':')
-		buf.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
-	}
-	buf.WriteByte('}')
-	return buf.Bytes(), nil
-}
-
 // TierPriceMap is a map of tier names to PriceMap values.
-// It marshals to JSON using decimal notation instead of scientific notation.
 type TierPriceMap map[string]map[string]float64
-
-// MarshalJSON serializes TierPriceMap using decimal notation for all nested values.
-func (t TierPriceMap) MarshalJSON() ([]byte, error) {
-	if t == nil {
-		return []byte("null"), nil
-	}
-	var buf bytes.Buffer
-	buf.WriteByte('{')
-	first := true
-	for tier, prices := range t {
-		if !first {
-			buf.WriteByte(',')
-		}
-		first = false
-		tierBytes, err := stdjson.Marshal(tier)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(tierBytes)
-		buf.WriteByte(':')
-		if prices == nil {
-			buf.WriteString("null")
-			continue
-		}
-		innerFirst := true
-		buf.WriteByte('{')
-		for k, v := range prices {
-			if !innerFirst {
-				buf.WriteByte(',')
-			}
-			innerFirst = false
-			keyBytes, err := stdjson.Marshal(k)
-			if err != nil {
-				return nil, err
-			}
-			buf.Write(keyBytes)
-			buf.WriteByte(':')
-			buf.WriteString(strconv.FormatFloat(v, 'f', -1, 64))
-		}
-		buf.WriteByte('}')
-	}
-	buf.WriteByte('}')
-	return buf.Bytes(), nil
-}
 
 // ModelPrice represents a single model pricing entry in AIConf.ModelTable
 type ModelPrice struct {
@@ -254,13 +183,9 @@ type ModelPrice struct {
 	Capabilities        []string
 	SupportedParameters []string
 	Limits              map[string]interface{}
-	Prices              PriceMap     // default prices
+	Prices              PriceMap     // default prices (yuan per unit, float64)
 	TierPrices          TierPriceMap // tier name -> price table
 	Metadata            map[string]interface{}
-
-	// pricesInt and tierPricesInt are built at config load time.
-	pricesInt     map[string]int64
-	tierPricesInt map[string]map[string]int64
 }
 
 // ModelTable represents the cost/pricing table for a cluster
@@ -309,31 +234,7 @@ const (
 	PriceOutputCostPerImage          = "output_cost_per_image"
 	PriceInputCostPerImageToken      = "input_cost_per_image_token"
 	PriceOutputCostPerVideo          = "output_cost_per_video"
-
-	PriceInputCostPerTokenInt           = "input_cost_per_token_int"
-	PriceOutputCostPerTokenInt          = "output_cost_per_token_int"
-	PriceCacheReadInputTokenCostInt     = "cache_read_input_token_cost_int"
-	PriceCacheCreationInputTokenCostInt = "cache_creation_input_token_cost_int"
-	PriceInputCostPerAudioTokenInt      = "input_cost_per_audio_token_int"
-	PriceOutputCostPerAudioTokenInt     = "output_cost_per_audio_token_int"
-	PriceOutputCostPerImageInt          = "output_cost_per_image_int"
-	PriceInputCostPerImageTokenInt      = "input_cost_per_image_token_int"
-	PriceOutputCostPerVideoInt          = "output_cost_per_video_int"
 )
-
-// priceKeyToIntKey maps the public price keys (used in config files) to the
-// internal fixed-point integer keys used at runtime.
-var priceKeyToIntKey = map[string]string{
-	PriceInputCostPerToken:           PriceInputCostPerTokenInt,
-	PriceOutputCostPerToken:          PriceOutputCostPerTokenInt,
-	PriceCacheReadInputTokenCost:     PriceCacheReadInputTokenCostInt,
-	PriceCacheCreationInputTokenCost: PriceCacheCreationInputTokenCostInt,
-	PriceInputCostPerAudioToken:      PriceInputCostPerAudioTokenInt,
-	PriceOutputCostPerAudioToken:     PriceOutputCostPerAudioTokenInt,
-	PriceOutputCostPerImage:          PriceOutputCostPerImageInt,
-	PriceInputCostPerImageToken:      PriceInputCostPerImageTokenInt,
-	PriceOutputCostPerVideo:          PriceOutputCostPerVideoInt,
-}
 
 func (conf *BackendHTTPS) GetProtocol() string {
 	return conf.protocol
@@ -1409,34 +1310,15 @@ func ModelTableCheck(table *ModelTable) error {
 			return fmt.Errorf("negative price for model %s", price.Model)
 		}
 
-		price.pricesInt = make(map[string]int64)
-		price.pricesInt[PriceInputCostPerTokenInt] = quota.RmbToFixedPoint(input)
-		price.pricesInt[PriceOutputCostPerTokenInt] = quota.RmbToFixedPoint(output)
-		price.pricesInt[PriceCacheReadInputTokenCostInt] = quota.RmbToFixedPoint(cacheRead)
-		price.pricesInt[PriceCacheCreationInputTokenCostInt] = quota.RmbToFixedPoint(cacheWrite)
-		price.pricesInt[PriceInputCostPerAudioTokenInt] = quota.RmbToFixedPoint(audioInput)
-		price.pricesInt[PriceOutputCostPerAudioTokenInt] = quota.RmbToFixedPoint(audioOutput)
-		price.pricesInt[PriceOutputCostPerImageInt] = quota.RmbToFixedPoint(outputCostPerImage)
-		price.pricesInt[PriceInputCostPerImageTokenInt] = quota.RmbToFixedPoint(inputImageToken)
-		price.pricesInt[PriceOutputCostPerVideoInt] = quota.RmbToFixedPoint(outputCostPerVideo)
-
-		price.tierPricesInt = make(map[string]map[string]int64)
 		for tierName, tierPriceMap := range price.TierPrices {
 			if tierName != "peak" {
 				return fmt.Errorf("unsupported tier name %s in TierPrices for model %s, only 'peak' is allowed", tierName, price.Model)
 			}
-			intMap := make(map[string]int64)
 			for key, val := range tierPriceMap {
 				if val < 0 {
 					return fmt.Errorf("negative tier price %s for model %s tier %s", key, price.Model, tierName)
 				}
-				intKey := key
-				if mapped, ok := priceKeyToIntKey[key]; ok {
-					intKey = mapped
-				}
-				intMap[intKey] = quota.RmbToFixedPoint(val)
 			}
-			price.tierPricesInt[tierName] = intMap
 		}
 
 		if table.priceIndex[price.Model] == nil {
@@ -1477,20 +1359,19 @@ func (table *ModelTable) ActiveTierName(now time.Time) string {
 	return ""
 }
 
-// GetPriceInt returns the fixed-point price for the given tier and key.
+// GetPrice returns the float64 price (yuan per unit) for the given tier and key.
 // If tier is empty or the tier/key is not configured, it falls back to default Prices.
-func (p *ModelPrice) GetPriceInt(tier, key string) int64 {
-	if tier != "" && p.tierPricesInt != nil {
-		if tierMap, ok := p.tierPricesInt[tier]; ok {
+// Prices stay float64 until a billing item is converted via quota.CalcCostUnits
+// at request time, so prices with more than 8 decimal places keep their precision.
+func (p *ModelPrice) GetPrice(tier, key string) float64 {
+	if tier != "" && p.TierPrices != nil {
+		if tierMap, ok := p.TierPrices[tier]; ok {
 			if v, ok := tierMap[key]; ok {
 				return v
 			}
 		}
 	}
-	if p.pricesInt != nil {
-		return p.pricesInt[key]
-	}
-	return 0
+	return p.Prices[key]
 }
 
 // LookupModelPrice looks up a model price entry by model and mode.

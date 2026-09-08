@@ -26,8 +26,8 @@ github.com/bfenetworks/bfe-mock-waf v0.1.0 h1:dTd540S3nv6qNlG6lLC0F8qx3gyo5WB4wn
 github.com/bfenetworks/bfe-mock-waf v0.1.0/go.mod h1:MWZHbihiRQXpoUCvY1l18s2bfOBWx4N4pghxBt+xUv0=
 github.com/bfenetworks/bwi v0.1.2 h1:3AcCzUjyzKm+FeLgTIVg58u+SUdEVZdJbQM58Ezwjcg=
 github.com/bfenetworks/bwi v0.1.2/go.mod h1:zCRIdSw521zVnNCM73qw/lZ9UknbRux9rk6UQvBJgMA=
-github.com/bfenetworks/go-lib v0.0.2 h1:ZjWas7Icd3svzVdegSSM1kMYSrnZHRvoCx6SQ458pqg=
-github.com/bfenetworks/go-lib v0.0.2/go.mod h1:DNiKiff30CaX7uOUGJpP85VyTn+JSFoY9gfG2AxmPgM=
+github.com/bfenetworks/go-lib v0.0.4 h1:RcC+A4jUQoMvQS0ut5MLlgwp8lkJUlJq3Y3Qeop576E=
+github.com/bfenetworks/go-lib v0.0.4/go.mod h1:DNiKiff30CaX7uOUGJpP85VyTn+JSFoY9gfG2AxmPgM=
 github.com/bfenetworks/proxy-wasm-go-host v0.0.1 h1:FzgCnKC+fkeY4NtsUVBcYONOdhvsJA1FXei01VP17Qo=
 github.com/bfenetworks/proxy-wasm-go-host v0.0.1/go.mod h1:ooQK7XyIovzGQIADKbPdpfUJ3w+b2ou6iqDZLMq0pww=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
