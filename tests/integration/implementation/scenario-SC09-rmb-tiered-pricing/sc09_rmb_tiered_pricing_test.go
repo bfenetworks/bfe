@@ -45,6 +45,7 @@ const (
 )
 
 var defaultBody = []byte(`{"model":"deepseek-chat"}`)
+var highPrecisionBody = []byte(`{"model":"glm-4.6"}`)
 var streamBody = []byte(`{"model":"deepseek-chat","stream":true}`)
 var cacheBody = []byte(`{"model":"deepseek-chat"}`)
 var cacheStreamBody = []byte(`{"model":"deepseek-chat","stream":true}`)
@@ -268,6 +269,36 @@ func noTierAIConf() *cluster_conf.AIConf {
 	return conf
 }
 
+// tierPeakHighPrecisionAIConf adds a model whose prices need more than 8
+// decimal places. The peak tier only overrides the output price, so the
+// input price exercises tier fallback to the default price. When marshaled
+// to cluster_conf.data the values are emitted in scientific notation
+// (e.g. 3.0084492e-06), which also exercises config parsing.
+func tierPeakHighPrecisionAIConf() *cluster_conf.AIConf {
+	conf := tierPeakAIConf()
+	conf.ModelTable.Models = append(conf.ModelTable.Models, cluster_conf.ModelPrice{
+		Provider:            "mock-provider",
+		Model:               "glm-4.6",
+		BaseModel:           "glm-4.6",
+		Mode:                "chat",
+		Capabilities:        []string{"chat"},
+		SupportedParameters: []string{"temperature", "max_tokens"},
+		Limits: map[string]interface{}{
+			"context_window": 128000,
+		},
+		Prices: cluster_conf.PriceMap{
+			"input_cost_per_token":  3.0084492e-06,
+			"output_cost_per_token": 1.4049457764e-05,
+		},
+		TierPrices: cluster_conf.TierPriceMap{
+			"peak": {
+				"output_cost_per_token": 2.8098915528e-05,
+			},
+		},
+	})
+	return conf
+}
+
 // TestTC01 verifies RMB quota deduction using peak tier prices for a non-streaming request.
 func TestTC01_RMBQuotaDeduction_Peak_NonStreaming(t *testing.T) {
 	aiConfs := map[string]*cluster_conf.AIConf{
@@ -484,6 +515,48 @@ func TestTC06_RMBQuotaDeduction_DeepSeekCacheDetailsField_Streaming(t *testing.T
 	// peak: input=200, cache_read=100, output=400
 	// cost = 3000*200 + 5000*100 + 1500*400 = 1,700,000
 	want := int64(10000000000 - 1700000)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
+	}
+}
+
+
+// TestTC07 verifies peak tier billing with prices that need more than 8
+// decimal places (scientific notation in cluster_conf.data). The peak tier
+// only overrides the output price; the input price falls back to the
+// default price. With prompt=100 and completion=50 (usageResponse):
+//
+//	input:  round(100 * 3.0084492e-06 * 1e8) = round(30084.492)    = 30084
+//	output: round(50 * 2.8098915528e-05 * 1e8) = round(140494.57764) = 140495
+//	total = 170579 fixed-point units
+func TestTC07_RMBQuotaDeduction_Peak_HighPrecision(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterTierPeak: tierPeakHighPrecisionAIConf(),
+	}
+	e := newTestEnv(t, aiConfs)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	resp, body, err := e.sendRequest(apiHost, highPrecisionBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterTierPeak].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterTierPeak, e.backends[clusterTierPeak].Hits())
+	}
+
+	// wait for async redis deduction
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - 170579)
 	if remaining != want {
 		e.logBFEException()
 		e.logBFEAccess()

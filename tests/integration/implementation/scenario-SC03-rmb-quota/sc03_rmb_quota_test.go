@@ -54,6 +54,7 @@ var cacheStreamBody = []byte(`{"model":"claude-opus-4-6","stream":true}`)
 var audioBody = []byte(`{"model":"gpt-audio-1.5"}`)
 var audioStreamBody = []byte(`{"model":"gpt-audio-1.5","stream":true}`)
 var imageGenerationBody = []byte(`{"model":"flux-2-pro","n":2}`)
+var highPrecisionBody = []byte(`{"model":"qwen2.5-omni-7b"}`)
 
 var usageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`
 var imageGenerationUsageResponse = `{"usage":{"image_count":2}}`
@@ -305,6 +306,30 @@ func imageGenerationAIConf() *cluster_conf.AIConf {
 		},
 		Prices: cluster_conf.PriceMap{
 			"output_cost_per_image": 0.03,
+		},
+	})
+	return conf
+}
+
+// highPrecisionAIConf adds a model whose prices need more than 8 decimal
+// places. When marshaled to cluster_conf.data, encoding/json emits them in
+// scientific notation (e.g. 6.0168984e-09), which also exercises BFE's
+// config parsing of scientific-notation prices.
+func highPrecisionAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models = append(conf.ModelTable.Models, cluster_conf.ModelPrice{
+		Provider:            "mock-provider",
+		Model:               "qwen2.5-omni-7b",
+		BaseModel:           "qwen2.5-omni-7b",
+		Mode:                "chat",
+		Capabilities:        []string{"chat"},
+		SupportedParameters: []string{"temperature", "max_tokens"},
+		Limits: map[string]interface{}{
+			"context_window": 128000,
+		},
+		Prices: cluster_conf.PriceMap{
+			"input_cost_per_token":  6.0168984e-09,
+			"output_cost_per_token": 7.6234102728e-08,
 		},
 	})
 	return conf
@@ -825,5 +850,50 @@ func TestTC14_TokenQuotaZeroMissingRedisKey(t *testing.T) {
 	}
 	if e.backends[clusterRMB].Hits() != 0 {
 		t.Fatalf("expected no backend hit, got %d", e.backends[clusterRMB].Hits())
+	}
+}
+
+
+// TestTC15 verifies end-to-end billing with prices that need more than 8
+// decimal places (scientific notation in cluster_conf.data). The prices
+// below come from the generated model catalog. With prompt=100 and
+// completion=50 (usageResponse):
+//
+//	cost = round(100 * 6.0168984e-09 * 1e8) + round(50 * 7.6234102728e-08 * 1e8)
+//	     = round(60.168984) + round(381.17051364)
+//	     = 60 + 381 = 441 fixed-point units
+//
+// The pre-v0.6 load-time fixed-point conversion truncated the prices to
+// 0 and 7 (1e-8 yuan), which would have deducted only 350.
+func TestTC15_RMBQuotaDeduction_HighPrecision(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: highPrecisionAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	resp, body, err := e.sendRequest(apiHost, highPrecisionBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// wait for async redis deduction
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - 441)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
 	}
 }

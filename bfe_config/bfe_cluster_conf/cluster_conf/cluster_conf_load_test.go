@@ -144,11 +144,11 @@ func TestModelTableCheck(t *testing.T) {
 		if entry == nil {
 			t.Fatal("LookupModelPrice should return entry")
 		}
-		if entry.GetPriceInt("", PriceInputCostPerTokenInt) != 100 {
-			t.Errorf("input cost int = %v, want 100", entry.GetPriceInt("", PriceInputCostPerTokenInt))
+		if entry.GetPrice("", PriceInputCostPerToken) != 0.000001 {
+			t.Errorf("input cost = %v, want 0.000001", entry.GetPrice("", PriceInputCostPerToken))
 		}
-		if entry.GetPriceInt("", PriceOutputCostPerTokenInt) != 200 {
-			t.Errorf("output cost int = %v, want 200", entry.GetPriceInt("", PriceOutputCostPerTokenInt))
+		if entry.GetPrice("", PriceOutputCostPerToken) != 0.000002 {
+			t.Errorf("output cost = %v, want 0.000002", entry.GetPrice("", PriceOutputCostPerToken))
 		}
 	})
 
@@ -175,11 +175,11 @@ func TestModelTableCheck(t *testing.T) {
 		if entry == nil {
 			t.Fatal("LookupModelPrice should return entry")
 		}
-		if entry.GetPriceInt("", PriceCacheReadInputTokenCostInt) != 45 {
-			t.Errorf("cache read cost int = %v, want 45", entry.GetPriceInt("", PriceCacheReadInputTokenCostInt))
+		if entry.GetPrice("", PriceCacheReadInputTokenCost) != 0.0000004525 {
+			t.Errorf("cache read cost = %v, want 0.0000004525", entry.GetPrice("", PriceCacheReadInputTokenCost))
 		}
-		if entry.GetPriceInt("", PriceCacheCreationInputTokenCostInt) != 565 {
-			t.Errorf("cache write cost int = %v, want 565", entry.GetPriceInt("", PriceCacheCreationInputTokenCostInt))
+		if entry.GetPrice("", PriceCacheCreationInputTokenCost) != 0.00000565625 {
+			t.Errorf("cache write cost = %v, want 0.00000565625", entry.GetPrice("", PriceCacheCreationInputTokenCost))
 		}
 	})
 
@@ -206,11 +206,11 @@ func TestModelTableCheck(t *testing.T) {
 		if entry == nil {
 			t.Fatal("LookupModelPrice should return entry")
 		}
-		if entry.GetPriceInt("", PriceInputCostPerAudioTokenInt) != 2288 {
-			t.Errorf("audio input cost int = %v, want 2288", entry.GetPriceInt("", PriceInputCostPerAudioTokenInt))
+		if entry.GetPrice("", PriceInputCostPerAudioToken) != 0.00002288 {
+			t.Errorf("audio input cost = %v, want 0.00002288", entry.GetPrice("", PriceInputCostPerAudioToken))
 		}
-		if entry.GetPriceInt("", PriceOutputCostPerAudioTokenInt) != 4576 {
-			t.Errorf("audio output cost int = %v, want 4576", entry.GetPriceInt("", PriceOutputCostPerAudioTokenInt))
+		if entry.GetPrice("", PriceOutputCostPerAudioToken) != 0.00004576 {
+			t.Errorf("audio output cost = %v, want 0.00004576", entry.GetPrice("", PriceOutputCostPerAudioToken))
 		}
 	})
 
@@ -571,7 +571,7 @@ func TestActiveTierName(t *testing.T) {
 	}
 }
 
-func TestGetPriceInt(t *testing.T) {
+func TestGetPrice(t *testing.T) {
 	table := &ModelTable{
 		Currency: "RMB",
 		Models: []ModelPrice{
@@ -598,16 +598,57 @@ func TestGetPriceInt(t *testing.T) {
 		t.Fatal("LookupModelPrice should return entry")
 	}
 
-	if got := entry.GetPriceInt("", PriceInputCostPerTokenInt); got != 100000000 {
-		t.Errorf("default input cost = %d, want 100000000", got)
+	if got := entry.GetPrice("", PriceInputCostPerToken); got != 1 {
+		t.Errorf("default input cost = %v, want 1", got)
 	}
-	if got := entry.GetPriceInt("peak", PriceInputCostPerTokenInt); got != 1000000000 {
-		t.Errorf("peak input cost = %d, want 1000000000", got)
+	if got := entry.GetPrice("peak", PriceInputCostPerToken); got != 10 {
+		t.Errorf("peak input cost = %v, want 10", got)
 	}
-	if got := entry.GetPriceInt("peak", PriceOutputCostPerTokenInt); got != 200000000 {
-		t.Errorf("peak output cost (fallback) = %d, want 200000000", got)
+	if got := entry.GetPrice("peak", PriceOutputCostPerToken); got != 2 {
+		t.Errorf("peak output cost (fallback) = %v, want 2", got)
 	}
-	if got := entry.GetPriceInt("nonexistent", PriceInputCostPerTokenInt); got != 100000000 {
-		t.Errorf("nonexistent tier fallback = %d, want 100000000", got)
+	if got := entry.GetPrice("nonexistent", PriceInputCostPerToken); got != 1 {
+		t.Errorf("nonexistent tier fallback = %v, want 1", got)
+	}
+}
+
+func TestGetPriceHighPrecision(t *testing.T) {
+	// Prices with more than 8 decimal places must survive config loading
+	// without being truncated to fixed-point integers.
+	table := &ModelTable{
+		Currency: "RMB",
+		Models: []ModelPrice{
+			{
+				Model: "qwen2.5-omni-7b",
+				Mode:  "chat",
+				Prices: PriceMap{
+					PriceInputCostPerToken:  6.0168984e-09,
+					PriceOutputCostPerToken: 7.6234102728e-08,
+				},
+				TierPrices: TierPriceMap{
+					"peak": {
+						PriceOutputCostPerToken: 1.52468205456e-07,
+					},
+				},
+			},
+		},
+	}
+	if err := ModelTableCheck(table); err != nil {
+		t.Fatalf("ModelTableCheck failed: %v", err)
+	}
+	entry := LookupModelPrice(table, "qwen2.5-omni-7b", "chat")
+	if entry == nil {
+		t.Fatal("LookupModelPrice should return entry")
+	}
+
+	if got := entry.GetPrice("", PriceOutputCostPerToken); got != 7.6234102728e-08 {
+		t.Errorf("high precision output cost = %v, want 7.6234102728e-08", got)
+	}
+	if got := entry.GetPrice("peak", PriceOutputCostPerToken); got != 1.52468205456e-07 {
+		t.Errorf("high precision peak output cost = %v, want 1.52468205456e-07", got)
+	}
+	// input price is not configured in the peak tier: fall back to default.
+	if got := entry.GetPrice("peak", PriceInputCostPerToken); got != 6.0168984e-09 {
+		t.Errorf("peak input cost (fallback) = %v, want 6.0168984e-09", got)
 	}
 }

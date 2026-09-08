@@ -26,7 +26,7 @@ v0.6 引入 **图像生成按次计费**、**图片输入 token 计费**、**视
 
 ### 1.2 目标
 
-1. 配置层沿用 `AIConf.ModelTable`，价格以 `Prices` map（元/Token）下发，BFE 加载时转换为 1e-8 元/Token 定点整数；
+1. 配置层沿用 `AIConf.ModelTable`，价格以 `Prices` map（元/Token）下发并保持 `float64`（v0.6 起支持科学计数法与 8 位以上小数精度），仅在请求计费时逐项换算为 1e-8 元定点整数；
 2. `bfe_basic.TokenUsage` 增加 `UsedCost`，用于记录本次请求的 RMB 成本；
 3. `mod_ai_token_auth.QuotaPlan` 增加 `Unit`，`Deduct` / `HasBalance` 支持 RMB；
 4. 新增共享库 `go-lib/quota`，提供 RMB 定点数转换，供 ai-gateway-api 与 BFE 共同引用；
@@ -117,24 +117,22 @@ type AIConf struct {
 3. `Model` 为具体模型名；`Mode` 如 `"chat"`。
 4. 同一个 `Mode` 下，`Model` 不能重复。
 5. 加载时构建二维索引 `priceIndex[model][mode]`，便于运行时 O(1) 查询。
-6. 加载阶段通过 `go-lib/quota.RmbToFixedPoint` 将浮点价格转换为定点整数，BFE 内部和 Redis 中只使用整数。
+6. 加载阶段仅做价格非负校验并构建索引；价格保持 `float64`，不做定点整数预转换（见 4.4）。
 
 ### 4.4 配置加载阶段处理
 
-conf-agent 只负责配置下发，不做任何数据转换。`cluster_conf.data` 中 `AIConf.ModelTable.Models[].Prices` 仍按原始浮点数（元/Token）下发。
+conf-agent 只负责配置下发，不做任何数据转换。`cluster_conf.data` 中 `AIConf.ModelTable.Models[].Prices` 仍按原始浮点数（元/Token）下发，支持科学计数法表示（如 `7.6234102728e-08`）。
 
-当 `unit = "RMB"` 时，小数到整数的转换及索引构建必须在 BFE 内部完成，例如在 `ClusterConfCheck` 或 `AIConf` 专有校验阶段。转换逻辑统一放到共享库 `go-lib/quota`：
+为支持 8 位以上小数精度的价格（v0.6 模型目录中已有 10~12 位小数的价格），BFE 加载阶段**不再把价格预转换为定点整数**：价格以 `float64` 保存，仅在请求计费时通过 `go-lib/quota.CalcCostUnits` 逐项换算为定点整数（见 5、7.6）。加载阶段只完成非负校验与索引构建：
 
 ```go
-import "github.com/bfenetworks/go-lib/quota"
-
 func buildModelTableIndex(table *ModelTable) error {
     table.priceIndex = make(map[string]map[string]*ModelPrice)
 
     for i := range table.Models {
         price := &table.Models[i]
 
-        // 1. 价格转换：浮点元/Token -> 1e-8 元/Token 定点整数
+        // 1. 价格非负校验（价格保持 float64，不做定点转换）
         input := price.Prices["input_cost_per_token"]
         output := price.Prices["output_cost_per_token"]
         cacheRead := price.Prices["cache_read_input_token_cost"]
@@ -149,15 +147,7 @@ func buildModelTableIndex(table *ModelTable) error {
             inputCostPerImageToken < 0 || outputCostPerVideo < 0 {
             return fmt.Errorf("negative price for model %s", price.Model)
         }
-        price.Prices["input_cost_per_token_int"] = float64(quota.RmbToFixedPoint(input))
-        price.Prices["output_cost_per_token_int"] = float64(quota.RmbToFixedPoint(output))
-        price.Prices["cache_read_input_token_cost_int"] = float64(quota.RmbToFixedPoint(cacheRead))
-        price.Prices["cache_creation_input_token_cost_int"] = float64(quota.RmbToFixedPoint(cacheWrite))
-        price.Prices["input_cost_per_audio_token_int"] = float64(quota.RmbToFixedPoint(audioInput))
-        price.Prices["output_cost_per_audio_token_int"] = float64(quota.RmbToFixedPoint(audioOutput))
-        price.Prices["output_cost_per_image_int"] = float64(quota.RmbToFixedPoint(outputCostPerImage))
-        price.Prices["input_cost_per_image_token_int"] = float64(quota.RmbToFixedPoint(inputCostPerImageToken))
-        price.Prices["output_cost_per_video_int"] = float64(quota.RmbToFixedPoint(outputCostPerVideo))
+        // TierPrices 同样只做非负校验（tier name 初期只支持 "peak"）
 
         // 2. 构建 model -> mode 二维索引
         if table.priceIndex[price.Model] == nil {
@@ -170,7 +160,8 @@ func buildModelTableIndex(table *ModelTable) error {
 ```
 
 > 说明：
-> - 转换后 BFE 内部及 Redis Lua 中只使用整数，避免浮点误差。
+> - 定点换算推迟到请求计费时逐项完成（`quota.CalcCostUnits`，四舍五入），Redis Lua 中仍然只接触整数。
+> - 对 ≤8 位小数的价格，逐项换算结果与旧的"先转定点再相乘"行为逐分一致；超过 8 位小数的价格不再在加载期被截断。
 > - conf-agent 不感知 `unit` 类型，也不修改价格格式。
 > - `go-lib/quota` 同时被 ai-gateway-api 和 BFE 引用，保证管理面与数据面对 Redis 值的解释完全一致。
 
@@ -198,13 +189,9 @@ type ModelPrice struct {
     Capabilities        []string
     SupportedParameters []string
     Limits              map[string]interface{}
-    Prices              map[string]float64            // 默认价格
+    Prices              map[string]float64            // 默认价格（保持 float64，不预转定点整数）
     TierPrices          map[string]map[string]float64 // tier name -> 价格表
     Metadata            map[string]interface{}
-
-    // 运行时字段：配置加载阶段预计算定点整数
-    pricesInt     map[string]int64
-    tierPricesInt map[string]map[string]int64
 }
 
 type ModelTable struct {
@@ -235,7 +222,7 @@ type ModelTable struct {
 
 - 解析 `TimeZone` 并缓存 `*time.Location`。
 - 构建 `tierIndex[name] -> *PriceTier`，便于运行时 O(1) 查询。
-- 将 `TierPrices` 中每个 tier 的价格表同样通过 `go-lib/quota.RmbToFixedPoint` 转换为定点整数，存入 `tierPricesInt`。
+- `TierPrices` 不做定点转换，与 `Prices` 一样保持 `float64`，仅在请求计费时通过 `quota.CalcCostUnits` 逐项换算（见 7.6）。
 
 ## 5. 共享库 `go-lib/quota`
 
@@ -251,11 +238,19 @@ const (
 
 const RmbPrecision = 1e8
 
-// RmbToFixedPoint converts yuan to a fixed-point integer (1e-8 yuan per unit).
+// RmbToFixedPoint converts yuan to a fixed-point integer (1e-8 yuan per unit),
+// rounded (not truncated).
 func RmbToFixedPoint(yuan float64) int64
 
 // FixedPointToRmb converts a fixed-point integer back to yuan.
 func FixedPointToRmb(value int64) float64
+
+// CalcCostUnits computes the cost of a usage amount at the given price
+// (yuan per unit) and returns it as a fixed-point integer:
+// round(usage * (priceYuan * 1e8)). Prices may carry more than 8 decimal
+// places; each billing item is converted separately and the integers are
+// summed, so floating point only participates in single multiplications.
+func CalcCostUnits(usage int64, priceYuan float64) int64
 
 // ToRedisValue converts a quota value to a Redis fixed-point integer.
 func ToRedisValue(quota float64, unit string) int64
@@ -268,7 +263,7 @@ func FromRedisValue(value int64, unit string) float64
 
 - **`go-lib/quota`**：只负责 **单位与定点数之间的转换**，不依赖 Redis 客户端，不执行任何 Redis 命令。
 - **ai-gateway-api**：引用 `go-lib/quota`，负责管理面配额的初始化、重置、同步（使用 `IncrBy` 等）。
-- **BFE**：引用 `go-lib/quota`，负责数据面请求成本的计算与 Lua 原子扣减。
+- **BFE**：引用 `go-lib/quota`，负责数据面请求成本的计算与 Lua 原子扣减；模型价格保持 `float64`，仅在计费时通过 `CalcCostUnits` 逐项换算。
 
 ## 6. 基础数据结构改动
 
@@ -655,13 +650,7 @@ func calcVideoGenerationCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.To
         videoCount = 0
     }
 
-    costPerVideo := entry.GetPriceInt(tierName, cluster_conf.PriceOutputCostPerVideoInt)
-    if costPerVideo < 0 {
-        log.Logger.Warn("invalid model price for video generation model %s", entry.Model)
-        return 0
-    }
-
-    return videoCount * costPerVideo
+    return quota.CalcCostUnits(videoCount, entry.GetPrice(tierName, cluster_conf.PriceOutputCostPerVideo))
 }
 
 func calcImageGenerationCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, tierName string) int64 {
@@ -670,24 +659,12 @@ func calcImageGenerationCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.To
         imageCount = 0
     }
 
-    costPerImage := entry.GetPriceInt(tierName, cluster_conf.PriceOutputCostPerImageInt)
-    inputImageTokenCost := entry.GetPriceInt(tierName, cluster_conf.PriceInputCostPerImageTokenInt)
-    if costPerImage < 0 || inputImageTokenCost < 0 {
-        log.Logger.Warn("invalid model price for image generation model %s", entry.Model)
-        return 0
-    }
-
-    return imageCount*costPerImage + usage.ImageInputTokens*inputImageTokenCost
+    cost := quota.CalcCostUnits(imageCount, entry.GetPrice(tierName, cluster_conf.PriceOutputCostPerImage))
+    cost += quota.CalcCostUnits(usage.ImageInputTokens, entry.GetPrice(tierName, cluster_conf.PriceInputCostPerImageToken))
+    return cost
 }
 
 func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, tierName string) int64 {
-    inputCost := entry.GetPriceInt(tierName, cluster_conf.PriceInputCostPerTokenInt)
-    outputCost := entry.GetPriceInt(tierName, cluster_conf.PriceOutputCostPerTokenInt)
-    if inputCost < 0 || outputCost < 0 {
-        log.Logger.Warn("invalid model price for model %s", entry.Model)
-        return 0
-    }
-
     promptTokens := usage.PromptTokens
     completionTokens := usage.CompletionTokens
     cacheReadTokens := usage.CacheReadTokens
@@ -718,11 +695,11 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
         audioOutputTokens = completionTokens
     }
 
-    cacheReadCost := entry.GetPriceInt(tierName, cluster_conf.PriceCacheReadInputTokenCostInt)
-    cacheWriteCost := entry.GetPriceInt(tierName, cluster_conf.PriceCacheCreationInputTokenCostInt)
-    audioInputCost := entry.GetPriceInt(tierName, cluster_conf.PriceInputCostPerAudioTokenInt)
-    audioOutputCost := entry.GetPriceInt(tierName, cluster_conf.PriceOutputCostPerAudioTokenInt)
-    imageInputCost := entry.GetPriceInt(tierName, cluster_conf.PriceInputCostPerImageTokenInt)
+    cacheReadPrice := entry.GetPrice(tierName, cluster_conf.PriceCacheReadInputTokenCost)
+    cacheWritePrice := entry.GetPrice(tierName, cluster_conf.PriceCacheCreationInputTokenCost)
+    audioInputPrice := entry.GetPrice(tierName, cluster_conf.PriceInputCostPerAudioToken)
+    audioOutputPrice := entry.GetPrice(tierName, cluster_conf.PriceOutputCostPerAudioToken)
+    imageInputPrice := entry.GetPrice(tierName, cluster_conf.PriceInputCostPerImageToken)
 
     // normal input/output start as the full totals
     normalInput := promptTokens
@@ -732,7 +709,7 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
     // PromptTokens is the total input (for Anthropic it is normalized to
     // input_tokens + cache read + cache write at parse time), so both cache
     // parts must be removed to get the normal (fresh) input tokens.
-    if cacheReadCost > 0 || cacheWriteCost > 0 {
+    if cacheReadPrice > 0 || cacheWritePrice > 0 {
         normalInput = promptTokens - cacheReadTokens - cacheWriteTokens
         if normalInput < 0 {
             normalInput = 0
@@ -741,7 +718,7 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 
     // image-aware billing: split image input from normal input
     imageInputTokens := usage.ImageInputTokens
-    if imageInputCost > 0 {
+    if imageInputPrice > 0 {
         if imageInputTokens > normalInput {
             imageInputTokens = normalInput
         }
@@ -755,7 +732,7 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
     }
 
     // audio-aware billing: split audio input from normal input
-    if audioInputCost > 0 {
+    if audioInputPrice > 0 {
         if audioInputTokens > normalInput {
             audioInputTokens = normalInput
         }
@@ -769,7 +746,7 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
     }
 
     // audio-aware billing: split audio output from completion
-    if audioOutputCost > 0 {
+    if audioOutputPrice > 0 {
         if audioOutputTokens > completionTokens {
             audioOutputTokens = completionTokens
         }
@@ -782,19 +759,15 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
         audioOutputTokens = 0
     }
 
-    var cost int64
-    if cacheReadCost > 0 || cacheWriteCost > 0 || audioInputCost > 0 || audioOutputCost > 0 || imageInputCost > 0 {
-        cost = normalInput*inputCost +
-            cacheReadTokens*cacheReadCost +
-            cacheWriteTokens*cacheWriteCost +
-            audioInputTokens*audioInputCost +
-            imageInputTokens*imageInputCost +
-            normalOutput*outputCost +
-            audioOutputTokens*audioOutputCost
-    } else {
-        // fallback to legacy billing when no cache/audio/image price is configured
-        cost = promptTokens*inputCost + completionTokens*outputCost
-    }
+    // 逐项换算为定点整数后累加：未配置价格(0)的项自然贡献 0 成本，
+    // 等价于旧实现"未配置子项价格时回退到普通 input/output 价格"的语义。
+    cost := quota.CalcCostUnits(normalInput, entry.GetPrice(tierName, cluster_conf.PriceInputCostPerToken))
+    cost += quota.CalcCostUnits(cacheReadTokens, cacheReadPrice)
+    cost += quota.CalcCostUnits(cacheWriteTokens, cacheWritePrice)
+    cost += quota.CalcCostUnits(audioInputTokens, audioInputPrice)
+    cost += quota.CalcCostUnits(imageInputTokens, imageInputPrice)
+    cost += quota.CalcCostUnits(normalOutput, entry.GetPrice(tierName, cluster_conf.PriceOutputCostPerToken))
+    cost += quota.CalcCostUnits(audioOutputTokens, audioOutputPrice)
 
     return cost
 }
@@ -870,7 +843,7 @@ cost = prompt_tokens * input_cost_per_token
 - `req.Route.ClusterName` 在 `reverseproxy.go` 的 `aiClusterInvoke()` 中已被设置为最终实际使用的 cluster（包括 fallback 场景）。
 - `aiMeta.TargetModel` 在 `reverseproxy.go` 的 `doSingleAIForward()` 中已被设置为路由目标模型 + cluster `ModelMapping` 映射后的最终模型名。
 - 因此这里拿到的 `clusterName` 和 `targetModel` 就是计费所需的实际值。
-- 价格到定点整数的转换在配置加载阶段通过 `go-lib/quota` 完成，运行时 `calcCostUnits` 只处理整数，保证 Redis Lua 不接触浮点。
+- 价格保持 `float64` 直到计费：运行时 `calcChatCost` 等通过 `quota.CalcCostUnits` 把每个计费项换算为定点整数（四舍五入）后累加，`calcCostUnits` 只处理整数，保证 Redis Lua 不接触浮点。
 
 ### 7.7 定价匹配逻辑
 
@@ -919,22 +892,19 @@ func (table *ModelTable) ActiveTierName(now time.Time) string {
     return ""
 }
 
-func (p *ModelPrice) GetPriceInt(tier, key string) int64 {
-    if tier != "" && p.tierPricesInt != nil {
-        if tierMap, ok := p.tierPricesInt[tier]; ok {
+func (p *ModelPrice) GetPrice(tier, key string) float64 {
+    if tier != "" && p.TierPrices != nil {
+        if tierMap, ok := p.TierPrices[tier]; ok {
             if v, ok := tierMap[key]; ok {
                 return v
             }
         }
     }
-    if p.pricesInt != nil {
-        return p.pricesInt[key]
-    }
-    return 0
+    return p.Prices[key]
 }
 ```
 
-`calcCostUnits` 在计算成本前先调用 `ActiveTierName`，再按 tier 取价。以 `chat` 模式为例，`calcChatCost` 在读取 `inputCost`、`outputCost`、`cacheReadCost` 等定点整数价格时，均通过 `GetPriceInt(tierName, key)` 获取：命中 `peak` tier 且 `TierPrices.peak` 中配置了该键，则使用 tier 价格；否则 fallback 到默认 `Prices`。
+`calcCostUnits` 在计算成本前先调用 `ActiveTierName`，再按 tier 取价。以 `chat` 模式为例，`calcChatCost` 在读取 `inputCost`、`outputCost`、`cacheReadCost` 等浮点价格时，均通过 `GetPrice(tierName, key)` 获取：命中 `peak` tier 且 `TierPrices.peak` 中配置了该键，则使用 tier 价格；否则 fallback 到默认 `Prices`。
 
 ```go
 func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe_basic.ServerDataConfInterface, usage *bfe_basic.TokenUsage) int64 {
@@ -942,12 +912,12 @@ func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe
 
     tierName := cluster.AIConf.ModelTable.ActiveTierName(time.Now())
 
-    inputCost := entry.GetPriceInt(tierName, cluster_conf.PriceInputCostPerTokenInt)
-    outputCost := entry.GetPriceInt(tierName, cluster_conf.PriceOutputCostPerTokenInt)
-    cacheReadCost := entry.GetPriceInt(tierName, cluster_conf.PriceCacheReadInputTokenCostInt)
+    inputPrice := entry.GetPrice(tierName, cluster_conf.PriceInputCostPerToken)
+    outputPrice := entry.GetPrice(tierName, cluster_conf.PriceOutputCostPerToken)
+    cacheReadPrice := entry.GetPrice(tierName, cluster_conf.PriceCacheReadInputTokenCost)
     // ... 其他子项价格同样按 tierName 获取 ...
 
-    // 后续 cache/audio 拆分与 7.6 节一致
+    // 后续 cache/audio 拆分与逐项 quota.CalcCostUnits 换算同 7.6 节
 }
 ```
 
@@ -1144,7 +1114,7 @@ return {yuan, frac}
 }
 ```
 
-> 上例中 `input_cost_per_token = 0.000001` 元/Token，换算为固定点整数即 `100`（= 0.000001 * 1e8），表示 **0.1 元 / 百万 Token**；`cache_read_input_token_cost` 等子项价格同样通过 `quota.RmbToFixedPoint` 转换为定点整数；`output_cost_per_image = 0.03` 元/张，换算为定点整数 `3000000`；`input_cost_per_image_token = 0.0000005` 元/Token 换算为定点整数 `50`；`output_cost_per_video = 0.5` 元/个换算为定点整数 `50000000`。
+> 上例中 `input_cost_per_token = 0.000001` 元/Token，逐项计费时换算为固定点整数即 `100`（= round(1 * 0.000001 * 1e8)），表示 **0.1 元 / 百万 Token**；`cache_read_input_token_cost` 等子项价格在计费时同样通过 `quota.CalcCostUnits` 逐项换算为定点整数；`output_cost_per_image = 0.03` 元/张换算为 `3000000`；`input_cost_per_image_token = 0.0000005` 元/Token 换算为 `50`；`output_cost_per_video = 0.5` 元/个换算为 `50000000`。价格本身在加载与运行时均保持 `float64`。
 
 ### 9.2 分时段计费配置示例（DeepSeek）
 
@@ -1222,7 +1192,7 @@ return {yuan, frac}
      - 覆盖 `HandleRequestFinish` 多次触发时仅扣费一次（`deducted` 幂等标记）；
      - 覆盖客户端中断场景（issue #1352）：`ErrClientWrite` 且未拿到最终 usage 时零扣费（`EstimateToken` 开/关一致）、已拿到最终 usage 后中断按实际 usage 扣费、响应未完成时估算不生效（`TestTokenRequestFinishHandler_ClientAbort*` 系列）。
    - `ActiveTierName`：验证北京时区周一 10:00 命中 `peak`、周一 13:00 未命中、周六 10:00 未命中、周一 18:00 不命中（左闭右开）。
-   - `GetPriceInt`：验证命中 `peak` 时取 `TierPrices.peak`、未命中时 fallback 到 `Prices`、tier 中未配置某键时 fallback 到默认价格。
+   - `GetPrice`：验证命中 `peak` 时取 `TierPrices.peak`、未命中时 fallback 到 `Prices`、tier 中未配置某键时 fallback 到默认价格；验证超过 8 位小数的价格（如 `7.6234102728e-08`）加载后不被截断。
 
 2. **Lua 脚本测试**
    - 单 Key 定点数方案：验证扣减、余额归零、负数不溢出。
@@ -1247,7 +1217,7 @@ return {yuan, frac}
 ## 11. 兼容性与注意事项
 
 1. **存量 Token 配额完全兼容**：`Unit` 默认 `"total_token"`，走原有 Lua 扣减逻辑。
-2. **浮点禁止进入 Redis**：所有金额在 BFE 内部和 Redis 中均以固定点整数表示，避免浮点误差；价格浮点转换仅在 BFE 配置加载阶段完成，conf-agent 不做任何转换。
+2. **浮点禁止进入 Redis**：请求成本与余额在 BFE 内部和 Redis 中均以固定点整数表示；模型价格保持 `float64`，仅在计费时通过 `quota.CalcCostUnits` 逐项换算（四舍五入）为定点整数，conf-agent 不做任何转换。对 ≤8 位小数的价格，新方案与旧"加载期转定点"方案扣减金额逐分一致。
 3. **无 ModelTable 时的兜底行为**：若 RMB 配额计划命中的 cluster 没有配置 `ModelTable`，或没有匹配到模型条目，当前建议：
    - 记录告警日志；
    - 本次请求不对该 RMB 配额进行扣减（相当于按 `0` 成本处理）；

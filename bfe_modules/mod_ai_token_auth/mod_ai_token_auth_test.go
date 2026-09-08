@@ -2060,3 +2060,106 @@ func TestTokenRequestFinishHandler_EstimateRequiresCompletedResponse(t *testing.
 		t.Errorf("expected remaining %d, got %d", rmbPlan.Quota-expectedCost, remaining)
 	}
 }
+
+func TestCalcChatCost_HighPrecision(t *testing.T) {
+	// Prices with more than 8 decimal places (from the generated model
+	// catalog) must not be truncated at config load time. The old
+	// fixed-point conversion mapped 7.6234102728e-08 to 7 (1e-8 yuan),
+	// undercharging by ~8%; the float64 + per-item rounding path keeps
+	// the full precision until the final rounding step.
+	entry := &cluster_conf.ModelPrice{
+		Model: "qwen2.5-omni-7b",
+		Mode:  "chat",
+		Prices: cluster_conf.PriceMap{
+			cluster_conf.PriceInputCostPerToken:  6.0168984e-09,
+			cluster_conf.PriceOutputCostPerToken: 7.6234102728e-08,
+		},
+	}
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:     1000000,
+		CompletionTokens: 1000000,
+	}
+
+	// input:  round(1e6 * 6.0168984e-09 * 1e8) = round(601689.84)    = 601690
+	// output: round(1e6 * 7.6234102728e-08 * 1e8) = round(7623410.2728) = 7623410
+	expectedCost := int64(601690 + 7623410)
+	if got := calcChatCost(entry, usage, ""); got != expectedCost {
+		t.Errorf("high precision cost = %d, want %d", got, expectedCost)
+	}
+}
+
+func TestCalcChatCost_HighPrecisionTier(t *testing.T) {
+	entry := &cluster_conf.ModelPrice{
+		Model: "glm-4.6",
+		Mode:  "chat",
+		Prices: cluster_conf.PriceMap{
+			cluster_conf.PriceInputCostPerToken:  3.0084492e-06,
+			cluster_conf.PriceOutputCostPerToken: 1.4049457764e-05,
+		},
+		TierPrices: cluster_conf.TierPriceMap{
+			"peak": {
+				cluster_conf.PriceOutputCostPerToken: 2.8098915528e-05,
+			},
+		},
+	}
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:     10000,
+		CompletionTokens: 5000,
+	}
+
+	// peak: input falls back to default (round(10000*3.0084492e-06*1e8)=3008449),
+	// output uses tier price (round(5000*2.8098915528e-05*1e8)=14049458)
+	expectedCost := int64(3008449 + 14049458)
+	if got := calcChatCost(entry, usage, "peak"); got != expectedCost {
+		t.Errorf("peak high precision cost = %d, want %d", got, expectedCost)
+	}
+
+	// off-peak: round(5000*1.4049457764e-05*1e8)=7024729
+	expectedCost = int64(3008449 + 7024729)
+	if got := calcChatCost(entry, usage, ""); got != expectedCost {
+		t.Errorf("off-peak high precision cost = %d, want %d", got, expectedCost)
+	}
+}
+
+func TestCalcImageGenerationCost_HighPrecision(t *testing.T) {
+	entry := &cluster_conf.ModelPrice{
+		Model: "doubao-seedream-5-0",
+		Mode:  "image_generation",
+		Prices: cluster_conf.PriceMap{
+			cluster_conf.PriceOutputCostPerImage:     0.220619608,
+			cluster_conf.PriceInputCostPerImageToken: 1.7816e-06,
+		},
+	}
+
+	usage := &bfe_basic.TokenUsage{
+		ImageCount:       3,
+		ImageInputTokens: 2000,
+	}
+
+	// round(3*0.220619608*1e8) = 66185882
+	// round(2000*1.7816e-06*1e8) = 356320
+	expectedCost := int64(66185882 + 356320)
+	if got := calcImageGenerationCost(entry, usage, ""); got != expectedCost {
+		t.Errorf("image generation cost = %d, want %d", got, expectedCost)
+	}
+}
+
+func TestCalcVideoGenerationCost_HighPrecision(t *testing.T) {
+	entry := &cluster_conf.ModelPrice{
+		Model: "kling-video-pro",
+		Mode:  "video_generation",
+		Prices: cluster_conf.PriceMap{
+			cluster_conf.PriceOutputCostPerVideo: 0.20056328,
+		},
+	}
+
+	usage := &bfe_basic.TokenUsage{VideoCount: 2}
+
+	// round(2*0.20056328*1e8) = 40112656
+	expectedCost := int64(40112656)
+	if got := calcVideoGenerationCost(entry, usage, ""); got != expectedCost {
+		t.Errorf("video generation cost = %d, want %d", got, expectedCost)
+	}
+}
