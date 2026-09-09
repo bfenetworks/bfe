@@ -61,6 +61,7 @@ var usageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total
 var imageGenerationUsageResponse = `{"usage":{"image_count":2}}`
 var imageGenerationWithImageInputUsageResponse = `{"usage":{"image_count":1,"input_token_details":{"image_tokens":200}}}`
 var cacheUsageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150,"cache_read_tokens":30,"cache_write_tokens":20}}`
+var cacheWrite1hUsageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150,"cache_write_tokens":30,"cache_creation":{"ephemeral_1h_input_tokens":20}}}`
 var audioUsageResponse = `{"usage":{"prompt_tokens":4000,"completion_tokens":500,"total_tokens":4500,"audio_input_tokens":1000,"audio_output_tokens":200}}`
 var videoGenerationUsageResponse = `{"usage":{"video_count":3}}`
 var responsesUsageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`
@@ -316,6 +317,15 @@ func cacheRMBAIConf() *cluster_conf.AIConf {
 	return conf
 }
 
+// cacheWrite1hRMBAIConf adds the 1h-TTL cache write price on top of
+// cacheRMBAIConf. Prices are fixed-point exact: 1h (240) = 1.6x the 5m
+// base price (150).
+func cacheWrite1hRMBAIConf() *cluster_conf.AIConf {
+	conf := cacheRMBAIConf()
+	conf.ModelTable.Models[0].Prices["cache_creation_input_token_cost_1h"] = 0.0000024
+	return conf
+}
+
 func audioRMBAIConf() *cluster_conf.AIConf {
 	conf := defaultRMBAIConf()
 	conf.ModelTable.Models[0] = cluster_conf.ModelPrice{
@@ -370,7 +380,7 @@ func imageGenerationWithImageInputAIConf() *cluster_conf.AIConf {
 			"context_window": 128000,
 		},
 		Prices: cluster_conf.PriceMap{
-			"output_cost_per_image":   0.04,
+			"output_cost_per_image":      0.04,
 			"input_cost_per_image_token": 0.0000005,
 		},
 	})
@@ -429,9 +439,9 @@ func imageInputChatRMBAIConf() *cluster_conf.AIConf {
 			"context_window": 128000,
 		},
 		Prices: cluster_conf.PriceMap{
-			"input_cost_per_token":        0.000001,
-			"output_cost_per_token":       0.000002,
-			"input_cost_per_image_token":  0.0000005,
+			"input_cost_per_token":       0.000001,
+			"output_cost_per_token":      0.000002,
+			"input_cost_per_image_token": 0.0000005,
 		},
 	}
 	return conf
@@ -1257,5 +1267,47 @@ func TestTC14_ChatWithImageInputFields(t *testing.T) {
 	assertInt64Field(t, reqLog.AiTotalTokens, "ai_total_tokens", 1200)
 	// cost = (1000-300)*100 + 300*50 + 200*200 = 70000 + 15000 + 40000 = 125000 fixed-point units
 	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 125000)
+	assertStringField(t, reqLog.AiCostCurrency, "ai_cost_currency", "RMB")
+}
+
+// TestTC15 verifies ai_cache_write_1h_tokens (field 788) and 1h-aware cost.
+// The upstream reports 30 cache write tokens, of which 20 are 1h TTL.
+func TestTC15_CacheWrite1hTokenFields(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: cacheWrite1hRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	e.backends[clusterRMB].Body = cacheWrite1hUsageResponse
+
+	resp, body, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLog := e.mustFindSingleLog(e.accessLogs())
+	assertInt64Field(t, reqLog.AiInputTokens, "ai_input_tokens", 100)
+	assertInt64Field(t, reqLog.AiOutputTokens, "ai_output_tokens", 50)
+	assertInt64Field(t, reqLog.AiTotalTokens, "ai_total_tokens", 150)
+	assertInt64Field(t, reqLog.AiCacheWriteTokens, "ai_cache_write_tokens", 30)
+	assertInt64Field(t, reqLog.AiCacheWrite_1HTokens, "ai_cache_write_1h_tokens", 20)
+	// cost = (100-30)*100 + 10*150 + 20*240 + 50*200 = 23300
+	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 23300)
 	assertStringField(t, reqLog.AiCostCurrency, "ai_cost_currency", "RMB")
 }

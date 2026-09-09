@@ -23,16 +23,31 @@ import (
 // bfe_basic.TokenUsage) each map these fields onto their own structures, so
 // this package stays free of dependencies on bfe_basic / bfe_modules.
 type UsageFields struct {
-	UsedQuota         int64
-	PromptTokens      int64
-	CompletionTokens  int64
-	CacheReadTokens   int64
-	CacheWriteTokens  int64
-	AudioInputTokens  int64
-	AudioOutputTokens int64
-	ImageInputTokens  int64
-	ImageCount        int64
-	VideoCount        int64
+	UsedQuota          int64
+	PromptTokens       int64
+	CompletionTokens   int64
+	CacheReadTokens    int64
+	CacheWriteTokens   int64
+	CacheWriteTokens1h int64 // 1h-TTL cache write tokens, already included in CacheWriteTokens
+	AudioInputTokens   int64
+	AudioOutputTokens  int64
+	ImageInputTokens   int64
+	ImageCount         int64
+	VideoCount         int64
+}
+
+// parseCacheWriteTokens1h extracts the 1h-TTL cache write token count.
+// Anthropic-family upstreams report it separately as
+// usage.cache_creation.ephemeral_1h_input_tokens; some relays flatten it to
+// usage.cache_creation_input_tokens_1h. It is already included in the total
+// cache write tokens. prefix is "usage" for a top-level usage object or
+// "message.usage" for the streaming message_start nested shape.
+func parseCacheWriteTokens1h(data []byte, prefix string) int64 {
+	v := gjson.GetBytes(data, prefix+".cache_creation.ephemeral_1h_input_tokens").Int()
+	if v == 0 {
+		v = gjson.GetBytes(data, prefix+".cache_creation_input_tokens_1h").Int()
+	}
+	return v
 }
 
 // ParseOpenAIUsageFields extracts usage fields from OpenAI-family response
@@ -47,6 +62,7 @@ func ParseOpenAIUsageFields(data []byte) UsageFields {
 	fields.CompletionTokens = gjson.GetBytes(data, "usage.completion_tokens").Int()
 	fields.CacheReadTokens = gjson.GetBytes(data, "usage.cache_read_tokens").Int()
 	fields.CacheWriteTokens = gjson.GetBytes(data, "usage.cache_write_tokens").Int()
+	fields.CacheWriteTokens1h = parseCacheWriteTokens1h(data, "usage")
 	fields.AudioInputTokens = gjson.GetBytes(data, "usage.audio_input_tokens").Int()
 	fields.AudioOutputTokens = gjson.GetBytes(data, "usage.audio_output_tokens").Int()
 	fields.ImageInputTokens = gjson.GetBytes(data, "usage.input_token_details.image_tokens").Int()
@@ -98,6 +114,9 @@ func ParseUsageFieldsCrossProtocol(data []byte) UsageFields {
 		if fields.CacheWriteTokens == 0 {
 			fields.CacheWriteTokens = claude.CacheWriteTokens
 		}
+		if fields.CacheWriteTokens1h == 0 {
+			fields.CacheWriteTokens1h = claude.CacheWriteTokens1h
+		}
 		if fields.UsedQuota == 0 {
 			fields.UsedQuota = claude.UsedQuota
 		}
@@ -136,6 +155,10 @@ func ParseAnthropicUsageFields(data []byte) UsageFields {
 	fields.CacheWriteTokens = gjson.GetBytes(data, "usage.cache_creation_input_tokens").Int()
 	if fields.CacheWriteTokens == 0 {
 		fields.CacheWriteTokens = gjson.GetBytes(data, "message.usage.cache_creation_input_tokens").Int()
+	}
+	fields.CacheWriteTokens1h = parseCacheWriteTokens1h(data, "usage")
+	if fields.CacheWriteTokens1h == 0 {
+		fields.CacheWriteTokens1h = parseCacheWriteTokens1h(data, "message.usage")
 	}
 	fields.PromptTokens += fields.CacheReadTokens + fields.CacheWriteTokens
 	fields.UsedQuota = gjson.GetBytes(data, "usage.total_tokens").Int()

@@ -444,20 +444,21 @@ func (e *RawEvent) GetQuotaUsage() QuotaUsage {
 	isTermination := isFinalUsage
 
 	return QuotaUsage{
-		PromptTokens:      fields.PromptTokens,
-		CompletionTokens:  fields.CompletionTokens,
-		CacheReadTokens:   fields.CacheReadTokens,
-		CacheWriteTokens:  fields.CacheWriteTokens,
-		AudioInputTokens:  fields.AudioInputTokens,
-		AudioOutputTokens: fields.AudioOutputTokens,
-		ImageInputTokens:  fields.ImageInputTokens,
-		VideoCount:        fields.VideoCount,
-		ImageCount:        fields.ImageCount,
-		UsedQuota:         fields.UsedQuota,
-		CurrentTokens:     curtoken,
-		IsGuess:           isguess,
-		IsFinalUsage:      isFinalUsage,
-		IsTermination:     isTermination,
+		PromptTokens:       fields.PromptTokens,
+		CompletionTokens:   fields.CompletionTokens,
+		CacheReadTokens:    fields.CacheReadTokens,
+		CacheWriteTokens:   fields.CacheWriteTokens,
+		CacheWriteTokens1h: fields.CacheWriteTokens1h,
+		AudioInputTokens:   fields.AudioInputTokens,
+		AudioOutputTokens:  fields.AudioOutputTokens,
+		ImageInputTokens:   fields.ImageInputTokens,
+		VideoCount:         fields.VideoCount,
+		ImageCount:         fields.ImageCount,
+		UsedQuota:          fields.UsedQuota,
+		CurrentTokens:      curtoken,
+		IsGuess:            isguess,
+		IsFinalUsage:       isFinalUsage,
+		IsTermination:      isTermination,
 	}
 }
 

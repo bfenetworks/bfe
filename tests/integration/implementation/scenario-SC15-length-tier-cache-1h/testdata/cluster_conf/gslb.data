@@ -1,0 +1,10 @@
+{
+    "clusters": {
+        "cluster_sc15": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20260720150000"
+}

@@ -34,16 +34,17 @@ const UnknownModel = "unknown"
 
 type QuotaUsage struct {
 	//return from reponse
-	PromptTokens      int64 // number of tokens in the prompt
-	CompletionTokens  int64 // number of tokens in the completion
-	CacheReadTokens   int64 // usage.cache_read_tokens, already included in PromptTokens
-	CacheWriteTokens  int64 // usage.cache_write_tokens, already included in PromptTokens (normalized for Anthropic)
-	AudioInputTokens  int64 // usage.audio_input_tokens, already included in PromptTokens
-	AudioOutputTokens int64 // usage.audio_output_tokens, already included in CompletionTokens
-	ImageInputTokens  int64 // usage.image_input_tokens / input_token_details.image_tokens, already included in PromptTokens
-	VideoCount        int64 // number of generated videos for video generation models
-	ImageCount        int64 // number of generated images for image generation models
-	UsedQuota         int64 // used quota for this request
+	PromptTokens       int64 // number of tokens in the prompt
+	CompletionTokens   int64 // number of tokens in the completion
+	CacheReadTokens    int64 // usage.cache_read_tokens, already included in PromptTokens
+	CacheWriteTokens   int64 // usage.cache_write_tokens, already included in PromptTokens (normalized for Anthropic)
+	CacheWriteTokens1h int64 // 1h-TTL cache write tokens (usage.cache_creation.ephemeral_1h_input_tokens), already included in CacheWriteTokens
+	AudioInputTokens   int64 // usage.audio_input_tokens, already included in PromptTokens
+	AudioOutputTokens  int64 // usage.audio_output_tokens, already included in CompletionTokens
+	ImageInputTokens   int64 // usage.image_input_tokens / input_token_details.image_tokens, already included in PromptTokens
+	VideoCount         int64 // number of generated videos for video generation models
+	ImageCount         int64 // number of generated images for image generation models
+	UsedQuota          int64 // used quota for this request
 
 	//estimate for current response
 	CurrentTokens int64 //effect when IsGuess is true
@@ -163,20 +164,21 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 	}
 
 	return QuotaUsage{
-		PromptTokens:      fields.PromptTokens,
-		CompletionTokens:  fields.CompletionTokens,
-		CacheReadTokens:   fields.CacheReadTokens,
-		CacheWriteTokens:  fields.CacheWriteTokens,
-		AudioInputTokens:  fields.AudioInputTokens,
-		AudioOutputTokens: fields.AudioOutputTokens,
-		ImageInputTokens:  fields.ImageInputTokens,
-		VideoCount:        fields.VideoCount,
-		ImageCount:        fields.ImageCount,
-		UsedQuota:         fields.UsedQuota,
-		CurrentTokens:     curtoken,
-		IsGuess:           isguess,
-		IsFinalUsage:      isFinalUsage,
-		IsTermination:     isTermination,
+		PromptTokens:       fields.PromptTokens,
+		CompletionTokens:   fields.CompletionTokens,
+		CacheReadTokens:    fields.CacheReadTokens,
+		CacheWriteTokens:   fields.CacheWriteTokens,
+		CacheWriteTokens1h: fields.CacheWriteTokens1h,
+		AudioInputTokens:   fields.AudioInputTokens,
+		AudioOutputTokens:  fields.AudioOutputTokens,
+		ImageInputTokens:   fields.ImageInputTokens,
+		VideoCount:         fields.VideoCount,
+		ImageCount:         fields.ImageCount,
+		UsedQuota:          fields.UsedQuota,
+		CurrentTokens:      curtoken,
+		IsGuess:            isguess,
+		IsFinalUsage:       isFinalUsage,
+		IsTermination:      isTermination,
 	}
 }
 

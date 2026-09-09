@@ -174,6 +174,19 @@ type PriceMap map[string]float64
 // TierPriceMap is a map of tier names to PriceMap values.
 type TierPriceMap map[string]map[string]float64
 
+// lengthTier is a parsed length-tier price entry. The side prices are
+// parsed from default Prices at load time; -1 marks a side whose key is
+// not configured for this tier, so the caller keeps the base price on that
+// side. The keys are kept for tier-priority lookup (TierPrices[tier] wins
+// over default Prices, same as GetPrice).
+type lengthTier struct {
+	threshold   int64   // 200000 / 256000 / 272000 / 512000
+	inputKey    string  // e.g. input_cost_per_token_above_272k_tokens
+	outputKey   string  // e.g. output_cost_per_token_above_272k_tokens
+	inputPrice  float64 // -1 when the tier input key is not configured
+	outputPrice float64 // -1 when the tier output key is not configured
+}
+
 // ModelPrice represents a single model pricing entry in AIConf.ModelTable
 type ModelPrice struct {
 	Provider            string
@@ -186,6 +199,10 @@ type ModelPrice struct {
 	Prices              PriceMap     // default prices (yuan per unit, float64)
 	TierPrices          TierPriceMap // tier name -> price table
 	Metadata            map[string]interface{}
+
+	// lengthTiers is parsed at config load time (ModelTableCheck) from the
+	// hard-coded length-tier keys above, ordered by ascending threshold.
+	lengthTiers []lengthTier
 }
 
 // ModelTable represents the cost/pricing table for a cluster
@@ -225,16 +242,42 @@ type AIConf struct {
 }
 
 const (
-	PriceInputCostPerToken           = "input_cost_per_token"
-	PriceOutputCostPerToken          = "output_cost_per_token"
-	PriceCacheReadInputTokenCost     = "cache_read_input_token_cost"
-	PriceCacheCreationInputTokenCost = "cache_creation_input_token_cost"
-	PriceInputCostPerAudioToken      = "input_cost_per_audio_token"
-	PriceOutputCostPerAudioToken     = "output_cost_per_audio_token"
-	PriceOutputCostPerImage          = "output_cost_per_image"
-	PriceInputCostPerImageToken      = "input_cost_per_image_token"
-	PriceOutputCostPerVideo          = "output_cost_per_video"
+	PriceInputCostPerToken             = "input_cost_per_token"
+	PriceOutputCostPerToken            = "output_cost_per_token"
+	PriceCacheReadInputTokenCost       = "cache_read_input_token_cost"
+	PriceCacheCreationInputTokenCost   = "cache_creation_input_token_cost"
+	PriceInputCostPerAudioToken        = "input_cost_per_audio_token"
+	PriceOutputCostPerAudioToken       = "output_cost_per_audio_token"
+	PriceOutputCostPerImage            = "output_cost_per_image"
+	PriceInputCostPerImageToken        = "input_cost_per_image_token"
+	PriceOutputCostPerVideo            = "output_cost_per_video"
+	PriceCacheCreationInputTokenCost1h = "cache_creation_input_token_cost_1h"
+
+	// Length-tier price keys (hard-coded tiers, tokens). When the total input
+	// token count exceeds a tier threshold, the whole request is billed at
+	// that tier's input/output price.
+	PriceInputCostPerTokenAbove200kTokens  = "input_cost_per_token_above_200k_tokens"
+	PriceOutputCostPerTokenAbove200kTokens = "output_cost_per_token_above_200k_tokens"
+	PriceInputCostPerTokenAbove256kTokens  = "input_cost_per_token_above_256k_tokens"
+	PriceOutputCostPerTokenAbove256kTokens = "output_cost_per_token_above_256k_tokens"
+	PriceInputCostPerTokenAbove272kTokens  = "input_cost_per_token_above_272k_tokens"
+	PriceOutputCostPerTokenAbove272kTokens = "output_cost_per_token_above_272k_tokens"
+	PriceInputCostPerTokenAbove512kTokens  = "input_cost_per_token_above_512k_tokens"
+	PriceOutputCostPerTokenAbove512kTokens = "output_cost_per_token_above_512k_tokens"
 )
+
+// lengthTierKeys lists the hard-coded length-tier price keys in ascending
+// threshold order. The threshold is N*1000 tokens for the "Nk" suffix.
+var lengthTierKeys = []struct {
+	threshold int64
+	inputKey  string
+	outputKey string
+}{
+	{200 * 1000, PriceInputCostPerTokenAbove200kTokens, PriceOutputCostPerTokenAbove200kTokens},
+	{256 * 1000, PriceInputCostPerTokenAbove256kTokens, PriceOutputCostPerTokenAbove256kTokens},
+	{272 * 1000, PriceInputCostPerTokenAbove272kTokens, PriceOutputCostPerTokenAbove272kTokens},
+	{512 * 1000, PriceInputCostPerTokenAbove512kTokens, PriceOutputCostPerTokenAbove512kTokens},
+}
 
 func (conf *BackendHTTPS) GetProtocol() string {
 	return conf.protocol
@@ -1304,10 +1347,43 @@ func ModelTableCheck(table *ModelTable) error {
 		outputCostPerImage := price.Prices[PriceOutputCostPerImage]
 		inputImageToken := price.Prices[PriceInputCostPerImageToken]
 		outputCostPerVideo := price.Prices[PriceOutputCostPerVideo]
+		cacheWrite1h := price.Prices[PriceCacheCreationInputTokenCost1h]
 		if input < 0 || output < 0 || cacheRead < 0 || cacheWrite < 0 ||
 			audioInput < 0 || audioOutput < 0 || outputCostPerImage < 0 ||
-			inputImageToken < 0 || outputCostPerVideo < 0 {
+			inputImageToken < 0 || outputCostPerVideo < 0 || cacheWrite1h < 0 {
 			return fmt.Errorf("negative price for model %s", price.Model)
+		}
+
+		// Parse the hard-coded length-tier keys into an ordered tier table.
+		// A side price of -1 marks a side whose key is not configured, so the
+		// caller falls back to the base price on that side.
+		price.lengthTiers = price.lengthTiers[:0]
+		for _, tk := range lengthTierKeys {
+			in, inOk := price.Prices[tk.inputKey]
+			if inOk && in < 0 {
+				return fmt.Errorf("negative price for model %s", price.Model)
+			}
+			out, outOk := price.Prices[tk.outputKey]
+			if outOk && out < 0 {
+				return fmt.Errorf("negative price for model %s", price.Model)
+			}
+			if !inOk && !outOk {
+				continue
+			}
+			tier := lengthTier{
+				threshold:   tk.threshold,
+				inputKey:    tk.inputKey,
+				outputKey:   tk.outputKey,
+				inputPrice:  -1,
+				outputPrice: -1,
+			}
+			if inOk {
+				tier.inputPrice = in
+			}
+			if outOk {
+				tier.outputPrice = out
+			}
+			price.lengthTiers = append(price.lengthTiers, tier)
 		}
 
 		for tierName, tierPriceMap := range price.TierPrices {
@@ -1364,14 +1440,64 @@ func (table *ModelTable) ActiveTierName(now time.Time) string {
 // Prices stay float64 until a billing item is converted via quota.CalcCostUnits
 // at request time, so prices with more than 8 decimal places keep their precision.
 func (p *ModelPrice) GetPrice(tier, key string) float64 {
+	v, _ := p.lookupPrice(tier, key)
+	return v
+}
+
+// lookupPrice returns the price for the given tier and key with tier priority:
+// TierPrices[tier][key] wins when configured, otherwise default Prices[key].
+// The second return value reports whether the key was configured at all.
+func (p *ModelPrice) lookupPrice(tier, key string) (float64, bool) {
 	if tier != "" && p.TierPrices != nil {
 		if tierMap, ok := p.TierPrices[tier]; ok {
 			if v, ok := tierMap[key]; ok {
-				return v
+				return v, true
 			}
 		}
 	}
-	return p.Prices[key]
+	v, ok := p.Prices[key]
+	return v, ok
+}
+
+// GetLengthTierPrice returns the length-tier input/output unit prices
+// (yuan per token) selected by the total input token count (promptTokens,
+// including cache read/write). The selected tier is the highest tier whose
+// threshold promptTokens exceeds; the whole request is billed at that tier.
+// A side price of -1 means that side's key is not configured for the tier;
+// the caller keeps the base price on that side. ok is false when no tier key
+// is configured at all, or when promptTokens does not exceed any tier
+// threshold; the caller then bills at the base prices. Tier priority is the
+// same as GetPrice: keys in TierPrices[tierName] win over default Prices.
+func (p *ModelPrice) GetLengthTierPrice(tierName string, promptTokens int64) (input, output float64, ok bool) {
+	if len(p.lengthTiers) == 0 {
+		return 0, 0, false
+	}
+	idx := -1
+	for i := range p.lengthTiers {
+		if promptTokens > p.lengthTiers[i].threshold {
+			idx = i
+		} else {
+			break
+		}
+	}
+	if idx < 0 {
+		return 0, 0, false
+	}
+	tier := &p.lengthTiers[idx]
+	input, output = tier.inputPrice, tier.outputPrice
+	// tier priority, same as GetPrice: TierPrices[tierName] wins over the
+	// default Prices parsed at load time.
+	if tierName != "" && p.TierPrices != nil {
+		if tierMap, ok := p.TierPrices[tierName]; ok {
+			if v, ok := tierMap[tier.inputKey]; ok {
+				input = v
+			}
+			if v, ok := tierMap[tier.outputKey]; ok {
+				output = v
+			}
+		}
+	}
+	return input, output, true
 }
 
 // LookupModelPrice looks up a model price entry by model and mode.
