@@ -23,8 +23,9 @@ import (
 // DetectProtocolAndKey extracts the client API key and the request's
 // protocol/auth style from the request headers. Authorization: Bearer is
 // preferred (the "Bearer " and "sk-" prefixes are stripped); it falls back
-// to the x-api-key header (Anthropic style). When no credential header is
-// present it returns empty strings.
+// to the x-api-key header (Anthropic style), then to the x-goog-api-key
+// header (Gemini style). When no credential header is present it returns
+// empty strings.
 func DetectProtocolAndKey(req *bfe_http.Request) (protocol, key string) {
 	// 1. prefer Authorization: Bearer <key> for OpenAI style
 	authHeader := req.Header.Get("Authorization")
@@ -38,6 +39,11 @@ func DetectProtocolAndKey(req *bfe_http.Request) (protocol, key string) {
 	// 2. fallback to x-api-key for Anthropic style
 	if xApiKey := req.Header.Get("x-api-key"); xApiKey != "" {
 		return ProtocolAnthropic, xApiKey
+	}
+
+	// 3. fallback to x-goog-api-key for Gemini style
+	if xGoogApiKey := req.Header.Get("x-goog-api-key"); xGoogApiKey != "" {
+		return ProtocolGemini, xGoogApiKey
 	}
 
 	return "", ""
@@ -57,10 +63,25 @@ func DetectProtocol(req *bfe_http.Request) string {
 		return ProtocolAnthropic
 	}
 
+	// Gemini style: the generateContent / streamGenerateContent action
+	// suffix or the /v1beta/models/ prefix (checked before the openai
+	// default below).
+	if strings.Contains(path, ":generateContent") ||
+		strings.Contains(path, ":streamGenerateContent") ||
+		strings.HasPrefix(path, "/v1beta/models/") {
+		return ProtocolGemini
+	}
+
 	// x-api-key without Authorization indicates Anthropic style
 	if req.Header.Get("x-api-key") != "" &&
 		req.Header.Get("Authorization") == "" {
 		return ProtocolAnthropic
+	}
+
+	// x-goog-api-key without Authorization indicates Gemini style
+	if req.Header.Get("x-goog-api-key") != "" &&
+		req.Header.Get("Authorization") == "" {
+		return ProtocolGemini
 	}
 
 	return ProtocolOpenAI

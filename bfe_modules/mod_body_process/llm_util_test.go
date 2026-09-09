@@ -19,6 +19,8 @@ import (
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/bfenetworks/bfe/bfe_basic"
 )
 
 func TestGetSetHTTPClient(t *testing.T) {
@@ -89,7 +91,7 @@ func TestSSEEventSetAndGetData(t *testing.T) {
 
 func TestSSEEventGetQuotaUsage(t *testing.T) {
 	ev := &SSEEvent{DataLines: [][]byte{[]byte(`{"usage":{"total_tokens":10}}`)}}
-	q := ev.GetQuotaUsage()
+	q := ev.GetQuotaUsage("")
 	if q.UsedQuota != 10 {
 		t.Errorf("expected UsedQuota 10, got %d", q.UsedQuota)
 	}
@@ -100,7 +102,7 @@ func TestSSEEventGetQuotaUsage(t *testing.T) {
 
 func TestSSEEventGetQuotaUsageWithAudio(t *testing.T) {
 	ev := &SSEEvent{DataLines: [][]byte{[]byte(`{"usage":{"total_tokens":4500,"prompt_tokens":4000,"completion_tokens":500,"audio_input_tokens":1000,"audio_output_tokens":200}}`)}}
-	q := ev.GetQuotaUsage()
+	q := ev.GetQuotaUsage("")
 	if q.UsedQuota != 4500 {
 		t.Errorf("expected UsedQuota 4500, got %d", q.UsedQuota)
 	}
@@ -124,21 +126,21 @@ func TestSSEEventGetQuotaUsageWithAudio(t *testing.T) {
 func TestSSEEventGetQuotaUsage_DeepSeekCache(t *testing.T) {
 	// DeepSeek: prompt_cache_hit_tokens
 	ev := &SSEEvent{DataLines: [][]byte{[]byte(`{"usage":{"total_tokens":12,"prompt_tokens":8,"completion_tokens":4,"prompt_cache_hit_tokens":5}}`)}}
-	usage := ev.GetQuotaUsage()
+	usage := ev.GetQuotaUsage("")
 	if usage.CacheReadTokens != 5 {
 		t.Errorf("expected CacheReadTokens 5 for prompt_cache_hit_tokens, got %d", usage.CacheReadTokens)
 	}
 
 	// DeepSeek: prompt_tokens_details.cached_tokens
 	ev2 := &SSEEvent{DataLines: [][]byte{[]byte(`{"usage":{"total_tokens":12,"prompt_tokens":8,"completion_tokens":4,"prompt_tokens_details":{"cached_tokens":6}}}`)}}
-	usage2 := ev2.GetQuotaUsage()
+	usage2 := ev2.GetQuotaUsage("")
 	if usage2.CacheReadTokens != 6 {
 		t.Errorf("expected CacheReadTokens 6 for prompt_tokens_details.cached_tokens, got %d", usage2.CacheReadTokens)
 	}
 
 	// Existing cache_read_tokens takes precedence when non-zero
 	ev3 := &SSEEvent{DataLines: [][]byte{[]byte(`{"usage":{"total_tokens":12,"prompt_tokens":8,"completion_tokens":4,"cache_read_tokens":3,"prompt_cache_hit_tokens":5}}`)}}
-	usage3 := ev3.GetQuotaUsage()
+	usage3 := ev3.GetQuotaUsage("")
 	if usage3.CacheReadTokens != 3 {
 		t.Errorf("expected CacheReadTokens 3 (existing field precedence), got %d", usage3.CacheReadTokens)
 	}
@@ -148,7 +150,7 @@ func TestSSEEventGetQuotaUsage_AnthropicCache(t *testing.T) {
 	// Anthropic message_start: input_tokens excludes cache read/write tokens;
 	// PromptTokens must be normalized to the total input.
 	ev := &SSEEvent{DataLines: [][]byte{[]byte(`{"type":"message_start","usage":{"input_tokens":320,"output_tokens":0,"cache_read_input_tokens":8000,"cache_creation_input_tokens":200}}`)}}
-	q := ev.GetQuotaUsage()
+	q := ev.GetQuotaUsage("")
 	if q.PromptTokens != 8520 {
 		t.Errorf("expected PromptTokens 8520 (320+8000+200), got %d", q.PromptTokens)
 	}
@@ -170,7 +172,7 @@ func TestSSEEventGetQuotaUsage_AnthropicCache(t *testing.T) {
 
 	// Full cache hit: input_tokens = 0, usage must still be recognized.
 	ev2 := &SSEEvent{DataLines: [][]byte{[]byte(`{"type":"message_start","usage":{"input_tokens":0,"output_tokens":0,"cache_read_input_tokens":5000}}`)}}
-	q2 := ev2.GetQuotaUsage()
+	q2 := ev2.GetQuotaUsage("")
 	if q2.PromptTokens != 5000 || q2.CacheReadTokens != 5000 {
 		t.Errorf("expected PromptTokens/CacheReadTokens 5000, got %d/%d", q2.PromptTokens, q2.CacheReadTokens)
 	}
@@ -282,7 +284,7 @@ func TestRawEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ev := RawEvent([]byte(tt.data))
-			q := ev.GetQuotaUsage()
+			q := ev.GetQuotaUsage("")
 			if q.IsTermination != tt.wantTermination {
 				t.Errorf("IsTermination = %v, want %v", q.IsTermination, tt.wantTermination)
 			}
@@ -295,7 +297,7 @@ func TestRawEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 
 func TestRawEventGetQuotaUsage_AnthropicNonStreamFields(t *testing.T) {
 	ev := RawEvent([]byte(`{"type":"message","usage":{"input_tokens":320,"output_tokens":150,"cache_read_input_tokens":8000,"cache_creation_input_tokens":200}}`))
-	q := ev.GetQuotaUsage()
+	q := ev.GetQuotaUsage("")
 	if q.PromptTokens != 8520 {
 		t.Errorf("expected PromptTokens 8520 (320+8000+200), got %d", q.PromptTokens)
 	}
@@ -316,6 +318,7 @@ func TestRawEventGetQuotaUsage_AnthropicNonStreamFields(t *testing.T) {
 func TestSSEEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 	tests := []struct {
 		name            string
+		authStyle       string
 		data            string
 		wantTermination bool
 		wantFinalUsage  bool
@@ -323,6 +326,7 @@ func TestSSEEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 		{
 			// Anthropic initial usage: output_tokens = 0, must not be final
 			name:            "anthropic message_start",
+			authStyle:       bfe_basic.AuthStyleAnthropic,
 			data:            `{"type":"message_start","usage":{"input_tokens":320,"output_tokens":0}}`,
 			wantTermination: false,
 			wantFinalUsage:  false,
@@ -330,12 +334,14 @@ func TestSSEEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 		{
 			// Anthropic final usage arrives in message_delta
 			name:            "anthropic message_delta",
+			authStyle:       bfe_basic.AuthStyleAnthropic,
 			data:            `{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":15}}`,
 			wantTermination: false,
 			wantFinalUsage:  true,
 		},
 		{
 			name:            "anthropic message_stop",
+			authStyle:       bfe_basic.AuthStyleAnthropic,
 			data:            `{"type":"message_stop"}`,
 			wantTermination: true,
 			wantFinalUsage:  false,
@@ -343,6 +349,7 @@ func TestSSEEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 		{
 			// OpenAI stream termination marker
 			name:            "openai done",
+			authStyle:       bfe_basic.AuthStyleOpenAI,
 			data:            `[DONE]`,
 			wantTermination: true,
 			wantFinalUsage:  false,
@@ -350,6 +357,7 @@ func TestSSEEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 		{
 			// OpenAI final chunk with stream_options.include_usage
 			name:            "openai final usage chunk",
+			authStyle:       bfe_basic.AuthStyleOpenAI,
 			data:            `{"id":"chatcmpl-1","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}`,
 			wantTermination: false,
 			wantFinalUsage:  true,
@@ -358,6 +366,7 @@ func TestSSEEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 			// Anthropic non-streaming top-level type: the whole-body JSON is
 			// the final usage (issue #1364)
 			name:            "anthropic non-stream message",
+			authStyle:       bfe_basic.AuthStyleAnthropic,
 			data:            `{"type":"message","usage":{"input_tokens":320,"output_tokens":150,"cache_read_input_tokens":8000}}`,
 			wantTermination: false,
 			wantFinalUsage:  true,
@@ -365,6 +374,7 @@ func TestSSEEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 		{
 			// Intermediate chunk without usage is neither final nor termination
 			name:            "openai intermediate chunk",
+			authStyle:       bfe_basic.AuthStyleOpenAI,
 			data:            `{"id":"chatcmpl-1","choices":[{"delta":{"content":"hi"}}]}`,
 			wantTermination: false,
 			wantFinalUsage:  false,
@@ -374,7 +384,7 @@ func TestSSEEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ev := &SSEEvent{DataLines: [][]byte{[]byte(tt.data)}}
-			q := ev.GetQuotaUsage()
+			q := ev.GetQuotaUsage(tt.authStyle)
 			if q.IsTermination != tt.wantTermination {
 				t.Errorf("IsTermination = %v, want %v", q.IsTermination, tt.wantTermination)
 			}
@@ -388,7 +398,7 @@ func TestSSEEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 func TestSSEEventGetQuotaUsage_CacheWrite1h(t *testing.T) {
 	// Anthropic extended-TTL standard field.
 	ev := &SSEEvent{DataLines: [][]byte{[]byte(`{"usage":{"input_tokens":320,"output_tokens":150,"cache_creation_input_tokens":1200,"cache_creation":{"ephemeral_1h_input_tokens":1000}}}`)}}
-	q := ev.GetQuotaUsage()
+	q := ev.GetQuotaUsage("")
 	if q.CacheWriteTokens != 1200 {
 		t.Errorf("expected CacheWriteTokens 1200, got %d", q.CacheWriteTokens)
 	}
@@ -398,7 +408,7 @@ func TestSSEEventGetQuotaUsage_CacheWrite1h(t *testing.T) {
 
 	// Relay fallback field.
 	ev2 := &SSEEvent{DataLines: [][]byte{[]byte(`{"usage":{"input_tokens":320,"output_tokens":150,"cache_creation_input_tokens":1200,"cache_creation_input_tokens_1h":800}}`)}}
-	q2 := ev2.GetQuotaUsage()
+	q2 := ev2.GetQuotaUsage("")
 	if q2.CacheWriteTokens1h != 800 {
 		t.Errorf("expected CacheWriteTokens1h 800 (fallback field), got %d", q2.CacheWriteTokens1h)
 	}

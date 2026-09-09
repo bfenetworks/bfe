@@ -38,8 +38,8 @@ func newRawEvent(data string) *RawEvent {
 
 type unsupportedEvent struct{}
 
-func (unsupportedEvent) ToBytes() []byte           { return nil }
-func (unsupportedEvent) GetQuotaUsage() QuotaUsage { return QuotaUsage{} }
+func (unsupportedEvent) ToBytes() []byte                           { return nil }
+func (unsupportedEvent) GetQuotaUsage(authStyle string) QuotaUsage { return QuotaUsage{} }
 
 func newTestRequest(product string) *bfe_basic.Request {
 	httpReq, _ := bfe_http.NewRequest(http.MethodPost, "http://example.com/v1/chat/completions", nil)

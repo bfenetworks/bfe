@@ -36,6 +36,21 @@ func newDetectTestRequest(t *testing.T, path, auth, xApiKey string) *bfe_http.Re
 	return req
 }
 
+func newGeminiDetectTestRequest(t *testing.T, path, auth, xGoogApiKey string) *bfe_http.Request {
+	t.Helper()
+	req, err := bfe_http.NewRequest(http.MethodPost, "http://example.com"+path, nil)
+	if err != nil {
+		t.Fatalf("NewRequest failed: %v", err)
+	}
+	if auth != "" {
+		req.Header.Set("Authorization", auth)
+	}
+	if xGoogApiKey != "" {
+		req.Header.Set("x-goog-api-key", xGoogApiKey)
+	}
+	return req
+}
+
 func TestDetectProtocolAndKey(t *testing.T) {
 	cases := []struct {
 		name      string
@@ -59,6 +74,31 @@ func TestDetectProtocolAndKey(t *testing.T) {
 		if proto != tc.wantProto || key != tc.wantKey {
 			t.Errorf("%s: got (%q, %q), want (%q, %q)", tc.name, proto, key, tc.wantProto, tc.wantKey)
 		}
+	}
+}
+
+func TestDetectProtocolAndKeyGemini(t *testing.T) {
+	// x-goog-api-key alone: gemini style, appended at the end of the
+	// detection chain (Authorization and x-api-key keep their priority).
+	req := newGeminiDetectTestRequest(t, "/v1beta/models/gemini-2.5-flash:generateContent", "", "goog-key")
+	proto, key := DetectProtocolAndKey(req)
+	if proto != ProtocolGemini || key != "goog-key" {
+		t.Errorf("got (%q, %q), want (%q, %q)", proto, key, ProtocolGemini, "goog-key")
+	}
+
+	// Authorization wins over x-goog-api-key (existing priority unchanged).
+	req = newGeminiDetectTestRequest(t, "/v1beta/models/gemini-2.5-flash:generateContent", "Bearer sk-abc123", "goog-key")
+	proto, key = DetectProtocolAndKey(req)
+	if proto != ProtocolOpenAI || key != "abc123" {
+		t.Errorf("got (%q, %q), want (%q, %q)", proto, key, ProtocolOpenAI, "abc123")
+	}
+
+	// x-api-key wins over x-goog-api-key (existing fallback priority).
+	req = newGeminiDetectTestRequest(t, "/v1/messages", "", "goog-key")
+	req.Header.Set("x-api-key", "ak-ant")
+	proto, key = DetectProtocolAndKey(req)
+	if proto != ProtocolAnthropic || key != "ak-ant" {
+		t.Errorf("got (%q, %q), want (%q, %q)", proto, key, ProtocolAnthropic, "ak-ant")
 	}
 }
 
@@ -91,6 +131,43 @@ func TestDetectProtocol(t *testing.T) {
 		var req *bfe_http.Request
 		if tc.name != "nil request" {
 			req = newDetectTestRequest(t, tc.path, tc.auth, tc.xApiKey)
+		}
+		if got := DetectProtocol(req); got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestDetectProtocolGemini(t *testing.T) {
+	cases := []struct {
+		name    string
+		path    string
+		auth    string
+		xGoog   string
+		xApiKey string
+		want    string
+	}{
+		{"generateContent path", "/v1beta/models/gemini-2.5-flash:generateContent", "", "", "", ProtocolGemini},
+		{"streamGenerateContent path", "/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse", "", "", "", ProtocolGemini},
+		{"models prefix path", "/v1beta/models/gemini-2.5-flash", "", "", "", ProtocolGemini},
+		{"x-goog-api-key without authorization", "/v1beta/models/gemini-2.5-flash:generateContent", "", "goog-key", "", ProtocolGemini},
+		{"x-goog-api-key on openai path", "/v1/chat/completions", "", "goog-key", "", ProtocolGemini},
+		// Authorization keeps priority over x-goog-api-key.
+		{"authorization wins over x-goog-api-key", "/v1/chat/completions", "Bearer sk-abc", "goog-key", "", ProtocolOpenAI},
+		// x-api-key keeps its fallback priority over x-goog-api-key.
+		{"x-api-key wins over x-goog-api-key", "/v1/chat/completions", "", "goog-key", "ak-ant", ProtocolAnthropic},
+		// Gemini path wins even with x-api-key present (path shape is decisive).
+		{"gemini path with x-api-key", "/v1beta/models/gemini-2.5-flash:generateContent", "", "", "ak-ant", ProtocolGemini},
+		// Existing anthropic / openai recognition is unaffected.
+		{"messages path still anthropic", "/v1/messages", "", "", "", ProtocolAnthropic},
+		{"x-api-key still anthropic", "/v1/chat/completions", "", "", "ak-ant", ProtocolAnthropic},
+		{"default stays openai", "/v1/chat/completions", "", "", "", ProtocolOpenAI},
+	}
+
+	for _, tc := range cases {
+		req := newGeminiDetectTestRequest(t, tc.path, tc.auth, tc.xGoog)
+		if tc.xApiKey != "" {
+			req.Header.Set("x-api-key", tc.xApiKey)
 		}
 		if got := DetectProtocol(req); got != tc.want {
 			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)

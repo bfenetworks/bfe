@@ -72,14 +72,15 @@ type MockBackend struct {
 	SSEHold <-chan struct{}
 	// SSETrailing, if non-nil, is written (and flushed) after SSEHold is
 	// released, simulating backend data arriving after a client abort.
-	SSETrailing       []string
-	hits              int
-	mu                sync.Mutex
-	models            []string
-	bodies            [][]byte
-	authHeaders       []string
-	xApiKeyHeaders    []string
-	anthropicVersions []string
+	SSETrailing        []string
+	hits               int
+	mu                 sync.Mutex
+	models             []string
+	bodies             [][]byte
+	authHeaders        []string
+	xApiKeyHeaders     []string
+	xGoogApiKeyHeaders []string
+	anthropicVersions  []string
 }
 
 // NewMockBackend starts a local HTTP server that returns the given status code.
@@ -120,6 +121,7 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 			b.bodies = append(b.bodies, append([]byte(nil), bodyBytes...))
 			b.authHeaders = append(b.authHeaders, r.Header.Get("Authorization"))
 			b.xApiKeyHeaders = append(b.xApiKeyHeaders, r.Header.Get("x-api-key"))
+			b.xGoogApiKeyHeaders = append(b.xGoogApiKeyHeaders, r.Header.Get("x-goog-api-key"))
 			b.anthropicVersions = append(b.anthropicVersions, r.Header.Get("anthropic-version"))
 			var reqBody map[string]interface{}
 			if err := json.Unmarshal(bodyBytes, &reqBody); err == nil {
@@ -214,6 +216,13 @@ func (b *MockBackend) XApiKeyHeaders() []string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return append([]string(nil), b.xApiKeyHeaders...)
+}
+
+// XGoogApiKeyHeaders returns a deep copy of all observed x-goog-api-key headers.
+func (b *MockBackend) XGoogApiKeyHeaders() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]string(nil), b.xGoogApiKeyHeaders...)
 }
 
 // AnthropicVersions returns a deep copy of all observed anthropic-version headers.

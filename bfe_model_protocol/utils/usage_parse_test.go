@@ -89,3 +89,69 @@ func TestParseAnthropicUsageFields_CacheWrite1h(t *testing.T) {
 		t.Errorf("expected CacheWriteTokens1h 800 (fallback field), got %d", fields3.CacheWriteTokens1h)
 	}
 }
+
+func TestParseGeminiUsageFields(t *testing.T) {
+	// All fields present: totalTokenCount used as-is.
+	fields := ParseGeminiUsageFields([]byte(
+		`{"candidates":[{"content":{"parts":[{"text":"hi"}]}}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5,"cachedContentTokenCount":3,"totalTokenCount":15}}`))
+	want := UsageFields{
+		UsedQuota:        15,
+		PromptTokens:     10,
+		CompletionTokens: 5,
+		CacheReadTokens:  3,
+	}
+	if fields != want {
+		t.Errorf("got %+v, want %+v", fields, want)
+	}
+}
+
+func TestParseGeminiUsageFieldsMissingTotal(t *testing.T) {
+	// totalTokenCount absent: UsedQuota falls back to prompt + candidates.
+	fields := ParseGeminiUsageFields([]byte(
+		`{"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":8,"cachedContentTokenCount":4}}`))
+	if fields.UsedQuota != 20 {
+		t.Errorf("expected UsedQuota 20 (12+8), got %d", fields.UsedQuota)
+	}
+	if fields.PromptTokens != 12 || fields.CompletionTokens != 8 || fields.CacheReadTokens != 4 {
+		t.Errorf("unexpected fields: %+v", fields)
+	}
+}
+
+func TestParseGeminiUsageFieldsAllZero(t *testing.T) {
+	// Empty usageMetadata stays all-zero (a guess for the callers).
+	fields := ParseGeminiUsageFields([]byte(`{"usageMetadata":{}}`))
+	if fields != (UsageFields{}) {
+		t.Errorf("expected all-zero fields, got %+v", fields)
+	}
+}
+
+func TestParseGeminiUsageFieldsNoForeignFields(t *testing.T) {
+	// The gemini chain does not parse OpenAI / Anthropic fields.
+	openai := ParseGeminiUsageFields([]byte(
+		`{"usage":{"total_tokens":12,"prompt_tokens":8,"completion_tokens":4}}`))
+	if openai != (UsageFields{}) {
+		t.Errorf("expected zero fields for openai body, got %+v", openai)
+	}
+	anthropic := ParseGeminiUsageFields([]byte(
+		`{"type":"message","usage":{"input_tokens":320,"output_tokens":150}}`))
+	if anthropic != (UsageFields{}) {
+		t.Errorf("expected zero fields for anthropic body, got %+v", anthropic)
+	}
+}
+
+func TestParseUsageFieldsCrossProtocol_GeminiBody(t *testing.T) {
+	// A Bearer key detected as openai while the backend returns a Gemini
+	// body: the gemini third stage recovers the usage (issue #1364
+	// mismatch fallback).
+	fields := ParseUsageFieldsCrossProtocol([]byte(
+		`{"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5,"cachedContentTokenCount":3,"totalTokenCount":15}}`))
+	if fields.PromptTokens != 10 || fields.CompletionTokens != 5 {
+		t.Errorf("unexpected prompt/completion: %+v", fields)
+	}
+	if fields.CacheReadTokens != 3 {
+		t.Errorf("expected CacheReadTokens 3, got %d", fields.CacheReadTokens)
+	}
+	if fields.UsedQuota != 15 {
+		t.Errorf("expected UsedQuota 15, got %d", fields.UsedQuota)
+	}
+}

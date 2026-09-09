@@ -1317,7 +1317,7 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 			// last attempt
 			break
 		}
-		if !shouldTriggerFallback(res, invokeErr) {
+		if !shouldTriggerFallback(res, invokeErr, aiMeta.AuthStyle) {
 			break
 		}
 
@@ -1778,16 +1778,18 @@ var aiFallbackStatusCodes = map[int]struct{}{
 	429: {},
 }
 
-func shouldTriggerFallback(res *bfe_http.Response, err error) bool {
+func shouldTriggerFallback(res *bfe_http.Response, err error, authStyle string) bool {
 	if err != nil {
 		return true
 	}
 	code := getResponseStatus(res)
 
-	// Protocol-specific error normalization seam. Phase 1: the default
-	// normalizer always returns nil, so the legacy status-code whitelist
-	// below keeps deciding, unchanged.
-	if perr := modelprotocol.Get("").ErrorNormalizer().Normalize(code, nil, nil); perr != nil {
+	// Protocol-specific error normalization seam: pick the normalizer of
+	// the adapter identified for this request (unknown styles fall back to
+	// the openai adapter). Phase 1: every adapter returns the default
+	// normalizer, which always returns nil, so the legacy status-code
+	// whitelist below keeps deciding, unchanged.
+	if perr := modelprotocol.Get(authStyle).ErrorNormalizer().Normalize(code, nil, nil); perr != nil {
 		return perr.IsUpstream && (perr.SwapKey || perr.Retryable)
 	}
 

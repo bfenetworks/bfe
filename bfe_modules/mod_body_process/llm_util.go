@@ -27,6 +27,7 @@ import (
 )
 
 import (
+	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_model_protocol/utils"
 )
 
@@ -131,7 +132,7 @@ func (e *SSEEvent) GetAuditData() []byte {
 	return e.GetData()
 }
 
-func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
+func (e *SSEEvent) GetQuotaUsage(authStyle string) QuotaUsage {
 	data := e.GetData()
 	fields := utils.ParseUsageFieldsCrossProtocol(data)
 
@@ -143,24 +144,22 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 		curtoken = EstimateContentToken(string(data))
 	}
 
-	// Detect stream termination and final usage (issue #1352).
-	// Anthropic streams end with message_stop; the final usage arrives in
-	// the preceding message_delta event. The usage in message_start is
-	// initial only (output_tokens = 0) and must not be treated as final.
-	// OpenAI streams end with [DONE]; when stream_options.include_usage is
-	// set, the final chunk carries the usage.
+	// Detect stream termination and final usage (issue #1352) via the
+	// protocol adapter for the detected auth style. The per-protocol
+	// rules (formerly hard-coded here: Anthropic streams end with
+	// message_stop and deliver the final usage in the preceding
+	// message_delta; OpenAI streams end with [DONE] and may carry the
+	// final usage in the last chunk) moved into the adapters verbatim, so
+	// openai/anthropic semantics are unchanged; protocols without an SSE
+	// termination event (gemini) plug in here instead of never
+	// terminating.
 	evType := gjson.GetBytes(data, "type").String()
-	isTermination := evType == "message_stop" || strings.TrimSpace(string(data)) == "[DONE]"
+	streamEv := utils.StreamEvent{Type: evType, Data: string(data)}
+	adapter := modelprotocol.Get(authStyle)
+	isTermination := adapter.IsStreamTerminal(streamEv)
 	isFinalUsage := false
 	if !isguess && fields.CompletionTokens > 0 {
-		if evType == "message_delta" || evType == "message" || evType == "" {
-			// Anthropic message_delta, the Anthropic non-streaming
-			// top-level type "message", or a protocol-agnostic final
-			// usage chunk (e.g. OpenAI with stream_options.include_usage).
-			// Without "message" the final usage of a non-streaming
-			// Anthropic JSON body would never be recognized (issue #1364).
-			isFinalUsage = true
-		}
+		isFinalUsage = adapter.IsFinalUsageEvent(streamEv)
 	}
 
 	return QuotaUsage{

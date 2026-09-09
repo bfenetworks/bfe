@@ -25,12 +25,15 @@ func TestGetKnownProtocols(t *testing.T) {
 	if got := Get(ProtocolAnthropic).Key(); got != ProtocolAnthropic {
 		t.Errorf("Get(anthropic).Key() = %q", got)
 	}
+	if got := Get(ProtocolGemini).Key(); got != ProtocolGemini {
+		t.Errorf("Get(gemini).Key() = %q", got)
+	}
 }
 
 func TestGetUnknownFallsBackToOpenAI(t *testing.T) {
 	// Unknown / empty protocol names fall back to the openai adapter,
 	// matching the previous hard-coded fallback behavior.
-	for _, p := range []string{"", "gemini", ProtocolUnknown} {
+	for _, p := range []string{"", "bedrock", ProtocolUnknown} {
 		if got := Get(p).Key(); got != ProtocolOpenAI {
 			t.Errorf("Get(%q).Key() = %q, want openai", p, got)
 		}
@@ -44,8 +47,8 @@ func TestSupports(t *testing.T) {
 	if Supports(nil, ProtocolAnthropic) {
 		t.Error("empty list should not support anthropic")
 	}
-	if !Supports([]string{ProtocolOpenAI, ProtocolAnthropic}, ProtocolAnthropic) {
-		t.Error("anthropic should be supported when listed")
+	if !Supports([]string{ProtocolOpenAI, ProtocolAnthropic, ProtocolGemini}, ProtocolGemini) {
+		t.Error("gemini should be supported when listed")
 	}
 	if Supports([]string{ProtocolAnthropic}, ProtocolOpenAI) {
 		t.Error("openai should not be supported when only anthropic is listed")
@@ -59,10 +62,10 @@ func TestValidateProtocols(t *testing.T) {
 	if err := ValidateProtocols([]string{}); err != nil {
 		t.Errorf("empty list should be valid, got %v", err)
 	}
-	if err := ValidateProtocols([]string{ProtocolOpenAI, ProtocolAnthropic}); err != nil {
+	if err := ValidateProtocols([]string{ProtocolOpenAI, ProtocolAnthropic, ProtocolGemini}); err != nil {
 		t.Errorf("known protocols should be valid, got %v", err)
 	}
-	if err := ValidateProtocols([]string{ProtocolOpenAI, "gemini"}); err == nil {
+	if err := ValidateProtocols([]string{ProtocolOpenAI, "bedrock"}); err == nil {
 		t.Error("unknown protocol should be rejected")
 	}
 }
@@ -70,7 +73,7 @@ func TestValidateProtocols(t *testing.T) {
 func TestErrorNormalizerDefaultNil(t *testing.T) {
 	// Phase 1: every adapter's default normalizer returns nil so callers
 	// keep their existing status-code whitelist.
-	for _, p := range []string{ProtocolOpenAI, ProtocolAnthropic} {
+	for _, p := range []string{ProtocolOpenAI, ProtocolAnthropic, ProtocolGemini} {
 		if pe := Get(p).ErrorNormalizer().Normalize(429, nil, nil); pe != nil {
 			t.Errorf("default normalizer should return nil, got %+v", pe)
 		}

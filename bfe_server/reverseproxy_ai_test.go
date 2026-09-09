@@ -73,29 +73,29 @@ func TestSelectTargetZeroWeightNotSelected(t *testing.T) {
 }
 
 func TestShouldTriggerFallback(t *testing.T) {
-	if !shouldTriggerFallback(nil, bfe_http.ConnectError{}) {
+	if !shouldTriggerFallback(nil, bfe_http.ConnectError{}, "") {
 		t.Error("expected fallback on connect error")
 	}
 
 	// 5xx always triggers fallback
 	res := &bfe_http.Response{StatusCode: 500}
-	if !shouldTriggerFallback(res, nil) {
+	if !shouldTriggerFallback(res, nil, "") {
 		t.Error("expected fallback on 5xx")
 	}
 
 	res = &bfe_http.Response{StatusCode: 503}
-	if !shouldTriggerFallback(res, nil) {
+	if !shouldTriggerFallback(res, nil, "") {
 		t.Error("expected fallback on 503")
 	}
 
 	// 2xx/3xx do not trigger fallback
 	res = &bfe_http.Response{StatusCode: 200}
-	if shouldTriggerFallback(res, nil) {
+	if shouldTriggerFallback(res, nil, "") {
 		t.Error("expected no fallback on 2xx")
 	}
 
 	res = &bfe_http.Response{StatusCode: 302}
-	if shouldTriggerFallback(res, nil) {
+	if shouldTriggerFallback(res, nil, "") {
 		t.Error("expected no fallback on 3xx")
 	}
 
@@ -103,7 +103,7 @@ func TestShouldTriggerFallback(t *testing.T) {
 	fallback4xx := []int{400, 401, 402, 403, 422, 429}
 	for _, code := range fallback4xx {
 		res = &bfe_http.Response{StatusCode: code}
-		if !shouldTriggerFallback(res, nil) {
+		if !shouldTriggerFallback(res, nil, "") {
 			t.Errorf("expected fallback on %d", code)
 		}
 	}
@@ -112,7 +112,7 @@ func TestShouldTriggerFallback(t *testing.T) {
 	nonFallback4xx := []int{404, 405, 406, 408, 409, 410, 413}
 	for _, code := range nonFallback4xx {
 		res = &bfe_http.Response{StatusCode: code}
-		if shouldTriggerFallback(res, nil) {
+		if shouldTriggerFallback(res, nil, "") {
 			t.Errorf("expected no fallback on %d", code)
 		}
 	}

@@ -1,0 +1,16 @@
+{
+    "Version": "20260909150000",
+    "Hosts": {
+        "ai_product": [
+            "gemini.example.org",
+            "openai.example.org",
+            "both.example.org",
+            "multikey.example.org"
+        ]
+    },
+    "HostTags": {
+        "ai_product": [
+            "ai_product"
+        ]
+    }
+}

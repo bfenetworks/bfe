@@ -2497,3 +2497,51 @@ func TestUpdateCtxByUsage_CacheWrite1h(t *testing.T) {
 		t.Errorf("expected CacheWriteTokens1h 800 (fallback field), got %d", usage2.CacheWriteTokens1h)
 	}
 }
+
+// Gemini: the adapter chain extracts usageMetadata (camelCase) fields;
+// when the auth style and the body format mismatch (e.g. an openai-detected
+// request with a gemini body), the cross-protocol fallback chain recovers
+// the usage via its gemini third stage.
+func TestUpdateCtxByUsage_Gemini(t *testing.T) {
+	body := []byte(`{"candidates":[{"content":{"parts":[{"text":"hi"}]}}],"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":8,"cachedContentTokenCount":4,"totalTokenCount":20}}`)
+
+	// Auth style identified as gemini: the gemini adapter parses directly.
+	req := newTestRequest("", "AI_product")
+	ai := req.InitAiBasicInfo()
+	ai.AuthStyle = bfe_basic.AuthStyleGemini
+	ctx := &TokenAuthContext{aiBasicInfo: ai}
+	UpdateCtxByUsage(ctx, body)
+	usage := ai.GetTokenUsage()
+	if usage.UsedQuota != 20 || usage.PromptTokens != 12 || usage.CompletionTokens != 8 {
+		t.Errorf("unexpected gemini usage: %+v", usage)
+	}
+	if usage.CacheReadTokens != 4 {
+		t.Errorf("expected CacheReadTokens 4, got %d", usage.CacheReadTokens)
+	}
+
+	// Cross-protocol mismatch fallback (issue #1364): an openai-detected
+	// request whose backend returns a gemini body.
+	req2 := newTestRequest("", "AI_product")
+	ai2 := req2.InitAiBasicInfo()
+	ai2.AuthStyle = bfe_basic.AuthStyleOpenAI
+	ctx2 := &TokenAuthContext{aiBasicInfo: ai2}
+	UpdateCtxByUsage(ctx2, body)
+	usage2 := ai2.GetTokenUsage()
+	if usage2.UsedQuota != 20 || usage2.PromptTokens != 12 || usage2.CompletionTokens != 8 {
+		t.Errorf("unexpected cross-protocol gemini usage: %+v", usage2)
+	}
+	if usage2.CacheReadTokens != 4 {
+		t.Errorf("expected CacheReadTokens 4 (fallback), got %d", usage2.CacheReadTokens)
+	}
+
+	// totalTokenCount missing: UsedQuota falls back to prompt + candidates.
+	req3 := newTestRequest("", "AI_product")
+	ai3 := req3.InitAiBasicInfo()
+	ai3.AuthStyle = bfe_basic.AuthStyleGemini
+	ctx3 := &TokenAuthContext{aiBasicInfo: ai3}
+	UpdateCtxByUsage(ctx3, []byte(`{"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":8}}`))
+	usage3 := ai3.GetTokenUsage()
+	if usage3.UsedQuota != 20 {
+		t.Errorf("expected UsedQuota 20 (12+8 fallback), got %d", usage3.UsedQuota)
+	}
+}

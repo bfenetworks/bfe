@@ -37,8 +37,9 @@ func NewQuotaUsageProcessor(req *bfe_basic.Request, res *bfe_http.Response) *Quo
 
 func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 	tctx := caf.aiBasicInfo.GetTokenUsage()
+	authStyle := caf.aiBasicInfo.AuthStyle
 	for _, ev := range events {
-		rquota := ev.GetQuotaUsage()
+		rquota := ev.GetQuotaUsage(authStyle)
 		// Track response completion for billing decisions (issue #1352),
 		// regardless of whether usage was already collected.
 		if rquota.IsFinalUsage || (!rquota.IsGuess && (rquota.ImageCount > 0 || rquota.VideoCount > 0)) {

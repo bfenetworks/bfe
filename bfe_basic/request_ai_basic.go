@@ -53,6 +53,7 @@ const (
 const (
 	AuthStyleOpenAI    = "openai"
 	AuthStyleAnthropic = "anthropic"
+	AuthStyleGemini    = "gemini"
 	AuthStyleUnknown   = "unknown"
 )
 
