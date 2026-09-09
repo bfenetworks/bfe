@@ -71,6 +71,7 @@ func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 						rquota.PromptTokens = tctx.PromptTokens
 						rquota.CacheReadTokens = tctx.CacheReadTokens
 						rquota.CacheWriteTokens = tctx.CacheWriteTokens
+						rquota.CacheWriteTokens1h = tctx.CacheWriteTokens1h
 						rquota.AudioInputTokens = tctx.AudioInputTokens
 						rquota.AudioOutputTokens = tctx.AudioOutputTokens
 						rquota.ImageInputTokens = tctx.ImageInputTokens
@@ -81,6 +82,7 @@ func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 					tctx.PromptTokens = rquota.PromptTokens
 					tctx.CacheReadTokens = rquota.CacheReadTokens
 					tctx.CacheWriteTokens = rquota.CacheWriteTokens
+					tctx.CacheWriteTokens1h = rquota.CacheWriteTokens1h
 					tctx.AudioInputTokens = rquota.AudioInputTokens
 					tctx.AudioOutputTokens = rquota.AudioOutputTokens
 					tctx.ImageInputTokens = rquota.ImageInputTokens
@@ -92,6 +94,7 @@ func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 					tctx.CompletionTokens = rquota.CompletionTokens
 					tctx.CacheReadTokens = rquota.CacheReadTokens
 					tctx.CacheWriteTokens = rquota.CacheWriteTokens
+					tctx.CacheWriteTokens1h = rquota.CacheWriteTokens1h
 					tctx.AudioInputTokens = rquota.AudioInputTokens
 					tctx.AudioOutputTokens = rquota.AudioOutputTokens
 					tctx.ImageInputTokens = rquota.ImageInputTokens

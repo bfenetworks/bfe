@@ -65,3 +65,27 @@ func TestParseUsageFieldsCrossProtocol_NoUsage(t *testing.T) {
 		t.Errorf("expected all-zero fields for usage-less body, got %+v", fields)
 	}
 }
+
+func TestParseAnthropicUsageFields_CacheWrite1h(t *testing.T) {
+	// Anthropic extended-TTL: 1h cache write tokens reported separately,
+	// still included in the total cache write tokens.
+	fields := ParseAnthropicUsageFields([]byte(
+		`{"usage":{"input_tokens":320,"output_tokens":150,"cache_creation_input_tokens":1200,"cache_creation":{"ephemeral_1h_input_tokens":1000}}}`))
+	if fields.CacheWriteTokens != 1200 || fields.CacheWriteTokens1h != 1000 {
+		t.Errorf("unexpected cache write fields: %+v", fields)
+	}
+
+	// streaming message_start nests usage under message.usage
+	fields2 := ParseAnthropicUsageFields([]byte(
+		`{"type":"message_start","message":{"usage":{"input_tokens":320,"output_tokens":0,"cache_creation_input_tokens":1200,"cache_creation":{"ephemeral_1h_input_tokens":1000}}}}`))
+	if fields2.CacheWriteTokens != 1200 || fields2.CacheWriteTokens1h != 1000 {
+		t.Errorf("unexpected nested cache write fields: %+v", fields2)
+	}
+
+	// relay fallback field
+	fields3 := ParseAnthropicUsageFields([]byte(
+		`{"usage":{"input_tokens":320,"output_tokens":150,"cache_creation_input_tokens":1200,"cache_creation_input_tokens_1h":800}}`))
+	if fields3.CacheWriteTokens1h != 800 {
+		t.Errorf("expected CacheWriteTokens1h 800 (fallback field), got %d", fields3.CacheWriteTokens1h)
+	}
+}

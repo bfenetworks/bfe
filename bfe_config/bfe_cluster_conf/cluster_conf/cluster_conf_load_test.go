@@ -652,3 +652,209 @@ func TestGetPriceHighPrecision(t *testing.T) {
 		t.Errorf("peak input cost (fallback) = %v, want 6.0168984e-09", got)
 	}
 }
+
+func TestModelTableCheck_CacheWrite1hAndLengthTierKeys(t *testing.T) {
+	// New price keys load fine when non-negative.
+	table := &ModelTable{
+		Currency: "RMB",
+		Models: []ModelPrice{
+			{
+				Model: "gpt-5.5",
+				Mode:  "chat",
+				Prices: PriceMap{
+					PriceInputCostPerToken:                 2.431e-05,
+					PriceOutputCostPerToken:                0.00014586,
+					PriceCacheCreationInputTokenCost1h:     6.154e-05,
+					PriceInputCostPerTokenAbove272kTokens:  4.862e-05,
+					PriceOutputCostPerTokenAbove272kTokens: 0.00021879,
+				},
+			},
+			{
+				Model: "claude-opus-4-8",
+				Mode:  "chat",
+				Prices: PriceMap{
+					PriceInputCostPerToken:             3.077e-05,
+					PriceCacheCreationInputTokenCost:   3.84625e-05,
+					PriceCacheCreationInputTokenCost1h: 6.154e-05,
+				},
+			},
+		},
+	}
+	if err := ModelTableCheck(table); err != nil {
+		t.Fatalf("ModelTableCheck failed: %v", err)
+	}
+
+	gpt := LookupModelPrice(table, "gpt-5.5", "chat")
+	if len(gpt.lengthTiers) != 1 {
+		t.Fatalf("gpt-5.5 lengthTiers = %d, want 1", len(gpt.lengthTiers))
+	}
+	if gpt.lengthTiers[0].threshold != 272000 {
+		t.Errorf("tier threshold = %d, want 272000", gpt.lengthTiers[0].threshold)
+	}
+
+	claude := LookupModelPrice(table, "claude-opus-4-8", "chat")
+	if len(claude.lengthTiers) != 0 {
+		t.Errorf("claude lengthTiers = %d, want 0", len(claude.lengthTiers))
+	}
+	if got := claude.GetPrice("", PriceCacheCreationInputTokenCost1h); got != 6.154e-05 {
+		t.Errorf("cache write 1h price = %v, want 6.154e-05", got)
+	}
+}
+
+func TestModelTableCheck_NegativeNewKeys(t *testing.T) {
+	cases := []struct {
+		name  string
+		key   string
+		value float64
+	}{
+		{"negative 1h price", PriceCacheCreationInputTokenCost1h, -1},
+		{"negative tier input price", PriceInputCostPerTokenAbove272kTokens, -0.1},
+		{"negative tier output price", PriceOutputCostPerTokenAbove512kTokens, -0.1},
+	}
+	for _, c := range cases {
+		table := &ModelTable{
+			Currency: "RMB",
+			Models: []ModelPrice{
+				{
+					Model:  "m",
+					Mode:   "chat",
+					Prices: PriceMap{c.key: c.value},
+				},
+			},
+		}
+		if err := ModelTableCheck(table); err == nil {
+			t.Errorf("%s: ModelTableCheck should reject negative price", c.name)
+		}
+	}
+}
+
+func TestModelTableCheck_LengthTiersSorted(t *testing.T) {
+	// All four tiers configured; lengthTiers must be ordered by ascending
+	// threshold regardless of map iteration order.
+	table := &ModelTable{
+		Currency: "RMB",
+		Models: []ModelPrice{
+			{
+				Model: "MiniMax-M3",
+				Mode:  "chat",
+				Prices: PriceMap{
+					PriceInputCostPerTokenAbove512kTokens:  1,
+					PriceOutputCostPerTokenAbove512kTokens: 2,
+					PriceInputCostPerTokenAbove272kTokens:  3,
+					PriceOutputCostPerTokenAbove272kTokens: 4,
+					PriceInputCostPerTokenAbove256kTokens:  5,
+					PriceOutputCostPerTokenAbove256kTokens: 6,
+					PriceInputCostPerTokenAbove200kTokens:  7,
+					PriceOutputCostPerTokenAbove200kTokens: 8,
+				},
+			},
+		},
+	}
+	if err := ModelTableCheck(table); err != nil {
+		t.Fatalf("ModelTableCheck failed: %v", err)
+	}
+	entry := LookupModelPrice(table, "MiniMax-M3", "chat")
+	want := []int64{200000, 256000, 272000, 512000}
+	if len(entry.lengthTiers) != len(want) {
+		t.Fatalf("lengthTiers = %d, want %d", len(entry.lengthTiers), len(want))
+	}
+	for i, w := range want {
+		if entry.lengthTiers[i].threshold != w {
+			t.Errorf("lengthTiers[%d].threshold = %d, want %d", i, entry.lengthTiers[i].threshold, w)
+		}
+	}
+}
+
+func TestGetLengthTierPrice(t *testing.T) {
+	table := &ModelTable{
+		Currency: "RMB",
+		Models: []ModelPrice{
+			{
+				Model: "gpt-5.5",
+				Mode:  "chat",
+				Prices: PriceMap{
+					PriceInputCostPerToken:                 2.431e-05,
+					PriceOutputCostPerToken:                0.00014586,
+					PriceInputCostPerTokenAbove272kTokens:  4.862e-05,
+					PriceOutputCostPerTokenAbove272kTokens: 0.00021879,
+				},
+				TierPrices: TierPriceMap{
+					"peak": {
+						PriceInputCostPerTokenAbove272kTokens: 9.724e-05,
+					},
+				},
+			},
+			{
+				// only the input tier key is configured
+				Model: "qwen3.6-flash",
+				Mode:  "chat",
+				Prices: PriceMap{
+					PriceInputCostPerToken:                1e-05,
+					PriceOutputCostPerToken:               2e-05,
+					PriceInputCostPerTokenAbove256kTokens: 3e-05,
+				},
+			},
+			{
+				Model: "no-tier-model",
+				Mode:  "chat",
+				Prices: PriceMap{
+					PriceInputCostPerToken:  1e-05,
+					PriceOutputCostPerToken: 2e-05,
+				},
+			},
+		},
+	}
+	if err := ModelTableCheck(table); err != nil {
+		t.Fatalf("ModelTableCheck failed: %v", err)
+	}
+
+	gpt := LookupModelPrice(table, "gpt-5.5", "chat")
+
+	// below the threshold: not ok, caller uses base prices
+	if _, _, ok := gpt.GetLengthTierPrice("", 272000); ok {
+		t.Error("promptTokens == threshold should not select the tier")
+	}
+	if _, _, ok := gpt.GetLengthTierPrice("", 100); ok {
+		t.Error("small promptTokens should not select the tier")
+	}
+
+	// above the threshold: tier prices from default Prices
+	in, out, ok := gpt.GetLengthTierPrice("", 300000)
+	if !ok {
+		t.Fatal("promptTokens 300000 should select the 272k tier")
+	}
+	if in != 4.862e-05 || out != 0.00021879 {
+		t.Errorf("tier prices = (%v, %v), want (4.862e-05, 0.00021879)", in, out)
+	}
+
+	// tier priority: TierPrices.peak overrides the input side only
+	in, out, ok = gpt.GetLengthTierPrice("peak", 300000)
+	if !ok {
+		t.Fatal("peak tier lookup should select the tier")
+	}
+	if in != 9.724e-05 {
+		t.Errorf("peak tier input price = %v, want 9.724e-05", in)
+	}
+	if out != 0.00021879 {
+		t.Errorf("peak tier output price (fallback to default) = %v, want 0.00021879", out)
+	}
+
+	// input-only tier key: output side returns -1 (caller keeps base price)
+	qwen := LookupModelPrice(table, "qwen3.6-flash", "chat")
+	in, out, ok = qwen.GetLengthTierPrice("", 300000)
+	if !ok {
+		t.Fatal("input-only tier key should still select the tier")
+	}
+	if in != 3e-05 {
+		t.Errorf("tier input price = %v, want 3e-05", in)
+	}
+	if out != -1 {
+		t.Errorf("tier output price = %v, want -1 (not configured)", out)
+	}
+
+	// no tier keys at all: ok=false
+	noTier := LookupModelPrice(table, "no-tier-model", "chat")
+	if _, _, ok := noTier.GetLengthTierPrice("", 1000000); ok {
+		t.Error("model without tier keys should return ok=false")
+	}
+}

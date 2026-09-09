@@ -426,6 +426,9 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		if usage.CacheWriteTokens > 0 {
 			reqLog.AiCacheWriteTokens = proto.Int64(usage.CacheWriteTokens)
 		}
+		if usage.CacheWriteTokens1h > 0 {
+			reqLog.AiCacheWrite_1HTokens = proto.Int64(usage.CacheWriteTokens1h)
+		}
 		if usage.AudioInputTokens > 0 {
 			reqLog.AiAudioInputTokens = proto.Int64(usage.AudioInputTokens)
 		}

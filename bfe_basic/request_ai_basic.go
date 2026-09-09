@@ -57,17 +57,18 @@ const (
 )
 
 type TokenUsage struct {
-	PromptTokens      int64 // number of tokens in the prompt (includes cache_read_tokens, audio_input_tokens, image_input_tokens)
-	CompletionTokens  int64 // number of tokens in the completion (includes audio_output_tokens)
-	CacheReadTokens   int64 // usage.cache_read_tokens, already included in PromptTokens
-	CacheWriteTokens  int64 // usage.cache_write_tokens, already included in PromptTokens (normalized for Anthropic)
-	AudioInputTokens  int64 // usage.audio_input_tokens, already included in PromptTokens
-	AudioOutputTokens int64 // usage.audio_output_tokens, already included in CompletionTokens
-	ImageInputTokens  int64 // usage.image_input_tokens / input_token_details.image_tokens, already included in PromptTokens
-	VideoCount        int64 // number of generated videos for video generation models
-	ImageCount        int64 // number of generated images for image generation models
-	UsedQuota         int64 // used quota for this request (unit=total_token)
-	UsedCost          int64 // used RMB cost for this request, 1 unit = 1e-8 yuan (unit=RMB)
+	PromptTokens       int64 // number of tokens in the prompt (includes cache_read_tokens, audio_input_tokens, image_input_tokens)
+	CompletionTokens   int64 // number of tokens in the completion (includes audio_output_tokens)
+	CacheReadTokens    int64 // usage.cache_read_tokens, already included in PromptTokens
+	CacheWriteTokens   int64 // usage.cache_write_tokens, already included in PromptTokens (normalized for Anthropic)
+	CacheWriteTokens1h int64 // 1h-TTL cache write tokens (usage.cache_creation.ephemeral_1h_input_tokens), already included in CacheWriteTokens
+	AudioInputTokens   int64 // usage.audio_input_tokens, already included in PromptTokens
+	AudioOutputTokens  int64 // usage.audio_output_tokens, already included in CompletionTokens
+	ImageInputTokens   int64 // usage.image_input_tokens / input_token_details.image_tokens, already included in PromptTokens
+	VideoCount         int64 // number of generated videos for video generation models
+	ImageCount         int64 // number of generated images for image generation models
+	UsedQuota          int64 // used quota for this request (unit=total_token)
+	UsedCost           int64 // used RMB cost for this request, 1 unit = 1e-8 yuan (unit=RMB)
 }
 
 type TokenTimeInfo struct {

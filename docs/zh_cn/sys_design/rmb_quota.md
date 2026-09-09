@@ -36,6 +36,7 @@ v0.6 引入 **图像生成按次计费**、**图片输入 token 计费**、**视
 8. 支持视频生成模型按 `video_count` 与 `output_cost_per_video` 计费，并按请求路径识别 `mode`；
 9. 支持 Responses API 按 `/v1/responses` 路径识别为 `responses` 模式并按 token 计费；
 10. v0.5 引入 **分时段/分工作日计费**：`ModelTable` 支持 `TimeZone` 与 `Tiers` 定义，`ModelPrice` 支持 `TierPrices`，请求发生时按当前时刻匹配 tier，命中则取 tier 价格，未命中 fallback 到默认 `Prices`；**初期 tier name 只支持 `peak`**。
+11. v0.6 引入 **长度分档计费**与 **1h TTL 缓存写价**：input/output 单价支持 `above_{200k,256k,272k,512k}_tokens` 档位键按上下文长度选档；cache write 按 TTL 拆分为 5m 与 1h 两段，分别按 `cache_creation_input_token_cost` 与 `cache_creation_input_token_cost_1h` 计费（详见 7.6）。
 
 ## 2. 设计原则
 
@@ -85,7 +86,7 @@ type ModelPrice struct {
     Capabilities        []string
     SupportedParameters []string
     Limits              map[string]interface{}
-    Prices              map[string]float64 // 价格对象，支持 input/output、cache_read/cache_creation、audio_input/audio_output、output_cost_per_image、input_cost_per_image_token、output_cost_per_video 等
+    Prices              map[string]float64 // 价格对象，支持 input/output、cache_read/cache_creation（含 1h TTL 档）、audio_input/audio_output、output_cost_per_image、input_cost_per_image_token、output_cost_per_video、长度分档 above_{200k,256k,272k,512k}_tokens 等
     Metadata            map[string]interface{}
 }
 
@@ -113,7 +114,7 @@ type AIConf struct {
 ### 4.3 校验规则
 
 1. `ModelTable.Currency` 当前仅允许 `"RMB"`。
-2. `ModelPrice.Prices` 中 `input_cost_per_token`、`output_cost_per_token`、`cache_read_input_token_cost`、`cache_creation_input_token_cost`、`input_cost_per_audio_token`、`output_cost_per_audio_token`、`output_cost_per_image`、`input_cost_per_image_token`、`output_cost_per_video` 均必须 `>= 0`（未配置时按 `0` 处理）。
+2. `ModelPrice.Prices` 中 `input_cost_per_token`、`output_cost_per_token`、`cache_read_input_token_cost`、`cache_creation_input_token_cost`、`cache_creation_input_token_cost_1h`、`input_cost_per_audio_token`、`output_cost_per_audio_token`、`output_cost_per_image`、`input_cost_per_image_token`、`output_cost_per_video` 以及长度分档键 `input/output_cost_per_token_above_{200k,256k,272k,512k}_tokens` 均必须 `>= 0`（未配置时按 `0` 处理）。
 3. `Model` 为具体模型名；`Mode` 如 `"chat"`。
 4. 同一个 `Mode` 下，`Model` 不能重复。
 5. 加载时构建二维索引 `priceIndex[model][mode]`，便于运行时 O(1) 查询。
@@ -142,11 +143,14 @@ func buildModelTableIndex(table *ModelTable) error {
         outputCostPerImage := price.Prices["output_cost_per_image"]
         inputCostPerImageToken := price.Prices["input_cost_per_image_token"]
         outputCostPerVideo := price.Prices["output_cost_per_video"]
+        cacheWrite1h := price.Prices["cache_creation_input_token_cost_1h"]
         if input < 0 || output < 0 || cacheRead < 0 || cacheWrite < 0 ||
             audioInput < 0 || audioOutput < 0 || outputCostPerImage < 0 ||
-            inputCostPerImageToken < 0 || outputCostPerVideo < 0 {
+            inputCostPerImageToken < 0 || outputCostPerVideo < 0 || cacheWrite1h < 0 {
             return fmt.Errorf("negative price for model %s", price.Model)
         }
+        // 长度分档键 input/output_cost_per_token_above_{200k,256k,272k,512k}_tokens
+        // 同样做非负校验，并解析为有序档位表 price.lengthTiers（供 GetLengthTierPrice 选档）
         // TierPrices 同样只做非负校验（tier name 初期只支持 "peak"）
 
         // 2. 构建 model -> mode 二维索引
@@ -277,6 +281,7 @@ type TokenUsage struct {
     CompletionTokens  int64 // 响应侧 Token 数（包含 audio_output_tokens）
     CacheReadTokens   int64 // 从 cache 读取的 Token 数，已包含在 PromptTokens 中
     CacheWriteTokens  int64 // 写入 cache 的 Token 数，已包含在 PromptTokens 中
+    CacheWriteTokens1h int64 // 1h TTL 缓存写入 Token 数，已包含在 CacheWriteTokens 中
     AudioInputTokens  int64 // 音频输入 Token 数，已包含在 PromptTokens 中
     AudioOutputTokens int64 // 音频输出 Token 数，已包含在 CompletionTokens 中
     ImageInputTokens  int64 // 图片输入 Token 数，已包含在 PromptTokens 中
@@ -498,6 +503,15 @@ BFE 在以下三处解析中，当 `cache_read_tokens` / `cache_read_input_token
 
 这样无论后端返回哪种字段名，`TokenUsage.CacheReadTokens` 都能被正确填充，后续 `calcChatCost` 按统一逻辑拆分计费。
 
+#### 1h TTL 缓存写字段解析
+
+Anthropic 系上游对 1h TTL 缓存写在 usage 中单独报告，解析层（协议适配层 + `mod_body_process`）按以下字段链提取 `CacheWriteTokens1h`（已包含在 `CacheWriteTokens` 中）：
+
+- `usage.cache_creation.ephemeral_1h_input_tokens`（Anthropic 扩展 TTL 标准字段）
+- `usage.cache_creation_input_tokens_1h`（部分中转的兜底字段）
+
+未返回时 `CacheWriteTokens1h` 为 0，`calcChatCost` 将全部 cache write 按基础 `cache_creation_input_token_cost` 计费，行为与未配置 1h 价时一致。
+
 ### 7.5 请求结束阶段：`tokenRequestFinishHandler`
 
 `bfe/bfe_modules/mod_ai_token_auth/mod_ai_token_auth.go`
@@ -716,9 +730,23 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 
     cacheReadPrice := entry.GetPrice(tierName, cluster_conf.PriceCacheReadInputTokenCost)
     cacheWritePrice := entry.GetPrice(tierName, cluster_conf.PriceCacheCreationInputTokenCost)
+    cacheWritePrice1h := entry.GetPrice(tierName, cluster_conf.PriceCacheCreationInputTokenCost1h)
     audioInputPrice := entry.GetPrice(tierName, cluster_conf.PriceInputCostPerAudioToken)
     audioOutputPrice := entry.GetPrice(tierName, cluster_conf.PriceOutputCostPerAudioToken)
     imageInputPrice := entry.GetPrice(tierName, cluster_conf.PriceInputCostPerImageToken)
+
+    // length-tier billing: pick input/output price by total input tokens.
+    // 选档口径为输入 token 总数（含 cache read/write），超过某档阈值即整单按该档价计。
+    inputPrice := entry.GetPrice(tierName, cluster_conf.PriceInputCostPerToken)
+    outputPrice := entry.GetPrice(tierName, cluster_conf.PriceOutputCostPerToken)
+    if tierIn, tierOut, ok := entry.GetLengthTierPrice(tierName, promptTokens); ok {
+        if tierIn >= 0 {
+            inputPrice = tierIn
+        }
+        if tierOut >= 0 {
+            outputPrice = tierOut
+        }
+    }
 
     // normal input/output start as the full totals
     normalInput := promptTokens
@@ -778,14 +806,34 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
         audioOutputTokens = 0
     }
 
+    // 1h-TTL cache write split: bill the 1h portion at its own price, the
+    // remainder at the 5m (base cache_creation) price. This runs after the
+    // normal-input split above so the full cache write amount is removed
+    // from the normal input exactly as before; the 1h portion is then moved
+    // from the 5m remainder to its own billing item.
+    cacheWriteTokens1h := usage.CacheWriteTokens1h
+    if cacheWriteTokens1h < 0 {
+        cacheWriteTokens1h = 0
+    }
+    if cacheWritePrice1h > 0 {
+        if cacheWriteTokens1h > cacheWriteTokens {
+            cacheWriteTokens1h = cacheWriteTokens
+        }
+        cacheWriteTokens -= cacheWriteTokens1h
+    } else {
+        // no 1h price configured: bill all cache writes at the base price
+        cacheWriteTokens1h = 0
+    }
+
     // 逐项换算为定点整数后累加：未配置价格(0)的项自然贡献 0 成本，
     // 等价于旧实现"未配置子项价格时回退到普通 input/output 价格"的语义。
-    cost := quota.CalcCostUnits(normalInput, entry.GetPrice(tierName, cluster_conf.PriceInputCostPerToken))
+    cost := quota.CalcCostUnits(normalInput, inputPrice)
     cost += quota.CalcCostUnits(cacheReadTokens, cacheReadPrice)
     cost += quota.CalcCostUnits(cacheWriteTokens, cacheWritePrice)
+    cost += quota.CalcCostUnits(cacheWriteTokens1h, cacheWritePrice1h)
     cost += quota.CalcCostUnits(audioInputTokens, audioInputPrice)
     cost += quota.CalcCostUnits(imageInputTokens, imageInputPrice)
-    cost += quota.CalcCostUnits(normalOutput, entry.GetPrice(tierName, cluster_conf.PriceOutputCostPerToken))
+    cost += quota.CalcCostUnits(normalOutput, outputPrice)
     cost += quota.CalcCostUnits(audioOutputTokens, audioOutputPrice)
 
     return cost
@@ -824,8 +872,11 @@ cost = image_count * output_cost_per_image
 2. **Image input 从剩余 normal input 中剥离**：若配置了 `input_cost_per_image_token`，则 `image_input_tokens` 按图片 input 价格计费，其余仍按普通 input 价格计费。
 3. **Audio input 从剩余 normal input 中剥离**：若配置了 `input_cost_per_audio_token`，则 `audio_input_tokens` 按 audio 价格计费，其余仍按普通 input 价格计费。
 4. **Audio output 从 completion 中剥离**：若配置了 `output_cost_per_audio_token`，则 `audio_output_tokens` 按 audio 价格计费，其余仍按普通 output 价格计费。
-5. **Cache write 独立计费**：`cache_write_tokens` 单独按 `cache_creation_input_token_cost` 计费，同时从 `normal_input` 中扣除，避免重复计费。
-6. **未配置子项价格时回退**：若某类子项价格未配置（`<= 0`），对应子项仍按普通 input/output 价格计费，保证向后兼容。
+5. **Cache write 独立计费**：`cache_write_tokens` 单独按 `cache_creation_input_token_cost` 计费，同时从 `normal_input` 中扣除，避免重复计费。配置了 `cache_creation_input_token_cost_1h` 时，其中的 1h TTL 部分（`usage.cache_creation.ephemeral_1h_input_tokens`，兜底 `usage.cache_creation_input_tokens_1h`）单独按 1h 价计、剩余部分按 5m 基础价计；未配置 1h 价时全部按基础价计。
+6. **长度分档选价**：配置了 `input/output_cost_per_token_above_{200k,256k,272k,512k}_tokens` 档位键时，按输入 token 总数（`prompt_tokens`，含 cache read/write）与阈值比较选档，超过某档即整单 input/output 按该档价计；未配置任何档位键时沿用基础价，行为与旧实现一致。档位键缺失 input 或 output 之一时，缺失侧沿用基础价。
+7. **未配置子项价格时回退**：若某类子项价格未配置（`<= 0`），对应子项仍按普通 input/output 价格计费，保证向后兼容。
+
+> **估算兜底说明**：`EstimateContentToken` 估算路径（响应未返回 usage 时）不区分长度档位与缓存 TTL，统一按基础价计费——估算本身已保守，接受该偏差。
 
 > **计费修复说明**： Anthropic 协议下 `input_tokens` 仅包含 cache miss 部分，`cache_read_input_tokens` 可能远大于 `input_tokens`。旧逻辑曾对 `cache_read_tokens` 做 `min(prompt_tokens)` 截断，导致高 cache 命中场景少收；第一次修复移除了截断，但 `normal_input = max(prompt_tokens - cache_read_tokens, 0)` 仍把 cache miss（fresh）token 计费为 0。第二次修复在解析层把 `PromptTokens` 归一化为总输入 token 数（`input_tokens + cache_read + cache_write`），并让 `normal_input` 同时扣除 cache read 与 cache write，保证 fresh token 按输入全价计费、cache 子项不重复计费。
 
@@ -1079,8 +1130,22 @@ return {yuan, frac}
                         "output_cost_per_token": 0.000002,
                         "cache_read_input_token_cost": 0.0000005,
                         "cache_creation_input_token_cost": 0.0000015,
+                        "cache_creation_input_token_cost_1h": 0.0000024,
                         "input_cost_per_audio_token": 0.00002,
                         "output_cost_per_audio_token": 0.00004
+                    }
+                },
+                {
+                    "Provider": "example-provider",
+                    "Model": "example-long-context",
+                    "BaseModel": "example-long-context",
+                    "Mode": "chat",
+                    "Capabilities": ["chat"],
+                    "Prices": {
+                        "input_cost_per_token": 0.00002,
+                        "output_cost_per_token": 0.00006,
+                        "input_cost_per_token_above_272k_tokens": 0.00004,
+                        "output_cost_per_token_above_272k_tokens": 0.00012
                     }
                 },
                 {
@@ -1256,3 +1321,4 @@ return {yuan, frac}
    - `deducted` 幂等标记仅防止同一请求生命周期内的重复扣费，不跨请求生效，不影响正常流量。
 10. **EstimateToken 语义收窄**（issue #1352）：`EstimateToken = true` 播种的估算值仅在响应正常完成时计费；客户端中断（RST/断开/写客户端失败）且未拿到最终 usage 的请求零扣费，已拿到最终 usage 的按实际 usage 扣费。客户端中断请求的收费金额会 **下降**（从按全量估算变为零扣费或按实际 usage），历史多扣需在计费对账层单独处理。
 11. **非流式 Anthropic 计费修复**（issue #1364）：非流式 Anthropic（尤其 chunked）响应此前因最终 usage / 完成标记缺失 + 守卫漏清子字段，RMB 只按 `cache_read_input_token_cost` 收缓存命中，漏计未命中输入与输出（实测漏计约 4.65x）。修复后该场景计费金额会 **上升至正确全额**（未命中输入 + cache read/write + 输出），与上游（DeepSeek）账单对齐；守卫语义为"宁漏收、不错收"——未确认完成的响应全部计费字段清零，不再产生部分字段入账。
+12. **长度分档与 1h 缓存写向后兼容**：未配置 `above_*_tokens` 档位键的模型走基础价，未配置 `cache_creation_input_token_cost_1h` 时全部 cache write 按基础 5m 价计，两者均与旧行为逐分一致；配置档位键但不配置 1h 价（或反之）互不干扰。`EstimateToken` 估算路径不区分长度档位与缓存 TTL，统一按基础价计（估算本身已保守）。访问日志新增 `ai_cache_write_1h_tokens`（field 788）依赖 `bfe-access-pb >= v0.3.6`。

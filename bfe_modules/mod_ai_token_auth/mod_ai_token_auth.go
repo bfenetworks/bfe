@@ -135,6 +135,7 @@ func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
 	completion := fields.CompletionTokens
 	cacheRead := fields.CacheReadTokens
 	cacheWrite := fields.CacheWriteTokens
+	cacheWrite1h := fields.CacheWriteTokens1h
 	audioInput := fields.AudioInputTokens
 	audioOutput := fields.AudioOutputTokens
 	imageInput := fields.ImageInputTokens
@@ -148,6 +149,7 @@ func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
 		tokenUsage.CompletionTokens = completion
 		tokenUsage.CacheReadTokens = cacheRead
 		tokenUsage.CacheWriteTokens = cacheWrite
+		tokenUsage.CacheWriteTokens1h = cacheWrite1h
 		tokenUsage.AudioInputTokens = audioInput
 		tokenUsage.AudioOutputTokens = audioOutput
 		tokenUsage.ImageInputTokens = imageInput
@@ -165,6 +167,7 @@ func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
 		tokenUsage.CompletionTokens = completion
 		tokenUsage.CacheReadTokens = cacheRead
 		tokenUsage.CacheWriteTokens = cacheWrite
+		tokenUsage.CacheWriteTokens1h = cacheWrite1h
 		tokenUsage.AudioInputTokens = audioInput
 		tokenUsage.AudioOutputTokens = audioOutput
 		tokenUsage.ImageInputTokens = imageInput
@@ -259,6 +262,7 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 		tokenUsage.CompletionTokens = 0
 		tokenUsage.CacheReadTokens = 0
 		tokenUsage.CacheWriteTokens = 0
+		tokenUsage.CacheWriteTokens1h = 0
 		tokenUsage.AudioInputTokens = 0
 		tokenUsage.AudioOutputTokens = 0
 		tokenUsage.ImageInputTokens = 0
@@ -642,9 +646,26 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 
 	cacheReadPrice := entry.GetPrice(tierName, cluster_conf.PriceCacheReadInputTokenCost)
 	cacheWritePrice := entry.GetPrice(tierName, cluster_conf.PriceCacheCreationInputTokenCost)
+	cacheWritePrice1h := entry.GetPrice(tierName, cluster_conf.PriceCacheCreationInputTokenCost1h)
 	audioInputPrice := entry.GetPrice(tierName, cluster_conf.PriceInputCostPerAudioToken)
 	audioOutputPrice := entry.GetPrice(tierName, cluster_conf.PriceOutputCostPerAudioToken)
 	imageInputPrice := entry.GetPrice(tierName, cluster_conf.PriceInputCostPerImageToken)
+
+	// Length-tier billing: pick input/output price by the total input token
+	// count (promptTokens, including cache read/write); exceeding a tier
+	// threshold bills the whole request at that tier. A tier side whose key
+	// is not configured (-1) keeps the base price on that side. With no tier
+	// key configured (ok=false) the base prices are used, exactly as before.
+	inputPrice := entry.GetPrice(tierName, cluster_conf.PriceInputCostPerToken)
+	outputPrice := entry.GetPrice(tierName, cluster_conf.PriceOutputCostPerToken)
+	if tierIn, tierOut, ok := entry.GetLengthTierPrice(tierName, promptTokens); ok {
+		if tierIn >= 0 {
+			inputPrice = tierIn
+		}
+		if tierOut >= 0 {
+			outputPrice = tierOut
+		}
+	}
 
 	// normal input/output start as the full totals
 	normalInput := promptTokens
@@ -704,17 +725,37 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 		audioOutputTokens = 0
 	}
 
+	// 1h-TTL cache write split: bill the 1h portion at its own price, the
+	// remainder at the 5m (base cache_creation) price. This runs after the
+	// normal-input split above so the full cache write amount is removed
+	// from the normal input exactly as before; the 1h portion is then moved
+	// from the 5m remainder to its own billing item.
+	cacheWriteTokens1h := usage.CacheWriteTokens1h
+	if cacheWriteTokens1h < 0 {
+		cacheWriteTokens1h = 0
+	}
+	if cacheWritePrice1h > 0 {
+		if cacheWriteTokens1h > cacheWriteTokens {
+			cacheWriteTokens1h = cacheWriteTokens
+		}
+		cacheWriteTokens -= cacheWriteTokens1h
+	} else {
+		// no 1h price configured: bill all cache writes at the base price
+		cacheWriteTokens1h = 0
+	}
+
 	// Each billing item is converted to a fixed-point integer separately and
 	// the integers are summed, so floating point only participates in single
 	// multiplications well below 2^53. Items with an unconfigured price (0)
 	// contribute nothing, which preserves the legacy fallback semantics of
 	// billing unconfigured sub-token usage at the normal input/output price.
-	cost := quota.CalcCostUnits(normalInput, entry.GetPrice(tierName, cluster_conf.PriceInputCostPerToken))
+	cost := quota.CalcCostUnits(normalInput, inputPrice)
 	cost += quota.CalcCostUnits(cacheReadTokens, cacheReadPrice)
 	cost += quota.CalcCostUnits(cacheWriteTokens, cacheWritePrice)
+	cost += quota.CalcCostUnits(cacheWriteTokens1h, cacheWritePrice1h)
 	cost += quota.CalcCostUnits(audioInputTokens, audioInputPrice)
 	cost += quota.CalcCostUnits(imageInputTokens, imageInputPrice)
-	cost += quota.CalcCostUnits(normalOutput, entry.GetPrice(tierName, cluster_conf.PriceOutputCostPerToken))
+	cost += quota.CalcCostUnits(normalOutput, outputPrice)
 	cost += quota.CalcCostUnits(audioOutputTokens, audioOutputPrice)
 
 	return cost

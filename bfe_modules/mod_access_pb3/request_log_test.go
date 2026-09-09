@@ -381,6 +381,7 @@ func TestReqAiInfoGen(t *testing.T) {
 	usage.UsedQuota = 30
 	usage.CacheReadTokens = 5
 	usage.CacheWriteTokens = 2
+	usage.CacheWriteTokens1h = 1
 	usage.AudioInputTokens = 3
 	usage.AudioOutputTokens = 4
 	usage.UsedCost = 5000
@@ -430,6 +431,9 @@ func TestReqAiInfoGen(t *testing.T) {
 	}
 	if reqLog.AiCacheWriteTokens == nil || *reqLog.AiCacheWriteTokens != 2 {
 		t.Errorf("AiCacheWriteTokens error, got: %v", reqLog.AiCacheWriteTokens)
+	}
+	if reqLog.AiCacheWrite_1HTokens == nil || *reqLog.AiCacheWrite_1HTokens != 1 {
+		t.Errorf("AiCacheWrite_1HTokens error, got: %v", reqLog.AiCacheWrite_1HTokens)
 	}
 	if reqLog.AiAudioInputTokens == nil || *reqLog.AiAudioInputTokens != 3 {
 		t.Errorf("AiAudioInputTokens error, got: %v", reqLog.AiAudioInputTokens)

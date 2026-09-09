@@ -384,3 +384,22 @@ func TestSSEEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestSSEEventGetQuotaUsage_CacheWrite1h(t *testing.T) {
+	// Anthropic extended-TTL standard field.
+	ev := &SSEEvent{DataLines: [][]byte{[]byte(`{"usage":{"input_tokens":320,"output_tokens":150,"cache_creation_input_tokens":1200,"cache_creation":{"ephemeral_1h_input_tokens":1000}}}`)}}
+	q := ev.GetQuotaUsage()
+	if q.CacheWriteTokens != 1200 {
+		t.Errorf("expected CacheWriteTokens 1200, got %d", q.CacheWriteTokens)
+	}
+	if q.CacheWriteTokens1h != 1000 {
+		t.Errorf("expected CacheWriteTokens1h 1000, got %d", q.CacheWriteTokens1h)
+	}
+
+	// Relay fallback field.
+	ev2 := &SSEEvent{DataLines: [][]byte{[]byte(`{"usage":{"input_tokens":320,"output_tokens":150,"cache_creation_input_tokens":1200,"cache_creation_input_tokens_1h":800}}`)}}
+	q2 := ev2.GetQuotaUsage()
+	if q2.CacheWriteTokens1h != 800 {
+		t.Errorf("expected CacheWriteTokens1h 800 (fallback field), got %d", q2.CacheWriteTokens1h)
+	}
+}

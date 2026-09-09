@@ -2294,3 +2294,206 @@ func TestCalcVideoGenerationCost_HighPrecision(t *testing.T) {
 		t.Errorf("video generation cost = %d, want %d", got, expectedCost)
 	}
 }
+
+func buildTestEntryWithPrices(model string, prices cluster_conf.PriceMap, tierPrices cluster_conf.TierPriceMap) *cluster_conf.ModelPrice {
+	modelTable := &cluster_conf.ModelTable{
+		Currency: "RMB",
+		Models: []cluster_conf.ModelPrice{
+			{
+				Model:      model,
+				BaseModel:  model,
+				Mode:       "chat",
+				Prices:     prices,
+				TierPrices: tierPrices,
+			},
+		},
+	}
+	if err := cluster_conf.ModelTableCheck(modelTable); err != nil {
+		panic(fmt.Sprintf("ModelTableCheck failed: %v", err))
+	}
+	return &modelTable.Models[0]
+}
+
+// gpt-5.5 style pricing: 272k length tier on both sides.
+func buildTestEntryGpt55() *cluster_conf.ModelPrice {
+	return buildTestEntryWithPrices("gpt-5.5", cluster_conf.PriceMap{
+		cluster_conf.PriceInputCostPerToken:                 2.431e-05,
+		cluster_conf.PriceOutputCostPerToken:                0.00014586,
+		cluster_conf.PriceCacheReadInputTokenCost:           2.431e-06,
+		cluster_conf.PriceInputCostPerTokenAbove272kTokens:  4.862e-05,
+		cluster_conf.PriceOutputCostPerTokenAbove272kTokens: 0.00021879,
+	}, nil)
+}
+
+func TestCalcChatCost_LengthTier272k(t *testing.T) {
+	entry := buildTestEntryGpt55()
+
+	// 300k input tokens exceeds the 272k tier: whole request billed at tier prices.
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:     300000,
+		CompletionTokens: 50000,
+	}
+	expected := quota.CalcCostUnits(300000, 4.862e-05) + quota.CalcCostUnits(50000, 0.00021879)
+	if got := calcChatCost(entry, usage, ""); got != expected {
+		t.Errorf("272k tier cost = %d, want %d", got, expected)
+	}
+
+	// below (and exactly at) the threshold: base prices, as before.
+	usageBelow := &bfe_basic.TokenUsage{
+		PromptTokens:     272000,
+		CompletionTokens: 50000,
+	}
+	expectedBelow := quota.CalcCostUnits(272000, 2.431e-05) + quota.CalcCostUnits(50000, 0.00014586)
+	if got := calcChatCost(entry, usageBelow, ""); got != expectedBelow {
+		t.Errorf("below-tier cost = %d, want %d", got, expectedBelow)
+	}
+}
+
+func TestCalcChatCost_LengthTierInputOnly(t *testing.T) {
+	// only the input tier key is configured: input billed at the tier price,
+	// output keeps the base price.
+	entry := buildTestEntryWithPrices("qwen3.6-flash", cluster_conf.PriceMap{
+		cluster_conf.PriceInputCostPerToken:                1e-05,
+		cluster_conf.PriceOutputCostPerToken:               2e-05,
+		cluster_conf.PriceInputCostPerTokenAbove256kTokens: 3e-05,
+	}, nil)
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:     300000,
+		CompletionTokens: 1000,
+	}
+	expected := quota.CalcCostUnits(300000, 3e-05) + quota.CalcCostUnits(1000, 2e-05)
+	if got := calcChatCost(entry, usage, ""); got != expected {
+		t.Errorf("input-only tier cost = %d, want %d", got, expected)
+	}
+}
+
+func TestCalcChatCost_LengthTierPeak(t *testing.T) {
+	// peak tier overrides the 272k tier prices; the output side falls back
+	// to the default tier key because peak does not configure it.
+	entry := buildTestEntryWithPrices("gpt-5.5", cluster_conf.PriceMap{
+		cluster_conf.PriceInputCostPerToken:                 2.431e-05,
+		cluster_conf.PriceOutputCostPerToken:                0.00014586,
+		cluster_conf.PriceInputCostPerTokenAbove272kTokens:  4.862e-05,
+		cluster_conf.PriceOutputCostPerTokenAbove272kTokens: 0.00021879,
+	}, cluster_conf.TierPriceMap{
+		"peak": {
+			cluster_conf.PriceInputCostPerTokenAbove272kTokens: 9.724e-05,
+		},
+	})
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:     300000,
+		CompletionTokens: 1000,
+	}
+	expected := quota.CalcCostUnits(300000, 9.724e-05) + quota.CalcCostUnits(1000, 0.00021879)
+	if got := calcChatCost(entry, usage, "peak"); got != expected {
+		t.Errorf("peak tier cost = %d, want %d", got, expected)
+	}
+}
+
+func TestCalcChatCost_CacheWrite1hSplit(t *testing.T) {
+	// claude-opus-4-8 style pricing: base cache write price + 1h price.
+	entry := buildTestEntryWithPrices("claude-opus-4-8", cluster_conf.PriceMap{
+		cluster_conf.PriceInputCostPerToken:             3.077e-05,
+		cluster_conf.PriceOutputCostPerToken:            0.00015385,
+		cluster_conf.PriceCacheCreationInputTokenCost:   3.84625e-05,
+		cluster_conf.PriceCacheCreationInputTokenCost1h: 6.154e-05,
+	}, nil)
+
+	// 1h cache write 10000, 5m cache write 5000 (total 15000).
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:       20000,
+		CompletionTokens:   1000,
+		CacheWriteTokens:   15000,
+		CacheWriteTokens1h: 10000,
+	}
+	expected := quota.CalcCostUnits(5000, 3.077e-05) + // normal input
+		quota.CalcCostUnits(5000, 3.84625e-05) + // 5m cache write
+		quota.CalcCostUnits(10000, 6.154e-05) + // 1h cache write
+		quota.CalcCostUnits(1000, 0.00015385) // output
+	if got := calcChatCost(entry, usage, ""); got != expected {
+		t.Errorf("1h split cost = %d, want %d", got, expected)
+	}
+
+	// 1h portion larger than the total cache write: clamped to the total;
+	// the whole cache write is billed at the 1h price.
+	usageClamp := &bfe_basic.TokenUsage{
+		PromptTokens:       20000,
+		CompletionTokens:   1000,
+		CacheWriteTokens:   15000,
+		CacheWriteTokens1h: 20000,
+	}
+	expectedClamp := quota.CalcCostUnits(5000, 3.077e-05) +
+		quota.CalcCostUnits(15000, 6.154e-05) +
+		quota.CalcCostUnits(1000, 0.00015385)
+	if got := calcChatCost(entry, usageClamp, ""); got != expectedClamp {
+		t.Errorf("clamped 1h split cost = %d, want %d", got, expectedClamp)
+	}
+
+	// negative 1h portion: sanitized to zero, all cache write billed at the
+	// base 5m price.
+	usageNeg := &bfe_basic.TokenUsage{
+		PromptTokens:       20000,
+		CompletionTokens:   1000,
+		CacheWriteTokens:   15000,
+		CacheWriteTokens1h: -5,
+	}
+	expectedNeg := quota.CalcCostUnits(5000, 3.077e-05) +
+		quota.CalcCostUnits(15000, 3.84625e-05) +
+		quota.CalcCostUnits(1000, 0.00015385)
+	if got := calcChatCost(entry, usageNeg, ""); got != expectedNeg {
+		t.Errorf("negative-1h sanitized cost = %d, want %d", got, expectedNeg)
+	}
+}
+
+func TestCalcChatCost_CacheWrite1hNotConfigured(t *testing.T) {
+	// no 1h price configured: all cache writes billed at the base price,
+	// identical to the pre-change behavior.
+	entry := buildTestEntryWithPrices("claude-opus-4-8", cluster_conf.PriceMap{
+		cluster_conf.PriceInputCostPerToken:           3.077e-05,
+		cluster_conf.PriceOutputCostPerToken:          0.00015385,
+		cluster_conf.PriceCacheCreationInputTokenCost: 3.84625e-05,
+	}, nil)
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:       20000,
+		CompletionTokens:   1000,
+		CacheWriteTokens:   15000,
+		CacheWriteTokens1h: 10000,
+	}
+	expected := quota.CalcCostUnits(5000, 3.077e-05) +
+		quota.CalcCostUnits(15000, 3.84625e-05) +
+		quota.CalcCostUnits(1000, 0.00015385)
+	if got := calcChatCost(entry, usage, ""); got != expected {
+		t.Errorf("no-1h-price cost = %d, want %d", got, expected)
+	}
+}
+
+func TestUpdateCtxByUsage_CacheWrite1h(t *testing.T) {
+	// Anthropic extended-TTL: 1h cache write tokens are reported separately
+	// under usage.cache_creation.ephemeral_1h_input_tokens.
+	req := newTestRequest("", "AI_product")
+	ai := req.InitAiBasicInfo()
+	ai.AuthStyle = bfe_basic.AuthStyleAnthropic
+	ctx := &TokenAuthContext{aiBasicInfo: ai}
+
+	UpdateCtxByUsage(ctx, []byte(`{"usage":{"input_tokens":320,"output_tokens":150,"cache_creation_input_tokens":1200,"cache_creation":{"ephemeral_1h_input_tokens":1000}}}`))
+	usage := ai.GetTokenUsage()
+	if usage.CacheWriteTokens != 1200 {
+		t.Errorf("expected CacheWriteTokens 1200, got %d", usage.CacheWriteTokens)
+	}
+	if usage.CacheWriteTokens1h != 1000 {
+		t.Errorf("expected CacheWriteTokens1h 1000, got %d", usage.CacheWriteTokens1h)
+	}
+
+	// Relay fallback field: usage.cache_creation_input_tokens_1h.
+	ai2 := newTestRequest("", "AI_product").InitAiBasicInfo()
+	ai2.AuthStyle = bfe_basic.AuthStyleAnthropic
+	ctx2 := &TokenAuthContext{aiBasicInfo: ai2}
+	UpdateCtxByUsage(ctx2, []byte(`{"usage":{"input_tokens":320,"output_tokens":150,"cache_creation_input_tokens":1200,"cache_creation_input_tokens_1h":800}}`))
+	usage2 := ai2.GetTokenUsage()
+	if usage2.CacheWriteTokens1h != 800 {
+		t.Errorf("expected CacheWriteTokens1h 800 (fallback field), got %d", usage2.CacheWriteTokens1h)
+	}
+}
