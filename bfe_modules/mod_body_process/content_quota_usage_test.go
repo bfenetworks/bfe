@@ -17,6 +17,7 @@ package mod_body_process
 import (
 	"testing"
 
+	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 )
 
@@ -235,5 +236,77 @@ func TestQuotaUsageProcessorProcessWithAudio(t *testing.T) {
 	}
 	if usage.AudioOutputTokens != 200 {
 		t.Errorf("expected AudioOutputTokens 200, got %d", usage.AudioOutputTokens)
+	}
+}
+
+// Gemini stream: streamGenerateContent carries no SSE termination event
+// and every chunk carries the accumulated usageMetadata. Billing must
+// take the values of the LAST usage-bearing chunk (taking an intermediate
+// chunk would under-count), and no event may mark the response completed
+// (HTTP stream EOF is the completion fallback).
+func TestQuotaUsageProcessorProcessGeminiStream(t *testing.T) {
+	req := newTestRequest("AI_product")
+	ai := req.InitAiBasicInfo()
+	ai.AuthStyle = bfe_basic.AuthStyleGemini
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	p := NewQuotaUsageProcessor(req, res)
+
+	sseEvent := func(data string) Event {
+		return &SSEEvent{DataLines: [][]byte{[]byte(data)}}
+	}
+	events := []Event{
+		sseEvent(`{"candidates":[{"content":{"parts":[{"text":"he"}]}}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":1,"totalTokenCount":11}}`),
+		sseEvent(`{"candidates":[{"content":{"parts":[{"text":"llo"}]}}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":3,"totalTokenCount":13}}`),
+		sseEvent(`{"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5,"cachedContentTokenCount":4,"totalTokenCount":15}}`),
+	}
+	if _, err := p.Process(events); err != nil {
+		t.Fatalf("Process failed: %s", err)
+	}
+
+	usage := ai.GetTokenUsage()
+	if usage.PromptTokens != 10 || usage.CompletionTokens != 5 {
+		t.Errorf("expected final chunk usage prompt=10 completion=5, got %d/%d",
+			usage.PromptTokens, usage.CompletionTokens)
+	}
+	if usage.CacheReadTokens != 4 {
+		t.Errorf("expected CacheReadTokens 4 from the final chunk, got %d", usage.CacheReadTokens)
+	}
+	if usage.UsedQuota != 15 {
+		t.Errorf("expected UsedQuota 15 (last chunk accumulated total), got %d", usage.UsedQuota)
+	}
+	if !ai.IsFinalUsageSeen() {
+		t.Error("expected final usage seen for gemini stream")
+	}
+	if ai.IsResponseCompleted() {
+		t.Error("gemini stream has no termination event; completion must rely on EOF")
+	}
+}
+
+// Gemini non-streaming generateContent body: the whole-body JSON carries
+// usageMetadata and is both the final usage and the response completion.
+func TestQuotaUsageProcessorProcessGeminiNonStream(t *testing.T) {
+	req := newTestRequest("AI_product")
+	ai := req.InitAiBasicInfo()
+	ai.AuthStyle = bfe_basic.AuthStyleGemini
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	p := NewQuotaUsageProcessor(req, res)
+
+	events := []Event{
+		newRawEvent(`{"candidates":[{"content":{"parts":[{"text":"hi"}]}}],"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":8,"cachedContentTokenCount":4,"totalTokenCount":20}}`),
+	}
+	if _, err := p.Process(events); err != nil {
+		t.Fatalf("Process failed: %s", err)
+	}
+
+	usage := ai.GetTokenUsage()
+	if usage.UsedQuota != 20 || usage.PromptTokens != 12 || usage.CompletionTokens != 8 {
+		t.Errorf("unexpected usage: %+v", usage)
+	}
+	if usage.CacheReadTokens != 4 {
+		t.Errorf("expected CacheReadTokens 4, got %d", usage.CacheReadTokens)
+	}
+	if !ai.IsFinalUsageSeen() || !ai.IsResponseCompleted() {
+		t.Errorf("expected final usage and completion for non-stream gemini body, got final=%v completed=%v",
+			ai.IsFinalUsageSeen(), ai.IsResponseCompleted())
 	}
 }

@@ -97,11 +97,15 @@ func ParseOpenAIUsageFields(data []byte) UsageFields {
 // ParseUsageFieldsCrossProtocol extracts usage fields by composing the
 // protocol chains: the OpenAI-family chain first, then the Anthropic
 // (Claude) chain when no OpenAI-style prompt/completion tokens are
-// present. This mirrors the legacy all-chain extraction field-for-field
-// and is response-format-agnostic: it recovers the full usage even when
-// the auth style detected from the request does not match the format of
-// the response body (issue #1364, e.g. a Bearer key detected as openai
-// while the backend returns an Anthropic body).
+// present, then the Gemini chain when still none are present. This mirrors
+// the legacy all-chain extraction field-for-field and is
+// response-format-agnostic: it recovers the full usage even when the auth
+// style detected from the request does not match the format of the
+// response body (issue #1364, e.g. a Bearer key detected as openai while
+// the backend returns an Anthropic body). The Gemini fields are
+// camelCase and never conflict with the OpenAI snake_case fields, but the
+// chain is kept as an explicit third stage to preserve the cross-protocol
+// mismatch fallback.
 func ParseUsageFieldsCrossProtocol(data []byte) UsageFields {
 	fields := ParseOpenAIUsageFields(data)
 	if fields.PromptTokens == 0 && fields.CompletionTokens == 0 {
@@ -119,6 +123,17 @@ func ParseUsageFieldsCrossProtocol(data []byte) UsageFields {
 		}
 		if fields.UsedQuota == 0 {
 			fields.UsedQuota = claude.UsedQuota
+		}
+	}
+	if fields.PromptTokens == 0 && fields.CompletionTokens == 0 {
+		gemini := ParseGeminiUsageFields(data)
+		fields.PromptTokens = gemini.PromptTokens
+		fields.CompletionTokens = gemini.CompletionTokens
+		if fields.CacheReadTokens == 0 {
+			fields.CacheReadTokens = gemini.CacheReadTokens
+		}
+		if fields.UsedQuota == 0 {
+			fields.UsedQuota = gemini.UsedQuota
 		}
 	}
 	return fields
@@ -165,6 +180,34 @@ func ParseAnthropicUsageFields(data []byte) UsageFields {
 	if fields.UsedQuota == 0 {
 		fields.UsedQuota = gjson.GetBytes(data, "message.usage.total_tokens").Int()
 	}
+	if fields.UsedQuota == 0 {
+		fields.UsedQuota = fields.PromptTokens + fields.CompletionTokens
+	}
+
+	return fields
+}
+
+// ParseGeminiUsageFields extracts usage fields from Gemini response
+// bodies. The usage block is the top-level "usageMetadata" object with
+// camelCase fields:
+//
+//	promptTokenCount          -> PromptTokens (already includes the cached content tokens)
+//	candidatesTokenCount      -> CompletionTokens
+//	cachedContentTokenCount   -> CacheReadTokens (a subset of PromptTokens)
+//	totalTokenCount           -> UsedQuota
+//
+// When totalTokenCount is absent, UsedQuota falls back to
+// promptTokenCount + candidatesTokenCount. In streaming responses every
+// chunk carries the accumulated usageMetadata, so callers must consume
+// the last usage-bearing chunk (see the gemini adapter's
+// IsFinalUsageEvent).
+func ParseGeminiUsageFields(data []byte) UsageFields {
+	var fields UsageFields
+
+	fields.PromptTokens = gjson.GetBytes(data, "usageMetadata.promptTokenCount").Int()
+	fields.CompletionTokens = gjson.GetBytes(data, "usageMetadata.candidatesTokenCount").Int()
+	fields.CacheReadTokens = gjson.GetBytes(data, "usageMetadata.cachedContentTokenCount").Int()
+	fields.UsedQuota = gjson.GetBytes(data, "usageMetadata.totalTokenCount").Int()
 	if fields.UsedQuota == 0 {
 		fields.UsedQuota = fields.PromptTokens + fields.CompletionTokens
 	}

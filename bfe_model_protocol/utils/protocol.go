@@ -24,5 +24,6 @@ package utils
 const (
 	ProtocolOpenAI    = "openai"
 	ProtocolAnthropic = "anthropic"
+	ProtocolGemini    = "gemini"
 	ProtocolUnknown   = "unknown"
 )

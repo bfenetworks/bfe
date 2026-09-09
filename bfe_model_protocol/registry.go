@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/bfenetworks/bfe/bfe_model_protocol/anthropic"
+	"github.com/bfenetworks/bfe/bfe_model_protocol/gemini"
 	"github.com/bfenetworks/bfe/bfe_model_protocol/openai"
 )
 
@@ -29,6 +30,7 @@ var adapters = map[string]ProtocolAdapter{}
 func init() {
 	Register(openai.New())
 	Register(anthropic.New())
+	Register(gemini.New())
 }
 
 // Register adds a protocol adapter to the registry.

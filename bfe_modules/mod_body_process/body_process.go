@@ -25,6 +25,7 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
+	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_model_protocol/utils"
 )
 
@@ -93,7 +94,11 @@ type Event interface {
 	// GetData() []byte
 	ToBytes() []byte // 转换为字节数组
 
-	GetQuotaUsage() QuotaUsage
+	// GetQuotaUsage extracts the quota usage of this event. authStyle is
+	// the detected protocol/auth style of the request; it selects the
+	// protocol adapter that decides stream termination and the final
+	// usage event (unknown styles fall back to the openai adapter).
+	GetQuotaUsage(authStyle string) QuotaUsage
 }
 
 type EventDecoder interface {
@@ -421,7 +426,7 @@ func (e *RawEvent) ToBytes() []byte {
 	return *e
 }
 
-func (e *RawEvent) GetQuotaUsage() QuotaUsage {
+func (e *RawEvent) GetQuotaUsage(authStyle string) QuotaUsage {
 	data := *e
 	fields := utils.ParseUsageFieldsCrossProtocol(data)
 
@@ -436,11 +441,15 @@ func (e *RawEvent) GetQuotaUsage() QuotaUsage {
 	// Non-SSE payloads carry no SSE envelope: a whole-body JSON (or the
 	// usage-bearing line of an ndjson payload) that parses to a non-guess
 	// usage marks both the final usage and the response completion
-	// (issue #1364). "message" is the Anthropic non-streaming top-level
-	// type; "" covers OpenAI-style bodies without a top-level type.
-	evType := gjson.GetBytes(data, "type").String()
+	// (issue #1364). The event-type decision lives in the protocol
+	// adapter for the detected auth style, same as the SSE path.
+	streamEv := utils.StreamEvent{
+		Type: gjson.GetBytes(data, "type").String(),
+		Data: string(data),
+	}
+	adapter := modelprotocol.Get(authStyle)
 	isFinalUsage := !isguess && fields.CompletionTokens > 0 &&
-		(evType == "message_delta" || evType == "message" || evType == "")
+		adapter.IsFinalUsageEvent(streamEv)
 	isTermination := isFinalUsage
 
 	return QuotaUsage{

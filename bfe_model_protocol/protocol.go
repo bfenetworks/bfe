@@ -34,8 +34,14 @@ import (
 const (
 	ProtocolOpenAI    = utils.ProtocolOpenAI
 	ProtocolAnthropic = utils.ProtocolAnthropic
+	ProtocolGemini    = utils.ProtocolGemini
 	ProtocolUnknown   = utils.ProtocolUnknown
 )
+
+// StreamEvent is the protocol-neutral view of a single streaming (SSE)
+// event. The canonical definition lives in the utils sub-package; it is
+// re-exported here so callers only need to import bfe_model_protocol.
+type StreamEvent = utils.StreamEvent
 
 // ProtocolAdapter carries all protocol knowledge of one model_protocol.
 // Adapters are stateless singletons held by the compile-time registry;
@@ -60,4 +66,17 @@ type ProtocolAdapter interface {
 	// protocol. The phase-1 default never recognizes errors, so callers
 	// keep their existing status-code whitelist.
 	ErrorNormalizer() ErrorNormalizer
+
+	// IsStreamTerminal reports whether the given event terminates the
+	// response stream (e.g. Anthropic message_stop, OpenAI [DONE]).
+	// Protocols without an SSE termination event (Gemini) always return
+	// false; their streams end at HTTP EOF, which the callers already
+	// handle as a fallback.
+	IsStreamTerminal(ev StreamEvent) bool
+
+	// IsFinalUsageEvent reports whether the given event carries the final
+	// usage of the response. Callers only consult it for events that
+	// already parsed a non-guess usage, and only mark the final usage when
+	// completion tokens are present.
+	IsFinalUsageEvent(ev StreamEvent) bool
 }

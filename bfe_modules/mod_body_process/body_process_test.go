@@ -183,7 +183,7 @@ func TestRawEventToBytes(t *testing.T) {
 
 func TestRawEventGetQuotaUsage(t *testing.T) {
 	e := newRawEvent(`{"usage":{"total_tokens":10,"prompt_tokens":3,"completion_tokens":7}}`)
-	q := e.GetQuotaUsage()
+	q := e.GetQuotaUsage("")
 	if q.UsedQuota != 10 {
 		t.Errorf("expected UsedQuota 10, got %d", q.UsedQuota)
 	}
@@ -200,7 +200,7 @@ func TestRawEventGetQuotaUsage(t *testing.T) {
 
 func TestRawEventGetQuotaUsageEstimate(t *testing.T) {
 	e := newRawEvent(`{"text":"hello world"}`)
-	q := e.GetQuotaUsage()
+	q := e.GetQuotaUsage("")
 	if q.IsGuess != true {
 		t.Error("expected IsGuess true when usage absent")
 	}
@@ -444,6 +444,9 @@ func TestQuotaUsageProcessorMarksResponseCompletion(t *testing.T) {
 		httpReq, _ := bfe_http.NewRequest("POST", "http://example.com/v1/chat/completions", nil)
 		req := bfe_basic.NewRequest(httpReq, nil, nil, nil, nil)
 		ai := req.InitAiBasicInfo()
+		// In production the auth style is identified before the response
+		// body is processed (GetApiKey / DetectAuthStyle).
+		ai.AuthStyle = bfe_basic.AuthStyleAnthropic
 		res := &bfe_http.Response{StatusCode: 200}
 		return NewQuotaUsageProcessor(req, res), ai
 	}
