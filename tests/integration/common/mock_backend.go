@@ -57,7 +57,12 @@ type MockBackend struct {
 	// request to determine the response status and body.
 	ResponseFunc func(r *http.Request, count int) (int, string)
 	// ResponseHeaders, if non-nil, is written to the response before the status code.
-	ResponseHeaders   map[string]string
+	ResponseHeaders map[string]string
+	// NoContentLength, if true, flushes the response headers before writing
+	// the body so the response uses chunked transfer encoding without a
+	// Content-Length header. The default (false) lets net/http infer a
+	// Content-Length for short bodies.
+	NoContentLength bool
 	// SSEEvents, if non-nil, switches the handler to server-sent event mode:
 	// each entry is written as one "data: <event>\n\n" frame followed by a
 	// flush. ResponseFunc/Response/Body are ignored in this mode.
@@ -67,7 +72,7 @@ type MockBackend struct {
 	SSEHold <-chan struct{}
 	// SSETrailing, if non-nil, is written (and flushed) after SSEHold is
 	// released, simulating backend data arriving after a client abort.
-	SSETrailing []string
+	SSETrailing       []string
 	hits              int
 	mu                sync.Mutex
 	models            []string
@@ -160,6 +165,11 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 			w.Header().Set(k, v)
 		}
 		w.WriteHeader(status)
+		if b.NoContentLength {
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+		}
 		if body != "" {
 			w.Write([]byte(body))
 		}

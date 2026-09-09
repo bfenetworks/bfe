@@ -78,6 +78,33 @@ func ParseOpenAIUsageFields(data []byte) UsageFields {
 	return fields
 }
 
+// ParseUsageFieldsCrossProtocol extracts usage fields by composing the
+// protocol chains: the OpenAI-family chain first, then the Anthropic
+// (Claude) chain when no OpenAI-style prompt/completion tokens are
+// present. This mirrors the legacy all-chain extraction field-for-field
+// and is response-format-agnostic: it recovers the full usage even when
+// the auth style detected from the request does not match the format of
+// the response body (issue #1364, e.g. a Bearer key detected as openai
+// while the backend returns an Anthropic body).
+func ParseUsageFieldsCrossProtocol(data []byte) UsageFields {
+	fields := ParseOpenAIUsageFields(data)
+	if fields.PromptTokens == 0 && fields.CompletionTokens == 0 {
+		claude := ParseAnthropicUsageFields(data)
+		fields.PromptTokens = claude.PromptTokens
+		fields.CompletionTokens = claude.CompletionTokens
+		if fields.CacheReadTokens == 0 {
+			fields.CacheReadTokens = claude.CacheReadTokens
+		}
+		if fields.CacheWriteTokens == 0 {
+			fields.CacheWriteTokens = claude.CacheWriteTokens
+		}
+		if fields.UsedQuota == 0 {
+			fields.UsedQuota = claude.UsedQuota
+		}
+	}
+	return fields
+}
+
 // ParseAnthropicUsageFields extracts usage fields from Anthropic (Claude)
 // response bodies: input_tokens / output_tokens /
 // cache_read_input_tokens / cache_creation_input_tokens.

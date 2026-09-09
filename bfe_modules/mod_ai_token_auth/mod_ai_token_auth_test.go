@@ -2061,6 +2061,137 @@ func TestTokenRequestFinishHandler_EstimateRequiresCompletedResponse(t *testing.
 	}
 }
 
+// Issue #1364: when the final usage was not confirmed, the request-finish
+// guard must clear ALL billing fields. Previously only Prompt/Completion/
+// UsedQuota were cleared and a surviving CacheReadTokens was billed alone
+// (cache-read only), losing the fresh input and output charges.
+func TestTokenRequestFinishHandler_GuardClearsSubTokenFields(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+
+	cluster := buildTestClusterConfWithCache(model, 0.000003, 0.000009, 0.000001, 0.0000015)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-GuardClearsSubTokenFields",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+
+	// Simulate the issue #1364 failure shape: usage fields populated (e.g.
+	// by mod_body_process) but neither final usage nor completion marked.
+	ai := req.GetAiBasicInfo()
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 0
+	usage.CompletionTokens = 0
+	usage.CacheReadTokens = 7395200
+	usage.UsedQuota = 0
+
+	res := &bfe_http.Response{StatusCode: 200, ContentLength: -1}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if _, ok := client.data[rmbPlan.RedisKey]; ok {
+		t.Errorf("unconfirmed final usage must not be deducted from surviving sub-token fields")
+	}
+	if usage.CacheReadTokens != 0 || usage.CacheWriteTokens != 0 ||
+		usage.PromptTokens != 0 || usage.CompletionTokens != 0 || usage.UsedQuota != 0 {
+		t.Errorf("guard must clear all billing fields, got %+v", usage)
+	}
+}
+
+// Issue #1364: a completed non-streaming Anthropic response is billed in
+// full: fresh input at input price, cache read/write at their prices,
+// output at output price.
+func TestTokenRequestFinishHandler_RMB_NonStreamingAnthropic(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+
+	cluster := buildTestClusterConfWithCache(model, 0.000003, 0.000009, 0.000001, 0.0000015)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-NonStreamingAnthropic",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+
+	// Parsed from an Anthropic non-stream body by the composed chain:
+	// PromptTokens is normalized to fresh + cacheRead + cacheWrite.
+	ai := req.GetAiBasicInfo()
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 8520 // 320 fresh + 8000 cacheRead + 200 cacheWrite
+	usage.CompletionTokens = 150
+	usage.CacheReadTokens = 8000
+	usage.CacheWriteTokens = 200
+	usage.UsedQuota = 8670
+	ai.MarkFinalUsageSeen()
+	ai.MarkResponseCompleted()
+
+	res := &bfe_http.Response{StatusCode: 200, ContentLength: -1}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	// Expected cost = 320*0.000003 + 8000*0.000001 + 200*0.0000015 + 150*0.000009
+	//               = 0.01061 yuan
+	expectedCost := quota.RmbToFixedPoint(0.01061)
+	if remaining := client.data[rmbPlan.RedisKey]; remaining != rmbPlan.Quota-expectedCost {
+		t.Errorf("expected remaining %d, got %d", rmbPlan.Quota-expectedCost, remaining)
+	}
+}
+
+// Issue #1364: when the auth style detected from the request does not
+// match the response body format (e.g. Bearer key detected as openai
+// while the backend returns an Anthropic body), the single adapter parses
+// nothing and the composed cross-protocol chain must recover the usage.
+func TestUpdateCtxByUsage_CrossProtocolFallback(t *testing.T) {
+	req := newTestRequest("", "AI_product")
+	ai := req.InitAiBasicInfo()
+	ai.AuthStyle = bfe_basic.AuthStyleOpenAI
+	ctx := &TokenAuthContext{aiBasicInfo: ai}
+
+	UpdateCtxByUsage(ctx, []byte(`{"id":"msg_01","type":"message","role":"assistant","usage":{"input_tokens":320,"output_tokens":150,"cache_read_input_tokens":8000,"cache_creation_input_tokens":200}}`))
+	usage := ai.GetTokenUsage()
+	if usage.PromptTokens != 8520 {
+		t.Errorf("expected PromptTokens 8520 (320+8000+200), got %d", usage.PromptTokens)
+	}
+	if usage.CompletionTokens != 150 {
+		t.Errorf("expected CompletionTokens 150, got %d", usage.CompletionTokens)
+	}
+	if usage.CacheReadTokens != 8000 || usage.CacheWriteTokens != 200 {
+		t.Errorf("unexpected cache tokens: %+v", usage)
+	}
+	if usage.UsedQuota != 8670 {
+		t.Errorf("expected UsedQuota 8670 (8520+150), got %d", usage.UsedQuota)
+	}
+
+	// Full cache hit with input_tokens = 0 must still be recognized.
+	ai2 := newTestRequest("", "AI_product").InitAiBasicInfo()
+	ai2.AuthStyle = bfe_basic.AuthStyleOpenAI
+	ctx2 := &TokenAuthContext{aiBasicInfo: ai2}
+	UpdateCtxByUsage(ctx2, []byte(`{"type":"message","usage":{"input_tokens":0,"output_tokens":42,"cache_read_input_tokens":5000}}`))
+	usage2 := ai2.GetTokenUsage()
+	if usage2.PromptTokens != 5000 || usage2.CacheReadTokens != 5000 || usage2.UsedQuota != 5042 {
+		t.Errorf("unexpected full-cache-hit usage: %+v", usage2)
+	}
+}
+
 func TestCalcChatCost_HighPrecision(t *testing.T) {
 	// Prices with more than 8 decimal places (from the generated model
 	// catalog) must not be truncated at config load time. The old

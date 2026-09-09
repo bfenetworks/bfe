@@ -30,6 +30,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_http"
 	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
+	"github.com/bfenetworks/bfe/bfe_model_protocol/utils"
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 )
@@ -119,6 +120,16 @@ func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
 	// aiMeta.AuthStyle carries the same usage chain the legacy all-chain
 	// extraction applied to this response.
 	fields := modelprotocol.Get(ctx.aiBasicInfo.AuthStyle).ExtractUsageFields(data)
+	if fields.UsedQuota == 0 && fields.PromptTokens == 0 && fields.CompletionTokens == 0 &&
+		fields.ImageCount == 0 && fields.VideoCount == 0 {
+		// Auth style / response format mismatch (e.g. a Bearer key detected
+		// as openai while the backend returns an Anthropic body): the
+		// single adapter parsed nothing. Fall back to the composed
+		// cross-protocol chain so the final usage is still recognized
+		// (issue #1364); otherwise UsedQuota stays 0, the final-usage mark
+		// is never set, and the request-finish guard would zero the usage.
+		fields = utils.ParseUsageFieldsCrossProtocol(data)
+	}
 	used := fields.UsedQuota
 	prompt := fields.PromptTokens
 	completion := fields.CompletionTokens
@@ -238,11 +249,21 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	// size, completion tokens accumulated from response content) are only
 	// billable when the response completed normally. Reset them otherwise:
 	// calcCostUnits below bills from the token fields directly, so guarding
-	// UsedQuota alone is not enough.
+	// UsedQuota alone is not enough. All billing fields must be cleared:
+	// leaving sub-token fields (cache/audio/image) behind would let
+	// calcCostUnits bill the survivors alone (issue #1364: an unrecognized
+	// final usage was reduced to CacheReadTokens and billed cache-read only).
 	estimateBillable := ctx.aiBasicInfo.IsAllowEstimateToken() && ctx.aiBasicInfo.IsResponseCompleted()
 	if !ctx.aiBasicInfo.IsFinalUsageSeen() && !estimateBillable {
 		tokenUsage.PromptTokens = 0
 		tokenUsage.CompletionTokens = 0
+		tokenUsage.CacheReadTokens = 0
+		tokenUsage.CacheWriteTokens = 0
+		tokenUsage.AudioInputTokens = 0
+		tokenUsage.AudioOutputTokens = 0
+		tokenUsage.ImageInputTokens = 0
+		tokenUsage.VideoCount = 0
+		tokenUsage.ImageCount = 0
 		tokenUsage.UsedQuota = 0
 	}
 	if tokenUsage.UsedQuota <= 0 && estimateBillable {

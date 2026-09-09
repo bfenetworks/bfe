@@ -340,6 +340,7 @@ type AiBasicInfo struct {
 
 - `mod_body_process`（流式）在解析到最终 usage / 终止事件时置位，见 7.4。
 - `mod_ai_token_auth`（非流式）在 `tokenReadResponseHandler` 完整读取响应体后置位，见 7.4。
+- **非流式 Anthropic JSON 视同最终 usage**（issue #1364）：顶层 `type:"message"` 且解析出非 guess usage（`output_tokens > 0`）的整体响应，与 SSE `message_delta` 等价，置位 `finalUsageSeen`；整条 body 作为单个事件处理完成时同时置位 `responseCompleted`。否则 Anthropic 非流式响应（尤其是 chunked、`ContentLength = -1`）两个标记都打不上，会落入"未完成"守卫。
 - 计费语义：EstimateToken 的估算值仅在 `responseCompleted` 为 true 时可计费；客户端中断（`ErrClientWrite` / `ErrClientClose` / `ErrClientReset`）且未拿到最终 usage 的请求零扣费，已拿到最终 usage 的按实际 usage 扣费，见 7.5。
 
 ## 7. 请求运行时改动
@@ -468,8 +469,11 @@ SSE 事件的 `QuotaUsage` 携带 `IsFinalUsage` / `IsTermination` 标志（`bfe
 | Anthropic `message_start`（初始 usage，`output_tokens = 0`） | false | false |
 | Anthropic `message_delta`（最终 usage，`output_tokens > 0`） | true | false |
 | Anthropic `message_stop` | - | true |
+| Anthropic 非流式整体响应（顶层 `type:"message"`，`output_tokens > 0`，整条 body 单事件） | true | true（issue #1364） |
 | OpenAI 最终 usage chunk（`stream_options.include_usage`，无 `type` 且 `completion_tokens > 0`） | true | false |
 | OpenAI `[DONE]` | - | true |
+
+> 说明（issue #1364）：`isFinalUsage` 判定从"`type == "message_delta" || ""`"扩展为同时认可顶层 `type:"message"`。`gjson` 只读顶层 `type`，SSE `message_start` 事件的顶层无 `type` 字段（嵌套在 `message.` 下），不受影响。非 SSE 路径整条 body 作为单事件处理完成时，`QuotaUsageProcessor` 额外置位 `MarkResponseCompleted()`，使正常完成的非流式响应可计费、真正未完成/被截断的响应仍被守卫拦截。
 
 `QuotaUsageProcessor.Process` 据此在 `AiBasicInfo` 上置位 `MarkFinalUsageSeen()` / `MarkResponseCompleted()`（图片/视频按次计费事件同样置位 `finalUsageSeen`），并做两件与计费正确性相关的事：
 
@@ -486,9 +490,11 @@ DeepSeek 与 OpenAI Responses API 在 usage 中使用与常规 OpenAI/Claude 不
 
 BFE 在以下三处解析中，当 `cache_read_tokens` / `cache_read_input_tokens` 为 0 时，会依次 fallback 到上述字段（2026-09 起，字段链实现已收敛到协议适配层 `bfe/bfe_model_protocol/`，见 `sys_design/model_protocol_adapter.md`；三处调用方仅保留累加语义，行为不变）：
 
-- `bfe_modules/mod_ai_token_auth/mod_ai_token_auth.go`：`UpdateCtxByUsage`（非流式，按 `AuthStyle` 委托适配器 `ExtractUsageFields`）
+- `bfe_modules/mod_ai_token_auth/mod_ai_token_auth.go`：`UpdateCtxByUsage`（非流式，按 `AuthStyle` 委托适配器 `ExtractUsageFields`；单适配器结果全零时回退 OpenAI→Claude 组合链，见下）
 - `bfe_modules/mod_body_process/llm_util.go`：`SSEEvent.GetQuotaUsage`（SSE 流式，经共享 helper `extractUsageFields`）
 - `bfe_modules/mod_body_process/body_process.go`：`RawEvent.GetQuotaUsage`（RawEvent 非流式，同上）
+
+> 跨协议兜底（issue #1364）：`UpdateCtxByUsage` 虽按 `AuthStyle` 取**单**适配器，但当解析结果全零（`UsedQuota`/`PromptTokens`/`CompletionTokens`/`ImageCount`/`VideoCount` 均为 0，典型场景：Bearer 鉴权被识别为 OpenAI 协议、后端却返回 Anthropic 格式 body，如 DeepSeek 官方 `sk-` Key 走 Anthropic 兼容端点）时，回退到与 `mod_body_process` 相同的 OpenAI→Claude 组合链再解析一次，恢复 286b4e0a 收敛前的"响应格式无关"语义，避免 `UsedQuota = 0` 导致最终 usage 标记失效。
 
 这样无论后端返回哪种字段名，`TokenUsage.CacheReadTokens` 都能被正确填充，后续 `calcChatCost` 按统一逻辑拆分计费。
 
@@ -531,11 +537,21 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
     // EstimateToken 播种的值（鉴权阶段按请求体长度估算的 prompt、
     // 流式按内容长度累加的 completion）只有响应正常完成时才可计费。
     // calcCostUnits 直接按 token 字段计费、与 UsedQuota 守卫无关，
-    // 因此不可计费时必须把估算字段清零，否则鉴权阶段的估算值会流向扣费。
+    // 因此不可计费时必须把全部计费字段清零，否则鉴权阶段的估算值
+    // 或残存的子 token 字段（cache/audio/image）会流向扣费（issue #1364：
+    // 守卫曾只清 Prompt/Completion/UsedQuota，导致 Anthropic 非流式响应
+    // 被守卫清零后仅剩 CacheReadTokens，RMB 计费只收缓存命中）。
     estimateBillable := ctx.aiBasicInfo.IsAllowEstimateToken() && ctx.aiBasicInfo.IsResponseCompleted()
     if !ctx.aiBasicInfo.IsFinalUsageSeen() && !estimateBillable {
         tokenUsage.PromptTokens = 0
         tokenUsage.CompletionTokens = 0
+        tokenUsage.CacheReadTokens = 0
+        tokenUsage.CacheWriteTokens = 0
+        tokenUsage.AudioInputTokens = 0
+        tokenUsage.AudioOutputTokens = 0
+        tokenUsage.ImageInputTokens = 0
+        tokenUsage.VideoCount = 0
+        tokenUsage.ImageCount = 0
         tokenUsage.UsedQuota = 0
     }
     if tokenUsage.UsedQuota <= 0 && estimateBillable {
@@ -577,7 +593,7 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 }
 ```
 
-计费判定规则汇总（issue #1352）：
+计费判定规则汇总（issue #1352、#1364）：
 
 | 场景 | finalUsageSeen | 扣费 |
 |------|----------------|------|
@@ -585,6 +601,9 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 | 正常完成，无 usage + EstimateToken | false（responseCompleted=true） | 按估算计费 |
 | 客户端中断/写失败，未拿到最终 usage | false | 零扣费 |
 | 客户端中断/写失败，已拿到最终 usage | true | 按实际 usage |
+| 非流式 Anthropic（chunked）完整响应，有 usage | true（#1364 起，`type:"message"` 视同最终 usage） | 按实际 usage（未命中输入 + cache read/write + 输出全额） |
+
+> 说明（issue #1364）：修复前 Anthropic 非流式（尤其 chunked）响应既无 `finalUsageSeen` 也无 `responseCompleted`，落入"不可计费"守卫；但守卫只清 `PromptTokens`/`CompletionTokens`/`UsedQuota`，`CacheReadTokens` 等子字段幸存，`calcChatCost` 对其按 `cache_read_input_token_cost` 计费，导致 RMB 只收缓存命中、漏计未命中输入与输出（实测漏计约 4.65x）。修复后守卫清零全部计费字段，并通过最终 usage 认可 + 完成置位让正常完成的非流式响应按实际 usage 全额计费。
 
 ### 7.6 成本计算辅助方法
 
@@ -1190,7 +1209,9 @@ return {yuan, frac}
      - 覆盖 Anthropic 高 cache 命中场景（`cache_read_tokens > prompt_tokens`）不再被截断，cache 按实际值计费；
      - 覆盖 `tokenRequestFinishHandler` 对 `/count_tokens` 端点跳过扣费；
      - 覆盖 `HandleRequestFinish` 多次触发时仅扣费一次（`deducted` 幂等标记）；
-     - 覆盖客户端中断场景（issue #1352）：`ErrClientWrite` 且未拿到最终 usage 时零扣费（`EstimateToken` 开/关一致）、已拿到最终 usage 后中断按实际 usage 扣费、响应未完成时估算不生效（`TestTokenRequestFinishHandler_ClientAbort*` 系列）。
+     - 覆盖客户端中断场景（issue #1352）：`ErrClientWrite` 且未拿到最终 usage 时零扣费（`EstimateToken` 开/关一致）、已拿到最终 usage 后中断按实际 usage 扣费、响应未完成时估算不生效（`TestTokenRequestFinishHandler_ClientAbort*` 系列）；
+     - 覆盖守卫清零完整性（issue #1364）：构造 `{PromptTokens:0, CompletionTokens:0, CacheReadTokens:N, UsedQuota:0}` 且 `IsFinalUsageSeen()==false`、`IsResponseCompleted()==false` 的上下文，断言 `tokenRequestFinishHandler` 后 `UsedCost == 0`（残存子字段不得流向扣费）；
+     - 覆盖跨协议兜底（issue #1364）：`UpdateCtxByUsage` 传入 `AuthStyle=openai` + Anthropic 格式 body（`usage.input_tokens`/`cache_read_input_tokens`/`output_tokens`），断言回退组合链后 `UsedQuota > 0` 且 prompt/completion/cache 子字段正确。
    - `ActiveTierName`：验证北京时区周一 10:00 命中 `peak`、周一 13:00 未命中、周六 10:00 未命中、周一 18:00 不命中（左闭右开）。
    - `GetPrice`：验证命中 `peak` 时取 `TierPrices.peak`、未命中时 fallback 到 `Prices`、tier 中未配置某键时 fallback 到默认价格；验证超过 8 位小数的价格（如 `7.6234102728e-08`）加载后不被截断。
 
@@ -1211,6 +1232,8 @@ return {yuan, frac}
    - 测试 Anthropic `/count_tokens` 端点不计费：请求 `/anthropic/v1/messages/count_tokens`，验证 RMB 与 token 配额均不被扣减；
    - 测试计费幂等场景：模拟 `HandleRequestFinish` 被触发两次，验证 Redis 余额只扣减一次；
    - 测试客户端中断场景（issue #1352，集成测试场景 SC12）：EstimateToken = true，客户端在 `message_start` 后发送 TCP RST，验证零扣费；收到最终 usage 后中断，验证仍按实际 usage 扣费；完整 SSE 流计费不变；
+   - 测试非流式 Anthropic 计费场景（issue #1364，新增计费矩阵臂）：后端返回 chunked（无 `Content-Length`）的 Anthropic 格式非流式 body（顶层 `type:"message"`，`usage` 含 `input_tokens`/`cache_read_input_tokens`/`output_tokens`），验证 `MarkFinalUsageSeen()`/`MarkResponseCompleted()` 均置位，RMB 扣款 = 未命中输入 × `input_cost_per_token` + cache_read × `cache_read_input_token_cost` + 输出 × `output_cost_per_token`，与上游账单对齐；同时保留 SSE 臂与带 `Content-Length` 臂防止误伤；
+   - 测试 AuthStyle 与响应体格式错配场景（issue #1364）：Bearer 鉴权（识别为 OpenAI 协议）+ Anthropic 格式 body，验证 `UpdateCtxByUsage` 回退组合链后按实际 usage 全额计费；
    - 测试分时段计费场景：`ModelTable` 配置 `Tiers` 与 `TierPrices`；分别在北京时间高峰时段（如周一 10:00）与非高峰时段（如周一 13:00 或周六 10:00）发起请求，验证 Redis 扣减金额分别按 `TierPrices.peak` 与默认 `Prices` 计算。
    - 测试分时段 + cache 命中组合场景：高峰时段且后端返回 `usage.cache_read_tokens`（或 DeepSeek 的 `usage.prompt_cache_hit_tokens` / `usage.prompt_tokens_details.cached_tokens`），验证缓存命中部分按 `TierPrices.peak.cache_read_input_token_cost` 计费，未命中部分按 `TierPrices.peak.input_cost_per_token` 计费。
 
@@ -1232,3 +1255,4 @@ return {yuan, frac}
    - `count_tokens` 端点此前被误扣费，修复后该端点不再扣费，运营侧需在计费对账层单独处理历史差异；
    - `deducted` 幂等标记仅防止同一请求生命周期内的重复扣费，不跨请求生效，不影响正常流量。
 10. **EstimateToken 语义收窄**（issue #1352）：`EstimateToken = true` 播种的估算值仅在响应正常完成时计费；客户端中断（RST/断开/写客户端失败）且未拿到最终 usage 的请求零扣费，已拿到最终 usage 的按实际 usage 扣费。客户端中断请求的收费金额会 **下降**（从按全量估算变为零扣费或按实际 usage），历史多扣需在计费对账层单独处理。
+11. **非流式 Anthropic 计费修复**（issue #1364）：非流式 Anthropic（尤其 chunked）响应此前因最终 usage / 完成标记缺失 + 守卫漏清子字段，RMB 只按 `cache_read_input_token_cost` 收缓存命中，漏计未命中输入与输出（实测漏计约 4.65x）。修复后该场景计费金额会 **上升至正确全额**（未命中输入 + cache read/write + 输出），与上游（DeepSeek）账单对齐；守卫语义为"宁漏收、不错收"——未确认完成的响应全部计费字段清零，不再产生部分字段入账。

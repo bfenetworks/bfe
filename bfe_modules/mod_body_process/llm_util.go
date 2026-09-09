@@ -27,7 +27,6 @@ import (
 )
 
 import (
-	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_model_protocol/utils"
 )
 
@@ -131,33 +130,9 @@ func (e *SSEEvent) GetAuditData() []byte {
 	return e.GetData()
 }
 
-// extractUsageFields extracts usage fields from one response body by
-// composing the protocol adapters: the openai adapter chain first, then
-// the anthropic (Claude) chain when no OpenAI-style prompt/completion
-// tokens are present. This mirrors the legacy all-chain extraction
-// field-for-field.
-func extractUsageFields(data []byte) modelprotocol.UsageFields {
-	fields := modelprotocol.Get(modelprotocol.ProtocolOpenAI).ExtractUsageFields(data)
-	if fields.PromptTokens == 0 && fields.CompletionTokens == 0 {
-		claude := modelprotocol.Get(modelprotocol.ProtocolAnthropic).ExtractUsageFields(data)
-		fields.PromptTokens = claude.PromptTokens
-		fields.CompletionTokens = claude.CompletionTokens
-		if fields.CacheReadTokens == 0 {
-			fields.CacheReadTokens = claude.CacheReadTokens
-		}
-		if fields.CacheWriteTokens == 0 {
-			fields.CacheWriteTokens = claude.CacheWriteTokens
-		}
-		if fields.UsedQuota == 0 {
-			fields.UsedQuota = claude.UsedQuota
-		}
-	}
-	return fields
-}
-
 func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 	data := e.GetData()
-	fields := extractUsageFields(data)
+	fields := utils.ParseUsageFieldsCrossProtocol(data)
 
 	curtoken := int64(0)
 	isguess := true
@@ -177,9 +152,12 @@ func (e *SSEEvent) GetQuotaUsage() QuotaUsage {
 	isTermination := evType == "message_stop" || strings.TrimSpace(string(data)) == "[DONE]"
 	isFinalUsage := false
 	if !isguess && fields.CompletionTokens > 0 {
-		if evType == "message_delta" || evType == "" {
-			// Anthropic message_delta, or a protocol-agnostic final usage
-			// chunk (e.g. OpenAI with stream_options.include_usage)
+		if evType == "message_delta" || evType == "message" || evType == "" {
+			// Anthropic message_delta, the Anthropic non-streaming
+			// top-level type "message", or a protocol-agnostic final
+			// usage chunk (e.g. OpenAI with stream_options.include_usage).
+			// Without "message" the final usage of a non-streaming
+			// Anthropic JSON body would never be recognized (issue #1364).
 			isFinalUsage = true
 		}
 	}

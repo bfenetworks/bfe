@@ -248,6 +248,71 @@ func TestSSEEventDecoderEOF(t *testing.T) {
 	}
 }
 
+func TestRawEventGetQuotaUsage_CompletionFlags(t *testing.T) {
+	tests := []struct {
+		name            string
+		data            string
+		wantTermination bool
+		wantFinalUsage  bool
+	}{
+		{
+			// Anthropic non-streaming body (chunked): top-level type "message"
+			// is both the final usage and the response completion (issue #1364)
+			name:            "anthropic non-stream message",
+			data:            `{"type":"message","usage":{"input_tokens":574145,"output_tokens":109329,"cache_read_input_tokens":7395200}}`,
+			wantTermination: true,
+			wantFinalUsage:  true,
+		},
+		{
+			// OpenAI-style non-streaming body without a top-level type
+			name:            "openai non-stream body",
+			data:            `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`,
+			wantTermination: true,
+			wantFinalUsage:  true,
+		},
+		{
+			// Body without usage stays a guess: neither final nor termination
+			name:            "body without usage",
+			data:            `{"id":"chatcmpl-1","choices":[{"message":{"content":"hi"}}]}`,
+			wantTermination: false,
+			wantFinalUsage:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ev := RawEvent([]byte(tt.data))
+			q := ev.GetQuotaUsage()
+			if q.IsTermination != tt.wantTermination {
+				t.Errorf("IsTermination = %v, want %v", q.IsTermination, tt.wantTermination)
+			}
+			if q.IsFinalUsage != tt.wantFinalUsage {
+				t.Errorf("IsFinalUsage = %v, want %v", q.IsFinalUsage, tt.wantFinalUsage)
+			}
+		})
+	}
+}
+
+func TestRawEventGetQuotaUsage_AnthropicNonStreamFields(t *testing.T) {
+	ev := RawEvent([]byte(`{"type":"message","usage":{"input_tokens":320,"output_tokens":150,"cache_read_input_tokens":8000,"cache_creation_input_tokens":200}}`))
+	q := ev.GetQuotaUsage()
+	if q.PromptTokens != 8520 {
+		t.Errorf("expected PromptTokens 8520 (320+8000+200), got %d", q.PromptTokens)
+	}
+	if q.CompletionTokens != 150 {
+		t.Errorf("expected CompletionTokens 150, got %d", q.CompletionTokens)
+	}
+	if q.CacheReadTokens != 8000 || q.CacheWriteTokens != 200 {
+		t.Errorf("unexpected cache tokens: %+v", q)
+	}
+	if q.IsGuess {
+		t.Error("expected IsGuess false")
+	}
+	if !q.IsFinalUsage || !q.IsTermination {
+		t.Errorf("expected final usage and termination for non-stream Anthropic body, got final=%v termination=%v", q.IsFinalUsage, q.IsTermination)
+	}
+}
+
 func TestSSEEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -286,6 +351,14 @@ func TestSSEEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 			// OpenAI final chunk with stream_options.include_usage
 			name:            "openai final usage chunk",
 			data:            `{"id":"chatcmpl-1","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}`,
+			wantTermination: false,
+			wantFinalUsage:  true,
+		},
+		{
+			// Anthropic non-streaming top-level type: the whole-body JSON is
+			// the final usage (issue #1364)
+			name:            "anthropic non-stream message",
+			data:            `{"type":"message","usage":{"input_tokens":320,"output_tokens":150,"cache_read_input_tokens":8000}}`,
 			wantTermination: false,
 			wantFinalUsage:  true,
 		},

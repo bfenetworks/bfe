@@ -161,7 +161,7 @@ http_conn.serveRequest()
 | 版本头注入 | `reverseproxy.go` 硬编码 `anthropic-version` | 适配器 `ExtraHeaders`，显式携带优先（TC-07） |
 | 协议校验 | `clusterSupportsAuthStyle` | `modelprotocol.Supports`（语义不变） |
 | 流式 usage | `SSEEvent/RawEvent.GetQuotaUsage` 各一份全链 | 适配器字段链 + 调用方累加语义保留 |
-| 非流式 usage | `UpdateCtxByUsage` 一份全链 | 同上 |
+| 非流式 usage | `UpdateCtxByUsage` 一份全链 | 按 `AuthStyle` 取单适配器；结果全零时回退两阶段组合（issue #1364） |
 | fallback 判定 | `shouldTriggerFallback` 纯状态码白名单 | 前置 `ErrorNormalizer` seam（默认返回 nil → 白名单，行为不变） |
 
 `ModelProtocols` 未知协议名的加载校验挂在 `bfe_server/bfe_confdata_load.go` 的 `InitDataLoad`（启动失败）与 `serverDataConfReload`（热加载拒绝且不换配置）；`bfe_config` 不依赖 `bfe_model_protocol`。
@@ -181,11 +181,11 @@ http_conn.serveRequest()
 - **openai 适配器**：OpenAI 主链 + DeepSeek + Responses fallback（无 Claude 链）；
 - **anthropic 适配器**：Claude 链（含 prompt 归一）。2026-09-04 起增加真实流式报文结构解析（issue #1352）：Anthropic 流式 `message_start` 的初始 usage 位于 `message.usage.*`（此前只解析顶层 `usage.*`），`message_delta` 的最终 usage 位于顶层 `usage.*`，两条路径均支持。
 
-等价性：各链互斥（OpenAI 系响应有 `prompt_tokens`；Claude 有 `input_tokens`；全零→estimate），按协议拆分后与全链结果逐字段等价。
+等价性：各链互斥（OpenAI 系响应有 `prompt_tokens`；Claude 有 `input_tokens`；全零→estimate），按协议拆分后与全链结果逐字段等价。**例外**（issue #1364）：当鉴权识别出的协议与响应体实际格式错配（如 Bearer→openai 适配器 + Anthropic body）时，单适配器解析全零、不等价于旧全链；该场景由 `UpdateCtxByUsage` 的全零回退兜底（见 5.2）。
 
 ### 5.2 累加语义留在调用方
 
-- `UpdateCtxByUsage` 按 `AuthStyle` 取适配器，后续 `used>0 / else if prompt>0...` 分支逐行保留（写 `bfe_basic.TokenUsage`）；
+- `UpdateCtxByUsage` 按 `AuthStyle` 取适配器，后续 `used>0 / else if prompt>0...` 分支逐行保留（写 `bfe_basic.TokenUsage`）；**跨协议兜底**（issue #1364）：单适配器结果全零（`UsedQuota`/`PromptTokens`/`CompletionTokens`/`ImageCount`/`VideoCount` 均为 0，典型场景：Bearer 鉴权被识别为 OpenAI 协议、后端返回 Anthropic 格式 body）时，回退到与 `mod_body_process` 相同的两阶段组合链（openai 链 → prompt/completion 全零时回落 anthropic 链）再解析一次，恢复收敛前"响应格式无关"语义，避免 `UsedQuota = 0` 导致最终 usage 标记失效、计费漏项；
 - `SSEEvent/RawEvent.GetQuotaUsage` 签名无参数拿不到 `AuthStyle`，经共享 helper `extractUsageFields` 做两阶段组合（openai 链 → prompt/completion 全零时回落 anthropic 链，含 carry-in 合并），`isguess`/`EstimateContentToken` 逻辑原样；
 - 扣费准确性依赖此约定：迁移时逐字段回归（流式累加、estimate 模式、Anthropic prompt 归一）。
 
@@ -223,4 +223,5 @@ http_conn.serveRequest()
 - **透传原则**：适配层只做边缘适配（认证/版本头/usage/错误），不做请求/响应体协议翻译；
 - **兜底一致性**：`Get` 对未知协议回落 openai、`Supports` 空列表默认 openai，与历史行为一致；未知协议名在配置加载期报错（暴露既有配置错误）；
 - **病态响应体**：同一 usage 同时混含 DeepSeek 与 Claude 字段且缺 `prompt_tokens` 时，事件侧两阶段合并与旧全链可能有差异——真实 provider 不会混合两套字段，未做特殊处理；
+- **AuthStyle 与响应体格式错配**（issue #1364）：鉴权协议由请求头/路径识别，响应体格式由后端实际返回决定，两者可能不一致（如 DeepSeek 官方 Key 走 Anthropic 兼容端点但识别为 openai）。此时单适配器解析全零，依赖 `UpdateCtxByUsage` 的全零回退组合链兜底；`mod_body_process` 事件侧本就走组合链，不受影响；
 - **per-cluster 认证变体**（如 Azure OpenAI 的 `api-key` header）：当前 `InjectAuth` 未承载 per-cluster 参数，需要时另起评审扩展接口。

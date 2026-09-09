@@ -361,9 +361,32 @@ func (bal *BalanceGslb) callEPP(conn *grpc.ClientConn, metadata *corev3.Metadata
 		return "", nil, err
 	}
 
+	headers := epp.BuildEnvoyGRPCHeaders(req.OutRequest.Header, true, !hasBody)
+	// llm-d EPP routes request parsers by the :path pseudo-header; without it
+	// the request falls back to the legacy /v1/completions default and body
+	// parsing fails for chat-completions payloads.
+	var path, method string
+	if req.OutRequest.URL != nil {
+		path = req.OutRequest.URL.RequestURI()
+		if path == "" {
+			path = req.OutRequest.URL.Path
+		}
+		method = req.OutRequest.Method
+	}
+	if path == "" {
+		path = "/"
+	}
+	if method == "" {
+		method = "POST"
+	}
+	headers.Headers.Headers = append([]*corev3.HeaderValue{
+		{Key: ":path", RawValue: []byte(path)},
+		{Key: ":method", RawValue: []byte(method)},
+	}, headers.Headers.Headers...)
+
 	reqMsg := &extprocv3.ProcessingRequest{
 		Request: &extprocv3.ProcessingRequest_RequestHeaders{
-			RequestHeaders: epp.BuildEnvoyGRPCHeaders(req.OutRequest.Header, true, !hasBody),
+			RequestHeaders: headers,
 		},
 		MetadataContext: metadata,
 	}

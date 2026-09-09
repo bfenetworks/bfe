@@ -21,8 +21,11 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/tidwall/gjson"
+
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_model_protocol/utils"
 )
 
 // BodyProcessor 扩展中断支持
@@ -420,7 +423,7 @@ func (e *RawEvent) ToBytes() []byte {
 
 func (e *RawEvent) GetQuotaUsage() QuotaUsage {
 	data := *e
-	fields := extractUsageFields(data)
+	fields := utils.ParseUsageFieldsCrossProtocol(data)
 
 	curtoken := int64(0)
 	isguess := true
@@ -429,6 +432,16 @@ func (e *RawEvent) GetQuotaUsage() QuotaUsage {
 	} else {
 		curtoken = EstimateContentToken(string(data))
 	}
+
+	// Non-SSE payloads carry no SSE envelope: a whole-body JSON (or the
+	// usage-bearing line of an ndjson payload) that parses to a non-guess
+	// usage marks both the final usage and the response completion
+	// (issue #1364). "message" is the Anthropic non-streaming top-level
+	// type; "" covers OpenAI-style bodies without a top-level type.
+	evType := gjson.GetBytes(data, "type").String()
+	isFinalUsage := !isguess && fields.CompletionTokens > 0 &&
+		(evType == "message_delta" || evType == "message" || evType == "")
+	isTermination := isFinalUsage
 
 	return QuotaUsage{
 		PromptTokens:      fields.PromptTokens,
@@ -443,6 +456,8 @@ func (e *RawEvent) GetQuotaUsage() QuotaUsage {
 		UsedQuota:         fields.UsedQuota,
 		CurrentTokens:     curtoken,
 		IsGuess:           isguess,
+		IsFinalUsage:      isFinalUsage,
+		IsTermination:     isTermination,
 	}
 }
 
