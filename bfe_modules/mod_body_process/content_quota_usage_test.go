@@ -58,6 +58,42 @@ func TestQuotaUsageProcessorProcessWithUsage(t *testing.T) {
 	}
 }
 
+// Issue #1364: a non-streaming Anthropic body (top-level type "message")
+// must mark both the final usage and the response completion, otherwise
+// the request-finish guard treats a fully parsed usage as unconfirmed.
+func TestQuotaUsageProcessorProcessAnthropicNonStreamMarks(t *testing.T) {
+	req := newTestRequest("AI_product")
+	ai := req.InitAiBasicInfo()
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	p := NewQuotaUsageProcessor(req, res)
+
+	body := `{"id":"msg_01","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"usage":{"input_tokens":574145,"output_tokens":109329,"cache_read_input_tokens":7395200}}`
+	events := []Event{newRawEvent(body)}
+	if _, err := p.Process(events); err != nil {
+		t.Fatalf("Process failed: %s", err)
+	}
+
+	if !ai.IsFinalUsageSeen() {
+		t.Error("expected final usage seen for non-stream Anthropic body")
+	}
+	if !ai.IsResponseCompleted() {
+		t.Error("expected response completed for non-stream Anthropic body")
+	}
+	usage := ai.GetTokenUsage()
+	if usage.PromptTokens != 7969345 {
+		t.Errorf("expected PromptTokens 7969345 (574145+7395200), got %d", usage.PromptTokens)
+	}
+	if usage.CompletionTokens != 109329 {
+		t.Errorf("expected CompletionTokens 109329, got %d", usage.CompletionTokens)
+	}
+	if usage.CacheReadTokens != 7395200 {
+		t.Errorf("expected CacheReadTokens 7395200, got %d", usage.CacheReadTokens)
+	}
+	if usage.UsedQuota != 8078674 {
+		t.Errorf("expected UsedQuota 8078674 (7969345+109329), got %d", usage.UsedQuota)
+	}
+}
+
 func TestQuotaUsageProcessorProcessEstimate(t *testing.T) {
 	req := newTestRequest("AI_product")
 	ai := req.InitAiBasicInfo()

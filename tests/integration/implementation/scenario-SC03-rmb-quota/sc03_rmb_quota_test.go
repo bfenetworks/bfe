@@ -55,11 +55,22 @@ var audioBody = []byte(`{"model":"gpt-audio-1.5"}`)
 var audioStreamBody = []byte(`{"model":"gpt-audio-1.5","stream":true}`)
 var imageGenerationBody = []byte(`{"model":"flux-2-pro","n":2}`)
 var highPrecisionBody = []byte(`{"model":"qwen2.5-omni-7b"}`)
+var anthropicBody = []byte(`{"model":"claude-sonnet-4-5"}`)
 
 var usageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`
 var imageGenerationUsageResponse = `{"usage":{"image_count":2}}`
 
 // SSE format: final chunk contains usage. The trailing blank line is required.
+// anthropicUsageResponse is a complete Anthropic "message" response (note the
+// type:"message" field and input_tokens/output_tokens usage field names).
+// Together with anthropicBody and a Bearer (openai-style) API key it
+// reproduces the auth-style/response-format mismatch of issue #1364: the
+// token-auth module detects AuthStyle=openai from the request while the
+// backend actually speaks the Anthropic protocol.
+var anthropicUsageResponse = `{"id":"msg_01","type":"message","role":"assistant",` +
+	`"content":[{"type":"text","text":"hi"}],` +
+	`"usage":{"input_tokens":2000,"output_tokens":1500,"cache_read_input_tokens":8000}}`
+
 var streamUsageResponse = "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n" +
 	"data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n" +
 	"data: {\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":50,\"total_tokens\":150}}\n\n"
@@ -330,6 +341,33 @@ func highPrecisionAIConf() *cluster_conf.AIConf {
 		Prices: cluster_conf.PriceMap{
 			"input_cost_per_token":  6.0168984e-09,
 			"output_cost_per_token": 7.6234102728e-08,
+		},
+	})
+	return conf
+}
+
+// anthropicAIConf adds an Anthropic-protocol model with cache pricing. The
+// round per-token prices (1e-6 / 2e-6 / 5e-7 / 1.5e-6 yuan) make the expected
+// fixed-point deduction easy to verify by hand:
+//
+//	cost = input*100 + cache_read*50 + output*200  (units of 1e-8 yuan)
+func anthropicAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models = append(conf.ModelTable.Models, cluster_conf.ModelPrice{
+		Provider:            "mock-provider",
+		Model:               "claude-sonnet-4-5",
+		BaseModel:           "claude-sonnet-4-5",
+		Mode:                "chat",
+		Capabilities:        []string{"chat"},
+		SupportedParameters: []string{"temperature", "max_tokens"},
+		Limits: map[string]interface{}{
+			"context_window": 128000,
+		},
+		Prices: cluster_conf.PriceMap{
+			"input_cost_per_token":            0.000001,
+			"output_cost_per_token":           0.000002,
+			"cache_read_input_token_cost":     0.0000005,
+			"cache_creation_input_token_cost": 0.0000015,
 		},
 	})
 	return conf
@@ -797,7 +835,6 @@ func TestTC12_RMBQuotaDeduction_ImageGeneration(t *testing.T) {
 	}
 }
 
-
 // TestTC13 verifies that a total_token quota plan with quota=0 can be loaded
 // and rejects requests with QuotaExhausted.
 func TestTC13_TokenQuotaZeroLoaded(t *testing.T) {
@@ -853,7 +890,6 @@ func TestTC14_TokenQuotaZeroMissingRedisKey(t *testing.T) {
 	}
 }
 
-
 // TestTC15 verifies end-to-end billing with prices that need more than 8
 // decimal places (scientific notation in cluster_conf.data). The prices
 // below come from the generated model catalog. With prompt=100 and
@@ -896,4 +932,73 @@ func TestTC15_RMBQuotaDeduction_HighPrecision(t *testing.T) {
 		e.logBFEAccess()
 		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
 	}
+}
+
+// anthropicMismatchRequest verifies the fixed-point deduction for an
+// Anthropic-protocol response received on an openai-style (Bearer key)
+// request, i.e. the issue #1364 shape. Prices are 1e-6 input / 2e-6 output /
+// 5e-7 cache_read yuan per token, i.e. 100 / 200 / 50 units per token.
+// Anthropic input_tokens excludes cached tokens, so billable normal input is
+// 2000 + 8000 - 8000 = 2000 and the total deduction is
+//
+//	2000*100 + 8000*50 + 1500*200 = 900000
+//
+// Before the fix, the unrecognized final usage was reduced to cache-read only
+// (400000 for the chunked framing, 0 for the Content-Length framing).
+func anthropicMismatchRequest(t *testing.T, noContentLength bool) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: anthropicAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	e.backends[clusterRMB].ResponseHeaders = map[string]string{"Content-Type": "application/json"}
+	e.backends[clusterRMB].NoContentLength = noContentLength
+	e.backends[clusterRMB].Body = anthropicUsageResponse
+
+	resp, body, err := e.sendRequest(apiHost, anthropicBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for async redis deduction.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - 900000)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d (NoContentLength=%v), response body: %s",
+			remaining, want, noContentLength, body)
+	}
+}
+
+// TestTC16 verifies RMB quota deduction for a non-streaming Anthropic
+// response framed with chunked transfer encoding (no Content-Length). This
+// exercises the mod_body_process completion path: the final usage must be
+// recognized (type:"message") and marked, otherwise the request-finish guard
+// zeroes the billing fields and only cache-read would be deducted (issue
+// #1364).
+func TestTC16_RMBQuotaDeduction_Anthropic_NonStream_Chunked(t *testing.T) {
+	anthropicMismatchRequest(t, true)
+}
+
+// TestTC17 verifies RMB quota deduction for a non-streaming Anthropic
+// response with a Content-Length header. This exercises the
+// tokenReadResponseHandler path (res.ContentLength >= 0): the single
+// openai-style adapter parses nothing from the Anthropic body, so the
+// cross-protocol fallback must recover the usage (issue #1364). Before the
+// fix this deducted 0.
+func TestTC17_RMBQuotaDeduction_Anthropic_NonStream_ContentLength(t *testing.T) {
+	anthropicMismatchRequest(t, false)
 }
