@@ -53,6 +53,7 @@ go test ./tests/integration/implementation/scenario-SC01-route-table-lookup/ -ru
 | SC01 路由表查找与绑定 | 验证 `mod_ai_route` 在多级路由表（apikey/entity/global）中的搜索与回退顺序，以及 fallback 时 body 回绕行为 |
 | SC13 TLS 热加载路径重定向 | 验证 `/reload/tls_conf?path=` 时 client CA/CRL 基目录随版本目录切换（conf-agent#19），通过真实 TLS 握手验证 reload 前后客户端证书校验行为 |
 | SC14 EPP 调度对接 | 验证 `BalanceMode=EPP` 下 ext-proc 调度的决策转发、pool metadata 注入、SSE 响应回传、主备 failover、错误驱动重试、降级本地均衡与熔断（EPP 为进程内 mock server，后端为真实 llm-d-inference-sim） |
+| SC17 AI 协议路径改写 | 验证 `AIConf.ProtocolPaths` 按协议改写上游路径（百炼/Kimi Code 形态）、双协议 cluster 独立改写、fallback 路径重算与未配置/非标准入口透传 |
 
 ## 参考文档
 

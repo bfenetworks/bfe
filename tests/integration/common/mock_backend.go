@@ -81,6 +81,7 @@ type MockBackend struct {
 	xApiKeyHeaders     []string
 	xGoogApiKeyHeaders []string
 	anthropicVersions  []string
+	urlPaths           []string
 }
 
 // NewMockBackend starts a local HTTP server that returns the given status code.
@@ -94,6 +95,7 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 		b.mu.Lock()
 		b.hits++
 		count := b.hits
+		b.urlPaths = append(b.urlPaths, r.URL.Path)
 		if b.ReadNotify != nil {
 			close(b.ReadNotify)
 			b.ReadNotify = nil
@@ -230,6 +232,13 @@ func (b *MockBackend) AnthropicVersions() []string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return append([]string(nil), b.anthropicVersions...)
+}
+
+// URLPaths returns a deep copy of all observed request URL paths.
+func (b *MockBackend) URLPaths() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]string(nil), b.urlPaths...)
 }
 
 // Close shuts down the mock backend.
