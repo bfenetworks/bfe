@@ -127,11 +127,14 @@ func TestGslbBasicConfEPPCheckInvalid(t *testing.T) {
 }
 
 func TestGslbBasicConfEPPTLS(t *testing.T) {
-	t.Run("nil EPPTLS keeps legacy behavior", func(t *testing.T) {
-		// old cluster_conf.data without EPPTLS must still load
+	t.Run("nil EPPTLS defaults to Insecure=true", func(t *testing.T) {
+		// old cluster_conf.data without EPPTLS must still load, with the
+		// legacy behavior formalized as an explicit default
 		conf := eppGslbBasicConf([]string{"10.0.0.1:9002"})
 		require.NoError(t, GslbBasicConfCheck(conf))
-		assert.Nil(t, conf.EPPTLS)
+		require.NotNil(t, conf.EPPTLS)
+		assert.True(t, conf.EPPTLS.Insecure)
+		assert.False(t, conf.EPPTLS.Plaintext)
 	})
 
 	t.Run("insecure without CAFile is valid", func(t *testing.T) {
@@ -160,6 +163,25 @@ func TestGslbBasicConfEPPTLS(t *testing.T) {
 		conf := eppGslbBasicConf([]string{"10.0.0.1:9002"})
 		conf.EPPTLS = &EPPTLSConf{Insecure: false, CAFile: caFile}
 		require.NoError(t, GslbBasicConfCheck(conf))
+	})
+
+	t.Run("plaintext is valid", func(t *testing.T) {
+		conf := eppGslbBasicConf([]string{"10.0.0.1:9002"})
+		conf.EPPTLS = &EPPTLSConf{Plaintext: true}
+		require.NoError(t, GslbBasicConfCheck(conf))
+		assert.True(t, conf.EPPTLS.Plaintext)
+	})
+
+	t.Run("plaintext with Insecure rejected", func(t *testing.T) {
+		conf := eppGslbBasicConf([]string{"10.0.0.1:9002"})
+		conf.EPPTLS = &EPPTLSConf{Plaintext: true, Insecure: true}
+		assert.Error(t, GslbBasicConfCheck(conf))
+	})
+
+	t.Run("plaintext with CAFile rejected", func(t *testing.T) {
+		conf := eppGslbBasicConf([]string{"10.0.0.1:9002"})
+		conf.EPPTLS = &EPPTLSConf{Plaintext: true, CAFile: "/nonexistent/epp_ca.crt"}
+		assert.Error(t, GslbBasicConfCheck(conf))
 	})
 }
 
@@ -195,6 +217,32 @@ func TestGslbBasicConfEPPJsonRoundTrip(t *testing.T) {
 	assert.Equal(t, "200ms", *conf.EPPTimeout.Connect)
 	assert.Equal(t, "1s", *conf.EPPTimeout.Call)
 	assert.True(t, conf.EPPTLS.Insecure)
+}
+
+func TestGslbBasicConfEPPTLSPlaintextJsonRoundTrip(t *testing.T) {
+	data := []byte(`{
+		"BalanceMode": "EPP",
+		"EPPAddr": ["10.0.0.1:9002"],
+		"EPPTLS": {
+			"Plaintext": true
+		}
+	}`)
+
+	var conf GslbBasicConf
+	require.NoError(t, json.Unmarshal(data, &conf))
+	require.NoError(t, GslbBasicConfCheck(&conf))
+	require.NotNil(t, conf.EPPTLS)
+	assert.True(t, conf.EPPTLS.Plaintext)
+	assert.False(t, conf.EPPTLS.Insecure)
+
+	// the loaded conf marshals back with Plaintext preserved
+	raw, err := json.Marshal(conf.EPPTLS)
+	require.NoError(t, err)
+	assert.Contains(t, string(raw), `"Plaintext":true`)
+
+	var again EPPTLSConf
+	require.NoError(t, json.Unmarshal(raw, &again))
+	assert.True(t, again.Plaintext)
 }
 
 func TestGslbBasicConfNonEPPIgnoresEPPFields(t *testing.T) {

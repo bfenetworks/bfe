@@ -31,6 +31,7 @@ import (
 	pb "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/go-lib/web-monitor/metrics"
@@ -73,11 +74,19 @@ func BuildTLSConfig(insecureSkip bool, caFile string) (*tls.Config, error) {
 // NewGrpcConn dials a long-lived EPP data connection. The connection is lazy:
 // it is established on first use and multiplexes all streams of this address.
 // connectTimeout bounds the connect handshake (grpc.WithConnectParams).
-// Caller owns the returned conn and must Close it when done.
-func NewGrpcConn(addr string, connectTimeout time.Duration, insecureSkip bool, caFile string) (*grpc.ClientConn, error) {
-	tlsConf, err := BuildTLSConfig(insecureSkip, caFile)
-	if err != nil {
-		return nil, err
+// plaintext=true dials without TLS (EPP serves plaintext gRPC), in which case
+// insecureSkip/caFile are ignored. Caller owns the returned conn and must
+// Close it when done.
+func NewGrpcConn(addr string, connectTimeout time.Duration, insecureSkip bool, caFile string, plaintext bool) (*grpc.ClientConn, error) {
+	var creds credentials.TransportCredentials
+	if plaintext {
+		creds = insecure.NewCredentials()
+	} else {
+		tlsConf, err := BuildTLSConfig(insecureSkip, caFile)
+		if err != nil {
+			return nil, err
+		}
+		creds = credentials.NewTLS(tlsConf)
 	}
 
 	params := grpc.ConnectParams{
@@ -88,7 +97,7 @@ func NewGrpcConn(addr string, connectTimeout time.Duration, insecureSkip bool, c
 	}
 
 	return grpc.DialContext(context.Background(), addr,
-		grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)),
+		grpc.WithTransportCredentials(creds),
 		grpc.WithConnectParams(params),
 	)
 }
