@@ -324,6 +324,7 @@
         "MatchPrefix": "",
         "StripPrefix": false,
         "ModelProtocols": ["openai"],
+        "ProtocolPaths": {},
         "Keys": [ /* AIConf.Keys 元素 */ ],
         "KeyPolicy": { /* AIConf.KeyPolicy 元素 */ },
         "ModelMapping": {},
@@ -341,8 +342,26 @@
 | ModelMapping | map[string]string | N | 原请求 model -> 后端服务 model 的映射；命中则重写请求 model | 键值均非空 |
 | MatchPrefix | string | N | 需要匹配的 provider/model 前缀；用于 OpenRouter 等聚合 provider 场景 | `StripPrefix=true` 时必填；须以 `/` 结尾 |
 | StripPrefix | boolean | N | 是否裁剪 `MatchPrefix` 指定前缀；默认 `false` | - |
-| ModelProtocols | []string | N | 该集群 provider 支持的模型访问协议列表；为空时默认仅支持 `openai` | 元素取值须为 `openai` 或 `anthropic` |
+| ModelProtocols | []string | N | 该集群 provider 支持的模型访问协议列表；为空时默认仅支持 `openai` | 元素取值须为 `openai`、`anthropic` 或 `gemini` |
+| ProtocolPaths | map[string]string | N | 按协议改写上游路径：协议 -> 上游 base path（该协议 SDK base_url 的 path 部分），详见下文说明 | 键取值须为 `openai` 或 `anthropic`；值须以 `/` 开头、不以 `/` 结尾、不含 `..`/`?`/`#`、长度 ≤ 128 |
 | ModelTable | object | N | 该集群的模型定价表；当前货币固定为 `RMB` | 元素见 [9.3 AIConf.ModelTable 元素](#93-aiconfmodeltable-元素) |
+
+`ProtocolPaths` 的语义与改写规则：
+
+- 配置值 = 该协议官方 SDK `base_url` 的 path 部分：`openai` 含 `/v1` 尾（如 `/compatible-mode/v1`、`/api/v3`、`/coding/v1`）；`anthropic` 不含 `/v1`（Anthropic SDK 自行拼接 `/v1/messages`，如 `/apps/anthropic`、`/coding`、`/anthropic`）。
+- 仅对标准入口路径生效（`/v1` 或 `/v1/...`）：anthropic 请求 `/v1/messages` 被改写为 `{base}/v1/messages`；openai 请求 `/v1/chat/completions` 被改写为 `{base}/chat/completions`。
+- 未配置 `ProtocolPaths`（或对应协议无条目）时请求路径原样转发；非标准入口路径（provider 原生路径、`/v10/xxx`、`/v1beta/...` 等）永不改写，客户端以 provider 原生路径访问的透传模式不受影响。
+
+常见 provider 的 `ProtocolPaths` 参考值：
+
+| provider | ProtocolPaths |
+|----------|---------------|
+| 百炼 DashScope | `{"openai": "/compatible-mode/v1", "anthropic": "/apps/anthropic"}` |
+| Kimi 开放平台（api.moonshot.cn） | `{"openai": "/v1", "anthropic": "/anthropic"}` |
+| Kimi Code 会员（api.kimi.com） | `{"openai": "/coding/v1", "anthropic": "/coding"}` |
+| DeepSeek | `{"openai": "/v1", "anthropic": "/anthropic"}` |
+| 火山方舟·按量 | `{"openai": "/api/v3", "anthropic": "/api/compatible"}` |
+| 火山方舟·Coding Plan | `{"openai": "/api/coding/v3", "anthropic": "/api/coding"}` |
 
 ### 9.1 AIConf.Keys 元素
 

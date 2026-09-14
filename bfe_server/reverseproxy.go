@@ -1534,6 +1534,13 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 	*outreq = *req // includes shallow copies of maps, but okay
 	basicReq.OutRequest = outreq
 
+	// Rewrite upstream path per provider protocol config (AIConf.ProtocolPaths):
+	// standard /v1/... entry paths are mapped to the provider-specific base path
+	// of the detected protocol. The rewrite goes to a private URL copy, so the
+	// inbound request path stays original and every cluster attempt (including
+	// route-level fallback) recomputes from it.
+	applyAIProtocolPathRewrite(outreq, aiMeta.AuthStyle, cluster.AIConf)
+
 	// set http proto for out request
 	httpProtoSet(outreq)
 	// remove hop-by-hop headers

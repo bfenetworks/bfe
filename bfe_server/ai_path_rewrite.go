@@ -1,0 +1,76 @@
+// Copyright (c) 2026 The BFE Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package bfe_server
+
+import (
+	"strings"
+
+	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
+	"github.com/bfenetworks/bfe/bfe_http"
+)
+
+// rewriteUpstreamPath computes the upstream request path from the client
+// request path, the request protocol (AuthStyle) and the cluster AIConf.
+//
+// ProtocolPaths semantics: the configured base path is the path part of the
+// protocol's official SDK base_url:
+//   - openai: base ends with /v1 (e.g. /compatible-mode/v1, /api/v3,
+//     /coding/v1); the OpenAI SDK appends /chat/completions to base_url.
+//   - anthropic: base has no /v1 (e.g. /apps/anthropic, /coding); the
+//     Anthropic SDK appends /v1/messages to base_url.
+//
+// Only standard entry paths ("/v1" or "/v1/...") are rewritten; anything
+// else is forwarded unchanged (transparent passthrough).
+func rewriteUpstreamPath(reqPath string, authStyle string, aiConf *cluster_conf.AIConf) string {
+	if aiConf == nil {
+		return reqPath
+	}
+	base, ok := aiConf.ProtocolPaths[authStyle]
+	if !ok || !isStandardV1Prefix(reqPath) {
+		return reqPath
+	}
+	if authStyle == bfe_basic.AuthStyleAnthropic {
+		return base + reqPath
+	}
+	return base + reqPath[len("/v1"):]
+}
+
+// isStandardV1Prefix reports whether reqPath is exactly "/v1" or starts
+// with "/v1/". Paths like "/v10/xxx" do not match.
+func isStandardV1Prefix(reqPath string) bool {
+	return reqPath == "/v1" || strings.HasPrefix(reqPath, "/v1/")
+}
+
+// applyAIProtocolPathRewrite rewrites outreq.URL.Path according to the
+// per-protocol upstream base paths configured on the cluster (see
+// rewriteUpstreamPath). The rewrite result is written into a private copy of
+// the URL: the inbound request URL is never modified, so every cluster
+// attempt (including route-level fallback) recomputes the upstream path from
+// the original client path. Requests without a configured rewrite keep the
+// original (shared) URL pointer and behave exactly as before.
+func applyAIProtocolPathRewrite(outreq *bfe_http.Request, authStyle string, aiConf *cluster_conf.AIConf) {
+	if outreq == nil || outreq.URL == nil {
+		return
+	}
+	newPath := rewriteUpstreamPath(outreq.URL.Path, authStyle, aiConf)
+	if newPath == outreq.URL.Path {
+		return
+	}
+	u := *outreq.URL
+	u.Path = newPath
+	u.RawPath = ""
+	outreq.URL = &u
+}
