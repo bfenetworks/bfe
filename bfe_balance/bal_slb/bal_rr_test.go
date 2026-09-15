@@ -19,9 +19,7 @@ import (
 	"math/rand"
 	"reflect"
 	"testing"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
 	"github.com/bfenetworks/bfe/bfe_util/json"
@@ -131,7 +129,7 @@ func processBalancLoopTwenty(t *testing.T, label string, algor int, key []byte, 
 
 func processSimpleBalance(t *testing.T, label string, algor int, key []byte, rr *BalanceRR, result []string) {
 	var l []string
-	loopCount := (300+200+100)+4
+	loopCount := (300 + 200 + 100) + 4
 
 	for i := 1; i < loopCount; i++ {
 		r, err := rr.Balance(algor, key)
@@ -156,7 +154,7 @@ func processSimpleBalance(t *testing.T, label string, algor int, key []byte, rr 
 
 func processSimpleBalance3(t *testing.T, label string, algor int, key []byte, rr *BalanceRR, result []string) {
 	var l []string
-	loopCount := (200+100)*3+4
+	loopCount := (200+100)*3 + 4
 
 	for i := 1; i < loopCount; i++ {
 		r, err := rr.Balance(algor, key)
@@ -218,18 +216,18 @@ func TestBalance(t *testing.T) {
 	rr.backends[0].backend.SetAvail(false)
 	// after scale up 100, the hash result changed
 	expectResult = []string{"b3", "b3", "b3", "b3", "b3", "b3", "b3", "b3", "b3"}
-//	expectResult = []string{"b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2"}
+	//	expectResult = []string{"b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2", "b2"}
 	processBalance(t, "case 6", WrrSticky, []byte{1}, rr, expectResult)
 
 	// case 7, lcw balance
 	rr = prepareBalanceRR()
-	expectResult = []string{"b1", "b2", "b3", "b1", "b2", "b1", "b3", "b1", "b2"}
+	expectResult = []string{"b1", "b2", "b3", "b1", "b2", "b1", "b2", "b3", "b1"}
 	processBalance(t, "case 7", WlcSmooth, []byte{1}, rr, expectResult)
 
 	// case 8, lcw balance same weight
 	rr = prepareBalanceRRLcw()
-	expectResult = []string{"b1", "b2", "b3", "b4", "b1", "b2", "b1", "b1", "b2", "b3", "b1", "b2", "b1",
-		"b1", "b2", "b3", "b4", "b1", "b2"}
+	expectResult = []string{"b1", "b2", "b3", "b4", "b1", "b2", "b1", "b2", "b3", "b1", "b1",
+		"b2", "b1", "b1", "b4", "b2", "b3", "b1", "b2"}
 	processBalancLoopTwenty(t, "case 8", WlcSmooth, []byte{1}, rr, expectResult)
 }
 
@@ -362,4 +360,178 @@ func TestSlowStart(t *testing.T) {
 	// case 1
 	rr := prepareBalanceRR()
 	rr.SetSlowStart(30)
+}
+
+func prepareBackendRR(name string, port int, weight int, connNum int, avail bool) *BackendRR {
+	b := populateBackend(name, "127.0.0.1", port, avail)
+	for i := 0; i < connNum; i++ {
+		b.IncConnNum()
+	}
+	return &BackendRR{
+		weight:  weight,
+		current: weight,
+		backend: b,
+	}
+}
+
+func candidateNames(backs BackendList) []string {
+	names := make([]string, 0, len(backs))
+	for _, b := range backs {
+		names = append(names, b.backend.Name)
+	}
+	return names
+}
+
+func TestLeastConnsBalance(t *testing.T) {
+	// case 1: all backends have equal connNum/weight, return all candidates
+	candidates, err := leastConnsBalance(BackendList{
+		prepareBackendRR("b1", 80, 100, 0, true),
+		prepareBackendRR("b2", 81, 100, 0, true),
+		prepareBackendRR("b3", 82, 100, 0, true),
+	})
+	if err != nil {
+		t.Errorf("case 1 should not error, got %v", err)
+	}
+	if !reflect.DeepEqual(candidateNames(candidates), []string{"b1", "b2", "b3"}) {
+		t.Errorf("case 1 wrong candidates, expect [b1 b2 b3], got %v", candidateNames(candidates))
+	}
+
+	// case 2: single backend with min connNum/weight
+	candidates, err = leastConnsBalance(BackendList{
+		prepareBackendRR("b1", 80, 100, 0, true),
+		prepareBackendRR("b2", 81, 100, 1, true),
+		prepareBackendRR("b3", 82, 100, 2, true),
+	})
+	if err != nil {
+		t.Errorf("case 2 should not error, got %v", err)
+	}
+	if !reflect.DeepEqual(candidateNames(candidates), []string{"b1"}) {
+		t.Errorf("case 2 wrong candidates, expect [b1], got %v", candidateNames(candidates))
+	}
+
+	// case 3: new best found in the middle of loop
+	candidates, err = leastConnsBalance(BackendList{
+		prepareBackendRR("b1", 80, 100, 5, true),
+		prepareBackendRR("b2", 81, 100, 3, true),
+		prepareBackendRR("b3", 82, 100, 1, true),
+	})
+	if err != nil {
+		t.Errorf("case 3 should not error, got %v", err)
+	}
+	if !reflect.DeepEqual(candidateNames(candidates), []string{"b3"}) {
+		t.Errorf("case 3 wrong candidates, expect [b3], got %v", candidateNames(candidates))
+	}
+
+	// case 4: skip ineligible backends (weight <= 0, avail false)
+	candidates, err = leastConnsBalance(BackendList{
+		prepareBackendRR("b1", 80, 100, 0, true),
+		prepareBackendRR("b2", 81, 0, 0, true),
+		prepareBackendRR("b3", 82, 100, 0, false),
+	})
+	if err != nil {
+		t.Errorf("case 4 should not error, got %v", err)
+	}
+	if !reflect.DeepEqual(candidateNames(candidates), []string{"b1"}) {
+		t.Errorf("case 4 wrong candidates, expect [b1], got %v", candidateNames(candidates))
+	}
+
+	// case 5: all backends ineligible, return error
+	candidates, err = leastConnsBalance(BackendList{
+		prepareBackendRR("b1", 80, 100, 0, false),
+		prepareBackendRR("b2", 81, 0, 0, true),
+	})
+	if err == nil {
+		t.Errorf("case 5 should error, got candidates %v", candidateNames(candidates))
+	}
+
+	// case 6: equal ratio with different weight
+	candidates, err = leastConnsBalance(BackendList{
+		prepareBackendRR("b1", 80, 100, 1, true),
+		prepareBackendRR("b2", 81, 200, 2, true),
+		prepareBackendRR("b3", 82, 100, 3, true),
+	})
+	if err != nil {
+		t.Errorf("case 6 should not error, got %v", err)
+	}
+	if !reflect.DeepEqual(candidateNames(candidates), []string{"b1", "b2"}) {
+		t.Errorf("case 6 wrong candidates, expect [b1 b2], got %v", candidateNames(candidates))
+	}
+
+	// case 7: equal ratio discovered after new best
+	candidates, err = leastConnsBalance(BackendList{
+		prepareBackendRR("b1", 80, 100, 5, true),
+		prepareBackendRR("b2", 81, 100, 1, true),
+		prepareBackendRR("b3", 82, 200, 2, true),
+	})
+	if err != nil {
+		t.Errorf("case 7 should not error, got %v", err)
+	}
+	if !reflect.DeepEqual(candidateNames(candidates), []string{"b2", "b3"}) {
+		t.Errorf("case 7 wrong candidates, expect [b2 b3], got %v", candidateNames(candidates))
+	}
+
+	// case 8: all weight equal to 1, equal connNum, return all candidates
+	candidates, err = leastConnsBalance(BackendList{
+		prepareBackendRR("b1", 80, 1, 0, true),
+		prepareBackendRR("b2", 81, 1, 0, true),
+		prepareBackendRR("b3", 82, 1, 0, true),
+	})
+	if err != nil {
+		t.Errorf("case 8 should not error, got %v", err)
+	}
+	if !reflect.DeepEqual(candidateNames(candidates), []string{"b1", "b2", "b3"}) {
+		t.Errorf("case 8 wrong candidates, expect [b1 b2 b3], got %v", candidateNames(candidates))
+	}
+
+	// case 9: all weight equal to 1, min connNum is first backend
+	candidates, err = leastConnsBalance(BackendList{
+		prepareBackendRR("b1", 80, 1, 0, true),
+		prepareBackendRR("b2", 81, 1, 1, true),
+		prepareBackendRR("b3", 82, 1, 2, true),
+	})
+	if err != nil {
+		t.Errorf("case 9 should not error, got %v", err)
+	}
+	if !reflect.DeepEqual(candidateNames(candidates), []string{"b1"}) {
+		t.Errorf("case 9 wrong candidates, expect [b1], got %v", candidateNames(candidates))
+	}
+
+	// case 10: all weight equal to 1, tie at min connNum
+	candidates, err = leastConnsBalance(BackendList{
+		prepareBackendRR("b1", 80, 1, 2, true),
+		prepareBackendRR("b2", 81, 1, 1, true),
+		prepareBackendRR("b3", 82, 1, 1, true),
+	})
+	if err != nil {
+		t.Errorf("case 10 should not error, got %v", err)
+	}
+	if !reflect.DeepEqual(candidateNames(candidates), []string{"b2", "b3"}) {
+		t.Errorf("case 10 wrong candidates, expect [b2 b3], got %v", candidateNames(candidates))
+	}
+
+	// case 11: all weight equal to 1, skip ineligible backend
+	candidates, err = leastConnsBalance(BackendList{
+		prepareBackendRR("b1", 80, 1, 0, false),
+		prepareBackendRR("b2", 81, 1, 0, true),
+		prepareBackendRR("b3", 82, 1, 1, true),
+	})
+	if err != nil {
+		t.Errorf("case 11 should not error, got %v", err)
+	}
+	if !reflect.DeepEqual(candidateNames(candidates), []string{"b2"}) {
+		t.Errorf("case 11 wrong candidates, expect [b2], got %v", candidateNames(candidates))
+	}
+
+	// case 12: all weight equal to 1, min connNum discovered in the middle of loop
+	candidates, err = leastConnsBalance(BackendList{
+		prepareBackendRR("b1", 80, 1, 3, true),
+		prepareBackendRR("b2", 81, 1, 1, true),
+		prepareBackendRR("b3", 82, 1, 2, true),
+	})
+	if err != nil {
+		t.Errorf("case 12 should not error, got %v", err)
+	}
+	if !reflect.DeepEqual(candidateNames(candidates), []string{"b2"}) {
+		t.Errorf("case 12 wrong candidates, expect [b2], got %v", candidateNames(candidates))
+	}
 }
