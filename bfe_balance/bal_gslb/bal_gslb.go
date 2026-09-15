@@ -159,14 +159,11 @@ func buildEPPRuntimeConf(gslbBasic cluster_conf.GslbBasicConf) eppRuntimeConf {
 		conf.callTimeout = gslbBasic.EPPTimeout.CallDuration()
 	}
 
-	// Compat: nil EPPTLS keeps legacy behavior (skip certificate verification).
-	// Only an explicitly configured EPPTLS enables verification.
-	if gslbBasic.EPPTLS != nil {
-		conf.tlsInsecure = gslbBasic.EPPTLS.Insecure
-		conf.tlsCAFile = gslbBasic.EPPTLS.CAFile
-	} else {
-		conf.tlsInsecure = true
-	}
+	// EPPTLS is guaranteed non-nil here: GslbBasicConfCheck fills the
+	// default (Insecure=true) when EPPTLS is absent from the conf file.
+	conf.tlsInsecure = gslbBasic.EPPTLS.Insecure
+	conf.tlsCAFile = gslbBasic.EPPTLS.CAFile
+	conf.plaintext = gslbBasic.EPPTLS.Plaintext
 
 	return conf
 }

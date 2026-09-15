@@ -17,6 +17,7 @@ package epp
 import (
 	"context"
 	"io"
+	"net"
 	"testing"
 	"time"
 
@@ -25,6 +26,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	grpc_health_v1 "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/bfenetworks/go-lib/web-monitor/metrics"
@@ -255,8 +258,35 @@ func TestBuildTLSConfig(t *testing.T) {
 func TestNewGrpcConnLazyDial(t *testing.T) {
 	// lazy dial: unreachable address returns a conn without blocking;
 	// failure surfaces on first use (covered by bal_gslb tests)
-	conn, err := NewGrpcConn("127.0.0.1:1", 100*time.Millisecond, true, "")
+	conn, err := NewGrpcConn("127.0.0.1:1", 100*time.Millisecond, true, "", false)
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 	conn.Close()
+}
+
+func TestNewGrpcConnPlaintext(t *testing.T) {
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	// plaintext gRPC server (no creds), like ai-gateway-epp without TLS flags
+	srv := grpc.NewServer()
+	hs := health.NewServer()
+	hs.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	grpc_health_v1.RegisterHealthServer(srv, hs)
+	go srv.Serve(lis)
+	defer srv.Stop()
+	defer lis.Close()
+
+	// lazy dial succeeds without blocking; plaintext ignores TLS params
+	conn, err := NewGrpcConn(lis.Addr().String(), 500*time.Millisecond, false, "", true)
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	defer conn.Close()
+
+	// the connection is established on first use: a simple call succeeds
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	resp, err := grpc_health_v1.NewHealthClient(conn).Check(ctx, &grpc_health_v1.HealthCheckRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, grpc_health_v1.HealthCheckResponse_SERVING, resp.GetStatus())
 }

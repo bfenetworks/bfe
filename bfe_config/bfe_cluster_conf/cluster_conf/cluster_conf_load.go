@@ -436,8 +436,9 @@ func (c *EPPTimeoutConf) CallDuration() time.Duration {
 // EPPTLSConf is transport security conf for EPP connections,
 // only effective when BalanceMode is EPP.
 type EPPTLSConf struct {
-	Insecure bool   // true = skip certificate verification (testing only)
-	CAFile   string // CA certificate file for verifying EPP server, required if Insecure is false
+	Insecure  bool   // true = skip certificate verification (testing only)
+	CAFile    string // CA certificate file for verifying EPP server, required if Insecure is false
+	Plaintext bool   // dial EPP without TLS (EPP serves plaintext gRPC; mutually exclusive with Insecure/CAFile)
 }
 
 // EPPBreakerConf is circuit breaker conf of the EPP path, only effective
@@ -858,6 +859,12 @@ func GslbBasicConfCheck(conf *GslbBasicConf) error {
 		if err := EPPBreakerConfCheck(conf.EPPBreaker); err != nil {
 			return err
 		}
+		if conf.EPPTLS == nil {
+			// Formalize the legacy default: a missing EPPTLS means TLS with
+			// skipped certificate verification, same as {Insecure: true}.
+			conf.EPPTLS = &EPPTLSConf{Insecure: true}
+			log.Logger.Warn("EPPTLS not configured, default to Insecure=true (skip certificate verification), please configure EPPTLS explicitly")
+		}
 		if err := EPPTLSConfCheck(conf.EPPTLS); err != nil {
 			return err
 		}
@@ -1011,22 +1018,21 @@ func EPPBreakerConfCheck(conf *EPPBreakerConf) error {
 	return nil
 }
 
-// EPPTLSConfCheck checks EPPTLSConf.
+// EPPTLSConfCheck checks EPPTLSConf. A nil conf is valid here:
+// GslbBasicConfCheck fills the default (Insecure=true) before calling it.
 func EPPTLSConfCheck(conf *EPPTLSConf) error {
 	if conf == nil {
-		// Compat: existing deployments upgraded to this version do not configure
-		// EPPTLS at all. Rejecting them at load time would break rolling upgrades,
-		// so a nil EPPTLS keeps the legacy behavior (skip certificate verification)
-		// and only logs a warning to prompt migration. Certificate verification is
-		// enabled only when EPPTLS is explicitly configured.
-		log.Logger.Warn("EPPTLS not configured, EPP connections skip certificate verification (legacy behavior), please configure EPPTLS")
 		return nil
 	}
 
-	if !conf.Insecure && conf.CAFile == "" {
+	if conf.Plaintext && (conf.Insecure || conf.CAFile != "") {
+		return errors.New("EPPTLS.Plaintext is mutually exclusive with Insecure/CAFile")
+	}
+
+	if !conf.Plaintext && !conf.Insecure && conf.CAFile == "" {
 		return errors.New("EPPTLS.CAFile is required when Insecure is false")
 	}
-	if !conf.Insecure {
+	if !conf.Plaintext && !conf.Insecure {
 		if _, err := os.Stat(conf.CAFile); err != nil {
 			return fmt.Errorf("EPPTLS.CAFile %q is not readable: %v", conf.CAFile, err)
 		}

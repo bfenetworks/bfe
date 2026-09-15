@@ -126,6 +126,52 @@ func TestEPPConnReuse(t *testing.T) {
 	assert.Equal(t, calls, rpcs, "one stream per request")
 }
 
+// startPlaintextStatsServer starts a plaintext EPP test server with
+// connection/stream stats. Health check is not registered: tests using this
+// server disable probes.
+func startPlaintextStatsServer(t *testing.T) (*statsServer, *connStatsHandler) {
+	t.Helper()
+
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	h := &connStatsHandler{}
+	srv := grpc.NewServer(grpc.StatsHandler(h))
+	proc := &fakeExtProc{md: decisionMD("127.0.0.1:9999")}
+	extprocv3.RegisterExternalProcessorServer(srv, proc)
+
+	ts := &statsServer{addr: lis.Addr().String(), proc: proc, grpc: srv, stats: h}
+	go srv.Serve(lis)
+	t.Cleanup(func() {
+		srv.Stop()
+		lis.Close()
+	})
+	return ts, h
+}
+
+func TestEPPConnReusePlaintext(t *testing.T) {
+	server, h := startPlaintextStatsServer(t)
+
+	// health check disabled: only the data connection may exist
+	conf := makeEPPGslbBasicConf(t, []string{server.addr}, func(c *cluster_conf.GslbBasicConf) {
+		c.EPPCheck = &cluster_conf.EPPCheckConf{Disabled: true}
+		c.EPPTLS = &cluster_conf.EPPTLSConf{Plaintext: true}
+	})
+	bal := makeTestBal(t, conf)
+
+	// multiple BalanceEpp calls over plaintext: 1 connection, N streams
+	const calls = 5
+	for i := 0; i < calls; i++ {
+		bk, err := bal.BalanceEpp(prepareEPPRequest())
+		require.NoError(t, err)
+		require.NotNil(t, bk)
+	}
+
+	conns, rpcs := h.counts()
+	assert.Equal(t, 1, conns, "all streams should share one plaintext connection")
+	assert.Equal(t, calls, rpcs, "one stream per request")
+}
+
 func TestEPPConnCloseOnAddrSwitch(t *testing.T) {
 	// shorten retire grace so the old connection closes quickly
 	oldGrace := eppRetireGrace
