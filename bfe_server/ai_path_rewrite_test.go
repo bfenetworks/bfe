@@ -85,6 +85,35 @@ func TestRewriteUpstreamPath(t *testing.T) {
 			&cluster_conf.AIConf{ProtocolPaths: map[string]string{"anthropic": "/apps/anthropic"}}, "/messages"},
 		{"empty path passthrough", "", bfe_basic.AuthStyleOpenAI,
 			&cluster_conf.AIConf{ProtocolPaths: map[string]string{"openai": "/api/v3"}}, ""},
+		// issue #1379: openai base path applies with or without the /v1 client prefix
+		{"issue1379 no-v1 chat completions", "/chat/completions", bfe_basic.AuthStyleOpenAI,
+			&cluster_conf.AIConf{ProtocolPaths: map[string]string{"openai": "/compatible-mode/v1"}},
+			"/compatible-mode/v1/chat/completions"},
+		{"issue1379 no-v1 entry passthrough without config", "/chat/completions", bfe_basic.AuthStyleOpenAI,
+			&cluster_conf.AIConf{}, "/chat/completions"},
+		{"issue1379 v1 entry passthrough without config", "/v1/chat/completions", bfe_basic.AuthStyleOpenAI,
+			&cluster_conf.AIConf{}, "/v1/chat/completions"},
+		// openai endpoints without the /v1 prefix
+		{"no-v1 completions", "/completions", bfe_basic.AuthStyleOpenAI,
+			&cluster_conf.AIConf{ProtocolPaths: map[string]string{"openai": "/api/v3"}}, "/api/v3/completions"},
+		{"no-v1 embeddings", "/embeddings", bfe_basic.AuthStyleOpenAI,
+			&cluster_conf.AIConf{ProtocolPaths: map[string]string{"openai": "/api/v3"}}, "/api/v3/embeddings"},
+		{"no-v1 responses", "/responses", bfe_basic.AuthStyleOpenAI,
+			&cluster_conf.AIConf{ProtocolPaths: map[string]string{"openai": "/api/v3"}}, "/api/v3/responses"},
+		{"no-v1 model list", "/models", bfe_basic.AuthStyleOpenAI,
+			&cluster_conf.AIConf{ProtocolPaths: map[string]string{"openai": "/api/v3"}}, "/api/v3/models"},
+		{"no-v1 model item", "/models/gpt-4", bfe_basic.AuthStyleOpenAI,
+			&cluster_conf.AIConf{ProtocolPaths: map[string]string{"openai": "/api/v3"}}, "/api/v3/models/gpt-4"},
+		// passthrough protection: a configured base must not rewrite non-endpoint paths
+		{"provider-native full path passthrough", "/compatible-mode/v1/chat/completions", bfe_basic.AuthStyleOpenAI,
+			&cluster_conf.AIConf{ProtocolPaths: map[string]string{"openai": "/compatible-mode/v1"}},
+			"/compatible-mode/v1/chat/completions"},
+		{"custom path passthrough", "/custom/path", bfe_basic.AuthStyleOpenAI,
+			&cluster_conf.AIConf{ProtocolPaths: map[string]string{"openai": "/api/v3"}}, "/custom/path"},
+		{"messages path not openai endpoint", "/messages", bfe_basic.AuthStyleOpenAI,
+			&cluster_conf.AIConf{ProtocolPaths: map[string]string{"openai": "/api/v3"}}, "/messages"},
+		{"exact /v1 slash openai", "/v1/", bfe_basic.AuthStyleOpenAI,
+			&cluster_conf.AIConf{ProtocolPaths: map[string]string{"openai": "/api/v3"}}, "/api/v3"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -111,6 +140,58 @@ func TestIsStandardV1Prefix(t *testing.T) {
 	for path, want := range cases {
 		if got := isStandardV1Prefix(path); got != want {
 			t.Errorf("isStandardV1Prefix(%q) = %v, want %v", path, got, want)
+		}
+	}
+}
+
+func TestStripV1Prefix(t *testing.T) {
+	// note: the exact "/v1" and "/v1/" paths are handled by
+	// rewriteUpstreamPath itself (base-path identity); stripV1Prefix only
+	// strips the "/v1/" prefix form.
+	cases := map[string]string{
+		"/v1/":                                 "/",
+		"/v1/chat/completions":                 "/chat/completions",
+		"/v1":                                  "/v1",
+		"/chat/completions":                    "/chat/completions",
+		"/v10/xxx":                             "/v10/xxx",
+		"/v1beta/x":                            "/v1beta/x",
+		"/compatible-mode/v1/chat/completions": "/compatible-mode/v1/chat/completions",
+		"":                                     "",
+	}
+	for path, want := range cases {
+		if got := stripV1Prefix(path); got != want {
+			t.Errorf("stripV1Prefix(%q) = %q, want %q", path, got, want)
+		}
+	}
+}
+
+func TestIsOpenAIEndpoint(t *testing.T) {
+	cases := map[string]bool{
+		"/chat/completions":   true,
+		"/chat/completions/":  true,
+		"/completions":        true,
+		"/embeddings":         true,
+		"/models":             true,
+		"/models/gpt-4":       true,
+		"/responses":          true,
+		"/rerank":             true,
+		"/audio/speech":       true,
+		"/video/generations":  true,
+		"/images/generations": true,
+		"/moderations":        true,
+		// not endpoints
+		"":                                     false,
+		"/":                                    false,
+		"/messages":                            false,
+		"/v1/chat/completions":                 false,
+		"/compatible-mode/v1/chat/completions": false,
+		"/modelsxyz":                           false,
+		"/chat/completionsxyz":                 false,
+		"/custom/path":                         false,
+	}
+	for path, want := range cases {
+		if got := isOpenAIEndpoint(path); got != want {
+			t.Errorf("isOpenAIEndpoint(%q) = %v, want %v", path, got, want)
 		}
 	}
 }

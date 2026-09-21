@@ -28,24 +28,84 @@ import (
 // ProtocolPaths semantics: the configured base path is the path part of the
 // protocol's official SDK base_url:
 //   - openai: base ends with /v1 (e.g. /compatible-mode/v1, /api/v3,
-//     /coding/v1); the OpenAI SDK appends /chat/completions to base_url.
+//     /coding/v1); the OpenAI SDK appends /chat/completions to base_url, so
+//     the client entry may or may not carry the /v1 version prefix. The
+//     rewrite strips an optional leading /v1 and applies the base path to
+//     recognized OpenAI API endpoints only (see openAIEndpoints); any other
+//     path is forwarded unchanged (transparent passthrough).
 //   - anthropic: base has no /v1 (e.g. /apps/anthropic, /coding); the
-//     Anthropic SDK appends /v1/messages to base_url.
-//
-// Only standard entry paths ("/v1" or "/v1/...") are rewritten; anything
-// else is forwarded unchanged (transparent passthrough).
+//     Anthropic SDK appends /v1/messages to base_url. Only standard entry
+//     paths ("/v1" or "/v1/...") are rewritten.
 func rewriteUpstreamPath(reqPath string, authStyle string, aiConf *cluster_conf.AIConf) string {
 	if aiConf == nil {
 		return reqPath
 	}
 	base, ok := aiConf.ProtocolPaths[authStyle]
-	if !ok || !isStandardV1Prefix(reqPath) {
+	if !ok {
 		return reqPath
 	}
 	if authStyle == bfe_basic.AuthStyleAnthropic {
+		if !isStandardV1Prefix(reqPath) {
+			return reqPath
+		}
 		return base + reqPath
 	}
-	return base + reqPath[len("/v1"):]
+	// openai: base is the upstream API base path. Whether the client entry
+	// carries the /v1 version prefix must not change the final upstream path:
+	//   /v1/chat/completions -> base + /chat/completions
+	//   /chat/completions    -> base + /chat/completions
+	if reqPath == "/v1" || reqPath == "/v1/" {
+		return base
+	}
+	rest := stripV1Prefix(reqPath)
+	if !isOpenAIEndpoint(rest) {
+		return reqPath
+	}
+	return base + rest
+}
+
+// stripV1Prefix strips a leading "/v1" version prefix: "/v1/chat/completions"
+// -> "/chat/completions"; "/chat/completions" is returned unchanged;
+// "/v10/xxx" does not match (no "/v1/" prefix) and is returned unchanged.
+func stripV1Prefix(reqPath string) string {
+	if strings.HasPrefix(reqPath, "/v1/") {
+		return reqPath[len("/v1"):]
+	}
+	return reqPath
+}
+
+// openAIEndpoints lists the OpenAI API endpoints recognized for the base-path
+// rewrite, aligned with the mode endpoints of DetectModeFromPath plus the
+// read-only endpoints it does not cover. The rewrite applies to these
+// endpoints only, so provider-native full paths (e.g. a client already
+// calling /compatible-mode/v1/chat/completions) and custom passthrough paths
+// are never double-prefixed.
+var openAIEndpoints = []string{
+	"/audio/speech",
+	"/audio/transcriptions",
+	"/audio/translations",
+	"/chat/completions",
+	"/completions",
+	"/embeddings",
+	"/images/edits",
+	"/images/generations",
+	"/models",
+	"/moderations",
+	"/responses",
+	"/rerank",
+	"/video/generations",
+}
+
+// isOpenAIEndpoint reports whether path (already stripped of an optional
+// /v1 prefix) is a recognized OpenAI API endpoint: either exactly an endpoint
+// or an endpoint followed by a subpath (e.g. /models/{model}).
+func isOpenAIEndpoint(path string) bool {
+	for _, ep := range openAIEndpoints {
+		if path == ep || strings.HasPrefix(path, ep+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // isStandardV1Prefix reports whether reqPath is exactly "/v1" or starts
