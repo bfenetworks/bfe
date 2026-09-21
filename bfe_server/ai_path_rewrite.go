@@ -54,58 +54,17 @@ func rewriteUpstreamPath(reqPath string, authStyle string, aiConf *cluster_conf.
 	// carries the /v1 version prefix must not change the final upstream path:
 	//   /v1/chat/completions -> base + /chat/completions
 	//   /chat/completions    -> base + /chat/completions
+	// Endpoint recognition is shared with DetectModeFromPath
+	// (bfe_basic.IsOpenAIEndpoint) so rewrite eligibility and billing mode
+	// can never disagree on what an OpenAI endpoint is.
 	if reqPath == "/v1" || reqPath == "/v1/" {
 		return base
 	}
-	rest := stripV1Prefix(reqPath)
-	if !isOpenAIEndpoint(rest) {
+	rest := bfe_basic.StripV1Prefix(reqPath)
+	if !bfe_basic.IsOpenAIEndpoint(rest) {
 		return reqPath
 	}
 	return base + rest
-}
-
-// stripV1Prefix strips a leading "/v1" version prefix: "/v1/chat/completions"
-// -> "/chat/completions"; "/chat/completions" is returned unchanged;
-// "/v10/xxx" does not match (no "/v1/" prefix) and is returned unchanged.
-func stripV1Prefix(reqPath string) string {
-	if strings.HasPrefix(reqPath, "/v1/") {
-		return reqPath[len("/v1"):]
-	}
-	return reqPath
-}
-
-// openAIEndpoints lists the OpenAI API endpoints recognized for the base-path
-// rewrite, aligned with the mode endpoints of DetectModeFromPath plus the
-// read-only endpoints it does not cover. The rewrite applies to these
-// endpoints only, so provider-native full paths (e.g. a client already
-// calling /compatible-mode/v1/chat/completions) and custom passthrough paths
-// are never double-prefixed.
-var openAIEndpoints = []string{
-	"/audio/speech",
-	"/audio/transcriptions",
-	"/audio/translations",
-	"/chat/completions",
-	"/completions",
-	"/embeddings",
-	"/images/edits",
-	"/images/generations",
-	"/models",
-	"/moderations",
-	"/responses",
-	"/rerank",
-	"/video/generations",
-}
-
-// isOpenAIEndpoint reports whether path (already stripped of an optional
-// /v1 prefix) is a recognized OpenAI API endpoint: either exactly an endpoint
-// or an endpoint followed by a subpath (e.g. /models/{model}).
-func isOpenAIEndpoint(path string) bool {
-	for _, ep := range openAIEndpoints {
-		if path == ep || strings.HasPrefix(path, ep+"/") {
-			return true
-		}
-	}
-	return false
 }
 
 // isStandardV1Prefix reports whether reqPath is exactly "/v1" or starts

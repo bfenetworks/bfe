@@ -144,58 +144,6 @@ func TestIsStandardV1Prefix(t *testing.T) {
 	}
 }
 
-func TestStripV1Prefix(t *testing.T) {
-	// note: the exact "/v1" and "/v1/" paths are handled by
-	// rewriteUpstreamPath itself (base-path identity); stripV1Prefix only
-	// strips the "/v1/" prefix form.
-	cases := map[string]string{
-		"/v1/":                                 "/",
-		"/v1/chat/completions":                 "/chat/completions",
-		"/v1":                                  "/v1",
-		"/chat/completions":                    "/chat/completions",
-		"/v10/xxx":                             "/v10/xxx",
-		"/v1beta/x":                            "/v1beta/x",
-		"/compatible-mode/v1/chat/completions": "/compatible-mode/v1/chat/completions",
-		"":                                     "",
-	}
-	for path, want := range cases {
-		if got := stripV1Prefix(path); got != want {
-			t.Errorf("stripV1Prefix(%q) = %q, want %q", path, got, want)
-		}
-	}
-}
-
-func TestIsOpenAIEndpoint(t *testing.T) {
-	cases := map[string]bool{
-		"/chat/completions":   true,
-		"/chat/completions/":  true,
-		"/completions":        true,
-		"/embeddings":         true,
-		"/models":             true,
-		"/models/gpt-4":       true,
-		"/responses":          true,
-		"/rerank":             true,
-		"/audio/speech":       true,
-		"/video/generations":  true,
-		"/images/generations": true,
-		"/moderations":        true,
-		// not endpoints
-		"":                                     false,
-		"/":                                    false,
-		"/messages":                            false,
-		"/v1/chat/completions":                 false,
-		"/compatible-mode/v1/chat/completions": false,
-		"/modelsxyz":                           false,
-		"/chat/completionsxyz":                 false,
-		"/custom/path":                         false,
-	}
-	for path, want := range cases {
-		if got := isOpenAIEndpoint(path); got != want {
-			t.Errorf("isOpenAIEndpoint(%q) = %v, want %v", path, got, want)
-		}
-	}
-}
-
 func TestApplyAIProtocolPathRewrite(t *testing.T) {
 	newReq := func(path string) *bfe_http.Request {
 		return &bfe_http.Request{URL: &url.URL{Path: path}}

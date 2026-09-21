@@ -179,31 +179,16 @@ func DetectAuthStyle(req *Request) string {
 
 // DetectModeFromPath infers the AI request mode from the request path.
 // It defaults to ModeChat for unknown paths to keep backward compatibility.
+//
+// OpenAI standard endpoints are recognized with or without the /v1 version
+// prefix: both /v1/embeddings and /embeddings map to ModeEmbedding, so the
+// billing mode never depends on whether the client entry carries /v1
+// (consistent with the upstream path rewrite, issue #1379 follow-up).
 func DetectModeFromPath(path string) string {
-	switch {
-	case strings.HasPrefix(path, "/v1/images/generations"):
-		return ModeImageGeneration
-	case strings.HasPrefix(path, "/v1/images/edits"):
-		return ModeImageEdit
-	case strings.HasPrefix(path, "/v1/chat/completions"):
-		return ModeChat
-	case strings.HasPrefix(path, "/v1/completions"):
-		return ModeCompletion
-	case strings.HasPrefix(path, "/v1/embeddings"):
-		return ModeEmbedding
-	case strings.HasPrefix(path, "/v1/audio/speech"):
-		return ModeAudioSpeech
-	case strings.HasPrefix(path, "/v1/audio/transcriptions"):
-		return ModeAudioTranscription
-	case strings.HasPrefix(path, "/v1/rerank"):
-		return ModeRerank
-	case strings.HasPrefix(path, "/v1/video/generations"):
-		return ModeVideoGeneration
-	case strings.HasPrefix(path, "/v1/responses"):
-		return ModeResponses
-	default:
-		return ModeChat
+	if mode, ok := lookupOpenAIEndpointMode(StripV1Prefix(path)); ok {
+		return mode
 	}
+	return ModeChat
 }
 
 // Set user context by key and val.

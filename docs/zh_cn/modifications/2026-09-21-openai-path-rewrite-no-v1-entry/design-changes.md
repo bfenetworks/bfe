@@ -138,9 +138,11 @@ func rewriteUpstreamPath(reqPath string, authStyle string, aiConf *cluster_conf.
 | 单元测试 | `bfe_server/ai_path_rewrite_test.go` | 补 issue 四场景 + 无 `/v1` 端点 + 透传保护用例（§6.1） |
 | 控制面文档同步（跨仓库） | ai-gateway-api `design-docs/api-define/OpenAPI接口定义/providers.md` | `protocol_paths` 语义描述同步为"上游 API 基路径，兼容带/不带 `/v1` 的客户端入口"；不属于本仓库提交范围 |
 
-### 5.3 已知限制（本期不做，独立跟踪）
+### 5.3 已知限制（已由后续修改解决）
 
-`DetectModeFromPath`（`bfe_basic/request_ai_basic.go:182`）同样只认 `/v1/...` 前缀，`http_conn.go:557` 据此填计费 mode：不带 `/v1` 的请求（如 `/embeddings`）会被按 `ModeChat` 计费，而 chat 与 embedding 的单价通常不同。改写修复落地后，Trae 类 chat 客户端场景不受影响（chat 与默认 mode 一致），但**价差大的非 chat 端点若被客户端以无 `/v1` 方式调用，路径改写正确而计费 mode 错误**。建议独立 issue 处理：端点表与本期 `isOpenAIEndpoint` 合并为 `bfe_basic` 共享的一份 OpenAI 端点定义，`DetectModeFromPath` 与改写公式共用。
+`DetectModeFromPath`（`bfe_basic/request_ai_basic.go:182`）同样只认 `/v1/...` 前缀，`http_conn.go:557` 据此填计费 mode：不带 `/v1` 的请求（如 `/embeddings`）会被按 `ModeChat` 计费，而 chat 与 embedding 的单价通常不同。改写修复落地后，Trae 类 chat 客户端场景不受影响（chat 与默认 mode 一致），但**价差大的非 chat 端点若被客户端以无 `/v1` 方式调用，路径改写正确而计费 mode 错误**。
+
+**更新（2026-09-21）**：该问题已由 [2026-09-21-ai-mode-detect-no-v1-entry](../2026-09-21-ai-mode-detect-no-v1-entry/design-changes.md) 解决——端点表已上提为 `bfe_basic` 共享定义（`openAIEndpointModes` + `IsOpenAIEndpoint`），`DetectModeFromPath` 与改写公式共用，`isOpenAIEndpoint`/`openAIEndpoints` 私有副本已删除。
 
 ---
 

@@ -1311,3 +1311,55 @@ func TestTC15_CacheWrite1hTokenFields(t *testing.T) {
 	assertInt64Field(t, reqLog.AiCostValue, "ai_cost_value", 23300)
 	assertStringField(t, reqLog.AiCostCurrency, "ai_cost_currency", "RMB")
 }
+
+// TestTC16 verifies ai_mode for openai endpoints called with and without the
+// /v1 client entry prefix (issue #1379 follow-up): the billing mode must not
+// depend on whether the client entry carries /v1. Before the fix, the bare
+// entries were classified as ModeChat, which mis-priced embeddings and
+// skipped the mode-gated ImageCount extraction for image generation.
+func TestTC16_ModeFieldsWithoutV1Prefix(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: imageGenerationAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	requests := []struct {
+		path string
+		body []byte
+	}{
+		{"/v1/embeddings", []byte(`{"model":"deepseek-chat"}`)},
+		{"/embeddings", []byte(`{"model":"deepseek-chat"}`)},
+		{"/images/generations", imageGenerationBody},
+	}
+	for _, r := range requests {
+		resp, body, err := e.sendRequestToPath(apiHost, r.path, r.body)
+		if err != nil {
+			t.Fatalf("send request %s failed: %v", r.path, err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			e.logBFEException()
+			t.Fatalf("request %s: expected status 200, got %d, body: %s", r.path, resp.StatusCode, body)
+		}
+	}
+
+	if e.backends[clusterRMB].Hits() != 3 {
+		t.Fatalf("expected 3 hits on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLogs := e.accessLogs()
+	if len(reqLogs) != 3 {
+		t.Fatalf("expected 3 access logs, got %d", len(reqLogs))
+	}
+	assertStringField(t, reqLogs[0].AiMode, "ai_mode[0] (/v1/embeddings)", bfe_basic.ModeEmbedding)
+	assertStringField(t, reqLogs[1].AiMode, "ai_mode[1] (/embeddings)", bfe_basic.ModeEmbedding)
+	assertStringField(t, reqLogs[2].AiMode, "ai_mode[2] (/images/generations)", bfe_basic.ModeImageGeneration)
+}
