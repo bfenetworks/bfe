@@ -316,3 +316,58 @@ func TestTC06_NonStandardEntryPassthrough(t *testing.T) {
 	assertPaths(t, e.backends[clusterPrimary],
 		[]string{"/compatible-mode/v1/chat/completions", "/v10/xxx"})
 }
+
+// TC07 (issue #1379): an openai entry without the /v1 prefix (Trae-style
+// callers that POST base_url + /chat/completions) must be rewritten to the
+// same upstream path as the /v1 entry: whether the client entry carries /v1
+// must not change the final upstream path.
+func TestTC07_NoV1OpenAIEntryRewrite(t *testing.T) {
+	e := newTestEnv(t, http.StatusOK, http.StatusOK,
+		&cluster_conf.AIConf{
+			Type:           0,
+			ModelProtocols: []string{"openai", "anthropic"},
+			ProtocolPaths:  map[string]string{"openai": "/compatible-mode/v1"},
+		}, nil)
+	defer e.Close()
+
+	resp, respBody, err := e.sendRequest("/chat/completions", "Authorization", []byte(openAIBody()))
+	if err != nil {
+		t.Fatalf("send no-v1 entry request failed: %v", err)
+	}
+	assertStatus(t, e, resp, respBody, http.StatusOK)
+
+	resp, respBody, err = e.sendRequest("/v1/chat/completions", "Authorization", []byte(openAIBody()))
+	if err != nil {
+		t.Fatalf("send v1 entry request failed: %v", err)
+	}
+	assertStatus(t, e, resp, respBody, http.StatusOK)
+
+	assertPaths(t, e.backends[clusterPrimary],
+		[]string{"/compatible-mode/v1/chat/completions", "/compatible-mode/v1/chat/completions"})
+	if e.backends[clusterFallback].Hits() != 0 {
+		t.Fatalf("expected 0 hit on %s, got %d", clusterFallback, e.backends[clusterFallback].Hits())
+	}
+}
+
+// TC08 (issue #1379): without ProtocolPaths the no-/v1 openai entry is
+// forwarded byte-for-byte unchanged (issue table row 4); configuring nothing
+// stays a pure passthrough for both entry styles.
+func TestTC08_NoV1EntryPassthrough(t *testing.T) {
+	e := newTestEnv(t, http.StatusOK, http.StatusOK, nil, nil)
+	defer e.Close()
+
+	resp, respBody, err := e.sendRequest("/chat/completions", "Authorization", []byte(openAIBody()))
+	if err != nil {
+		t.Fatalf("send no-v1 entry request failed: %v", err)
+	}
+	assertStatus(t, e, resp, respBody, http.StatusOK)
+
+	resp, respBody, err = e.sendRequest("/v1/chat/completions", "Authorization", []byte(openAIBody()))
+	if err != nil {
+		t.Fatalf("send v1 entry request failed: %v", err)
+	}
+	assertStatus(t, e, resp, respBody, http.StatusOK)
+
+	assertPaths(t, e.backends[clusterPrimary],
+		[]string{"/chat/completions", "/v1/chat/completions"})
+}
