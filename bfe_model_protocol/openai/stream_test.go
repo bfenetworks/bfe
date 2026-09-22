@@ -33,10 +33,18 @@ func TestIsFinalUsageEvent(t *testing.T) {
 		{"anthropic message_delta", utils.StreamEvent{Type: "message_delta"}, true},
 		// Non-streaming Anthropic body (issue #1364).
 		{"anthropic message", utils.StreamEvent{Type: "message"}, true},
-		// OpenAI stream_options.include_usage final chunk has no type.
-		{"openai usage chunk", utils.StreamEvent{Type: ""}, true},
+		// Responses API terminal event carries the final usage (issue #1381).
+		{"responses completed", utils.StreamEvent{Type: "response.completed"}, true},
 		// Regular OpenAI chunks are not final usage events.
 		{"openai chunk", utils.StreamEvent{Type: "chat.completion.chunk"}, false},
+		// Responses API non-terminal events must not be mistaken for the
+		// final usage (issue #1381: no prefix/wildcard matching).
+		{"responses created", utils.StreamEvent{Type: "response.created"}, false},
+		{"responses output_item.done", utils.StreamEvent{Type: "response.output_item.done"}, false},
+		{"responses incomplete", utils.StreamEvent{Type: "response.incomplete"}, false},
+		{"responses output_text.delta", utils.StreamEvent{Type: "response.output_text.delta"}, false},
+		// OpenAI stream_options.include_usage final chunk has no type.
+		{"openai usage chunk", utils.StreamEvent{Type: ""}, true},
 		// Anthropic message_start carries initial usage only.
 		{"anthropic message_start", utils.StreamEvent{Type: "message_start"}, false},
 		{"anthropic content_block_delta", utils.StreamEvent{Type: "content_block_delta"}, false},
@@ -58,7 +66,11 @@ func TestIsStreamTerminal(t *testing.T) {
 	}{
 		{"anthropic message_stop", utils.StreamEvent{Type: "message_stop"}, true},
 		{"openai done", utils.StreamEvent{Data: "[DONE]"}, true},
+		// Responses API stream terminates at response.completed (issue #1381).
+		{"responses completed", utils.StreamEvent{Type: "response.completed"}, true},
 		{"openai chunk", utils.StreamEvent{Type: "chat.completion.chunk"}, false},
+		{"responses created", utils.StreamEvent{Type: "response.created"}, false},
+		{"responses incomplete", utils.StreamEvent{Type: "response.incomplete"}, false},
 		{"anthropic message_delta", utils.StreamEvent{Type: "message_delta"}, false},
 	}
 	for _, c := range cases {
