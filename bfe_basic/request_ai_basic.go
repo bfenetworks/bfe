@@ -184,8 +184,11 @@ func DetectAuthStyle(req *Request) string {
 // prefix: both /v1/embeddings and /embeddings map to ModeEmbedding, so the
 // billing mode never depends on whether the client entry carries /v1
 // (consistent with the upstream path rewrite, issue #1379 follow-up).
+// Provider-native entries whose prefix ends in a /v1 segment (the OpenAI
+// SDK base_url form, e.g. /compatible-mode/v1/responses) reduce to the same
+// endpoints (issue #1382).
 func DetectModeFromPath(path string) string {
-	if mode, ok := lookupOpenAIEndpointMode(StripV1Prefix(path)); ok {
+	if mode, ok := lookupOpenAIEndpointMode(normalizeEndpointLookupPath(path)); ok {
 		return mode
 	}
 	return ModeChat

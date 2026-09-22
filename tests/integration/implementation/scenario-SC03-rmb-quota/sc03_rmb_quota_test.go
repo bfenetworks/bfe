@@ -1129,3 +1129,45 @@ func TestTC19_RMBQuotaDeduction_ResponsesAPI_NonStreaming(t *testing.T) {
 		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
 	}
 }
+
+// TestTC20 verifies RMB quota deduction for the provider-native client
+// entry /compatible-mode/v1/responses (issue #1382, Codex real path):
+// the entry reduces to the /responses endpoint for billing-mode detection,
+// so the Responses-mode price is hit. Before the fix the mode fell back to
+// chat, the price lookup missed and the request was billed 0. Together with
+// TC-18 (issue #1381) this covers the full Codex billing chain.
+func TestTC20_RMBQuotaDeduction_ResponsesAPI_ProviderNativePath(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: responsesAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	e.backends[clusterRMB].ResponseHeaders = map[string]string{"Content-Type": "text/event-stream"}
+	e.backends[clusterRMB].Body = responsesStreamUsageResponse
+
+	resp, body, err := e.sendRequestToPath(apiHost, "/compatible-mode/v1/responses", responsesBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for async redis deduction after response finishes.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - 900000)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
+	}
+}
