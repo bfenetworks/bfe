@@ -66,6 +66,30 @@ func TestIsOpenAIEndpoint(t *testing.T) {
 	}
 }
 
+func TestNormalizeEndpointLookupPath(t *testing.T) {
+	cases := map[string]string{
+		// standard entry: leading /v1 stripped
+		"/v1/responses":        "/responses",
+		"/v1/chat/completions": "/chat/completions",
+		// provider-native prefix ending in a /v1 segment (issue #1382)
+		"/compatible-mode/v1/responses":        "/responses",
+		"/compatible-mode/v1/chat/completions": "/chat/completions",
+		// stacked prefix + version reduces in one step to the endpoint
+		"/a/v1/v1/responses": "/responses",
+		// no /v1 segment anywhere: unchanged
+		"/responses":                            "/responses",
+		"/custom/path":                          "/custom/path",
+		"/v10/xxx":                              "/v10/xxx",
+		"/v1beta/models/gemini:generateContent": "/v1beta/models/gemini:generateContent",
+		"":                                      "",
+	}
+	for path, want := range cases {
+		if got := normalizeEndpointLookupPath(path); got != want {
+			t.Errorf("normalizeEndpointLookupPath(%q) = %q, want %q", path, got, want)
+		}
+	}
+}
+
 func TestDetectModeFromPath(t *testing.T) {
 	cases := []struct {
 		path string
@@ -102,7 +126,15 @@ func TestDetectModeFromPath(t *testing.T) {
 		{"/v1beta/models/gemini:generateContent", ModeChat},
 		{"/v1/messages", ModeChat}, // anthropic entry stays default
 		{"/messages", ModeChat},
-		{"/compatible-mode/v1/chat/completions", ModeChat}, // provider-native path
+		// provider-native entries: the SDK base_url prefix ending in a
+		// /v1 segment reduces to the same endpoints (issue #1382)
+		{"/compatible-mode/v1/responses", ModeResponses},
+		{"/compatible-mode/v1/chat/completions", ModeChat}, // now via table hit
+		{"/compatible-mode/v1/embeddings", ModeEmbedding},
+		{"/compatible-mode/v1/models", ModeChat},
+		{"/compatible-mode/v1/messages", ModeChat}, // not an OpenAI endpoint
+		{"/a/v1/v1/responses", ModeResponses},      // stacked prefix + version
+		{"/coding/v1/chat/completions", ModeChat},
 		{"/v1", ModeChat},
 		{"/v1/", ModeChat},
 		{"/", ModeChat},

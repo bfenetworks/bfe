@@ -155,3 +155,77 @@ func TestParseUsageFieldsCrossProtocol_GeminiBody(t *testing.T) {
 		t.Errorf("expected UsedQuota 15, got %d", fields.UsedQuota)
 	}
 }
+
+func TestParseOpenAIUsageFields_ResponsesAPICompleted(t *testing.T) {
+	// Responses API (issue #1381): the streaming response.completed event
+	// nests usage under response.usage and names the fields
+	// input/output_tokens; input_tokens excludes the cached tokens, so
+	// PromptTokens is normalized to the total input count (100 + 40).
+	fields := ParseOpenAIUsageFields([]byte(
+		`{"type":"response.completed","response":{"id":"resp_01","status":"completed","usage":{"input_tokens":100,"output_tokens":50,"total_tokens":150,"input_tokens_details":{"cached_tokens":40},"output_tokens_details":{"reasoning_tokens":10}}}}`))
+	if fields.PromptTokens != 140 {
+		t.Errorf("expected PromptTokens 140 (100+40), got %d", fields.PromptTokens)
+	}
+	if fields.CompletionTokens != 50 {
+		t.Errorf("expected CompletionTokens 50, got %d", fields.CompletionTokens)
+	}
+	if fields.CacheReadTokens != 40 {
+		t.Errorf("expected CacheReadTokens 40, got %d", fields.CacheReadTokens)
+	}
+	if fields.UsedQuota != 150 {
+		t.Errorf("expected UsedQuota 150, got %d", fields.UsedQuota)
+	}
+}
+
+func TestParseOpenAIUsageFields_ResponsesAPINoCache(t *testing.T) {
+	// cached_tokens absent / details absent: PromptTokens = input_tokens.
+	fields := ParseOpenAIUsageFields([]byte(
+		`{"type":"response.completed","response":{"usage":{"input_tokens":200,"output_tokens":30,"total_tokens":230}}}`))
+	if fields.PromptTokens != 200 || fields.CompletionTokens != 30 || fields.UsedQuota != 230 {
+		t.Errorf("unexpected responses fields: %+v", fields)
+	}
+	if fields.CacheReadTokens != 0 {
+		t.Errorf("expected CacheReadTokens 0, got %d", fields.CacheReadTokens)
+	}
+}
+
+func TestParseOpenAIUsageFields_ResponsesAPINonStream(t *testing.T) {
+	// Non-streaming create-response object: usage stays top-level but uses
+	// the Responses API leaf names; the input_token_details field gates
+	// this chain. cached 10 -> PromptTokens = 80 + 10.
+	fields := ParseOpenAIUsageFields([]byte(
+		`{"id":"resp_02","status":"completed","usage":{"input_tokens":80,"output_tokens":20,"total_tokens":100,"input_token_details":{"cached_tokens":10}}}`))
+	if fields.PromptTokens != 90 {
+		t.Errorf("expected PromptTokens 90 (80+10), got %d", fields.PromptTokens)
+	}
+	if fields.CompletionTokens != 20 || fields.UsedQuota != 100 {
+		t.Errorf("unexpected non-stream responses fields: %+v", fields)
+	}
+	if fields.CacheReadTokens != 10 {
+		t.Errorf("expected CacheReadTokens 10, got %d", fields.CacheReadTokens)
+	}
+}
+
+func TestParseOpenAIUsageFields_ChatCompletionsUnchanged(t *testing.T) {
+	// The top-level usage.* chain keeps priority; the responses fallback
+	// must not kick in (issue #1381 acceptance: no Chat Completions
+	// regression).
+	fields := ParseOpenAIUsageFields([]byte(
+		`{"usage":{"total_tokens":12,"prompt_tokens":8,"completion_tokens":4,"cache_read_tokens":5}}`))
+	if fields.PromptTokens != 8 || fields.CompletionTokens != 4 || fields.UsedQuota != 12 {
+		t.Errorf("unexpected chat completions fields: %+v", fields)
+	}
+	if fields.CacheReadTokens != 5 {
+		t.Errorf("expected CacheReadTokens 5, got %d", fields.CacheReadTokens)
+	}
+}
+
+func TestParseOpenAIUsageFields_ResponsesDeltaIgnored(t *testing.T) {
+	// Mid-stream responses events carry no usage; everything stays zero so
+	// the caller keeps estimating from content.
+	fields := ParseOpenAIUsageFields([]byte(
+		`{"type":"response.output_text.delta","delta":"hello"}`))
+	if fields != (UsageFields{}) {
+		t.Errorf("expected all-zero fields for responses delta, got %+v", fields)
+	}
+}

@@ -1363,3 +1363,66 @@ func TestTC16_ModeFieldsWithoutV1Prefix(t *testing.T) {
 	assertStringField(t, reqLogs[1].AiMode, "ai_mode[1] (/embeddings)", bfe_basic.ModeEmbedding)
 	assertStringField(t, reqLogs[2].AiMode, "ai_mode[2] (/images/generations)", bfe_basic.ModeImageGeneration)
 }
+
+// TestTC17 verifies ai_mode for the provider-native client entry whose
+// prefix ends in a /v1 segment (issue #1382): /compatible-mode/v1/responses
+// must classify as ModeResponses (not the ModeChat fallback), and
+// /compatible-mode/v1/chat/completions stays ModeChat. Before the fix the
+// responses path was mis-modeled, so the responses-mode price missed and
+// the request was billed 0 (or charged a chat price when both existed).
+func TestTC17_ModeFieldsProviderNativePath(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: responsesRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	e.backends[clusterRMB].Body = responsesUsageResponse
+
+	requests := []struct {
+		path string
+		body []byte
+		want string
+	}{
+		{"/compatible-mode/v1/responses", []byte(`{"model":"o3-deep-research"}`), bfe_basic.ModeResponses},
+		{"/compatible-mode/v1/chat/completions", []byte(`{"model":"deepseek-chat"}`), bfe_basic.ModeChat},
+	}
+	for _, r := range requests {
+		resp, body, err := e.sendRequestToPath(apiHost, r.path, r.body)
+		if err != nil {
+			t.Fatalf("send request %s failed: %v", r.path, err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			e.logBFEException()
+			t.Fatalf("request %s: expected status 200, got %d, body: %s", r.path, resp.StatusCode, body)
+		}
+	}
+
+	if e.backends[clusterRMB].Hits() != 2 {
+		t.Fatalf("expected 2 hits on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLogs := e.accessLogs()
+	if len(reqLogs) != 2 {
+		t.Fatalf("expected 2 access logs, got %d", len(reqLogs))
+	}
+	assertStringField(t, reqLogs[0].AiMode, "ai_mode[0] (/compatible-mode/v1/responses)", bfe_basic.ModeResponses)
+	assertStringField(t, reqLogs[1].AiMode, "ai_mode[1] (/compatible-mode/v1/chat/completions)", bfe_basic.ModeChat)
+
+	// The responses-mode price must have been hit: the deduction is
+	// 100*1000 + 50*2000 (o3-deep-research prices), not 0 and not the
+	// deepseek-chat price.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - (100*1000 + 50*2000 + 100*100 + 50*200))
+	if remaining != want {
+		t.Fatalf("remaining quota = %d, want %d", remaining, want)
+	}
+}

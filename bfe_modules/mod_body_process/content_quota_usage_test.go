@@ -310,3 +310,76 @@ func TestQuotaUsageProcessorProcessGeminiNonStream(t *testing.T) {
 			ai.IsFinalUsageSeen(), ai.IsResponseCompleted())
 	}
 }
+
+// Responses API stream (issue #1381, Codex): the stream carries no [DONE]
+// and no message_stop; response.completed is both the termination event
+// and the final usage carrier. A client close afterwards must not prevent
+// billing, so both marks have to be set by this event.
+func TestQuotaUsageProcessorProcessResponsesAPICompleted(t *testing.T) {
+	req := newTestRequest("AI_product")
+	ai := req.InitAiBasicInfo()
+	ai.AuthStyle = bfe_basic.AuthStyleOpenAI
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	p := NewQuotaUsageProcessor(req, res)
+
+	sseEvent := func(data string) Event {
+		return &SSEEvent{DataLines: [][]byte{[]byte(data)}}
+	}
+	events := []Event{
+		sseEvent(`{"type":"response.created","response":{"id":"resp_01","status":"in_progress"}}`),
+		sseEvent(`{"type":"response.output_text.delta","delta":"hello"}`),
+		sseEvent(`{"type":"response.completed","response":{"id":"resp_01","status":"completed","usage":{"input_tokens":100,"output_tokens":50,"total_tokens":150,"input_tokens_details":{"cached_tokens":40}}}}`),
+	}
+	if _, err := p.Process(events); err != nil {
+		t.Fatalf("Process failed: %s", err)
+	}
+
+	if !ai.IsFinalUsageSeen() {
+		t.Error("expected final usage seen at response.completed")
+	}
+	if !ai.IsResponseCompleted() {
+		t.Error("expected response completed at response.completed")
+	}
+	usage := ai.GetTokenUsage()
+	if usage.PromptTokens != 140 {
+		t.Errorf("expected PromptTokens 140 (100+40), got %d", usage.PromptTokens)
+	}
+	if usage.CompletionTokens != 50 {
+		t.Errorf("expected CompletionTokens 50, got %d", usage.CompletionTokens)
+	}
+	if usage.CacheReadTokens != 40 {
+		t.Errorf("expected CacheReadTokens 40, got %d", usage.CacheReadTokens)
+	}
+	if usage.UsedQuota != 150 {
+		t.Errorf("expected UsedQuota 150, got %d", usage.UsedQuota)
+	}
+}
+
+// Responses API stream aborted before response.completed (e.g. max output
+// tokens hit -> response.incomplete): usage may be present but the final
+// usage mark must NOT be set, so the request-finish guards (#1352/#1364)
+// still zero the billing fields.
+func TestQuotaUsageProcessorProcessResponsesAPIIncomplete(t *testing.T) {
+	req := newTestRequest("AI_product")
+	ai := req.InitAiBasicInfo()
+	ai.AuthStyle = bfe_basic.AuthStyleOpenAI
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	p := NewQuotaUsageProcessor(req, res)
+
+	sseEvent := func(data string) Event {
+		return &SSEEvent{DataLines: [][]byte{[]byte(data)}}
+	}
+	events := []Event{
+		sseEvent(`{"type":"response.incomplete","response":{"id":"resp_02","status":"incomplete","usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15}}}`),
+	}
+	if _, err := p.Process(events); err != nil {
+		t.Fatalf("Process failed: %s", err)
+	}
+
+	if ai.IsFinalUsageSeen() {
+		t.Error("response.incomplete must not mark the final usage seen")
+	}
+	if ai.IsResponseCompleted() {
+		t.Error("response.incomplete must not mark the response completed")
+	}
+}

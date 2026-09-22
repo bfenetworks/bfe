@@ -47,6 +47,11 @@ type ModuleAITokenAuthState struct {
 	ReqTotal    *metrics.Counter
 	ReqAuth     *metrics.Counter
 	ReqAuthFail *metrics.Counter
+	// PriceLookupMiss counts billing attempts whose model price lookup
+	// missed (unknown cluster/model/mode). A miss bills 0 by design
+	// (issue #1382 acceptance: never fall back to a wrong-mode price), so
+	// the counter is the monitoring signal for misconfigured price tables.
+	PriceLookupMiss *metrics.Counter
 }
 
 type ModuleAITokenAuth struct {
@@ -565,6 +570,10 @@ func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe
 
 	entry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, targetModel, mode)
 	if entry == nil {
+		// Bill 0 explicitly: falling back to another mode's price would
+		// charge a wrong price silently (issue #1382). The counter makes
+		// the misconfiguration monitorable.
+		m.state.PriceLookupMiss.Inc(1)
 		log.Logger.Warn("model price not found for cluster %s model %s mode %s", clusterName, targetModel, mode)
 		return 0
 	}

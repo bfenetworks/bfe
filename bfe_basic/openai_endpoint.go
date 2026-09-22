@@ -81,3 +81,20 @@ func lookupOpenAIEndpointMode(path string) (string, bool) {
 	}
 	return "", false
 }
+
+// normalizeEndpointLookupPath reduces a client entry path to its OpenAI
+// endpoint form for billing-mode lookup: a leading /v1 is stripped
+// (standard entry), and a provider-native prefix ending in a /v1 segment
+// (the OpenAI SDK base_url form, e.g. "/compatible-mode/v1", issue #1382)
+// is reduced to the part after that segment. Mode detection only; the
+// upstream path rewrite keeps its own StripV1Prefix semantics so
+// provider-native paths keep passing through unchanged.
+func normalizeEndpointLookupPath(path string) string {
+	if rest := StripV1Prefix(path); rest != path {
+		return rest
+	}
+	if i := strings.Index(path, "/v1/"); i >= 0 {
+		return StripV1Prefix(path[i+len("/v1"):])
+	}
+	return path
+}

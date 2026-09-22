@@ -50,45 +50,89 @@ func parseCacheWriteTokens1h(data []byte, prefix string) int64 {
 	return v
 }
 
-// ParseOpenAIUsageFields extracts usage fields from OpenAI-family response
-// bodies: the OpenAI chat main chain plus the DeepSeek and Responses API
-// cache-read fallbacks. The Claude (Anthropic) fallback chain is NOT part of
-// this extraction; it lives in ParseAnthropicUsageFields.
-func ParseOpenAIUsageFields(data []byte) UsageFields {
+// parseOpenAIUsageFieldsWithPrefix extracts the OpenAI main-chain fields
+// rooted at the given prefix ("usage" for chat completions bodies,
+// "response.usage" for the Responses API). leafIn/leafOut name the
+// prompt/completion token fields: "prompt_tokens"/"completion_tokens" for
+// chat completions, "input_tokens"/"output_tokens" for the Responses API.
+func parseOpenAIUsageFieldsWithPrefix(data []byte, prefix, leafIn, leafOut string) UsageFields {
 	var fields UsageFields
 
-	fields.UsedQuota = gjson.GetBytes(data, "usage.total_tokens").Int()
-	fields.PromptTokens = gjson.GetBytes(data, "usage.prompt_tokens").Int()
-	fields.CompletionTokens = gjson.GetBytes(data, "usage.completion_tokens").Int()
-	fields.CacheReadTokens = gjson.GetBytes(data, "usage.cache_read_tokens").Int()
-	fields.CacheWriteTokens = gjson.GetBytes(data, "usage.cache_write_tokens").Int()
-	fields.CacheWriteTokens1h = parseCacheWriteTokens1h(data, "usage")
-	fields.AudioInputTokens = gjson.GetBytes(data, "usage.audio_input_tokens").Int()
-	fields.AudioOutputTokens = gjson.GetBytes(data, "usage.audio_output_tokens").Int()
-	fields.ImageInputTokens = gjson.GetBytes(data, "usage.input_token_details.image_tokens").Int()
+	fields.UsedQuota = gjson.GetBytes(data, prefix+".total_tokens").Int()
+	fields.PromptTokens = gjson.GetBytes(data, prefix+"."+leafIn).Int()
+	fields.CompletionTokens = gjson.GetBytes(data, prefix+"."+leafOut).Int()
+	fields.CacheReadTokens = gjson.GetBytes(data, prefix+".cache_read_tokens").Int()
+	fields.CacheWriteTokens = gjson.GetBytes(data, prefix+".cache_write_tokens").Int()
+	fields.CacheWriteTokens1h = parseCacheWriteTokens1h(data, prefix)
+	fields.AudioInputTokens = gjson.GetBytes(data, prefix+".audio_input_tokens").Int()
+	fields.AudioOutputTokens = gjson.GetBytes(data, prefix+".audio_output_tokens").Int()
+	fields.ImageInputTokens = gjson.GetBytes(data, prefix+".input_tokens_details.image_tokens").Int()
 	if fields.ImageInputTokens == 0 {
-		fields.ImageInputTokens = gjson.GetBytes(data, "usage.image_input_tokens").Int()
+		fields.ImageInputTokens = gjson.GetBytes(data, prefix+".input_token_details.image_tokens").Int()
 	}
-	fields.ImageCount = gjson.GetBytes(data, "usage.image_count").Int()
+	if fields.ImageInputTokens == 0 {
+		fields.ImageInputTokens = gjson.GetBytes(data, prefix+".image_input_tokens").Int()
+	}
+	fields.ImageCount = gjson.GetBytes(data, prefix+".image_count").Int()
 	if fields.ImageCount == 0 {
 		fields.ImageCount = gjson.GetBytes(data, "data.#").Int()
 	}
-	fields.VideoCount = gjson.GetBytes(data, "usage.video_count").Int()
+	fields.VideoCount = gjson.GetBytes(data, prefix+".video_count").Int()
 	if fields.VideoCount == 0 {
 		fields.VideoCount = gjson.GetBytes(data, "data.#").Int()
 	}
 
 	// DeepSeek fallback: prompt_cache_hit_tokens / prompt_tokens_details.cached_tokens
 	if fields.CacheReadTokens == 0 {
-		fields.CacheReadTokens = gjson.GetBytes(data, "usage.prompt_cache_hit_tokens").Int()
+		fields.CacheReadTokens = gjson.GetBytes(data, prefix+".prompt_cache_hit_tokens").Int()
 	}
 	if fields.CacheReadTokens == 0 {
-		fields.CacheReadTokens = gjson.GetBytes(data, "usage.prompt_tokens_details.cached_tokens").Int()
+		fields.CacheReadTokens = gjson.GetBytes(data, prefix+".prompt_tokens_details.cached_tokens").Int()
 	}
 
-	// Responses API fallback: input_token_details.cached_tokens
+	// Responses API cache-read: input_tokens_details.cached_tokens (some
+	// relays flatten it as input_token_details.cached_tokens).
 	if fields.CacheReadTokens == 0 {
-		fields.CacheReadTokens = gjson.GetBytes(data, "usage.input_token_details.cached_tokens").Int()
+		fields.CacheReadTokens = gjson.GetBytes(data, prefix+".input_tokens_details.cached_tokens").Int()
+	}
+	if fields.CacheReadTokens == 0 {
+		fields.CacheReadTokens = gjson.GetBytes(data, prefix+".input_token_details.cached_tokens").Int()
+	}
+
+	return fields
+}
+
+// ParseOpenAIUsageFields extracts usage fields from OpenAI-family response
+// bodies: the OpenAI chat main chain plus the DeepSeek and Responses API
+// cache-read fallbacks, and the Responses API input/output_tokens chains
+// (issue #1381). The Claude (Anthropic) fallback chain is NOT part of this
+// extraction; it lives in ParseAnthropicUsageFields.
+func ParseOpenAIUsageFields(data []byte) UsageFields {
+	fields := parseOpenAIUsageFieldsWithPrefix(data, "usage", "prompt_tokens", "completion_tokens")
+
+	// Responses API (issue #1381): the streaming response.completed event
+	// nests the final usage under "response.usage"; the non-streaming
+	// create-response object keeps usage at the top level but names the
+	// fields input/output_tokens (gated on the Responses-API-specific
+	// input_token_details so Anthropic bodies still fall through to
+	// ParseAnthropicUsageFields, which owns their cache normalization).
+	if fields.PromptTokens == 0 && fields.CompletionTokens == 0 {
+		var resp UsageFields
+		switch {
+		case gjson.GetBytes(data, "response.usage").Exists():
+			resp = parseOpenAIUsageFieldsWithPrefix(data, "response.usage", "input_tokens", "output_tokens")
+		case gjson.GetBytes(data, "usage.input_tokens_details").Exists() ||
+			gjson.GetBytes(data, "usage.input_token_details").Exists():
+			resp = parseOpenAIUsageFieldsWithPrefix(data, "usage", "input_tokens", "output_tokens")
+		}
+		if resp.PromptTokens != 0 || resp.CompletionTokens != 0 {
+			// input_tokens excludes the cached tokens (Anthropic
+			// semantics): normalize PromptTokens to the total input count
+			// for the downstream cost splitting
+			// (prompt - cacheRead - cacheWrite).
+			resp.PromptTokens += resp.CacheReadTokens + resp.CacheWriteTokens
+			fields = resp
+		}
 	}
 
 	return fields
