@@ -51,6 +51,7 @@ import (
 	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_rate_limit"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_token_auth"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_body_process"
 	"github.com/bfenetworks/bfe/bfe_route"
 	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
@@ -1308,7 +1309,14 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 
 		res, action, lastCluster, invokeErr, bodyModel = p.aiClusterInvoke(srv, serverConf, basicReq, rw, attempt, aiMeta, bodyModel)
 		if invokeErr == nil && res != nil && res.StatusCode < 400 {
-			// success: 2xx/3xx, stop fallback loop
+			// success: 2xx/3xx, stop fallback loop. Clear any reject reason
+			// recorded by a failed attempt (e.g. MODEL_NOT_ALLOWED of an
+			// earlier cluster, issue #1387) so the access log of a
+			// successful request does not carry a stale reject reason.
+			if aiMeta.AiAuthInfo.RejectReason != "" {
+				aiMeta.AiAuthInfo.RejectReason = ""
+				aiMeta.AiAuthInfo.RejectQuotaPlans = nil
+			}
 			break
 		}
 
@@ -1560,6 +1568,21 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 
 	// record the final target model for this cluster attempt
 	aiMeta.TargetModel = targetModel
+
+	// issue #1387: enforce the key allow/block model lists on the resolved
+	// target model (route override + strip prefix + model mapping applied),
+	// not on the raw client model. A local 400 here stops key-level retry
+	// (default branch of the rotation loop) but still allows cluster-level
+	// fallback, where the next attempt re-validates its own target model.
+	if srv.Modules != nil {
+		if module := srv.Modules.GetModule(mod_ai_token_auth.ModAITokenAuth); module != nil {
+			if atm, ok := module.(*mod_ai_token_auth.ModuleAITokenAuth); ok {
+				if aiErr := atm.ValidateTargetModel(basicReq, targetModel); aiErr != nil {
+					return aiErr.CreateErrorResponse(basicReq), closeAfterReply, nil, bodyModel
+				}
+			}
+		}
+	}
 
 	// bodyModel is cached by the caller and updated here only when we actually
 	// change the body, so we avoid parsing the request body on every attempt.

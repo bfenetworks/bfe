@@ -1,0 +1,10 @@
+{
+    "Version": "1.0",
+    "Config": {
+        "ai_product": [
+            {
+                "Cond": "default_t()"
+            }
+        ]
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "Version": "20260923150000",
+    "Hosts": {
+        "ai_product": [
+            "redirect.example.org",
+            "plain.example.org",
+            "fallback.example.org",
+            "gemini.example.org"
+        ]
+    },
+    "HostTags": {
+        "ai_product": [
+            "ai_product"
+        ]
+    }
+}
