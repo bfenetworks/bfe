@@ -414,6 +414,15 @@ func (m *ModuleAITokenAuth) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.
 		return fmt.Errorf("%s.Init(): AddFilter(m.tokenFoundProductHandler): %s", m.name, err.Error())
 	}
 
+	// issue #1387: the target model allow/block check runs on the AI
+	// forwarding stage callback (target model resolved), re-validated per
+	// cluster attempt. Registered before mod_ai_rate_limit so that the
+	// allow/block check always precedes rate limiting on this point.
+	err = cbs.AddFilter(bfe_module.HandleAfterAITargetModel, m.targetModelCheckFilter)
+	if err != nil {
+		return fmt.Errorf("%s.Init(): AddFilter(m.targetModelCheckFilter): %s", m.name, err.Error())
+	}
+
 	err = cbs.AddFilter(bfe_module.HandleReadResponse, m.tokenReadResponseHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.tokenReadResponseHandler): %v", m.name, err)

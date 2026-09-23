@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_module"
 )
 
 // issue #1387: the key allow/block model lists are validated against the
@@ -119,5 +120,36 @@ func TestValidateTargetModel(t *testing.T) {
 	SetTokenAuthContext(req, newWhitelistTestToken([]string{"glm-5.2"}, nil), 0, nil)
 	if aiErr := m.ValidateTargetModel(req, " glm-5.2 "); aiErr != nil {
 		t.Fatalf("whitespace-trimmed target model: got %v, want pass", aiErr)
+	}
+}
+
+// TestTargetModelCheckFilter: the HandleAfterAITargetModel callback wrapper
+// reads the resolved target model from aiMeta (set by doSingleAIForward) and
+// converts a rejection into BfeHandlerFinish with the error response.
+func TestTargetModelCheckFilter(t *testing.T) {
+	// allow list contains the resolved target model: pass
+	m := NewModuleAITokenAuth()
+	req := newWhitelistTestRequest(t, "/v1/chat/completions", `{"model":"glm-5.2-abc"}`)
+	req.GetAiBasicInfo().TargetModel = "glm-5.2"
+	SetTokenAuthContext(req, newWhitelistTestToken([]string{"glm-5.2"}, nil), 0, nil)
+	ret, resp := m.targetModelCheckFilter(req)
+	if ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("allow hit: ret = %d, want BfeHandlerGoOn", ret)
+	}
+	if resp != nil {
+		t.Fatalf("allow hit: resp = %v, want nil", resp)
+	}
+
+	// allow list misses the resolved target model: finish with 400 response
+	m = NewModuleAITokenAuth()
+	req = newWhitelistTestRequest(t, "/v1/chat/completions", `{"model":"glm-5.2-abc"}`)
+	req.GetAiBasicInfo().TargetModel = "glm-5.2"
+	SetTokenAuthContext(req, newWhitelistTestToken([]string{"glm-4"}, nil), 0, nil)
+	ret, resp = m.targetModelCheckFilter(req)
+	if ret != bfe_module.BfeHandlerFinish {
+		t.Fatalf("allow miss: ret = %d, want BfeHandlerFinish", ret)
+	}
+	if resp == nil || resp.StatusCode != 400 {
+		t.Fatalf("allow miss: resp = %v, want 400 response", resp)
 	}
 }

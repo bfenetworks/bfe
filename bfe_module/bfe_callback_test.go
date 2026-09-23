@@ -38,6 +38,7 @@ func TestCallbackPointName(t *testing.T) {
 		HandleReadResponse:   "HandleReadResponse",
 		HandleRequestFinish:  "HandleRequestFinish",
 		HandleFinish:         "HandleFinish",
+		HandleAfterAITargetModel: "HandleAfterAITargetModel",
 		-1:                   "HandleUnknown",
 	}
 	for key, value := range point2Name {
@@ -49,7 +50,7 @@ func TestCallbackPointName(t *testing.T) {
 
 func TestNewBfeCallbacks(t *testing.T) {
 	bcb := NewBfeCallbacks()
-	assert.Len(t, bcb.callbacks, 9)
+	assert.Len(t, bcb.callbacks, 10)
 }
 
 func TestBfeCallbacksAddFilter(t *testing.T) {

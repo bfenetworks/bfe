@@ -71,3 +71,8 @@ func (s *RedisServer) GetQuota(key string) int64 {
 func (s *RedisServer) Exists(key string) bool {
 	return s.server.Exists(key)
 }
+
+// Keys returns all keys currently present in redis.
+func (s *RedisServer) Keys() []string {
+	return s.server.Keys()
+}

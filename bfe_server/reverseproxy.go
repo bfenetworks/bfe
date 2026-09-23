@@ -51,7 +51,6 @@ import (
 	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_rate_limit"
-	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_token_auth"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_body_process"
 	"github.com/bfenetworks/bfe/bfe_route"
 	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
@@ -1325,6 +1324,12 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 			// last attempt
 			break
 		}
+		// issue #1387 sister card: a local rate limit rejection (ErrCode
+		// marker, distinct from an upstream 429) must not trigger
+		// cluster-level fallback.
+		if basicReq.ErrCode == bfe_basic.ErrAiRateLimit {
+			break
+		}
 		if !shouldTriggerFallback(res, invokeErr, aiMeta.AuthStyle) {
 			break
 		}
@@ -1569,18 +1574,20 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 	// record the final target model for this cluster attempt
 	aiMeta.TargetModel = targetModel
 
-	// issue #1387: enforce the key allow/block model lists on the resolved
-	// target model (route override + strip prefix + model mapping applied),
-	// not on the raw client model. A local 400 here stops key-level retry
-	// (default branch of the rotation loop) but still allows cluster-level
-	// fallback, where the next attempt re-validates its own target model.
-	if srv.Modules != nil {
-		if module := srv.Modules.GetModule(mod_ai_token_auth.ModAITokenAuth); module != nil {
-			if atm, ok := module.(*mod_ai_token_auth.ModuleAITokenAuth); ok {
-				if aiErr := atm.ValidateTargetModel(basicReq, targetModel); aiErr != nil {
-					return aiErr.CreateErrorResponse(basicReq), closeAfterReply, nil, bodyModel
-				}
-			}
+	// issue #1387 & sister card: fire the AI forwarding stage callback with
+	// the target model resolved. mod_ai_token_auth re-validates the key
+	// allow/block lists and mod_ai_rate_limit runs the policy limit checks,
+	// both against the resolved target model; registration order keeps the
+	// allow/block check before rate limiting. A local rejection returned here
+	// never reaches the backend.
+	if hl := srv.CallBacks.GetHandlerList(bfe_module.HandleAfterAITargetModel); hl != nil {
+		retVal, cbRes := hl.FilterRequest(basicReq)
+		basicReq.HttpResponse = cbRes
+		switch retVal {
+		case bfe_module.BfeHandlerClose:
+			return cbRes, closeDirectly, nil, bodyModel
+		case bfe_module.BfeHandlerFinish, bfe_module.BfeHandlerResponse:
+			return cbRes, closeAfterReply, nil, bodyModel
 		}
 	}
 
@@ -1755,6 +1762,13 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 					p.proxyState.ReqAiKeyAffinityRebind.Inc(1)
 				}
 			}
+			return res, action, cluster, nil, newBodyModel
+		}
+
+		// issue #1387 sister card: a local rate limit rejection is not a
+		// provider-key problem; stop key rotation and return as-is (no used
+		// marking, no session-affinity penalty).
+		if basicReq.ErrCode == bfe_basic.ErrAiRateLimit {
 			return res, action, cluster, nil, newBodyModel
 		}
 

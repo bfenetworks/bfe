@@ -1,0 +1,30 @@
+{
+    "clusters": {
+        "cluster_redirect": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        },
+        "cluster_multi": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        },
+        "cluster_main": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        },
+        "cluster_backup": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        },
+        "cluster_plain": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        },
+        "cluster_upstream": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20260923160000"
+}

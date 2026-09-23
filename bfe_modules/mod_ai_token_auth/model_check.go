@@ -19,6 +19,8 @@ import (
 	"strings"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_module"
 )
 
 // ValidateTargetModel validates the resolved target model against the token's
@@ -96,4 +98,20 @@ func (m *ModuleAITokenAuth) ValidateTargetModel(req *bfe_basic.Request, targetMo
 	}
 
 	return nil
+}
+
+// targetModelCheckFilter adapts ValidateTargetModel to the
+// HandleAfterAITargetModel callback point. The callback fires per cluster
+// attempt (key rotation and fallback recompute their own target model), so
+// the allow/block check keeps validating every attempt's resolved target
+// model, exactly as the original doSingleAIForward injection did.
+func (m *ModuleAITokenAuth) targetModelCheckFilter(req *bfe_basic.Request) (int, *bfe_http.Response) {
+	meta := req.GetAiBasicInfo()
+	if meta == nil {
+		return bfe_module.BfeHandlerGoOn, nil
+	}
+	if aiErr := m.ValidateTargetModel(req, meta.TargetModel); aiErr != nil {
+		return bfe_module.BfeHandlerFinish, aiErr.CreateErrorResponse(req)
+	}
+	return bfe_module.BfeHandlerGoOn, nil
 }
