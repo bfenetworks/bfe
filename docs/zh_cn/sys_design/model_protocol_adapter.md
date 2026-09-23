@@ -50,6 +50,7 @@ bfe/bfe_model_protocol/
 ├── usage.go             # UsageFields 等类型的根包 alias（实体在 utils）
 ├── errors.go            # ProtocolError / ErrorNormalizer 的根包 alias
 ├── detect.go            # 协议识别（DetectProtocol / DetectProtocolAndKey）
+├── model.go             # ExtractModelFromPath：路径承载 model 的协议统一入口（issue #1384）
 ├── utils/               # 叶子包：仅依赖 gjson + 标准库，实体类型所在
 │   ├── protocol.go      # 协议常量、UsageFields
 │   ├── usage_parse.go   # ParseOpenAIUsageFields / ParseAnthropicUsageFields / EstimateContentToken
@@ -65,6 +66,7 @@ bfe/bfe_model_protocol/
 └── gemini/              # gemini generateContent 协议（2026-09-09 接入）
     ├── gemini.go        # ProtocolAdapter 实现
     ├── auth.go          # x-goog-api-key
+    ├── model.go         # ExtractModelFromPath：/v1beta/models/{model}[:action] 路径模型提取（issue #1384）
     └── usage.go         # usageMetadata（camelCase）提取与归一
 ```
 
@@ -142,6 +144,19 @@ type ProtocolError struct {
     Message    string
 }
 ```
+
+路径承载 model 的提取是包级函数而非接口方法（issue #1384）：body 解析依赖 `bfe_http.Request` 的 body accessor 与 `jsoncache` 上下文，由各调用方（`mod_ai_token_auth`、`bfe_server`）自行完成；适配层只提供路径解析这一纯函数能力，避免依赖反转：
+
+```go
+// 根包 model.go：路径承载 model 的协议统一入口（当前仅 gemini）。
+// 其他协议（model 在请求体）与无法识别的路径返回 ""；nil 请求安全。
+func ExtractModelFromPath(req *bfe_http.Request) string
+
+// gemini/model.go：/v1beta/models/{model}[:action] → model；不匹配返回 ""。
+func ExtractModelFromPath(path string) string
+```
+
+调用方约定为 body-first + 路径兜底：先取请求体 `model` 字段（openai/anthropic 的既有语义不变），为空时再尝试路径提取。token 白名单校验（`mod_ai_token_auth`）与 `ClientModel` 填充（`bfe_server`）均按此约定实现。
 
 ### 3.3 注册表
 
