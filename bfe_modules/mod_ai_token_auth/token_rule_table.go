@@ -23,6 +23,7 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_model_protocol"
 )
 
 type TokenRuleTable struct {
@@ -190,6 +191,14 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 
 	if len(token.Models) > 0 || len(token.BlockModels) > 0 {
 		model, err := condition.ReqBodyJsonFetch(req, "model", nil)
+		if err != nil || model == "" {
+			// issue #1384: the Gemini native protocol carries the model in
+			// the request path (/v1beta/models/{model}:generateContent), not
+			// in the JSON body, so fall back to path-based extraction.
+			if pathModel := bfe_model_protocol.ExtractModelFromPath(req.HttpRequest); pathModel != "" {
+				model, err = pathModel, nil
+			}
+		}
 		if err != nil || model == "" {
 			SetAiAuthInfo(req, bfe_basic.CodeInvalidRequest, nil)
 			return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeInvalidRequest, bfe_basic.TypeInvalidRequestError, fmt.Sprintf("Model not found in request body: %v", err),

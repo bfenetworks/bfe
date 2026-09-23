@@ -55,6 +55,11 @@ const (
 
 var geminiBody = []byte(`{"model":"gemini-2.5-flash","contents":[{"parts":[{"text":"hi"}]}]}`)
 
+// geminiNativeBody is the native Gemini request body as sent by Gemini
+// clients: it carries contents only, no "model" field (the model is in the
+// request path). Used by TC-09 (issue #1384).
+var geminiNativeBody = []byte(`{"contents":[{"parts":[{"text":"hi"}]}]}`)
+
 // geminiUsageBody is a complete non-streaming generateContent response:
 // camelCase usageMetadata, totalTokenCount = 15.
 var geminiUsageBody = `{"candidates":[{"content":{"parts":[{"text":"ok"}]}}],` +
@@ -124,6 +129,12 @@ func defaultAIConfs() map[string]*cluster_conf.AIConf {
 // mod_ai_token_auth (token quota plan backed by miniredis) +
 // mod_body_process, mirroring scenario-SC03's wiring.
 func newTestEnv(t *testing.T) *testEnv {
+	return newTestEnvWithAllowModels(t, nil)
+}
+
+// newTestEnvWithAllowModels is newTestEnv with the client token configured an
+// allow_models whitelist (nil keeps the token without a whitelist).
+func newTestEnvWithAllowModels(t *testing.T, allowModels *string) *testEnv {
 	e := &testEnv{
 		t:        t,
 		backends: make(map[string]*common.MockBackend),
@@ -165,6 +176,7 @@ func newTestEnv(t *testing.T) *testEnv {
 					Enabled:        true,
 					ExpiredTime:    -1,
 					UnlimitedQuota: false,
+					Models:         allowModels,
 					QuotaPlans:     []string{planToken},
 				},
 			},
@@ -574,5 +586,60 @@ func TestTC08_UnauthorizedKeyRotates(t *testing.T) {
 	}
 	if !seen[multiKeyB] {
 		t.Fatalf("expected key-b to be used (rotation after 401), x-goog-api-key headers: %v", backend.XGoogApiKeyHeaders())
+	}
+}
+
+// TestTC09 verifies that the token allow_models whitelist check is
+// protocol-aware (issue #1384): for a Gemini native request whose body has no
+// "model" field, the model is extracted from the request path. An in-list
+// path model passes, is forwarded and billed; an out-of-list path model is
+// rejected with MODEL_NOT_ALLOWED without reaching the backend or deducting.
+func TestTC09_TokenAllowModelsGeminiPathModel(t *testing.T) {
+	allow := "gemini-2.5-flash"
+	e := newTestEnvWithAllowModels(t, &allow)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyToken, tokenQuota)
+
+	// In-whitelist path model, native gemini body without a model field:
+	// forwarded and billed (totalTokenCount 15).
+	resp, body, err := e.sendRequest(hostGemini, pathGemini, "x-goog-api-key", apiKey, geminiNativeBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+	if !bytes.Contains([]byte(body), []byte(`"totalTokenCount":15`)) {
+		t.Fatalf("expected gemini response passed through, got: %s", body)
+	}
+	backend := e.backends["cluster_gemini_only"]
+	if backend.Hits() != 1 {
+		t.Fatalf("expected 1 hit on gemini-only cluster, got %d", backend.Hits())
+	}
+	time.Sleep(500 * time.Millisecond)
+	if remaining := e.redis.GetQuota(redisKeyToken); remaining != tokenQuota-15 {
+		t.Fatalf("remaining quota = %d, want %d (totalTokenCount 15 billed once)", remaining, tokenQuota-15)
+	}
+
+	// Out-of-whitelist path model: 400 MODEL_NOT_ALLOWED, no hit, no deduction.
+	resp, body, err = e.sendRequest(hostGemini, "/v1beta/models/gemini-1.5-pro:generateContent",
+		"x-goog-api-key", apiKey, geminiNativeBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		e.logBFEException()
+		t.Fatalf("expected status 400, got %d, body: %s", resp.StatusCode, body)
+	}
+	if !bytes.Contains([]byte(body), []byte("MODEL_NOT_ALLOWED")) {
+		t.Fatalf("expected MODEL_NOT_ALLOWED in body, got: %s", body)
+	}
+	if backend.Hits() != 1 {
+		t.Fatalf("rejected request must not reach backend, hits = %d", backend.Hits())
+	}
+	if remaining := e.redis.GetQuota(redisKeyToken); remaining != tokenQuota-15 {
+		t.Fatalf("rejected request must not deduct quota, remaining = %d", remaining)
 	}
 }
