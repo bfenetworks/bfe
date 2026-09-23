@@ -91,6 +91,7 @@ func newTestRequest(product, apiKey, model string) *bfe_basic.Request {
 	ai := req.InitAiBasicInfo()
 	ai.ClientApiKey = apiKey
 	ai.ClientModel = model
+	ai.TargetModel = model
 	return req
 }
 
@@ -220,13 +221,13 @@ func TestModuleGetPrometheus(t *testing.T) {
 	}
 }
 
-func TestLimitFoundProductHandlerNoAiBasicInfo(t *testing.T) {
+func TestTargetModelCheckHandlerNoAiBasicInfo(t *testing.T) {
 	m := prepareTestModule(t)
 	httpReq, _ := bfe_http.NewRequest(http.MethodGet, "http://example.com/v1/chat/completions", nil)
 	req := bfe_basic.NewRequest(httpReq, nil, nil, nil, nil)
 	req.Route = bfe_basic.RequestRoute{Product: "AI_product"}
 
-	ret, resp := m.limitFoundProductHandler(req)
+	ret, resp := m.targetModelCheckHandler(req)
 	if ret != bfe_module.BfeHandlerGoOn {
 		t.Errorf("expected BfeHandlerGoOn, got %d", ret)
 	}
@@ -235,11 +236,11 @@ func TestLimitFoundProductHandlerNoAiBasicInfo(t *testing.T) {
 	}
 }
 
-func TestLimitFoundProductHandlerNoRulesForProduct(t *testing.T) {
+func TestTargetModelCheckHandlerNoRulesForProduct(t *testing.T) {
 	m := prepareTestModule(t)
 	req := newTestRequest("unknown_product", "ak-2v8x9k3m7p", "gpt-4")
 
-	ret, resp := m.limitFoundProductHandler(req)
+	ret, resp := m.targetModelCheckHandler(req)
 	if ret != bfe_module.BfeHandlerGoOn {
 		t.Errorf("expected BfeHandlerGoOn, got %d", ret)
 	}
@@ -248,11 +249,11 @@ func TestLimitFoundProductHandlerNoRulesForProduct(t *testing.T) {
 	}
 }
 
-func TestLimitFoundProductHandlerNoApiKey(t *testing.T) {
+func TestTargetModelCheckHandlerNoApiKey(t *testing.T) {
 	m := prepareTestModule(t)
 	req := newTestRequest("AI_product", "", "gpt-4")
 
-	ret, resp := m.limitFoundProductHandler(req)
+	ret, resp := m.targetModelCheckHandler(req)
 	if ret != bfe_module.BfeHandlerGoOn {
 		t.Errorf("expected BfeHandlerGoOn, got %d", ret)
 	}
@@ -261,11 +262,11 @@ func TestLimitFoundProductHandlerNoApiKey(t *testing.T) {
 	}
 }
 
-func TestLimitFoundProductHandlerNoPolicyBinding(t *testing.T) {
+func TestTargetModelCheckHandlerNoPolicyBinding(t *testing.T) {
 	m := prepareTestModule(t)
 	req := newTestRequest("AI_product", "ak-unbound", "gpt-4")
 
-	ret, resp := m.limitFoundProductHandler(req)
+	ret, resp := m.targetModelCheckHandler(req)
 	if ret != bfe_module.BfeHandlerGoOn {
 		t.Errorf("expected BfeHandlerGoOn, got %d", ret)
 	}
@@ -274,7 +275,7 @@ func TestLimitFoundProductHandlerNoPolicyBinding(t *testing.T) {
 	}
 }
 
-func TestLimitFoundProductHandlerPolicyDisabled(t *testing.T) {
+func TestTargetModelCheckHandlerPolicyDisabled(t *testing.T) {
 	m := prepareTestModule(t)
 	m.productTable.lock.Lock()
 	m.productTable.apiKeyBinding["ak-disabled"] = []string{"rlp-0001"}
@@ -282,7 +283,7 @@ func TestLimitFoundProductHandlerPolicyDisabled(t *testing.T) {
 	m.productTable.lock.Unlock()
 
 	req := newTestRequest("AI_product", "ak-disabled", "gpt-4")
-	ret, resp := m.limitFoundProductHandler(req)
+	ret, resp := m.targetModelCheckHandler(req)
 	if ret != bfe_module.BfeHandlerGoOn {
 		t.Errorf("expected BfeHandlerGoOn, got %d", ret)
 	}
@@ -291,7 +292,7 @@ func TestLimitFoundProductHandlerPolicyDisabled(t *testing.T) {
 	}
 }
 
-func TestLimitFoundProductHandlerModelMismatch(t *testing.T) {
+func TestTargetModelCheckHandlerModelMismatch(t *testing.T) {
 	m := prepareTestModule(t)
 	m.productTable.lock.Lock()
 	m.productTable.apiKeyBinding["ak-model-mismatch"] = []string{"rlp-0001"}
@@ -299,7 +300,7 @@ func TestLimitFoundProductHandlerModelMismatch(t *testing.T) {
 	m.productTable.lock.Unlock()
 
 	req := newTestRequest("AI_product", "ak-model-mismatch", "not-in-policy")
-	ret, resp := m.limitFoundProductHandler(req)
+	ret, resp := m.targetModelCheckHandler(req)
 	if ret != bfe_module.BfeHandlerGoOn {
 		t.Errorf("expected BfeHandlerGoOn, got %d", ret)
 	}
@@ -382,5 +383,73 @@ func TestModuleInit(t *testing.T) {
 	err := m.Init(bfe_module.NewBfeCallbacks(), web_monitor.NewWebHandlers(), "testdata")
 	if err == nil {
 		t.Error("expected Init to fail because default conf references missing product rule path")
+	}
+}
+
+func TestTargetModelCheckHandlerIdempotent(t *testing.T) {
+	// The callback fires per cluster attempt (key rotation / fallback); the
+	// policy check must run at most once per request.
+	m := prepareTestModule(t)
+	req := newTestRequest("AI_product", "ak-unbound", "gpt-4")
+
+	ret, _ := m.targetModelCheckHandler(req)
+	if ret != bfe_module.BfeHandlerGoOn {
+		t.Errorf("expected BfeHandlerGoOn, got %d", ret)
+	}
+	if getPolicyLimiterContext(req) == nil {
+		t.Fatal("limiter context should be created by the first check")
+	}
+
+	// Second call simulates a fallback attempt re-firing the callback.
+	ret, resp := m.targetModelCheckHandler(req)
+	if ret != bfe_module.BfeHandlerGoOn {
+		t.Errorf("expected BfeHandlerGoOn on second call, got %d", ret)
+	}
+	if resp != nil {
+		t.Error("expected nil response on second call")
+	}
+}
+
+func TestTargetModelCheckHandlerMatchesTargetModel(t *testing.T) {
+	// issue #1387 sister card: matching uses the resolved target model, not
+	// the raw client model. ClientModel hits the policy list but TargetModel
+	// does not, so the policy must be skipped.
+	m := prepareTestModule(t)
+	m.productTable.lock.Lock()
+	m.productTable.apiKeyBinding["ak-target-mismatch"] = []string{"rlp-0001"}
+	m.productTable.ratePolicies["rlp-0001"].Models = []string{"gpt-4"}
+	m.productTable.lock.Unlock()
+
+	req := newTestRequest("AI_product", "ak-target-mismatch", "gpt-4")
+	req.GetAiBasicInfo().TargetModel = "redirected-gpt-4"
+
+	ret, resp := m.targetModelCheckHandler(req)
+	if ret != bfe_module.BfeHandlerGoOn {
+		t.Errorf("expected BfeHandlerGoOn, got %d", ret)
+	}
+	if resp != nil {
+		t.Error("expected nil response")
+	}
+}
+
+func TestTargetModelCheckHandlerPolicyMatch(t *testing.T) {
+	// Positive control: policy matched by target model traverses all three
+	// checks. The limiter set is empty so no Redis access happens.
+	m := prepareTestModule(t)
+	m.productTable.lock.Lock()
+	m.productTable.apiKeyBinding["ak-target-match"] = []string{"rlp-0001"}
+	m.productTable.ratePolicies["rlp-0001"].Models = []string{"gpt-4"}
+	m.productTable.lock.Unlock()
+	m.limiterManager.limiters["rlp-0001"] = &policyLimiterSet{}
+
+	req := newTestRequest("AI_product", "ak-target-match", "raw-alias")
+	req.GetAiBasicInfo().TargetModel = "gpt-4"
+
+	ret, resp := m.targetModelCheckHandler(req)
+	if ret != bfe_module.BfeHandlerGoOn {
+		t.Errorf("expected BfeHandlerGoOn, got %d", ret)
+	}
+	if resp != nil {
+		t.Error("expected nil response")
 	}
 }

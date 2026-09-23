@@ -51,4 +51,9 @@ var (
 
 	// GSLB error
 	ErrGslbBlackhole = errors.New("GSLB_BLACKHOLE") // deny by blackhole
+
+	// AI rate limit deny (mod_ai_rate_limit); global sentinel so that the
+	// server core can distinguish a local policy rejection from an upstream
+	// 429 without importing the module package.
+	ErrAiRateLimit = errors.New("AI_RATE_LIMIT") // deny by mod_ai_rate_limit
 )
