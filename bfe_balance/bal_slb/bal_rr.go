@@ -41,17 +41,12 @@ import (
 	"math/rand"
 	"sort"
 	"sync"
-)
 
-import (
-	"github.com/bfenetworks/go-lib/log"
-	"github.com/spaolacci/murmur3"
-)
-
-import (
 	"github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_table_conf"
 	"github.com/bfenetworks/bfe/bfe_debug"
+	"github.com/bfenetworks/go-lib/log"
+	"github.com/spaolacci/murmur3"
 )
 
 // implementation versions of weighted round-robin algorithm
@@ -264,7 +259,8 @@ func smoothBalance(backs BackendList) (*backend.BfeBackend, error) {
 			best = backendRR
 			max = backendRR.current
 		}
-		total += backendRR.current
+		//total += backendRR.current
+		total += backendRR.weight
 
 		// update current weight
 		backendRR.current += backendRR.weight
@@ -322,48 +318,40 @@ func (brr *BalanceRR) leastConnsSimpleBalance() (*backend.BfeBackend, error) {
 }
 
 func leastConnsBalance(backs BackendList) (BackendList, error) {
-	var best *BackendRR
 	candidates := make(BackendList, 0, len(backs))
 
-	// select available candidates
-	singleBackend := true
+	bestConnNum := 0
+	bestWeight := 0
+
 	for _, backendRR := range backs {
 		if !backendRR.backend.Avail() || backendRR.weight <= 0 {
 			continue
 		}
 
-		if best == nil {
-			best = backendRR
-			singleBackend = true
+		if len(candidates) == 0 {
+			candidates = append(candidates, backendRR)
+			bestConnNum = backendRR.backend.ConnNum()
+			bestWeight = backendRR.weight
 			continue
 		}
 
-		// compare backends
-		ret := compLCWeight(best, backendRR)
+		curConnNum := backendRR.backend.ConnNum()
+		curWeight := backendRR.weight
+		ret := compLCWeight(bestConnNum, bestWeight, curConnNum, curWeight)
 		if ret > 0 {
-			best = backendRR
-			singleBackend = true
+			candidates = candidates[:0]
+			candidates = append(candidates, backendRR)
+			bestConnNum = curConnNum
+			bestWeight = curWeight
 		} else if ret == 0 {
-			singleBackend = false
-			if len(candidates) > 0 {
-				candidates = append(candidates, backendRR)
-			} else {
-				candidates = append(candidates, best, backendRR)
-			}
-
+			candidates = append(candidates, backendRR)
 		}
 	}
 
-	if best == nil {
+	if len(candidates) == 0 {
 		return nil, fmt.Errorf("rr_bal:all backend is down")
 	}
 
-	// single backend, return directly
-	if singleBackend {
-		return BackendList{best}, nil
-	}
-	// more than one backend have same connections/weight,
-	// return all the candidates
 	return candidates, nil
 }
 
@@ -472,17 +460,17 @@ func (brr *BalanceRR) stickyBalance(key []byte) (*backend.BfeBackend, error) {
 
 // compLCWeight returns an integer comparing two backends by connNum/Weight.
 // result will be 0 if a == b, -1 if a < b, +1 if a > b
-func compLCWeight(a, b *BackendRR) int {
-	// compare a.backend.ConnNum() / a.weight and b.backend.ConnNum() / b.weight
-	// to avoid compare floating num, both multiple a.weight * b.weight
-	ret := a.backend.ConnNum()*b.weight - b.backend.ConnNum()*a.weight
+func compLCWeight(connNum int, weight int, bConnNum int, bWeight int) int {
+	// compare connNum / weight and bConnNum / bWeight
+	// to avoid compare floating num, both multiply weight * bWeight
+	ret := connNum*bWeight - bConnNum*weight
 
-	// a.backend.ConnNum() / a.weight > b.backend.ConnNum() / b.weight
+	// connNum / weight > bConnNum / bWeight
 	if ret > 0 {
 		return 1
 	}
 
-	// a.backend.ConnNum() / a.weight == b.backend.ConnNum() / b.weight
+	// connNum / weight == bConnNum / bWeight
 	if ret == 0 {
 		return 0
 	}

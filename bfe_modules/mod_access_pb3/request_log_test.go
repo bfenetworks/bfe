@@ -340,6 +340,83 @@ func TestReqTimeInfoGen(t *testing.T) {
 	}
 }
 
+// TestReqTimeInfoGenProxyDelayNoBackend verifies that requests which never
+// invoked a backend (BackendFirst stays zero, e.g. auth-reject 401) get
+// ProxyDelayTime = 0 instead of the wrapped garbage value 2217714954
+// (bfenetworks/bfe#1391).
+func TestReqTimeInfoGenProxyDelayNoBackend(t *testing.T) {
+	_, req, _ := makeRequestLogTest(t)
+	req.Stat.BackendFirst = time.Time{}
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqTimeInfoGen(reqLog, req)
+
+	if reqLog.ProxyDelayTime == nil {
+		t.Fatal("ProxyDelayTime is nil")
+	}
+	if *reqLog.ProxyDelayTime != 0 {
+		t.Errorf("ProxyDelayTime = %d, want 0 for request without backend", *reqLog.ProxyDelayTime)
+	}
+}
+
+// TestReqTimeInfoGenProxyDelayNormal verifies the exact proxy delay value on
+// the normal backend-invoked path.
+func TestReqTimeInfoGenProxyDelayNormal(t *testing.T) {
+	_, req, _ := makeRequestLogTest(t)
+	base := time.Now()
+	req.Stat.ReadReqEnd = base
+	req.Stat.BackendFirst = base.Add(3 * time.Millisecond)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqTimeInfoGen(reqLog, req)
+
+	if reqLog.ProxyDelayTime == nil || *reqLog.ProxyDelayTime != 3 {
+		t.Errorf("ProxyDelayTime = %v, want 3", reqLog.ProxyDelayTime)
+	}
+}
+
+// TestReqTimeInfoGenSessionOffsetNoResponse verifies that requests with no
+// response written (ResponseStart/ResponseEnd stay zero, e.g. BfeHandlerClose)
+// get SessionOffsetTime = 0 instead of a wrapped negative duration
+// (bfenetworks/bfe#1391).
+func TestReqTimeInfoGenSessionOffsetNoResponse(t *testing.T) {
+	_, req, _ := makeRequestLogTest(t)
+	req.Stat.ResponseStart = time.Time{}
+	req.Stat.ResponseEnd = time.Time{}
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqTimeInfoGen(reqLog, req)
+
+	if reqLog.SessionOffsetTime == nil {
+		t.Fatal("SessionOffsetTime is nil")
+	}
+	if *reqLog.SessionOffsetTime != 0 {
+		t.Errorf("SessionOffsetTime = %d, want 0 for request without response", *reqLog.SessionOffsetTime)
+	}
+}
+
+func TestDurationMsUint32(t *testing.T) {
+	base := time.Now()
+	cases := []struct {
+		name  string
+		end   time.Time
+		start time.Time
+		want  uint32
+	}{
+		{"both zero", time.Time{}, time.Time{}, 0},
+		{"end zero", time.Time{}, base, 0},
+		{"start zero", base, time.Time{}, 0},
+		{"negative diff", base, base.Add(3 * time.Millisecond), 0},
+		{"normal", base.Add(3 * time.Millisecond), base, 3},
+		{"sub-ms truncation", base.Add(999 * time.Microsecond), base, 0},
+	}
+	for _, c := range cases {
+		if got := durationMsUint32(c.end, c.start); got != c.want {
+			t.Errorf("%s: durationMsUint32 = %d, want %d", c.name, got, c.want)
+		}
+	}
+}
+
 func TestIsStreamResponse(t *testing.T) {
 	req := &bfe_basic.Request{IsSse: true}
 	if !isStreamResponse(req, nil) {

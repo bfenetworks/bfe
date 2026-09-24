@@ -39,6 +39,13 @@ const (
 	HandleReadResponse
 	HandleRequestFinish
 	HandleFinish
+	// HandleAfterAITargetModel: AI gateway forwarding stage callback, fired
+	// after routing, with the target model resolved (aiMeta.TargetModel set)
+	// and before the request is forwarded to the backend. Fired per cluster
+	// attempt (every doSingleAIForward call, including key rotation and
+	// fallback); registrants handle per-request-once semantics themselves.
+	// Never fired for non-AI flows.
+	HandleAfterAITargetModel
 )
 
 func CallbackPointName(point int) string {
@@ -61,6 +68,8 @@ func CallbackPointName(point int) string {
 		return "HandleRequestFinish"
 	case HandleFinish:
 		return "HandleFinish"
+	case HandleAfterAITargetModel:
+		return "HandleAfterAITargetModel"
 	default:
 		return "HandleUnknown"
 	}
@@ -85,6 +94,7 @@ func NewBfeCallbacks() *BfeCallbacks {
 	bfeCallbacks.callbacks[HandleBeforeLocation] = NewHandlerList(HandlersRequest)
 	bfeCallbacks.callbacks[HandleFoundProduct] = NewHandlerList(HandlersRequest)
 	bfeCallbacks.callbacks[HandleAfterLocation] = NewHandlerList(HandlersRequest)
+	bfeCallbacks.callbacks[HandleAfterAITargetModel] = NewHandlerList(HandlersRequest)
 
 	// for HandlersForward
 	bfeCallbacks.callbacks[HandleForward] = NewHandlerList(HandlersForward)

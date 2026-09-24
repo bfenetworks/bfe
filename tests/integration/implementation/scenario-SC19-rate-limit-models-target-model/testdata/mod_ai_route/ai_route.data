@@ -1,0 +1,90 @@
+{
+    "Version": "20260923160000",
+    "route_rules": {
+        "apikey_ak_rl": {
+            "type": "apikey",
+            "owner": "ak_rl",
+            "rules": [
+                {
+                    "name": "rl-redirect",
+                    "Cond": "req_host_in(\"redirect.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_redirect",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                },
+                {
+                    "name": "rl-multi",
+                    "Cond": "req_host_in(\"multi.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_multi",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                },
+                {
+                    "name": "rl-fallback",
+                    "Cond": "req_host_in(\"fallback.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_main",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": [
+                        {
+                            "ClusterName": "cluster_backup",
+                            "Model": ""
+                        }
+                    ]
+                },
+                {
+                    "name": "rl-plain",
+                    "Cond": "req_host_in(\"plain.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_plain",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        },
+        "apikey_ak_up": {
+            "type": "apikey",
+            "owner": "ak_up",
+            "rules": [
+                {
+                    "name": "up-upstream",
+                    "Cond": "req_host_in(\"upstream.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_upstream",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_rl": [
+            "apikey_ak_rl"
+        ],
+        "ak_up": [
+            "apikey_ak_up"
+        ]
+    }
+}

@@ -187,7 +187,26 @@ Configuration hot-reload does not reset the OPEN state (avoiding a thundering he
 | AIConf.ModelMapping | Map[string]string | Mapping from original request model to backend service model | N | When accessing the backend service, the model field in the request will be looked up in this mapping; if matched, the model field in the request will be overwritten | Both keys and values are non-empty |
 | AIConf.MatchPrefix | String | Provider/model prefix to match | N | e.g. `openrouter/`; must end with `/`; used for aggregator providers such as OpenRouter | Required when `StripPrefix=true` |
 | AIConf.StripPrefix | Boolean | Whether to strip the prefix specified by `MatchPrefix` | N | When `true`, the prefix is removed from the request model field before forwarding to the backend; when `false`, the prefix is only used as a routing marker and not stripped | Defaults to `false` |
+| AIConf.ModelProtocols | []String | Model access protocols supported by this cluster's provider | N | e.g. `["openai"]`, `["openai", "anthropic"]`; empty defaults to `["openai"]` | Each element must be `openai`, `anthropic` or `gemini` |
+| AIConf.ProtocolPaths | Map[string]string | Per-protocol upstream path rewrite: protocol -> upstream base path (the path part of the protocol SDK's base_url) | N | See "AIConf.ProtocolPaths semantics" below | Keys must be `openai` or `anthropic`; values must start with `/`, must not end with `/`, must not contain `..`/`?`/`#`, and length must be <= 128 |
 | AIConf.ModelTable | Object | Model pricing table of this cluster | N | Automatically populated by ai-gateway-api by querying `model_prices` based on `Provider`; currency is fixed to `RMB` for now | See the "AIConf.ModelTable elements" table below |
+
+##### AIConf.ProtocolPaths semantics
+
+- The configured value is the path part of the protocol's official SDK `base_url`: `openai` bases end with `/v1` (e.g. `/compatible-mode/v1`, `/api/v3`, `/coding/v1`); `anthropic` bases have no `/v1` (the Anthropic SDK appends `/v1/messages` itself, e.g. `/apps/anthropic`, `/coding`, `/anthropic`).
+- Only standard entry paths are rewritten (`/v1` or `/v1/...`): an anthropic request to `/v1/messages` is rewritten to `{base}/v1/messages`; an openai request to `/v1/chat/completions` is rewritten to `{base}/chat/completions`.
+- When `ProtocolPaths` is not configured (or has no entry for the detected protocol), the request path is forwarded unchanged (transparent passthrough). Non-standard entry paths (provider-native paths, `/v10/xxx`, `/v1beta/...`) are never rewritten, so clients can always call the gateway with provider-native paths.
+
+Common provider values for `AIConf.ProtocolPaths`:
+
+| Provider | ProtocolPaths |
+|----------|---------------|
+| Alibaba Cloud Model Studio (DashScope) | `{"openai": "/compatible-mode/v1", "anthropic": "/apps/anthropic"}` |
+| Kimi Open Platform (api.moonshot.cn) | `{"openai": "/v1", "anthropic": "/anthropic"}` |
+| Kimi Code membership (api.kimi.com) | `{"openai": "/coding/v1", "anthropic": "/coding"}` |
+| DeepSeek | `{"openai": "/v1", "anthropic": "/anthropic"}` |
+| Volcengine Ark (pay-as-you-go) | `{"openai": "/api/v3", "anthropic": "/api/compatible"}` |
+| Volcengine Ark (Coding Plan) | `{"openai": "/api/coding/v3", "anthropic": "/api/coding"}` |
 
 ##### AIConf.Keys elements
 

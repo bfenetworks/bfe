@@ -1175,6 +1175,37 @@ func TestCalcCostUnits_CacheFallback(t *testing.T) {
 	}
 }
 
+func TestCalcCostUnits_PriceLookupMissCounter(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	clusterName := "responses-backup"
+	model := "gpt-5-codex"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	// price table only carries a "chat" mode entry for the model; the
+	// request is billed as mode "responses" (the issue #1382 shape before
+	// the fix). The lookup must miss, bill 0 and count the miss.
+	cluster := buildTestClusterConf(model, 0.000003, 0.000009)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
+	req.GetAiBasicInfo().Mode = bfe_basic.ModeResponses
+
+	usage := &bfe_basic.TokenUsage{PromptTokens: 100, CompletionTokens: 200}
+	if got := m.calcCostUnits(req, req.SvrDataConf, usage); got != 0 {
+		t.Errorf("expected 0 cost on price lookup miss, got %d", got)
+	}
+	if v := m.state.PriceLookupMiss.Get(); v != 1 {
+		t.Errorf("expected PriceLookupMiss 1, got %d", v)
+	}
+
+	// billing with the configured mode hits the price: no counter bump.
+	req.GetAiBasicInfo().Mode = bfe_basic.ModeChat
+	want := quota.RmbToFixedPoint(100*0.000003 + 200*0.000009)
+	if got := m.calcCostUnits(req, req.SvrDataConf, usage); got != want {
+		t.Errorf("expected cost %d, got %d", want, got)
+	}
+	if v := m.state.PriceLookupMiss.Get(); v != 1 {
+		t.Errorf("expected PriceLookupMiss still 1 after a hit, got %d", v)
+	}
+}
+
 func TestCalcCostUnits_CacheReadExceedsPrompt(t *testing.T) {
 	m := NewModuleAITokenAuth()
 	clusterName := "claude-backup"

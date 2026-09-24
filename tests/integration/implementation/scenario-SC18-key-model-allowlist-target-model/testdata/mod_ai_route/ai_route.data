@@ -1,0 +1,69 @@
+{
+    "Version": "20260923150000",
+    "route_rules": {
+        "apikey_ak_user_a": {
+            "type": "apikey",
+            "owner": "ak_user_a",
+            "rules": [
+                {
+                    "name": "user_a-redirect",
+                    "Cond": "req_host_in(\"redirect.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_redirect",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                },
+                {
+                    "name": "user_a-plain",
+                    "Cond": "req_host_in(\"plain.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_plain",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                },
+                {
+                    "name": "user_a-fallback",
+                    "Cond": "req_host_in(\"fallback.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_plain",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": [
+                        {
+                            "ClusterName": "cluster_redirect",
+                            "Model": ""
+                        }
+                    ]
+                },
+                {
+                    "name": "user_a-gemini",
+                    "Cond": "req_host_in(\"gemini.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_gemini",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_user_a": [
+            "apikey_ak_user_a"
+        ]
+    }
+}

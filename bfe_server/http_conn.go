@@ -34,6 +34,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util"
@@ -514,6 +515,20 @@ func (c *conn) serve() {
 	}
 }
 
+// extractClientModel returns the client-requested model: the body "model"
+// field when present, falling back to the request path for protocols that
+// carry the model there (Gemini, /v1beta/models/{model}:generateContent,
+// issue #1384). It returns "" when neither location carries a model.
+func extractClientModel(request *bfe_basic.Request) string {
+	model, err := condition.ReqBodyJsonFetch(request, "model", nil)
+	if err != nil || model == "" {
+		if pathModel := bfe_model_protocol.ExtractModelFromPath(request.HttpRequest); pathModel != "" {
+			model = pathModel
+		}
+	}
+	return model
+}
+
 func (c *conn) serveRequest(w bfe_http.ResponseWriter, request *bfe_basic.Request) (isKeepAlive bool) {
 	session := c.session
 	serverStatus := c.server.serverStatus
@@ -548,11 +563,9 @@ func (c *conn) serveRequest(w bfe_http.ResponseWriter, request *bfe_basic.Reques
 			aiMeta.ClientApiKey = apikey
 		}
 
-		model, err := condition.ReqBodyJsonFetch(request, "model", nil)
-		if err == nil || len(model) > 0 {
-			aiMeta.ClientModel = model
-			aiMeta.TargetModel = model
-		}
+		model := extractClientModel(request)
+		aiMeta.ClientModel = model
+		aiMeta.TargetModel = model
 
 		aiMeta.Mode = bfe_basic.DetectModeFromPath(request.HttpRequest.URL.Path)
 		log.Logger.Debug("conn.serveRequest(), ClientApiKey:%s, ClientModel:%s, Mode:%s", apikey, model, aiMeta.Mode)

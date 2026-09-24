@@ -17,12 +17,10 @@ package mod_ai_token_auth
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
-	"github.com/bfenetworks/bfe/bfe_basic/condition"
 )
 
 type TokenRuleTable struct {
@@ -188,50 +186,10 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 		}
 	}
 
-	if len(token.Models) > 0 || len(token.BlockModels) > 0 {
-		model, err := condition.ReqBodyJsonFetch(req, "model", nil)
-		if err != nil || model == "" {
-			SetAiAuthInfo(req, bfe_basic.CodeInvalidRequest, nil)
-			return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeInvalidRequest, bfe_basic.TypeInvalidRequestError, fmt.Sprintf("Model not found in request body: %v", err),
-				&bfe_basic.AiErrorDetail{
-					ApiKey: key,
-					KeyId:  token.KeyId,
-				})
-		}
-		model = strings.TrimSpace(model)
-		if len(token.BlockModels) > 0 {
-			for _, blockModel := range token.BlockModels {
-				if blockModel == model {
-					SetAiAuthInfo(req, bfe_basic.CodeModelNotAllowed, nil)
-					return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeModelNotAllowed, bfe_basic.TypeInvalidRequestError, fmt.Sprintf("Model %s blocked by key %s", model, key),
-						&bfe_basic.AiErrorDetail{
-							ApiKey: key,
-							KeyId:  token.KeyId,
-							Model:  model,
-						})
-				}
-			}
-		}
-
-		if len(token.Models) > 0 {
-			inModels := false
-			for _, m := range token.Models {
-				if m == model {
-					inModels = true
-					break
-				}
-			}
-			if !inModels {
-				SetAiAuthInfo(req, bfe_basic.CodeModelNotAllowed, nil)
-				return nil, bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeModelNotAllowed, bfe_basic.TypeInvalidRequestError, fmt.Sprintf("Model %s not allowed by key %s", model, key),
-					&bfe_basic.AiErrorDetail{
-						ApiKey: key,
-						KeyId:  token.KeyId,
-						Model:  model,
-					})
-			}
-		}
-	}
+	// Note: the model allow/block check was moved out of the auth stage to
+	// the forward stage (ValidateTargetModel, issue #1387), where the target
+	// model has been fully resolved (route target override, cluster prefix
+	// stripping and cluster model mapping applied).
 
 	if len(token.Subnet) > 0 {
 		inSubnet := false

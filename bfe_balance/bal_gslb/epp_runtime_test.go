@@ -218,6 +218,36 @@ func startEPPTestServer(t *testing.T, withProc bool) *eppTestServer {
 	return ts
 }
 
+// startPlaintextEPPTestServer starts a plaintext (no TLS) EPP test server.
+func startPlaintextEPPTestServer(t *testing.T, withProc bool) *eppTestServer {
+	t.Helper()
+
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	srv := grpc.NewServer()
+	hs := health.NewServer()
+	hs.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	grpc_health_v1.RegisterHealthServer(srv, hs)
+
+	ts := &eppTestServer{
+		addr:   lis.Addr().String(),
+		health: hs,
+		grpc:   srv,
+	}
+	if withProc {
+		ts.proc = &fakeExtProc{md: decisionMD("127.0.0.1:9999")}
+		extprocv3.RegisterExternalProcessorServer(srv, ts.proc)
+	}
+
+	go srv.Serve(lis)
+	t.Cleanup(func() {
+		srv.Stop()
+		lis.Close()
+	})
+	return ts
+}
+
 func testRuntimeConf(mutate func(*eppRuntimeConf)) eppRuntimeConf {
 	conf := eppRuntimeConf{
 		tlsInsecure:      true,
@@ -304,6 +334,37 @@ func TestEPPRuntimeSingleAddrFailover(t *testing.T) {
 	primary.setServing(false)
 	time.Sleep(300 * time.Millisecond)
 	assert.Equal(t, 0, rt.activeIndex())
+}
+
+func TestEPPRuntimePlaintextProbe(t *testing.T) {
+	server := startPlaintextEPPTestServer(t, false)
+
+	rt, err := newEPPRuntime("cluster-x", []string{server.addr}, testRuntimeConf(func(c *eppRuntimeConf) {
+		c.plaintext = true
+	}))
+	require.NoError(t, err)
+	defer rt.closeConns()
+	defer rt.stopProbes()
+
+	// plaintext probe reaches the plaintext health service
+	require.NoError(t, rt.probe(0))
+
+	// NOT_SERVING surfaces as probe failure
+	server.setServing(false)
+	assert.Error(t, rt.probe(0))
+}
+
+func TestBalanceEppPlaintext(t *testing.T) {
+	server := startPlaintextEPPTestServer(t, true)
+	conf := makeEPPGslbBasicConf(t, []string{server.addr}, func(conf *cluster_conf.GslbBasicConf) {
+		conf.EPPTLS = &cluster_conf.EPPTLSConf{Plaintext: true}
+	})
+	bal := makeTestBal(t, conf)
+
+	bk, err := bal.BalanceEpp(prepareEPPRequest())
+	require.NoError(t, err)
+	require.NotNil(t, bk)
+	assert.NotNil(t, server.proc.capturedFirst())
 }
 
 func makeEPPGslbBasicConf(t *testing.T, addrs []string, mutate func(*cluster_conf.GslbBasicConf)) cluster_conf.GslbBasicConf {

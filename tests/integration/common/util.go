@@ -122,6 +122,8 @@ func clusterSubName(clusterName string) string {
 		return "fallback_rmb"
 	case "cluster_openrouter":
 		return "openrouter"
+	case "cluster_primary":
+		return "primary"
 	case "cluster_fallback":
 		return "fallback"
 	case "cluster_default":

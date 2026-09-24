@@ -16,7 +16,6 @@ package mod_ai_rate_limit
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
 	"path/filepath"
@@ -48,10 +47,6 @@ const (
 	ModAiRateLimitDiff = "mod_ai_rate_limit_diff"
 
 	CtxPolicyLimiter = "mod_ai_rate_limit.policy_limiter_ctx"
-)
-
-var (
-	ErrAiRateLimit = errors.New("AI_RATE_LIMIT") // deny by mod_ai_rate_limit
 )
 
 // key for counter of mod_ai_rate_limit
@@ -109,18 +104,28 @@ func (m *ModuleAiRateLimit) Name() string {
 	return m.name
 }
 
-func (m *ModuleAiRateLimit) limitFoundProductHandler(req *bfe_basic.Request) (int, *bfe_http.Response) {
+func (m *ModuleAiRateLimit) targetModelCheckHandler(req *bfe_basic.Request) (int, *bfe_http.Response) {
+	// Fired per cluster attempt (key rotation / fallback); the policy check
+	// must run at most once per request, so an existing limiter context means
+	// this request has already been checked.
+	if getPolicyLimiterContext(req) != nil {
+		return bfe_module.BfeHandlerGoOn, nil
+	}
+
 	meta := req.GetAiBasicInfo()
 	if meta == nil {
 		return bfe_module.BfeHandlerGoOn, nil
 	}
 
+	// issue #1387 sister card: match and meter the rate limit policies
+	// against the resolved target model, not the raw client model.
+	targetModel := meta.TargetModel
+
 	req.InitAiRateLimitHitInfo()
-	ret, res := m.runProductRules(req, meta)
-	return ret, res
+	return m.runProductRules(req, meta, targetModel)
 }
 
-func (m *ModuleAiRateLimit) runProductRules(req *bfe_basic.Request, meta *bfe_basic.AiBasicInfo) (int, *bfe_http.Response) {
+func (m *ModuleAiRateLimit) runProductRules(req *bfe_basic.Request, meta *bfe_basic.AiBasicInfo, targetModel string) (int, *bfe_http.Response) {
 	product := req.Route.Product
 	rules := m.productTable.getProductRules(product)
 	if rules == nil {
@@ -142,9 +147,9 @@ func (m *ModuleAiRateLimit) runProductRules(req *bfe_basic.Request, meta *bfe_ba
 			log.Logger.Debug("mod_ai_rate_limit: cond[%s] matched for product[%s]", rule.condStr, product)
 		}
 
-		ret, res := m.executeCheckLimitPolicy(req, meta, rule, ctx)
+		ret, res := m.executeCheckLimitPolicy(req, meta, rule, ctx, targetModel)
 		if ret != bfe_module.BfeHandlerGoOn {
-			req.ErrCode = ErrAiRateLimit
+			req.ErrCode = bfe_basic.ErrAiRateLimit
 			return ret, res
 		}
 	}
@@ -152,7 +157,7 @@ func (m *ModuleAiRateLimit) runProductRules(req *bfe_basic.Request, meta *bfe_ba
 	return bfe_module.BfeHandlerGoOn, nil
 }
 
-func (m *ModuleAiRateLimit) executeCheckLimitPolicy(req *bfe_basic.Request, meta *bfe_basic.AiBasicInfo, rule *productRule, ctx *PolicyLimiterContext) (int, *bfe_http.Response) {
+func (m *ModuleAiRateLimit) executeCheckLimitPolicy(req *bfe_basic.Request, meta *bfe_basic.AiBasicInfo, rule *productRule, ctx *PolicyLimiterContext, targetModel string) (int, *bfe_http.Response) {
 	apiKey := meta.ClientApiKey
 	if apiKey == "" {
 		if openDebug {
@@ -168,8 +173,6 @@ func (m *ModuleAiRateLimit) executeCheckLimitPolicy(req *bfe_basic.Request, meta
 		}
 		return bfe_module.BfeHandlerGoOn, nil
 	}
-
-	clientModel := meta.ClientModel
 
 	for _, policyId := range policyIds {
 		policy := m.productTable.getPolicy(policyId)
@@ -187,9 +190,9 @@ func (m *ModuleAiRateLimit) executeCheckLimitPolicy(req *bfe_basic.Request, meta
 			continue
 		}
 
-		if !matchModel(policy.Models, clientModel) {
+		if !matchModel(policy.Models, targetModel) {
 			if openDebug {
-				log.Logger.Debug("mod_ai_rate_limit: policy[%s] models[%v] != clientModel[%s], skip", policyId, policy.Models, clientModel)
+				log.Logger.Debug("mod_ai_rate_limit: policy[%s] models[%v] != targetModel[%s], skip", policyId, policy.Models, targetModel)
 			}
 			continue
 		}
@@ -197,17 +200,17 @@ func (m *ModuleAiRateLimit) executeCheckLimitPolicy(req *bfe_basic.Request, meta
 		ls := m.limiterManager.getLimiterPolicySet(policyId)
 
 		// check Concurrency
-		if !ls.checkConcurrency(req, meta, m.redisAgent, ctx, clientModel, m.isRejectOnRedisError) {
+		if !ls.checkConcurrency(req, meta, m.redisAgent, ctx, targetModel, m.isRejectOnRedisError) {
 			return m.executePolicyAction(req, meta, policyId, policy, rule)
 		}
 
 		// check RPM
-		if !ls.checkRPM(req, meta, m.redisAgent, ctx, clientModel, m.isRejectOnRedisError) {
+		if !ls.checkRPM(req, meta, m.redisAgent, ctx, targetModel, m.isRejectOnRedisError) {
 			return m.executePolicyAction(req, meta, policyId, policy, rule)
 		}
 
 		// check TPM
-		if !ls.checkTPM(req, meta, m.redisAgent, ctx, clientModel, m.isRejectOnRedisError) {
+		if !ls.checkTPM(req, meta, m.redisAgent, ctx, targetModel, m.isRejectOnRedisError) {
 			return m.executePolicyAction(req, meta, policyId, policy, rule)
 		}
 	}
@@ -475,9 +478,11 @@ func (m *ModuleAiRateLimit) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.
 		return fmt.Errorf("%s.Init(): loadProductRuleTable(): %s", m.name, err.Error())
 	}
 
-	err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.limitFoundProductHandler)
+	// issue #1387 sister card: the policy check runs on the AI forwarding
+	// stage callback (target model resolved), not on HandleFoundProduct.
+	err = cbs.AddFilter(bfe_module.HandleAfterAITargetModel, m.targetModelCheckHandler)
 	if err != nil {
-		return fmt.Errorf("%s.Init(): AddFilter(m.limitFoundProductHandler): %s", m.name, err.Error())
+		return fmt.Errorf("%s.Init(): AddFilter(m.targetModelCheckHandler): %s", m.name, err.Error())
 	}
 
 	err = cbs.AddFilter(bfe_module.HandleRequestFinish, m.limitRequestFinishHandler)

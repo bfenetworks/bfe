@@ -15,6 +15,7 @@
 package cluster_conf
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -320,6 +321,95 @@ func TestAIConfCheck(t *testing.T) {
 		}
 		if err := AIConfCheck(conf); err == nil {
 			t.Error("expected error when SessionAffinityTTL < 0")
+		}
+	})
+}
+
+func TestAIProtocolPathsCheck(t *testing.T) {
+	t.Run("nil and empty are valid", func(t *testing.T) {
+		if err := AIProtocolPathsCheck(nil); err != nil {
+			t.Errorf("unexpected error for nil paths: %v", err)
+		}
+		if err := AIProtocolPathsCheck(map[string]string{}); err != nil {
+			t.Errorf("unexpected error for empty paths: %v", err)
+		}
+	})
+
+	t.Run("valid provider paths", func(t *testing.T) {
+		paths := map[string]string{
+			"openai":    "/compatible-mode/v1",
+			"anthropic": "/apps/anthropic",
+		}
+		if err := AIProtocolPathsCheck(paths); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("unknown protocol key", func(t *testing.T) {
+		paths := map[string]string{"gemini": "/v1beta"}
+		if err := AIProtocolPathsCheck(paths); err == nil {
+			t.Error("expected error for unsupported protocol key")
+		}
+	})
+
+	t.Run("empty base path", func(t *testing.T) {
+		paths := map[string]string{"openai": ""}
+		if err := AIProtocolPathsCheck(paths); err == nil {
+			t.Error("expected error for empty base path")
+		}
+	})
+
+	t.Run("missing leading slash", func(t *testing.T) {
+		paths := map[string]string{"openai": "compatible-mode/v1"}
+		if err := AIProtocolPathsCheck(paths); err == nil {
+			t.Error("expected error for base path without leading slash")
+		}
+	})
+
+	t.Run("trailing slash", func(t *testing.T) {
+		paths := map[string]string{"openai": "/compatible-mode/"}
+		if err := AIProtocolPathsCheck(paths); err == nil {
+			t.Error("expected error for base path with trailing slash")
+		}
+	})
+
+	t.Run("root slash", func(t *testing.T) {
+		paths := map[string]string{"openai": "/"}
+		if err := AIProtocolPathsCheck(paths); err == nil {
+			t.Error("expected error for root slash base path")
+		}
+	})
+
+	t.Run("dot dot", func(t *testing.T) {
+		paths := map[string]string{"openai": "/.. /x"}
+		if err := AIProtocolPathsCheck(paths); err == nil {
+			t.Error("expected error for base path containing ..")
+		}
+	})
+
+	t.Run("query and fragment", func(t *testing.T) {
+		for _, base := range []string{"/api?v=1", "/api#frag"} {
+			if err := AIProtocolPathsCheck(map[string]string{"openai": base}); err == nil {
+				t.Errorf("expected error for base path %q", base)
+			}
+		}
+	})
+
+	t.Run("too long", func(t *testing.T) {
+		paths := map[string]string{"openai": "/" + strings.Repeat("a", 128)}
+		if err := AIProtocolPathsCheck(paths); err == nil {
+			t.Error("expected error for base path longer than 128")
+		}
+	})
+
+	t.Run("aiConf check integration", func(t *testing.T) {
+		conf := &AIConf{ProtocolPaths: map[string]string{"gemini": "/v1beta"}}
+		err := AIConfCheck(conf)
+		if err == nil {
+			t.Fatal("expected AIConfCheck error for invalid ProtocolPaths")
+		}
+		if !strings.Contains(err.Error(), "ProtocolPaths") {
+			t.Errorf("error %q should mention ProtocolPaths", err.Error())
 		}
 	})
 }

@@ -30,6 +30,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_util/epp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	grpc_health_v1 "google.golang.org/grpc/health/grpc_health_v1"
 )
 
@@ -37,6 +38,7 @@ import (
 type eppRuntimeConf struct {
 	tlsInsecure      bool
 	tlsCAFile        string
+	plaintext        bool          // dial EPP without TLS
 	connectTimeout   time.Duration // for establishing data connection / probe connection
 	callTimeout      time.Duration // for first message (RequestHeaders Send+Recv)
 	checkDisabled    bool
@@ -76,9 +78,13 @@ type eppRuntime struct {
 }
 
 func newEPPRuntime(name string, addrs []string, conf eppRuntimeConf) (*eppRuntime, error) {
-	tlsConf, err := epp.BuildTLSConfig(conf.tlsInsecure, conf.tlsCAFile)
-	if err != nil {
-		return nil, err
+	var tlsConf *tls.Config
+	if !conf.plaintext {
+		var err error
+		tlsConf, err = epp.BuildTLSConfig(conf.tlsInsecure, conf.tlsCAFile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	rt := &eppRuntime{
@@ -96,7 +102,7 @@ func newEPPRuntime(name string, addrs []string, conf eppRuntimeConf) (*eppRuntim
 	// lazy (established on first stream) so an unreachable address does not
 	// block runtime creation - the health checker tracks its recovery
 	for i, addr := range addrs {
-		conn, err := epp.NewGrpcConn(addr, conf.connectTimeout, conf.tlsInsecure, conf.tlsCAFile)
+		conn, err := epp.NewGrpcConn(addr, conf.connectTimeout, conf.tlsInsecure, conf.tlsCAFile, conf.plaintext)
 		if err != nil {
 			log.Logger.Warn("eppRuntime[%s]: create conn for %s failed: %v", name, addr, err)
 			continue
@@ -216,8 +222,14 @@ func (rt *eppRuntime) probe(idx int) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), rt.conf.connectTimeout)
 	defer cancel()
+	var creds credentials.TransportCredentials
+	if rt.conf.plaintext {
+		creds = insecure.NewCredentials()
+	} else {
+		creds = credentials.NewTLS(rt.tlsConf)
+	}
 	conn, err := grpc.DialContext(ctx, addr,
-		grpc.WithTransportCredentials(credentials.NewTLS(rt.tlsConf)),
+		grpc.WithTransportCredentials(creds),
 		grpc.WithBlock(),
 	)
 	if err != nil {

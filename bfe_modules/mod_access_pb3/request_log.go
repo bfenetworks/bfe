@@ -308,6 +308,21 @@ func reqResponseInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Reques
 	}
 }
 
+// durationMsUint32 returns end.Sub(start) in milliseconds, or 0 when either
+// endpoint is unset (zero time) or the difference is negative. It guards the
+// uint32 conversion against the saturated negative duration produced when a
+// never-set endpoint (e.g. BackendFirst for requests that never invoked a
+// backend) is subtracted from a real timestamp (bfenetworks/bfe#1391).
+func durationMsUint32(end, start time.Time) uint32 {
+	if end.IsZero() || start.IsZero() {
+		return 0
+	}
+	if ms := end.Sub(start).Nanoseconds() / 1000000; ms >= 0 {
+		return uint32(ms)
+	}
+	return 0
+}
+
 // time info
 func reqTimeInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request) {
 	now := time.Now()
@@ -324,23 +339,19 @@ func reqTimeInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request) {
 
 	// time duration of serve request by cluster (in ms) (include retry time)
 	// start: connect to cluster, end: get response from cluster
-	ms = req.Stat.ClusterEnd.Sub(req.Stat.ClusterStart).Nanoseconds() / 1000000
-	reqLog.ClusterServeTime = proto.Uint32(uint32(ms))
+	reqLog.ClusterServeTime = proto.Uint32(durationMsUint32(req.Stat.ClusterEnd, req.Stat.ClusterStart))
 
 	// time duration of serve request by backend (in ms) (if retry many times, it is last retry)
 	// start: connect to backend, end: get response from backend
-	ms = req.Stat.BackendEnd.Sub(req.Stat.BackendStart).Nanoseconds() / 1000000
-	reqLog.BackendServeTime = proto.Uint32(uint32(ms))
+	reqLog.BackendServeTime = proto.Uint32(durationMsUint32(req.Stat.BackendEnd, req.Stat.BackendStart))
 
 	// time duration of write response to client(in ms)
 	// start: start send response to client, end: finish send response
-	ms = req.Stat.ResponseEnd.Sub(req.Stat.ResponseStart).Nanoseconds() / 1000000
-	reqLog.WriteClientTime = proto.Uint32(uint32(ms))
+	reqLog.WriteClientTime = proto.Uint32(durationMsUint32(req.Stat.ResponseEnd, req.Stat.ResponseStart))
 
 	// time offset from start time of session (in ms)
 	// start: start of session, end: finish send response
-	ms = req.Stat.ResponseEnd.Sub(req.Session.StartTime).Nanoseconds() / 1000000
-	reqLog.SessionOffsetTime = proto.Uint32(uint32(ms))
+	reqLog.SessionOffsetTime = proto.Uint32(durationMsUint32(req.Stat.ResponseEnd, req.Session.StartTime))
 
 	// time duration: connect backend time(in ms)
 	// start: connect to backend, end: connection established or got an idle connection
@@ -356,8 +367,10 @@ func reqTimeInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request) {
 	reqLog.ConnectBackendTime = proto.Uint32(ct)
 
 	// proxy delay(in ms)
-	ms = req.Stat.BackendFirst.Sub(req.Stat.ReadReqEnd).Nanoseconds() / 1000000
-	reqLog.ProxyDelayTime = proto.Uint32(uint32(ms))
+	// start: finish read request, end: first byte from backend
+	// BackendFirst is only set when the request actually invoked a backend;
+	// in auth-reject / no-route / redirect / close cases it stays zero.
+	reqLog.ProxyDelayTime = proto.Uint32(durationMsUint32(req.Stat.BackendFirst, req.Stat.ReadReqEnd))
 }
 
 // isStreamResponse checks if the response is a streaming response

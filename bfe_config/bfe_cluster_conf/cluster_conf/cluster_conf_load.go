@@ -239,6 +239,14 @@ type AIConf struct {
 	// It comes from ai-gateway-api provider.model_protocols, e.g. ["openai"], ["anthropic"],
 	// ["openai", "anthropic"]. Empty defaults to ["openai"] for backward compatibility.
 	ModelProtocols []string
+
+	// ProtocolPaths maps a model protocol to the provider's upstream base path
+	// (the path part of the protocol SDK base_url), e.g. {"openai": "/compatible-mode/v1",
+	// "anthropic": "/apps/anthropic"}. When set, standard /v1/... entry paths are
+	// rewritten to the provider-specific prefix for the detected protocol.
+	// Keys must be openai or anthropic; empty/nil means disabled (requests are
+	// forwarded with their original path).
+	ProtocolPaths map[string]string
 }
 
 const (
@@ -428,8 +436,9 @@ func (c *EPPTimeoutConf) CallDuration() time.Duration {
 // EPPTLSConf is transport security conf for EPP connections,
 // only effective when BalanceMode is EPP.
 type EPPTLSConf struct {
-	Insecure bool   // true = skip certificate verification (testing only)
-	CAFile   string // CA certificate file for verifying EPP server, required if Insecure is false
+	Insecure  bool   // true = skip certificate verification (testing only)
+	CAFile    string // CA certificate file for verifying EPP server, required if Insecure is false
+	Plaintext bool   // dial EPP without TLS (EPP serves plaintext gRPC; mutually exclusive with Insecure/CAFile)
 }
 
 // EPPBreakerConf is circuit breaker conf of the EPP path, only effective
@@ -850,6 +859,12 @@ func GslbBasicConfCheck(conf *GslbBasicConf) error {
 		if err := EPPBreakerConfCheck(conf.EPPBreaker); err != nil {
 			return err
 		}
+		if conf.EPPTLS == nil {
+			// Formalize the legacy default: a missing EPPTLS means TLS with
+			// skipped certificate verification, same as {Insecure: true}.
+			conf.EPPTLS = &EPPTLSConf{Insecure: true}
+			log.Logger.Warn("EPPTLS not configured, default to Insecure=true (skip certificate verification), please configure EPPTLS explicitly")
+		}
 		if err := EPPTLSConfCheck(conf.EPPTLS); err != nil {
 			return err
 		}
@@ -1003,22 +1018,21 @@ func EPPBreakerConfCheck(conf *EPPBreakerConf) error {
 	return nil
 }
 
-// EPPTLSConfCheck checks EPPTLSConf.
+// EPPTLSConfCheck checks EPPTLSConf. A nil conf is valid here:
+// GslbBasicConfCheck fills the default (Insecure=true) before calling it.
 func EPPTLSConfCheck(conf *EPPTLSConf) error {
 	if conf == nil {
-		// Compat: existing deployments upgraded to this version do not configure
-		// EPPTLS at all. Rejecting them at load time would break rolling upgrades,
-		// so a nil EPPTLS keeps the legacy behavior (skip certificate verification)
-		// and only logs a warning to prompt migration. Certificate verification is
-		// enabled only when EPPTLS is explicitly configured.
-		log.Logger.Warn("EPPTLS not configured, EPP connections skip certificate verification (legacy behavior), please configure EPPTLS")
 		return nil
 	}
 
-	if !conf.Insecure && conf.CAFile == "" {
+	if conf.Plaintext && (conf.Insecure || conf.CAFile != "") {
+		return errors.New("EPPTLS.Plaintext is mutually exclusive with Insecure/CAFile")
+	}
+
+	if !conf.Plaintext && !conf.Insecure && conf.CAFile == "" {
 		return errors.New("EPPTLS.CAFile is required when Insecure is false")
 	}
-	if !conf.Insecure {
+	if !conf.Plaintext && !conf.Insecure {
 		if _, err := os.Stat(conf.CAFile); err != nil {
 			return fmt.Errorf("EPPTLS.CAFile %q is not readable: %v", conf.CAFile, err)
 		}
@@ -1176,12 +1190,56 @@ func AIConfCheck(conf *AIConf) error {
 		}
 	}
 
+	if err := AIProtocolPathsCheck(conf.ProtocolPaths); err != nil {
+		return fmt.Errorf("ProtocolPaths:%s", err.Error())
+	}
+
 	if conf.KeyPolicy != nil {
 		if err := AIKeyPolicyCheck(conf.KeyPolicy); err != nil {
 			return fmt.Errorf("KeyPolicy:%s", err.Error())
 		}
 	}
 
+	return nil
+}
+
+// AIProtocolPathsCheck validates the per-protocol upstream base paths.
+// Keys must be protocols supported by the rewrite formula (openai,
+// anthropic); values must be well-formed absolute paths.
+func AIProtocolPathsCheck(paths map[string]string) error {
+	for proto, base := range paths {
+		switch proto {
+		case "openai", "anthropic":
+		default:
+			return fmt.Errorf("unsupported protocol %q (expect openai or anthropic)", proto)
+		}
+		if err := checkUpstreamBasePath(base); err != nil {
+			return fmt.Errorf("%s: %s", proto, err.Error())
+		}
+	}
+	return nil
+}
+
+// checkUpstreamBasePath validates a single upstream base path.
+func checkUpstreamBasePath(base string) error {
+	if base == "" {
+		return fmt.Errorf("base path is empty")
+	}
+	if len(base) > 128 {
+		return fmt.Errorf("base path length must be <= 128")
+	}
+	if !strings.HasPrefix(base, "/") {
+		return fmt.Errorf("base path must start with '/'")
+	}
+	if strings.HasSuffix(base, "/") {
+		return fmt.Errorf("base path must not end with '/'")
+	}
+	if strings.ContainsAny(base, "?#") {
+		return fmt.Errorf("base path must not contain '?' or '#'")
+	}
+	if strings.Contains(base, "..") {
+		return fmt.Errorf("base path must not contain '..'")
+	}
 	return nil
 }
 
