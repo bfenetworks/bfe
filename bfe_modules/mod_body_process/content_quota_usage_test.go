@@ -341,8 +341,8 @@ func TestQuotaUsageProcessorProcessResponsesAPICompleted(t *testing.T) {
 		t.Error("expected response completed at response.completed")
 	}
 	usage := ai.GetTokenUsage()
-	if usage.PromptTokens != 140 {
-		t.Errorf("expected PromptTokens 140 (100+40), got %d", usage.PromptTokens)
+	if usage.PromptTokens != 100 {
+		t.Errorf("expected PromptTokens 100 (input_tokens includes cached 40, issue #1389), got %d", usage.PromptTokens)
 	}
 	if usage.CompletionTokens != 50 {
 		t.Errorf("expected CompletionTokens 50, got %d", usage.CompletionTokens)

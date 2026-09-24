@@ -37,7 +37,7 @@ responses 价格的模型 miss，请求被 0 计费（静默漏收）。
 
    data: {"type":"response.output_text.delta","delta":"hello"}
 
-   data: {"type":"response.completed","response":{"id":"resp_01","status":"completed","usage":{"input_tokens":2000,"output_tokens":1500,"total_tokens":3500,"input_tokens_details":{"cached_tokens":8000}}}}
+   data: {"type":"response.completed","response":{"id":"resp_01","status":"completed","usage":{"input_tokens":10000,"output_tokens":1500,"total_tokens":11500,"input_tokens_details":{"cached_tokens":8000}}}}
    ```
 4. 临时 BFE 配置已加载，`cluster_rmb` 的 `ModelTable` 包含模型 `gpt-5-codex`
    （mode 为 `responses`），价格同 TC-18：
@@ -63,7 +63,8 @@ responses 价格的模型 miss，请求被 0 计费（静默漏收）。
 - `cluster_rmb` 收到 1 次命中（200）；上游收到的路径保持
   `/compatible-mode/v1/responses` 原样（改写层对 provider-native 路径透传）。
 - Redis 中 `quota:plan_rmb` 按 responses 模式价格扣减：
-  - PromptTokens 归一化 = 2000 + 8000 = 10000，normal_input = 2000
+  - OpenAI subset 语义（issue #1389）：`input_tokens=10000` 已含
+    `cached_tokens=8000`，PromptTokens = 10000，normal_input = 2000
   - 扣减金额 = 2000×100 + 8000×50 + 1500×200 = 900000
   - 剩余 = `10000000000 - 900000 = 99999100000`
 - 修复前本用例扣减为 0（mode 误判 chat → 价格 miss → 0 计费）。
