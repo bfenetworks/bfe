@@ -508,6 +508,14 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		})
 	}
 
+	// AI cache (mod_ai_cache) status
+	if aiInfo.AiCacheStatus != "" {
+		reqLog.AiCacheStatus = proto.String(aiInfo.AiCacheStatus)
+	}
+	if aiInfo.AiCacheKey != "" {
+		reqLog.AiCacheKey = proto.String(aiInfo.AiCacheKey)
+	}
+
 	// Rate limit hit info
 	hitInfo := req.GetAiRateLimitHitInfo()
 	if hitInfo != nil && len(hitInfo.HitPolicyDict) > 0 {

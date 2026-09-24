@@ -17,6 +17,7 @@ package common
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/alicebob/miniredis/v2"
 )
@@ -75,4 +76,9 @@ func (s *RedisServer) Exists(key string) bool {
 // Keys returns all keys currently present in redis.
 func (s *RedisServer) Keys() []string {
 	return s.server.Keys()
+}
+
+// FastForward advances the redis server clock, affecting key expiry.
+func (s *RedisServer) FastForward(d time.Duration) {
+	s.server.FastForward(d)
 }

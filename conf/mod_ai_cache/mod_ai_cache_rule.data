@@ -1,0 +1,18 @@
+{
+    "Version": "1.0",
+    "Config": {
+        "example_ai_product": [
+            {
+                "cond": "req_path_in(\"/v1/chat/completions\") && req_body_json_in(\"model\", \"deepseek-chat\", false)",
+                "cacheKeyStrategy": "lastQuestion",
+                "cacheTTL": 3600,
+                "maxBodyBytes": 1048576,
+                "maxValueBytes": 1048576
+            },
+            {
+                "cond": "default_t()",
+                "cacheKeyStrategy": "disabled"
+            }
+        ]
+    }
+}

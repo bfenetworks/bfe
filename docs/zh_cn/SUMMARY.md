@@ -46,6 +46,7 @@
   * 扩展模块配置
     * [mod_access](configuration/mod_access/mod_access.conf.md)
     * [mod_access_pb3](configuration/mod_access_pb3/mod_access_pb3.conf.md)
+    * [mod_ai_cache](configuration/mod_ai_cache/mod_ai_cache.conf.md)
     * [mod_ai_rate_limit](configuration/mod_ai_rate_limit/mod_ai_rate_limit.conf.md)
     * [mod_ai_route](configuration/mod_ai_route/mod_ai_route.conf.md)
     * [mod_ai_token_auth](configuration/mod_ai_token_auth/mod_ai_token_auth.conf.md)
@@ -125,6 +126,7 @@
     * [BFE 多 API-Key 支持](sys_design/multi_api_key.md)
     * [BFE AI 访问日志可观测字段设计](sys_design/ai_access_log_fields.md)
     * [AI 限流 Redis 计数器 key 稳定性设计](sys_design/ai_rate_limit_redis_key.md)
+    * [BFE AI 缓存设计（mod_ai_cache，简化版：仅精确匹配）](sys_design/ai_cache.md)
     * [BFE AI 网关错误码说明](sys_design/ai_error_codes.md)
     * [BFE TLS 配置版本目录热加载设计](sys_design/tls_conf_reload_path.md)
     * [AI 上游路径按协议改写（AIConf.ProtocolPaths）](sys_design/ai_protocol_paths.md)

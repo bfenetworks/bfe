@@ -20,6 +20,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access_pb3"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_cache"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_rate_limit"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_route"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_token_auth"
@@ -152,6 +153,13 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_ai_route
 	// Requirement: after mod_ai_token_auth (needs ClientApiKey)
 	mod_ai_route.NewModuleAiRoute(),
+
+	// mod_ai_cache
+	// Requirement: after mod_ai_route (only cache requests for a resolved
+	// product/route); before mod_body_process (a cache hit short-circuits
+	// the request) and before mod_access_pb3 (AiCacheStatus must be set
+	// before access logging)
+	mod_ai_cache.NewModuleAiCache(),
 
 	// mod_body_process
 	mod_body_process.NewModuleBodyProcess(),

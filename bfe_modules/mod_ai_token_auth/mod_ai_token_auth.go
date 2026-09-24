@@ -239,6 +239,13 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 		return bfe_module.BfeHandlerGoOn
 	}
 
+	// AI cache hit (mod_ai_cache): the upstream was never called and no
+	// usage exists, so token/cost deduction must be skipped entirely.
+	if ctx.aiBasicInfo.AiCacheHit {
+		ctx.deducted = true
+		return bfe_module.BfeHandlerGoOn
+	}
+
 	// Prevent duplicate deduction when HandleRequestFinish is triggered more than once.
 	if ctx.deducted {
 		return bfe_module.BfeHandlerGoOn

@@ -74,6 +74,21 @@ type RateLimitPolicyData struct {
 	ApikeyRateLimitPolicyBindings map[string][]string               `json:"ApikeyRateLimitPolicyBindings"`
 }
 
+// AiCacheRule is the JSON representation of a product rule in mod_ai_cache_rule.data.
+type AiCacheRule struct {
+	Cond             string `json:"cond"`
+	CacheKeyStrategy string `json:"cacheKeyStrategy"`
+	CacheTTL         int    `json:"cacheTTL,omitempty"`
+	MaxBodyBytes     int64  `json:"maxBodyBytes,omitempty"`
+	MaxValueBytes    int64  `json:"maxValueBytes,omitempty"`
+}
+
+// AiCacheRuleData holds the content of mod_ai_cache/mod_ai_cache_rule.data.
+type AiCacheRuleData struct {
+	Version string                   `json:"Version"`
+	Config  map[string][]AiCacheRule `json:"Config"`
+}
+
 // QuotaPlan is the JSON representation of a quota plan.
 type QuotaPlan struct {
 	Id          string
@@ -152,6 +167,8 @@ type BFEConfigBuilder struct {
 	TokenRuleData *TokenRuleData
 	// RateLimitPolicyData optionally generates mod_ai_rate_limit/ai_rate_limit.data.
 	RateLimitPolicyData *RateLimitPolicyData
+	// AiCacheRuleData optionally generates mod_ai_cache/mod_ai_cache_rule.data.
+	AiCacheRuleData *AiCacheRuleData
 }
 
 // Build prepares the BFE configuration directory.
@@ -212,6 +229,12 @@ func (b *BFEConfigBuilder) Build() error {
 		}
 	}
 
+	if b.AiCacheRuleData != nil {
+		if err := b.writeAiCacheRuleData(); err != nil {
+			return fmt.Errorf("write mod_ai_cache_rule.data failed: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -229,6 +252,9 @@ func (b *BFEConfigBuilder) setupRedisBns() error {
 	}
 	if err := b.rewriteModBns("mod_ai_rate_limit"); err != nil {
 		return fmt.Errorf("rewrite mod_ai_rate_limit bns failed: %w", err)
+	}
+	if err := b.rewriteModBns("mod_ai_cache"); err != nil {
+		return fmt.Errorf("rewrite mod_ai_cache bns failed: %w", err)
 	}
 
 	// generate name_conf.data mapping bns name to redis addr
@@ -317,6 +343,11 @@ func (b *BFEConfigBuilder) writeTokenRuleData() error {
 func (b *BFEConfigBuilder) writeRateLimitPolicyData() error {
 	path := filepath.Join(b.TargetConfDir, "mod_ai_rate_limit", "ai_rate_limit.data")
 	return writeJSONFile(path, b.RateLimitPolicyData)
+}
+
+func (b *BFEConfigBuilder) writeAiCacheRuleData() error {
+	path := filepath.Join(b.TargetConfDir, "mod_ai_cache", "mod_ai_cache_rule.data")
+	return writeJSONFile(path, b.AiCacheRuleData)
 }
 
 func (b *BFEConfigBuilder) normalizeAIRouteData() error {
