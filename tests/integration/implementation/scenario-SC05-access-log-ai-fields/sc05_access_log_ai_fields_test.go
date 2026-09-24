@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -189,13 +190,19 @@ func (e *testEnv) sendRequest(host string, body []byte) (*http.Response, string,
 }
 
 func (e *testEnv) sendRequestToPath(host string, path string, body []byte) (*http.Response, string, error) {
+	return e.sendRequestWithKey(host, path, apiKey, body)
+}
+
+// sendRequestWithKey sends a request with an explicit API Key, e.g. an
+// unknown key to trigger the 401 auth-reject path (bfenetworks/bfe#1391).
+func (e *testEnv) sendRequestWithKey(host string, path string, key string, body []byte) (*http.Response, string, error) {
 	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, path)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, "", err
 	}
 	req.Host = host
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", "Bearer "+key)
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 30 * time.Second}
@@ -1424,5 +1431,120 @@ func TestTC17_ModeFieldsProviderNativePath(t *testing.T) {
 	want := int64(10000000000 - (100*1000 + 50*2000 + 100*100 + 50*200))
 	if remaining != want {
 		t.Fatalf("remaining quota = %d, want %d", remaining, want)
+	}
+}
+
+// TestTC18 verifies that requests which never invoked a backend never emit
+// overflow time fields in the access log (bfenetworks/bfe#1391): arm A is a
+// 401 auth-reject with an invalid API key, arm B is a 429 quota-exhausted
+// reject. Before the fix, proxy_delay_time was the wrapped constant
+// 2217714954 (> math.MaxInt32), which made log-reader's mod_log_mysql batch
+// insert fail with Error 1264 and the whole batch (including healthy rows)
+// was dropped after retries.
+func TestTC18_NoBackendTimeFieldsFallback(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(0)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 0)
+
+	// Arm A: invalid API key -> 401 INVALID_API_KEY, rejected before routing.
+	respA, bodyA, err := e.sendRequestWithKey(apiHost, apiPath, "ak-not-exist", defaultBody)
+	if err != nil {
+		t.Fatalf("send request arm A failed: %v", err)
+	}
+	if respA.StatusCode != http.StatusUnauthorized {
+		e.logBFEException()
+		t.Fatalf("arm A: expected status 401, got %d, body: %s", respA.StatusCode, bodyA)
+	}
+
+	// Arm B: quota exhausted -> 429 QUOTA_EXHAUSTED, rejected before routing.
+	respB, bodyB, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("send request arm B failed: %v", err)
+	}
+	if respB.StatusCode != http.StatusTooManyRequests {
+		e.logBFEException()
+		t.Fatalf("arm B: expected status 429, got %d, body: %s", respB.StatusCode, bodyB)
+	}
+
+	if hits := e.backends[clusterRMB].Hits(); hits != 0 {
+		t.Fatalf("expected no backend hit, got %d", hits)
+	}
+
+	// Wait for access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLogs := e.accessLogs()
+	if len(reqLogs) != 2 {
+		t.Fatalf("expected 2 access logs, got %d", len(reqLogs))
+	}
+
+	var logInvalidKey, logQuotaExhausted *bfe_access_pb.RequestLog
+	for _, reqLog := range reqLogs {
+		assertNoSensitiveCredential(t, reqLog)
+		switch reason := reqLog.GetAiAuthRejectReason(); {
+		case strings.Contains(reason, "INVALID_API_KEY"):
+			logInvalidKey = reqLog
+		case strings.Contains(reason, "QUOTA_EXHAUSTED"):
+			logQuotaExhausted = reqLog
+		}
+	}
+	if logInvalidKey == nil || logQuotaExhausted == nil {
+		t.Fatalf("expected one INVALID_API_KEY log and one QUOTA_EXHAUSTED log, got reasons %q and %q",
+			reqLogs[0].GetAiAuthRejectReason(), reqLogs[1].GetAiAuthRejectReason())
+	}
+
+	assertNoBackendTimeFields(t, "arm A (401 invalid key)", logInvalidKey)
+	assertNoBackendTimeFields(t, "arm B (429 quota exhausted)", logQuotaExhausted)
+	assertStringSliceField(t, logQuotaExhausted.AiAuthRejectQuotaPlans, "ai_auth_reject_quota_plans", []string{planRMB})
+}
+
+// assertNoBackendTimeFields asserts the time fields of a request log whose
+// request never invoked a backend: backend-related durations are 0 and no
+// time field exceeds the MySQL INT column range (bfenetworks/bfe#1391).
+func assertNoBackendTimeFields(t *testing.T, name string, reqLog *bfe_access_pb.RequestLog) {
+	t.Helper()
+
+	if got := reqLog.GetProxyDelayTime(); got != 0 {
+		t.Errorf("%s: proxy_delay_time = %d, want 0 for request without backend (bfenetworks/bfe#1391)", name, got)
+	}
+	if got := reqLog.GetClusterServeTime(); got != 0 {
+		t.Errorf("%s: cluster_serve_time = %d, want 0 for request without backend", name, got)
+	}
+	if got := reqLog.GetBackendServeTime(); got != 0 {
+		t.Errorf("%s: backend_serve_time = %d, want 0 for request without backend", name, got)
+	}
+	if got := reqLog.GetConnectBackendTime(); got != 0 {
+		t.Errorf("%s: connect_backend_time = %d, want 0 for request without backend", name, got)
+	}
+
+	// Every duration column maps to a MySQL INT: no value may overflow it.
+	timeFields := map[string]uint32{
+		"all_time":             reqLog.GetAllTime(),
+		"read_client_time":     reqLog.GetReadClientTime(),
+		"cluster_serve_time":   reqLog.GetClusterServeTime(),
+		"backend_serve_time":   reqLog.GetBackendServeTime(),
+		"write_client_time":    reqLog.GetWriteClientTime(),
+		"connect_backend_time": reqLog.GetConnectBackendTime(),
+		"proxy_delay_time":     reqLog.GetProxyDelayTime(),
+		"session_offset_time":  reqLog.GetSessionOffsetTime(),
+	}
+	for field, got := range timeFields {
+		if got > math.MaxInt32 {
+			t.Errorf("%s: %s = %d exceeds MySQL INT range (bfenetworks/bfe#1391)", name, field, got)
+		}
+	}
+
+	if len(reqLog.AiRouteRuleHits) != 0 {
+		t.Errorf("%s: expected no route rule hits on rejected request, got %d", name, len(reqLog.AiRouteRuleHits))
+	}
+	if len(reqLog.AiClusterKeyNames) != 0 {
+		t.Errorf("%s: expected no cluster_key_names on rejected request, got %d", name, len(reqLog.AiClusterKeyNames))
 	}
 }
