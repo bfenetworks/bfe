@@ -159,12 +159,13 @@ func TestParseUsageFieldsCrossProtocol_GeminiBody(t *testing.T) {
 func TestParseOpenAIUsageFields_ResponsesAPICompleted(t *testing.T) {
 	// Responses API (issue #1381): the streaming response.completed event
 	// nests usage under response.usage and names the fields
-	// input/output_tokens; input_tokens excludes the cached tokens, so
-	// PromptTokens is normalized to the total input count (100 + 40).
+	// input/output_tokens. OpenAI subset semantics (issue #1389):
+	// input_tokens already includes cached_tokens, so PromptTokens is
+	// input_tokens as-is (100, not 100 + 40).
 	fields := ParseOpenAIUsageFields([]byte(
 		`{"type":"response.completed","response":{"id":"resp_01","status":"completed","usage":{"input_tokens":100,"output_tokens":50,"total_tokens":150,"input_tokens_details":{"cached_tokens":40},"output_tokens_details":{"reasoning_tokens":10}}}}`))
-	if fields.PromptTokens != 140 {
-		t.Errorf("expected PromptTokens 140 (100+40), got %d", fields.PromptTokens)
+	if fields.PromptTokens != 100 {
+		t.Errorf("expected PromptTokens 100 (input_tokens includes cached 40), got %d", fields.PromptTokens)
 	}
 	if fields.CompletionTokens != 50 {
 		t.Errorf("expected CompletionTokens 50, got %d", fields.CompletionTokens)
@@ -192,11 +193,12 @@ func TestParseOpenAIUsageFields_ResponsesAPINoCache(t *testing.T) {
 func TestParseOpenAIUsageFields_ResponsesAPINonStream(t *testing.T) {
 	// Non-streaming create-response object: usage stays top-level but uses
 	// the Responses API leaf names; the input_token_details field gates
-	// this chain. cached 10 -> PromptTokens = 80 + 10.
+	// this chain. OpenAI subset semantics (issue #1389): input_tokens 80
+	// already includes cached 10, so PromptTokens = 80.
 	fields := ParseOpenAIUsageFields([]byte(
 		`{"id":"resp_02","status":"completed","usage":{"input_tokens":80,"output_tokens":20,"total_tokens":100,"input_token_details":{"cached_tokens":10}}}`))
-	if fields.PromptTokens != 90 {
-		t.Errorf("expected PromptTokens 90 (80+10), got %d", fields.PromptTokens)
+	if fields.PromptTokens != 80 {
+		t.Errorf("expected PromptTokens 80 (input_tokens includes cached 10), got %d", fields.PromptTokens)
 	}
 	if fields.CompletionTokens != 20 || fields.UsedQuota != 100 {
 		t.Errorf("unexpected non-stream responses fields: %+v", fields)

@@ -61,6 +61,8 @@ Codex 在收到完整 `response.completed` 后正常关闭连接，BFE 记录 `C
 两个必须注意的语义点：
 
 1. **PromptTokens 归一化**：Responses API 的 `input_tokens` **不含** cached tokens（与 Anthropic `input_tokens` 同语义），而下游 `calcChatCost` 的成本拆分是 `normalInput = prompt − cacheRead − cacheWrite`（PromptTokens 必须是含缓存的总量）。因此命中 Responses 链后按 Anthropic 链同款归一化（`usage_parse.go:178`）：`PromptTokens = input_tokens + CacheReadTokens (+ CacheWriteTokens)`。
+
+   > **更正（2026-09-24，issue #1389）**：上述前提有误，已被裁定作废。OpenAI Responses API 实为 **subset 语义**：`input_tokens` 已含 `cached_tokens`（`total_tokens = input_tokens + output_tokens`，与 Chat Completions、Gemini 一致；仅 Anthropic 为 additive）。该 additive 归一化导致 cached tokens 重复计费（未配 cache 价格时按 input 价多计一次），已在 issue #1389 修复中从 `usage_parse.go` 删除。Anthropic 链（`usage_parse.go:222` 附近）的归一化不受影响，保留。详见 `docs/zh_cn/modifications/2026-09-24-issue-1389-responses-api-cached-tokens-double-billing/design-changes.md`。
 2. **回落而非并行**：沿用现有 "字段为 0 才回落" 的写法，顶层 `usage.*` 优先，避免与已有 Chat Completions / DeepSeek 链冲突。
 
 **非流式形态修正**（实施时核实官方 API 形态后修正）：Responses API 非流式 create-response 对象的 usage 在**顶层** `usage` 下（不在 `response.usage` 下），字段名同样是 `input/output_tokens`。该形态以 Responses API 特有的 `input_token(s)_details` 字段为门控进入（Anthropic body 同样有 `usage.input_tokens`，但缓存字段是 `cache_read_input_tokens`，绝不能误判进来——否则跨协议兜底链被短路，cache 归一化丢失，正是 #1364 的漏收/错收形态）。此步骤自然惠及 OpenAI 适配器作为 registry 兜底的路径（`detect.go:31-37` Bearer 一律判 OpenAI，`openai/stream.go:26-28`）。
@@ -130,6 +132,8 @@ Responses API（Codex）SSE 请求：
 | 集成测试 | `tests/integration` SC03 新增 `TestTC18_RMBQuotaDeduction_ResponsesAPI_Streaming`、`TestTC19_RMBQuotaDeduction_ResponsesAPI_NonStreaming`（mode `responses`，input 2000 + cached 8000 + output 1500 → 扣减 900000 定点单位）；设计文档 `TC-18`/`TC-19` 及场景说明已同步 |
 
 验证：`go test -cover`（bfe_model_protocol/...、bfe_modules/mod_body_process、mod_ai_token_auth、bfe_basic/...、bfe_server 等全部 ok）+ `go vet` 干净 + `gofmt` 干净；SC03 集成测试 TC-01~TC-19 全部通过。
+
+> **后续更正（2026-09-24，issue #1389）**：本记录中"命中后 `PromptTokens += CacheRead + CacheWrite` 归一化"的实现已按 subset 语义删除（该归一化导致 cached_tokens 重复计费）；SC03 的 Responses fixture 与相关测试预期已同步更正，并新增 TC-21。详见 `2026-09-24-issue-1389-responses-api-cached-tokens-double-billing/design-changes.md`。
 
 实施中对计划的偏离（均已在本文件步骤 1 标注）：
 

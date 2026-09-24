@@ -39,7 +39,7 @@ usage 标记永不置位；客户端收完流后正常关闭连接产生的 `CLI
 
    data: {"type":"response.output_text.delta","delta":"hello"}
 
-   data: {"type":"response.completed","response":{"id":"resp_01","status":"completed","usage":{"input_tokens":2000,"output_tokens":1500,"total_tokens":3500,"input_tokens_details":{"cached_tokens":8000}}}}
+   data: {"type":"response.completed","response":{"id":"resp_01","status":"completed","usage":{"input_tokens":10000,"output_tokens":1500,"total_tokens":11500,"input_tokens_details":{"cached_tokens":8000}}}}
    ```
 4. 临时 BFE 配置已加载，`cluster_rmb` 的 `ModelTable` 包含模型 `gpt-5-codex`
    （mode 为 `responses`），价格：
@@ -71,8 +71,9 @@ usage 标记永不置位；客户端收完流后正常关闭连接产生的 `CLI
 - 响应状态码：200。
 - `cluster_rmb` 收到 1 次命中（200）。
 - Redis 中 `quota:plan_rmb` 的余额按完整公式扣减：
-  - Responses API 的 `input_tokens` 不含 cache 命中部分，故解析时归一化
-    PromptTokens = 2000 + 8000 = 10000，billable
+  - OpenAI subset 语义（issue #1389）：`input_tokens=10000` 已含
+    `cached_tokens=8000`（`total_tokens=11500=10000+1500` 自证），
+    PromptTokens 即 `input_tokens`=10000，billable
     normal_input = 10000 - 8000 = 2000
   - 扣减金额 = 2000 * 100 + 8000 * 50 + 1500 * 200 = 900000
   - 剩余 = `10000000000 - 900000 = 99999100000`

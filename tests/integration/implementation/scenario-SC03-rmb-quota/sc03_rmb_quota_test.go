@@ -1008,14 +1008,16 @@ var responsesNonStreamBody = []byte(`{"model":"gpt-5-codex"}`)
 
 // Responses API (issue #1381, Codex): the SSE stream is terminated by
 // response.completed, which carries the final usage under response.usage
-// with the input/output_tokens naming (input_tokens excludes cached).
+// with the input/output_tokens naming. OpenAI subset semantics (issue
+// #1389): input_tokens already includes cached_tokens; the fixture keeps
+// cached_tokens (8000) < input_tokens (10000) as a real upstream would.
 var responsesStreamUsageResponse = "data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_01\",\"status\":\"in_progress\"}}\n\n" +
 	"data: {\"type\":\"response.output_text.delta\",\"delta\":\"hello\"}\n\n" +
-	"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_01\",\"status\":\"completed\",\"usage\":{\"input_tokens\":2000,\"output_tokens\":1500,\"total_tokens\":3500,\"input_tokens_details\":{\"cached_tokens\":8000}}}}\n\n"
+	"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_01\",\"status\":\"completed\",\"usage\":{\"input_tokens\":10000,\"output_tokens\":1500,\"total_tokens\":11500,\"input_tokens_details\":{\"cached_tokens\":8000}}}}\n\n"
 
 // Non-streaming create-response object: usage stays at the top level but
 // uses the Responses API leaf names.
-var responsesUsageResponse = `{"id":"resp_01","status":"completed","usage":{"input_tokens":2000,"output_tokens":1500,"total_tokens":3500,"input_tokens_details":{"cached_tokens":8000}}}`
+var responsesUsageResponse = `{"id":"resp_01","status":"completed","usage":{"input_tokens":10000,"output_tokens":1500,"total_tokens":11500,"input_tokens_details":{"cached_tokens":8000}}}`
 
 // responsesAIConf adds a Responses API (mode "responses") model with cache
 // pricing. The round per-token prices (1e-6 / 2e-6 / 5e-7 yuan) mirror
@@ -1024,8 +1026,9 @@ var responsesUsageResponse = `{"id":"resp_01","status":"completed","usage":{"inp
 //
 //	cost = input*100 + cache_read*50 + output*200  (units of 1e-8 yuan)
 //
-// input_tokens=2000 with cached_tokens=8000 normalizes PromptTokens to
-// 10000, so billable normal input is 2000 and the total deduction is
+// OpenAI subset semantics (issue #1389): input_tokens=10000 already
+// includes cached_tokens=8000, so billable normal input is 10000-8000=2000
+// and the total deduction is
 //
 //	2000*100 + 8000*50 + 1500*200 = 900000
 func responsesAIConf() *cluster_conf.AIConf {
@@ -1165,6 +1168,76 @@ func TestTC20_RMBQuotaDeduction_ResponsesAPI_ProviderNativePath(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 	remaining := e.redis.GetQuota(redisKeyRMB)
 	want := int64(10000000000 - 900000)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
+	}
+}
+
+// responsesNoCacheUsageResponse is the issue #1389 controlled fixture:
+// input_tokens=100 already includes cached_tokens=20 (total = 100 + 50).
+var responsesNoCacheUsageResponse = `{"id":"resp_01","status":"completed","usage":{"input_tokens":100,"output_tokens":50,"total_tokens":150,"input_tokens_details":{"cached_tokens":20}}}`
+
+// responsesNoCacheAIConf adds a Responses API (mode "responses") model
+// priced for input/output tokens only, without a cache_read price: cached
+// tokens are already included in input_tokens (OpenAI subset semantics,
+// issue #1389) and must be billed exactly once, at the input price.
+// Per-token prices 1e-5 / 2e-5 yuan are 1000 / 2000 units of 1e-8 yuan.
+func responsesNoCacheAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models = append(conf.ModelTable.Models, cluster_conf.ModelPrice{
+		Provider:            "mock-provider",
+		Model:               "gpt-5-codex",
+		BaseModel:           "gpt-5-codex",
+		Mode:                "responses",
+		Capabilities:        []string{"chat"},
+		SupportedParameters: []string{"temperature", "max_tokens"},
+		Limits: map[string]interface{}{
+			"context_window": 128000,
+		},
+		Prices: cluster_conf.PriceMap{
+			"input_cost_per_token":  0.00001,
+			"output_cost_per_token": 0.00002,
+		},
+	})
+	return conf
+}
+
+// TestTC21 verifies RMB quota deduction for a non-streaming Responses API
+// request when no cache price is configured (issue #1389, from
+// ai-gateway-api#206): input_tokens=100 already includes cached_tokens=20,
+// so the deduction must be 100*1000 + 50*2000 = 200000 units. Before the
+// fix the additive normalization inflated PromptTokens to 120 and the
+// deduction was 220000 (cached tokens billed twice at the input price).
+func TestTC21_RMBQuotaDeduction_ResponsesAPI_NoCachePrice(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: responsesNoCacheAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	e.backends[clusterRMB].Body = responsesNoCacheUsageResponse
+
+	resp, body, err := e.sendRequestToPath(apiHost, "/v1/responses", responsesNonStreamBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for async redis deduction.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - 200000)
 	if remaining != want {
 		e.logBFEException()
 		e.logBFEAccess()

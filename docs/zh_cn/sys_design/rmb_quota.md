@@ -491,7 +491,7 @@ DeepSeek 与 OpenAI Responses API 在 usage 中使用与常规 OpenAI/Claude 不
 
 - `usage.prompt_cache_hit_tokens`（DeepSeek）
 - `usage.prompt_tokens_details.cached_tokens`（DeepSeek / OpenAI）
-- `usage.input_token_details.cached_tokens`（Responses API）
+- `usage.input_tokens_details.cached_tokens`（Responses API，官方复数形态；单数 `input_token_details.cached_tokens` 为部分 relay 的扁平写法，作兼容 fallback，issue #1381）
 
 BFE 在以下三处解析中，当 `cache_read_tokens` / `cache_read_input_tokens` 为 0 时，会依次 fallback 到上述字段（2026-09 起，字段链实现已收敛到协议适配层 `bfe/bfe_model_protocol/`，见 `sys_design/model_protocol_adapter.md`；三处调用方仅保留累加语义，行为不变）：
 
@@ -850,7 +850,8 @@ image_count = usage.image_count
             ?? request.n
             ?? 1
 
-image_input_tokens = usage.input_token_details.image_tokens
+image_input_tokens = usage.input_tokens_details.image_tokens  # 官方复数形态
+                   ?? usage.input_token_details.image_tokens  # 部分 relay 单数兼容
                    ?? usage.image_input_tokens
                    ?? 0
 
@@ -861,14 +862,14 @@ cost = image_count * output_cost_per_image
 - 优先读取响应 `usage.image_count`；
 - 未返回时统计响应 `data` 数组长度（OpenAI 风格图像生成响应）；
 - 仍无则兜底读取请求体 `n` 字段，未传时默认 `1`；
-- 图片输入 token 优先读取 `usage.input_token_details.image_tokens`，fallback 到 `usage.image_input_tokens`；
+- 图片输入 token 优先读取 `usage.input_tokens_details.image_tokens`（官方复数形态），兼容单数 `usage.input_token_details.image_tokens`（issue #1381），fallback 到 `usage.image_input_tokens`；
 - 未配置 `input_cost_per_image_token` 时，图片输入 token 按普通 input token 计费。
 
 #### chat 模式 cache/image/audio 计费拆分公式
 
 在 `calcChatCost` 中，RMB 成本按如下优先级拆分：
 
-1. **Cache read/write 从 prompt 中剥离**：若配置了 `cache_read_input_token_cost` 或 `cache_creation_input_token_cost`，则 `normal_input = max(prompt_tokens - cache_read_tokens - cache_write_tokens, 0)`。`cache_read_tokens` 除直接读取 `usage.cache_read_tokens` 外，也支持 DeepSeek 的 `usage.prompt_cache_hit_tokens` / `usage.prompt_tokens_details.cached_tokens` 字段，以及 Responses API 的 `usage.input_token_details.cached_tokens` 字段。`PromptTokens` 为总输入 token 数；对 Anthropic 协议，解析时已把 `input_tokens`（仅含 cache miss）归一化为 `input_tokens + cache_read_input_tokens + cache_creation_input_tokens`，与 OpenAI `prompt_tokens` 语义一致。
+1. **Cache read/write 从 prompt 中剥离**：若配置了 `cache_read_input_token_cost` 或 `cache_creation_input_token_cost`，则 `normal_input = max(prompt_tokens - cache_read_tokens - cache_write_tokens, 0)`。`cache_read_tokens` 除直接读取 `usage.cache_read_tokens` 外，也支持 DeepSeek 的 `usage.prompt_cache_hit_tokens` / `usage.prompt_tokens_details.cached_tokens` 字段，以及 Responses API 的 `usage.input_tokens_details.cached_tokens`（官方复数形态，兼容单数 `input_token_details`）字段。`PromptTokens` 为总输入 token 数；对 Anthropic 协议，解析时已把 `input_tokens`（仅含 cache miss）归一化为 `input_tokens + cache_read_input_tokens + cache_creation_input_tokens`，与 OpenAI `prompt_tokens` 语义一致。
 2. **Image input 从剩余 normal input 中剥离**：若配置了 `input_cost_per_image_token`，则 `image_input_tokens` 按图片 input 价格计费，其余仍按普通 input 价格计费。
 3. **Audio input 从剩余 normal input 中剥离**：若配置了 `input_cost_per_audio_token`，则 `audio_input_tokens` 按 audio 价格计费，其余仍按普通 input 价格计费。
 4. **Audio output 从 completion 中剥离**：若配置了 `output_cost_per_audio_token`，则 `audio_output_tokens` 按 audio 价格计费，其余仍按普通 output 价格计费。
@@ -905,7 +906,8 @@ cost = prompt_tokens * input_cost_per_token
      + completion_tokens * output_cost_per_token
 ```
 
-- 若后端返回 `usage.input_token_details.cached_tokens`，同样会按 `cache_read_input_token_cost` 拆分计费；
+- OpenAI subset 语义（issue #1389）：`input_tokens` 已含 `cached_tokens`（`total_tokens = input_tokens + output_tokens`），PromptTokens 直接取 `input_tokens`，不做 additive 归一；未配置 cache 价格时 cached 部分按 input 价计费一次、不叠加；
+- 若后端返回 `usage.input_tokens_details.cached_tokens`（兼容单数 `input_token_details`），同样会按 `cache_read_input_token_cost` 拆分计费；
 - 流式 Responses API 的 usage 通常在最后一个 `response.completed` 事件中提供，BFE 在请求结束阶段统一结算。
 
 说明：

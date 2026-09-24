@@ -34,9 +34,9 @@ SC03 RMB 配额扣减
        "id": "resp_01",
        "status": "completed",
        "usage": {
-           "input_tokens": 2000,
+           "input_tokens": 10000,
            "output_tokens": 1500,
-           "total_tokens": 3500,
+           "total_tokens": 11500,
            "input_tokens_details": {"cached_tokens": 8000}
        }
    }
@@ -70,8 +70,8 @@ SC03 RMB 配额扣减
 - 响应状态码：200。
 - `cluster_rmb` 收到 1 次命中（200）。
 - Redis 中 `quota:plan_rmb` 的余额按完整公式扣减：
-  - `input_tokens` 不含 cache 命中部分，解析时归一化
-    PromptTokens = 2000 + 8000 = 10000，billable
+  - OpenAI subset 语义（issue #1389）：`input_tokens=10000` 已含
+    `cached_tokens=8000`，PromptTokens 即 `input_tokens`=10000，billable
     normal_input = 10000 - 8000 = 2000
   - 扣减金额 = 2000 * 100 + 8000 * 50 + 1500 * 200 = 900000
   - 剩余 = `10000000000 - 900000 = 99999100000`

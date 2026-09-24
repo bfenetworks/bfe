@@ -198,7 +198,7 @@ http_conn.serveRequest()
 | 版本头注入 | `reverseproxy.go` 硬编码 `anthropic-version` | 适配器 `ExtraHeaders`，显式携带优先（TC-07） |
 | 协议校验 | `clusterSupportsAuthStyle` | `modelprotocol.Supports`（语义不变） |
 | 流式 usage | `SSEEvent/RawEvent.GetQuotaUsage` 各一份全链 | 适配器字段链 + 调用方累加语义保留 |
-| 流式终止/最终 usage 判定 | `llm_util.go` 硬编码 `message_stop` / `[DONE]` / `message_delta` | 适配器 `IsStreamTerminal` / `IsFinalUsageEvent`；anthropic 逐行搬迁，openai 在搬迁遗漏 message_delta 后已于 2026-09-13 补回（跨协议兜底），gemini 无终止事件由流 EOF 兜底（2026-09-09 随 gemini 接入下沉） |
+| 流式终止/最终 usage 判定 | `llm_util.go` 硬编码 `message_stop` / `[DONE]` / `message_delta` | 适配器 `IsStreamTerminal` / `IsFinalUsageEvent`；anthropic 逐行搬迁，openai 在搬迁遗漏 message_delta 后已于 2026-09-13 补回（跨协议兜底），gemini 无终止事件由流 EOF 兜底（2026-09-09 随 gemini 接入下沉）；openai 适配器 2026-09-22 精确增加 `response.completed`（issue #1381，`response.output_item.done` 等事件不得误标） |
 | 非流式 usage | `UpdateCtxByUsage` 一份全链 | 按 `AuthStyle` 取单适配器；结果全零时回退两阶段组合（issue #1364） |
 | fallback 判定 | `shouldTriggerFallback` 纯状态码白名单 | 前置 `ErrorNormalizer` seam（默认返回 nil → 白名单，行为不变） |
 
@@ -216,7 +216,7 @@ http_conn.serveRequest()
 
 拆分后：
 
-- **openai 适配器**：OpenAI 主链 + DeepSeek + Responses fallback（无 Claude 链）；
+- **openai 适配器**：OpenAI 主链 + DeepSeek + Responses 链（无 Claude 链）。Responses 链（issue #1381，2026-09-22）：主链全零时回落——流式取 `response.completed` 事件内 `response.usage.*`，非流式取顶层 `usage.*`（字段名均为 `input/output_tokens`），且以 Responses 特有的 `input_token(s)_details` 字段存在为门控，防止把 Anthropic body 误判进来、短路跨协议兜底链；OpenAI subset 语义，`input_tokens` 已含 `cached_tokens`，**不做** Anthropic 式 prompt 归一（issue #1389 更正，#1381 误加的 additive 归一已删除）；
 - **anthropic 适配器**：Claude 链（含 prompt 归一）。2026-09-04 起增加真实流式报文结构解析（issue #1352）：Anthropic 流式 `message_start` 的初始 usage 位于 `message.usage.*`（此前只解析顶层 `usage.*`），`message_delta` 的最终 usage 位于顶层 `usage.*`，两条路径均支持。
 - **gemini 适配器**：`usageMetadata` 链（camelCase：`promptTokenCount` / `candidatesTokenCount` / `cachedContentTokenCount` → 中性字段；`totalTokenCount` 独立字段直接取，缺失时回退 `prompt + candidates` 求和）。gemini 流式每个 chunk 均带**累积** `usageMetadata`，与 openai/anthropic"最终事件携带"的语义不同，由 `IsFinalUsageEvent` 保证仅最后一个含 usage 的 chunk 计入最终 usage（取中间 chunk 会少计）。
 

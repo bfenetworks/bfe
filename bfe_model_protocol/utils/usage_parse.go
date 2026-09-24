@@ -126,11 +126,11 @@ func ParseOpenAIUsageFields(data []byte) UsageFields {
 			resp = parseOpenAIUsageFieldsWithPrefix(data, "usage", "input_tokens", "output_tokens")
 		}
 		if resp.PromptTokens != 0 || resp.CompletionTokens != 0 {
-			// input_tokens excludes the cached tokens (Anthropic
-			// semantics): normalize PromptTokens to the total input count
-			// for the downstream cost splitting
-			// (prompt - cacheRead - cacheWrite).
-			resp.PromptTokens += resp.CacheReadTokens + resp.CacheWriteTokens
+			// OpenAI subset semantics (issue #1389): input_tokens already
+			// includes cached_tokens (total_tokens = input_tokens +
+			// output_tokens), so PromptTokens needs no normalization,
+			// exactly like the Chat Completions main chain. Only the
+			// Anthropic chain normalizes, its input_tokens excluding cache.
 			fields = resp
 		}
 	}
