@@ -10,6 +10,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.8.8] - 2026-09-24
+
+### Added
+- Add per-protocol upstream path rewrite via `AIConf.ProtocolPaths` ([Pull #1373](https://github.com/bfenetworks/bfe/pull/1373))
+- Add plaintext dial option for the EPP client and formalize the `EPPTLS` default ([Pull #1376](https://github.com/bfenetworks/bfe/pull/1376))
+
+### Changed
+- Improve WRR/WLC load balancing policies ([Pull #1375](https://github.com/bfenetworks/bfe/pull/1375))
+
+### Fixed
+- Fix `proxy_delay_time` uint32 wraparound in access logs for requests that never reached a backend (401/404/redirect/close), which corrupted downstream MySQL batch inserts ([Pull #1390](https://github.com/bfenetworks/bfe/pull/1390))
+- Fix duplicate billing of Responses API `cached_tokens` by restoring subset semantics (`input_tokens` already includes cached tokens) ([Pull #1388](https://github.com/bfenetworks/bfe/pull/1388))
+- Validate API-Key allowed/blocked models against the post-routing target model, so model redirection composes with model whitelists ([Pull #1385](https://github.com/bfenetworks/bfe/pull/1385))
+- Match AI rate limit policies by post-routing target model via the new `HandleAfterAITargetModel` callback point ([Pull #1385](https://github.com/bfenetworks/bfe/pull/1385))
+- Fix token model whitelist check for native Gemini path models (no more false 400 rejects) ([Pull #1383](https://github.com/bfenetworks/bfe/pull/1383))
+- Fix OpenAI provider path rewrite for client entry paths without the `/v1` prefix ([Pull #1380](https://github.com/bfenetworks/bfe/pull/1380))
+- Fix AI request mode detection for client entry paths without the `/v1` prefix, with the endpoint table shared in `bfe_basic` ([Pull #1380](https://github.com/bfenetworks/bfe/pull/1380))
+- Fix provider-native `/compatible-mode/v1/responses` misdetected as Chat mode, causing price miss ([Pull #1380](https://github.com/bfenetworks/bfe/pull/1380))
+- Fix unrecognized Responses API `response.completed` events that left Codex streaming requests unbilled ([Pull #1380](https://github.com/bfenetworks/bfe/pull/1380))
+- Recognize Anthropic `message_delta` as final usage in the openai adapter, fixing lost usage on cross-protocol streams ([Pull #1371](https://github.com/bfenetworks/bfe/pull/1371))
+
+
 ## [v1.8.7] - 2026-09-13
 
 ### Added
@@ -517,6 +539,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
+[v1.8.8]: https://github.com/bfenetworks/bfe/compare/v1.8.7...v1.8.8
 [v1.8.7]: https://github.com/bfenetworks/bfe/compare/v1.8.6...v1.8.7
 [v1.8.6]: https://github.com/bfenetworks/bfe/compare/v1.8.5...v1.8.6
 [v1.8.5]: https://github.com/bfenetworks/bfe/compare/v1.8.4...v1.8.5
