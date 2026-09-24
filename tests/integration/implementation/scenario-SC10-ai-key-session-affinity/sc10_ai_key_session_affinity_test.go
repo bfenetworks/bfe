@@ -58,6 +58,8 @@ type testEnv struct {
 	stopBFE      func()
 	aiKeys       []cluster_conf.AIKey
 	clientTokens map[string]string // apiKey -> keyId
+	// affinityRedisDisabled disables the [AIKeyAffinity] section in bfe.conf
+	affinityRedisDisabled bool
 }
 
 // testEnvOption customizes a test environment before BFE is started.
@@ -75,6 +77,16 @@ func withAIKeys(keys []cluster_conf.AIKey) testEnvOption {
 func withClientTokens(tokens map[string]string) testEnvOption {
 	return func(e *testEnv) {
 		e.clientTokens = tokens
+	}
+}
+
+// withoutAffinityRedis disables the [AIKeyAffinity] section in bfe.conf
+// (equivalent to leaving the section unconfigured: Disabled=true by default).
+// Requests still succeed, but no session binding or penalty is ever written
+// (fail-open).
+func withoutAffinityRedis() testEnvOption {
+	return func(e *testEnv) {
+		e.affinityRedisDisabled = true
 	}
 }
 
@@ -190,7 +202,36 @@ func (e *testEnv) startBFE(enableAffinity bool) {
 		e.t.Fatalf("build bfe config failed: %v", err)
 	}
 
+	if e.affinityRedisDisabled {
+		if err := disableAIKeyAffinitySection(filepath.Join(e.confDir, "bfe.conf")); err != nil {
+			e.t.Fatalf("disable [AIKeyAffinity] section failed: %v", err)
+		}
+	}
+
 	e.bfePort, _, e.stopBFE = e.processEnv.StartBFE(e.confDir, e.logDir)
+}
+
+// disableAIKeyAffinitySection sets Disabled=true in the [AIKeyAffinity]
+// section of bfe.conf, making it equivalent to an unconfigured section
+// (Disabled=true is the default).
+func disableAIKeyAffinitySection(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(data), "\n")
+	inSection := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") {
+			inSection = trimmed == "[AIKeyAffinity]"
+			continue
+		}
+		if inSection && strings.HasPrefix(trimmed, "Disabled") {
+			lines[i] = "Disabled = true"
+		}
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
 }
 
 func (e *testEnv) buildTokenRule() *common.TokenRuleData {
@@ -573,5 +614,44 @@ func TestTC06_BindingPersistsAcrossBFERestart(t *testing.T) {
 		if h != boundKey {
 			t.Fatalf("request %d after restart used provider key %s, expected %s", i, h, boundKey)
 		}
+	}
+}
+
+// TestTC07 verifies the fail-open path: with the [AIKeyAffinity] section
+// disabled in bfe.conf, requests with SessionAffinity=true still succeed,
+// no binding is written to Redis, and keys are chosen by weighted random.
+func TestTC07_AffinityRedisDisabledFailsOpen(t *testing.T) {
+	e := newTestEnv(t, true, withoutAffinityRedis())
+	defer e.Close()
+
+	for i := 0; i < 50; i++ {
+		resp, body, err := e.sendRequest()
+		if err != nil {
+			t.Fatalf("send request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			e.logBFEException()
+			t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+		}
+	}
+
+	if e.backend.Hits() != 50 {
+		t.Fatalf("expected 50 backend hits, got %d", e.backend.Hits())
+	}
+
+	// fail-open: no binding key was ever written
+	if e.redis.Exists(redisBindingKey(apiKeyId)) {
+		t.Fatal("expected no Redis binding when [AIKeyAffinity] is disabled")
+	}
+
+	// without affinity, requests distribute across multiple keys
+	nonZero := 0
+	for _, c := range countAuthHeaders(e.backend.AuthHeaders()) {
+		if c > 0 {
+			nonZero++
+		}
+	}
+	if nonZero < 2 {
+		t.Fatalf("expected multiple keys to be used without affinity redis, got %d", nonZero)
 	}
 }

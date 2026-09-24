@@ -70,6 +70,21 @@ bfe.conf is the core configuration file of BFE.
 | SessionTicket.SessionTicketsDisabled | Boolean   | Whether to disable TLS session ticket                                           | N          | Default `True`; when `True`, other SessionTicket related validations are skipped                               | -                                                                                   |
 | SessionTicket.SessionTicketKeyFile   | String    | Path of [session ticket key config](tls_conf/session_ticket_key.data.md) file   | N          | Default `tls_conf/session_ticket_key.data`; see [FilePath](00-common.md#3-filepath) type definition           | Type is [FilePath](00-common.md#3-filepath)                                         |
 
+### AI Key session affinity config
+
+AI key session affinity (`AIConf.KeyPolicy.SessionAffinity`) binds requests of the same session (ClientKeyId) to the same provider API key. Session bindings and key penalty state are stored in Redis; the connection is owned by the bfe_server core via this section (no longer borrowed from the `mod_ai_rate_limit` module), so affinity availability depends only on this section. When this section is absent or `Disabled=true`, affinity silently does not apply (fail-open).
+
+| Configuration Item             | Type    | Meaning                                              | Required  | Supplementary Description                                                                                      | Validity Condition                                                   |
+| ------------------------------ | ------- | ---------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| AIKeyAffinity.Disabled         | Boolean | Whether to disable AI key session affinity           | N         | Default `True`; when `True`, other AIKeyAffinity related validations are skipped                               | -                                                                    |
+| AIKeyAffinity.ServiceConf      | String  | BNS name (or weighted BNS list) of the Redis service, resolved via `Server.NameConf` | Conditional | Required when `Disabled=false`                                                        | Cannot be empty when `Disabled=false`; format see [mod_ai_rate_limit Redis config](mod_ai_rate_limit/mod_ai_rate_limit.conf.md) |
+| AIKeyAffinity.ConnectTimeoutMs | Integer | Connect timeout to Redis, in milliseconds            | N         | Default 1000                                                                                                   | Must be > 0 when `Disabled=false`                                    |
+| AIKeyAffinity.ReadTimeoutMs    | Integer | Read timeout from Redis, in milliseconds             | N         | Default 1000                                                                                                   | Must be > 0 when `Disabled=false`                                    |
+| AIKeyAffinity.WriteTimeoutMs   | Integer | Write timeout to Redis, in milliseconds              | N         | Default 1000                                                                                                   | Must be > 0 when `Disabled=false`                                    |
+| AIKeyAffinity.MaxIdle          | Integer | Max idle long connections to Redis                   | N         | Default 10                                                                                                     | Must be > 0 when `Disabled=false`                                    |
+| AIKeyAffinity.MaxActive        | Integer | Max active connections to Redis                      | N         | Default 20; 0 means no connection number limit                                                                 | >= 0                                                                 |
+| AIKeyAffinity.Password         | String  | Redis access password                                | N         | Default empty (no password)                                                                                    | -                                                                    |
+
 ## Example
 
 ```ini
@@ -232,4 +247,27 @@ SessionExpire = 3600
 SessionTicketsDisabled = true
 # session ticket key
 SessionTicketKeyFile = tls_conf/session_ticket_key.data
+
+[AIKeyAffinity]
+# AI key session affinity: server-owned Redis for session->key binding and
+# key penalty state. Disabled by default; when disabled, affinity silently
+# does not apply (fail-open) even if a cluster sets SessionAffinity=true.
+Disabled = true
+
+# bns name (or weighted bns list) of redis servers, resolved via NameConf
+#ServiceConf = "redis_bns"
+
+# connection params (ms)
+#ConnectTimeoutMs = 1000
+#ReadTimeoutMs = 1000
+#WriteTimeoutMs = 1000
+
+# max idle connections in connection pool
+#MaxIdle = 10
+
+# max active connections in pool (0 means no connection num limit)
+#MaxActive = 20
+
+# redis password, ignore if not set
+#Password = ""
 ```

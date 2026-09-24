@@ -10,6 +10,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- AI key session affinity now uses a server-owned Redis connection configured via the new `[AIKeyAffinity]` section in `bfe.conf`, instead of implicitly borrowing the `mod_ai_rate_limit` module's Redis. **Config migration required**: deployments that enabled affinity (`AIConf.KeyPolicy.SessionAffinity=true`) must add the `[AIKeyAffinity]` section (with `Disabled=false` and the Redis `ServiceConf`) before upgrading; otherwise affinity silently turns off after the upgrade (fail-open, no error, bindings lost)
+
 ## [v1.8.8] - 2026-09-24
 
 ### Added

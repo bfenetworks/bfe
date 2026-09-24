@@ -30,6 +30,9 @@ type BfeConfig struct {
 
 	// session cache config
 	SessionTicket ConfigSessionTicket
+
+	// ai key session affinity redis config
+	AIKeyAffinity ConfigAIKeyAffinity
 }
 
 func SetDefaultConf(conf *BfeConfig) {
@@ -37,6 +40,7 @@ func SetDefaultConf(conf *BfeConfig) {
 	conf.HttpsBasic.SetDefaultConf()
 	conf.SessionCache.SetDefaultConf()
 	conf.SessionTicket.SetDefaultConf()
+	conf.AIKeyAffinity.SetDefaultConf()
 }
 
 // BfeConfigLoad loads config from config file.
@@ -66,6 +70,10 @@ func BfeConfigLoad(filePath string, confRoot string) (BfeConfig, error) {
 	}
 
 	if err = cfg.SessionTicket.Check(confRoot); err != nil {
+		return cfg, err
+	}
+
+	if err = cfg.AIKeyAffinity.Check(confRoot); err != nil {
 		return cfg, err
 	}
 

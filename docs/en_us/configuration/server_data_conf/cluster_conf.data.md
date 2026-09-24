@@ -231,6 +231,7 @@ Common provider values for `AIConf.ProtocolPaths`:
 
 **Session-level Key Affinity Notes:**
 
+- The Redis connection used by affinity is configured via the `[AIKeyAffinity]` section in `bfe.conf` (owned by bfe_server, not borrowed from the `mod_ai_rate_limit` module); when that section is absent or `Disabled=true`, affinity is silently disabled (fail-open), regardless of the rate limit module's loading and its Redis configuration.
 - When enabled, BFE uses `AiBasicInfo.ClientKeyId` as the session identifier and maintains a binding `{prefix}:{cluster_name}:{client_key_id} -> <key_name>` in Redis.
 - Subsequent requests with the same `ClientKeyId` prefer the bound Key; on each hit, BFE refreshes the binding TTL via `Expire`, so the binding persists as long as the session keeps sending requests.
 - `SessionAffinityTTL` is the **idle timeout**: the binding is released automatically only when no request arrives within the TTL window.

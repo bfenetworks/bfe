@@ -37,6 +37,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_spdy"
 	"github.com/bfenetworks/bfe/bfe_stream"
 	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 	"github.com/bfenetworks/bfe/bfe_util/signal_table"
 	"github.com/bfenetworks/bfe/bfe_websocket"
 	"github.com/bfenetworks/go-lib/log"
@@ -57,6 +58,10 @@ type BfeServer struct {
 
 	// TLS session cache
 	SessionCache *ServerSessionCache
+
+	// AI key session affinity redis client (owned by server core;
+	// nil when [AIKeyAffinity] is disabled, which means affinity is off)
+	AIKeyAffinityRedis redis_client.Client
 
 	// TLS certificates
 	MultiCert *MultiCertMap
@@ -245,6 +250,41 @@ func (srv *BfeServer) initTLSSessionCache() {
 		srv.SessionCache = NewServerSessionCache(sessionCacheConf, srv.serverStatus.ProxyState)
 		srv.TLSConfig.ServerSessionCache = srv.SessionCache
 	}
+}
+
+// initAIKeyAffinityRedis creates the Redis client used by AI key session
+// affinity (session->key binding and key penalty state). Session affinity is
+// core forwarding logic, so the server owns this handle instead of borrowing
+// one from a module: affinity availability depends only on the
+// [AIKeyAffinity] section of bfe.conf, not on any module's Redis setup.
+// When the section is disabled (the default), the client stays nil and
+// affinity silently does not apply (fail-open).
+//
+// Note: redis_client.Client has no Close interface; like the module-side
+// Redis clients, its connection pool is reclaimed on process exit.
+func (srv *BfeServer) initAIKeyAffinityRedis() {
+	conf := srv.Config.AIKeyAffinity
+	if conf.Disabled {
+		return
+	}
+
+	client := redis_client.NewRedisClient(&redis_client.Options{
+		ServiceConf:    conf.ServiceConf,
+		MaxIdle:        conf.MaxIdle,
+		MaxActive:      conf.MaxActive,
+		ConnTimeoutMs:  conf.ConnectTimeoutMs,
+		ReadTimeoutMs:  conf.ReadTimeoutMs,
+		WriteTimeoutMs: conf.WriteTimeoutMs,
+		Password:       conf.Password,
+	})
+	if client == nil {
+		// Unreachable via config load (Check validates ServiceConf); stay
+		// nil (fail-open) rather than blocking startup.
+		log.Logger.Warn("initAIKeyAffinityRedis(): create redis client failed, ai key affinity disabled")
+		return
+	}
+
+	srv.AIKeyAffinityRedis = client
 }
 
 func (srv *BfeServer) initTLSSessionTicket() error {

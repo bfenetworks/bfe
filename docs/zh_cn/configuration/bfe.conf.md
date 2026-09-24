@@ -70,6 +70,21 @@ bfe.conf是BFE的核心配置
 | SessionTicket.SessionTicketsDisabled | Boolean   | 是否禁用TLS Session Ticket                                                       | N    | 默认值`True`；为`True`时跳过其他SessionTicket相关校验                    | -                                                                          |
 | SessionTicket.SessionTicketKeyFile   | String    | [Session Ticket Key配置](tls_conf/session_ticket_key.data.md)文件路径            | N    | 默认值`tls_conf/session_ticket_key.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
 
+### AI Key会话保持配置
+
+AI Key会话保持（`AIConf.KeyPolicy.SessionAffinity`）用于将同一会话（ClientKeyId）的请求绑定到同一个 Provider API Key。会话绑定与Key惩罚状态存储在Redis中，连接由bfe_server核心自持（不再复用`mod_ai_rate_limit`模块的Redis），可用性仅由本节配置决定。本节未配置或`Disabled=true`时，会话保持静默不生效（fail-open）。
+
+| 配置项                          | 类型    | 参数含义                                                     | 必填 | 补充描述                                                     | 合法性条件                                |
+| ------------------------------- | ------- | ------------------------------------------------------------ | ---- | ------------------------------------------------------------ | ----------------------------------------- |
+| AIKeyAffinity.Disabled          | Boolean | 是否禁用AI Key会话保持                                       | N    | 默认值`True`；为`True`时跳过其他AIKeyAffinity相关校验        | -                                         |
+| AIKeyAffinity.ServiceConf       | String  | Redis服务的BNS名字（或带权重的BNS列表），经`Server.NameConf`名字表解析 | 条件 | `Disabled=false` 时必填                                      | `Disabled=false` 时不能为空，格式参见 [mod_ai_rate_limit Redis配置](mod_ai_rate_limit/mod_ai_rate_limit.conf.md) |
+| AIKeyAffinity.ConnectTimeoutMs  | Integer | 连接Redis的超时时间，单位毫秒                                | N    | 默认值1000                                                   | `Disabled=false` 时必须 > 0               |
+| AIKeyAffinity.ReadTimeoutMs     | Integer | 读取Redis的超时时间，单位毫秒                                | N    | 默认值1000                                                   | `Disabled=false` 时必须 > 0               |
+| AIKeyAffinity.WriteTimeoutMs    | Integer | 写入Redis的超时时间，单位毫秒                                | N    | 默认值1000                                                   | `Disabled=false` 时必须 > 0               |
+| AIKeyAffinity.MaxIdle           | Integer | 与Redis的最大空闲长连接数                                    | N    | 默认值10                                                     | `Disabled=false` 时必须 > 0               |
+| AIKeyAffinity.MaxActive         | Integer | 与Redis的最大活跃连接数                                      | N    | 默认值20；0表示不限制连接数                                  | >= 0                                      |
+| AIKeyAffinity.Password          | String  | Redis访问密码                                                | N    | 默认值空（表示无密码）                                       | -                                         |
+
 ## 配置示例
 
 ```ini
@@ -234,4 +249,27 @@ SessionExpire = 3600
 SessionTicketsDisabled = true
 # session ticket key
 SessionTicketKeyFile = tls_conf/session_ticket_key.data
+
+[AIKeyAffinity]
+# AI key session affinity: server-owned Redis for session->key binding and
+# key penalty state. Disabled by default; when disabled, affinity silently
+# does not apply (fail-open) even if a cluster sets SessionAffinity=true.
+Disabled = true
+
+# bns name (or weighted bns list) of redis servers, resolved via NameConf
+#ServiceConf = "redis_bns"
+
+# connection params (ms)
+#ConnectTimeoutMs = 1000
+#ReadTimeoutMs = 1000
+#WriteTimeoutMs = 1000
+
+# max idle connections in connection pool
+#MaxIdle = 10
+
+# max active connections in pool (0 means no connection num limit)
+#MaxActive = 20
+
+# redis password, ignore if not set
+#Password = ""
 ```
