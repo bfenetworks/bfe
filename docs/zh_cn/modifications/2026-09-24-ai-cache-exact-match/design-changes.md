@@ -117,7 +117,7 @@ AI 网关只有默认 product，节点上只部署默认 product 一个 key；**
   "Config": {
     "default": [
       {
-        "cond": "req_path_in(\"/v1/chat/completions\") && req_body_json_in(\"model\", \"deepseek-chat\", false)",
+        "cond": "req_path_in(\"/v1/chat/completions\", false) && req_body_json_in(\"model\", \"deepseek-chat\", false)",
         "cacheKeyStrategy": "lastQuestion",
         "cacheTTL": 3600,
         "maxBodyBytes": 1048576,
