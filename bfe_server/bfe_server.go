@@ -123,6 +123,10 @@ func NewBfeServer(cfg bfe_conf.BfeConfig, confRoot string,
 
 	// initialize balTable
 	s.balTable = bfe_balance.NewBalTable(s.GetCheckConf)
+	// register the table for module-internal sub-requests (e.g. traffic
+	// mirroring backend resolution); BalTable reloads mutate in place, so
+	// this reference remains valid across config reloads
+	bfe_balance.SetGlobalBalTable(s.balTable)
 
 	// set keep-alive
 	s.SetKeepAlivesEnabled(cfg.Server.KeepAliveEnabled)

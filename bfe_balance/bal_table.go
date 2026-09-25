@@ -61,6 +61,25 @@ func NewBalTable(checkConfFetcher backend.CheckConfFetcher) *BalTable {
 	return t
 }
 
+// globalBalTable holds the process-wide BalTable created by bfe_server so
+// that modules can resolve cluster backends for internal sub-requests (e.g.
+// mod_traffic_mirror picking a mirror target backend). It is set once at
+// server startup; BalTable reloads mutate the table in place, so the
+// reference stays valid across config reloads.
+var globalBalTable *BalTable
+
+// SetGlobalBalTable registers the server-wide BalTable. Called by
+// bfe_server at startup; not intended for other callers.
+func SetGlobalBalTable(t *BalTable) {
+	globalBalTable = t
+}
+
+// GetGlobalBalTable returns the BalTable registered by SetGlobalBalTable,
+// or nil when the server has not registered one (e.g. in unit tests).
+func GetGlobalBalTable() *BalTable {
+	return globalBalTable
+}
+
 func (t *BalTable) BalTableConfLoad(gslbConfFilename, clusterTableFilename string) (
 	gslb_conf.GslbConf, cluster_table_conf.ClusterTableConf, error) {
 
@@ -168,8 +187,8 @@ func (t *BalTable) backendInit(backendConfs cluster_table_conf.ClusterTableConf)
 // SetGslbBasic sets gslb basic conf (from server data conf) for BalTable.
 //
 // Note:
-//  - SetGslbBasic() is called after server reload gslb conf or server data conf
-//  - SetGslbBasic() should be concurrency safe
+//   - SetGslbBasic() is called after server reload gslb conf or server data conf
+//   - SetGslbBasic() should be concurrency safe
 func (t *BalTable) SetGslbBasic(clusterTable *bfe_route.ClusterTable) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
@@ -191,8 +210,8 @@ func (t *BalTable) SetGslbBasic(clusterTable *bfe_route.ClusterTable) {
 // SetSlowStart sets slow_start related conf (from server data conf) for BalTable.
 //
 // Note:
-//  - SetSlowStart() is called after server reload server data conf
-//  - SetSlowStart() should be concurrency safe
+//   - SetSlowStart() is called after server reload server data conf
+//   - SetSlowStart() should be concurrency safe
 func (t *BalTable) SetSlowStart(clusterTable *bfe_route.ClusterTable) {
 	t.lock.RLock()
 	defer t.lock.RUnlock()

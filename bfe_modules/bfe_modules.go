@@ -48,6 +48,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_tag"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_tcp_keepalive"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trace"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_traffic_mirror"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trust_clientip"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_unified_waf"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_userid"
@@ -160,6 +161,14 @@ var moduleList = []bfe_module.BfeModule{
 	// the request) and before mod_access_pb3 (AiCacheStatus must be set
 	// before access logging)
 	mod_ai_cache.NewModuleAiCache(),
+
+	// mod_traffic_mirror
+	// Requirement: after mod_ai_route / mod_ai_token_auth (mirror rules match
+	// on resolved AI context like model/apikey at HandleForward, which fires
+	// after all HandleFoundProduct / HandleAfterLocation callbacks); before
+	// mod_access_pb3 (AiBasicInfo mirror fields must be set before access
+	// logging). Only registers HandleForward.
+	mod_traffic_mirror.NewModuleTrafficMirror(),
 
 	// mod_body_process
 	mod_body_process.NewModuleBodyProcess(),

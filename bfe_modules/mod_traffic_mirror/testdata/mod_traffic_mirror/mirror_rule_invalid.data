@@ -1,0 +1,12 @@
+{
+    "Version": "1.0",
+    "Config": {
+        "default": [
+            {
+                "cond": "",
+                "mirrorCluster": "cluster_shadow_bad",
+                "percentage": 150
+            }
+        ]
+    }
+}

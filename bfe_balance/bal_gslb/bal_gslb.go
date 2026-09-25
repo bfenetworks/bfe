@@ -868,6 +868,26 @@ func (bal *BalanceGslb) Balance(req *bfe_basic.Request) (*bal_backend.BfeBackend
 	return backend, bfe_basic.ErrBkCrossRetryBalance
 }
 
+// PickBackend selects a healthy backend for internal sub-requests initiated
+// by modules (e.g. traffic mirroring in mod_traffic_mirror). Unlike
+// Balance(req), it never reads or mutates the request: no session affinity,
+// no retry counters and no error side effects on the main request. It only
+// advances the internal weighted round-robin state.
+func (bal *BalanceGslb) PickBackend() (*bal_backend.BfeBackend, error) {
+	bal.lock.Lock()
+	defer bal.lock.Unlock()
+
+	current, err := bal.subClusterBalance(nil)
+	if err != nil {
+		return nil, err
+	}
+	if current.sType == TypeGslbBlackhole {
+		return nil, fmt.Errorf("gslb blackhole")
+	}
+
+	return current.balance(bal_slb.WrrSmooth, nil)
+}
+
 // subClusterBalance selects one sub cluster.
 func (bal *BalanceGslb) subClusterBalance(value []byte) (*SubCluster, error) {
 	var subCluster *SubCluster
