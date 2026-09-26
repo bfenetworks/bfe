@@ -50,7 +50,6 @@ import (
 	"github.com/bfenetworks/bfe/bfe_http2"
 	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_module"
-	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_rate_limit"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_body_process"
 	"github.com/bfenetworks/bfe/bfe_route"
 	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
@@ -1700,15 +1699,10 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 
 	state := newAIKeyAttemptState()
 
-	// session-level key affinity
-	var redisClient redis_client.Client
-	if policy.SessionAffinity && srv.Modules != nil {
-		if module := srv.Modules.GetModule(mod_ai_rate_limit.ModAiRateLimit); module != nil {
-			if m, ok := module.(*mod_ai_rate_limit.ModuleAiRateLimit); ok {
-				redisClient = m.RedisClient()
-			}
-		}
-	}
+	// Session affinity state (binding/penalty) is core forwarding logic; the
+	// Redis handle is owned by the server (see initAIKeyAffinityRedis), not
+	// borrowed from any module. Unconfigured (nil) means affinity is disabled.
+	redisClient := srv.AIKeyAffinityRedis
 	sessionID := clientKeySessionID(basicReq)
 	boundName := ""
 

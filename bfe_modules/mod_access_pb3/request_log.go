@@ -508,6 +508,23 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		})
 	}
 
+	// AI cache (mod_ai_cache) status
+	if aiInfo.AiCacheStatus != "" {
+		reqLog.AiCacheStatus = proto.String(aiInfo.AiCacheStatus)
+	}
+	if aiInfo.AiCacheKey != "" {
+		reqLog.AiCacheKey = proto.String(aiInfo.AiCacheKey)
+	}
+
+	// Traffic mirroring (mod_traffic_mirror) result: only synchronous fields
+	// are logged; async mirror results go to module Prometheus metrics
+	if aiInfo.MirrorHit {
+		reqLog.MirrorHit = proto.Bool(true)
+		if aiInfo.MirrorCluster != "" {
+			reqLog.MirrorCluster = proto.String(aiInfo.MirrorCluster)
+		}
+	}
+
 	// Rate limit hit info
 	hitInfo := req.GetAiRateLimitHitInfo()
 	if hitInfo != nil && len(hitInfo.HitPolicyDict) > 0 {

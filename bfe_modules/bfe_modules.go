@@ -20,6 +20,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access_pb3"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_cache"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_rate_limit"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_route"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_token_auth"
@@ -47,6 +48,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_tag"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_tcp_keepalive"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trace"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_traffic_mirror"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trust_clientip"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_unified_waf"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_userid"
@@ -152,6 +154,21 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_ai_route
 	// Requirement: after mod_ai_token_auth (needs ClientApiKey)
 	mod_ai_route.NewModuleAiRoute(),
+
+	// mod_ai_cache
+	// Requirement: after mod_ai_route (only cache requests for a resolved
+	// product/route); before mod_body_process (a cache hit short-circuits
+	// the request) and before mod_access_pb3 (AiCacheStatus must be set
+	// before access logging)
+	mod_ai_cache.NewModuleAiCache(),
+
+	// mod_traffic_mirror
+	// Requirement: after mod_ai_route / mod_ai_token_auth (mirror rules match
+	// on resolved AI context like model/apikey at HandleForward, which fires
+	// after all HandleFoundProduct / HandleAfterLocation callbacks); before
+	// mod_access_pb3 (AiBasicInfo mirror fields must be set before access
+	// logging). Only registers HandleForward.
+	mod_traffic_mirror.NewModuleTrafficMirror(),
 
 	// mod_body_process
 	mod_body_process.NewModuleBodyProcess(),

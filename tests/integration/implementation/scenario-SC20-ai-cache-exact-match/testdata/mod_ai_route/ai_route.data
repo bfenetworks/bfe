@@ -1,0 +1,49 @@
+{
+    "Version": "20260720150000",
+    "route_rules": {
+        "apikey_ak_cache": {
+            "type": "apikey",
+            "owner": "ak_cache",
+            "rules": [
+                {
+                    "name": "cache-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_cache",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        },
+        "apikey_ak_cache2": {
+            "type": "apikey",
+            "owner": "ak_cache2",
+            "rules": [
+                {
+                    "name": "cache-default-2",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_cache",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_cache": [
+            "apikey_ak_cache"
+        ],
+        "ak_cache2": [
+            "apikey_ak_cache2"
+        ]
+    }
+}

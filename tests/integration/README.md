@@ -54,6 +54,7 @@ go test ./tests/integration/implementation/scenario-SC01-route-table-lookup/ -ru
 | SC13 TLS 热加载路径重定向 | 验证 `/reload/tls_conf?path=` 时 client CA/CRL 基目录随版本目录切换（conf-agent#19），通过真实 TLS 握手验证 reload 前后客户端证书校验行为 |
 | SC14 EPP 调度对接 | 验证 `BalanceMode=EPP` 下 ext-proc 调度的决策转发、pool metadata 注入、SSE 响应回传、主备 failover、错误驱动重试、降级本地均衡与熔断（EPP 为进程内 mock server，后端为真实 llm-d-inference-sim） |
 | SC17 AI 协议路径改写 | 验证 `AIConf.ProtocolPaths` 按协议改写上游路径（百炼/Kimi Code 形态）、双协议 cluster 独立改写、fallback 路径重算与未配置/非标准入口透传 |
+| SC21 流量镜像 | 验证 `mod_traffic_mirror` 复制一致性（body/path/header 黑名单/标识头注入）、model 与路径改写、百分比采样（0/100/50 统计分布）、条件不匹配、fallback 重试去重、SSE 读空与 usage/finish_reason 解析、错误分类、熔断与冷却、响应截断、客户端断连继续读完、访问日志 `mirror_hit`/`mirror_cluster`、规则热加载与计费隔离 |
 
 ## 参考文档
 

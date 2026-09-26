@@ -82,6 +82,8 @@ type MockBackend struct {
 	xGoogApiKeyHeaders []string
 	anthropicVersions  []string
 	urlPaths           []string
+	rawQueries         []string
+	headerCopies       []http.Header
 }
 
 // NewMockBackend starts a local HTTP server that returns the given status code.
@@ -96,6 +98,8 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 		b.hits++
 		count := b.hits
 		b.urlPaths = append(b.urlPaths, r.URL.Path)
+		b.rawQueries = append(b.rawQueries, r.URL.RawQuery)
+		b.headerCopies = append(b.headerCopies, r.Header.Clone())
 		if b.ReadNotify != nil {
 			close(b.ReadNotify)
 			b.ReadNotify = nil
@@ -239,6 +243,24 @@ func (b *MockBackend) URLPaths() []string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return append([]string(nil), b.urlPaths...)
+}
+
+// RawQueries returns a deep copy of all observed request URL raw queries.
+func (b *MockBackend) RawQueries() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]string(nil), b.rawQueries...)
+}
+
+// HeaderCopies returns deep copies of all observed request headers.
+func (b *MockBackend) HeaderCopies() []http.Header {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	result := make([]http.Header, len(b.headerCopies))
+	for i, h := range b.headerCopies {
+		result[i] = h.Clone()
+	}
+	return result
 }
 
 // Close shuts down the mock backend.

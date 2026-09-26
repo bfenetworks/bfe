@@ -69,9 +69,24 @@ func copyFile(src, dst string) error {
 	return err
 }
 
+// WriteJSONFile writes data as indented JSON to path, creating parent
+// directories. It is exported for scenarios that generate module rule data
+// (e.g. mod_traffic_mirror/mirror_rule.data) at runtime.
+func WriteJSONFile(path string, data interface{}) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	bytes, err := json.MarshalIndent(data, "", "    ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, bytes, 0644)
+}
+
 // GetBFETotalBytesBodyBuffer queries the BFE monitor endpoint for the current
 // total bytes_body buffer size.
 func GetBFETotalBytesBodyBuffer(monitorPort int) (int64, error) {
+
 	url := fmt.Sprintf("http://127.0.0.1:%d/monitor/server_stat", monitorPort)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -89,6 +104,13 @@ func GetBFETotalBytesBodyBuffer(monitorPort int) (int64, error) {
 		return 0, err
 	}
 	return stat.TotalBytesBodyBuffer, nil
+}
+
+// ClusterSubName returns the sub-cluster name used in cluster_table.data and
+// gslb.data for the given cluster. It is exported for scenarios that
+// regenerate gslb.data at runtime.
+func ClusterSubName(clusterName string) string {
+	return clusterSubName(clusterName)
 }
 
 // clusterSubName maps a cluster name to the sub-cluster name used in gslb.data.

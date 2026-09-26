@@ -401,6 +401,8 @@ func calcBackoff(initial, max, attempt int) time.Duration {
 
 当 `AIKeyPolicy.SessionAffinity = true` 时，BFE 会基于 `ClientKeyId` 在 Redis 中维护会话到 API-Key 的绑定，使得同一客户的多次请求尽量命中同一个 Provider Key，从而提升跨账户多 Key 场景下的 prompt cache 命中率。
 
+亲和性使用的 Redis 连接由 `bfe.conf` 的 `[AIKeyAffinity]` 段配置并由 `bfe_server` 核心自持（不再借用 `mod_ai_rate_limit` 模块的 Redis）；该段未配置或 `Disabled=true` 时，即使开启 `SessionAffinity`，亲和也静默不生效（fail-open），请求按加权随机分发。
+
 #### 3.5.1 会话标识
 
 使用 BFE 内部 `AiBasicInfo.ClientKeyId` 作为 session id：
@@ -671,6 +673,6 @@ aiClusterInvoke: all ai keys exhausted for cluster[%s]
 2. **SSE 流式响应**：所有 Key 尝试完成后才返回响应，不会出现已开始发送后切换 Key 的情况；
 3. **与 `ServeHTTP()` 隔离**：多 API-Key 逻辑仅作用于 `ServeHTTPForAI()` 路径；
 4. **旧字段清理**：`AIConf.Key` 不再保留，统一使用 `AIConf.Keys`；
-5. **会话级亲和性依赖 Redis**：`SessionAffinity` 默认关闭，开启后需确保 `mod_ai_rate_limit` 的 Redis 配置可用；Redis 故障时自动降级为加权随机；
+5. **会话级亲和性依赖 Redis**：`SessionAffinity` 默认关闭；开启后需在 `bfe.conf` 配置 `[AIKeyAffinity]` 段（bfe_server 自持 Redis 连接，不复用 `mod_ai_rate_limit` 的 Redis），未配置时亲和静默不生效（fail-open）；Redis 故障时自动降级为加权随机；
 6. **单 Key 短路**：当 `AIConf.Keys` 中只有一个有效 Key 时，无论是否开启亲和性，都不会访问 Redis；
 7. **ClientKeyId 稳定性**：会话绑定基于 `AiBasicInfo.ClientKeyId`，控制面更新 API-Key 值时应保持该 ID 不变，否则原有绑定会失效。

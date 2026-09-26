@@ -407,6 +407,7 @@
 
 **会话级 Key 亲和性说明：**
 
+- 亲和性使用的 Redis 连接由 `bfe.conf` 的 `[AIKeyAffinity]` 段配置（bfe_server 自持，不复用 `mod_ai_rate_limit` 模块的 Redis）；未配置该段或 `Disabled=true` 时，亲和静默不生效（fail-open），与限流模块的加载及其 Redis 配置无关。
 - 开启后，BFE 使用 `AiBasicInfo.ClientKeyId` 作为会话标识，在 Redis 中维护 `{prefix}:{cluster_name}:{client_key_id} -> <key_name>` 的绑定。
 - 同一 `ClientKeyId` 的后续请求优先命中已绑定的 Key；命中后会通过 `Expire` 刷新绑定 TTL，因此只要会话持续有请求，绑定就会一直保持。
 - `SessionAffinityTTL` 是**空闲超时时间**：只有当 `ClientKeyId` 在 TTL 时间内没有请求时，绑定才会自动释放。

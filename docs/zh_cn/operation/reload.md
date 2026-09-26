@@ -49,3 +49,9 @@ $ curl http://localhost:8421/reload/server_data_conf
 | mod_rewrite          | mod_rewrite/rewrite.data    | /reload/mod_rewrite |
 | mod_static         | mod_static/static_rule.data<br>mod_static/mime_type.data | /reload/mod_static<br>/reload/mod_static.mime_type |
 | mod_trust_clientip | mod_trust_clientip/trust_client_ip.data | /reload/mod_trust_clientip |
+
+## 启动配置说明
+
+以下配置不属于热加载范围，修改后需重启BFE进程生效：
+
+* `conf/bfe.conf`（含 `[AIKeyAffinity]` AI Key会话保持Redis配置）：`[AIKeyAffinity]` 用于配置AI Key会话保持（session affinity）自持的Redis连接；未配置或`Disabled=true`时会话保持静默不生效（fail-open）。该配置由控制面（conf-agent）分发时，需将新配置段纳入下发模板，否则升级后会话保持将失效。

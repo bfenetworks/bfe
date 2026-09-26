@@ -1,0 +1,20 @@
+{
+    "Version": "1.0",
+    "Config": {
+        "default": [
+            {
+                "cond": "default_t()",
+                "cacheKeyStrategy": "lastQuestion",
+                "cacheTTL": 60,
+                "maxBodyBytes": 1024,
+                "maxValueBytes": 1024
+            }
+        ],
+        "disabled_product": [
+            {
+                "cond": "default_t()",
+                "cacheKeyStrategy": "disabled"
+            }
+        ]
+    }
+}
