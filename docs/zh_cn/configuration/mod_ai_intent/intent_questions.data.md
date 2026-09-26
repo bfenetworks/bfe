@@ -5,6 +5,8 @@
 `intent_questions.data` 是 `mod_ai_intent` 模块的 questions 数据文件，定义意图
 分类的问题集（问题名/类型/选项）与置信度门控阈值。路由规则中的
 `req_ai_intent_in(<question_name>, ...)` 按问题名消费本文件配置的问题。
+`Questions` 允许为空数组：空数组 = 停用意图分类软开关（BFE 加载后所有意图条件
+不命中，流量走默认路由，不调用决策服务）。
 
 ## 配置描述
 
@@ -12,7 +14,7 @@
 | ------ | ---- | -------- | ---- | -------- | ---------- |
 | Version | String | 配置文件版本 | Y | 内容任何变更（含仅调阈值）都必须更新；版本不变的热更视为无变更跳过 | 类型为 [Version](../00-common.md#5-配置文件版本version) |
 | MinConfidence | Float | 全局置信度门控阈值 | N | 默认值为 `0.6`；低于阈值的答案视为 unknown（路由条件不命中） | 取值范围 [0, 1]；须用自有标注数据重新标定 |
-| Questions | Array | 问题列表 | Y | 单次分类调用并行评估全部问题 | - |
+| Questions | Array | 问题列表 | Y | 单次分类调用并行评估全部问题；**空数组（0 个问题）= 停用意图分类软开关**：加载后所有意图条件不命中，流量走默认路由，不调用决策服务 | 0–255 项 |
 | Questions[] | Object | 问题定义 | Y | - | - |
 | Questions[].Name | String | 问题名 | Y | 全部问题中唯一；路由原语第一个参数按它索引答案 | 非空且唯一 |
 | Questions[].Type | String | 问题类型 | Y | `choice`：从 Criteria 选项中选一项；`score`：在 Levels 刻度上打分（映射为档位名） | 取值范围为 `choice`、`score` |

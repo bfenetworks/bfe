@@ -6,6 +6,10 @@
 It defines the question set for intent classification (question name / type /
 options) and the confidence gating thresholds. Routing rules consume the
 questions configured here via `req_ai_intent_in(<question_name>, ...)`.
+`Questions` may be an empty array: an empty array is the soft switch that
+disables intent classification (after load every intent condition misses,
+traffic falls back to the default route, and the decision service is not
+called).
 
 ## Configuration Description
 
@@ -13,7 +17,7 @@ questions configured here via `req_ai_intent_in(<question_name>, ...)`.
 | ------------------ | ---- | ------- | -------- | ------------------------- | ------------------ |
 | Version | String | Configuration file version | Y | Must be updated on any content change (including threshold-only changes); a reload with an unchanged version is treated as no-op | Type is [Version](../00-common.md#5-version) |
 | MinConfidence | Float | Global confidence gating threshold | N | Default `0.6`; answers below the threshold are treated as unknown (routing conditions do not match) | In range [0, 1]; must be re-calibrated with your own labeled data |
-| Questions | Array | Question list | Y | All questions are evaluated in a single classification call | - |
+| Questions | Array | Question list | Y | All questions are evaluated in a single classification call; an **empty array (0 questions) is the soft switch that disables intent classification**: after load every intent condition misses, traffic falls back to the default route, and the decision service is not called | 0-255 items |
 | Questions[] | Object | Question definition | Y | - | - |
 | Questions[].Name | String | Question name | Y | Unique across all questions; the first argument of the routing primitive addresses answers by it | Non-empty and unique |
 | Questions[].Type | String | Question type | Y | `choice`: pick one option from Criteria; `score`: rate on the Levels scale (mapped to a level name) | One of `choice`, `score` |

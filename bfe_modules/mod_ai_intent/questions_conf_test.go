@@ -107,7 +107,6 @@ func TestQuestionsConfValidation(t *testing.T) {
 		{"empty version", `{"Version":"","Questions": [{"Name":"q","Type":"choice","Instructions":"i","Criteria":{"a":"b"}}]}`},
 		{"global min conf too large", `{"Version":"v1","MinConfidence":1.1,"Questions": [{"Name":"q","Type":"choice","Instructions":"i","Criteria":{"a":"b"}}]}`},
 		{"global min conf negative", `{"Version":"v1","MinConfidence":-0.1,"Questions": [{"Name":"q","Type":"choice","Instructions":"i","Criteria":{"a":"b"}}]}`},
-		{"empty questions", `{"Version":"v1"}`},
 		{"empty question name", `{"Version":"v1","Questions": [{"Name":"","Type":"choice","Instructions":"i","Criteria":{"a":"b"}}]}`},
 		{"duplicated question name", `{"Version":"v1","Questions": [{"Name":"q","Type":"choice","Instructions":"i","Criteria":{"a":"b"}},{"Name":"q","Type":"choice","Instructions":"i","Criteria":{"a":"b"}}]}`},
 		{"invalid question type", `{"Version":"v1","Questions": [{"Name":"q","Type":"noul","Instructions":"i","Criteria":{"a":"b"}}]}`},
@@ -187,4 +186,30 @@ func TestQuestionsConfThresholdFallback(t *testing.T) {
 	require.NoError(t, qc.Load())
 	assert.Equal(t, DefaultMinConfidence, qc.Threshold("q"))
 	assert.Equal(t, 0.0, qc.Threshold("missing"))
+}
+
+func TestQuestionsConfEmptyQuestions(t *testing.T) {
+	// empty Questions is the soft switch that disables intent classification
+	content := `{"Version": "off1", "MinConfidence": 0.6, "Questions": []}`
+	path := writeQuestionsFile(t, content)
+	qc := NewQuestionsConf(path)
+	require.NoError(t, qc.Load())
+
+	qs := qc.Current()
+	require.NotNil(t, qs)
+	assert.Equal(t, "off1", qs.Version())
+	assert.Empty(t, qs.OrderedQuestions())
+	assert.Empty(t, qs.SystemOneQuestions())
+	assert.Equal(t, 0.0, qs.Threshold("anything"))
+
+	// hot reload from empty to non-empty (and back) works with version bumps
+	on := `{"Version": "on1", "Questions": [{"Name": "q", "Type": "choice", "Instructions": "i", "Criteria": {"a": "b"}}]}`
+	require.NoError(t, ioutil.WriteFile(path, []byte(on), 0644))
+	require.NoError(t, qc.Load())
+	assert.Len(t, qs.OrderedQuestions(), 0, "old snapshot stays immutable")
+	assert.Len(t, qc.Current().OrderedQuestions(), 1)
+
+	require.NoError(t, ioutil.WriteFile(path, []byte(content), 0644))
+	require.NoError(t, qc.Load())
+	assert.Empty(t, qc.Current().OrderedQuestions())
 }

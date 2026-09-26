@@ -70,6 +70,11 @@ func (r *intentResolver) Resolve(req *bfe_basic.Request) *bfe_basic.AiIntent {
 
 	qs := r.questions.Current()
 	if qs == nil || len(qs.order) == 0 {
+		// no questions configured (or conf not loaded yet): the soft switch
+		// is off, every intent condition misses without any work
+		if qs != nil {
+			intent.QuestionsVersion = qs.Version()
+		}
 		r.state.ReqUnknown.Inc(1)
 		intent.Resolved = true
 		return intent

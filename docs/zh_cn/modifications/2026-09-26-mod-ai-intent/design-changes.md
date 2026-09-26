@@ -80,3 +80,21 @@
 - 决策服务不可用时全部问题为 unknown，流量自动落到默认规则，主请求不受影响；
 - 本机开发联调注意：`TimeoutMs` 默认 300ms，连本机 CPU 版 Laya（665–800ms/次）
   需调至 2000（见 `decision-service` 环境文档）。
+
+## 修订记录
+
+### 2026-09-26：放宽 Questions 下限 1→0（空数组软开关）
+
+控制面冻结契约要求 `intent_questions.data` 的 `Questions` 允许为空数组
+（`[]` = 停用意图分类软开关）：BFE 收到后所有意图条件不命中、流量走默认路由。
+
+- `questions_conf.go` 校验放宽：空 Questions 合法（0 个问题，Version 仍必填、
+  变更仍需 bump）；非空问题的逐项校验（名称/类型/Instructions/Criteria/Levels/
+  MinConfidence）不变；
+- resolver 行为：空 questions 时直接返回 Resolved 的空未知意图——不提取消息、
+  不解析显式意图头（无已配置问题可匹配）、不调用决策服务、不读写缓存；
+  计数 ReqTotal + ReqUnknown；返回的 `AiIntent.QuestionsVersion` 仍为当前版本；
+- 缓存自然失效：缓存 key 含 QuestionsVersion，软开关热更（bump 版本）后旧
+  条目不再被命中，随 TTL 淘汰；
+- 配置文档同步（zh_cn + en_us）：Questions 合法性改为 0–255 项，补充软开关
+  语义说明；`docs/zh_cn/sys_design/mod_ai_intent.md` §1.2/§6 同步。

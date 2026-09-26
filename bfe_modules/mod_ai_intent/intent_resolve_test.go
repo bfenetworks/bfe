@@ -78,17 +78,24 @@ func newTestState() *ModuleAiIntentState {
 	}
 }
 
-func newTestResolver(t *testing.T, client DecisionClient, state *ModuleAiIntentState) *intentResolver {
-	qc := NewQuestionsConf(writeQuestionsFile(t, testQuestionsValid))
-	require.NoError(t, qc.Load())
+func newTestResolverConf() *ConfModAiIntent {
 	conf := &ConfModAiIntent{}
 	conf.Basic.ExplicitIntentHeader = DefaultExplicitIntentHeader
 	conf.Basic.MaxStateChars = DefaultMaxStateChars
 	conf.Breaker.FailureThreshold = 3
 	conf.Breaker.ProbeIntervalMs = 5000
+	return conf
+}
 
+func newTestResolverWithQuestions(qc *QuestionsConf, client DecisionClient, state *ModuleAiIntentState) *intentResolver {
 	cache := NewIntentCache(DefaultCacheSize, time.Minute)
-	return newIntentResolver(conf, qc, cache, client, state, newLatencyHistogram())
+	return newIntentResolver(newTestResolverConf(), qc, cache, client, state, newLatencyHistogram())
+}
+
+func newTestResolver(t *testing.T, client DecisionClient, state *ModuleAiIntentState) *intentResolver {
+	qc := NewQuestionsConf(writeQuestionsFile(t, testQuestionsValid))
+	require.NoError(t, qc.Load())
+	return newTestResolverWithQuestions(qc, client, state)
 }
 
 func newTestRequest(body string, apiKey string, authStyle string, headers map[string]string) *bfe_basic.Request {
@@ -324,4 +331,33 @@ func TestResolveNonAIRequest(t *testing.T) {
 	assert.Empty(t, intent.Answers)
 	assert.Equal(t, 0, client.calls)
 	assert.Equal(t, int64(1), state.ReqUnknown.Get())
+}
+
+func TestResolveEmptyQuestions(t *testing.T) {
+	// empty Questions is the soft switch that disables intent
+	// classification: no extraction, no decision service call, all intent
+	// conditions miss and traffic falls back to the default route
+	client := &mockDecisionClient{answers: mockAnswers()}
+	state := newTestState()
+	qc := NewQuestionsConf(writeQuestionsFile(t, `{"Version":"off1","Questions":[]}`))
+	require.NoError(t, qc.Load())
+	r := newTestResolverWithQuestions(qc, client, state)
+
+	// even a syntactically valid explicit header entry cannot match an
+	// unconfigured question and is ignored
+	headers := map[string]string{"X-AI-Intent": "task_type=coding"}
+	req := newTestRequest(testOpenAIBody, "key-1", bfe_basic.AuthStyleOpenAI, headers)
+	intent := r.Resolve(req)
+
+	assert.True(t, intent.Resolved)
+	assert.Equal(t, 0, client.calls, "decision service must not be called")
+	assert.Empty(t, intent.Answers)
+	assert.Equal(t, "off1", intent.QuestionsVersion)
+	assert.False(t, intent.Match("task_type", "coding"))
+
+	assert.Equal(t, int64(1), state.ReqTotal.Get())
+	assert.Equal(t, int64(1), state.ReqUnknown.Get())
+	assert.Equal(t, int64(0), state.ReqResolved.Get())
+	assert.Equal(t, int64(0), state.ReqHeader.Get())
+	assert.Equal(t, int64(0), state.ReqErr.Get())
 }

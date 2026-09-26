@@ -172,10 +172,9 @@ func validateQuestionsFile(f *QuestionsFile) (*IntentQuestions, error) {
 		minConfidence = *f.MinConfidence
 	}
 
-	if len(f.Questions) == 0 {
-		return nil, fmt.Errorf("Questions is empty")
-	}
-
+	// Questions may be an empty array: it is the soft switch that disables
+	// intent classification (every intent condition misses, traffic falls
+	// back to the default route). Non-empty questions are validated below.
 	qs := &IntentQuestions{
 		version:       f.Version,
 		minConfidence: minConfidence,
