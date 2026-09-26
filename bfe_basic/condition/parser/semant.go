@@ -83,6 +83,14 @@ var funcProtos = map[string][]Token{
 	"req_body_json_prefix_in":    []Token{STRING, STRING, BOOL},
 	"req_body_larger_than":       []Token{INT},
 	"req_body_less_than":         []Token{INT},
+	"req_ai_intent_in":           []Token{STRING, STRING, FLOAT},
+}
+
+// optionalLastArgProtos lists primitives whose trailing argument may be
+// omitted in condition expressions. prototypeCheck accepts either the full
+// argument list or one argument fewer for these primitives only.
+var optionalLastArgProtos = map[string]bool{
+	"req_ai_intent_in": true,
 }
 
 func prototypeCheck(expr *CallExpr) error {
@@ -92,11 +100,18 @@ func prototypeCheck(expr *CallExpr) error {
 		return fmt.Errorf("primitive %s not found", expr.Fun.Name)
 	}
 
-	if len(argsType) != len(expr.Args) {
-		return fmt.Errorf("primitive args len error, expect %v, got %v", len(argsType), len(expr.Args))
+	argsLen := len(expr.Args)
+	if argsLen != len(argsType) {
+		// allow omitting the trailing argument for whitelisted primitives
+		if !(optionalLastArgProtos[expr.Fun.Name] && argsLen == len(argsType)-1) {
+			return fmt.Errorf("primitive args len error, expect %v, got %v", len(argsType), argsLen)
+		}
 	}
 
 	for i, argType := range argsType {
+		if i >= argsLen {
+			break
+		}
 		if argType != expr.Args[i].Kind {
 			return fmt.Errorf("primitive %s arg %d expect %s, got %s",
 				expr.Fun.Name, i, argType, expr.Args[i].Kind)

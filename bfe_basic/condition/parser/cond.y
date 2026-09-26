@@ -126,9 +126,9 @@ func (x *condLex) Lex(yylval *condSymType) int {
 		case IDENT:
 			yylval.Node = &Ident{Name:lit, NamePos: pos}
 			return IDENT
-		case BOOL, STRING, INT:
+		case BOOL, STRING, INT, FLOAT:
 			yylval.Node = &BasicLit{Kind:tok, Value:lit, ValuePos: pos}
-			return BASICLIT 
+			return BASICLIT
 		case LPAREN, RPAREN, LAND, LOR, SEMICOLON, COMMA, NOT:
 			lastTokenPos = pos
 			return int(tok)

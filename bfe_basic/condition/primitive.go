@@ -1244,3 +1244,46 @@ func ReqBodyJsonSet(req *bfe_basic.Request, path string, value string) error {
 
 	return nil
 }
+
+// PrimitiveAiIntentIn implements the req_ai_intent_in primitive. It matches
+// when the intent answer of the given question is available (not unknown
+// under the current confidence gate) and its choice is one of options
+// ("|" separated, the BFE *_in convention).
+//
+// minConf is the rule-level confidence threshold: negative means omitted,
+// in which case the per-question gate (current MinConfidence) applied in
+// AiIntent.Match is the effective threshold; an explicit value (0 allowed)
+// is an additional, stricter gate.
+func PrimitiveAiIntentIn(req *bfe_basic.Request, question string, options string, minConf float64) bool {
+	if req == nil {
+		return false
+	}
+
+	intent := bfe_basic.GetAiIntent(req)
+	if intent == nil {
+		return false
+	}
+
+	if !intent.Match(question, strings.Split(options, "|")...) {
+		return false
+	}
+
+	if minConf < 0 {
+		// threshold omitted: the per-question gate already applied in Match
+		return true
+	}
+
+	answer := intent.Answers[question]
+	return answer != nil && answer.AnswerConfidence >= minConf
+}
+
+// AiIntentCond is the compiled condition of req_ai_intent_in.
+type AiIntentCond struct {
+	question string
+	options  string
+	minConf  float64
+}
+
+func (c *AiIntentCond) Match(req *bfe_basic.Request) bool {
+	return PrimitiveAiIntentIn(req, c.question, c.options, c.minConf)
+}

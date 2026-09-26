@@ -597,6 +597,24 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			matcher: &LtInt64Matcher{threshold: size},
 		}, nil
 
+	case "req_ai_intent_in":
+		// optional third arg (FLOAT): rule-level confidence threshold.
+		// -1 is the sentinel for "omitted": the current per-question
+		// MinConfidence of the question applies.
+		minConf := -1.0
+		if len(node.Args) == 3 {
+			v, err := strconv.ParseFloat(node.Args[2].Value, 64)
+			if err != nil {
+				return nil, fmt.Errorf("req_ai_intent_in: invalid min confidence %s", node.Args[2].Value)
+			}
+			minConf = v
+		}
+		return &AiIntentCond{
+			question: node.Args[0].Value,
+			options:  node.Args[1].Value,
+			minConf:  minConf,
+		}, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported primitive %s", node.Fun.Name)
 	}

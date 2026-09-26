@@ -21,6 +21,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access_pb3"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_cache"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_intent"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_rate_limit"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_route"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_token_auth"
@@ -154,6 +155,13 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_ai_route
 	// Requirement: after mod_ai_token_auth (needs ClientApiKey)
 	mod_ai_route.NewModuleAiRoute(),
+
+	// mod_ai_intent
+	// Requirement: none for ordering. Classification is lazy: the module only
+	// injects a resolver + confidence gate into bfe_basic at Init; the actual
+	// classification is triggered by the req_ai_intent_in condition primitive
+	// when mod_ai_route evaluates routing rules.
+	mod_ai_intent.NewModuleAiIntent(),
 
 	// mod_ai_cache
 	// Requirement: after mod_ai_route (only cache requests for a resolved
