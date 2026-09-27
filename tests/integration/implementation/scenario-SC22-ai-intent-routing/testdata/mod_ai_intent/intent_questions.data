@@ -1,0 +1,27 @@
+{
+    "Version": "2026092601",
+    "MinConfidence": 0.6,
+    "Questions": [
+        {
+            "Name": "task_type",
+            "Type": "choice",
+            "Instructions": "这条请求属于哪类研发任务？",
+            "Criteria": {
+                "coding": "编写或修改代码、调试、重构、代码审查",
+                "test_writing": "编写测试用例、单元测试、集成测试、补充断言",
+                "doc_writing": "编写文档、README、注释、接口说明、使用示例"
+            }
+        },
+        {
+            "Name": "complexity",
+            "Type": "score",
+            "Instructions": "这个任务的复杂度如何？",
+            "MinConfidence": 0.7,
+            "Levels": [
+                { "Name": "simple",  "Description": "单步即可完成" },
+                { "Name": "medium",  "Description": "多步但模式常见" },
+                { "Name": "complex", "Description": "需要深入推理或跨模块设计" }
+            ]
+        }
+    ]
+}

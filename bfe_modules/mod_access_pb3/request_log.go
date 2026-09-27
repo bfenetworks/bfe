@@ -500,6 +500,43 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		})
 	}
 
+	// AI intent (mod_ai_intent): the first question route conditions actually
+	// evaluated, for routing audit and MinConfidence calibration. Only an
+	// intent already resolved and cached on the request is read here; calling
+	// the lazy resolver at log time would classify requests whose route never
+	// consumed intent, breaking the zero-overhead guarantee.
+	if cached, ok := req.GetContext(bfe_basic.CtxAiIntent).(*bfe_basic.AiIntent); ok &&
+		cached != nil && cached.Resolved && cached.ConsumedQuestion != "" {
+		if answer := cached.Answers[cached.ConsumedQuestion]; answer != nil {
+			reqLog.AiIntentQuestion = proto.String(cached.ConsumedQuestion)
+
+			answerValue := answer.Choice
+			if cached.ConsumedUnknown {
+				answerValue = "unknown"
+			}
+			reqLog.AiIntentAnswer = proto.String(answerValue)
+			reqLog.AiIntentConfidence = proto.Float64(answer.AnswerConfidence)
+		}
+
+		// answer source: header / model / cache
+		switch cached.Source {
+		case bfe_basic.IntentSourceHeader:
+			reqLog.AiIntentSource = proto.String("explicit_header")
+		case bfe_basic.IntentSourceModel:
+			reqLog.AiIntentSource = proto.String("classifier")
+		case bfe_basic.IntentSourceCache:
+			reqLog.AiIntentSource = proto.String("cache")
+			reqLog.AiIntentCacheHit = proto.Bool(true)
+		}
+
+		if cached.LatencyMs > 0 {
+			reqLog.AiIntentLatencyUs = proto.Int64(cached.LatencyMs * 1000)
+		}
+		if cached.QuestionsVersion != "" {
+			reqLog.AiIntentQuestionsVersion = proto.String(cached.QuestionsVersion)
+		}
+	}
+
 	// Cluster / key attempts
 	for _, ckn := range aiInfo.ClusterKeyNames {
 		reqLog.AiClusterKeyNames = append(reqLog.AiClusterKeyNames, &bfe_access_pb3.ClusterKeyName{

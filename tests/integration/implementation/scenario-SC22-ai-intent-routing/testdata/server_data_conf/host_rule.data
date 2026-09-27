@@ -1,0 +1,13 @@
+{
+    "Version": "20260926000000",
+    "Hosts": {
+        "ai_product": [
+            "intent.example.org"
+        ]
+    },
+    "HostTags": {
+        "ai_product": [
+            "ai_product"
+        ]
+    }
+}

@@ -32,6 +32,10 @@
  * [req_header_value_suffix_in(header_name, value_suffix_list, case_insensitive)](./request/header.md#req_header_value_suffix_inheader_name-value_suffix_list-case_insensitive)
  * [req_ua_regmatch(reg_exp)](./request/header.md#req_ua_regmatchreg_exp)
 
+### intent
+
+ * [req_ai_intent_in(question_name, value_list, min_confidence)](./request/intent.md#req_ai_intent_inquestion_name-value_list-min_confidence)
+
 ### host
 
  * [req_host_in(host_list)](./request/uri.md#req_host_inhost_list)

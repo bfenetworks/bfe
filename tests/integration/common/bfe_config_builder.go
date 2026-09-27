@@ -169,6 +169,10 @@ type BFEConfigBuilder struct {
 	RateLimitPolicyData *RateLimitPolicyData
 	// AiCacheRuleData optionally generates mod_ai_cache/mod_ai_cache_rule.data.
 	AiCacheRuleData *AiCacheRuleData
+	// DecisionServiceAddr optionally rewrites the DecisionServiceAddr line in
+	// mod_ai_intent/mod_ai_intent.conf (e.g. with the address of a mock
+	// decision service). If empty, mod_ai_intent.conf is not rewritten.
+	DecisionServiceAddr string
 }
 
 // Build prepares the BFE configuration directory.
@@ -235,7 +239,40 @@ func (b *BFEConfigBuilder) Build() error {
 		}
 	}
 
+	if b.DecisionServiceAddr != "" {
+		if err := b.rewriteDecisionServiceAddr(); err != nil {
+			return fmt.Errorf("rewrite mod_ai_intent decision service addr failed: %w", err)
+		}
+	}
+
 	return nil
+}
+
+// rewriteDecisionServiceAddr replaces the DecisionServiceAddr line in
+// mod_ai_intent/mod_ai_intent.conf with the address of the test decision
+// service. A missing conf file is not an error.
+func (b *BFEConfigBuilder) rewriteDecisionServiceAddr() error {
+	path := filepath.Join(b.TargetConfDir, "mod_ai_intent", "mod_ai_intent.conf")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	found := false
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "DecisionServiceAddr") {
+			lines[i] = "DecisionServiceAddr = " + b.DecisionServiceAddr
+			found = true
+		}
+	}
+	if !found {
+		return fmt.Errorf("DecisionServiceAddr not found in %s", path)
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
 }
 
 const redisBnsName = "redis_bns"
