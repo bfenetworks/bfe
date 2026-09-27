@@ -1,8 +1,6 @@
 module github.com/bfenetworks/bfe
 
-go 1.22
-
-toolchain go1.22.9
+go 1.24.0
 
 require (
 	github.com/abbot/go-http-auth v0.4.1-0.20181019201920-860ed7f246ff
@@ -45,7 +43,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.34.0
 	github.com/bfenetworks/proxy-wasm-go-host v0.0.1
 	github.com/envoyproxy/go-control-plane/envoy v1.32.3
-	github.com/go-jose/go-jose/v4 v4.0.5
+	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/google/uuid v1.6.0
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/sjson v1.2.5
