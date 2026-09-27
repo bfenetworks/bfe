@@ -53,6 +53,9 @@ type AiIntent struct {
 	BackendVersion   string                   // decision service backend version
 	LatencyMs        int64                    // classification latency in milliseconds
 	Resolved         bool                     // true once resolve finished (even if all unknown)
+
+	ConsumedQuestion string // first question evaluated by route conditions; "" if none
+	ConsumedUnknown  bool   // that answer was below threshold (derived at read time)
 }
 
 // Match reports whether the answer of the given question is available (not
@@ -68,6 +71,14 @@ func (ai *AiIntent) Match(question string, options ...string) bool {
 
 	// read-time gating: refresh Unknown against the current threshold
 	answer.Unknown = answer.AnswerConfidence < AiIntentThreshold(question)
+
+	// record the first question route conditions actually evaluated (hit or
+	// miss); later evaluations on the same request never overwrite it
+	if ai.ConsumedQuestion == "" {
+		ai.ConsumedQuestion = question
+		ai.ConsumedUnknown = answer.Unknown
+	}
+
 	if answer.Unknown {
 		return false
 	}

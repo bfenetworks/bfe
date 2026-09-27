@@ -100,8 +100,8 @@ req_ai_intent_in("task_type", "test_writing" [, 0.9]) 首次求值
 
 | 存储 | 键/字段 | 说明 |
 |------|---------|------|
-| req.Context | `CtxAiIntent`（`__REQ_AI_INTENT`） | `*AiIntent`：QuestionsVersion、Answers（按问题名索引的 IntentAnswer，含原始概率）、Source（header/model/cache）、BackendVersion、LatencyMs、Resolved 标记 |
-| AiBasicInfo | `IntentAnswers`/`IntentSource`/`IntentLatencyMs` | 透传访问日志（access log 新增 `ai_intent_*` 字段） |
+| req.Context | `CtxAiIntent`（`__REQ_AI_INTENT`） | `*AiIntent`：QuestionsVersion、Answers（按问题名索引的 IntentAnswer，含原始概率）、Source（header/model/cache）、BackendVersion、LatencyMs、Resolved 标记、ConsumedQuestion/ConsumedUnknown（路由实际消费的意图，见 5.4） |
+| 访问日志 | `ai_intent_*`（bfe-access-pb 803-809） | `mod_access_pb3` 读取请求上下文中已解析的意图回填（仅读已缓存结果，不触发懒解析）；不复制进 `AiBasicInfo`，避免双写漂移 |
 
 ### 5.2 进程内缓存（跨请求）
 
@@ -116,6 +116,27 @@ req_ai_intent_in("task_type", "test_writing" [, 0.9]) 首次求值
 
 连续失败/超时达到 `Breaker.FailureThreshold`（默认 5）后打开，期间意图一律
 unknown；每 `ProbeIntervalMs`（默认 5000）放行一次探测请求，成功则关闭。
+
+### 5.4 访问日志（ai_intent_*，已实现）
+
+路由条件每次调用 `Match()` 求值时，首个被求值的问题记入
+`AiIntent.ConsumedQuestion`（同一请求多次求值只记首个，未配置问题不记），
+门控刷新后派生的 `Unknown` 记入 `ConsumedUnknown`。`mod_access_pb3` 在请求
+结束时按该记录回填 `bfe-access-pb` 803-809 字段（全部 optional，零值不写；
+意图未求值时整组为空）：
+
+| 字段 | 取值 |
+|------|------|
+| `ai_intent_question` | `ConsumedQuestion` |
+| `ai_intent_answer` | 对应 `IntentAnswer.Choice`；`ConsumedUnknown` 时写 `"unknown"` |
+| `ai_intent_confidence` | `IntentAnswer.AnswerConfidence`（门控后原始置信度，供标定） |
+| `ai_intent_source` | `header→explicit_header`、`model→classifier`、`cache→cache` |
+| `ai_intent_latency_us` | `LatencyMs × 1000`（仅 >0 时写） |
+| `ai_intent_cache_hit` | 仅 `Source == "cache"` 时写 true |
+| `ai_intent_questions_version` | `QuestionsVersion`（配置回滚追溯） |
+
+仅记录"路由实际消费的意图"单条；全量问题答案如需落日志，proto 须升级为
+`repeated` 新消息并走新号段（803-809 已发布，不得复用）。
 
 ## 6. 边界情况与优化
 

@@ -175,6 +175,7 @@ func TestResolveHeaderOnly(t *testing.T) {
 
 	assert.Equal(t, 0, client.calls, "full header coverage must not call the decision service")
 	assert.Equal(t, bfe_basic.IntentSourceHeader, intent.Source)
+	assert.Zero(t, intent.LatencyMs, "explicit header path performs no classification")
 	assert.True(t, intent.Resolved)
 	assert.Equal(t, int64(1), state.ReqHeader.Get())
 	assert.Equal(t, int64(1), state.ReqResolved.Get())
@@ -234,6 +235,7 @@ func TestResolveCacheHit(t *testing.T) {
 
 	assert.Equal(t, 1, client.calls, "cache hit must not repeat the classification")
 	assert.Equal(t, bfe_basic.IntentSourceCache, intent2.Source)
+	assert.Zero(t, intent2.LatencyMs, "cache path performs no classification; latency belongs to the original call")
 	assert.Equal(t, int64(1), state.ReqCacheHit.Get())
 	assert.Equal(t, int64(2), state.ReqResolved.Get())
 	assert.Equal(t, "coding", intent2.Answers["task_type"].Choice)

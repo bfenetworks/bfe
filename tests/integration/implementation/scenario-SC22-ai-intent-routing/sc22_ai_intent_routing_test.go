@@ -27,6 +27,8 @@ import (
 	"testing"
 	"time"
 
+	bfe_access_pb "github.com/bfenetworks/bfe-access-pb/bfe_access_pb"
+
 	"github.com/bfenetworks/bfe/tests/integration/common"
 )
 
@@ -721,6 +723,131 @@ func TestTC11_NoIntentRuleZeroOverhead(t *testing.T) {
 		t.Fatalf("rules without intent primitives must not call the decision service, got %d", e.decision.Hits())
 	}
 	e.expectCounter("REQ_TOTAL", 0, "req_total")
+}
+
+// ---------------------------------------------------------------------------
+// TC-13 意图访问日志字段（ai_intent_*）
+// ---------------------------------------------------------------------------
+
+// accessLogs parses the b2log records written by mod_access_pb3; BFE must be
+// stopped first so all buffered logs are flushed.
+func (e *testEnv) accessLogs() []*bfe_access_pb.RequestLog {
+	e.t.Helper()
+	reqLogs, err := common.ParseAccessLogAfterStop(e.logDir)
+	if err != nil {
+		e.t.Fatalf("parse access log failed: %v", err)
+	}
+	return reqLogs
+}
+
+// TestTC13_IntentAccessLogFields verifies that mod_access_pb3 backfills the
+// ai_intent_* fields (bfe-access-pb 803-809) with the intent the route
+// actually consumed: model-classified hit, below-threshold "unknown",
+// in-process cache hit, and no intent fields when route never evaluated it.
+func TestTC13_IntentAccessLogFields(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+
+	e.startBFE()
+
+	// step 1: model classification above the gate -> classifier source
+	resp, body, err := e.sendRequest(apiKeyIntent, unitTestBody, nil)
+	e.expectOK(resp, body, err, "step 1")
+	if !strings.Contains(body, "from cluster_flash") {
+		t.Fatalf("step 1: response should come from cluster_flash, got: %s", body)
+	}
+
+	// step 2: confidence below the gate -> answer logged as "unknown"
+	resp, body, err = e.sendRequest(apiKeyIntent, vagueBody, nil)
+	e.expectOK(resp, body, err, "step 2")
+	if !strings.Contains(body, "from cluster_kimi") {
+		t.Fatalf("step 2: response should come from cluster_kimi, got: %s", body)
+	}
+
+	// step 3: identical request hits the in-process cache -> cache source
+	resp, body, err = e.sendRequest(apiKeyIntent, unitTestBody, nil)
+	e.expectOK(resp, body, err, "step 3")
+	if !strings.Contains(body, "from cluster_flash") {
+		t.Fatalf("step 3: response should come from cluster_flash, got: %s", body)
+	}
+
+	// step 4: rule without intent primitives: intent never evaluated
+	resp, body, err = e.sendRequest(apiKeyPlain, unitTestBody, nil)
+	e.expectOK(resp, body, err, "step 4")
+	if !strings.Contains(body, "from cluster_kimi") {
+		t.Fatalf("step 4: response should come from cluster_kimi, got: %s", body)
+	}
+
+	// wait for the access log to be flushed before stopping BFE
+	time.Sleep(500 * time.Millisecond)
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLogs := e.accessLogs()
+	if len(reqLogs) != 4 {
+		e.logBFEException()
+		t.Fatalf("expected 4 access logs, got %d", len(reqLogs))
+	}
+
+	// step 1 log: normal model-classified intent
+	l := reqLogs[0]
+	if l.AiIntentQuestion == nil || *l.AiIntentQuestion != "task_type" {
+		t.Errorf("step 1: ai_intent_question error, got: %v", l.AiIntentQuestion)
+	}
+	if l.AiIntentAnswer == nil || *l.AiIntentAnswer != "test_writing" {
+		t.Errorf("step 1: ai_intent_answer error, got: %v", l.AiIntentAnswer)
+	}
+	if l.AiIntentConfidence == nil || *l.AiIntentConfidence != 0.93 {
+		t.Errorf("step 1: ai_intent_confidence error, got: %v", l.AiIntentConfidence)
+	}
+	if l.AiIntentSource == nil || *l.AiIntentSource != "classifier" {
+		t.Errorf("step 1: ai_intent_source error, got: %v", l.AiIntentSource)
+	}
+	if l.AiIntentCacheHit != nil {
+		t.Errorf("step 1: ai_intent_cache_hit should be unset, got: %v", l.AiIntentCacheHit)
+	}
+	if l.AiIntentLatencyUs != nil && *l.AiIntentLatencyUs <= 0 {
+		t.Errorf("step 1: ai_intent_latency_us should be positive when set, got: %v", l.AiIntentLatencyUs)
+	}
+	if l.AiIntentQuestionsVersion == nil || *l.AiIntentQuestionsVersion != questionsVersion1 {
+		t.Errorf("step 1: ai_intent_questions_version error, got: %v", l.AiIntentQuestionsVersion)
+	}
+
+	// step 2 log: below-threshold answer logged as "unknown"
+	l = reqLogs[1]
+	if l.AiIntentAnswer == nil || *l.AiIntentAnswer != "unknown" {
+		t.Errorf("step 2: ai_intent_answer should be unknown, got: %v", l.AiIntentAnswer)
+	}
+	if l.AiIntentConfidence == nil || *l.AiIntentConfidence != 0.45 {
+		t.Errorf("step 2: ai_intent_confidence error, got: %v", l.AiIntentConfidence)
+	}
+	if l.AiIntentSource == nil || *l.AiIntentSource != "classifier" {
+		t.Errorf("step 2: ai_intent_source error, got: %v", l.AiIntentSource)
+	}
+
+	// step 3 log: in-process cache hit
+	l = reqLogs[2]
+	if l.AiIntentAnswer == nil || *l.AiIntentAnswer != "test_writing" {
+		t.Errorf("step 3: ai_intent_answer error, got: %v", l.AiIntentAnswer)
+	}
+	if l.AiIntentSource == nil || *l.AiIntentSource != "cache" {
+		t.Errorf("step 3: ai_intent_source should be cache, got: %v", l.AiIntentSource)
+	}
+	if l.AiIntentCacheHit == nil || !*l.AiIntentCacheHit {
+		t.Errorf("step 3: ai_intent_cache_hit should be true, got: %v", l.AiIntentCacheHit)
+	}
+	if l.AiIntentLatencyUs != nil {
+		t.Errorf("step 3: ai_intent_latency_us should be unset for cache source, got: %v", l.AiIntentLatencyUs)
+	}
+
+	// step 4 log: intent never evaluated -> whole group empty
+	l = reqLogs[3]
+	if l.AiIntentQuestion != nil || l.AiIntentAnswer != nil ||
+		l.AiIntentConfidence != nil || l.AiIntentSource != nil ||
+		l.AiIntentLatencyUs != nil || l.AiIntentCacheHit != nil ||
+		l.AiIntentQuestionsVersion != nil {
+		t.Errorf("step 4: no ai_intent_* field should be written, got: %v", l)
+	}
 }
 
 // ---------------------------------------------------------------------------

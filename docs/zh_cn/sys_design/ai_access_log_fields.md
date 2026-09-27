@@ -19,7 +19,7 @@ BFE 作为 AI 网关，需要把请求在认证、路由、转发、计费等各
 
 ## 2. 字段总览
 
-AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前已定义 29 个字段：
+AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前已定义 37 个字段：
 
 | 编号 | 字段名 | 类型 | 说明 | 采集模块 |
 |------|--------|------|------|----------|
@@ -52,6 +52,13 @@ AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前
 | 788 | `ai_cache_write_1h_tokens` | `int64` | 1h TTL 缓存写入 Token 数（已包含在 `ai_cache_write_tokens` 中） | `mod_ai_token_auth` / `mod_body_process` |
 | 801 | `ai_route_rule_hits` | `repeated AIRouteRuleHit` | 命中的 AI 路由规则列表 | `mod_ai_route` |
 | 802 | `ai_cluster_key_names` | `repeated ClusterKeyName` | 请求处理过程中尝试过的 (cluster, key) 列表 | `bfe_server/reverseproxy.go` |
+| 803 | `ai_intent_question` | `string` | 路由实际消费的首个意图问题名（`mod_ai_intent`） | `mod_access_pb3` 读取 `CtxAiIntent` |
+| 804 | `ai_intent_answer` | `string` | 该问题答案选项；低于门限时为 `unknown` | 同上 |
+| 805 | `ai_intent_confidence` | `float64` | 门控后的答案置信度（供 MinConfidence 标定） | 同上 |
+| 806 | `ai_intent_source` | `string` | 答案来源：`explicit_header` / `classifier` / `cache` | 同上 |
+| 807 | `ai_intent_latency_us` | `int64` | 分类耗时（微秒），仅 >0 时写 | 同上 |
+| 808 | `ai_intent_cache_hit` | `bool` | 意图命中进程内缓存，仅 cache 源写 true | 同上 |
+| 809 | `ai_intent_questions_version` | `string` | 意图问题配置 Version（配置回滚追溯） | 同上 |
 | 841 | `ai_auth_hit_quota_plans` | `repeated string` | 正常请求时命中的 Quota Plan ID 列表 | `mod_ai_token_auth` |
 
 ### 2.1 编号区间规划
@@ -263,7 +270,8 @@ message AIRouteRuleHit {
 `reqAiInfoGen()` 负责把上述所有字段从 `AiBasicInfo`、`AiRateLimitHitInfo`、`AiRouteResult` 映射到 `RequestLog`：
 
 - 字段重命名：`AiApikey`→`AiApikeyId`、`AiMappedModel`→`AiTargetModel`、`AiPromptTokens`→`AiInputTokens`；
-- 新增字段：`AiMode`、`AiProtocol`、`AiProvider`、`AiRetryCount`、`AiCostValue`、`AiCostCurrency`、`AiCacheReadTokens`、`AiCacheWriteTokens`、`AiCacheWrite_1HTokens`、`AiAudioInputTokens`、`AiAudioOutputTokens`、`AiImageCount`、`AiImageInputTokens`、`AiVideoCount`、`AiRouteRuleHits`、`AiClusterKeyNames`、`AiAuthHitQuotaPlans`。
+- 新增字段：`AiMode`、`AiProtocol`、`AiProvider`、`AiRetryCount`、`AiCostValue`、`AiCostCurrency`、`AiCacheReadTokens`、`AiCacheWriteTokens`、`AiCacheWrite_1HTokens`、`AiAudioInputTokens`、`AiAudioOutputTokens`、`AiImageCount`、`AiImageInputTokens`、`AiVideoCount`、`AiRouteRuleHits`、`AiClusterKeyNames`、`AiAuthHitQuotaPlans`；
+- 意图字段（803-809）：读取请求上下文中已解析的 `*bfe_basic.AiIntent`（仅读缓存结果，不触发懒解析），按 `ConsumedQuestion` 回填，详见 `docs/zh_cn/sys_design/mod_ai_intent.md` 5.4。
 
 ---
 
@@ -277,8 +285,8 @@ message AIRouteRuleHit {
 
 ## 7. 测试与验证
 
-1. **单元测试**：`bfe_modules/mod_access_pb3/request_log_test.go` 覆盖所有字段的赋值逻辑；
-2. **集成测试**：`tests/integration/implementation/scenario-SC05-access-log-ai-fields/` 启动真实 BFE 进程，发送 AI 请求后解码 b2log，校验全部 30 个字段（包括 `ai_mode`、`ai_protocol`、`ai_image_count`、`ai_image_input_tokens`、`ai_video_count`、`ai_cache_write_1h_tokens` 等图像/视频生成与缓存 TTL 场景字段）；`scenario-SC11-ai-token-auth-billing-fix/` 覆盖 Anthropic 高 cache 命中、`/count_tokens` 不计费、重复扣费防护等计费修复场景。
+1. **单元测试**：`bfe_modules/mod_access_pb3/request_log_test.go` 覆盖所有字段的赋值逻辑；`bfe_basic/request_ai_intent_test.go` 覆盖路由消费意图（ConsumedQuestion/ConsumedUnknown）的记录；
+2. **集成测试**：`tests/integration/implementation/scenario-SC05-access-log-ai-fields/` 启动真实 BFE 进程，发送 AI 请求后解码 b2log，校验全部 30 个字段（包括 `ai_mode`、`ai_protocol`、`ai_image_count`、`ai_image_input_tokens`、`ai_video_count`、`ai_cache_write_1h_tokens` 等图像/视频生成与缓存 TTL 场景字段）；`scenario-SC11-ai-token-auth-billing-fix/` 覆盖 Anthropic 高 cache 命中、`/count_tokens` 不计费、重复扣费防护等计费修复场景；`scenario-SC22-ai-intent-routing/` TC-13 校验 `ai_intent_*` 字段四种形态（正常分类、unknown 兜底、cache 命中、意图未求值整组为空）。
 
 ---
 

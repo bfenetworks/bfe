@@ -563,6 +563,169 @@ func TestReqAiInfoGenNil(t *testing.T) {
 	}
 }
 
+// setIntentContext installs a minimal AiBasicInfo and the given intent on the
+// request, mimicking a request whose route conditions already resolved it.
+func setIntentContext(req *bfe_basic.Request, intent *bfe_basic.AiIntent) {
+	aiInfo := &bfe_basic.AiBasicInfo{ClientKeyId: "key-id-123"}
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+	req.SetAiIntent(intent)
+}
+
+func TestReqAiInfoGenIntent(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+	setIntentContext(req, &bfe_basic.AiIntent{
+		QuestionsVersion: "2026092601",
+		Source:           bfe_basic.IntentSourceModel,
+		LatencyMs:        12,
+		Resolved:         true,
+		ConsumedQuestion: "task_type",
+		Answers: map[string]*bfe_basic.IntentAnswer{
+			"task_type": {QType: bfe_basic.IntentQTypeChoice, Choice: "test_writing", AnswerConfidence: 0.93},
+		},
+	})
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiIntentQuestion == nil || *reqLog.AiIntentQuestion != "task_type" {
+		t.Errorf("AiIntentQuestion error, got: %v", reqLog.AiIntentQuestion)
+	}
+	if reqLog.AiIntentAnswer == nil || *reqLog.AiIntentAnswer != "test_writing" {
+		t.Errorf("AiIntentAnswer error, got: %v", reqLog.AiIntentAnswer)
+	}
+	if reqLog.AiIntentConfidence == nil || *reqLog.AiIntentConfidence != 0.93 {
+		t.Errorf("AiIntentConfidence error, got: %v", reqLog.AiIntentConfidence)
+	}
+	if reqLog.AiIntentSource == nil || *reqLog.AiIntentSource != "classifier" {
+		t.Errorf("AiIntentSource error, got: %v", reqLog.AiIntentSource)
+	}
+	if reqLog.AiIntentLatencyUs == nil || *reqLog.AiIntentLatencyUs != 12000 {
+		t.Errorf("AiIntentLatencyUs error, got: %v", reqLog.AiIntentLatencyUs)
+	}
+	if reqLog.AiIntentCacheHit != nil {
+		t.Errorf("AiIntentCacheHit should be nil for model source, got: %v", reqLog.AiIntentCacheHit)
+	}
+	if reqLog.AiIntentQuestionsVersion == nil || *reqLog.AiIntentQuestionsVersion != "2026092601" {
+		t.Errorf("AiIntentQuestionsVersion error, got: %v", reqLog.AiIntentQuestionsVersion)
+	}
+}
+
+func TestReqAiInfoGenIntentUnknown(t *testing.T) {
+	// a consumed answer below the threshold is logged as "unknown", keeping
+	// the raw confidence for MinConfidence calibration
+	_, req, res := makeRequestLogTest(t)
+	setIntentContext(req, &bfe_basic.AiIntent{
+		QuestionsVersion: "2026092601",
+		Source:           bfe_basic.IntentSourceModel,
+		LatencyMs:        8,
+		Resolved:         true,
+		ConsumedQuestion: "task_type",
+		ConsumedUnknown:  true,
+		Answers: map[string]*bfe_basic.IntentAnswer{
+			"task_type": {QType: bfe_basic.IntentQTypeChoice, Choice: "test_writing", AnswerConfidence: 0.45},
+		},
+	})
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiIntentAnswer == nil || *reqLog.AiIntentAnswer != "unknown" {
+		t.Errorf("AiIntentAnswer error, got: %v", reqLog.AiIntentAnswer)
+	}
+	if reqLog.AiIntentConfidence == nil || *reqLog.AiIntentConfidence != 0.45 {
+		t.Errorf("AiIntentConfidence error, got: %v", reqLog.AiIntentConfidence)
+	}
+	if reqLog.AiIntentSource == nil || *reqLog.AiIntentSource != "classifier" {
+		t.Errorf("AiIntentSource error, got: %v", reqLog.AiIntentSource)
+	}
+}
+
+func TestReqAiInfoGenIntentCache(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+	setIntentContext(req, &bfe_basic.AiIntent{
+		QuestionsVersion: "2026092601",
+		Source:           bfe_basic.IntentSourceCache,
+		Resolved:         true,
+		ConsumedQuestion: "task_type",
+		Answers: map[string]*bfe_basic.IntentAnswer{
+			"task_type": {QType: bfe_basic.IntentQTypeChoice, Choice: "test_writing", AnswerConfidence: 0.93},
+		},
+	})
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiIntentSource == nil || *reqLog.AiIntentSource != "cache" {
+		t.Errorf("AiIntentSource error, got: %v", reqLog.AiIntentSource)
+	}
+	if reqLog.AiIntentCacheHit == nil || !*reqLog.AiIntentCacheHit {
+		t.Errorf("AiIntentCacheHit error, got: %v", reqLog.AiIntentCacheHit)
+	}
+	if reqLog.AiIntentLatencyUs != nil {
+		t.Errorf("AiIntentLatencyUs should be nil when latency is 0, got: %v", reqLog.AiIntentLatencyUs)
+	}
+}
+
+func TestReqAiInfoGenIntentExplicitHeader(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+	setIntentContext(req, &bfe_basic.AiIntent{
+		QuestionsVersion: "2026092601",
+		Source:           bfe_basic.IntentSourceHeader,
+		Resolved:         true,
+		ConsumedQuestion: "task_type",
+		Answers: map[string]*bfe_basic.IntentAnswer{
+			"task_type": {QType: bfe_basic.IntentQTypeChoice, Choice: "test_writing", AnswerConfidence: 1},
+		},
+	})
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiIntentSource == nil || *reqLog.AiIntentSource != "explicit_header" {
+		t.Errorf("AiIntentSource error, got: %v", reqLog.AiIntentSource)
+	}
+	if reqLog.AiIntentCacheHit != nil {
+		t.Errorf("AiIntentCacheHit should be nil for header source, got: %v", reqLog.AiIntentCacheHit)
+	}
+}
+
+func TestReqAiInfoGenIntentNotEvaluated(t *testing.T) {
+	// intent resolved but no route condition evaluated it: the whole group
+	// stays empty
+	_, req, res := makeRequestLogTest(t)
+	setIntentContext(req, &bfe_basic.AiIntent{
+		QuestionsVersion: "2026092601",
+		Source:           bfe_basic.IntentSourceModel,
+		LatencyMs:        12,
+		Resolved:         true,
+		Answers: map[string]*bfe_basic.IntentAnswer{
+			"task_type": {QType: bfe_basic.IntentQTypeChoice, Choice: "test_writing", AnswerConfidence: 0.93},
+		},
+	})
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiIntentQuestion != nil || reqLog.AiIntentAnswer != nil ||
+		reqLog.AiIntentConfidence != nil || reqLog.AiIntentSource != nil ||
+		reqLog.AiIntentLatencyUs != nil || reqLog.AiIntentCacheHit != nil ||
+		reqLog.AiIntentQuestionsVersion != nil {
+		t.Errorf("no ai_intent_* field should be written when intent was not evaluated: %v",
+			reqLog)
+	}
+}
+
+func TestReqAiInfoGenIntentNoAiInfo(t *testing.T) {
+	// no AiBasicInfo at all: reqAiInfoGen returns before touching intent
+	_, req, res := makeRequestLogTest(t)
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiIntentQuestion != nil {
+		t.Errorf("AiIntentQuestion should be nil when no ai info, got: %v", reqLog.AiIntentQuestion)
+	}
+}
+
 // assertNoRawKeyInLog serializes the log and asserts the raw key bytes are absent.
 func assertNoRawKeyInLog(t *testing.T, reqLog *bfe_access_pb3.RequestLog, rawKey string) {
 	t.Helper()

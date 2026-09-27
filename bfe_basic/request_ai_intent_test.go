@@ -76,6 +76,42 @@ func TestAiIntentMatch(t *testing.T) {
 	assert.False(t, nilIntent.Match("task_type", "coding"))
 }
 
+func TestAiIntentMatchRecordsConsumed(t *testing.T) {
+	defer SetAiIntentThreshold(nil)
+
+	SetAiIntentThreshold(func(question string) float64 { return 0.6 })
+
+	// the first evaluated question is recorded (hit or miss), and repeated
+	// evaluations never overwrite it
+	intent := testIntent()
+	assert.Equal(t, "", intent.ConsumedQuestion)
+	assert.True(t, intent.Match("task_type", "coding"))
+	assert.Equal(t, "task_type", intent.ConsumedQuestion)
+	assert.False(t, intent.ConsumedUnknown)
+
+	// a later evaluation of another question does not overwrite the record
+	assert.False(t, intent.Match("low", "coding"), "0.5 below the 0.6 gate")
+	assert.Equal(t, "task_type", intent.ConsumedQuestion)
+	assert.False(t, intent.ConsumedUnknown, "ConsumedUnknown belongs to the first evaluated question")
+
+	// first evaluation below the gate: ConsumedUnknown derived at read time
+	intent2 := testIntent()
+	assert.False(t, intent2.Match("low", "coding"))
+	assert.Equal(t, "low", intent2.ConsumedQuestion)
+	assert.True(t, intent2.ConsumedUnknown)
+	assert.True(t, intent2.Answers["low"].Unknown)
+
+	// unconfigured / nil answers are never recorded (fail-safe)
+	assert.False(t, intent2.Match("missing", "coding"))
+	assert.Equal(t, "low", intent2.ConsumedQuestion)
+	assert.False(t, intent2.Match("nilanswer", "coding"))
+	assert.Equal(t, "low", intent2.ConsumedQuestion)
+
+	// nil intent
+	var nilIntent *AiIntent
+	assert.False(t, nilIntent.Match("task_type", "coding"))
+}
+
 func TestGetAiIntentLazyResolve(t *testing.T) {
 	defer SetAiIntentResolver(nil)
 	SetAiIntentResolver(nil)

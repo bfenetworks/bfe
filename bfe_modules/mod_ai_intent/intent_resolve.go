@@ -115,6 +115,10 @@ func (r *intentResolver) Resolve(req *bfe_basic.Request) *bfe_basic.AiIntent {
 		intent = cloneIntent(cached)
 		mergeAnswers(intent.Answers, headerAnswers)
 		intent.Source = bfe_basic.IntentSourceCache
+		// no classification happened for this request: the cached latency
+		// belongs to the original call, and ai_intent_latency_us is
+		// documented as 0 for cache/explicit paths
+		intent.LatencyMs = 0
 		intent.Resolved = true
 		r.state.ReqCacheHit.Inc(1)
 		r.state.ReqResolved.Inc(1)
