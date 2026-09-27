@@ -40,7 +40,7 @@ theme:
 
 copyright: 'Copyright © 2021 BFE作者 | 文档发布基于CC-BY-4.0授权许可 <br/>Copyright © 2021
             Linux基金会。保留所有权利。Linux基金会已注册并使用商标<br/>如需了解Linux基金会的商标列表，
-            请<a target="_blank" href="https://www.linuxfoundation.org/trademark-usage">访问商标使用页面 </a>'
+            请<a target="_blank" href="https://www.linuxfoundation.org/trademark-usage">访问商标使用页面 </a> | <a target="_blank" href="https://beian.miit.gov.cn/">京ICP证030173号-136</a>'
 
 markdown_extensions:
   - codehilite
