@@ -88,6 +88,23 @@ func (m *ModuleAiCache) writeBack(req *bfe_basic.Request, ctx *aiCacheContext, b
 	}
 
 	m.redisCache.Setex(ctx.Key, []byte(value), ctx.Rule.CacheTTL)
+
+	// semantic index double-write (async): the write-back runs at response
+	// close, after the answer was fully delivered to the client; a
+	// synchronous upload would only delay the connection release. The
+	// goroutine captures values only (never the request) and the provider
+	// enforces its own timeout, so it stays safe after the request
+	// finished. A failure is counted and logged, never propagated.
+	if ctx.Rule.EnableSemanticCache && m.semanticEnabled() && len(ctx.Embedding) > 0 {
+		question, tenant, emb := ctx.Question, tenantOf(req), ctx.Embedding
+		go func() {
+			if err := m.semantic.Upload(question, tenant, emb, value); err != nil {
+				m.ruleTable.incVectorErr()
+				m.state.Inc("VECTOR_ERR", 1)
+				log.Logger.Warn("%s: vector upload failed, key[%s], err[%v]", m.name, ctx.Key, err)
+			}
+		}()
+	}
 }
 
 // extractAnswer pulls the answer content out of a complete response body,

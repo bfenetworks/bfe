@@ -109,9 +109,11 @@ type AiBasicInfo struct {
 	ClusterKeyNames []ClusterKeyName // tried (cluster, key) pairs during request processing
 
 	// AI cache (mod_ai_cache) result
-	AiCacheHit    bool   // true when the response was served from the AI cache
-	AiCacheStatus string // cache status: hit / miss / skip, empty if cache not enabled
-	AiCacheKey    string // cache key, only filled when mod_ai_cache debug is on
+	AiCacheHit        bool    // true when the response was served from the AI cache
+	AiCacheStatus     string  // cache status: hit / hit_semantic / miss / skip, empty if cache not enabled
+	AiCacheKey        string  // cache key, only filled when mod_ai_cache debug is on
+	AiCacheSemantic   bool    // true when the hit comes from the semantic (vector) cache
+	AiCacheSimilarity float64 // normalized similarity [0,1] of a semantic cache hit, 0 if not applicable
 
 	// Traffic mirroring (mod_traffic_mirror) result: only synchronous fields
 	// are recorded here; async mirror results (status/usage/latency) are

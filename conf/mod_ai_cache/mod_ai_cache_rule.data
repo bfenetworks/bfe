@@ -1,11 +1,17 @@
 {
     "Version": "1.0",
+    "Semantic": {
+        "topK": 1,
+        "threshold": 0.15,
+        "thresholdRelation": "lt"
+    },
     "Config": {
         "example_ai_product": [
             {
                 "cond": "req_path_in(\"/v1/chat/completions\", false) && req_body_json_in(\"model\", \"deepseek-chat\", false)",
                 "cacheKeyStrategy": "lastQuestion",
                 "cacheTTL": 3600,
+                "enableSemanticCache": true,
                 "maxBodyBytes": 1048576,
                 "maxValueBytes": 1048576
             },

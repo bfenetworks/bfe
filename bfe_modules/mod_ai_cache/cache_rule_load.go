@@ -31,9 +31,25 @@ const (
 
 // cache status values recorded in AiBasicInfo and the access log
 const (
-	CacheStatusHit  = "hit"
-	CacheStatusMiss = "miss"
-	CacheStatusSkip = "skip"
+	CacheStatusHit         = "hit"
+	CacheStatusHitSemantic = "hit_semantic"
+	CacheStatusMiss        = "miss"
+	CacheStatusSkip        = "skip"
+)
+
+// semantic threshold relations
+const (
+	SemanticRelationLt  = "lt"
+	SemanticRelationLte = "lte"
+	SemanticRelationGt  = "gt"
+	SemanticRelationGte = "gte"
+)
+
+// semantic global conf defaults (top-level Semantic block of the rule file)
+const (
+	DefaultSemanticTopK              = 1
+	DefaultSemanticThreshold         = 0.15
+	DefaultSemanticThresholdRelation = SemanticRelationLt
 )
 
 // default GJSON paths for key/value extraction
@@ -67,13 +83,27 @@ type ProductRuleConfFile struct {
 	// size limits
 	MaxBodyBytes  *int64 `json:"maxBodyBytes"`
 	MaxValueBytes *int64 `json:"maxValueBytes"`
+
+	// whether to enable the semantic cache for this rule; ignored when
+	// cacheKeyStrategy is "disabled"
+	EnableSemanticCache *bool `json:"enableSemanticCache"`
+}
+
+// SemanticConfFile is the file representation of the top-level Semantic
+// block: module-level global config for the semantic cache, hot reloaded
+// together with the rule table.
+type SemanticConfFile struct {
+	TopK              *int     `json:"topK"`              // number of nearest neighbors
+	Threshold         *float64 `json:"threshold"`         // score threshold
+	ThresholdRelation *string  `json:"thresholdRelation"` // lt / lte / gt / gte
 }
 
 type ProductRuleConfListFile []*ProductRuleConfFile
 
 type ProductRuleConfDataFile struct {
-	Version *string                              `json:"Version"`
-	Config  *map[string]*ProductRuleConfListFile `json:"Config"`
+	Version  *string                              `json:"Version"`
+	Semantic *SemanticConfFile                    `json:"Semantic"` // optional, global
+	Config   *map[string]*ProductRuleConfListFile `json:"Config"`
 }
 
 // ==================== Mem types (runtime representation) ====================
@@ -96,13 +126,24 @@ type ProductRuleConf struct {
 
 	MaxBodyBytes  int64
 	MaxValueBytes int64
+
+	EnableSemanticCache bool
+}
+
+// SemanticConf is the runtime representation of the top-level Semantic
+// block of the rule file (module-level global semantic config).
+type SemanticConf struct {
+	TopK              int     // number of nearest neighbors
+	Threshold         float64 // score threshold
+	ThresholdRelation string  // lt / lte / gt / gte
 }
 
 type ProductRuleConfList []*ProductRuleConf
 
 type ProductRuleConfData struct {
-	Version *string
-	Config  *map[string]*ProductRuleConfList
+	Version  *string
+	Semantic *SemanticConf // nil when the rule file has no Semantic block
+	Config   *map[string]*ProductRuleConfList
 }
 
 // ==================== Convert methods ====================
@@ -119,10 +160,13 @@ func (f *ProductRuleConfFile) Convert() *ProductRuleConf {
 		StreamResponseTemplate: *f.StreamResponseTemplate,
 		MaxBodyBytes:           *f.MaxBodyBytes,
 		MaxValueBytes:          *f.MaxValueBytes,
+		EnableSemanticCache:    *f.EnableSemanticCache,
 	}
 
 	if rule.CacheKeyStrategy == CacheKeyStrategyDisabled {
 		rule.Disabled = true
+		// enableSemanticCache is ignored on disabled rules (disabled wins)
+		rule.EnableSemanticCache = false
 	}
 
 	return rule
@@ -141,6 +185,10 @@ func (f *ProductRuleConfDataFile) Convert() *ProductRuleConfData {
 		Version: f.Version,
 	}
 
+	if f.Semantic != nil {
+		result.Semantic = f.Semantic.Convert()
+	}
+
 	if f.Config != nil {
 		config := make(map[string]*ProductRuleConfList)
 		for k, v := range *f.Config {
@@ -151,6 +199,16 @@ func (f *ProductRuleConfDataFile) Convert() *ProductRuleConfData {
 	}
 
 	return result
+}
+
+// Convert converts the file representation to the runtime conf. Callers must
+// have applied setDefaults first so that no pointer field is nil.
+func (f *SemanticConfFile) Convert() *SemanticConf {
+	return &SemanticConf{
+		TopK:              *f.TopK,
+		Threshold:         *f.Threshold,
+		ThresholdRelation: *f.ThresholdRelation,
+	}
 }
 
 // ==================== Check methods (on File types) ====================
@@ -219,13 +277,20 @@ func productRulesCheck(conf *map[string]*ProductRuleConfListFile) error {
 }
 
 func productRuleConfDataCheck(conf *ProductRuleConfDataFile) error {
-	if err := bfe_util.CheckNilField(*conf, true); err != nil {
-		return err
+	if conf.Version == nil {
+		return fmt.Errorf("Version is not set")
+	}
+	if conf.Config == nil {
+		return fmt.Errorf("Config is not set")
 	}
 
-	if conf.Config != nil {
-		if err := productRulesCheck(conf.Config); err != nil {
-			return fmt.Errorf("Config: %s", err.Error())
+	if err := productRulesCheck(conf.Config); err != nil {
+		return fmt.Errorf("Config: %s", err.Error())
+	}
+
+	if conf.Semantic != nil {
+		if err := conf.Semantic.Check(); err != nil {
+			return fmt.Errorf("Semantic: %s", err.Error())
 		}
 	}
 
@@ -274,6 +339,43 @@ func (f *ProductRuleConfFile) setDefaults(defaultCacheTTL int) {
 		v := int64(DefaultMaxValueBytes)
 		f.MaxValueBytes = &v
 	}
+	if f.EnableSemanticCache == nil {
+		v := false
+		f.EnableSemanticCache = &v
+	}
+}
+
+// setDefaults fills default values for the optional global semantic conf.
+func (f *SemanticConfFile) setDefaults() {
+	if f.TopK == nil {
+		v := DefaultSemanticTopK
+		f.TopK = &v
+	}
+	if f.Threshold == nil {
+		v := DefaultSemanticThreshold
+		f.Threshold = &v
+	}
+	if f.ThresholdRelation == nil {
+		v := DefaultSemanticThresholdRelation
+		f.ThresholdRelation = &v
+	}
+}
+
+// Check validates the global semantic conf (top-level Semantic block).
+func (f *SemanticConfFile) Check() error {
+	if *f.TopK < 1 || *f.TopK > 10 {
+		return fmt.Errorf("topK must be in 1-10")
+	}
+	if *f.Threshold < 0 || *f.Threshold > 2 {
+		return fmt.Errorf("threshold must be in 0-2")
+	}
+	switch *f.ThresholdRelation {
+	case SemanticRelationLt, SemanticRelationLte, SemanticRelationGt, SemanticRelationGte:
+	default:
+		return fmt.Errorf("thresholdRelation should be one of %s/%s/%s/%s",
+			SemanticRelationLt, SemanticRelationLte, SemanticRelationGt, SemanticRelationGte)
+	}
+	return nil
 }
 
 func ProductRuleConfLoad(fileName string, defaultCacheTTL int) (*ProductRuleConfData, error) {
@@ -284,6 +386,9 @@ func ProductRuleConfLoad(fileName string, defaultCacheTTL int) (*ProductRuleConf
 	}
 
 	// fill defaults for optional fields
+	if config.Semantic != nil {
+		config.Semantic.setDefaults()
+	}
 	if config.Config != nil {
 		for _, ruleList := range *config.Config {
 			for _, rule := range *ruleList {

@@ -833,3 +833,52 @@ func TestMaskSensitiveCredentialsNoAiInfo(t *testing.T) {
 		t.Error("fields must be untouched when request has no AiBasicInfo")
 	}
 }
+
+func TestReqAiInfoGenAiCacheSemantic(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+
+	// semantic hit: status hit_semantic + semantic flag + similarity
+	aiInfo := &bfe_basic.AiBasicInfo{
+		ClientKeyId:       "key-id-123",
+		AiCacheStatus:     "hit_semantic",
+		AiCacheHit:        true,
+		AiCacheSemantic:   true,
+		AiCacheSimilarity: 0.93,
+	}
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiCacheStatus == nil || *reqLog.AiCacheStatus != "hit_semantic" {
+		t.Errorf("AiCacheStatus error, got: %v", reqLog.AiCacheStatus)
+	}
+	if reqLog.AiCacheSemantic == nil || !*reqLog.AiCacheSemantic {
+		t.Errorf("AiCacheSemantic should be true on a semantic hit, got: %v", reqLog.AiCacheSemantic)
+	}
+	if reqLog.AiCacheSimilarity == nil || *reqLog.AiCacheSimilarity != 0.93 {
+		t.Errorf("AiCacheSimilarity error, got: %v", reqLog.AiCacheSimilarity)
+	}
+}
+
+func TestReqAiInfoGenAiCacheExactHitNoSemantic(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+
+	// exact hit / miss: semantic fields must stay unset
+	aiInfo := &bfe_basic.AiBasicInfo{
+		ClientKeyId:   "key-id-123",
+		AiCacheStatus: "hit",
+		AiCacheHit:    true,
+	}
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiCacheSemantic != nil {
+		t.Errorf("AiCacheSemantic should be nil on an exact hit, got: %v", *reqLog.AiCacheSemantic)
+	}
+	if reqLog.AiCacheSimilarity != nil {
+		t.Errorf("AiCacheSimilarity should be nil on an exact hit, got: %v", *reqLog.AiCacheSimilarity)
+	}
+}

@@ -552,6 +552,10 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 	if aiInfo.AiCacheKey != "" {
 		reqLog.AiCacheKey = proto.String(aiInfo.AiCacheKey)
 	}
+	if aiInfo.AiCacheSemantic {
+		reqLog.AiCacheSemantic = proto.Bool(true)
+		reqLog.AiCacheSimilarity = proto.Float64(aiInfo.AiCacheSimilarity)
+	}
 
 	// Traffic mirroring (mod_traffic_mirror) result: only synchronous fields
 	// are logged; async mirror results go to module Prometheus metrics

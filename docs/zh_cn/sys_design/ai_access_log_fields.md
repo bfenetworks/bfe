@@ -50,6 +50,10 @@ AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前
 | 786 | `ai_image_input_tokens` | `int64` | 图片输入 Token 数（已包含在 `ai_input_tokens` 中） | `mod_ai_token_auth` / `mod_body_process` |
 | 787 | `ai_video_count` | `int64` | 生成视频数量（video_generation 模式） | `mod_ai_token_auth` / `mod_body_process` |
 | 788 | `ai_cache_write_1h_tokens` | `int64` | 1h TTL 缓存写入 Token 数（已包含在 `ai_cache_write_tokens` 中） | `mod_ai_token_auth` / `mod_body_process` |
+| 789 | `ai_cache_status` | `string` | `mod_ai_cache` 缓存状态：`hit` / `hit_semantic` / `miss` / `skip`；未启用缓存时为空 | `mod_access_pb3` 读取 `AiBasicInfo`（`mod_ai_cache` 设置） |
+| 790 | `ai_cache_key` | `string` | `mod_ai_cache` 缓存键，仅 debug 开启时记录，默认为空，避免日志膨胀 | 同上 |
+| 791 | `ai_cache_semantic` | `bool` | `mod_ai_cache` 语义缓存命中标志：命中来自语义缓存（`hit_semantic`）时写 true | 同上 |
+| 792 | `ai_cache_similarity` | `double` | `mod_ai_cache` 语义命中归一化相似度 [0,1]，越大越相似，阈值调优依据；未做语义检索不写 | 同上 |
 | 801 | `ai_route_rule_hits` | `repeated AIRouteRuleHit` | 命中的 AI 路由规则列表 | `mod_ai_route` |
 | 802 | `ai_cluster_key_names` | `repeated ClusterKeyName` | 请求处理过程中尝试过的 (cluster, key) 列表 | `bfe_server/reverseproxy.go` |
 | 803 | `ai_intent_question` | `string` | 路由实际消费的首个意图问题名（`mod_ai_intent`） | `mod_access_pb3` 读取 `CtxAiIntent` |
@@ -72,7 +76,7 @@ AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前
 | 841 - 880 | 安全、合规与隐私 |
 | 881 - 900 | 厂商扩展与预留 |
 
-> 说明：编号 781-790 已用于 `cache_read` / `cache_write` / `cache_write_1h` / `audio_input` / `audio_output` / `image_count` / `image_input_tokens` / `video_count` 等子项字段，后续新增子项可继续向 789-790 扩展。
+> 说明：编号 781-792 已用于 cache/audio/image 子项与网关级缓存状态字段——781-788 为 token 计量子项（`cache_read` / `cache_write` / `audio_input` / `audio_output` / `image_count` / `image_input_tokens` / `video_count` / `cache_write_1h`），789-792 为 `mod_ai_cache` 状态字段（`ai_cache_status` / `ai_cache_key` / `ai_cache_semantic` / `ai_cache_similarity`）。后续新增子项可向 793-800 扩展。
 
 ---
 
@@ -147,6 +151,11 @@ type AiBasicInfo struct {
     TokenTimeInfo   TokenTimeInfo     // 709/710 ai_ttft_us / ai_tpot_us
     AiAuthInfo      AiAuthInfo        // 712/713/841
     ClusterKeyNames []ClusterKeyName  // 802 ai_cluster_key_names
+    AiCacheHit        bool            // 789 ai_cache_status 为 hit / hit_semantic 时置 true（计费跳过扣减依据）
+    AiCacheStatus     string          // 789 ai_cache_status：hit / hit_semantic / miss / skip
+    AiCacheKey        string          // 790 ai_cache_key，仅 debug 开启时填充
+    AiCacheSemantic   bool            // 791 ai_cache_semantic，语义命中时置 true
+    AiCacheSimilarity float64         // 792 ai_cache_similarity，语义命中归一化相似度
 
     allowEstimateToken bool
     // 请求完成状态（issue #1352，不参与访问日志输出，详见 rmb_quota.md 6.4）：
@@ -271,7 +280,8 @@ message AIRouteRuleHit {
 
 - 字段重命名：`AiApikey`→`AiApikeyId`、`AiMappedModel`→`AiTargetModel`、`AiPromptTokens`→`AiInputTokens`；
 - 新增字段：`AiMode`、`AiProtocol`、`AiProvider`、`AiRetryCount`、`AiCostValue`、`AiCostCurrency`、`AiCacheReadTokens`、`AiCacheWriteTokens`、`AiCacheWrite_1HTokens`、`AiAudioInputTokens`、`AiAudioOutputTokens`、`AiImageCount`、`AiImageInputTokens`、`AiVideoCount`、`AiRouteRuleHits`、`AiClusterKeyNames`、`AiAuthHitQuotaPlans`；
-- 意图字段（803-809）：读取请求上下文中已解析的 `*bfe_basic.AiIntent`（仅读缓存结果，不触发懒解析），按 `ConsumedQuestion` 回填，详见 `docs/zh_cn/sys_design/mod_ai_intent.md` 5.4。
+- 意图字段（803-809）：读取请求上下文中已解析的 `*bfe_basic.AiIntent`（仅读缓存结果，不触发懒解析），按 `ConsumedQuestion` 回填，详见 `docs/zh_cn/sys_design/mod_ai_intent.md` 5.4；
+- 缓存字段（789-792）：`AiCacheStatus` / `AiCacheKey`（debug 时）直接映射，语义命中时同时写 `AiCacheSemantic`（=true）与 `AiCacheSimilarity`，详见 `docs/zh_cn/sys_design/ai_cache.md`。
 
 ---
 
@@ -302,3 +312,5 @@ message AIRouteRuleHit {
 - `bfe/docs/zh_cn/modifications/2026-08-31-ai-token-auth-billing-fix/design-changes.md`
 - `bfe/docs/zh_cn/modifications/2026-09-09-length-tier-and-cache-1h-billing/design-changes.md`
 - `bfe/tests/integration/测试设计文档/scenario-SC05-AI访问日志字段校验/场景说明.md`
+- `bfe/docs/zh_cn/sys_design/ai_cache.md`
+- `bfe/docs/zh_cn/modifications/2026-09-30-ai-cache-semantic-cache/design-changes.md`

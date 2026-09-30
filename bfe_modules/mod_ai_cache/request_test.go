@@ -16,16 +16,19 @@ package mod_ai_cache
 
 import (
 	"bytes"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tidwall/gjson"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_cache/provider/vector"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 )
 
@@ -74,9 +77,13 @@ func TestBuildCacheKeyLastQuestion(t *testing.T) {
 	}
 
 	body := []byte(chatBody("hello", false))
-	key1, stream, err := m.buildCacheKey(req, body, rule)
-	if err != nil || key1 == "" {
-		t.Fatalf("buildCacheKey failed: %v", err)
+	question, err := extractQuestion(body, rule)
+	if err != nil || question != "hello" {
+		t.Fatalf("extractQuestion failed: question=%q err=%v", question, err)
+	}
+	key1, stream := m.buildCacheKey(req, question, body)
+	if key1 == "" {
+		t.Fatal("buildCacheKey failed")
 	}
 	if stream {
 		t.Error("stream should be false")
@@ -84,23 +91,29 @@ func TestBuildCacheKeyLastQuestion(t *testing.T) {
 
 	// same question produces the same key (system prompt differences are ignored)
 	body2 := []byte(`{"model":"other-model","messages":[{"role":"system","content":"different"},{"role":"user","content":"hello"}]}`)
-	key2, _, err := m.buildCacheKey(req, body2, rule)
+	question2, err := extractQuestion(body2, rule)
 	if err != nil {
-		t.Fatalf("buildCacheKey failed: %v", err)
+		t.Fatalf("extractQuestion failed: %v", err)
 	}
+	key2, _ := m.buildCacheKey(req, question2, body2)
 	if key1 != key2 {
 		t.Errorf("same question should produce the same key: %s vs %s", key1, key2)
 	}
 
 	// different tenant produces a different key
 	ai.ClientKeyId = "key_002"
-	key3, _, _ := m.buildCacheKey(req, body, rule)
+	key3, _ := m.buildCacheKey(req, question, body)
 	if key1 == key3 {
 		t.Errorf("different tenant should produce different keys")
 	}
 
 	// stream flag detected
-	_, stream, _ = m.buildCacheKey(req, []byte(chatBody("hello", true)), rule)
+	streamBody := []byte(chatBody("hello", true))
+	question3, err := extractQuestion(streamBody, rule)
+	if err != nil {
+		t.Fatalf("extractQuestion failed: %v", err)
+	}
+	_, stream = m.buildCacheKey(req, question3, streamBody)
 	if !stream {
 		t.Error("stream should be true")
 	}
@@ -117,16 +130,28 @@ func TestBuildCacheKeyAllQuestions(t *testing.T) {
 	rule := &ProductRuleConf{CacheKeyStrategy: CacheKeyStrategyAllQuestions}
 
 	multiTurn := `{"messages":[{"role":"user","content":"q1"},{"role":"assistant","content":"a1"},{"role":"user","content":"q2"}]}`
-	key, _, err := m.buildCacheKey(req, []byte(multiTurn), rule)
-	if err != nil || key == "" {
-		t.Fatalf("buildCacheKey failed: %v", err)
+	question, err := extractQuestion([]byte(multiTurn), rule)
+	if err != nil || question == "" {
+		t.Fatalf("extractQuestion failed: question=%q err=%v", question, err)
+	}
+	key, _ := m.buildCacheKey(req, question, []byte(multiTurn))
+	if key == "" {
+		t.Fatal("buildCacheKey failed")
 	}
 
 	// order change produces a different key
 	reordered := `{"messages":[{"role":"user","content":"q2"},{"role":"assistant","content":"a1"},{"role":"user","content":"q1"}]}`
-	key2, _, _ := m.buildCacheKey(req, []byte(reordered), rule)
+	question2, _ := extractQuestion([]byte(reordered), rule)
+	key2, _ := m.buildCacheKey(req, question2, []byte(reordered))
 	if key == key2 {
 		t.Error("reordered questions should produce different keys")
+	}
+}
+
+func TestExtractQuestionInvalidJson(t *testing.T) {
+	rule := &ProductRuleConf{CacheKeyStrategy: CacheKeyStrategyLastQuestion}
+	if _, err := extractQuestion([]byte("not json"), rule); err == nil {
+		t.Error("invalid json should return an error")
 	}
 }
 
@@ -136,10 +161,14 @@ func TestBuildCacheKeyEmptyQuestion(t *testing.T) {
 	req.InitAiBasicInfo()
 
 	rule := &ProductRuleConf{CacheKeyStrategy: CacheKeyStrategyLastQuestion}
-	key, _, err := m.buildCacheKey(req, []byte(`{"messages":[]}`), rule)
+	question, err := extractQuestion([]byte(`{"messages":[]}`), rule)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if question != "" {
+		t.Errorf("empty question expected, got %q", question)
+	}
+	key, _ := m.buildCacheKey(req, question, []byte(`{"messages":[]}`))
 	if key != "" {
 		t.Errorf("empty question should produce empty key, got %s", key)
 	}
@@ -355,4 +384,207 @@ func (f *fakeRedisClient) IncrBy(key string, delta int64) (int64, error) { retur
 func (f *fakeRedisClient) Delete(key string) error                       { return nil }
 func (f *fakeRedisClient) NewScript(src string) redis_client.RedisScript {
 	return nil
+}
+
+// prepareSemanticTestModule loads the rule file with the Semantic block and
+// wires fake embedding / vector providers into the module.
+func prepareSemanticTestModule(t *testing.T, emb *fakeEmbeddingProvider, vec *fakeVectorProvider) *ModuleAiCache {
+	m := prepareTestModule(t)
+	m.productConfPath = "testdata/mod_ai_cache/mod_ai_cache_rule_semantic.data"
+	if _, err := m.loadProductRuleTable(nil); err != nil {
+		t.Fatalf("loadProductRuleTable failed: %s", err)
+	}
+	m.semantic = newSemanticCache(emb, vec, DefaultMaxQuestionBytes, m.ruleTable)
+	return m
+}
+
+func TestCacheRequestHandlerExactHitSkipsEmbedding(t *testing.T) {
+	// exact hit has priority: redis hit must not trigger any embedding call
+	fake := newFakeRedisClient("exact cached answer")
+	emb := &fakeEmbeddingProvider{vec: []float32{0.1}}
+	vec := &fakeVectorProvider{}
+	m := prepareSemanticTestModule(t, emb, vec)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+
+	req := newTestRequest("default", chatBody("what is bfe", false))
+	req.InitAiBasicInfo().ClientKeyId = "key_001"
+
+	ret, res := m.cacheRequestHandler(req)
+	if ret != bfe_module.BfeHandlerFinish || res == nil {
+		t.Fatalf("expected finish on exact hit, got ret=%d", ret)
+	}
+	if emb.calls != 0 {
+		t.Errorf("exact hit must not call embedding, got %d calls", emb.calls)
+	}
+	if vec.queryCalls != 0 {
+		t.Errorf("exact hit must not call vector query, got %d calls", vec.queryCalls)
+	}
+	ai := req.GetAiBasicInfo()
+	if !ai.AiCacheHit || ai.AiCacheStatus != CacheStatusHit || ai.AiCacheSemantic {
+		t.Errorf("unexpected ai cache info: %+v", ai)
+	}
+	if res.Header.Get("X-Bfe-Ai-Cache") != CacheStatusHit {
+		t.Errorf("unexpected X-Bfe-Ai-Cache header: %s", res.Header.Get("X-Bfe-Ai-Cache"))
+	}
+}
+
+func TestCacheRequestHandlerSemanticHit(t *testing.T) {
+	fake := newFakeRedisClient("")
+	emb := &fakeEmbeddingProvider{vec: []float32{0.1, 0.2}}
+	vec := &fakeVectorProvider{results: []vector.Result{
+		{ID: "id1", Question: "what is bfe", Answer: "semantic cached answer",
+			Score: 0.1, Similarity: 0.9},
+	}}
+	m := prepareSemanticTestModule(t, emb, vec)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+
+	req := newTestRequest("default", chatBody("what is bfe", false))
+	req.InitAiBasicInfo().ClientKeyId = "key_001"
+
+	ret, res := m.cacheRequestHandler(req)
+	if ret != bfe_module.BfeHandlerFinish || res == nil {
+		t.Fatalf("expected finish on semantic hit, got ret=%d", ret)
+	}
+
+	ai := req.GetAiBasicInfo()
+	if !ai.AiCacheHit || ai.AiCacheStatus != CacheStatusHitSemantic || !ai.AiCacheSemantic {
+		t.Errorf("semantic hit should set hit/hit_semantic/semantic, got: %+v", ai)
+	}
+	if ai.AiCacheSimilarity != 0.9 {
+		t.Errorf("unexpected similarity: %f", ai.AiCacheSimilarity)
+	}
+	if res.Header.Get("X-Bfe-Ai-Cache") != CacheStatusHitSemantic {
+		t.Errorf("unexpected X-Bfe-Ai-Cache header: %s", res.Header.Get("X-Bfe-Ai-Cache"))
+	}
+	body, _ := ioutil.ReadAll(res.Body)
+	if !strings.Contains(string(body), "semantic cached answer") {
+		t.Errorf("hit response should contain the semantic answer, got %q", body)
+	}
+
+	// the embedding is kept for the write-back reuse, not recomputed
+	if emb.calls != 1 {
+		t.Errorf("embedding should be computed exactly once, got %d", emb.calls)
+	}
+	if vec.lastQueryTenant != "key_001" {
+		t.Errorf("vector query must be tenant-scoped, got %s", vec.lastQueryTenant)
+	}
+	if vec.lastQueryTTL != 60*time.Second {
+		t.Errorf("vector query ttl should be the rule cacheTTL, got %v", vec.lastQueryTTL)
+	}
+}
+
+func TestCacheRequestHandlerSemanticMiss(t *testing.T) {
+	fake := newFakeRedisClient("")
+	emb := &fakeEmbeddingProvider{vec: []float32{0.1, 0.2}}
+	vec := &fakeVectorProvider{} // no neighbors
+	m := prepareSemanticTestModule(t, emb, vec)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+
+	req := newTestRequest("default", chatBody("what is bfe", false))
+	req.InitAiBasicInfo().ClientKeyId = "key_001"
+
+	ret, res := m.cacheRequestHandler(req)
+	if ret != bfe_module.BfeHandlerGoOn || res != nil {
+		t.Fatalf("expected pass on miss, got ret=%d", ret)
+	}
+	ai := req.GetAiBasicInfo()
+	if ai.AiCacheStatus != CacheStatusMiss || ai.AiCacheHit || ai.AiCacheSemantic {
+		t.Errorf("unexpected ai cache info: %+v", ai)
+	}
+	ctx := getAiCacheContext(req)
+	if ctx == nil {
+		t.Fatal("cache context should be saved on miss")
+	}
+	if ctx.Question != "what is bfe" {
+		t.Errorf("context should carry the question, got %q", ctx.Question)
+	}
+	if len(ctx.Embedding) != 2 {
+		t.Errorf("context should carry the computed embedding for the write-back, got %v", ctx.Embedding)
+	}
+}
+
+func TestCacheRequestHandlerSemanticEmbeddingFailure(t *testing.T) {
+	fake := newFakeRedisClient("")
+	emb := &fakeEmbeddingProvider{err: errors.New("embedding down")}
+	vec := &fakeVectorProvider{}
+	m := prepareSemanticTestModule(t, emb, vec)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+
+	req := newTestRequest("default", chatBody("what is bfe", false))
+	req.InitAiBasicInfo().ClientKeyId = "key_001"
+
+	ret, _ := m.cacheRequestHandler(req)
+	if ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected pass on embedding failure, got ret=%d", ret)
+	}
+	if getAiCacheContext(req).Embedding != nil {
+		t.Error("embedding must stay nil when the embedding call failed")
+	}
+	if m.ruleTable.snapshotCounters().embeddingErr != 1 {
+		t.Error("EMBEDDING_ERR counter should be incremented")
+	}
+}
+
+func TestCacheRequestHandlerSemanticQuestionTooLong(t *testing.T) {
+	fake := newFakeRedisClient("")
+	emb := &fakeEmbeddingProvider{vec: []float32{0.1}}
+	vec := &fakeVectorProvider{}
+	m := prepareSemanticTestModule(t, emb, vec)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+	m.semantic.maxQuestionBytes = 3
+
+	req := newTestRequest("default", chatBody("what is bfe", false))
+	req.InitAiBasicInfo().ClientKeyId = "key_001"
+
+	ret, _ := m.cacheRequestHandler(req)
+	if ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected pass when the question is too long, got ret=%d", ret)
+	}
+	if emb.calls != 0 || vec.queryCalls != 0 {
+		t.Error("overlong question must skip the semantic lookup entirely")
+	}
+	if m.ruleTable.snapshotCounters().semanticSkipped != 1 {
+		t.Error("SEMANTIC_SKIPPED counter should be incremented")
+	}
+	// exact-match cache still works: the request passed through as a miss
+	if getAiCacheContext(req) == nil {
+		t.Error("context should still be saved for the exact write-back")
+	}
+}
+
+func TestCacheRequestHandlerSemanticNotEnabled(t *testing.T) {
+	// rule file without the Semantic block: enableSemanticCache on rules can
+	// never take effect (backward compatibility)
+	fake := newFakeRedisClient("")
+	emb := &fakeEmbeddingProvider{vec: []float32{0.1}}
+	vec := &fakeVectorProvider{}
+	m := prepareTestModule(t) // no semantic wiring at all
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+
+	req := newTestRequest("default", chatBody("what is bfe", false))
+	req.InitAiBasicInfo().ClientKeyId = "key_001"
+
+	ret, _ := m.cacheRequestHandler(req)
+	if ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected pass, got ret=%d", ret)
+	}
+	if emb.calls != 0 || vec.queryCalls != 0 {
+		t.Error("semantic lookup must stay off when the module has no semantic cache")
+	}
+}
+
+func TestSetCacheStatusSemantic(t *testing.T) {
+	m := NewModuleAiCache()
+	req := newTestRequest("default", "")
+	ai := req.InitAiBasicInfo()
+
+	m.setCacheStatus(req, CacheStatusHitSemantic)
+	if !ai.AiCacheHit || !ai.AiCacheSemantic || ai.AiCacheStatus != CacheStatusHitSemantic {
+		t.Errorf("hit_semantic should set hit + semantic + status, got %+v", ai)
+	}
+
+	m.setCacheSimilarity(req, 0.87)
+	if ai.AiCacheSimilarity != 0.87 {
+		t.Errorf("similarity not recorded: %f", ai.AiCacheSimilarity)
+	}
 }

@@ -30,6 +30,47 @@ const (
 	DefaultMaxValueBytes = 1048576 // 1MB
 )
 
+// semantic cache defaults
+const (
+	DefaultEmbeddingTimeoutMs = 500
+	DefaultVectorTimeoutMs    = 300
+	DefaultVectorCollection   = "ai_cache_semantic"
+	DefaultMaxQuestionBytes   = 4096
+
+	// vector store types supported by the semantic cache
+	VectorTypeChroma = "chroma"
+)
+
+// EmbeddingConnectConf is the normalized [embedding] section of
+// mod_ai_cache.conf.
+type EmbeddingConnectConf struct {
+	ServiceHost string // embedding service host
+	ServicePort int    // embedding service port
+	UseHttps    bool   // use https scheme
+	ApiKey      string // bearer credential, never logged
+	Model       string // embedding model name
+	TimeoutMs   int    // per-call timeout (ms)
+}
+
+// VectorConnectConf is the normalized [vector] section of mod_ai_cache.conf.
+type VectorConnectConf struct {
+	Type             string // vector store type, only "chroma" for now
+	ServiceHost      string // vector store host
+	ServicePort      int    // vector store port
+	ApiKey           string // bearer credential, never logged
+	Collection       string // collection name
+	TimeoutMs        int    // per-call timeout (ms)
+	MaxQuestionBytes int64  // question length limit for semantic lookup
+}
+
+// SemanticConnectConf carries the connection info of the semantic cache
+// (embedding service + vector store). It is nil when the semantic cache is
+// not configured.
+type SemanticConnectConf struct {
+	Embedding *EmbeddingConnectConf
+	Vector    *VectorConnectConf
+}
+
 type ConfModAiCache struct {
 	Basic struct {
 		ProductRulePath string // path for product rule
@@ -57,6 +98,28 @@ type ConfModAiCache struct {
 
 	Log struct {
 		OpenDebug bool // whether open debug
+	}
+
+	// embedding service conf (optional): semantic cache is enabled only when
+	// both [embedding] and [vector] are configured
+	Embedding struct {
+		ServiceHost string // embedding service host
+		ServicePort int    // embedding service port
+		UseHttps    bool   // use https scheme
+		ApiKey      string // bearer credential, never logged
+		Model       string // embedding model name
+		TimeoutMs   int    // per-call timeout (ms)
+	}
+
+	// vector store conf (optional), see [embedding]
+	Vector struct {
+		Type             string // vector store type, only "chroma" for now
+		ServiceHost      string // vector store host
+		ServicePort      int    // vector store port
+		ApiKey           string // bearer credential, never logged
+		Collection       string // collection name
+		TimeoutMs        int    // per-call timeout (ms)
+		MaxQuestionBytes int64  // question length limit for semantic lookup
 	}
 }
 
@@ -122,4 +185,92 @@ func ConfModAiCacheCheck(cfg *ConfModAiCache, confRoot string) error {
 	}
 
 	return nil
+}
+
+// SemanticConnect validates the optional [embedding]/[vector] sections and
+// returns the normalized connection conf. It returns (nil, nil) when neither
+// section is configured (pure exact-match cache mode). Any validation error
+// is returned to the caller, which is expected to disable the semantic cache
+// (fail-open) and keep the exact-match cache running.
+func (cfg *ConfModAiCache) SemanticConnect() (*SemanticConnectConf, error) {
+	emb := cfg.Embedding
+	vec := cfg.Vector
+
+	embConfigured := emb.ServiceHost != "" || emb.ServicePort != 0 || emb.UseHttps ||
+		emb.ApiKey != "" || emb.Model != "" || emb.TimeoutMs != 0
+	vecConfigured := vec.Type != "" || vec.ServiceHost != "" || vec.ServicePort != 0 ||
+		vec.ApiKey != "" || vec.Collection != "" || vec.TimeoutMs != 0 || vec.MaxQuestionBytes != 0
+
+	if !embConfigured && !vecConfigured {
+		return nil, nil
+	}
+	if embConfigured != vecConfigured {
+		return nil, fmt.Errorf("[embedding] and [vector] must be configured together")
+	}
+
+	// check embedding conf
+	if emb.ServiceHost == "" {
+		return nil, fmt.Errorf("Embedding.ServiceHost must not be empty")
+	}
+	if emb.ServicePort < 1 || emb.ServicePort > 65535 {
+		return nil, fmt.Errorf("Embedding.ServicePort must be in 1-65535")
+	}
+	if emb.Model == "" {
+		return nil, fmt.Errorf("Embedding.Model must not be empty")
+	}
+	if emb.TimeoutMs == 0 {
+		emb.TimeoutMs = DefaultEmbeddingTimeoutMs
+	}
+	if emb.TimeoutMs < 1 || emb.TimeoutMs > 5000 {
+		return nil, fmt.Errorf("Embedding.TimeoutMs must be in 1-5000")
+	}
+
+	// check vector conf
+	if vec.Type == "" {
+		vec.Type = VectorTypeChroma
+	}
+	if vec.Type != VectorTypeChroma {
+		return nil, fmt.Errorf("Vector.Type only supports %s", VectorTypeChroma)
+	}
+	if vec.ServiceHost == "" {
+		return nil, fmt.Errorf("Vector.ServiceHost must not be empty")
+	}
+	if vec.ServicePort < 1 || vec.ServicePort > 65535 {
+		return nil, fmt.Errorf("Vector.ServicePort must be in 1-65535")
+	}
+	if vec.Collection == "" {
+		vec.Collection = DefaultVectorCollection
+	}
+	if vec.TimeoutMs == 0 {
+		vec.TimeoutMs = DefaultVectorTimeoutMs
+	}
+	if vec.TimeoutMs < 1 || vec.TimeoutMs > 5000 {
+		return nil, fmt.Errorf("Vector.TimeoutMs must be in 1-5000")
+	}
+	if vec.MaxQuestionBytes == 0 {
+		vec.MaxQuestionBytes = DefaultMaxQuestionBytes
+	}
+	if vec.MaxQuestionBytes < 0 {
+		return nil, fmt.Errorf("Vector.MaxQuestionBytes must >= 0")
+	}
+
+	return &SemanticConnectConf{
+		Embedding: &EmbeddingConnectConf{
+			ServiceHost: emb.ServiceHost,
+			ServicePort: emb.ServicePort,
+			UseHttps:    emb.UseHttps,
+			ApiKey:      emb.ApiKey,
+			Model:       emb.Model,
+			TimeoutMs:   emb.TimeoutMs,
+		},
+		Vector: &VectorConnectConf{
+			Type:             vec.Type,
+			ServiceHost:      vec.ServiceHost,
+			ServicePort:      vec.ServicePort,
+			ApiKey:           vec.ApiKey,
+			Collection:       vec.Collection,
+			TimeoutMs:        vec.TimeoutMs,
+			MaxQuestionBytes: vec.MaxQuestionBytes,
+		},
+	}, nil
 }

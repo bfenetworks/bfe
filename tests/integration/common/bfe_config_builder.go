@@ -81,12 +81,28 @@ type AiCacheRule struct {
 	CacheTTL         int    `json:"cacheTTL,omitempty"`
 	MaxBodyBytes     int64  `json:"maxBodyBytes,omitempty"`
 	MaxValueBytes    int64  `json:"maxValueBytes,omitempty"`
+
+	// EnableSemanticCache turns on the semantic (vector similarity) cache
+	// for this rule; ignored unless the module conf configures both the
+	// [embedding] and [vector] sections. Nil omits the field and keeps the
+	// module default (false).
+	EnableSemanticCache *bool `json:"enableSemanticCache,omitempty"`
+}
+
+// AiCacheSemanticRule is the JSON representation of the top-level Semantic
+// block of mod_ai_cache_rule.data (module-level global conf of the semantic
+// cache). Nil fields are omitted and take the module defaults.
+type AiCacheSemanticRule struct {
+	TopK              *int     `json:"topK,omitempty"`
+	Threshold         *float64 `json:"threshold,omitempty"`
+	ThresholdRelation *string  `json:"thresholdRelation,omitempty"`
 }
 
 // AiCacheRuleData holds the content of mod_ai_cache/mod_ai_cache_rule.data.
 type AiCacheRuleData struct {
-	Version string                   `json:"Version"`
-	Config  map[string][]AiCacheRule `json:"Config"`
+	Version  string                   `json:"Version"`
+	Semantic *AiCacheSemanticRule     `json:"Semantic,omitempty"`
+	Config   map[string][]AiCacheRule `json:"Config"`
 }
 
 // QuotaPlan is the JSON representation of a quota plan.
@@ -173,6 +189,16 @@ type BFEConfigBuilder struct {
 	// mod_ai_intent/mod_ai_intent.conf (e.g. with the address of a mock
 	// decision service). If empty, mod_ai_intent.conf is not rewritten.
 	DecisionServiceAddr string
+	// EmbeddingServiceAddr optionally rewrites the serviceHost/servicePort
+	// lines of the [embedding] section in mod_ai_cache/mod_ai_cache.conf
+	// (e.g. with the address of a mock embedding service). If empty, the
+	// section is left untouched.
+	EmbeddingServiceAddr string
+	// VectorServiceAddr optionally rewrites the serviceHost/servicePort lines
+	// of the [vector] section in mod_ai_cache/mod_ai_cache.conf (e.g. with
+	// the address of a mock vector store). If empty, the section is left
+	// untouched.
+	VectorServiceAddr string
 }
 
 // Build prepares the BFE configuration directory.
@@ -245,6 +271,12 @@ func (b *BFEConfigBuilder) Build() error {
 		}
 	}
 
+	if b.EmbeddingServiceAddr != "" || b.VectorServiceAddr != "" {
+		if err := b.rewriteAiCacheSemanticAddrs(); err != nil {
+			return fmt.Errorf("rewrite mod_ai_cache semantic service addrs failed: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -271,6 +303,81 @@ func (b *BFEConfigBuilder) rewriteDecisionServiceAddr() error {
 	}
 	if !found {
 		return fmt.Errorf("DecisionServiceAddr not found in %s", path)
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
+}
+
+// rewriteAiCacheSemanticAddrs replaces the serviceHost/servicePort lines of
+// the [embedding] and [vector] sections in mod_ai_cache/mod_ai_cache.conf
+// with the configured mock service addresses. A missing conf file is not an
+// error, but an address whose section or keys are missing is reported, so
+// that templates enabling the rewrite stay honest.
+func (b *BFEConfigBuilder) rewriteAiCacheSemanticAddrs() error {
+	path := filepath.Join(b.TargetConfDir, "mod_ai_cache", "mod_ai_cache.conf")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	type sectionAddr struct {
+		host, port string
+	}
+	addrs := map[string]string{
+		"embedding": b.EmbeddingServiceAddr,
+		"vector":    b.VectorServiceAddr,
+	}
+	resolved := make(map[string]sectionAddr)
+	for section, addr := range addrs {
+		if addr == "" {
+			continue
+		}
+		host, port, err := splitHostPort(addr)
+		if err != nil {
+			return fmt.Errorf("parse %s service addr %s failed: %w", section, addr, err)
+		}
+		resolved[section] = sectionAddr{host: host, port: strconv.Itoa(port)}
+	}
+
+	seen := make(map[string]map[string]bool, len(resolved))
+	for section := range resolved {
+		seen[section] = map[string]bool{"section": false, "servicehost": false, "serviceport": false}
+	}
+
+	lines := strings.Split(string(data), "\n")
+	section := ""
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") && len(trimmed) > 2 {
+			section = strings.ToLower(trimmed[1 : len(trimmed)-1])
+			if _, ok := resolved[section]; ok {
+				seen[section]["section"] = true
+			}
+			continue
+		}
+		addr, ok := resolved[section]
+		if !ok {
+			continue
+		}
+		lower := strings.ToLower(trimmed)
+		switch {
+		case strings.HasPrefix(lower, "servicehost"):
+			lines[i] = "serviceHost = " + addr.host
+			seen[section]["servicehost"] = true
+		case strings.HasPrefix(lower, "serviceport"):
+			lines[i] = "servicePort = " + addr.port
+			seen[section]["serviceport"] = true
+		}
+	}
+
+	for section, keys := range seen {
+		for _, key := range []string{"section", "servicehost", "serviceport"} {
+			if !keys[key] {
+				return fmt.Errorf("[%s] %s not found in %s", section, key, path)
+			}
+		}
 	}
 	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
 }

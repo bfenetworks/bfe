@@ -24,17 +24,24 @@ import (
 
 // cache counters snapshot for prometheus export
 type cacheCounters struct {
-	reqTotal      uint64
-	cacheHit      uint64
-	cacheMiss     uint64
-	cacheSkip     uint64
-	redisErr      uint64
-	latencyMs     uint64
-	valueTooLarge uint64
+	reqTotal           uint64
+	cacheHit           uint64
+	semanticHit        uint64
+	cacheMiss          uint64
+	cacheSkip          uint64
+	redisErr           uint64
+	embeddingErr       uint64
+	vectorErr          uint64
+	latencyMs          uint64
+	embeddingLatencyMs uint64
+	vectorLatencyMs    uint64
+	valueTooLarge      uint64
+	semanticSkipped    uint64
 }
 
 type cacheRuleTable struct {
 	productRules map[string]ProductRuleConfList // product => rules
+	semantic     *SemanticConf                  // global semantic conf (may be nil)
 	lock         sync.RWMutex
 
 	counters cacheCounters
@@ -54,6 +61,15 @@ func (t *cacheRuleTable) Search(product string) (ProductRuleConfList, bool) {
 	rules, ok := t.productRules[product]
 	t.lock.RUnlock()
 	return rules, ok
+}
+
+// getSemantic returns the global semantic conf, nil when the loaded rule
+// file has no Semantic block (semantic cache disabled).
+func (t *cacheRuleTable) getSemantic() *SemanticConf {
+	t.lock.RLock()
+	conf := t.semantic
+	t.lock.RUnlock()
+	return conf
 }
 
 // Match returns the first rule whose condition matches the request,
@@ -91,6 +107,7 @@ func (t *cacheRuleTable) load(config *ProductRuleConfData) error {
 
 	t.lock.Lock()
 	t.productRules = productRules
+	t.semantic = config.Semantic
 	t.lock.Unlock()
 
 	return nil
@@ -102,6 +119,10 @@ func (t *cacheRuleTable) incReqTotal() {
 
 func (t *cacheRuleTable) incCacheHit() {
 	atomic.AddUint64(&t.counters.cacheHit, 1)
+}
+
+func (t *cacheRuleTable) incSemanticHit() {
+	atomic.AddUint64(&t.counters.semanticHit, 1)
 }
 
 func (t *cacheRuleTable) incCacheMiss() {
@@ -116,9 +137,29 @@ func (t *cacheRuleTable) incRedisErr() {
 	atomic.AddUint64(&t.counters.redisErr, 1)
 }
 
+func (t *cacheRuleTable) incEmbeddingErr() {
+	atomic.AddUint64(&t.counters.embeddingErr, 1)
+}
+
+func (t *cacheRuleTable) incVectorErr() {
+	atomic.AddUint64(&t.counters.vectorErr, 1)
+}
+
 func (t *cacheRuleTable) addLatencyMs(ms int64) {
 	if ms > 0 {
 		atomic.AddUint64(&t.counters.latencyMs, uint64(ms))
+	}
+}
+
+func (t *cacheRuleTable) addEmbeddingLatencyMs(ms int64) {
+	if ms > 0 {
+		atomic.AddUint64(&t.counters.embeddingLatencyMs, uint64(ms))
+	}
+}
+
+func (t *cacheRuleTable) addVectorLatencyMs(ms int64) {
+	if ms > 0 {
+		atomic.AddUint64(&t.counters.vectorLatencyMs, uint64(ms))
 	}
 }
 
@@ -126,16 +167,26 @@ func (t *cacheRuleTable) incValueTooLarge() {
 	atomic.AddUint64(&t.counters.valueTooLarge, 1)
 }
 
+func (t *cacheRuleTable) incSemanticSkipped() {
+	atomic.AddUint64(&t.counters.semanticSkipped, 1)
+}
+
 func (t *cacheRuleTable) snapshotCounters() cacheCounters {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
 	return cacheCounters{
-		reqTotal:      atomic.LoadUint64(&t.counters.reqTotal),
-		cacheHit:      atomic.LoadUint64(&t.counters.cacheHit),
-		cacheMiss:     atomic.LoadUint64(&t.counters.cacheMiss),
-		cacheSkip:     atomic.LoadUint64(&t.counters.cacheSkip),
-		redisErr:      atomic.LoadUint64(&t.counters.redisErr),
-		latencyMs:     atomic.LoadUint64(&t.counters.latencyMs),
-		valueTooLarge: atomic.LoadUint64(&t.counters.valueTooLarge),
+		reqTotal:           atomic.LoadUint64(&t.counters.reqTotal),
+		cacheHit:           atomic.LoadUint64(&t.counters.cacheHit),
+		semanticHit:        atomic.LoadUint64(&t.counters.semanticHit),
+		cacheMiss:          atomic.LoadUint64(&t.counters.cacheMiss),
+		cacheSkip:          atomic.LoadUint64(&t.counters.cacheSkip),
+		redisErr:           atomic.LoadUint64(&t.counters.redisErr),
+		embeddingErr:       atomic.LoadUint64(&t.counters.embeddingErr),
+		vectorErr:          atomic.LoadUint64(&t.counters.vectorErr),
+		latencyMs:          atomic.LoadUint64(&t.counters.latencyMs),
+		embeddingLatencyMs: atomic.LoadUint64(&t.counters.embeddingLatencyMs),
+		vectorLatencyMs:    atomic.LoadUint64(&t.counters.vectorLatencyMs),
+		valueTooLarge:      atomic.LoadUint64(&t.counters.valueTooLarge),
+		semanticSkipped:    atomic.LoadUint64(&t.counters.semanticSkipped),
 	}
 }

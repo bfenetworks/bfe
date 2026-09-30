@@ -27,6 +27,8 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_cache/provider/embedding"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_cache/provider/vector"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 )
 
@@ -49,11 +51,17 @@ const (
 var CounterKeys = []string{
 	"REQ_TOTAL",
 	"CACHE_HIT",
+	"SEMANTIC_HIT",
 	"CACHE_MISS",
 	"CACHE_SKIP",
 	"REDIS_ERR",
+	"EMBEDDING_ERR",
+	"VECTOR_ERR",
 	"LATENCY_MS",
+	"EMBEDDING_LATENCY_MS",
+	"VECTOR_LATENCY_MS",
 	"VALUE_TOO_LARGE",
+	"SEMANTIC_SKIPPED",
 }
 
 type ModuleAiCache struct {
@@ -72,6 +80,8 @@ type ModuleAiCache struct {
 
 	redisClient redis_client.Client // redis client
 	redisCache  *redisCache         // cache wrapper over redis client
+
+	semantic *semanticCache // semantic cache (nil when not configured or init failed)
 }
 
 func NewModuleAiCache() *ModuleAiCache {
@@ -117,11 +127,17 @@ func (m *ModuleAiCache) getPrometheus() ([]byte, error) {
 
 	m.pmsStates.reqTotal.Set(float64(snap.reqTotal))
 	m.pmsStates.cacheHit.Set(float64(snap.cacheHit))
+	m.pmsStates.semanticHit.Set(float64(snap.semanticHit))
 	m.pmsStates.cacheMiss.Set(float64(snap.cacheMiss))
 	m.pmsStates.cacheSkip.Set(float64(snap.cacheSkip))
 	m.pmsStates.redisErr.Set(float64(snap.redisErr))
+	m.pmsStates.embeddingErr.Set(float64(snap.embeddingErr))
+	m.pmsStates.vectorErr.Set(float64(snap.vectorErr))
 	m.pmsStates.latencyMs.Set(float64(snap.latencyMs))
+	m.pmsStates.embeddingLatencyMs.Set(float64(snap.embeddingLatencyMs))
+	m.pmsStates.vectorLatencyMs.Set(float64(snap.vectorLatencyMs))
 	m.pmsStates.valueTooLarge.Set(float64(snap.valueTooLarge))
+	m.pmsStates.semanticSkipped.Set(float64(snap.semanticSkipped))
 
 	return m.pmsStates.toString()
 }
@@ -205,6 +221,12 @@ func (m *ModuleAiCache) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebH
 	m.redisClient = redis_client.NewRedisClient(options)
 	m.redisCache = newRedisCache(m.name, m.redisClient, m.ruleTable)
 
+	// init the semantic cache (embedding + vector store). This is fail-open:
+	// any problem (sections missing, invalid values, provider init failure)
+	// only disables the semantic capability with a warning; the exact-match
+	// cache and the whole module keep working.
+	m.initSemantic(conf)
+
 	// load product rule table
 	if _, err := m.loadProductRuleTable(nil); err != nil {
 		return fmt.Errorf("%s.Init(): loadProductRuleTable(): %s", m.name, err.Error())
@@ -240,9 +262,58 @@ func (m *ModuleAiCache) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebH
 	return nil
 }
 
+// initSemantic initializes the semantic cache from the [embedding]/[vector]
+// sections of the module conf. It is strictly fail-open: when the sections
+// are absent the module stays in pure exact-match mode; when they are
+// invalid or the providers cannot be initialized, a warning is logged and
+// the semantic capability is globally disabled (all enableSemanticCache
+// rule switches are ignored). Init never fails because of semantic conf.
+func (m *ModuleAiCache) initSemantic(conf *ConfModAiCache) {
+	conn, err := conf.SemanticConnect()
+	if err != nil {
+		log.Logger.Warn("%s: invalid semantic conf, semantic cache disabled, err[%v]", m.name, err)
+		return
+	}
+	if conn == nil {
+		// [embedding]/[vector] not configured: pure exact-match cache mode
+		return
+	}
+
+	embProvider, err := embedding.NewOpenAIProvider(embedding.Config{
+		ServiceHost: conn.Embedding.ServiceHost,
+		ServicePort: conn.Embedding.ServicePort,
+		UseHttps:    conn.Embedding.UseHttps,
+		ApiKey:      conn.Embedding.ApiKey,
+		Model:       conn.Embedding.Model,
+		TimeoutMs:   conn.Embedding.TimeoutMs,
+	})
+	if err != nil {
+		log.Logger.Warn("%s: init embedding provider failed, semantic cache disabled, err[%v]", m.name, err)
+		return
+	}
+
+	vecProvider, err := vector.NewChromaProvider(vector.Config{
+		ServiceHost: conn.Vector.ServiceHost,
+		ServicePort: conn.Vector.ServicePort,
+		ApiKey:      conn.Vector.ApiKey,
+		Collection:  conn.Vector.Collection,
+		TimeoutMs:   conn.Vector.TimeoutMs,
+	})
+	if err != nil {
+		log.Logger.Warn("%s: init vector provider failed, semantic cache disabled, err[%v]", m.name, err)
+		return
+	}
+
+	m.semantic = newSemanticCache(embProvider, vecProvider, conn.Vector.MaxQuestionBytes, m.ruleTable)
+	log.Logger.Info("%s: semantic cache enabled, collection[%s], maxQuestionBytes[%d]",
+		m.name, conn.Vector.Collection, m.semantic.maxQuestionBytes)
+}
+
 // setCacheStatus records the cache status of this request in AiBasicInfo so
 // that the access log and the billing logic of mod_ai_token_auth can
-// recognize cache hits.
+// recognize cache hits. A semantic hit is also a cache hit for billing: it
+// sets AiCacheHit so that mod_ai_token_auth skips the deduction without
+// any change on its side.
 func (m *ModuleAiCache) setCacheStatus(req *bfe_basic.Request, status string) {
 	aiInfo := req.GetAiBasicInfo()
 	if aiInfo == nil {
@@ -252,6 +323,20 @@ func (m *ModuleAiCache) setCacheStatus(req *bfe_basic.Request, status string) {
 	if status == CacheStatusHit {
 		aiInfo.AiCacheHit = true
 	}
+	if status == CacheStatusHitSemantic {
+		aiInfo.AiCacheHit = true
+		aiInfo.AiCacheSemantic = true
+	}
+}
+
+// setCacheSimilarity records the normalized similarity of a semantic cache
+// hit in AiBasicInfo for the access log and threshold tuning.
+func (m *ModuleAiCache) setCacheSimilarity(req *bfe_basic.Request, similarity float64) {
+	aiInfo := req.GetAiBasicInfo()
+	if aiInfo == nil {
+		return
+	}
+	aiInfo.AiCacheSimilarity = similarity
 }
 
 // setCacheKey records the cache key in AiBasicInfo for debug logging; it is
