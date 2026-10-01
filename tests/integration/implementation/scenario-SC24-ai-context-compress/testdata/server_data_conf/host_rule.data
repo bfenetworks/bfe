@@ -1,0 +1,31 @@
+{
+    "Version": "20260720150000",
+    "Hosts": {
+        "ai_product": [
+            "ctx.example.org"
+        ],
+        "ai_product_cons": [
+            "ctx-cons.example.org"
+        ],
+        "ai_product_bal": [
+            "ctx-bal.example.org"
+        ],
+        "ai_product_agg": [
+            "ctx-agg.example.org"
+        ]
+    },
+    "HostTags": {
+        "ai_product": [
+            "ai_product"
+        ],
+        "ai_product_cons": [
+            "ai_product_cons"
+        ],
+        "ai_product_bal": [
+            "ai_product_bal"
+        ],
+        "ai_product_agg": [
+            "ai_product_agg"
+        ]
+    }
+}

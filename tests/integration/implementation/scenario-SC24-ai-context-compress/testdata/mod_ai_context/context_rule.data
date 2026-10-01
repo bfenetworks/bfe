@@ -1,0 +1,25 @@
+{
+    "Version": "1.0",
+    "Defaults": {
+        "triggerRatio": 0.8,
+        "keepLatestImages": 1,
+        "toolResultMaxChars": 32,
+        "thinkingPolicy": "trim-all-but-last",
+        "charsPerToken": 4,
+        "imageTokenEstimate": 100,
+        "rewrite": {
+            "strength": "lite",
+            "protectedSurvivalRate": 0.95
+        }
+    },
+    "Config": {
+        "ai_product": [
+            {
+                "cond": "default_t()",
+                "mode": "balanced",
+                "maxContextTokens": 200,
+                "reserveTokens": 50
+            }
+        ]
+    }
+}

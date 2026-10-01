@@ -1,0 +1,18 @@
+{
+    "clusters": {
+        "cluster_ctx_primary": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        },
+        "cluster_ctx_fallback": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        },
+        "cluster_cache": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20260720150000"
+}
