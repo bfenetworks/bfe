@@ -22,6 +22,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // maxChromaRespBody bounds the chroma response body (8MB).
@@ -47,8 +49,14 @@ type chromaProvider struct {
 	base       string // http://host:port
 	apiKey     string
 	collection string
-	timeout    time.Duration
-	client     *http.Client
+	// resource is the collection identifier used in the request paths. Chroma
+	// 0.6.x accepts only the collection UUID for /collections/{x}/query etc.
+	// (a name yields 400 InvalidUUID), so init() resolves the id from the
+	// get_or_create response and falls back to the configured name when the
+	// server returns no UUID (e.g. older servers or test doubles).
+	resource string
+	timeout  time.Duration
+	client   *http.Client
 }
 
 // NewChromaProvider connects to a Chroma server: it probes the heartbeat,
@@ -74,6 +82,7 @@ func NewChromaProvider(cfg Config) (*chromaProvider, error) {
 		base:       fmt.Sprintf("http://%s:%d", cfg.ServiceHost, cfg.ServicePort),
 		apiKey:     cfg.ApiKey,
 		collection: cfg.Collection,
+		resource:   cfg.Collection,
 		timeout:    time.Duration(timeout) * time.Millisecond,
 		client:     &http.Client{},
 	}
@@ -84,7 +93,9 @@ func NewChromaProvider(cfg Config) (*chromaProvider, error) {
 	return p, nil
 }
 
-// init probes the heartbeat and gets or creates the collection.
+// init probes the heartbeat and gets or creates the collection. When the
+// server returns a UUID collection id it becomes the request-path resource
+// (Chroma 0.6.x requires the id for query/upsert/count).
 func (p *chromaProvider) init() error {
 	if err := p.get("/api/v1/heartbeat"); err != nil {
 		return fmt.Errorf("chroma heartbeat err: %s", err.Error())
@@ -98,8 +109,17 @@ func (p *chromaProvider) init() error {
 	if err != nil {
 		return err
 	}
-	if err := p.post("/api/v1/collections", body); err != nil {
+	respBody, err := p.postResponse("/api/v1/collections", body)
+	if err != nil {
 		return fmt.Errorf("chroma get_or_create collection err: %s", err.Error())
+	}
+	var coll struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(respBody, &coll); err == nil {
+		if _, err := uuid.Parse(coll.ID); err == nil {
+			p.resource = coll.ID
+		}
 	}
 	return nil
 }
@@ -140,7 +160,7 @@ func (p *chromaProvider) Query(embedding []float32, tenant string, topK int, ttl
 		return nil, err
 	}
 
-	respBody, err := p.postResponse(fmt.Sprintf("/api/v1/collections/%s/query", p.collection), body)
+	respBody, err := p.postResponse(fmt.Sprintf("/api/v1/collections/%s/query", p.resource), body)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +217,7 @@ func (p *chromaProvider) Upload(item Item) error {
 		return err
 	}
 
-	return p.post(fmt.Sprintf("/api/v1/collections/%s/upsert", p.collection), body)
+	return p.post(fmt.Sprintf("/api/v1/collections/%s/upsert", p.resource), body)
 }
 
 // get issues a GET request and expects status 200.

@@ -26,14 +26,17 @@ import (
 	"time"
 )
 
-// chromaMock records the requests of a fake Chroma server and replies with
-// scripted responses.
+// chromaMock records the requests of a fake Chroma 0.6.x server and replies
+// with scripted responses. Like the real server, the collection-addressed
+// routes (/query, /upsert) are UUID-keyed: get_or_create returns the id and
+// the provider must use it in the request paths.
 type chromaMock struct {
 	srv *httptest.Server
 
-	createBody string // body of get_or_create collection
-	upsertBody string // body of the last upsert
-	queryBody  string // body of the last query
+	collectionID string
+	createBody   string // body of get_or_create collection
+	upsertBody   string // body of the last upsert
+	queryBody    string // body of the last query
 
 	failHeartbeat bool
 	failQuery     bool
@@ -43,6 +46,7 @@ type chromaMock struct {
 
 func newChromaMock(t *testing.T) *chromaMock {
 	m := &chromaMock{}
+	m.collectionID = "11111111-2222-3333-4444-555555555555"
 	m.queryResp = `{"ids":[["id1"]],"distances":[[0.1]],"documents":[["question text"]],` +
 		`"metadatas":[[{"tenant_id":"key_001","answer":"cached answer","created_at":1700000000}]]}`
 	m.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -56,15 +60,15 @@ func newChromaMock(t *testing.T) *chromaMock {
 			w.Write([]byte(`{"nanosecond heartbeat":0}`))
 		case "/api/v1/collections":
 			m.createBody = string(body)
-			w.Write([]byte(`{"id":"collection-id-1","name":"ai_cache_semantic"}`))
-		case "/api/v1/collections/ai_cache_semantic/query":
+			w.Write([]byte(`{"id":"` + m.collectionID + `","name":"ai_cache_semantic"}`))
+		case "/api/v1/collections/" + m.collectionID + "/query":
 			m.queryBody = string(body)
 			if m.failQuery {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 			w.Write([]byte(m.queryResp))
-		case "/api/v1/collections/ai_cache_semantic/upsert":
+		case "/api/v1/collections/" + m.collectionID + "/upsert":
 			m.upsertBody = string(body)
 			if m.failUpsert {
 				w.WriteHeader(http.StatusInternalServerError)
