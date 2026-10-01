@@ -70,7 +70,7 @@ require (
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
-	github.com/bfenetworks/bfe-access-pb v0.3.10
+	github.com/bfenetworks/bfe-access-pb v0.3.11
 	github.com/bfenetworks/bfe-mock-waf v0.1.0
 	github.com/bfenetworks/bwi v0.1.2
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -96,8 +96,3 @@ require (
 )
 
 // replace github.com/bfenetworks/proxy-wasm-go-host => ../proxy-wasm-go-host
-
-// local development: bfe-access-pb has the new ai_context fields (793-796)
-// without a tag yet; pin to the local checkout (AGENTS.md allows a local
-// replace during development)
-replace github.com/bfenetworks/bfe-access-pb => ../bfe-access-pb
