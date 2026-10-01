@@ -115,6 +115,12 @@ type AiBasicInfo struct {
 	AiCacheSemantic   bool    // true when the hit comes from the semantic (vector) cache
 	AiCacheSimilarity float64 // normalized similarity [0,1] of a semantic cache hit, 0 if not applicable
 
+	// AI context compress (mod_ai_context) result
+	ContextCompressStatus string // "" = not processed; skip_* / trim / rewrite / repair_rollback (also the fallback idempotency guard)
+	ContextTokensBefore   int64  // estimated tokens before context compression (heuristic estimate)
+	ContextTokensAfter    int64  // estimated tokens after context compression, 0 if not compressed
+	ContextCompressMode   string // effective mode: conservative / balanced / aggressive
+
 	// Traffic mirroring (mod_traffic_mirror) result: only synchronous fields
 	// are recorded here; async mirror results (status/usage/latency) are
 	// reported via module Prometheus metrics and are not written back

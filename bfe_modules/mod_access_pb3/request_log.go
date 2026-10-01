@@ -557,6 +557,20 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		reqLog.AiCacheSimilarity = proto.Float64(aiInfo.AiCacheSimilarity)
 	}
 
+	// AI context compress (mod_ai_context) result
+	if aiInfo.ContextCompressStatus != "" {
+		reqLog.AiContextCompressStatus = proto.String(aiInfo.ContextCompressStatus)
+	}
+	if aiInfo.ContextTokensBefore > 0 {
+		reqLog.AiContextTokensBefore = proto.Int64(aiInfo.ContextTokensBefore)
+	}
+	if aiInfo.ContextTokensAfter > 0 {
+		reqLog.AiContextTokensAfter = proto.Int64(aiInfo.ContextTokensAfter)
+	}
+	if aiInfo.ContextCompressMode != "" {
+		reqLog.AiContextCompressMode = proto.String(aiInfo.ContextCompressMode)
+	}
+
 	// Traffic mirroring (mod_traffic_mirror) result: only synchronous fields
 	// are logged; async mirror results go to module Prometheus metrics
 	if aiInfo.MirrorHit {

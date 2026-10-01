@@ -1,0 +1,57 @@
+{
+    "Version": "1.0",
+    "Defaults": {
+        "triggerRatio": 0.7,
+        "keepLatestImages": 1,
+        "toolResultMaxChars": 10,
+        "thinkingPolicy": "trim-all-but-last",
+        "charsPerToken": 4,
+        "imageTokenEstimate": 100,
+        "rewrite": {
+            "strength": "lite",
+            "protectedSurvivalRate": 0.95
+        },
+        "summary": {
+            "service": "phase2-placeholder"
+        }
+    },
+    "Config": {
+        "default": [
+            {
+                "cond": "default_t()",
+                "mode": "balanced"
+            }
+        ],
+        "conservative_product": [
+            {
+                "cond": "default_t()",
+                "mode": "conservative"
+            }
+        ],
+        "off_product": [
+            {
+                "cond": "default_t()",
+                "mode": "off"
+            }
+        ],
+        "tiny_budget_product": [
+            {
+                "cond": "default_t()",
+                "mode": "balanced",
+                "maxContextTokens": 1000,
+                "reserveTokens": 100,
+                "override": {
+                    "phase2": true
+                }
+            }
+        ],
+        "bad_budget_product": [
+            {
+                "cond": "default_t()",
+                "mode": "balanced",
+                "maxContextTokens": 50,
+                "reserveTokens": 1000
+            }
+        ]
+    }
+}

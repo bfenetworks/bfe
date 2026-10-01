@@ -21,6 +21,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access_pb3"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_cache"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_context"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_intent"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_rate_limit"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_route"
@@ -183,6 +184,16 @@ var moduleList = []bfe_module.BfeModule{
 
 	//depends on token calc
 	mod_ai_rate_limit.NewModuleAiRateLimit(),
+
+	// mod_ai_context
+	// Requirement: after mod_ai_route (needs resolved TargetModel for token
+	// budget; callback is HandleAfterAITargetModel which fires after model
+	// resolution); after mod_ai_cache (a cache hit short-circuits at
+	// HandleAfterLocation, so compression never runs on the hit path and cache
+	// keys are unaffected); after mod_ai_rate_limit (rate limiting is decided
+	// on the uncompressed request context); before mod_access_pb3 (log fields
+	// must be set before access logging).
+	mod_ai_context.NewModuleAiContext(),
 
 	// mod_access_pb3
 	mod_access_pb3.NewModuleAccessPb3(),
