@@ -1,0 +1,11 @@
+{
+  "Version": "1.0",
+  "Config": {
+    "default": [
+      {
+        "cond": "req_ai_intent_in(\"task_type\", \"doc_writing\") && default_t()",
+        "cacheKeyStrategy": "disabled"
+      }
+    ]
+  }
+}

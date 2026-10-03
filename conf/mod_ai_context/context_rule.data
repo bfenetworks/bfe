@@ -1,0 +1,33 @@
+{
+    "Version": "1.0",
+    "Defaults": {
+        "triggerRatio": 0.7,
+        "keepLatestImages": 2,
+        "toolResultMaxChars": 2000,
+        "thinkingPolicy": "trim-all-but-last",
+        "charsPerToken": 4,
+        "imageTokenEstimate": 1200,
+        "rewrite": {
+            "strength": "lite",
+            "protectedSurvivalRate": 0.95
+        }
+    },
+    "Config": {
+        "example_ai_product": [
+            {
+                "cond": "req_path_in(\"/v1/chat/completions\", false)",
+                "mode": "balanced"
+            },
+            {
+                "cond": "default_t()",
+                "mode": "off"
+            }
+        ],
+        "default": [
+            {
+                "cond": "default_t()",
+                "mode": "off"
+            }
+        ]
+    }
+}

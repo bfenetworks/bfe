@@ -151,7 +151,7 @@ unknown；每 `ProbeIntervalMs`（默认 5000）放行一次探测请求，成�
 | body 已被消费 | 提取走 `GetBodyAccessor`（可回绕），不影响后续转发 |
 | questions 热更校验失败 | 拒绝热更并保留旧版 |
 | 同请求多次 attempt（fallback 重试） | 意图解析一次，attempts 间不变 |
-| mod_ai_cache 命中短路 | v1 仍先解析意图（懒触发）；短路优化列入二期 |
+| mod_ai_cache 命中短路 | 缓存查找已前移至路由求值之前（2026-10-02 落地）：命中请求在 `HandleFoundProduct` 上早于 `mod_ai_route` 短路，**不触发**意图懒解析；未命中路径解析时机不变 |
 
 ## 7. 路由规则示例
 

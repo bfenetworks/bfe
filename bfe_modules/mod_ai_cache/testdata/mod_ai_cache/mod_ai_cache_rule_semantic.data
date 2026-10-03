@@ -1,0 +1,34 @@
+{
+    "Version": "1.0",
+    "Semantic": {
+        "topK": 3,
+        "threshold": 0.2,
+        "thresholdRelation": "lt"
+    },
+    "Config": {
+        "default": [
+            {
+                "cond": "default_t()",
+                "cacheKeyStrategy": "lastQuestion",
+                "cacheTTL": 60,
+                "enableSemanticCache": true,
+                "maxBodyBytes": 1024,
+                "maxValueBytes": 1024
+            }
+        ],
+        "disabled_product": [
+            {
+                "cond": "default_t()",
+                "cacheKeyStrategy": "disabled",
+                "enableSemanticCache": true
+            }
+        ],
+        "semantic_off_product": [
+            {
+                "cond": "default_t()",
+                "cacheKeyStrategy": "lastQuestion",
+                "cacheTTL": 60
+            }
+        ]
+    }
+}

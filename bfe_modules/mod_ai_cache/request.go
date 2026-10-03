@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/tidwall/gjson"
 
@@ -42,9 +43,11 @@ const (
 // aiCacheContext carries the state needed by the response phase to write
 // the answer back to the cache.
 type aiCacheContext struct {
-	Key    string           // cache key
-	Stream bool             // whether the client requested a streaming answer
-	Rule   *ProductRuleConf // matched cache rule
+	Key       string           // cache key
+	Question  string           // question text, for the semantic write-back
+	Embedding []float32        // vector computed at request time, nil when unavailable
+	Stream    bool             // whether the client requested a streaming answer
+	Rule      *ProductRuleConf // matched cache rule
 }
 
 func (m *ModuleAiCache) cacheRequestHandler(req *bfe_basic.Request) (int, *bfe_http.Response) {
@@ -88,14 +91,15 @@ func (m *ModuleAiCache) cacheRequestHandler(req *bfe_basic.Request) (int, *bfe_h
 		return bfe_module.BfeHandlerGoOn, nil
 	}
 
-	// 5. build cache key from the question extracted per cacheKeyStrategy
-	key, stream, err := m.buildCacheKey(req, body, rule)
-	if err != nil || key == "" {
+	// 5. extract the user question per cacheKeyStrategy and build the cache key
+	question, err := extractQuestion(body, rule)
+	if err != nil || question == "" {
 		if openDebug {
-			log.Logger.Debug("%s: build cache key failed or empty, err[%v]", m.name, err)
+			log.Logger.Debug("%s: extract question failed or empty, err[%v]", m.name, err)
 		}
 		return bfe_module.BfeHandlerGoOn, nil
 	}
+	key, stream := m.buildCacheKey(req, question, body)
 	setCacheKey(req, key)
 
 	// 6. exact lookup in redis
@@ -109,11 +113,46 @@ func (m *ModuleAiCache) cacheRequestHandler(req *bfe_basic.Request) (int, *bfe_h
 		return bfe_module.BfeHandlerFinish, m.buildHitResponse(req, rule, value, stream)
 	}
 
+	// 6.5 semantic lookup: only when the rule enables it, the module-level
+	// semantic cache is ready and the global Semantic block exists. A redis
+	// hit above never reaches this branch, so the exact-match path never
+	// pays for an embedding call.
+	var emb []float32
+	semCfg := m.ruleTable.getSemantic()
+	if rule.EnableSemanticCache && m.semanticEnabled() && semCfg != nil {
+		if int64(len(question)) <= m.semantic.maxQuestionBytes {
+			ttl := time.Duration(rule.CacheTTL) * time.Second
+			answer, similarity, emb0, ok := m.semantic.Lookup(question, tenantOf(req), ttl, semCfg)
+			emb = emb0 // keep the computed vector for the write-back reuse
+			if ok {
+				m.ruleTable.incSemanticHit()
+				m.state.Inc("SEMANTIC_HIT", 1)
+				m.setCacheStatus(req, CacheStatusHitSemantic)
+				m.setCacheSimilarity(req, similarity)
+				if openDebug {
+					log.Logger.Debug("%s: semantic cache hit, similarity[%f], key[%s]",
+						m.name, similarity, key)
+				}
+				hitRes := m.buildHitResponse(req, rule, answer, stream)
+				hitRes.Header.Set("X-Bfe-Ai-Cache", CacheStatusHitSemantic)
+				return bfe_module.BfeHandlerFinish, hitRes
+			}
+		} else {
+			m.ruleTable.incSemanticSkipped()
+			m.state.Inc("SEMANTIC_SKIPPED", 1)
+			if openDebug {
+				log.Logger.Debug("%s: question too long (%d > %d), skip semantic lookup, key[%s]",
+					m.name, len(question), m.semantic.maxQuestionBytes, key)
+			}
+		}
+	}
+
 	// 7. miss: save the context for the response phase and continue upstream
 	m.ruleTable.incCacheMiss()
 	m.state.Inc("CACHE_MISS", 1)
 	m.setCacheStatus(req, CacheStatusMiss)
-	setAiCacheContext(req, &aiCacheContext{Key: key, Stream: stream, Rule: rule})
+	setAiCacheContext(req, &aiCacheContext{Key: key, Question: question,
+		Embedding: emb, Stream: stream, Rule: rule})
 
 	return bfe_module.BfeHandlerGoOn, nil
 }
@@ -155,30 +194,34 @@ func (m *ModuleAiCache) readRequestBody(req *bfe_basic.Request, maxBodyBytes int
 	return body, true
 }
 
-// buildCacheKey extracts the user question(s) from the request body and
-// hashes them into a cache key. The key is prefixed with the tenant id
-// (ClientKeyId) so that different tenants can never read each other's cache.
-func (m *ModuleAiCache) buildCacheKey(req *bfe_basic.Request, body []byte, rule *ProductRuleConf) (string, bool, error) {
+// extractQuestion extracts the user question(s) from the request body per
+// the cacheKeyStrategy of the rule. It returns an empty question (without
+// error) when nothing could be extracted.
+func extractQuestion(body []byte, rule *ProductRuleConf) (string, error) {
 	if !gjson.ValidBytes(body) {
-		return "", false, fmt.Errorf("request body is not valid json")
+		return "", fmt.Errorf("request body is not valid json")
 	}
 
-	question := ""
 	switch rule.CacheKeyStrategy {
 	case CacheKeyStrategyLastQuestion:
 		path := rule.CacheKeyFrom
 		if path == "" {
 			path = DefaultLastQuestionPath
 		}
-		question = gjson.GetBytes(body, path).String()
+		return gjson.GetBytes(body, path).String(), nil
 	case CacheKeyStrategyAllQuestions:
-		question = joinUserQuestions(body, rule.CacheKeyFrom)
+		return joinUserQuestions(body, rule.CacheKeyFrom), nil
 	default:
-		return "", false, fmt.Errorf("unknown cacheKeyStrategy[%s]", rule.CacheKeyStrategy)
+		return "", fmt.Errorf("unknown cacheKeyStrategy[%s]", rule.CacheKeyStrategy)
 	}
+}
 
+// buildCacheKey hashes the extracted question into a cache key. The key is
+// prefixed with the tenant id (ClientKeyId) so that different tenants can
+// never read each other's cache.
+func (m *ModuleAiCache) buildCacheKey(req *bfe_basic.Request, question string, body []byte) (string, bool) {
 	if question == "" {
-		return "", false, nil
+		return "", false
 	}
 
 	stream := gjson.GetBytes(body, "stream").Bool()
@@ -186,7 +229,7 @@ func (m *ModuleAiCache) buildCacheKey(req *bfe_basic.Request, body []byte, rule 
 	sum := sha256.Sum256([]byte(question))
 	key := fmt.Sprintf("%s:%s:%s", m.cacheKeyPrefix, tenantOf(req), hex.EncodeToString(sum[:16]))
 
-	return key, stream, nil
+	return key, stream
 }
 
 // tenantOf returns the tenant identifier used to isolate cache keys. It

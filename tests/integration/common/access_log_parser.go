@@ -132,6 +132,18 @@ func FormatAccessLogError(reqLog *bfe_access_pb.RequestLog) string {
 	if len(reqLog.AiAuthHitQuotaPlans) > 0 {
 		b.WriteString(fmt.Sprintf("ai_auth_hit_quota_plans=%v ", reqLog.AiAuthHitQuotaPlans))
 	}
+	if reqLog.AiContextCompressStatus != nil {
+		b.WriteString(fmt.Sprintf("ai_context_compress_status=%s ", *reqLog.AiContextCompressStatus))
+	}
+	if reqLog.AiContextTokensBefore != nil {
+		b.WriteString(fmt.Sprintf("ai_context_tokens_before=%d ", *reqLog.AiContextTokensBefore))
+	}
+	if reqLog.AiContextTokensAfter != nil {
+		b.WriteString(fmt.Sprintf("ai_context_tokens_after=%d ", *reqLog.AiContextTokensAfter))
+	}
+	if reqLog.AiContextCompressMode != nil {
+		b.WriteString(fmt.Sprintf("ai_context_compress_mode=%s ", *reqLog.AiContextCompressMode))
+	}
 	b.WriteString("}")
 	return b.String()
 }

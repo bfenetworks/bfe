@@ -20,9 +20,11 @@ import (
 	"io"
 	"io/ioutil"
 	"testing"
+	"time"
 
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_cache/provider/vector"
 )
 
 func TestExtractAnswerNonStream(t *testing.T) {
@@ -209,4 +211,131 @@ type errorReader struct{}
 
 func (e *errorReader) Read(p []byte) (int, error) {
 	return 0, errors.New("simulated upstream abort")
+}
+
+// waitFor polls cond until it returns true or the deadline expires.
+func waitFor(cond func() bool) bool {
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return true
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	return false
+}
+
+func TestCacheResponseHandlerSemanticUpload(t *testing.T) {
+	fake := newFakeRedisClient("")
+	emb := &fakeEmbeddingProvider{vec: []float32{0.1, 0.2}}
+	vec := &fakeVectorProvider{} // semantic miss: no neighbors
+	m := prepareSemanticTestModule(t, emb, vec)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+
+	req := newTestRequest("default", chatBody("what is bfe", false))
+	req.InitAiBasicInfo().ClientKeyId = "key_001"
+	if _, _ = m.cacheRequestHandler(req); getAiCacheContext(req) == nil {
+		t.Fatal("cache context expected")
+	}
+
+	res := &bfe_http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(bytes.NewReader([]byte(`{"choices":[{"message":{"content":"answer from upstream"}}]}`))),
+	}
+	if ret := m.cacheResponseHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected go on, got %d", ret)
+	}
+	if _, err := ioutil.ReadAll(res.Body); err != nil {
+		t.Fatalf("response read failed: %v", err)
+	}
+	if err := res.Body.Close(); err != nil {
+		t.Fatalf("response close failed: %v", err)
+	}
+
+	// redis write-back is synchronous
+	if fake.setexCalls != 1 {
+		t.Fatalf("expected 1 setex, got %d", fake.setexCalls)
+	}
+
+	// vector upload is asynchronous and reuses the request-phase embedding
+	if !waitFor(func() bool { return vec.uploadCalls == 1 }) {
+		t.Fatal("async vector upload did not happen")
+	}
+	if emb.calls != 1 {
+		t.Errorf("embedding must be computed exactly once (reused at write-back), got %d", emb.calls)
+	}
+	item := vec.lastUpload
+	if item.ID != vector.ItemID("key_001", "what is bfe") {
+		t.Errorf("upload id must be deterministic, got %s", item.ID)
+	}
+	if item.Tenant != "key_001" || item.Question != "what is bfe" || item.Answer != "answer from upstream" {
+		t.Errorf("unexpected upload item: %+v", item)
+	}
+	if len(item.Embedding) != 2 || item.Embedding[0] != 0.1 {
+		t.Errorf("upload must reuse the request-phase embedding, got %v", item.Embedding)
+	}
+}
+
+func TestCacheResponseHandlerNoEmbeddingNoUpload(t *testing.T) {
+	fake := newFakeRedisClient("")
+	emb := &fakeEmbeddingProvider{err: errors.New("embedding down")} // embedding unavailable
+	vec := &fakeVectorProvider{}
+	m := prepareSemanticTestModule(t, emb, vec)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+
+	req := newTestRequest("default", chatBody("what is bfe", false))
+	req.InitAiBasicInfo().ClientKeyId = "key_001"
+	if _, _ = m.cacheRequestHandler(req); getAiCacheContext(req) == nil {
+		t.Fatal("cache context expected")
+	}
+	if getAiCacheContext(req).Embedding != nil {
+		t.Fatal("embedding should be nil after the embedding failure")
+	}
+
+	res := &bfe_http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(bytes.NewReader([]byte(`{"choices":[{"message":{"content":"answer from upstream"}}]}`))),
+	}
+	_ = m.cacheResponseHandler(req, res)
+	_, _ = ioutil.ReadAll(res.Body)
+	_ = res.Body.Close()
+
+	if fake.setexCalls != 1 {
+		t.Errorf("redis write-back must still happen, got %d setex", fake.setexCalls)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if vec.uploadCalls != 0 {
+		t.Error("no vector upload without a computed embedding (no recomputation)")
+	}
+}
+
+func TestCacheResponseHandlerUploadFailureSwallowed(t *testing.T) {
+	fake := newFakeRedisClient("")
+	emb := &fakeEmbeddingProvider{vec: []float32{0.1}}
+	vec := &fakeVectorProvider{err: errors.New("vector down")}
+	m := prepareSemanticTestModule(t, emb, vec)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+
+	req := newTestRequest("default", chatBody("what is bfe", false))
+	req.InitAiBasicInfo().ClientKeyId = "key_001"
+	if _, _ = m.cacheRequestHandler(req); getAiCacheContext(req) == nil {
+		t.Fatal("cache context expected")
+	}
+
+	res := &bfe_http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(bytes.NewReader([]byte(`{"choices":[{"message":{"content":"answer from upstream"}}]}`))),
+	}
+	_ = m.cacheResponseHandler(req, res)
+	_, _ = ioutil.ReadAll(res.Body)
+	_ = res.Body.Close()
+
+	// the upload failure is counted and swallowed: the response was already
+	// delivered, nothing may panic or propagate
+	if !waitFor(func() bool { return m.ruleTable.snapshotCounters().vectorErr >= 1 }) {
+		t.Error("VECTOR_ERR counter should be incremented on upload failure")
+	}
+	if fake.setexCalls != 1 {
+		t.Error("redis write-back must still happen")
+	}
 }

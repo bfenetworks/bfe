@@ -26,13 +26,19 @@ import (
 type PrometheusStates struct {
 	registry *prometheus.Registry
 
-	reqTotal      prometheus.Gauge
-	cacheHit      prometheus.Gauge
-	cacheMiss     prometheus.Gauge
-	cacheSkip     prometheus.Gauge
-	redisErr      prometheus.Gauge
-	latencyMs     prometheus.Gauge
-	valueTooLarge prometheus.Gauge
+	reqTotal           prometheus.Gauge
+	cacheHit           prometheus.Gauge
+	semanticHit        prometheus.Gauge
+	cacheMiss          prometheus.Gauge
+	cacheSkip          prometheus.Gauge
+	redisErr           prometheus.Gauge
+	embeddingErr       prometheus.Gauge
+	vectorErr          prometheus.Gauge
+	latencyMs          prometheus.Gauge
+	embeddingLatencyMs prometheus.Gauge
+	vectorLatencyMs    prometheus.Gauge
+	valueTooLarge      prometheus.Gauge
+	semanticSkipped    prometheus.Gauge
 }
 
 func newPrometheusStates() *PrometheusStates {
@@ -46,12 +52,18 @@ func newPrometheusStates() *PrometheusStates {
 	}
 
 	ret.reqTotal = newGauge("req_total", "mod_ai_cache requests entering the module")
-	ret.cacheHit = newGauge("cache_hit", "mod_ai_cache cache hits")
+	ret.cacheHit = newGauge("cache_hit", "mod_ai_cache exact cache hits")
+	ret.semanticHit = newGauge("semantic_hit", "mod_ai_cache semantic cache hits")
 	ret.cacheMiss = newGauge("cache_miss", "mod_ai_cache cache misses")
 	ret.cacheSkip = newGauge("cache_skip", "mod_ai_cache requests skipped by header or strategy")
 	ret.redisErr = newGauge("redis_err", "mod_ai_cache redis errors")
+	ret.embeddingErr = newGauge("embedding_err", "mod_ai_cache embedding call failures")
+	ret.vectorErr = newGauge("vector_err", "mod_ai_cache vector query/upload failures")
 	ret.latencyMs = newGauge("latency_ms", "mod_ai_cache redis latency sum in milliseconds")
+	ret.embeddingLatencyMs = newGauge("embedding_latency_ms", "mod_ai_cache embedding latency sum in milliseconds")
+	ret.vectorLatencyMs = newGauge("vector_latency_ms", "mod_ai_cache vector latency sum in milliseconds")
 	ret.valueTooLarge = newGauge("value_too_large", "mod_ai_cache answers dropped by maxValueBytes")
+	ret.semanticSkipped = newGauge("semantic_skipped", "mod_ai_cache semantic lookups skipped by question length")
 
 	return ret
 }
