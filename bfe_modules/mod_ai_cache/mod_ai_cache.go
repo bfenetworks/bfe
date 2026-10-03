@@ -232,10 +232,15 @@ func (m *ModuleAiCache) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebH
 		return fmt.Errorf("%s.Init(): loadProductRuleTable(): %s", m.name, err.Error())
 	}
 
-	// register filter for cache lookup at HandleAfterLocation: the product is
-	// resolved at this point, and a cache hit short-circuits the request
-	// before any upstream forwarding.
-	err = cbs.AddFilter(bfe_module.HandleAfterLocation, m.cacheRequestHandler)
+	// register filter for cache lookup at HandleFoundProduct, ordered between
+	// mod_ai_token_auth and mod_ai_route (bfe_modules.go), so a cache hit
+	// short-circuits before route rule evaluation — and the lazy intent
+	// resolve triggered by req_ai_intent_in — saving classification latency
+	// on the hit path. req.Route.Product is resolved before HandleFoundProduct
+	// fires, so Search(product) is unaffected. A hit also short-circuits
+	// before mod_body_process, and AiCacheStatus is still set before
+	// mod_access_pb3 logging.
+	err = cbs.AddFilter(bfe_module.HandleFoundProduct, m.cacheRequestHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.cacheRequestHandler): %s", m.name, err.Error())
 	}

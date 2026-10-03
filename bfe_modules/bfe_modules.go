@@ -153,8 +153,20 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_ai_token_auth
 	mod_ai_token_auth.NewModuleAITokenAuth(),
 
+	// mod_ai_cache
+	// Requirement: after mod_ai_token_auth (never serve cached content to an
+	// unauthenticated request); BEFORE mod_ai_route — a cache hit short-circuits
+	// at HandleFoundProduct so route rule evaluation (and the lazy intent resolve
+	// triggered by req_ai_intent_in) is skipped entirely. req.Route.Product is
+	// resolved before HandleFoundProduct fires, so the cache rule table
+	// Search(product) is unaffected. Init order moves with registration: no Init
+	// dependency on mod_ai_route/mod_ai_intent (own conf/redis/rule table).
+	// Still before mod_body_process and mod_access_pb3.
+	mod_ai_cache.NewModuleAiCache(),
+
 	// mod_ai_route
-	// Requirement: after mod_ai_token_auth (needs ClientApiKey)
+	// Requirement: after mod_ai_token_auth (needs ClientApiKey); after
+	// mod_ai_cache (a cache hit has already finished the request)
 	mod_ai_route.NewModuleAiRoute(),
 
 	// mod_ai_intent
@@ -163,13 +175,6 @@ var moduleList = []bfe_module.BfeModule{
 	// classification is triggered by the req_ai_intent_in condition primitive
 	// when mod_ai_route evaluates routing rules.
 	mod_ai_intent.NewModuleAiIntent(),
-
-	// mod_ai_cache
-	// Requirement: after mod_ai_route (only cache requests for a resolved
-	// product/route); before mod_body_process (a cache hit short-circuits
-	// the request) and before mod_access_pb3 (AiCacheStatus must be set
-	// before access logging)
-	mod_ai_cache.NewModuleAiCache(),
 
 	// mod_traffic_mirror
 	// Requirement: after mod_ai_route / mod_ai_token_auth (mirror rules match
@@ -189,7 +194,7 @@ var moduleList = []bfe_module.BfeModule{
 	// Requirement: after mod_ai_route (needs resolved TargetModel for token
 	// budget; callback is HandleAfterAITargetModel which fires after model
 	// resolution); after mod_ai_cache (a cache hit short-circuits at
-	// HandleAfterLocation, so compression never runs on the hit path and cache
+	// HandleFoundProduct, so compression never runs on the hit path and cache
 	// keys are unaffected); after mod_ai_rate_limit (rate limiting is decided
 	// on the uncompressed request context); before mod_access_pb3 (log fields
 	// must be set before access logging).

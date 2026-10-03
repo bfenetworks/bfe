@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bfenetworks/go-lib/log"
+
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
 	"github.com/bfenetworks/bfe/bfe_util"
 )
@@ -220,6 +222,16 @@ func (obj *ProductRuleConfFile) Check() error {
 
 	if _, err := condition.Build(*obj.Cond); err != nil {
 		return fmt.Errorf("cond.Build(): cond_str[%s][%s]", *obj.Cond, err.Error())
+	}
+
+	// A cond referencing req_ai_intent_in triggers intent resolve during
+	// cache lookup (the primitive lazily classifies on first evaluation),
+	// which negates the lookup-early benefit. Warn but accept, consistent
+	// with mod_ai_route's tolerant treatment of question names.
+	if strings.Contains(*obj.Cond, "req_ai_intent_in") {
+		log.Logger.Warn("mod_ai_cache: rule cond references req_ai_intent_in, "+
+			"intent resolve would run during cache lookup and negate the "+
+			"lookup-early benefit; cond[%s]", *obj.Cond)
 	}
 
 	switch *obj.CacheKeyStrategy {

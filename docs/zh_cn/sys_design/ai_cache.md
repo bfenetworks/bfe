@@ -63,14 +63,15 @@ AI 网关场景中，终端用户重复提问占比可观，分两档：
 客户端请求 ──► BFE 模块流水线
                  │
                  ▼ mod_ai_token_auth (HandleFoundProduct)  鉴权、配额计划绑定
-                 ▼ mod_ai_route     (HandleAfterLocation)  路由解析
-                 ▼ mod_ai_cache     (HandleAfterLocation)  查缓存
+                 ▼ mod_ai_cache     (HandleFoundProduct)  查缓存
                  │     ├─ ① Redis GET ── 命中(exact)：BfeHandlerFinish，模板构造响应
                  │     ├─ ② 规则开启语义？── 否 → 放行
                  │     ├─ ③ embedding.Embed(question)
                  │     ├─ ④ vector.Query（强制 tenant + TTL 过滤）
                  │     ├─ ⑤ 阈值判定 ── 命中(semantic)：BfeHandlerFinish
                  │     └─ 未命中：保存 ctx{key, question, embedding, stream, rule}，放行
+                 ▼ mod_ai_route     (HandleFoundProduct)  路由解析
+                 │     （命中短路时本模块不执行：mod_ai_intent 懒解析不触发）
                  ▼ 上游模型服务
                  ▼ mod_ai_cache     (HandleReadResponse)   回写缓存
                  │     ├─ 包装响应体，透传+累积，EOF 时提取答案
@@ -81,16 +82,27 @@ AI 网关场景中，终端用户重复提问占比可观，分两档：
                  ▼ mod_access_pb3   访问日志（ai_cache_status=hit/hit_semantic/miss/skip）
 ```
 
-模块注册位置：`bfe/bfe_modules/bfe_modules.go` 中 `mod_ai_route` 之后、`mod_body_process` 之前（两期相同）：
+> 2026-10-02 起缓存查找前移至 `HandleFoundProduct`、注册在 `mod_ai_token_auth`
+> 与 `mod_ai_route` 之间（懒解析下沉：命中请求不再触发 `req_ai_intent_in`
+> 懒解析）；此前注册在 `mod_ai_route` 之后、回调点为 `HandleAfterLocation`。
+> 详见 `docs/zh_cn/modifications/2026-10-02-ai-cache-lookup-before-route/design-changes.md`。
 
-- 放 `HandleAfterLocation`：此时 product 已解析，可按 product 定位规则；命中短路后不再进入上游；
-- 在 `mod_body_process` 之前：命中短路时其响应解析无意义；
-- 在 `mod_access_pb3` 之前：`AiCacheStatus` 需先于访问日志写入。
+模块注册位置：`bfe/bfe_modules/bfe_modules.go` 中 `mod_ai_token_auth` 之后、
+`mod_ai_route` 之前（响应回写回调 `HandleReadResponse` 不变）：
+
+- 回调点 `HandleFoundProduct`：product 在回调触发前已解析（`bfe_server/reverseproxy.go`
+  先 FindProduct 再触发回调），`Search(product)` 不受影响；此阶段 body 可读、可回绕；
+- 注册在 `mod_ai_route` **之前**：缓存命中短路发生在路由规则求值之前——省掉路由表
+  查找，且 `mod_ai_intent` 的懒解析（由 `req_ai_intent_in` 原语在规则求值时触发）
+  在命中路径上不再发生；
+- 注册在 `mod_ai_token_auth` **之后**：未鉴权请求绝不返回缓存内容；
+- 仍在 `mod_body_process` / `mod_access_pb3` 之前：命中短路时其响应解析无意义；
+  `AiCacheStatus` 需先于访问日志写入。
 
 注册两个回调：
 
 ```go
-cbs.AddFilter(bfe_module.HandleAfterLocation, m.cacheRequestHandler)  // 查缓存，命中短路
+cbs.AddFilter(bfe_module.HandleFoundProduct, m.cacheRequestHandler)   // 查缓存，命中短路
 cbs.AddFilter(bfe_module.HandleReadResponse, m.cacheResponseHandler)  // 捕获响应，回写缓存
 ```
 
@@ -177,7 +189,7 @@ OpenDebug = false
 ### 6.1 精确匹配（一期）
 
 ```text
-cacheRequestHandler (HandleAfterLocation)
+cacheRequestHandler (HandleFoundProduct)
   1. 无 AiBasicInfo / product 无规则 / condition 未命中 → 放行
   2. x-bfe-skip-ai-cache: on → 记 cache_status=skip，放行
   3. 非 application/json → 放行
@@ -352,4 +364,4 @@ mod_ai_cache.value_too_large / semantic_skipped
 ## 12. 验证
 
 - 单元测试（`bfe/bfe_modules/mod_ai_cache/`，含 `provider/embedding`、`provider/vector`）：配置解析、缓存键生成、SSE 解析、命中/未命中/跳过流程、包装器透传、阈值四关系、租户隔离 where 双条件断言、确定性 id 幂等、精确命中零 embedding 调用、embedding 复用、异步上传错误吞噬、启动降级计数；
-- 集成测试：SC32 AI 缓存端到端（精确命中/跳过/流式/租户隔离/TTL/计费协同）；语义缓存场景见 `docs/zh_cn/modifications/2026-09-30-ai-cache-semantic-cache/design-changes.md` 第 13 节。
+- 集成测试：SC20 AI 缓存端到端（精确命中/跳过/流式/租户隔离/TTL/计费协同）；语义缓存场景见 `docs/zh_cn/modifications/2026-09-30-ai-cache-semantic-cache/design-changes.md` 第 13 节；缓存查找前移（懒解析下沉，2026-10-02）为 SC25，见 `docs/zh_cn/modifications/2026-10-02-ai-cache-lookup-before-route/design-changes.md`（含注册点单测断言 `TestInitRegistersLookupAtFoundProduct`）。
