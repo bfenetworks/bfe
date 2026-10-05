@@ -85,6 +85,22 @@ AI key session affinity (`AIConf.KeyPolicy.SessionAffinity`) binds requests of t
 | AIKeyAffinity.MaxActive        | Integer | Max active connections to Redis                      | N         | Default 20; 0 means no connection number limit                                                                 | >= 0                                                                 |
 | AIKeyAffinity.Password         | String  | Redis access password                                | N         | Default empty (no password)                                                                                    | -                                                                    |
 
+### Security config
+
+Key-related sensitive fields in control-plane distributed config files (Tokens outer keys of `mod_ai_token_auth/token_rule.data`, `AIConf.Keys[].Key` of `server_data_conf/cluster_conf.data`) support field-level ciphertext with the `enc$v1$` prefix. When loading such files, BFE decrypts these fields into memory with the keyring configured here, so no plaintext is persisted on disk. Fields without the `enc$v1$` prefix pass through as plaintext, which keeps old/new configs and canary rollback naturally compatible. The keyring file supports multiple coexisting keyIDs (old and new keys coexist during rotation); its content is re-read on every data-file load (hot reload), while this configuration item (the path) is loaded only at startup.
+
+| Configuration Item | Type   | Meaning                                                                            | Required | Supplementary Description                                                                                                                                                                                                                     | Validity Condition                          |
+| ------------------ | ------ | ---------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Security.KeyFile   | String | Path of the keyring file for decrypting sensitive fields (multiple keyIDs coexist) | N        | Default empty (no decryption; if a loaded file contains an `enc$v1$` ciphertext field, the load fails and the previously effective config is kept); the key file must be 0600 and stored outside the conf directory; see [FilePath](00-common.md#3-filepath) type definition | Type is [FilePath](00-common.md#3-filepath) |
+
+Example:
+
+```ini
+[Security]
+# keyring file for decrypting enc$v1$ ciphertext fields in distributed config files
+KeyFile = /etc/ai-gateway/keys/export.keys
+```
+
 ## Example
 
 ```ini
@@ -270,4 +286,13 @@ Disabled = true
 
 # redis password, ignore if not set
 #Password = ""
+
+[Security]
+# keyring file for decrypting enc$v1$ ciphertext fields in distributed
+# config files (token_rule.data Tokens outer keys / cluster_conf.data
+# AIConf.Keys[].Key). Empty by default: if a loaded file contains enc$v1$
+# ciphertext fields, the load fails and the previously effective config
+# is kept. The key material file must be 0600 and stored outside the
+# conf directory. Keyring content is re-read on every data-file load.
+#KeyFile = /etc/ai-gateway/keys/export.keys
 ```

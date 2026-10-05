@@ -32,6 +32,7 @@ import (
 	"github.com/bfenetworks/go-lib/quota"
 
 	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util/crypto"
 	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
@@ -1633,7 +1634,7 @@ func GetCookieKey(header string) (string, bool) {
 	return strings.TrimSpace(header[i+1:]), true
 }
 
-func (conf *BfeClusterConf) LoadAndCheck(filename string) (string, error) {
+func (conf *BfeClusterConf) LoadAndCheck(filename string, kr *crypto.Keyring) (string, error) {
 	/* open the file    */
 	file, err := os.Open(filename)
 
@@ -1649,6 +1650,14 @@ func (conf *BfeClusterConf) LoadAndCheck(filename string) (string, error) {
 		return "", err
 	}
 
+	// decrypt enc$v1$ AIConf.Keys[].Key before AIConfCheck: key material
+	// may be stored as field-level ciphertext on disk (control plane
+	// encrypts at export); after decryption the in-memory structure is
+	// identical to a plaintext config
+	if err := decryptAIConfKeys(conf, kr); err != nil {
+		return "", err
+	}
+
 	/* check conf */
 	if err := BfeClusterConfCheck(conf); err != nil {
 		return "", err
@@ -1661,10 +1670,38 @@ func (conf *BfeClusterConf) LoadAndCheck(filename string) (string, error) {
 	return *(conf.Version), nil
 }
 
+// decryptAIConfKeys decrypts enc$v1$ ciphertext entries of
+// AIConf.Keys[].Key in place. Values without the marker pass through as
+// legacy plaintext. Any decrypt failure aborts the whole load: a partially
+// decrypted table would silently drop auth/upstream-key coverage.
+func decryptAIConfKeys(conf *BfeClusterConf, kr *crypto.Keyring) error {
+	if conf == nil || conf.Config == nil {
+		return nil
+	}
+	for clusterName, clusterConf := range *conf.Config {
+		if clusterConf.AIConf == nil {
+			continue
+		}
+		for i := range clusterConf.AIConf.Keys {
+			key := &clusterConf.AIConf.Keys[i]
+			if !crypto.HasMarker(key.Key) {
+				continue
+			}
+			plain, err := crypto.Decrypt(key.Key, kr)
+			if err != nil {
+				return fmt.Errorf("cluster %s: decrypt AIConf.Keys[%d]: %s",
+					clusterName, i, err)
+			}
+			key.Key = plain
+		}
+	}
+	return nil
+}
+
 // ClusterConfLoad load config of cluster conf from file
-func ClusterConfLoad(filename string) (BfeClusterConf, error) {
+func ClusterConfLoad(filename string, kr *crypto.Keyring) (BfeClusterConf, error) {
 	var config BfeClusterConf
-	if _, err := config.LoadAndCheck(filename); err != nil {
+	if _, err := config.LoadAndCheck(filename, kr); err != nil {
 		return config, fmt.Errorf("%s", err)
 	}
 

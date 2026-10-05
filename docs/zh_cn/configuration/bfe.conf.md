@@ -85,6 +85,22 @@ AI Key会话保持（`AIConf.KeyPolicy.SessionAffinity`）用于将同一会话�
 | AIKeyAffinity.MaxActive         | Integer | 与Redis的最大活跃连接数                                      | N    | 默认值20；0表示不限制连接数                                  | >= 0                                      |
 | AIKeyAffinity.Password          | String  | Redis访问密码                                                | N    | 默认值空（表示无密码）                                       | -                                         |
 
+### 安全配置
+
+控制面下发的配置文件中，密钥类敏感字段（`mod_ai_token_auth/token_rule.data` 的 Tokens 外层键、`server_data_conf/cluster_conf.data` 的 `AIConf.Keys[].Key`）支持 `enc$v1$` 前缀的字段级密文落盘。BFE 加载这类文件时用本节配置的 keyring 文件解密后进内存，磁盘上无明文；无 `enc$v1$` 前缀的字段按明文直通，新旧配置与灰度回滚天然兼容。keyring 文件支持多 keyID 并存（轮换期新旧钥同挂），文件内容在每次加载 data 文件时重读（热加载）；本配置项（路径）仅在启动时加载。
+
+| 配置项           | 类型   | 参数含义                                         | 必填 | 补充描述                                                     | 合法性条件                                        |
+| ---------------- | ------ | ------------------------------------------------ | ---- | ------------------------------------------------------------ | ------------------------------------------------- |
+| Security.KeyFile | String | 敏感字段解密的 keyring 文件路径（多 keyID 并存） | N    | 默认值空（不解密；文件中若存在 `enc$v1$` 密文字段则加载失败，旧生效配置保留）；密钥文件须 0600、与 conf 目录分目录存放；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath) |
+
+示例：
+
+```ini
+[Security]
+# 下发配置文件敏感字段（enc$v1$ 密文）解密用的 keyring 文件
+KeyFile = /etc/ai-gateway/keys/export.keys
+```
+
 ## 配置示例
 
 ```ini
@@ -272,4 +288,13 @@ Disabled = true
 
 # redis password, ignore if not set
 #Password = ""
+
+[Security]
+# keyring file for decrypting enc$v1$ ciphertext fields in distributed
+# config files (token_rule.data Tokens outer keys / cluster_conf.data
+# AIConf.Keys[].Key). Empty by default: if a loaded file contains enc$v1$
+# ciphertext fields, the load fails and the previously effective config
+# is kept. The key material file must be 0600 and stored outside the
+# conf directory. Keyring content is re-read on every data-file load.
+#KeyFile = /etc/ai-gateway/keys/export.keys
 ```

@@ -213,7 +213,7 @@ Common provider values for `AIConf.ProtocolPaths`:
 | Configuration Item | Type | Meaning | Required | Supplementary Description | Validity Condition |
 | ------------------- | ------- | ------------------ | -------- | ------------------------------------------------ | ---------- |
 | AIConf.Keys[i].Name | String | API-Key name/identifier | Y | Used for logging, monitoring and operations identification | Non-empty |
-| AIConf.Keys[i].Key | String | API-Key value | Y | Secret key used for backend authentication | Non-empty |
+| AIConf.Keys[i].Key | String | API-Key value | Y | Secret key used for backend authentication; supports `enc$v1$` field-level ciphertext (encrypted by the control plane at export), decrypted in memory at load via the `Security.KeyFile` keyring in bfe.conf; values without the prefix pass through as plaintext | Non-empty |
 | AIConf.Keys[i].Weight | Integer | Weight | Y | Used for weighted random selection; range is `[0,100]`; `0` means no traffic is received | `[0,100]`; total weight of multiple keys must be 100 |
 
 ##### AIConf.KeyPolicy elements

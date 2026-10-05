@@ -28,10 +28,12 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
 	"github.com/bfenetworks/bfe/bfe_http"
 	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_model_protocol/utils"
 	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_util/crypto"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 )
 
@@ -62,6 +64,11 @@ type ModuleAITokenAuth struct {
 	metrics   metrics.Metrics
 
 	redisClient redis_client.Client // redis client
+
+	// keyFile is the file-encryption keyring path from bfe.conf
+	// [Security].KeyFile; empty means decryption disabled. The keyring
+	// itself is re-read on every rule reload (rotation hot reload).
+	keyFile string
 }
 
 func NewModuleAITokenAuth() *ModuleAITokenAuth {
@@ -82,7 +89,20 @@ func (m *ModuleAITokenAuth) loadProductRuleConf(query url.Values) error {
 		path = m.conf.Basic.ProductRulePath
 	}
 
-	conf, err := ProductRuleConfLoad(path)
+	// Re-read the keyring on every load: rotation adds the new key to all
+	// decrypt endpoints first, so a reload must pick it up without a
+	// restart. A broken keyring fails this reload and the previously
+	// effective config is kept.
+	var kr *crypto.Keyring
+	if m.keyFile != "" {
+		var err error
+		kr, err = crypto.LoadKeyringFile(m.keyFile)
+		if err != nil {
+			return fmt.Errorf("err in LoadKeyringFile(%s): %s", m.keyFile, err)
+		}
+	}
+
+	conf, err := ProductRuleConfLoad(path, kr)
 	if err != nil {
 		return fmt.Errorf("err in ProductRuleConfLoad(%s): %s", path, err)
 	}
@@ -395,6 +415,15 @@ func (m *ModuleAITokenAuth) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.
 		return fmt.Errorf("%s: conf load err %v", m.name, err)
 	}
 	openDebug = m.conf.Log.OpenDebug
+
+	// resolve the file-encryption keyring path from bfe.conf [Security];
+	// the keyring itself is re-read on every rule reload (rotation hot
+	// reload). Empty KeyFile disables decryption (plaintext pass-through).
+	secConf, err := bfe_conf.LoadSecurityConf(cr)
+	if err != nil {
+		return fmt.Errorf("%s: load security conf err %v", m.name, err)
+	}
+	m.keyFile = secConf.KeyFile
 
 	// new Redis Client
 	r := m.conf.Redis
