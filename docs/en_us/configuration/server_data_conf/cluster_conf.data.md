@@ -189,6 +189,7 @@ Configuration hot-reload does not reset the OPEN state (avoiding a thundering he
 | AIConf.StripPrefix | Boolean | Whether to strip the prefix specified by `MatchPrefix` | N | When `true`, the prefix is removed from the request model field before forwarding to the backend; when `false`, the prefix is only used as a routing marker and not stripped | Defaults to `false` |
 | AIConf.ModelProtocols | []String | Model access protocols supported by this cluster's provider | N | e.g. `["openai"]`, `["openai", "anthropic"]`; empty defaults to `["openai"]` | Each element must be `openai`, `anthropic` or `gemini` |
 | AIConf.ProtocolPaths | Map[string]string | Per-protocol upstream path rewrite: protocol -> upstream base path (the path part of the protocol SDK's base_url) | N | See "AIConf.ProtocolPaths semantics" below | Keys must be `openai` or `anthropic`; values must start with `/`, must not end with `/`, must not contain `..`/`?`/`#`, and length must be <= 128 |
+| AIConf.NormalizeUpstreamError | Object | Upstream error normalization (unified error codes) configuration | N | When absent or `Enabled=false`, upstream errors (HTTP status and body) are passed through unchanged, consistent with historical behavior | See the "AIConf.NormalizeUpstreamError elements" table below |
 | AIConf.ModelTable | Object | Model pricing table of this cluster | N | Automatically populated by ai-gateway-api by querying `model_prices` based on `Provider`; currency is fixed to `RMB` for now | See the "AIConf.ModelTable elements" table below |
 
 ##### AIConf.ProtocolPaths semantics
@@ -258,6 +259,25 @@ Common provider values for `AIConf.ProtocolPaths`:
 | AIConf.ModelTable.Models[i].SupportedParameters | []String | Supported request parameter list | N | e.g. `["temperature", "max_tokens"]` | - |
 | AIConf.ModelTable.Models[i].Limits | Map[string]Integer | Limit object | N | e.g. `context_window`, etc. | - |
 | AIConf.ModelTable.Models[i].Prices | Map[string]Number | Price object | N | e.g. `input_cost_per_token`, etc. | - |
+
+##### AIConf.NormalizeUpstreamError elements
+
+`NormalizeUpstreamError` normalizes errors returned by the upstream LLM service into the gateway's unified error catalog and OpenAI-compatible error body (design note: `docs/zh_cn/modifications/2026-10-06-upstream-error-normalization/design-changes.md`; error code catalog: `docs/zh_cn/sys_design/ai_error_codes.md`). It is usually generated and distributed by ai-gateway-api.
+
+| Configuration Item | Type | Meaning | Required | Supplementary Description | Validity Condition |
+| ------------------------------------- | ------- | -------------------- | -------- | ------------------------------------------------------------ | -------------------------------- |
+| AIConf.NormalizeUpstreamError.Enabled | Boolean | Non-streaming upstream error normalization switch | N | When `true`, upstream 4xx/5xx error responses are rewritten into the unified error body and the status code is remapped per the unified mapping table; default `false` | - |
+| AIConf.NormalizeUpstreamError.StreamEnabled | Boolean | Streaming (SSE) error normalization switch | N | Independent of `Enabled` for gray release; when `true`, the data payload of in-stream error events is rewritten into the unified error JSON (response status stays 200), and stream truncation (EOF without the protocol's terminal event) is marked in the access log; default `false` | - |
+| AIConf.NormalizeUpstreamError.UnrecognizedAction | String | Handling of unrecognized error bodies | N | `passthrough` (default; still redacted first when `RedactSecrets=true`) or `rewrite_generic` (rewritten into the generic `UPSTREAM_UNKNOWN` error); unrecognized streaming events are always passed through | Only `passthrough` or `rewrite_generic` |
+| AIConf.NormalizeUpstreamError.MaxBodyBytes | Integer | Read limit of the error response body in bytes | N | Bodies exceeding the limit are treated as unrecognized; default `65536` | > 0; <= 4194304 (4MB) |
+| AIConf.NormalizeUpstreamError.RedactSecrets | Boolean | Credential redaction switch | N | Replaces every encoded form (raw/base64/URL-encoded/JSON-escaped) of this cluster's API-Key found in outgoing error content (client response and access log, both rewritten and passed-through paths) with a `••••••••` mask; default `true` | - |
+
+Behavior notes:
+
+- Normalization only takes effect after forwarding retries (fallback) settle and the final result is determined; it never affects retry or key-penalty decisions;
+- Upstream 401/402/403 is remapped to 502 `UPSTREAM_AUTH_ERROR`, distinguishing it from a client-credential 401; upstream 5xx is remapped to 500/504, etc. (see the error code catalog for the full mapping);
+- Gateway-generated errors (auth, rate-limit, quota, etc.) are already in the unified format and are not normalized;
+- When this field is absent (or both switches are `false`), the forwarding path is unchanged and existing configurations remain compatible.
 
 ## Configuration Example
 
@@ -446,6 +466,13 @@ Common provider values for `AIConf.ProtocolPaths`:
                 },
                 "ModelMapping": {
                     "gpt-4": "backend-gpt-4-model"
+                },
+                "NormalizeUpstreamError": {
+                    "Enabled": true,
+                    "StreamEnabled": true,
+                    "UnrecognizedAction": "passthrough",
+                    "MaxBodyBytes": 65536,
+                    "RedactSecrets": true
                 },
                 "ModelTable": {
                     "Currency": "RMB",

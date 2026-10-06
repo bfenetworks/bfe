@@ -1342,6 +1342,14 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		}
 	}
 
+	// Upstream error normalization (AIConf.NormalizeUpstreamError): rewrite
+	// the final upstream error into the unified error catalog. Runs after
+	// the fallback loop settles (never affects retry/fallback decisions)
+	// and before any byte is written or the EPP filter wraps res.Body.
+	if res != nil && aiMeta != nil {
+		normalizeUpstreamError(res, lastCluster, aiMeta, p.proxyState)
+	}
+
 	basicReq.HttpResponse = res
 
 	// Note: The runtime will not GC the objects referenced by basicReq.SvrDataConf until the request
@@ -1621,6 +1629,11 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 			aiMeta.CostCurrency = cluster.AIConf.ModelTable.Currency
 		}
 		aiMeta.AppendClusterKeyName(cluster.Name, selectedKey.Name)
+		if selectedKey.Key != "" {
+			// record the injected credential: pattern source for upstream
+			// error redaction; must never be logged
+			aiMeta.UpstreamKey = selectedKey.Key
+		}
 		if selectedKey.Key != "" {
 			if err := adapter.InjectAuth(outreq, selectedKey.Key); err != nil {
 				log.Logger.Warn("doSingleAIForward: inject auth failed: %v", err)

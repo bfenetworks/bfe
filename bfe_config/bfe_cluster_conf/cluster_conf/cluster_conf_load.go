@@ -248,7 +248,80 @@ type AIConf struct {
 	// Keys must be openai or anthropic; empty/nil means disabled (requests are
 	// forwarded with their original path).
 	ProtocolPaths map[string]string
+
+	// NormalizeUpstreamError configures upstream error normalization
+	// (unified error codes). Nil or Enabled/StreamEnabled=false keeps the
+	// historical pass-through behavior.
+	NormalizeUpstreamError *UpstreamErrorNormalizeConf
 }
+
+// Actions for UpstreamErrorNormalizeConf.UnrecognizedAction.
+const (
+	// NormalizeActionPassthrough forwards unrecognized upstream error
+	// bodies unchanged (after credential redaction when enabled).
+	NormalizeActionPassthrough = "passthrough"
+	// NormalizeActionRewriteGeneric rewrites unrecognized upstream error
+	// bodies into the generic UPSTREAM_UNKNOWN error.
+	NormalizeActionRewriteGeneric = "rewrite_generic"
+)
+
+// UpstreamErrorNormalizeConf is the per-cluster configuration of upstream
+// error normalization. JSON keys use PascalCase, consistent with AIConf.
+type UpstreamErrorNormalizeConf struct {
+	// Enabled turns on non-streaming normalization: upstream 4xx/5xx
+	// responses are rewritten into the unified AiError body and the status
+	// code is remapped per ErrorCodeToStatusCode.
+	Enabled bool
+	// StreamEnabled turns on streaming (SSE) normalization, independent of
+	// Enabled for gray release: in-stream error events get their data
+	// payload rewritten with the unified error JSON (the response status
+	// stays 200), and stream truncation is marked in the access log.
+	StreamEnabled bool
+	// UnrecognizedAction decides how unrecognized upstream error bodies are
+	// handled: "passthrough" (default) or "rewrite_generic". Streaming
+	// unrecognized events are always passed through.
+	UnrecognizedAction string
+	// MaxBodyBytes bounds the error body read; exceeding bodies are treated
+	// as unrecognized. Values <= 0 fall back to the default (64 KiB).
+	MaxBodyBytes int64
+	// RedactSecrets enables credential redaction of outgoing upstream error
+	// content. Default true; set to false explicitly to disable. Pointer so
+	// that "absent" (nil) is distinguishable from an explicit false.
+	RedactSecrets *bool
+}
+
+// Effective returns the configuration with defaults applied: empty
+// UnrecognizedAction becomes passthrough, non-positive MaxBodyBytes
+// becomes the default, and nil RedactSecrets becomes true.
+func (c *UpstreamErrorNormalizeConf) Effective() UpstreamErrorNormalizeConf {
+	def := UpstreamErrorNormalizeConf{
+		UnrecognizedAction: NormalizeActionPassthrough,
+		MaxBodyBytes:       64 * 1024,
+		RedactSecrets:      boolPtr(true),
+	}
+	if c == nil {
+		return def
+	}
+	if c.UnrecognizedAction != "" {
+		def.UnrecognizedAction = c.UnrecognizedAction
+	}
+	if c.MaxBodyBytes > 0 {
+		def.MaxBodyBytes = c.MaxBodyBytes
+	}
+	if c.RedactSecrets != nil {
+		def.RedactSecrets = c.RedactSecrets
+	}
+	def.Enabled = c.Enabled
+	def.StreamEnabled = c.StreamEnabled
+	return def
+}
+
+// RedactSecretsEnabled reports whether credential redaction is on.
+func (c UpstreamErrorNormalizeConf) RedactSecretsEnabled() bool {
+	return c.RedactSecrets == nil || *c.RedactSecrets
+}
+
+func boolPtr(b bool) *bool { return &b }
 
 const (
 	PriceInputCostPerToken             = "input_cost_per_token"
@@ -1176,6 +1249,17 @@ func ClusterConfCheck(conf *ClusterConf) error {
 
 // AIConfCheck checks AIConf config.
 func AIConfCheck(conf *AIConf) error {
+	if conf.NormalizeUpstreamError != nil {
+		nuc := conf.NormalizeUpstreamError
+		switch nuc.UnrecognizedAction {
+		case "", NormalizeActionPassthrough, NormalizeActionRewriteGeneric:
+		default:
+			return fmt.Errorf("NormalizeUpstreamError.UnrecognizedAction: invalid value %q", nuc.UnrecognizedAction)
+		}
+		if nuc.MaxBodyBytes < 0 || nuc.MaxBodyBytes > 4*1024*1024 {
+			return fmt.Errorf("NormalizeUpstreamError.MaxBodyBytes: %d out of range [0, 4194304]", nuc.MaxBodyBytes)
+		}
+	}
 	if conf.ModelTable != nil {
 		if err := ModelTableCheck(conf.ModelTable); err != nil {
 			return fmt.Errorf("ModelTable:%s", err.Error())

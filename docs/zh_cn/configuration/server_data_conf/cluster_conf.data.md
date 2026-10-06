@@ -325,6 +325,7 @@
         "StripPrefix": false,
         "ModelProtocols": ["openai"],
         "ProtocolPaths": {},
+        "NormalizeUpstreamError": { /* AIConf.NormalizeUpstreamError 元素 */ },
         "Keys": [ /* AIConf.Keys 元素 */ ],
         "KeyPolicy": { /* AIConf.KeyPolicy 元素 */ },
         "ModelMapping": {},
@@ -344,6 +345,7 @@
 | StripPrefix | boolean | N | 是否裁剪 `MatchPrefix` 指定前缀；默认 `false` | - |
 | ModelProtocols | []string | N | 该集群 provider 支持的模型访问协议列表；为空时默认仅支持 `openai` | 元素取值须为 `openai`、`anthropic` 或 `gemini` |
 | ProtocolPaths | map[string]string | N | 按协议改写上游路径：协议 -> 上游 base path（该协议 SDK base_url 的 path 部分），详见下文说明 | 键取值须为 `openai` 或 `anthropic`；值须以 `/` 开头、不以 `/` 结尾、不含 `..`/`?`/`#`、长度 ≤ 128 |
+| NormalizeUpstreamError | object | N | 上游错误体归一（统一错误码）配置；未配置本字段或 `Enabled=false` 时，上游错误（HTTP 状态码与响应体）原样透传，与历史版本行为一致 | 元素见 [9.4 AIConf.NormalizeUpstreamError 元素](#94-aiconfnormalizeupstreamerror-元素) |
 | ModelTable | object | N | 该集群的模型定价表；当前货币固定为 `RMB` | 元素见 [9.3 AIConf.ModelTable 元素](#93-aiconfmodeltable-元素) |
 
 `ProtocolPaths` 的语义与改写规则：
@@ -489,6 +491,35 @@
 | Limits | map[string]integer | N | 限制对象，例如 `context_window` 等 | - |
 | Prices | map[string]number | N | 默认价格对象；未命中任何 tier 时使用 | - |
 | TierPrices | map[string]map[string]number | N | 分时段价格对象；tier name -> 价格表。**初期 tier name 只支持 `peak`**；tier 内未配置的键 fallback 到 `Prices` | 内部键名须为 `prices` 枚举键名 |
+
+### 9.4 AIConf.NormalizeUpstreamError 元素
+
+`NormalizeUpstreamError` 用于将上游大模型服务返回的错误归一为网关统一错误码与 OpenAI 兼容错误体（错误码总表见 `docs/zh_cn/sys_design/ai_error_codes.md`，实现方案见 `docs/zh_cn/modifications/2026-10-06-upstream-error-normalization/design-changes.md`）。通常由 `ai-gateway-api` 自动生成并下发。
+
+```json
+{
+    "Enabled": true,
+    "StreamEnabled": true,
+    "UnrecognizedAction": "passthrough",
+    "MaxBodyBytes": 65536,
+    "RedactSecrets": true
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 | 合法性条件 |
+|------|------|------|------|------------|
+| Enabled | boolean | N | 非流式上游错误归一开关；`true` 时上游 4xx/5xx 错误响应重写为统一错误体，状态码按统一映射表重映射；默认 `false` | - |
+| StreamEnabled | boolean | N | 流式（SSE）错误归一开关，独立于 `Enabled` 灰度；`true` 时流内错误事件的 data 载荷改写为统一错误 JSON（响应状态码保持 200 不变），并对流截断（EOF 时缺失协议终止事件）打访问日志标记；默认 `false` | - |
+| UnrecognizedAction | string | N | 未识别错误体的处理方式：`passthrough`（默认，原样透传；`RedactSecrets=true` 时仍先脱敏）或 `rewrite_generic`（重写为 `UPSTREAM_UNKNOWN` 通用错误）；流式未识别事件始终透传 | 仅支持 `passthrough`、`rewrite_generic` |
+| MaxBodyBytes | integer | N | 错误响应体读取上限（字节），超限按未识别处理；默认 `65536` | > 0；≤ 4194304（4MB） |
+| RedactSecrets | boolean | N | 凭证脱敏开关：外发错误内容（客户端响应与访问日志，含归一重写与透传两条路径）中出现的本集群 API-Key 各编码形态（原文/base64/URL 编码/JSON 转义）替换为掩码 `••••••••`；默认 `true` | - |
+
+行为注意事项：
+
+- 归一仅在转发重试（fallback）结束、最终结果确定后生效，不影响重试与 Key 罚分决策；
+- 上游 401/402/403 归一为 502 `UPSTREAM_AUTH_ERROR`，与客户端自身凭证错误的 401 区分；上游 5xx 归一为 500/504 等（完整映射见错误码总表）；
+- 网关自生成错误（认证、限流、配额等）已是统一格式，不参与归一；
+- 未配置本字段（或两开关均为 `false`）时链路零改动，存量配置无需变更即兼容。
 
 ---
 
@@ -680,6 +711,13 @@
                 },
                 "ModelMapping": {
                     "gpt-4": "backend-gpt-4-model"
+                },
+                "NormalizeUpstreamError": {
+                    "Enabled": true,
+                    "StreamEnabled": true,
+                    "UnrecognizedAction": "passthrough",
+                    "MaxBodyBytes": 65536,
+                    "RedactSecrets": true
                 },
                 "ModelTable": {
                     "Currency": "RMB",

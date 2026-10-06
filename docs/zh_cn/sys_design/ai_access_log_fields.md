@@ -19,7 +19,7 @@ BFE 作为 AI 网关，需要把请求在认证、路由、转发、计费等各
 
 ## 2. 字段总览
 
-AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前已定义 37 个字段：
+AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前已定义 47 个字段：
 
 | 编号 | 字段名 | 类型 | 说明 | 采集模块 |
 |------|--------|------|------|----------|
@@ -63,6 +63,12 @@ AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前
 | 807 | `ai_intent_latency_us` | `int64` | 分类耗时（微秒），仅 >0 时写 | 同上 |
 | 808 | `ai_intent_cache_hit` | `bool` | 意图命中进程内缓存，仅 cache 源写 true | 同上 |
 | 809 | `ai_intent_questions_version` | `string` | 意图问题配置 Version（配置回滚追溯） | 同上 |
+| 810 | `ai_upstream_status` | `int32` | 上游原始 HTTP 状态码（上游错误体归一生效时存在，见 `ai_error_codes.md` §2.5） | `bfe_server/reverseproxy.go` 归一拦截点 |
+| 811 | `ai_upstream_err_code` | `string` | 上游原始错误码（OpenAI `error.code` / Anthropic `error.type` / Gemini `error.status`，脱敏后内容） | 同上 |
+| 812 | `ai_err_normalized` | `bool` | 上游归一是否生效：`true` 重写 / `false` 透传（含未识别、开关关闭） | 同上 |
+| 813 | `ai_err_normalize_miss` | `bool` | 归一未识别标记（parser 返回 nil 的样本，用于补映射表） | 同上 |
+| 814 | `ai_stream_error_rewritten` | `bool` | 本流至少一个 SSE 错误事件被归一改写（`StreamEnabled` 时） | 同上 |
+| 815 | `ai_stream_truncated` | `bool` | 流截断：EOF 时缺失协议终止事件（`StreamEnabled` 时；Gemini 流以 EOF 正常结束，恒不标记） | 同上 |
 | 841 | `ai_auth_hit_quota_plans` | `repeated string` | 正常请求时命中的 Quota Plan ID 列表 | `mod_ai_token_auth` |
 
 ### 2.1 编号区间规划

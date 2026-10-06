@@ -27,3 +27,30 @@ type ProtocolError = utils.ProtocolError
 // The canonical definition lives in the utils sub-package; it is
 // re-exported here so callers only need to import bfe_model_protocol.
 type ErrorNormalizer = utils.ErrorNormalizer
+
+// ErrorParser parses a non-streaming upstream error envelope into a
+// ProtocolError (client-facing normalization path).
+type ErrorParser = utils.ErrorParser
+
+// StreamErrorParser inspects a single SSE event for error semantics.
+type StreamErrorParser = utils.StreamErrorParser
+
+// StreamEndsAtEOFReporter is the optional adapter capability marking
+// protocols whose streams end at HTTP EOF (no truncation reporting).
+type StreamEndsAtEOFReporter = utils.StreamEndsAtEOFReporter
+
+// Normalized upstream error catalog codes (single source in utils).
+const (
+	CodeUpstreamInvalidRequest = utils.CodeUpstreamInvalidRequest
+	CodeUpstreamRateLimited    = utils.CodeUpstreamRateLimited
+	CodeUpstreamQuotaExhausted = utils.CodeUpstreamQuotaExhausted
+	CodeUpstreamAuthError      = utils.CodeUpstreamAuthError
+	CodeUpstreamModelNotFound  = utils.CodeUpstreamModelNotFound
+	CodeUpstreamOverloaded     = utils.CodeUpstreamOverloaded
+	CodeUpstreamUnknown        = utils.CodeUpstreamUnknown
+
+	CodeContextLengthExceeded = utils.CodeContextLengthExceeded
+	CodeContentFiltered       = utils.CodeContentFiltered
+	CodeModelInternalError    = utils.CodeModelInternalError
+	CodeBackendTimeout        = utils.CodeBackendTimeout
+)

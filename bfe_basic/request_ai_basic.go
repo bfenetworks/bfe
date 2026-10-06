@@ -127,6 +127,20 @@ type AiBasicInfo struct {
 	MirrorHit     bool   // true when the request was selected for mirroring
 	MirrorCluster string // mirror target cluster name, empty if not mirrored
 
+	// Upstream error normalization (AIConf.NormalizeUpstreamError) result;
+	// all fields stay at zero values when normalization is disabled or the
+	// response is not an upstream error
+	UpstreamStatus       int32  // original upstream HTTP status, 0 = not recorded
+	UpstreamErrCode      string // original upstream error code (redacted)
+	ErrNormalized        bool   // true when the upstream error was rewritten into the unified error body
+	ErrNormalizeMiss     bool   // true when the parser did not recognize the upstream error body
+	StreamErrorRewritten bool   // true when at least one SSE error event of the stream was rewritten
+	StreamTruncated      bool   // true when the stream ended without the protocol's terminal event
+	// UpstreamKey holds the last injected upstream credential; it is the
+	// pattern source for error-body credential redaction and must never be
+	// written to logs or responses.
+	UpstreamKey string
+
 	allowEstimateToken bool
 
 	// responseCompleted marks whether the upstream response finished
@@ -325,6 +339,17 @@ const (
 
 	CodeProviderProtocolMismatch = "PROVIDER_PROTOCOL_MISMATCH"
 
+	// Upstream error normalization catalog (AIConf.NormalizeUpstreamError).
+	// Values are single-sourced in bfe_model_protocol/utils and shared with
+	// the protocol adapters' mapping tables.
+	CodeUpstreamInvalidRequest = bfe_model_protocol.CodeUpstreamInvalidRequest
+	CodeUpstreamRateLimited    = bfe_model_protocol.CodeUpstreamRateLimited
+	CodeUpstreamQuotaExhausted = bfe_model_protocol.CodeUpstreamQuotaExhausted
+	CodeUpstreamAuthError      = bfe_model_protocol.CodeUpstreamAuthError
+	CodeUpstreamModelNotFound  = bfe_model_protocol.CodeUpstreamModelNotFound
+	CodeUpstreamOverloaded     = bfe_model_protocol.CodeUpstreamOverloaded
+	CodeUpstreamUnknown        = bfe_model_protocol.CodeUpstreamUnknown
+
 	CodeConfigLoadError    = "CONFIG_LOAD_ERROR"
 	CodeBackendUnavailable = "BACKEND_UNAVAILABLE"
 	CodeInvalidRequestBody = "INVALID_REQUEST_BODY"
@@ -385,6 +410,73 @@ var ErrorCodeToStatusCode = map[string]int{
 	CodeTimeWindowRestricted:   403,
 
 	CodeProviderProtocolMismatch: 400,
+
+	CodeUpstreamInvalidRequest: 400,
+	CodeUpstreamRateLimited:    429,
+	CodeUpstreamQuotaExhausted: 429,
+	CodeUpstreamAuthError:      502,
+	CodeUpstreamModelNotFound:  404,
+	CodeUpstreamOverloaded:     503,
+	CodeUpstreamUnknown:        502,
+}
+
+// ErrorCodeToErrorType maps every catalog code to its error.type.
+var ErrorCodeToErrorType = map[string]string{
+	CodeInvalidRequest:   TypeInvalidRequestError,
+	CodeNoApiKey:         TypeAuthenticationError,
+	CodeInvalidApiKey:    TypeAuthenticationError,
+	CodeKeyDisabled:      TypeAuthenticationError,
+	CodeKeyExpired:       TypeAuthenticationError,
+	CodeSubnetNotAllowed: TypeAuthenticationError,
+	CodeModelNotAllowed:  TypeInvalidRequestError,
+
+	CodeRpmLimitExceeded:         TypeRateLimitError,
+	CodeTpmLimitExceeded:         TypeRateLimitError,
+	CodeConcurrencyLimitExceeded: TypeRateLimitError,
+	CodeRateLimitRedisError:      TypeRateLimitError,
+
+	CodeQuotaExhausted:       TypeQuotaError,
+	CodeQuotaExpired:         TypeQuotaError,
+	CodeQuotaPackageDisabled: TypeQuotaError,
+	CodeQuotaModelMismatch:   TypeQuotaError,
+	CodeQuotaPlanFailed:      TypeQuotaError,
+	CodeInternalQuotaError:   TypeInternalError,
+
+	CodeContextLengthExceeded: TypeInvalidRequestError,
+	CodeContentFiltered:       TypeInvalidRequestError,
+	CodeModelInternalError:    TypeInternalError,
+	CodeBackendTimeout:        TypeInternalError,
+
+	CodeConfigLoadError:    TypeInternalError,
+	CodeBackendUnavailable: TypeInternalError,
+	CodeInvalidRequestBody: TypeInvalidRequestError,
+	CodeModelParamMissing:  TypeInvalidRequestError,
+
+	CodeUserQuotaExhausted:     TypeQuotaError,
+	CodeSessionQuotaExhausted:  TypeQuotaError,
+	CodeFunctionQuotaExhausted: TypeQuotaError,
+	CodeCostBudgetExhausted:    TypeQuotaError,
+	CodeGeoRestricted:          TypeAuthenticationError,
+	CodeTimeWindowRestricted:   TypeAuthenticationError,
+
+	CodeProviderProtocolMismatch: TypeInvalidRequestError,
+
+	CodeUpstreamInvalidRequest: TypeInvalidRequestError,
+	CodeUpstreamRateLimited:    TypeRateLimitError,
+	CodeUpstreamQuotaExhausted: TypeQuotaError,
+	CodeUpstreamAuthError:      TypeInternalError,
+	CodeUpstreamModelNotFound:  TypeInvalidRequestError,
+	CodeUpstreamOverloaded:     TypeInternalError,
+	CodeUpstreamUnknown:        TypeInternalError,
+}
+
+// ErrorTypeForCode returns the error.type for a catalog code, defaulting
+// to internal_error for unknown codes.
+func ErrorTypeForCode(code string) string {
+	if t, ok := ErrorCodeToErrorType[code]; ok {
+		return t
+	}
+	return TypeInternalError
 }
 
 const (
@@ -402,7 +494,18 @@ type AiErrorDetail struct {
 	LimitType         string `json:"limit_type"`
 	Model             string `json:"model"`
 	RetryAfterSeconds int    `json:"retry_after_seconds"`
+	// UpstreamStatus/UpstreamCode are set by upstream error normalization
+	// (AIConf.NormalizeUpstreamError): the vendor's original HTTP status
+	// and error code, for cross-checking vendor documentation.
+	UpstreamStatus *int   `json:"upstream_status,omitempty"`
+	UpstreamCode   string `json:"upstream_code,omitempty"`
 }
+
+// HeaderBfeGwError marks gateway-generated error responses. Upstream
+// error normalization skips responses carrying this marker (they are
+// already in the unified AiError format).
+const HeaderBfeGwError = "X-Bfe-Gw-Error"
+
 type AiError struct {
 	Code    string         `json:"code"`
 	Type    string         `json:"type"`
@@ -457,6 +560,7 @@ func (aiError *AiError) CreateErrorResponse(request *Request) *bfe_http.Response
 	res.Header = make(bfe_http.Header)
 	res.Header.Set("Server", "bfe")
 	res.Header.Set("Content-Type", "application/json")
+	res.Header.Set(HeaderBfeGwError, "1")
 	res.Body = ioutil.NopCloser(strings.NewReader(aiError.GenRespBodyStr()))
 	request.HttpResponse = res
 	return res
