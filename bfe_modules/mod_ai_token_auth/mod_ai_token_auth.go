@@ -43,6 +43,11 @@ const (
 
 var (
 	openDebug = false
+
+	// defaultTokenAuthModule backs the exported batch quota primitives
+	// (BatchPreCheck/BatchReserve/BatchRelease) used by mod_ai_batch. The
+	// module is a singleton in practice: bfe_modules.go constructs it once.
+	defaultTokenAuthModule *ModuleAITokenAuth
 )
 
 type ModuleAITokenAuthState struct {
@@ -76,6 +81,7 @@ func NewModuleAITokenAuth() *ModuleAITokenAuth {
 	m.name = ModAITokenAuth
 	m.metrics.Init(&m.state, ModAITokenAuth, 0)
 	m.ruleTable = NewTokenRuleTable()
+	defaultTokenAuthModule = m
 	return m
 }
 
@@ -256,6 +262,13 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 
 	ctx := GetTokenAuthContext(req) // ensure token auth context is set
 	if ctx == nil {
+		return bfe_module.BfeHandlerGoOn
+	}
+
+	// Batch quota contract (mod_ai_batch): a download settlement or a
+	// terminal release published in AiBasicInfo. Executed exactly once and
+	// never falls through to the standard usage pricing below.
+	if m.batchContractHandler(req, ctx) {
 		return bfe_module.BfeHandlerGoOn
 	}
 

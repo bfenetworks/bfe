@@ -47,6 +47,26 @@ const (
 	ModeSearch             = "search"
 	ModeRealtime           = "realtime"
 	ModeResponses          = "responses"
+	ModeFile               = "file"
+	ModeBatch              = "batch"
+)
+
+// Batch operation types (mod_ai_batch), classified from (method, path).
+const (
+	BatchOpUpload   = "upload"
+	BatchOpCreate   = "create"
+	BatchOpGet      = "get"
+	BatchOpList     = "list"
+	BatchOpCancel   = "cancel"
+	BatchOpDownload = "download"
+)
+
+// Batch quota settlement markers written by mod_ai_batch into AiBasicInfo;
+// consumed by mod_ai_token_auth at HandleRequestFinish.
+const (
+	BatchSettleNone    = "none"
+	BatchSettleSettle  = "settle"  // settled by result-file usage at download
+	BatchSettleRelease = "release" // reserve released without settlement
 )
 
 // AI protocol/auth styles.
@@ -140,6 +160,30 @@ type AiBasicInfo struct {
 	// pattern source for error-body credential redaction and must never be
 	// written to logs or responses.
 	UpstreamKey string
+
+	// Batch task (mod_ai_batch) context: filled on files/batches operations.
+	// BatchSettle carries the quota settlement contract consumed by
+	// mod_ai_token_auth: "settle" (price the parsed usage at batch price and
+	// release the reserve), "release" (release the reserve only) or "none".
+	BatchId       string // batch_xxx, empty for non-batch traffic
+	BatchFileId   string // file-xxx, empty when unknown
+	BatchOp       string // BatchOp*: upload/create/get/list/cancel/download
+	BatchLines    int64  // jsonl line count (upload counting / output parsing)
+	BatchBytes    int64  // file bytes (upload counting / provider response)
+	BatchStatus   string // provider status snapshot: validating/.../cancelling
+	BatchSettle   string // BatchSettle*: none/settle/release
+	BatchSettleId string // idempotency key for settle/release (batch_id)
+
+	// Batch effective file limits, computed by mod_ai_rate_limit as
+	// min(bound policies' batch_limits, mod_ai_batch.data global hard
+	// ceiling); consumed by mod_ai_batch pre-forward checks. 0 = unlimited.
+	BatchEffMaxFileBytes int64
+	BatchEffMaxFileLines int64
+
+	// BatchUsageByModel carries per-model usage aggregated from a batch
+	// result file, keyed by target model; consumed by mod_ai_token_auth to
+	// price the settlement at mode=batch rates per model group.
+	BatchUsageByModel map[string]TokenUsage
 
 	allowEstimateToken bool
 
@@ -337,6 +381,12 @@ const (
 	CodeModelInternalError    = "MODEL_INTERNAL_ERROR"
 	CodeBackendTimeout        = "BACKEND_TIMEOUT"
 
+	// Batch (mod_ai_batch) limits: file size/line hard ceilings, resolved
+	// from min(bound policies' batch_limits, mod_ai_batch.data global caps)
+	CodeBatchFileTooLarge = "BATCH_FILE_TOO_LARGE"
+	// Batch file ownership check failed (file_id bound to another apikey)
+	CodeBatchFileForbidden = "BATCH_FILE_FORBIDDEN"
+
 	CodeProviderProtocolMismatch = "PROVIDER_PROTOCOL_MISMATCH"
 
 	// Upstream error normalization catalog (AIConf.NormalizeUpstreamError).
@@ -397,6 +447,9 @@ var ErrorCodeToStatusCode = map[string]int{
 	CodeModelInternalError:    500,
 	CodeBackendTimeout:        504,
 
+	CodeBatchFileTooLarge:  413,
+	CodeBatchFileForbidden: 404,
+
 	CodeConfigLoadError:    500,
 	CodeBackendUnavailable: 502,
 	CodeInvalidRequestBody: 400,
@@ -447,6 +500,9 @@ var ErrorCodeToErrorType = map[string]string{
 	CodeModelInternalError:    TypeInternalError,
 	CodeBackendTimeout:        TypeInternalError,
 
+	CodeBatchFileTooLarge:  TypeRateLimitError,
+	CodeBatchFileForbidden: TypeAuthenticationError,
+
 	CodeConfigLoadError:    TypeInternalError,
 	CodeBackendUnavailable: TypeInternalError,
 	CodeInvalidRequestBody: TypeInvalidRequestError,
@@ -485,6 +541,8 @@ const (
 	LimitTypeTpm         = "tpm"
 	LimitTypeConcurrency = "concurrency"
 	LimitTypeErrRedis    = "redis_access_error"
+	// Batch limits (mod_ai_batch): file bytes/line ceilings
+	LimitTypeBatchFile = "batch_file"
 )
 
 type AiErrorDetail struct {

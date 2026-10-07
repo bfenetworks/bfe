@@ -51,10 +51,22 @@ type RateLimitPolicy struct {
 	Name    string `json:"name"`
 	Enabled bool   `json:"enabled"`
 	Rules   struct {
-		TPM            []RateLimitRule `json:"tpm,omitempty"`
-		RPM            []RateLimitRule `json:"rpm,omitempty"`
-		MaxConcurrency *int64          `json:"max_concurrency,omitempty"`
+		TPM            []RateLimitRule       `json:"tpm,omitempty"`
+		RPM            []RateLimitRule       `json:"rpm,omitempty"`
+		MaxConcurrency *int64                `json:"max_concurrency,omitempty"`
+		Batch          *RateLimitBatchLimits `json:"batch,omitempty"`
 	} `json:"rules"`
+}
+
+// RateLimitBatchLimits is the JSON representation of the batch limit
+// section (mod_ai_batch); nil omits the section (policy does not restrict
+// batch traffic).
+type RateLimitBatchLimits struct {
+	MaxCreateRPM     int64  `json:"max_create_rpm,omitempty"`
+	MaxActiveBatches int64  `json:"max_active_batches,omitempty"`
+	MaxFileBytes     int64  `json:"max_file_bytes,omitempty"`
+	MaxFileLines     int64  `json:"max_file_lines,omitempty"`
+	RedisKey         string `json:"redis_key,omitempty"`
 }
 
 // RateLimitProductRule is the JSON representation of a product rule in ai_rate_limit.data.
@@ -399,6 +411,14 @@ func (b *BFEConfigBuilder) setupRedisBns() error {
 	}
 	if err := b.rewriteModBns("mod_ai_cache"); err != nil {
 		return fmt.Errorf("rewrite mod_ai_cache bns failed: %w", err)
+	}
+	// mod_ai_batch keeps its BATCH_* state in the same Redis as the quota
+	// keys; rewrite it when present (scenarios that do not ship the conf
+	// skip it silently)
+	if _, err := os.Stat(filepath.Join(b.TargetConfDir, "mod_ai_batch", "mod_ai_batch.conf")); err == nil {
+		if err := b.rewriteModBns("mod_ai_batch"); err != nil {
+			return fmt.Errorf("rewrite mod_ai_batch bns failed: %w", err)
+		}
 	}
 
 	// generate name_conf.data mapping bns name to redis addr

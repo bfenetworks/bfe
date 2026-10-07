@@ -116,6 +116,23 @@ func TestDetectModeFromPath(t *testing.T) {
 		{"/audio/transcriptions", ModeAudioTranscription},
 		{"/v1/video/generations", ModeVideoGeneration},
 		{"/video/generations", ModeVideoGeneration},
+		// batch endpoints (files/batches); sub-path prefix matching covers
+		// /files/{id}, /files/{id}/content, /batches/{id}, /batches/{id}/cancel
+		{"/v1/files", ModeFile},
+		{"/files", ModeFile},
+		{"/v1/files/file-abc123", ModeFile},
+		{"/files/file-abc123", ModeFile},
+		{"/v1/files/file-abc123/content", ModeFile},
+		{"/files/file-abc123/content", ModeFile},
+		{"/v1/batches", ModeBatch},
+		{"/batches", ModeBatch},
+		{"/v1/batches/batch-abc123", ModeBatch},
+		{"/batches/batch-abc123", ModeBatch},
+		{"/v1/batches/batch-abc123/cancel", ModeBatch},
+		{"/batches/batch-abc123/cancel", ModeBatch},
+		{"/compatible-mode/v1/files", ModeFile},
+		{"/compatible-mode/v1/batches", ModeBatch},
+		{"/compatible-mode/v1/batches/batch-abc123/cancel", ModeBatch},
 		// endpoints without a dedicated mode keep the default
 		{"/v1/models", ModeChat},
 		{"/models", ModeChat},

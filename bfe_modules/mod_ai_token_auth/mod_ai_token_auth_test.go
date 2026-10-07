@@ -1781,6 +1781,10 @@ func (m *mockRedisClient) Delete(key string) error {
 	return nil
 }
 
+func (m *mockRedisClient) HGetAll(key string) (map[string]string, error) {
+	return nil, nil
+}
+
 func (m *mockRedisClient) NewScript(src string) redis_client.RedisScript {
 	return &mockRedisScript{client: m, src: src}
 }

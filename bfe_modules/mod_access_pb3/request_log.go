@@ -600,6 +600,29 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		reqLog.AiStreamTruncated = proto.Bool(true)
 	}
 
+	// Batch task (mod_ai_batch) context: files/batches operations only
+	if aiInfo.BatchId != "" {
+		reqLog.AiBatchId = proto.String(aiInfo.BatchId)
+	}
+	if aiInfo.BatchFileId != "" {
+		reqLog.AiFileId = proto.String(aiInfo.BatchFileId)
+	}
+	if aiInfo.BatchOp != "" {
+		reqLog.AiBatchOp = proto.String(aiInfo.BatchOp)
+	}
+	if aiInfo.BatchLines > 0 {
+		reqLog.AiFileLines = proto.Int64(aiInfo.BatchLines)
+	}
+	if aiInfo.BatchBytes > 0 {
+		reqLog.AiFileBytes = proto.Int64(aiInfo.BatchBytes)
+	}
+	if aiInfo.BatchStatus != "" {
+		reqLog.AiBatchStatus = proto.String(aiInfo.BatchStatus)
+	}
+	if aiInfo.BatchSettle != "" && aiInfo.BatchSettle != bfe_basic.BatchSettleNone {
+		reqLog.AiBatchSettle = proto.String(aiInfo.BatchSettle)
+	}
+
 	// Rate limit hit info
 	hitInfo := req.GetAiRateLimitHitInfo()
 	if hitInfo != nil && len(hitInfo.HitPolicyDict) > 0 {

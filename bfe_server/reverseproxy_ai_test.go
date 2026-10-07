@@ -468,6 +468,10 @@ func (m *mockRedisClient) Delete(key string) error {
 	return nil
 }
 
+func (m *mockRedisClient) HGetAll(key string) (map[string]string, error) {
+	return nil, nil
+}
+
 func (m *mockRedisClient) NewScript(src string) redis_client.RedisScript {
 	panic("not implemented")
 }
@@ -502,7 +506,7 @@ func TestChooseAIKeyWithAffinity_SingleKey(t *testing.T) {
 	state := newAIKeyAttemptState()
 	client := newMockRedisClient()
 
-	idx, key, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", nil)
+	idx, key, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", nil, nil)
 	if !ok {
 		t.Fatal("expected to select key")
 	}
@@ -538,7 +542,7 @@ func TestChooseAIKeyWithAffinity_Hit(t *testing.T) {
 		ReqAiKeyAffinityHit: new(metrics.Counter),
 	}
 
-	_, key, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState)
+	_, key, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState, nil)
 	if !ok {
 		t.Fatal("expected to select key")
 	}
@@ -572,7 +576,7 @@ func TestChooseAIKeyWithAffinity_Miss(t *testing.T) {
 		ReqAiKeyAffinityMiss: new(metrics.Counter),
 	}
 
-	idx, _, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState)
+	idx, _, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState, nil)
 	if !ok {
 		t.Fatal("expected to select key")
 	}
@@ -611,7 +615,7 @@ func TestChooseAIKeyWithAffinity_RedisErrFallback(t *testing.T) {
 		ReqAiKeyAffinityRedisErr: new(metrics.Counter),
 	}
 
-	idx, _, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState)
+	idx, _, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState, nil)
 	if !ok {
 		t.Fatal("expected fallback to random")
 	}
@@ -644,7 +648,7 @@ func TestChooseAIKeyWithAffinity_PenaltySkip(t *testing.T) {
 	}
 
 	// force deterministic selection: only key-b is eligible
-	_, key, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState)
+	_, key, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState, nil)
 	if !ok {
 		t.Fatal("expected to select key")
 	}
@@ -671,7 +675,7 @@ func TestChooseAIKeyWithAffinity_Disabled(t *testing.T) {
 	state := newAIKeyAttemptState()
 	client := newMockRedisClient()
 
-	idx, _, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", nil)
+	idx, _, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", nil, nil)
 	if !ok {
 		t.Fatal("expected to select key")
 	}
