@@ -171,6 +171,10 @@ func (m *ModuleAiRateLimit) executeCheckLimitPolicy(req *bfe_basic.Request, meta
 		if openDebug {
 			log.Logger.Debug("mod_ai_rate_limit: no policies bound to apiKey[%s], pass", apiKey)
 		}
+		// The mod_ai_batch.data global hard ceilings must apply even when no
+		// rate limit policy is bound: resolveBatchFileLimits merges them into
+		// AiBasicInfo for the batch pre-forward checks (0 bound policies).
+		resolveBatchFileLimits(meta, nil, m.productTable.getPolicy)
 		return bfe_module.BfeHandlerGoOn, nil
 	}
 

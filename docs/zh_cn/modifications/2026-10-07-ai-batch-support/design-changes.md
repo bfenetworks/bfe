@@ -75,6 +75,7 @@
 8. **batch-only 策略合法性**：`ratePoliciesCheck` 的 hasRule 计入 batch 段（纯批量策略此前被拒绝加载，SC28 TC-04 暴露）。
 9. **create 的粘性 hint 从请求体推导**：create 路径不带 file id，而 key 选择早于模块回调——reverseproxy 在 `aiClusterInvoke` 入口对 create 操作解析（已缓冲的）body 中的 `input_file_id` 补入 hint（`bfe_basic.ExtractBatchInputFileId`），上传→创建链路因此确定性地粘在同一 key（SC28 TC-03 抖动/TC-13 暴露）。
 10. **404 惩罚依赖 `SessionAffinityPenaltyEnable`**：显式 KeyPolicy 会整体覆盖默认值（该 flag 零值 false），批量 failover 测试需显式开启；未开启时摘除后无惩罚过滤，下一请求可能再次命中坏 key。
+11. **无绑定策略时全局硬顶必须仍生效**：`resolveBatchFileLimits` 原先只在"apikey 至少绑定一个策略"的路径末尾执行——未绑定任何限流策略的 apikey 提前返回，全局 `mod_ai_batch.data` 硬顶被绕过（1.5MB 上传在 MaxFileBytes=1MB 下仍 200，integration-test SC42 TC-06 暴露）。修法：`executeCheckLimitPolicy` 在无绑定策略分支同样调用 `resolveBatchFileLimits`（空 policyIds 合并全局硬顶），落实 §9.2"策略均未配 batch 段时仅全局硬顶生效（防误配敞口）"的设计语义。
 
 1. **不用 HandleForward**：该回调无法返回响应（`FilterForward` 只返回 action，`reverseproxy.go:380-389`），413/404 类前置拒绝必须放在 `HandleAfterAITargetModel`（可返回响应）。模块只注册三个回调：`HandleAfterAITargetModel`（分类 + 前置检查 + 计数安装）、`HandleReadResponse`（响应包装）、`HandleRequestFinish`（簿记）。
 2. **计数 Reader 包装 `OutRequest.Body` 而非 `HttpRequest.Body`**：`HandleAfterAITargetModel` 触发时 `doSingleAIForward` 已完成 `*outreq = *req` 浅拷贝（`reverseproxy.go:1559-1560`），transport 读的是 `basicReq.OutRequest`（`:317`）；包装原请求体对转发无效。
