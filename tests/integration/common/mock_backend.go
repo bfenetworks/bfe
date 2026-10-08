@@ -67,6 +67,12 @@ type MockBackend struct {
 	// each entry is written as one "data: <event>\n\n" frame followed by a
 	// flush. ResponseFunc/Response/Body are ignored in this mode.
 	SSEEvents []string
+	// SSERaw, if non-nil, switches the handler to raw server-sent event
+	// mode: each entry is written verbatim (e.g.
+	// "event: error\ndata: {\"type\":\"error\"}\n\n") followed by a flush.
+	// It takes precedence over SSEEvents and exists for protocols whose
+	// frames carry non-data lines (e.g. Anthropic "event: error").
+	SSERaw []string
 	// SSEHold, if non-nil, blocks the handler after SSEEvents have been
 	// flushed and before SSETrailing is written. Closing it releases the stream.
 	SSEHold <-chan struct{}
@@ -147,6 +153,19 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 		status, body := b.Response, b.Body
 		if b.ResponseFunc != nil {
 			status, body = b.ResponseFunc(r, count)
+		}
+
+		if b.SSERaw != nil {
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.WriteHeader(status)
+			flusher, _ := w.(http.Flusher)
+			for _, chunk := range b.SSERaw {
+				fmt.Fprint(w, chunk)
+				if flusher != nil {
+					flusher.Flush()
+				}
+			}
+			return
 		}
 
 		if b.SSEEvents != nil {

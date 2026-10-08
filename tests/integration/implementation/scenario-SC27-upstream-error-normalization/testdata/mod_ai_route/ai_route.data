@@ -1,0 +1,76 @@
+{
+    "Version": "2026100601",
+    "route_rules": {
+        "apikey_ak_front": {
+            "type": "apikey",
+            "owner": "ak_front",
+            "rules": [
+                {
+                    "name": "to-err",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_err",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        },
+        "apikey_ak_fb": {
+            "type": "apikey",
+            "owner": "ak_fb",
+            "rules": [
+                {
+                    "name": "to-err-fb",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_err",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": [
+                        {
+                            "ClusterName": "cluster_fb",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ]
+                }
+            ]
+        },
+        "apikey_ak_deny": {
+            "type": "apikey",
+            "owner": "ak_deny",
+            "rules": [
+                {
+                    "name": "to-err-deny",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_err",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_front": [
+            "apikey_ak_front"
+        ],
+        "ak_fb": [
+            "apikey_ak_fb"
+        ],
+        "ak_deny": [
+            "apikey_ak_deny"
+        ]
+    }
+}

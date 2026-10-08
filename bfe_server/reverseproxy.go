@@ -1283,7 +1283,12 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 
 	// ensure request body is rewindable before attempting fallbacks
 	if len(attempts) > 1 && basicReq.HttpRequest.Body != nil {
-		if !prepareRequestBodyForRetry(basicReq.HttpRequest) {
+		if isBatchPassthroughMode(aiMeta) {
+			// batch/file traffic streams potentially large file bodies that
+			// must never be buffered for retry: forward exactly once
+			log.Logger.Debug("ServeHTTPForAI: batch/file mode, disable fallback")
+			attempts = attempts[:1]
+		} else if !prepareRequestBodyForRetry(basicReq.HttpRequest) {
 			log.Logger.Warn("ServeHTTPForAI: request body is not rewindable, disable fallback")
 			attempts = attempts[:1]
 		}
@@ -1340,6 +1345,14 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		if res != nil {
 			res.Body.Close()
 		}
+	}
+
+	// Upstream error normalization (AIConf.NormalizeUpstreamError): rewrite
+	// the final upstream error into the unified error catalog. Runs after
+	// the fallback loop settles (never affects retry/fallback decisions)
+	// and before any byte is written or the EPP filter wraps res.Body.
+	if res != nil && aiMeta != nil {
+		normalizeUpstreamError(res, lastCluster, aiMeta, p.proxyState)
 	}
 
 	basicReq.HttpResponse = res
@@ -1622,6 +1635,11 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 		}
 		aiMeta.AppendClusterKeyName(cluster.Name, selectedKey.Name)
 		if selectedKey.Key != "" {
+			// record the injected credential: pattern source for upstream
+			// error redaction; must never be logged
+			aiMeta.UpstreamKey = selectedKey.Key
+		}
+		if selectedKey.Key != "" {
 			if err := adapter.InjectAuth(outreq, selectedKey.Key); err != nil {
 				log.Logger.Warn("doSingleAIForward: inject auth failed: %v", err)
 			}
@@ -1688,6 +1706,13 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 
 	// ensure request body is rewindable when key-level retry is possible
 	keyRetryEnabled := policy.MaxRetries > 0
+	if keyRetryEnabled && isBatchPassthroughMode(aiMeta) {
+		// batch/file traffic streams potentially large file bodies: no key-level retry
+		log.Logger.Debug("aiClusterInvoke: batch/file mode, disable key-level retry for cluster[%s]",
+			attempt.ClusterName)
+		keyRetryEnabled = false
+		policy.MaxRetries = 0
+	}
 	if keyRetryEnabled {
 		if !prepareRequestBodyForRetry(basicReq.HttpRequest) {
 			log.Logger.Warn("aiClusterInvoke: request body is not rewindable, disable key-level retry for cluster[%s]",
@@ -1704,6 +1729,26 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 	// borrowed from any module. Unconfigured (nil) means affinity is disabled.
 	redisClient := srv.AIKeyAffinityRedis
 	sessionID := clientKeySessionID(basicReq)
+	// batch/file operations chain to the upstream key recorded by
+	// mod_ai_batch (batch-level affinity, independent of client affinity).
+	// Key selection happens before the HandleAfterAITargetModel callbacks
+	// (where mod_ai_batch classifies the operation), so derive the hint here
+	// when the module has not run yet.
+	batchHint := basicReq.GetAiBatchRouteHint()
+	if batchHint == nil && isBatchPassthroughMode(aiMeta) {
+		if op := bfe_basic.ClassifyBatchOp(basicReq.HttpRequest.Method, basicReq.HttpRequest.URL.Path); op != "" {
+			batchHint = &bfe_basic.AiBatchRouteHint{
+				BatchId: bfe_basic.BatchPathBatchId(basicReq.HttpRequest.URL.Path),
+				FileId:  bfe_basic.BatchPathFileId(basicReq.HttpRequest.URL.Path),
+			}
+			// the create path carries no file id; the referenced input file
+			// is in the (buffered) request body and chains upload -> create
+			if op == bfe_basic.BatchOpCreate {
+				batchHint.FileId = bfe_basic.ExtractBatchInputFileId(basicReq)
+			}
+			basicReq.SetAiBatchRouteHint(batchHint)
+		}
+	}
 	boundName := ""
 
 	var lastErr error
@@ -1727,7 +1772,7 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 		}
 
 		if !keepKey {
-			idx, key, boundName, ok = chooseAIKeyWithAffinity(cluster.Name, keys, policy, state, redisClient, sessionID, p.proxyState)
+			idx, key, boundName, ok = chooseAIKeyWithAffinity(cluster.Name, keys, policy, state, redisClient, sessionID, p.proxyState, batchHint)
 			if !ok {
 				log.Logger.Warn("aiClusterInvoke: all ai keys exhausted for cluster[%s]", attempt.ClusterName)
 				break
@@ -1795,7 +1840,22 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 			log.Logger.Info("aiClusterInvoke: ai key [name=%s] transient failure [status=%d err=%v], retry same key",
 				key.Name, statusCode, err)
 		default:
-			// other 4xx client errors (e.g. 400, 404): stop key-level retry
+			// batch/file 404: for channel-type providers the resource lives
+			// on another upstream key. Delete the stale batch bindings and
+			// penalize the key briefly so subsequent operations rebind; the
+			// client sees this 404 and may retry (GET is idempotent, cancel
+			// is provider-idempotent).
+			if statusCode == 404 && isBatchPassthroughMode(aiMeta) {
+				if redisClient != nil && batchHint != nil {
+					redisDeleteBatchBindings(cluster.Name, batchHint, redisClient)
+					if policy.SessionAffinityPenaltyEnable {
+						setKeyPenalty(cluster.Name, key.Name, "404-batch", 60, policy, redisClient)
+					}
+				}
+				log.Logger.Info("aiClusterInvoke: batch resource 404 on key [name=%s], batch bindings cleared", key.Name)
+				return res, action, cluster, nil, newBodyModel
+			}
+			// other 4xx client errors (e.g. 400): stop key-level retry
 			return res, action, cluster, nil, newBodyModel
 		}
 	}
@@ -1868,6 +1928,16 @@ func (p *ReverseProxy) resetRequestForRetry(basicReq *bfe_basic.Request) bool {
 	basicReq.ErrCode = nil
 	basicReq.ErrMsg = ""
 	return true
+}
+
+// isBatchPassthroughMode reports whether the request is a files/batches
+// (OpenAI Batch API) operation. Batch traffic streams potentially large
+// file bodies that must never be buffered for retry: the proxy forwards it
+// exactly once, without cluster fallback or key-level retry. Upload counting
+// and download usage parsing are handled by mod_ai_batch on the stream.
+func isBatchPassthroughMode(aiMeta *bfe_basic.AiBasicInfo) bool {
+	return aiMeta != nil &&
+		(aiMeta.Mode == bfe_basic.ModeFile || aiMeta.Mode == bfe_basic.ModeBatch)
 }
 
 // prepareRequestBodyForRetry makes the request body rewindable for fallback.
@@ -2044,6 +2114,70 @@ func clientKeySessionID(basicReq *bfe_basic.Request) string {
 	return hex.EncodeToString(h[:])
 }
 
+// batchAffinityTTLSec is the TTL of batch-level key affinity bindings
+// (bfe_basic.BatchAffinityKey). It covers the 24h provider completion window
+// plus a 24h download grace; bindings refresh sliding on every hit. Fixed
+// value by design: batch bindings are independent of the (configurable)
+// client-session affinity prefix/TTL.
+const batchAffinityTTLSec = 172800
+
+// redisGetBatchBinding resolves the bound upstream key for a batch/file
+// operation from the batch affinity namespace (written by mod_ai_batch).
+// BatchId is preferred over FileId. Returns "" on miss/error (fail-open).
+func redisGetBatchBinding(clusterName string, hint *bfe_basic.AiBatchRouteHint,
+	client redis_client.Client, proxyState *ProxyState) string {
+	if hint == nil || client == nil {
+		return ""
+	}
+	for _, id := range []string{hint.BatchId, hint.FileId} {
+		if id == "" {
+			continue
+		}
+		key := bfe_basic.BatchAffinityKey(clusterName, id)
+		val, err := client.Get(key)
+		if err != nil {
+			log.Logger.Warn("aiKeyAffinity: batch binding get error[%v]", err)
+			if proxyState != nil {
+				proxyState.ReqAiKeyAffinityRedisErr.Inc(1)
+			}
+			continue
+		}
+		if val == nil {
+			continue
+		}
+		b, ok := val.([]byte)
+		if !ok || len(b) == 0 {
+			continue
+		}
+		// sliding renewal on hit
+		if err := client.Expire(key, batchAffinityTTLSec); err != nil {
+			log.Logger.Warn("aiKeyAffinity: batch binding refresh error[%v]", err)
+			if proxyState != nil {
+				proxyState.ReqAiKeyAffinityRedisErr.Inc(1)
+			}
+		}
+		return string(b)
+	}
+	return ""
+}
+
+// redisDeleteBatchBindings removes the batch/file bindings of the current
+// operation; used when the upstream answers 404 (resource lives on another
+// key for channel-type providers).
+func redisDeleteBatchBindings(clusterName string, hint *bfe_basic.AiBatchRouteHint, client redis_client.Client) {
+	if hint == nil || client == nil {
+		return
+	}
+	for _, id := range []string{hint.BatchId, hint.FileId} {
+		if id == "" {
+			continue
+		}
+		if err := client.Delete(bfe_basic.BatchAffinityKey(clusterName, id)); err != nil {
+			log.Logger.Warn("aiKeyAffinity: batch binding delete error[%v]", err)
+		}
+	}
+}
+
 // aiKeyAffinityRedisKey returns the Redis key for session->key binding.
 func aiKeyAffinityRedisKey(clusterName, sessionID, prefix string) string {
 	return fmt.Sprintf("%s:%s:%s", prefix, clusterName, sessionID)
@@ -2147,9 +2281,11 @@ func chooseAIKeyWithAffinity(
 	client redis_client.Client,
 	sessionID string,
 	proxyState *ProxyState,
+	batchHint *bfe_basic.AiBatchRouteHint,
 ) (int, cluster_conf.AIKey, string, bool) {
 
-	if !policy.SessionAffinity || client == nil || sessionID == "" {
+	if client == nil || (sessionID == "" && batchHint == nil) ||
+		(!policy.SessionAffinity && batchHint == nil) {
 		idx, key, ok := chooseNextAIKey(keys, state)
 		return idx, key, "", ok
 	}
@@ -2164,6 +2300,27 @@ func chooseAIKeyWithAffinity(
 	penaltySkipCount := 0
 	if policy.SessionAffinityPenaltyEnable {
 		candidateKeys, penaltySkipCount = filterPenaltyKeys(clusterName, keys, policy, client)
+	}
+
+	// batch-level binding takes precedence: it chains all lifecycle
+	// operations (upload -> create -> poll -> download) to one upstream key
+	if batchHint != nil {
+		if bound := redisGetBatchBinding(clusterName, batchHint, client, proxyState); bound != "" {
+			idx := findKeyIndexByName(bound, keys)
+			if idx >= 0 && isKeyAlive(idx, keys, state) && !isKeyPenalized(clusterName, bound, policy, client) {
+				if proxyState != nil {
+					proxyState.ReqAiKeyAffinityHit.Inc(1)
+				}
+				return idx, keys[idx], bound, true
+			}
+			// stale batch binding (key dead/penalized): fall through to a
+			// fresh selection, the success path will rebind
+		}
+	}
+
+	if !policy.SessionAffinity || sessionID == "" {
+		idx, key, ok := chooseNextAIKey(candidateKeys, state)
+		return idx, key, "", ok
 	}
 
 	boundName, err := redisGetBinding(clusterName, sessionID, policy, client)

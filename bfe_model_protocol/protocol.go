@@ -67,6 +67,18 @@ type ProtocolAdapter interface {
 	// keep their existing status-code whitelist.
 	ErrorNormalizer() ErrorNormalizer
 
+	// ErrorParser returns the client-facing upstream error parser used by
+	// normalization (AIConf.NormalizeUpstreamError). Unlike
+	// ErrorNormalizer (the fault-tolerance seam), this parser serves the
+	// caller-facing rewrite path only and never affects fallback
+	// decisions.
+	ErrorParser() ErrorParser
+
+	// StreamErrorParser returns the per-event SSE error parser: non-nil
+	// result means the event is an error event whose data payload the
+	// caller rewrites with the unified error body.
+	StreamErrorParser() StreamErrorParser
+
 	// IsStreamTerminal reports whether the given event terminates the
 	// response stream (e.g. Anthropic message_stop, OpenAI [DONE]).
 	// Protocols without an SSE termination event (Gemini) always return

@@ -580,6 +580,49 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		}
 	}
 
+	// Upstream error normalization (AIConf.NormalizeUpstreamError) result
+	if aiInfo.UpstreamStatus > 0 {
+		reqLog.AiUpstreamStatus = proto.Int32(aiInfo.UpstreamStatus)
+	}
+	if aiInfo.UpstreamErrCode != "" {
+		reqLog.AiUpstreamErrCode = proto.String(aiInfo.UpstreamErrCode)
+	}
+	if aiInfo.ErrNormalized {
+		reqLog.AiErrNormalized = proto.Bool(true)
+	}
+	if aiInfo.ErrNormalizeMiss {
+		reqLog.AiErrNormalizeMiss = proto.Bool(true)
+	}
+	if aiInfo.StreamErrorRewritten {
+		reqLog.AiStreamErrorRewritten = proto.Bool(true)
+	}
+	if aiInfo.StreamTruncated {
+		reqLog.AiStreamTruncated = proto.Bool(true)
+	}
+
+	// Batch task (mod_ai_batch) context: files/batches operations only
+	if aiInfo.BatchId != "" {
+		reqLog.AiBatchId = proto.String(aiInfo.BatchId)
+	}
+	if aiInfo.BatchFileId != "" {
+		reqLog.AiFileId = proto.String(aiInfo.BatchFileId)
+	}
+	if aiInfo.BatchOp != "" {
+		reqLog.AiBatchOp = proto.String(aiInfo.BatchOp)
+	}
+	if aiInfo.BatchLines > 0 {
+		reqLog.AiFileLines = proto.Int64(aiInfo.BatchLines)
+	}
+	if aiInfo.BatchBytes > 0 {
+		reqLog.AiFileBytes = proto.Int64(aiInfo.BatchBytes)
+	}
+	if aiInfo.BatchStatus != "" {
+		reqLog.AiBatchStatus = proto.String(aiInfo.BatchStatus)
+	}
+	if aiInfo.BatchSettle != "" && aiInfo.BatchSettle != bfe_basic.BatchSettleNone {
+		reqLog.AiBatchSettle = proto.String(aiInfo.BatchSettle)
+	}
+
 	// Rate limit hit info
 	hitInfo := req.GetAiRateLimitHitInfo()
 	if hitInfo != nil && len(hitInfo.HitPolicyDict) > 0 {

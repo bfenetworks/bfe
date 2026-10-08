@@ -16,6 +16,10 @@ package mod_ai_token_auth
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -30,6 +34,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
+	"github.com/bfenetworks/bfe/bfe_util/crypto"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 	"github.com/bfenetworks/go-lib/quota"
 	"github.com/gomodule/redigo/redis"
@@ -181,7 +186,7 @@ func TestConfCheckDefaultProductRulePath(t *testing.T) {
 }
 
 func TestProductRuleConfLoadSuccess(t *testing.T) {
-	conf, err := ProductRuleConfLoad("testdata/mod_ai_token_auth/token_rule.data")
+	conf, err := ProductRuleConfLoad("testdata/mod_ai_token_auth/token_rule.data", nil)
 	if err != nil {
 		t.Fatalf("ProductRuleConfLoad failed: %s", err)
 	}
@@ -204,8 +209,108 @@ func TestProductRuleConfLoadInvalid(t *testing.T) {
 		t.Fatalf("write file failed: %s", err)
 	}
 
-	if _, err := ProductRuleConfLoad(filename); err == nil {
+	if _, err := ProductRuleConfLoad(filename, nil); err == nil {
 		t.Error("expected error for invalid rule conf")
+	}
+}
+
+func TestProductRuleConfLoadEncryptedTokens(t *testing.T) {
+	dir := t.TempDir()
+
+	// keyring file (control plane format)
+	key := make([]byte, 32)
+	for i := range key {
+		key[i] = byte(i + 1)
+	}
+	keyringPath := path.Join(dir, "export.keys")
+	keyringContent := "[Keys]\n1 = \"" + base64.StdEncoding.EncodeToString(key) + "\"\n"
+	if err := ioutil.WriteFile(keyringPath, []byte(keyringContent), 0600); err != nil {
+		t.Fatalf("write keyring failed: %s", err)
+	}
+	kr, err := crypto.LoadKeyringFile(keyringPath)
+	if err != nil {
+		t.Fatalf("LoadKeyringFile: %v", err)
+	}
+
+	// encrypt an api-key value (Tokens outer key) as the control plane does
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		t.Fatalf("aes.NewCipher: %v", err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		t.Fatalf("cipher.NewGCM: %v", err)
+	}
+	nonce := make([]byte, 12)
+	if _, err := rand.Read(nonce); err != nil {
+		t.Fatalf("rand.Read: %v", err)
+	}
+	raw := append([]byte{1}, nonce...)
+	raw = gcm.Seal(raw, nonce, []byte("ak-encrypted"), nil)
+	ciphertext := crypto.Marker + base64.StdEncoding.EncodeToString(raw)
+
+	// rule conf in control-plane export form: encrypted outer key, inner
+	// "key" field omitted (loader fills it back after decryption)
+	content := `{
+    "Version": "1.0",
+    "Config": {"AI_product": [{"cond": "default_t()", "action": {"cmd": "CHECK_TOKEN"}}]},
+    "QuotaPlans": {"AI_product": [{"id": "plan-unlimited", "unlimited": true,
+        "pass_no_quota": false, "redis_key": "", "expired_time": -1, "quota": 0}]},
+    "Tokens": {"AI_product": {"` + ciphertext + `": {"key_id": "ak-enc-id",
+        "enabled": true, "expired_time": -1, "unlimited_quota": true,
+        "allow_models": null, "block_models": null, "subnet": null,
+        "tags": [], "quota_plans": []}}}
+}`
+	filename := path.Join(dir, "token_rule.data")
+	if err := ioutil.WriteFile(filename, []byte(content), 0644); err != nil {
+		t.Fatalf("write file failed: %s", err)
+	}
+
+	// with keyring: plaintext index rebuilt, Token.Key filled back
+	conf, err := ProductRuleConfLoad(filename, kr)
+	if err != nil {
+		t.Fatalf("ProductRuleConfLoad with keyring: %v", err)
+	}
+	tokenMap := conf.Tokens["AI_product"]
+	if tokenMap == nil {
+		t.Fatal("AI_product tokens missing")
+	}
+	tok, ok := (*tokenMap)["ak-encrypted"]
+	if !ok {
+		t.Fatal("plaintext api-key index not rebuilt")
+	}
+	if tok.Key != "ak-encrypted" {
+		t.Errorf("Token.Key = %q, want plaintext filled back", tok.Key)
+	}
+
+	// without keyring: marker key must fail the whole load (no partial table)
+	if _, err := ProductRuleConfLoad(filename, nil); err == nil {
+		t.Error("ProductRuleConfLoad without keyring should fail on ciphertext")
+	}
+
+	// mixed plaintext + ciphertext coexists during canary
+	contentMixed := strings.Replace(content,
+		`"Tokens": {"AI_product": {"`+ciphertext+`":`,
+		`"Tokens": {"AI_product": {"ak-plain": {"key": "ak-plain", "key_id": "ak-plain-id",
+		    "enabled": true, "expired_time": -1, "unlimited_quota": true, "quota_plans": []},
+		    "`+ciphertext+`":`, 1)
+	mixedPath := path.Join(dir, "token_rule_mixed.data")
+	if err := ioutil.WriteFile(mixedPath, []byte(contentMixed), 0644); err != nil {
+		t.Fatalf("write file failed: %s", err)
+	}
+	confMixed, err := ProductRuleConfLoad(mixedPath, kr)
+	if err != nil {
+		t.Fatalf("ProductRuleConfLoad mixed: %v", err)
+	}
+	mixedMap := confMixed.Tokens["AI_product"]
+	if mixedMap == nil {
+		t.Fatal("AI_product tokens missing in mixed load")
+	}
+	if _, ok := (*mixedMap)["ak-plain"]; !ok {
+		t.Error("plaintext token missing in mixed load")
+	}
+	if _, ok := (*mixedMap)["ak-encrypted"]; !ok {
+		t.Error("decrypted token missing in mixed load")
 	}
 }
 
@@ -471,7 +576,7 @@ func TestTokenCheck(t *testing.T) {
 		}
 	}
 
-	if err := tokenCheck(valid()); err != nil {
+	if err := tokenCheck(valid(), true); err != nil {
 		t.Errorf("valid token failed: %s", err)
 	}
 
@@ -538,7 +643,7 @@ func TestTokenCheck(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tf := valid()
 			tc.mutate(tf)
-			err := tokenCheck(tf)
+			err := tokenCheck(tf, true)
 			if err == nil {
 				t.Fatalf("expected error containing %q", tc.errSub)
 			}
@@ -603,7 +708,7 @@ func TestTokenRuleTable(t *testing.T) {
 		t.Fatal("NewTokenRuleTable should not return nil")
 	}
 
-	conf, err := ProductRuleConfLoad("testdata/mod_ai_token_auth/token_rule.data")
+	conf, err := ProductRuleConfLoad("testdata/mod_ai_token_auth/token_rule.data", nil)
 	if err != nil {
 		t.Fatalf("ProductRuleConfLoad failed: %s", err)
 	}
@@ -626,7 +731,7 @@ func TestTokenRuleTable(t *testing.T) {
 
 func TestValidateUserToken(t *testing.T) {
 	table := NewTokenRuleTable()
-	conf, _ := ProductRuleConfLoad("testdata/mod_ai_token_auth/token_rule.data")
+	conf, _ := ProductRuleConfLoad("testdata/mod_ai_token_auth/token_rule.data", nil)
 	table.Update(conf)
 
 	if _, err := table.ValidateUserToken("AI_product", ""); err == nil {
@@ -1592,7 +1697,7 @@ func TestSubnetValidation(t *testing.T) {
 		UnlimitedQuota: true,
 		Subnet:         &s,
 	}
-	if err := tokenCheck(tf); err != nil {
+	if err := tokenCheck(tf, true); err != nil {
 		t.Fatalf("valid subnet failed: %s", err)
 	}
 	if len(tf.subnet) != 2 {
@@ -1674,6 +1779,10 @@ func (m *mockRedisClient) IncrBy(key string, delta int64) (int64, error) {
 func (m *mockRedisClient) Delete(key string) error {
 	delete(m.data, key)
 	return nil
+}
+
+func (m *mockRedisClient) HGetAll(key string) (map[string]string, error) {
+	return nil, nil
 }
 
 func (m *mockRedisClient) NewScript(src string) redis_client.RedisScript {

@@ -56,7 +56,7 @@
 
 ## 4. Tokens 结构（api-key 声明）
 
-api-key 在顶层 `Tokens` 中按产品线分组，外层 key 为 api-key 值。
+api-key 在顶层 `Tokens` 中按产品线分组，外层 key 为 api-key 值。外层 key 支持 `enc$v1$` 前缀的字段级密文（控制面导出时加密，避免密钥明文落盘）：BFE 加载时经 `bfe.conf` `[Security]` 段配置的 keyring 文件解密后重建明文索引；无 `enc$v1$` 前缀的明文键直通，新旧配置与灰度回滚天然兼容。
 
 ```json
 {

@@ -55,6 +55,21 @@ type LimitRulesConfFile struct {
 	TPM            []TPMRuleConfFile `json:"tpm"`
 	RPM            []RPMRuleConfFile `json:"rpm"`
 	MaxConcurrency *int64            `json:"max_concurrency"`
+	// Batch limits (mod_ai_batch): nil/omitted = this policy does not
+	// restrict batch traffic. Not model-scoped (batch ops carry no model).
+	Batch *BatchLimitsConfFile `json:"batch"`
+}
+
+// BatchLimitsConfFile is the exported batch limit section of a policy.
+// MaxCreateRPM uses RedisKey for its counter; file bytes/lines are enforced
+// per-request (no redis key); MaxActiveBatches reuses the shared
+// BATCH_ACTIVE zset of mod_ai_batch.
+type BatchLimitsConfFile struct {
+	MaxCreateRPM     int64  `json:"max_create_rpm"`
+	MaxActiveBatches int64  `json:"max_active_batches"`
+	MaxFileBytes     int64  `json:"max_file_bytes"`
+	MaxFileLines     int64  `json:"max_file_lines"`
+	RedisKey         string `json:"redis_key"`
 }
 
 type PolicyConfFile struct {
@@ -105,6 +120,16 @@ type LimitRulesConf struct {
 	TPM            []*TPMRuleConf
 	RPM            []*RPMRuleConf
 	MaxConcurrency *int64
+	Batch          *BatchLimitsConf
+}
+
+// BatchLimitsConf is the runtime form of the batch limit section.
+type BatchLimitsConf struct {
+	MaxCreateRPM     int64
+	MaxActiveBatches int64
+	MaxFileBytes     int64
+	MaxFileLines     int64
+	RedisKey         string
 }
 
 type PolicyConf struct {
@@ -176,7 +201,20 @@ func (f *LimitRulesConfFile) Convert() *LimitRulesConf {
 	for _, rpm := range f.RPM {
 		result.RPM = append(result.RPM, rpm.Convert())
 	}
+	if f.Batch != nil {
+		result.Batch = f.Batch.Convert()
+	}
 	return result
+}
+
+func (f *BatchLimitsConfFile) Convert() *BatchLimitsConf {
+	return &BatchLimitsConf{
+		MaxCreateRPM:     f.MaxCreateRPM,
+		MaxActiveBatches: f.MaxActiveBatches,
+		MaxFileBytes:     f.MaxFileBytes,
+		MaxFileLines:     f.MaxFileLines,
+		RedisKey:         f.RedisKey,
+	}
 }
 
 func (f *PolicyConfFile) Convert() *PolicyConf {
@@ -349,8 +387,13 @@ func (obj *LimitRulesConfFile) Check() error {
 		hasRule = true
 	}
 
+	// a batch-only policy is valid (mod_ai_batch dimensions)
+	if obj.Batch != nil {
+		hasRule = true
+	}
+
 	if !hasRule {
-		return fmt.Errorf("at least one of tpm/rpm/max_concurrency should be configured")
+		return fmt.Errorf("at least one of tpm/rpm/max_concurrency/batch should be configured")
 	}
 
 	return nil

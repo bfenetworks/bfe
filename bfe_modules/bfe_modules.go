@@ -21,6 +21,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access_pb3"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_cache"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_batch"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_context"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_intent"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_rate_limit"
@@ -189,6 +190,16 @@ var moduleList = []bfe_module.BfeModule{
 
 	//depends on token calc
 	mod_ai_rate_limit.NewModuleAiRateLimit(),
+
+	// mod_ai_batch
+	// Requirement: after mod_ai_rate_limit — its HandleAfterAITargetModel
+	// handler runs after batch limits are resolved into AiBasicInfo and after
+	// local limit rejections; after mod_body_process — file/batch responses
+	// are excluded from the body processor, so this module's response wrapper
+	// sees the exact bytes. Its HandleRequestFinish only does Redis
+	// bookkeeping: the settle/release contract is consumed by
+	// mod_ai_token_auth (registered before it) at request finish.
+	mod_ai_batch.NewModuleAiBatch(),
 
 	// mod_ai_context
 	// Requirement: after mod_ai_route (needs resolved TargetModel for token

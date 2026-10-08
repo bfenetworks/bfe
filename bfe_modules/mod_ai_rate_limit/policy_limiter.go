@@ -60,10 +60,11 @@ type conLimiterItem struct {
 }
 
 type policyLimiterSet struct {
-	policyId    string
-	tpmLimiters []*tpmLimiterItem
-	rpmLimiters []*rpmLimiterItem
-	conLimiter  *conLimiterItem
+	policyId     string
+	tpmLimiters  []*tpmLimiterItem
+	rpmLimiters  []*rpmLimiterItem
+	batchLimiter *rpmLimiterItem // batch create RPM (models not applied)
+	conLimiter   *conLimiterItem
 }
 
 type policyLimiterManager struct {
@@ -195,6 +196,21 @@ func newPolicyLimiterSet(policyId string, policy *PolicyConf) *policyLimiterSet 
 				*policy.Rules.MaxConcurrency,
 				concurrencyLimiterTTL,
 			),
+		}
+	}
+
+	if policy.Rules.Batch != nil && policy.Rules.Batch.MaxCreateRPM > 0 {
+		b := policy.Rules.Batch
+		redisKey := b.RedisKey
+		if redisKey == "" {
+			redisKey = buildRedisKey(policyId, "batch_rpm")
+		} else if !strings.HasPrefix(redisKey, "default_bfe_") {
+			redisKey = buildRedisKey(policyId, redisKey)
+		}
+		// one-minute window for "creates per minute"
+		ps.batchLimiter = &rpmLimiterItem{
+			limiter: limit_rate.NewQPMLimiter(redisKey, 1, 60, b.MaxCreateRPM),
+			name:    "batch_create_rpm",
 		}
 	}
 
@@ -435,4 +451,34 @@ func (m *policyLimiterManager) getLimiterStats() (tpmStats, rpmStats, conStats [
 	}
 
 	return
+}
+
+// checkBatchCreate meters batch creations against MaxCreateRPM. Unlike
+// checkRPM it never filters by model: batch operations carry no model.
+func (ls *policyLimiterSet) checkBatchCreate(req *bfe_basic.Request, agent *limit_rate.RedisLRAgent,
+	isRejectOnRedisError bool) bool {
+	if ls.batchLimiter == nil {
+		return true
+	}
+	item := ls.batchLimiter
+	item.matchCount.Add(1)
+	isAllowed, _, _, err := item.limiter.Check(1, agent)
+	if err != nil {
+		log.Logger.Warn("mod_ai_rate_limit: batch create RPM redis error, policyId:%s, err:%v", ls.policyId, err)
+		if isRejectOnRedisError {
+			hitInfo := req.GetAiRateLimitHitInfo()
+			policyHitInfo := hitInfo.GetPolicyHitInfo(ls.policyId)
+			policyHitInfo.IsRedisError = item.name
+			return false
+		}
+		return true
+	}
+	if !isAllowed {
+		item.hitCount.Add(1)
+		hitInfo := req.GetAiRateLimitHitInfo()
+		policyHitInfo := hitInfo.GetPolicyHitInfo(ls.policyId)
+		policyHitInfo.RpmRules = append(policyHitInfo.RpmRules, item.name)
+		return false
+	}
+	return true
 }

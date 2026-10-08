@@ -584,6 +584,16 @@ func (c *RedisClient) Incr(key string) (int64, error) {
 }
 
 // incr key to redis
+// HGetAll returns all fields of a hash as a map (empty map on miss).
+func (c *RedisClient) HGetAll(key string) (map[string]string, error) {
+	conn := c.getConnByKey(key)
+	if conn == nil {
+		return nil, fmt.Errorf("get conn failed for key %s", key)
+	}
+	defer conn.Close()
+	return redis.StringMap(conn.Do("HGETALL", key))
+}
+
 func (c *RedisClient) IncrBy(key string, delta int64) (int64, error) {
 	c.incrModuleState2(RedisIncr)
 

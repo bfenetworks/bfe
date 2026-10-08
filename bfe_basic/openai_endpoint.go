@@ -32,9 +32,11 @@ var openAIEndpointModes = map[string]string{
 	"/audio/speech":         ModeAudioSpeech,
 	"/audio/transcriptions": ModeAudioTranscription,
 	"/audio/translations":   ModeChat, // no dedicated mode; same as the default
+	"/batches":              ModeBatch,
 	"/chat/completions":     ModeChat,
 	"/completions":          ModeCompletion,
 	"/embeddings":           ModeEmbedding,
+	"/files":                ModeFile,
 	"/images/edits":         ModeImageEdit,
 	"/images/generations":   ModeImageGeneration,
 	"/models":               ModeChat, // no dedicated mode; same as the default

@@ -152,6 +152,7 @@ func (e *testEnv) startBFE(enableAffinity bool) {
 					TPM            []common.RateLimitRule `json:"tpm,omitempty"`
 					RPM            []common.RateLimitRule `json:"rpm,omitempty"`
 					MaxConcurrency *int64                 `json:"max_concurrency,omitempty"`
+					Batch          *common.RateLimitBatchLimits `json:"batch,omitempty"`
 				}{
 					RPM: []common.RateLimitRule{
 						{

@@ -49,6 +49,20 @@ func (s *RedisServer) Close() {
 	s.server.Close()
 }
 
+// Set stores a raw string value for the given key.
+func (s *RedisServer) Set(key string, value string) {
+	s.server.Set(key, value)
+}
+
+// Get returns the string value of a key ("" when missing).
+func (s *RedisServer) Get(key string) string {
+	v, err := s.server.Get(key)
+	if err != nil {
+		return ""
+	}
+	return v
+}
+
 // SetQuota sets an integer quota value for the given key.
 func (s *RedisServer) SetQuota(key string, value int64) {
 	s.server.Set(key, fmt.Sprintf("%d", value))

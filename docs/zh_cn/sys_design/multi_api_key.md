@@ -83,6 +83,8 @@ type AIConf struct {
 
 `AIConf` 由 ai-gateway-api 通过 InnerAPI `/configs/tls_conf/server_data_conf` 下发，对应 OpenAPI `/clusters` 中的 `llm_config` 字段。详细导出格式见 `ai-gateway-api/design-docs/api-define/InnerAPI接口定义/server-data-conf.md`。
 
+> 说明：`AIConf.Keys[].Key` 支持 `enc$v1$` 前缀的字段级密文落盘（控制面导出时加密，BFE 加载时经 `bfe.conf` `[Security]` keyring 解密进内存），无此前缀按明文直通。解密后内存形态与明文配置完全一致，本文所述 Key 选择/轮换/亲和逻辑不变。详见 [下发配置文件敏感字段加密落盘设计](config_file_field_encryption.md)。
+
 ---
 
 ## 3. 转发层设计

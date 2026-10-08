@@ -23,6 +23,7 @@ import (
 	"github.com/bfenetworks/go-lib/quota"
 
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
+	"github.com/bfenetworks/bfe/bfe_util/crypto"
 )
 
 type tokenRuleFile struct {
@@ -73,7 +74,9 @@ func tokenMapCheck(conf *tokenFileMap) error {
 	}
 
 	for key, token := range *conf {
-		if err := tokenCheck(token); err != nil {
+		// the map key is the api-key value itself; an enc$v1$ ciphertext
+		// key (control-plane export form) carries no inner Key field
+		if err := tokenCheck(token, !crypto.HasMarker(key)); err != nil {
 			return fmt.Errorf("token %s: %v", key, err)
 		}
 	}
@@ -255,10 +258,26 @@ func quotaPlanConvert(quotaPlan QuotaPlan) QuotaPlan {
 	return quotaPlan
 }
 
-func tokenMapConvert(tokenFileMap *tokenFileMap, quotaPlansMap *QuotaPlanMap) (*tokenMap, error) {
+func tokenMapConvert(tokenFileMap *tokenFileMap, quotaPlansMap *QuotaPlanMap,
+	kr *crypto.Keyring) (*tokenMap, error) {
 	tokenMap := make(tokenMap)
 
 	for key, tokenFile := range *tokenFileMap {
+		// The Tokens map key is the api-key value itself and may carry an
+		// enc$v1$ field-level ciphertext (control plane encrypts at export
+		// so no key is persisted on disk in plaintext). Decrypt and rebuild
+		// the plaintext index; keys without the marker pass through as
+		// legacy plaintext. Any decrypt failure aborts the whole load: a
+		// partially decrypted table would silently drop auth coverage.
+		if crypto.HasMarker(key) {
+			plain, err := crypto.Decrypt(key, kr)
+			if err != nil {
+				return nil, fmt.Errorf("decrypt token key failed: %s", err)
+			}
+			key = plain
+			tokenFile.Key = plain
+		}
+
 		token, err := tokenConvert(*tokenFile, quotaPlansMap)
 		if err != nil {
 			return nil, err
@@ -269,7 +288,7 @@ func tokenMapConvert(tokenFileMap *tokenFileMap, quotaPlansMap *QuotaPlanMap) (*
 	return &tokenMap, nil
 }
 
-func ProductRuleConfLoad(filename string) (productRuleConf, error) {
+func ProductRuleConfLoad(filename string, kr *crypto.Keyring) (productRuleConf, error) {
 	var conf productRuleConf
 	var err error
 
@@ -316,7 +335,7 @@ func ProductRuleConfLoad(filename string) (productRuleConf, error) {
 	conf.Tokens = make(ProductTokens)
 	if config.Tokens != nil {
 		for product, tokenMap := range *config.Tokens {
-			tokenMap, err := tokenMapConvert(tokenMap, conf.QuotaPlans[product])
+			tokenMap, err := tokenMapConvert(tokenMap, conf.QuotaPlans[product], kr)
 			if err != nil {
 				return conf, err
 			}

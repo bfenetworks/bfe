@@ -382,6 +382,10 @@ func (f *fakeRedisClient) GetInt64Batch(keys []string) ([]int64, error) {
 }
 func (f *fakeRedisClient) IncrBy(key string, delta int64) (int64, error) { return 0, nil }
 func (f *fakeRedisClient) Delete(key string) error                       { return nil }
+func (f *fakeRedisClient) HGetAll(key string) (map[string]string, error) {
+	return nil, nil
+}
+
 func (f *fakeRedisClient) NewScript(src string) redis_client.RedisScript {
 	return nil
 }

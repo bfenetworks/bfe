@@ -15,13 +15,21 @@
 package cluster_conf
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/bfenetworks/bfe/bfe_util/crypto"
 )
 
 func TestClusterConfLoad_1(t *testing.T) {
-	config, err := ClusterConfLoad("./testdata/cluster_conf_1.conf")
+	config, err := ClusterConfLoad("./testdata/cluster_conf_1.conf", nil)
 	if err != nil {
 		t.Errorf("get err from ClusterConfLoad():%s", err.Error())
 		return
@@ -34,14 +42,14 @@ func TestClusterConfLoad_1(t *testing.T) {
 }
 
 func TestClusterConfLoad_2(t *testing.T) {
-	if _, err := ClusterConfLoad("./testdata/cluster_conf_2.conf"); err == nil {
+	if _, err := ClusterConfLoad("./testdata/cluster_conf_2.conf", nil); err == nil {
 		t.Error("it should be error in ClusterConfLoad()")
 		return
 	}
 }
 
 func TestClusterConfLoad_3(t *testing.T) {
-	config, err := ClusterConfLoad("./testdata/cluster_conf_3.conf")
+	config, err := ClusterConfLoad("./testdata/cluster_conf_3.conf", nil)
 	if err != nil {
 		t.Errorf("ClusterConfLoad() error: %v", err)
 		return
@@ -53,7 +61,7 @@ func TestClusterConfLoad_3(t *testing.T) {
 }
 
 func TestClusterConfLoad_4(t *testing.T) {
-	_, err := ClusterConfLoad("./testdata/cluster_conf_4.conf")
+	_, err := ClusterConfLoad("./testdata/cluster_conf_4.conf", nil)
 	if err == nil {
 		t.Error("it should be error in ClusterConfLoad()")
 		return
@@ -61,7 +69,7 @@ func TestClusterConfLoad_4(t *testing.T) {
 }
 
 func TestClusterConfLoad_6(t *testing.T) {
-	_, err := ClusterConfLoad("./testdata/cluster_conf_6.conf")
+	_, err := ClusterConfLoad("./testdata/cluster_conf_6.conf", nil)
 	if err == nil {
 		t.Error("it should be error in ClusterConfLoad()")
 		return
@@ -946,5 +954,100 @@ func TestGetLengthTierPrice(t *testing.T) {
 	noTier := LookupModelPrice(table, "no-tier-model", "chat")
 	if _, _, ok := noTier.GetLengthTierPrice("", 1000000); ok {
 		t.Error("model without tier keys should return ok=false")
+	}
+}
+
+// encryptValueForTest produces a valid enc$v1$ envelope, mirroring the
+// control plane export encryption. BFE itself never encrypts.
+func encryptValueForTest(t *testing.T, plaintext string, key []byte, keyID byte) string {
+	t.Helper()
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		t.Fatalf("aes.NewCipher: %v", err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		t.Fatalf("cipher.NewGCM: %v", err)
+	}
+	nonce := make([]byte, 12)
+	if _, err := rand.Read(nonce); err != nil {
+		t.Fatalf("rand.Read: %v", err)
+	}
+
+	raw := append([]byte{keyID}, nonce...)
+	raw = gcm.Seal(raw, nonce, []byte(plaintext), nil)
+	return crypto.Marker + base64.StdEncoding.EncodeToString(raw)
+}
+
+func TestClusterConfLoadEncryptedKeys(t *testing.T) {
+	dir := t.TempDir()
+
+	// keyring file shared with the control plane format
+	key := make([]byte, 32)
+	for i := range key {
+		key[i] = byte(i + 1)
+	}
+	keyringPath := filepath.Join(dir, "export.keys")
+	content := "[Keys]\n1 = \"" + base64.StdEncoding.EncodeToString(key) + "\"\n"
+	if err := os.WriteFile(keyringPath, []byte(content), 0600); err != nil {
+		t.Fatalf("write keyring: %v", err)
+	}
+	kr, err := crypto.LoadKeyringFile(keyringPath)
+	if err != nil {
+		t.Fatalf("LoadKeyringFile: %v", err)
+	}
+
+	// cluster conf with an enc$v1$ AIConf.Keys[].Key
+	ciphertext := encryptValueForTest(t, "sk-enc-upstream-key", key, 1)
+	confContent := `{
+    "Version": "1",
+    "Config": {
+        "p1": {
+            "BackendConf": {"TimeoutConnSrv": 1000},
+            "CheckConf": {"Uri": "/health", "FailNum": 3, "CheckInterval": 1000},
+            "GslbBasic": {"CrossRetry": 1, "RetryMax": 3},
+            "ClusterBasic": {"RetryMax": 3},
+            "AIConf": {
+                "Keys": [
+                    {"Name": "k1", "Key": "` + ciphertext + `", "Weight": 100}
+                ]
+            }
+        }
+    }
+}`
+	confPath := filepath.Join(dir, "cluster_conf.data")
+	if err := os.WriteFile(confPath, []byte(confContent), 0644); err != nil {
+		t.Fatalf("write conf: %v", err)
+	}
+
+	// with keyring: loads and decrypts to the same in-memory structure as plaintext
+	config, err := ClusterConfLoad(confPath, kr)
+	if err != nil {
+		t.Fatalf("ClusterConfLoad with keyring: %v", err)
+	}
+	keys := (*config.Config)["p1"].AIConf.Keys
+	if len(keys) != 1 || keys[0].Key != "sk-enc-upstream-key" {
+		t.Errorf("decrypted Key = %q, want plaintext", keys[0].Key)
+	}
+
+	// without keyring: marker-prefixed field must fail the load
+	if _, err := ClusterConfLoad(confPath, nil); err == nil {
+		t.Error("ClusterConfLoad without keyring should fail on ciphertext")
+	}
+
+	// wrong key material: GCM authentication failure
+	wrong := make([]byte, 32)
+	keyringWrong := filepath.Join(dir, "wrong.keys")
+	contentWrong := "[Keys]\n1 = \"" + base64.StdEncoding.EncodeToString(wrong) + "\"\n"
+	if err := os.WriteFile(keyringWrong, []byte(contentWrong), 0600); err != nil {
+		t.Fatalf("write keyring: %v", err)
+	}
+	krWrong, err := crypto.LoadKeyringFile(keyringWrong)
+	if err != nil {
+		t.Fatalf("LoadKeyringFile: %v", err)
+	}
+	if _, err := ClusterConfLoad(confPath, krWrong); err == nil {
+		t.Error("ClusterConfLoad with wrong key should fail")
 	}
 }

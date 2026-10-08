@@ -171,6 +171,10 @@ func (m *ModuleAiRateLimit) executeCheckLimitPolicy(req *bfe_basic.Request, meta
 		if openDebug {
 			log.Logger.Debug("mod_ai_rate_limit: no policies bound to apiKey[%s], pass", apiKey)
 		}
+		// The mod_ai_batch.data global hard ceilings must apply even when no
+		// rate limit policy is bound: resolveBatchFileLimits merges them into
+		// AiBasicInfo for the batch pre-forward checks (0 bound policies).
+		resolveBatchFileLimits(meta, nil, m.productTable.getPolicy)
 		return bfe_module.BfeHandlerGoOn, nil
 	}
 
@@ -188,6 +192,15 @@ func (m *ModuleAiRateLimit) executeCheckLimitPolicy(req *bfe_basic.Request, meta
 				log.Logger.Debug("mod_ai_rate_limit: policy[%s] disabled, skip", policyId)
 			}
 			continue
+		}
+
+		// batch limits (mod_ai_batch): unlike tpm/rpm/concurrency these are
+		// NOT filtered by policy.Models — batch operations carry no model.
+		// A policy without a batch section does not restrict batch traffic.
+		if policy.Rules != nil && policy.Rules.Batch != nil && isBatchOpRequest(req, meta) {
+			if hitLimit := m.checkBatchLimits(req, meta, policyId, policy); hitLimit != "" {
+				return m.executeBatchPolicyAction(req, meta, policyId, policy, rule, hitLimit)
+			}
 		}
 
 		if !matchModel(policy.Models, targetModel) {
@@ -214,6 +227,11 @@ func (m *ModuleAiRateLimit) executeCheckLimitPolicy(req *bfe_basic.Request, meta
 			return m.executePolicyAction(req, meta, policyId, policy, rule)
 		}
 	}
+
+	// single computation point for the effective batch file limits
+	// (min across bound policies' batch_limits and the mod_ai_batch.data
+	// global hard ceiling); mod_ai_batch reads them from AiBasicInfo
+	resolveBatchFileLimits(meta, policyIds, m.productTable.getPolicy)
 
 	return bfe_module.BfeHandlerGoOn, nil
 }
