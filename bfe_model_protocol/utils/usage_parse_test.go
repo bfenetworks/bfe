@@ -231,3 +231,96 @@ func TestParseOpenAIUsageFields_ResponsesDeltaIgnored(t *testing.T) {
 		t.Errorf("expected all-zero fields for responses delta, got %+v", fields)
 	}
 }
+
+func TestParseOpenAIUsageFields_NestedChoiceUsage(t *testing.T) {
+	// Kimi nested fallback (issue #1401): kimi-for-coding embeds the final
+	// usage inside the finish chunk's choice when stream_options is absent.
+	// The cache-read field is named cached_tokens (Kimi field name).
+	fields := ParseOpenAIUsageFields([]byte(
+		`{"id":"chatcmpl-kimi","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls","usage":{"prompt_tokens":77207,"completion_tokens":168,"total_tokens":77375,"cached_tokens":73472}}]}`))
+	if fields.PromptTokens != 77207 {
+		t.Errorf("expected PromptTokens 77207, got %d", fields.PromptTokens)
+	}
+	if fields.CompletionTokens != 168 {
+		t.Errorf("expected CompletionTokens 168, got %d", fields.CompletionTokens)
+	}
+	if fields.UsedQuota != 77375 {
+		t.Errorf("expected UsedQuota 77375, got %d", fields.UsedQuota)
+	}
+	if fields.CacheReadTokens != 73472 {
+		t.Errorf("expected CacheReadTokens 73472 (cached_tokens), got %d", fields.CacheReadTokens)
+	}
+}
+
+func TestParseOpenAIUsageFields_NestedChoiceUsageMidStreamIgnored(t *testing.T) {
+	// Intermediate content chunks carry choices but no usage: the nested
+	// fallback must not fire (issue #1401 acceptance).
+	fields := ParseOpenAIUsageFields([]byte(
+		`{"id":"chatcmpl-kimi","choices":[{"index":0,"delta":{"role":"assistant","content":"hi"}}]}`))
+	if fields != (UsageFields{}) {
+		t.Errorf("expected all-zero fields for usage-less content chunk, got %+v", fields)
+	}
+}
+
+func TestParseOpenAIUsageFields_NestedChoiceUsageTopLevelPriority(t *testing.T) {
+	// A chunk carrying both top-level usage (include_usage chunk) and a
+	// nested choice usage keeps the top-level chain result (main chain
+	// priority, issue #1401 acceptance).
+	fields := ParseOpenAIUsageFields([]byte(
+		`{"id":"chatcmpl-x","choices":[{"index":0,"delta":{},"finish_reason":"stop","usage":{"prompt_tokens":999,"completion_tokens":999,"total_tokens":1998}}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}`))
+	if fields.PromptTokens != 10 || fields.CompletionTokens != 5 || fields.UsedQuota != 15 {
+		t.Errorf("expected top-level usage to win, got %+v", fields)
+	}
+}
+
+func TestParseOpenAIUsageFields_NestedChoiceUsageNonZeroIndex(t *testing.T) {
+	// chat completions with n>1 may carry the usage on a non-zero choice
+	// index; the fallback scans all choices.
+	fields := ParseOpenAIUsageFields([]byte(
+		`{"id":"chatcmpl-n2","choices":[{"index":0,"delta":{"content":"a"}},{"index":1,"delta":{},"finish_reason":"stop","usage":{"prompt_tokens":20,"completion_tokens":3,"total_tokens":23}}]}`))
+	if fields.PromptTokens != 20 || fields.CompletionTokens != 3 || fields.UsedQuota != 23 {
+		t.Errorf("unexpected non-zero-index nested fields: %+v", fields)
+	}
+}
+
+func TestParseOpenAIUsageFields_NestedChoiceUsageDetailsCacheFallback(t *testing.T) {
+	// Relay-style nested usage reporting cache via prompt_tokens_details.
+	fields := ParseOpenAIUsageFields([]byte(
+		`{"choices":[{"index":0,"delta":{},"finish_reason":"stop","usage":{"prompt_tokens":100,"completion_tokens":7,"total_tokens":107,"prompt_tokens_details":{"cached_tokens":60}}}]}`))
+	if fields.CacheReadTokens != 60 {
+		t.Errorf("expected CacheReadTokens 60 (prompt_tokens_details.cached_tokens), got %d", fields.CacheReadTokens)
+	}
+}
+
+func TestParseOpenAIUsageFields_NestedChoiceUsageEmptyUsageObject(t *testing.T) {
+	// choices[i].usage present but empty: not a usage carrier, stay zero.
+	fields := ParseOpenAIUsageFields([]byte(
+		`{"choices":[{"index":0,"delta":{},"finish_reason":"stop","usage":{}}]}`))
+	if fields != (UsageFields{}) {
+		t.Errorf("expected all-zero fields for empty nested usage object, got %+v", fields)
+	}
+}
+
+func TestParseUsageFieldsCrossProtocol_NestedChoiceUsage(t *testing.T) {
+	// The cross-protocol composer picks the nested usage up in the openai
+	// first stage; the anthropic/gemini fallbacks must not override it
+	// (issue #1401).
+	fields := ParseUsageFieldsCrossProtocol([]byte(
+		`{"id":"chatcmpl-kimi","choices":[{"index":0,"delta":{},"finish_reason":"stop","usage":{"prompt_tokens":50,"completion_tokens":9,"total_tokens":59,"cached_tokens":40}}]}`))
+	if fields.PromptTokens != 50 || fields.CompletionTokens != 9 || fields.UsedQuota != 59 {
+		t.Errorf("unexpected cross-protocol nested fields: %+v", fields)
+	}
+	if fields.CacheReadTokens != 40 {
+		t.Errorf("expected CacheReadTokens 40, got %d", fields.CacheReadTokens)
+	}
+}
+
+func TestParseUsageFieldsCrossProtocol_NestedChoiceUsageAnthropicUnchanged(t *testing.T) {
+	// Anthropic bodies have no choices key; the nested fallback must not
+	// disturb the anthropic chain (issue #1401 acceptance).
+	fields := ParseUsageFieldsCrossProtocol([]byte(
+		`{"id":"msg_01","type":"message","role":"assistant","usage":{"input_tokens":320,"output_tokens":150,"cache_read_input_tokens":8000}}`))
+	if fields.PromptTokens != 8320 || fields.CompletionTokens != 150 || fields.CacheReadTokens != 8000 {
+		t.Errorf("unexpected anthropic fields after nested fallback: %+v", fields)
+	}
+}

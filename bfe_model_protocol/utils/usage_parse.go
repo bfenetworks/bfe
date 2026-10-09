@@ -15,6 +15,8 @@
 package utils
 
 import (
+	"fmt"
+
 	"github.com/tidwall/gjson"
 )
 
@@ -133,9 +135,49 @@ func ParseOpenAIUsageFields(data []byte) UsageFields {
 			// Anthropic chain normalizes, its input_tokens excluding cache.
 			fields = resp
 		}
+
+		// Kimi nested fallback (issue #1401): some OpenAI-compatible
+		// upstreams (kimi-for-coding) embed the final usage inside the
+		// finish chunk's choice — choices[i].usage — when
+		// stream_options.include_usage is absent or ignored. The
+		// top-level usage chain reads all-zero there, silently demoting
+		// real usage to guess/estimate (or, with EstimateToken=false,
+		// to zero billing and negative output tokens in the access log).
+		if fields.PromptTokens == 0 && fields.CompletionTokens == 0 {
+			if nested, ok := parseNestedChoiceUsage(data); ok {
+				fields = nested
+			}
+		}
 	}
 
 	return fields
+}
+
+// parseNestedChoiceUsage extracts usage embedded in choices[i].usage (issue
+// #1401). Only finish chunks carry it, so intermediate content chunks never
+// false-positive. The nested cache-read field is named cached_tokens /
+// prompt_tokens_details.cached_tokens (Kimi field names), not
+// cache_read_tokens.
+func parseNestedChoiceUsage(data []byte) (UsageFields, bool) {
+	n := gjson.GetBytes(data, "choices.#").Int()
+	for i := int64(0); i < n; i++ {
+		prefix := fmt.Sprintf("choices.%d.usage", i)
+		if !gjson.GetBytes(data, prefix).Exists() {
+			continue
+		}
+		nested := parseOpenAIUsageFieldsWithPrefix(data, prefix, "prompt_tokens", "completion_tokens")
+		if nested.PromptTokens == 0 && nested.CompletionTokens == 0 {
+			continue
+		}
+		if nested.CacheReadTokens == 0 {
+			nested.CacheReadTokens = gjson.GetBytes(data, prefix+".cached_tokens").Int()
+		}
+		if nested.CacheReadTokens == 0 {
+			nested.CacheReadTokens = gjson.GetBytes(data, prefix+".prompt_tokens_details.cached_tokens").Int()
+		}
+		return nested, true
+	}
+	return UsageFields{}, false
 }
 
 // ParseUsageFieldsCrossProtocol extracts usage fields by composing the

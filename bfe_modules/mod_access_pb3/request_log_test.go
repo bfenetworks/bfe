@@ -563,6 +563,35 @@ func TestReqAiInfoGenNil(t *testing.T) {
 	}
 }
 
+// TestReqAiInfoGenNegativeCompletionTokensClamped verifies that the
+// COMPLETION_TOKENS_UNKNOWN sentinel (-1) preset at auth time is clamped to
+// 0 at the log boundary, instead of being logged as a negative output token
+// count (issue #1401, EstimateToken=false with no usage in the response).
+func TestReqAiInfoGenNegativeCompletionTokensClamped(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+
+	aiInfo := &bfe_basic.AiBasicInfo{ClientKeyId: "key-id-123"}
+	usage := aiInfo.GetTokenUsage()
+	usage.PromptTokens = 0
+	usage.CompletionTokens = -1 // bfe_basic.COMPLETION_TOKENS_UNKNOWN
+	usage.UsedQuota = 0
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiOutputTokens == nil || *reqLog.AiOutputTokens != 0 {
+		t.Errorf("AiOutputTokens = %v, want 0 (negative sentinel clamped)", reqLog.AiOutputTokens)
+	}
+
+	// non-negative values pass through unchanged
+	usage.CompletionTokens = 20
+	reqAiInfoGen(reqLog, req, res)
+	if reqLog.AiOutputTokens == nil || *reqLog.AiOutputTokens != 20 {
+		t.Errorf("AiOutputTokens = %v, want 20", reqLog.AiOutputTokens)
+	}
+}
+
 // setIntentContext installs a minimal AiBasicInfo and the given intent on the
 // request, mimicking a request whose route conditions already resolved it.
 func setIntentContext(req *bfe_basic.Request, intent *bfe_basic.AiIntent) {

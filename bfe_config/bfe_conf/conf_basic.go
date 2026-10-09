@@ -111,6 +111,14 @@ func (cfg *ConfigBasic) SetDefaultConf() {
 	cfg.NameConf = "server_data_conf/name_conf.data"
 
 	cfg.MonitorInterval = 20
+
+	// AI gateway billing/statistics defaults (issues #1398, #1401): with no
+	// program default these fall back to the Go zero value false, and a
+	// binary upgrade that does not ship the new conf keys silently loses
+	// the estimate/include_usage fixes. Defaults run before gcfg loads the
+	// conf file, so an explicit conf value still overrides them.
+	cfg.EstimateToken = true
+	cfg.InjectStreamUsage = true
 }
 
 func (cfg *ConfigBasic) Check(confRoot string) error {

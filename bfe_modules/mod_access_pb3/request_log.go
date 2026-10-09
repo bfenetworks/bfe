@@ -431,7 +431,15 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 	usage := aiInfo.GetTokenUsage()
 	if usage != nil {
 		reqLog.AiInputTokens = proto.Int64(usage.PromptTokens)
-		reqLog.AiOutputTokens = proto.Int64(usage.CompletionTokens)
+		// CompletionTokens is preset to the COMPLETION_TOKENS_UNKNOWN
+		// sentinel (-1) at auth time; when no usage ever arrives and
+		// EstimateToken is off it would be logged as a negative output
+		// token count. Clamp at the log boundary (issue #1401).
+		outputTokens := usage.CompletionTokens
+		if outputTokens < 0 {
+			outputTokens = 0
+		}
+		reqLog.AiOutputTokens = proto.Int64(outputTokens)
 		reqLog.AiTotalTokens = proto.Int64(usage.UsedQuota)
 		if usage.CacheReadTokens > 0 {
 			reqLog.AiCacheReadTokens = proto.Int64(usage.CacheReadTokens)
