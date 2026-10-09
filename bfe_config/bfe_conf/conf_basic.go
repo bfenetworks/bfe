@@ -53,6 +53,10 @@ type ConfigBasic struct {
 
 	EnableAiGateway bool // enable ai gateway
 	EstimateToken   bool // whether estimate token usage from content length
+	// InjectStreamUsage injects stream_options.include_usage=true into OpenAI
+	// streaming chat completion requests (when the client did not set it), so
+	// the upstream returns the real final usage chunk (issue #1398).
+	InjectStreamUsage bool
 
 	AccessibleBodySize  int64 // max size in bytes to buffer request body for rewriting/fallback
 	TotalBodyBufferSize int64 // max total bytes of all active bytes_body buffers (0 means unlimited)

@@ -29,7 +29,8 @@ bfe.conf is the core configuration file of BFE.
 | Server.AcceptNum               | Integer | Number of accept goroutines per listener             | N         | Default 1; automatically set to 1 when 0                                                                       | >= 0                                                                 |
 | Server.MaxProxyHeaderBytes     | Integer | Max length of PROXY protocol header, in bytes        | N         | Default 0                                                                                                      | >= 0                                                                 |
 | Server.EnableAiGateway         | Boolean | Whether AI Gateway mode is enabled                   | N         | Default `False`                                                                                                | -                                                                    |
-| Server.EstimateToken           | Boolean | Whether to estimate token usage based on request Content-Length when the upstream response carries no usage. Estimation only applies to responses that completed normally: requests aborted by the client (RST/close) or failed to be written to the client without a final usage are never billed by estimation (issue #1352) | N | Default `False`                                                                                                | -                                                                    |
+| Server.EstimateToken           | Boolean | Whether to estimate token usage based on request Content-Length when the upstream response carries no usage. Estimation only applies to responses that completed normally: requests aborted by the client (RST/close) or failed to be written to the client without a final usage are never billed by estimation (issue #1352). Estimating missing usage is the approved fallback (issue #1398) | N | Default `True` (since issue #1398; was `False`)                                                              | -                                                                    |
+| Server.InjectStreamUsage       | Boolean | For OpenAI-protocol streaming chat completion requests, inject `stream_options.include_usage=true` when the client did not set it, so the upstream returns the real final usage chunk (issue #1398). On injection failure (non-JSON body etc.) the request passes through unchanged | N | Default `True`                                                                                                | -                                                                    |
 | Server.AccessibleBodySize      | Integer | Max size of request body that can be buffered, in bytes | N      | Default 2097152; used for request body rewriting and AI Gateway fallback retry; request bodies larger than this cannot be fully cached and retransmitted | > 0 and <= 8388608                                                   |
 | Server.TotalBodyBufferSize     | Integer | Upper limit of total memory used by all active bytes_body buffers, in bytes | N      | Default 0 (unlimited); when reached, AI Gateway fallback will not wrap the request body for caching, i.e., no retry | >= 0                                                                 |
 | Server.HostRuleConf            | String  | Path of [host config](server_data_conf/host_rule.data.md) file | N     | Default `server_data_conf/host_rule.data`; see [FilePath](00-common.md#3-filepath) type definition            | Type is [FilePath](00-common.md#3-filepath)                          |
@@ -134,6 +135,17 @@ ClientWriteTimeout = 60
 
 # if false, client connection is shutdown disregard of http headers
 KeepAliveEnabled = true
+
+# if true, support ai gateway mode (default false)
+EnableAiGateway = false
+# if true, will estimate token usage if usage is not available in response
+# (default true; approved fallback when the response carries no usage, see issue #1398)
+EstimateToken = true
+
+# if true, inject stream_options.include_usage=true into OpenAI streaming
+# chat completion requests (when the client did not set it), so the upstream
+# returns the real final usage chunk (issue #1398)
+InjectStreamUsage = true
 
 # timeout for graceful shutdown (maximum 300 sec)
 GracefulShutdownTimeout = 10

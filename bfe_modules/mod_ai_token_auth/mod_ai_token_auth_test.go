@@ -2182,14 +2182,16 @@ func TestTokenRequestFinishHandler_EstimateRequiresCompletedResponse(t *testing.
 	if _, ok := client.data[rmbPlan.RedisKey]; ok {
 		t.Errorf("incomplete response must not be estimated and deducted")
 	}
+	// issue #1398: the guard works on a billing copy, so the shared usage
+	// (access-log view) still carries the seeded estimates.
+	if u := ai.GetTokenUsage(); u.PromptTokens != 100 || u.CompletionTokens != 50 {
+		t.Errorf("shared usage must keep the estimate values for the access log, got %+v", u)
+	}
 
 	// Response completes (e.g. message_stop seen): estimation applies.
-	// The first call reset the estimated values, so seed them again.
 	ctx := GetTokenAuthContext(req)
 	ctx.deducted = false
 	ai.MarkResponseCompleted()
-	ai.GetTokenUsage().PromptTokens = 100
-	ai.GetTokenUsage().CompletionTokens = 50
 	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
 		t.Fatalf("expected goon, got %d", ret)
 	}
@@ -2199,12 +2201,20 @@ func TestTokenRequestFinishHandler_EstimateRequiresCompletedResponse(t *testing.
 	if remaining := client.data[rmbPlan.RedisKey]; remaining != rmbPlan.Quota-expectedCost {
 		t.Errorf("expected remaining %d, got %d", rmbPlan.Quota-expectedCost, remaining)
 	}
+	// issue #1398: the approved estimate is mirrored into the shared usage so
+	// the access log shows UsedQuota=150 instead of 0.
+	if u := ai.GetTokenUsage(); u.UsedQuota != 150 {
+		t.Errorf("shared UsedQuota = %d, want 150 (estimate mirrored for the log)", u.UsedQuota)
+	}
 }
 
-// Issue #1364: when the final usage was not confirmed, the request-finish
-// guard must clear ALL billing fields. Previously only Prompt/Completion/
-// UsedQuota were cleared and a surviving CacheReadTokens was billed alone
-// (cache-read only), losing the fresh input and output charges.
+// Issue #1364 + #1398: when the final usage was not confirmed, the
+// request-finish guard must not bill from surviving sub-token fields.
+// Previously only Prompt/Completion/UsedQuota were cleared and a surviving
+// CacheReadTokens was billed alone (cache-read only), losing the fresh input
+// and output charges. Since issue #1398 the reset applies to a billing copy
+// only: the shared TokenUsage (read by mod_access_pb3 for the access log)
+// keeps the observed values and must never be zeroed by the guard.
 func TestTokenRequestFinishHandler_GuardClearsSubTokenFields(t *testing.T) {
 	m := NewModuleAITokenAuth()
 	client := newMockRedisClient()
@@ -2242,9 +2252,11 @@ func TestTokenRequestFinishHandler_GuardClearsSubTokenFields(t *testing.T) {
 	if _, ok := client.data[rmbPlan.RedisKey]; ok {
 		t.Errorf("unconfirmed final usage must not be deducted from surviving sub-token fields")
 	}
-	if usage.CacheReadTokens != 0 || usage.CacheWriteTokens != 0 ||
-		usage.PromptTokens != 0 || usage.CompletionTokens != 0 || usage.UsedQuota != 0 {
-		t.Errorf("guard must clear all billing fields, got %+v", usage)
+	// issue #1398: the log/statistics view keeps the observed values; only
+	// the billing copy was cleared.
+	if usage.CacheReadTokens != 7395200 || usage.UsedQuota != 0 ||
+		usage.PromptTokens != 0 || usage.CompletionTokens != 0 {
+		t.Errorf("shared usage must keep observed values for the access log, got %+v", usage)
 	}
 }
 
