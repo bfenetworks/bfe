@@ -363,6 +363,16 @@ func TestSSEEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 			wantFinalUsage:  true,
 		},
 		{
+			// issue #1398: a final usage chunk with completion_tokens = 0
+			// (input-only / cache-hit response) is still the final usage;
+			// without it the request fell into the reset/estimate path.
+			name:            "openai final usage chunk zero completion",
+			authStyle:       bfe_basic.AuthStyleOpenAI,
+			data:            `{"id":"chatcmpl-1","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":0,"total_tokens":10}}`,
+			wantTermination: false,
+			wantFinalUsage:  true,
+		},
+		{
 			// Anthropic non-streaming top-level type: the whole-body JSON is
 			// the final usage (issue #1364)
 			name:            "anthropic non-stream message",
