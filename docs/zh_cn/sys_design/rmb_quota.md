@@ -347,6 +347,7 @@ type AiBasicInfo struct {
 - `mod_ai_token_auth`（非流式）在 `tokenReadResponseHandler` 完整读取响应体后置位，见 7.4。
 - **非流式 Anthropic JSON 视同最终 usage**（issue #1364）：顶层 `type:"message"` 且解析出非 guess usage（`output_tokens > 0`）的整体响应，与 SSE `message_delta` 等价，置位 `finalUsageSeen`；整条 body 作为单个事件处理完成时同时置位 `responseCompleted`。否则 Anthropic 非流式响应（尤其是 chunked、`ContentLength = -1`）两个标记都打不上，会落入"未完成"守卫。
 - 计费语义：EstimateToken 的估算值仅在 `responseCompleted` 为 true 时可计费；客户端中断（`ErrClientWrite` / `ErrClientClose` / `ErrClientReset`）且未拿到最终 usage 的请求零扣费，已拿到最终 usage 的按实际 usage 扣费，见 7.5。
+- **计费与统计视图隔离**（issue #1398）：请求结束阶段的"不可计费"清零守卫只作用于计费副本（`billingUsage := *tokenUsage`），不回写共享 `TokenUsage`——访问日志（mod_access_pb3）与下游统计读共享对象，保留真实解析值/批准口径的估算值，不再静默记 0；仅计费结果 `UsedCost` 写回共享对象。
 
 ## 7. 请求运行时改动
 
@@ -475,8 +476,10 @@ SSE 事件的 `QuotaUsage` 携带 `IsFinalUsage` / `IsTermination` 标志（`bfe
 | Anthropic `message_delta`（最终 usage，`output_tokens > 0`） | true | false |
 | Anthropic `message_stop` | - | true |
 | Anthropic 非流式整体响应（顶层 `type:"message"`，`output_tokens > 0`，整条 body 单事件） | true | true（issue #1364） |
-| OpenAI 最终 usage chunk（`stream_options.include_usage`，无 `type` 且 `completion_tokens > 0`） | true | false |
+| OpenAI 最终 usage chunk（`stream_options.include_usage`，无 `type`） | true | false |
 | OpenAI `[DONE]` | - | true |
+
+> 说明（issue #1398）：`isFinalUsage` 判定不再要求 `completion_tokens > 0`——只要事件解析出非 guess usage 且类型属于适配器最终事件白名单（`message_delta` / `message` / `response.completed` / 无 `type`）即视同最终 usage；`output_tokens = 0` 的最终事件（input-only 请求、纯 cache 命中响应）此前会被漏判并落入清零/估算路径。无 usage 数值的中间 chunk（`!isguess` 为 false）仍不会被误判，`message_start` 也始终不算最终 usage。
 
 > 说明（issue #1364）：`isFinalUsage` 判定从"`type == "message_delta" || ""`"扩展为同时认可顶层 `type:"message"`。`gjson` 只读顶层 `type`，SSE `message_start` 事件的顶层无 `type` 字段（嵌套在 `message.` 下），不受影响。非 SSE 路径整条 body 作为单事件处理完成时，`QuotaUsageProcessor` 额外置位 `MarkResponseCompleted()`，使正常完成的非流式响应可计费、真正未完成/被截断的响应仍被守卫拦截。
 
@@ -555,31 +558,41 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
     // 或残存的子 token 字段（cache/audio/image）会流向扣费（issue #1364：
     // 守卫曾只清 Prompt/Completion/UsedQuota，导致 Anthropic 非流式响应
     // 被守卫清零后仅剩 CacheReadTokens，RMB 计费只收缓存命中）。
+    // issue #1398：清零只作用于计费副本，不回写共享 TokenUsage——访问
+    // 日志（mod_access_pb3）与统计读共享对象，保留观测值/估算值，
+    // 不再静默记 0；仅计费结果 UsedCost 写回。
+    billingUsage := *tokenUsage
     estimateBillable := ctx.aiBasicInfo.IsAllowEstimateToken() && ctx.aiBasicInfo.IsResponseCompleted()
     if !ctx.aiBasicInfo.IsFinalUsageSeen() && !estimateBillable {
-        tokenUsage.PromptTokens = 0
-        tokenUsage.CompletionTokens = 0
-        tokenUsage.CacheReadTokens = 0
-        tokenUsage.CacheWriteTokens = 0
-        tokenUsage.AudioInputTokens = 0
-        tokenUsage.AudioOutputTokens = 0
-        tokenUsage.ImageInputTokens = 0
-        tokenUsage.VideoCount = 0
-        tokenUsage.ImageCount = 0
-        tokenUsage.UsedQuota = 0
+        billingUsage.PromptTokens = 0
+        billingUsage.CompletionTokens = 0
+        billingUsage.CacheReadTokens = 0
+        billingUsage.CacheWriteTokens = 0
+        billingUsage.AudioInputTokens = 0
+        billingUsage.AudioOutputTokens = 0
+        billingUsage.ImageInputTokens = 0
+        billingUsage.VideoCount = 0
+        billingUsage.ImageCount = 0
+        billingUsage.UsedQuota = 0
     }
-    if tokenUsage.UsedQuota <= 0 && estimateBillable {
-        tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
+    if billingUsage.UsedQuota <= 0 && estimateBillable {
+        billingUsage.UsedQuota = CalcReqUsedQuota(req, billingUsage.PromptTokens, billingUsage.CompletionTokens)
+    }
+    if estimateBillable && tokenUsage.UsedQuota <= 0 && billingUsage.UsedQuota > 0 {
+        // 估算兜底值镜像回共享对象，访问日志 ai_total_tokens 记估算值而非 0
+        tokenUsage.UsedQuota = billingUsage.UsedQuota
     }
 
     // 统一在请求完成阶段计算 RMB 成本（流式由 mod_body_process 填充 token 用量）
-    if tokenUsage.UsedCost <= 0 && hasRMBPlan(ctx.Token.QuotaPlans) {
-        tokenUsage.UsedCost = m.calcCostUnits(req, ctx.serverConf, tokenUsage)
+    if billingUsage.UsedCost <= 0 && hasRMBPlan(ctx.Token.QuotaPlans) {
+        billingUsage.UsedCost = m.calcCostUnits(req, ctx.serverConf, &billingUsage)
     }
+    // 计费结果写回共享对象（日志的 cost 字段）；token 字段保持观测值。
+    tokenUsage.UsedCost = billingUsage.UsedCost
 
-    costUnits := tokenUsage.UsedCost
+    costUnits := billingUsage.UsedCost
 
-    if tokenUsage.UsedQuota > 0 || costUnits > 0 {
+    if billingUsage.UsedQuota > 0 || costUnits > 0 {
         for _, plan := range ctx.Token.QuotaPlans {
             if plan.Unlimited {
                 continue
@@ -592,8 +605,8 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
                     }
                 }
             } else {
-                if tokenUsage.UsedQuota > 0 {
-                    _, err := plan.Deduct(m.redisClient, tokenUsage.UsedQuota)
+                if billingUsage.UsedQuota > 0 {
+                    _, err := plan.Deduct(m.redisClient, billingUsage.UsedQuota)
                     if err != nil {
                         log.Logger.Warn("deduct token quota failed: %v", err)
                     }
@@ -607,17 +620,20 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 }
 ```
 
-计费判定规则汇总（issue #1352、#1364）：
+计费判定规则汇总（issue #1352、#1364、#1398）：
 
 | 场景 | finalUsageSeen | 扣费 |
 |------|----------------|------|
 | 正常完成，有 usage | true | 按实际 usage |
 | 正常完成，无 usage + EstimateToken | false（responseCompleted=true） | 按估算计费 |
+| 正常完成，无 usage + `EstimateToken=false` | false | 零扣费（issue #1398 起出厂默认 EstimateToken=true，该行为仅显式关闭时出现） |
 | 客户端中断/写失败，未拿到最终 usage | false | 零扣费 |
 | 客户端中断/写失败，已拿到最终 usage | true | 按实际 usage |
 | 非流式 Anthropic（chunked）完整响应，有 usage | true（#1364 起，`type:"message"` 视同最终 usage） | 按实际 usage（未命中输入 + cache read/write + 输出全额） |
 
 > 说明（issue #1364）：修复前 Anthropic 非流式（尤其 chunked）响应既无 `finalUsageSeen` 也无 `responseCompleted`，落入"不可计费"守卫；但守卫只清 `PromptTokens`/`CompletionTokens`/`UsedQuota`，`CacheReadTokens` 等子字段幸存，`calcChatCost` 对其按 `cache_read_input_token_cost` 计费，导致 RMB 只收缓存命中、漏计未命中输入与输出（实测漏计约 4.65x）。修复后守卫清零全部计费字段，并通过最终 usage 认可 + 完成置位让正常完成的非流式响应按实际 usage 全额计费。
+>
+> 说明（issue #1398）：上表"扣费"列全部在计费副本 `billingUsage` 上结算；无论何种场景，**访问日志与统计读共享 `TokenUsage`，保留真实解析值或批准口径的估算值，不再被守卫抹零**——仅 `UsedCost` 写回共享对象。清零守卫曾直接改写共享对象，而 mod_access_pb3 与其读同一对象（`AiTotalTokens = UsedQuota`），导致后端真实产出 token 的请求在统计明细与计费中落成 `total_tokens=0`（实测 200 响应的 42.7%，且 TTFT 全部 > 0）。另：OpenAI 流式在 `InjectStreamUsage=true`（出厂默认）时对未显式设置 `stream_options.include_usage` 的 chat completion 请求自动注入，从上游拿到真实 final usage，"完成无 usage"场景退化为罕见兜底。
 
 ### 7.6 成本计算辅助方法
 

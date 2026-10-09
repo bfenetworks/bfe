@@ -10,6 +10,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.8.8.1] - 2026-10-09
+
+### Fixed
+- Fix zeroed token usage in access logs and billing for requests without a final usage event (issue #1398): the request-finish reset now applies to a billing copy only, so the shared `TokenUsage` (read by mod_access_pb3) keeps observed/estimated values instead of silently logging `total_tokens=0`; the approved ContentLength/4 estimate fallback (`UsedQuota`) is mirrored into the access log
+- Recognize final usage events with zero output tokens (input-only / pure cache-hit responses) instead of dropping them into the reset/estimate path (issue #1398)
+- Inject `stream_options.include_usage=true` into OpenAI streaming chat completion requests when the client did not set it, so the upstream returns the real final usage chunk (`Server.InjectStreamUsage`, default on) (issue #1398)
+- Default `EstimateToken` to true, aligning the shipped config with the approved "missing usage estimated by ContentLength/4" fallback (issue #1398)
+
 ## [v1.8.8] - 2026-09-24
 
 ### Added

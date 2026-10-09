@@ -38,6 +38,8 @@ import (
 	"golang.org/x/net/http2"
 
 	"github.com/bfenetworks/go-lib/log"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 
 	bfe_cluster_backend "github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/bfe/bfe_balance/bal_gslb"
@@ -1513,6 +1515,48 @@ func computeTargetModel(clientModel string, attemptModel string, aiConf *cluster
 	return targetModel
 }
 
+// maybeInjectStreamUsage injects stream_options.include_usage=true into an
+// OpenAI-protocol streaming request body when the client did not set it, so
+// the upstream returns the real final usage chunk (issue #1398). It reports
+// whether the body was modified. Injection failures (body not bufferable,
+// non-JSON body) pass through unchanged.
+func maybeInjectStreamUsage(basicReq *bfe_basic.Request, aiMeta *bfe_basic.AiBasicInfo, enabled bool) bool {
+	if !enabled || basicReq == nil || basicReq.OutRequest == nil || aiMeta == nil {
+		return false
+	}
+	if aiMeta.AuthStyle != bfe_basic.AuthStyleOpenAI {
+		return false
+	}
+	// Chat/completions streaming only: the Responses API already reports its
+	// final usage in response.completed (issue #1381), and Anthropic streams
+	// carry their final usage in message_delta.
+	if aiMeta.Mode != bfe_basic.ModeChat && aiMeta.Mode != bfe_basic.ModeCompletion {
+		return false
+	}
+	bodyAccessor, err := basicReq.OutRequest.GetBodyAccessor()
+	if err != nil || bodyAccessor == nil {
+		return false
+	}
+	body, all := bodyAccessor.GetBytes()
+	if !all || len(body) == 0 {
+		return false
+	}
+	if !gjson.GetBytes(body, "stream").Bool() {
+		return false
+	}
+	// Never override an explicit client choice (including explicit false).
+	if gjson.GetBytes(body, "stream_options.include_usage").Exists() {
+		return false
+	}
+	newBody, err := sjson.SetBytes(body, "stream_options.include_usage", true)
+	if err != nil {
+		log.Logger.Warn("inject stream_options.include_usage failed: %v", err)
+		return false
+	}
+	bodyAccessor.SetBytes(newBody, false)
+	return true
+}
+
 // doSingleAIForward performs a single AI forward attempt with the given key.
 func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.BfeCluster,
 	basicReq *bfe_basic.Request, rw bfe_http.ResponseWriter,
@@ -1610,6 +1654,22 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 				basicReq.HttpRequest.Header.Del("Content-Length")
 			}
 			newBodyModel = targetModel
+		}
+	}
+
+	// issue #1398: for OpenAI streaming chat completions without an explicit
+	// client-side stream_options.include_usage, inject it so the upstream
+	// returns the real final usage chunk. Without it such streams end at
+	// [DONE] with no usage at all and fall into the request-finish reset,
+	// silently zeroing both statistics and billing.
+	if maybeInjectStreamUsage(basicReq, aiMeta, srv.Config.Server.InjectStreamUsage) {
+		if outreq.ContentLength >= 0 {
+			outreq.ContentLength = -1
+			outreq.Header.Del("Content-Length")
+		}
+		if basicReq.HttpRequest != nil && basicReq.HttpRequest.ContentLength >= 0 {
+			basicReq.HttpRequest.ContentLength = -1
+			basicReq.HttpRequest.Header.Del("Content-Length")
 		}
 	}
 

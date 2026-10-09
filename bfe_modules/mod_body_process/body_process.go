@@ -448,8 +448,11 @@ func (e *RawEvent) GetQuotaUsage(authStyle string) QuotaUsage {
 		Data: string(data),
 	}
 	adapter := modelprotocol.Get(authStyle)
-	isFinalUsage := !isguess && fields.CompletionTokens > 0 &&
-		adapter.IsFinalUsageEvent(streamEv)
+	// Non-guess usage on a whitelisted final event type is the final usage;
+	// a zero output_tokens final event (input-only / cache-hit responses)
+	// still counts (issue #1398). The whitelist already excludes
+	// message_start and usage-less events.
+	isFinalUsage := !isguess && adapter.IsFinalUsageEvent(streamEv)
 	isTermination := isFinalUsage
 
 	return QuotaUsage{
