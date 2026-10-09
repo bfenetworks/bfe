@@ -134,6 +134,8 @@ func clusterSubName(clusterName string) string {
 		return "client_abort"
 	case "cluster_usage_snapshot":
 		return "usage_snapshot"
+	case "cluster_nested_usage":
+		return "nested_usage"
 	}
 	return "sub"
 }
