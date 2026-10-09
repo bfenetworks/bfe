@@ -261,33 +261,50 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	// leaving sub-token fields (cache/audio/image) behind would let
 	// calcCostUnits bill the survivors alone (issue #1364: an unrecognized
 	// final usage was reduced to CacheReadTokens and billed cache-read only).
+	//
+	// issue #1398: the reset only applies to a billing copy, never to the
+	// shared TokenUsage. mod_access_pb3 reads the same object for the access
+	// log (AiTotalTokens = UsedQuota), so zeroing it here silently wiped the
+	// statistics/billing of requests whose backend really produced tokens
+	// (42.7% of 200 responses landed total_tokens=0 with TTFT > 0). Only the
+	// billing result UsedCost is written back.
+	billingUsage := *tokenUsage
 	estimateBillable := ctx.aiBasicInfo.IsAllowEstimateToken() && ctx.aiBasicInfo.IsResponseCompleted()
 	if !ctx.aiBasicInfo.IsFinalUsageSeen() && !estimateBillable {
-		tokenUsage.PromptTokens = 0
-		tokenUsage.CompletionTokens = 0
-		tokenUsage.CacheReadTokens = 0
-		tokenUsage.CacheWriteTokens = 0
-		tokenUsage.CacheWriteTokens1h = 0
-		tokenUsage.AudioInputTokens = 0
-		tokenUsage.AudioOutputTokens = 0
-		tokenUsage.ImageInputTokens = 0
-		tokenUsage.VideoCount = 0
-		tokenUsage.ImageCount = 0
-		tokenUsage.UsedQuota = 0
+		billingUsage.PromptTokens = 0
+		billingUsage.CompletionTokens = 0
+		billingUsage.CacheReadTokens = 0
+		billingUsage.CacheWriteTokens = 0
+		billingUsage.CacheWriteTokens1h = 0
+		billingUsage.AudioInputTokens = 0
+		billingUsage.AudioOutputTokens = 0
+		billingUsage.ImageInputTokens = 0
+		billingUsage.VideoCount = 0
+		billingUsage.ImageCount = 0
+		billingUsage.UsedQuota = 0
 	}
-	if tokenUsage.UsedQuota <= 0 && estimateBillable {
-		tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens) // calculate used quota
+	if billingUsage.UsedQuota <= 0 && estimateBillable {
+		billingUsage.UsedQuota = CalcReqUsedQuota(req, billingUsage.PromptTokens, billingUsage.CompletionTokens) // calculate used quota
+	}
+	if estimateBillable && tokenUsage.UsedQuota <= 0 && billingUsage.UsedQuota > 0 {
+		// Mirror the approved estimate into the shared object so the access
+		// log (AiTotalTokens) records the estimate instead of 0 (issue
+		// #1398: "missing usage" must be observable, never silently zeroed).
+		tokenUsage.UsedQuota = billingUsage.UsedQuota
 	}
 
 	// calculate RMB cost at request finish time using token usage already populated
 	// by mod_body_process (streaming) or tokenReadResponseHandler (non-streaming).
-	if tokenUsage.UsedCost <= 0 && hasRMBPlan(ctx.Token.QuotaPlans) {
-		tokenUsage.UsedCost = m.calcCostUnits(req, ctx.serverConf, tokenUsage)
+	if billingUsage.UsedCost <= 0 && hasRMBPlan(ctx.Token.QuotaPlans) {
+		billingUsage.UsedCost = m.calcCostUnits(req, ctx.serverConf, &billingUsage)
 	}
+	// Write back the billing result only; the token fields of the shared
+	// object keep their observed/estimated values for the access log.
+	tokenUsage.UsedCost = billingUsage.UsedCost
 
-	costUnits := tokenUsage.UsedCost
+	costUnits := billingUsage.UsedCost
 
-	if tokenUsage.UsedQuota > 0 || costUnits > 0 {
+	if billingUsage.UsedQuota > 0 || costUnits > 0 {
 		for _, plan := range ctx.Token.QuotaPlans {
 			if plan.Unlimited {
 				continue
@@ -300,8 +317,8 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 					}
 				}
 			} else {
-				if tokenUsage.UsedQuota > 0 {
-					_, err := plan.Deduct(m.redisClient, tokenUsage.UsedQuota)
+				if billingUsage.UsedQuota > 0 {
+					_, err := plan.Deduct(m.redisClient, billingUsage.UsedQuota)
 					if err != nil {
 						log.Logger.Warn("deduct token quota failed: %v", err)
 					}

@@ -157,10 +157,13 @@ func (e *SSEEvent) GetQuotaUsage(authStyle string) QuotaUsage {
 	streamEv := utils.StreamEvent{Type: evType, Data: string(data)}
 	adapter := modelprotocol.Get(authStyle)
 	isTermination := adapter.IsStreamTerminal(streamEv)
-	isFinalUsage := false
-	if !isguess && fields.CompletionTokens > 0 {
-		isFinalUsage = adapter.IsFinalUsageEvent(streamEv)
-	}
+	// isFinalUsage only requires a non-guess usage: the adapter's event-type
+	// whitelist (message_delta/message/response.completed/"") already
+	// excludes message_start and usage-less content chunks. Requiring
+	// CompletionTokens > 0 here dropped legitimate final usages whose
+	// output is 0 (input-only requests, pure cache-hit responses) into the
+	// reset/estimate path (issue #1398).
+	isFinalUsage := !isguess && adapter.IsFinalUsageEvent(streamEv)
 
 	return QuotaUsage{
 		PromptTokens:       fields.PromptTokens,
