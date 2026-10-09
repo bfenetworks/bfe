@@ -1,0 +1,10 @@
+{
+    "clusters": {
+        "cluster_nested_usage": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_nested_usage": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20260720150000"
+}

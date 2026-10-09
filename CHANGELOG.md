@@ -10,6 +10,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.8.8.2] - 2026-10-09
+
+### Fixed
+- Parse the final usage embedded in the streaming finish chunk's choice (`choices[N].usage`, cache field `cached_tokens`) used by kimi-for-coding and other OpenAI-compatible upstreams that ignore the injected `stream_options.include_usage` (issue #1401): the real usage is no longer demoted to a guess, so `EstimateToken=true` no longer logs/bills a forged ContentLength/4 estimate and `EstimateToken=false` no longer logs `(0, -1, 0)` and bills 0
+- Default `EstimateToken` and `InjectStreamUsage` to true as program defaults (`ConfigBasic.SetDefaultConf`): an explicit conf value still overrides, and the fixes no longer silently disappear when a binary is upgraded without the new conf keys (issue #1401)
+- Clamp the negative `CompletionTokens` sentinel (auth-time "unknown" marker) to 0 at the access log boundary, removing negative output token counts from the pb3 log (issue #1401)
+
 ## [v1.8.8.1] - 2026-10-09
 
 ### Fixed
