@@ -25,6 +25,7 @@ import (
 	"math/big"
 	"net"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -511,13 +512,22 @@ func TestSetGslbBasicEPPHotUpdate(t *testing.T) {
 	}))
 	assert.Same(t, rt1, bal.getEPPRt())
 
+	// changed signature field (EPPCheck.Disabled) with same address table:
+	// runtime is rebuilt, not updated in place
+	bal.SetGslbBasic(makeEPPGslbBasicConf(t, []string{server1.addr}, func(conf *cluster_conf.GslbBasicConf) {
+		conf.EPPCheck = &cluster_conf.EPPCheckConf{Disabled: true}
+	}))
+	rtDisabled := bal.getEPPRt()
+	require.NotNil(t, rtDisabled)
+	assert.NotSame(t, rt1, rtDisabled)
+
 	// changed address table: new runtime, old one retired
 	bal.SetGslbBasic(makeEPPGslbBasicConf(t, []string{server2.addr}, nil))
 	rt2 := bal.getEPPRt()
 	require.NotNil(t, rt2)
 	assert.NotSame(t, rt1, rt2)
 	bal.eppMu.Lock()
-	assert.Len(t, bal.eppRetired, 1)
+	assert.Len(t, bal.eppRetired, 2)
 	bal.eppMu.Unlock()
 
 	// new requests go to new address
@@ -549,4 +559,240 @@ func TestIsEPPRetryable(t *testing.T) {
 	assert.False(t, isEPPRetryable(status.Error(codes.Internal, "missing inference-pool metadata")))
 	assert.False(t, isEPPRetryable(status.Error(codes.InvalidArgument, "bad request")))
 	assert.False(t, isEPPRetryable(fmt.Errorf("not a grpc error")))
+}
+
+// fastCheckConf enables health check with short hysteresis for tests.
+func fastCheckConf(conf *cluster_conf.GslbBasicConf) {
+	interval := "25ms"
+	cooldown := "100ms"
+	failThreshold := 2
+	successThreshold := 2
+	conf.EPPCheck = &cluster_conf.EPPCheckConf{
+		CheckInterval:    &interval,
+		FailThreshold:    &failThreshold,
+		Cooldown:         &cooldown,
+		SuccessThreshold: &successThreshold,
+	}
+}
+
+func TestEPPRuntimeHotUpdate_TLSToPlaintext(t *testing.T) {
+	server := startPlaintextEPPTestServer(t, true)
+
+	// initial: TLS (default Insecure=true) against a plaintext server fails
+	bal := makeTestBal(t, makeEPPGslbBasicConf(t, []string{server.addr}, nil))
+	rt1 := bal.getEPPRt()
+	require.NotNil(t, rt1)
+	_, err := bal.BalanceEpp(prepareEPPRequest())
+	require.Error(t, err)
+
+	// hot update: Plaintext=true with unchanged address table -> rebuild
+	bal.SetGslbBasic(makeEPPGslbBasicConf(t, []string{server.addr}, func(conf *cluster_conf.GslbBasicConf) {
+		conf.EPPTLS = &cluster_conf.EPPTLSConf{Plaintext: true}
+	}))
+	rt2 := bal.getEPPRt()
+	require.NotNil(t, rt2)
+	assert.NotSame(t, rt1, rt2)
+	bal.eppMu.Lock()
+	assert.Len(t, bal.eppRetired, 1)
+	bal.eppMu.Unlock()
+
+	// data connection now dials plaintext
+	bk, err := bal.BalanceEpp(prepareEPPRequest())
+	require.NoError(t, err)
+	require.NotNil(t, bk)
+	assert.NotNil(t, server.proc.capturedFirst())
+
+	// health probe dials plaintext too: direct probe succeeds
+	assert.NoError(t, rt2.probe(0))
+}
+
+func TestEPPRuntimeHotUpdate_PlaintextToTLS(t *testing.T) {
+	server := startEPPTestServer(t, true)
+
+	// initial: plaintext against a TLS server fails
+	bal := makeTestBal(t, makeEPPGslbBasicConf(t, []string{server.addr}, func(conf *cluster_conf.GslbBasicConf) {
+		conf.EPPTLS = &cluster_conf.EPPTLSConf{Plaintext: true}
+	}))
+	rt1 := bal.getEPPRt()
+	require.NotNil(t, rt1)
+	_, err := bal.BalanceEpp(prepareEPPRequest())
+	require.Error(t, err)
+
+	// hot update: drop Plaintext (defaults to Insecure=true) -> rebuild;
+	// the new runtime must build tlsConf (D2)
+	bal.SetGslbBasic(makeEPPGslbBasicConf(t, []string{server.addr}, nil))
+	rt2 := bal.getEPPRt()
+	require.NotNil(t, rt2)
+	assert.NotSame(t, rt1, rt2)
+	require.NotNil(t, rt2.tlsConf, "rebuilt runtime must build tlsConf (D2)")
+
+	// data connection and probe both work over TLS (InsecureSkipVerify)
+	bk, err := bal.BalanceEpp(prepareEPPRequest())
+	require.NoError(t, err)
+	require.NotNil(t, bk)
+	assert.NoError(t, rt2.probe(0))
+}
+
+func TestEPPRuntimeHotUpdate_ConnectTimeout(t *testing.T) {
+	server := startEPPTestServer(t, true)
+	connect1, connect2 := "500ms", "50ms"
+
+	bal := makeTestBal(t, makeEPPGslbBasicConf(t, []string{server.addr}, func(conf *cluster_conf.GslbBasicConf) {
+		conf.EPPTimeout = &cluster_conf.EPPTimeoutConf{Connect: &connect1}
+	}))
+	rt1 := bal.getEPPRt()
+	require.NotNil(t, rt1)
+
+	// hot update: EPPTimeout.Connect change -> rebuild with new timeout (D4)
+	bal.SetGslbBasic(makeEPPGslbBasicConf(t, []string{server.addr}, func(conf *cluster_conf.GslbBasicConf) {
+		conf.EPPTimeout = &cluster_conf.EPPTimeoutConf{Connect: &connect2}
+	}))
+	rt2 := bal.getEPPRt()
+	require.NotNil(t, rt2)
+	assert.NotSame(t, rt1, rt2)
+	assert.Equal(t, 50*time.Millisecond, rt2.conf.connectTimeout)
+	bal.eppMu.Lock()
+	assert.Len(t, bal.eppRetired, 1)
+	bal.eppMu.Unlock()
+
+	// new connection works with the new timeout
+	bk, err := bal.BalanceEpp(prepareEPPRequest())
+	require.NoError(t, err)
+	require.NotNil(t, bk)
+	assert.NoError(t, rt2.probe(0))
+}
+
+func TestEPPRuntimeHotUpdate_CheckDisabled(t *testing.T) {
+	primary := startEPPTestServer(t, false)
+	backup := startEPPTestServer(t, false)
+	addrs := []string{primary.addr, backup.addr}
+
+	// health check on: primary goes down -> failover to backup
+	bal := makeTestBal(t, makeEPPGslbBasicConf(t, addrs, fastCheckConf))
+	rt1 := bal.getEPPRt()
+	require.NotNil(t, rt1)
+	primary.setServing(false)
+	waitForCond(t, 5*time.Second, "failover to backup", func() bool {
+		return bal.getEPPRt().activeIndex() == 1
+	})
+
+	// hot update: disable health check, same address table -> rebuild,
+	// failover state inherited
+	bal.SetGslbBasic(makeEPPGslbBasicConf(t, addrs, func(conf *cluster_conf.GslbBasicConf) {
+		fastCheckConf(conf)
+		conf.EPPCheck.Disabled = true
+	}))
+	rt2 := bal.getEPPRt()
+	require.NotNil(t, rt2)
+	assert.NotSame(t, rt1, rt2)
+	assert.Equal(t, 1, rt2.activeIndex(), "failover state inherited on rebuild")
+
+	// health loop stopped: primary recovers (with short cooldown, failback
+	// would take ~150ms if probes were still running) but active must stay
+	primary.setServing(true)
+	time.Sleep(500 * time.Millisecond)
+	assert.Equal(t, 1, bal.getEPPRt().activeIndex(), "no failback while health check disabled")
+
+	// reverse: enabling health check on a fresh balancer starts the loop
+	primary2 := startEPPTestServer(t, false)
+	backup2 := startEPPTestServer(t, false)
+	addrs2 := []string{primary2.addr, backup2.addr}
+
+	bal2 := makeTestBal(t, makeEPPGslbBasicConf(t, addrs2, func(conf *cluster_conf.GslbBasicConf) {
+		conf.EPPCheck = &cluster_conf.EPPCheckConf{Disabled: true}
+	}))
+	rt3 := bal2.getEPPRt()
+	require.NotNil(t, rt3)
+
+	bal2.SetGslbBasic(makeEPPGslbBasicConf(t, addrs2, fastCheckConf))
+	rt4 := bal2.getEPPRt()
+	require.NotNil(t, rt4)
+	assert.NotSame(t, rt3, rt4, "enabling health check rebuilds runtime")
+
+	// health loop started: primary failure now triggers failover
+	primary2.setServing(false)
+	waitForCond(t, 5*time.Second, "failover after enabling health check", func() bool {
+		return bal2.getEPPRt().activeIndex() == 1
+	})
+}
+
+func TestEPPRuntimeHotUpdate_ReadTypeInPlace(t *testing.T) {
+	server := startEPPTestServer(t, true)
+	addrs := []string{server.addr}
+
+	bal := makeTestBal(t, makeEPPGslbBasicConf(t, addrs, nil))
+	rt1 := bal.getEPPRt()
+	require.NotNil(t, rt1)
+
+	// read-type parameter changes only: runtime must be reused in place
+	call, interval := "1s", "50ms"
+	failThreshold, successThreshold := 3, 2
+	cooldown := "30s"
+	bal.SetGslbBasic(makeEPPGslbBasicConf(t, addrs, func(conf *cluster_conf.GslbBasicConf) {
+		conf.EPPTimeout = &cluster_conf.EPPTimeoutConf{Call: &call}
+		conf.EPPCheck = &cluster_conf.EPPCheckConf{
+			CheckInterval:    &interval,
+			FailThreshold:    &failThreshold,
+			Cooldown:         &cooldown,
+			SuccessThreshold: &successThreshold,
+		}
+	}))
+	assert.Same(t, rt1, bal.getEPPRt(), "read-type change must not rebuild runtime")
+
+	rt1.mu.Lock()
+	assert.Equal(t, time.Second, rt1.conf.callTimeout)
+	assert.Equal(t, 50*time.Millisecond, rt1.conf.checkInterval)
+	assert.Equal(t, 3, rt1.conf.failThreshold)
+	assert.Equal(t, 30*time.Second, rt1.conf.cooldown)
+	assert.Equal(t, 2, rt1.conf.successThreshold)
+	rt1.mu.Unlock()
+
+	// service still works with updated parameters
+	bk, err := bal.BalanceEpp(prepareEPPRequest())
+	require.NoError(t, err)
+	require.NotNil(t, bk)
+}
+
+func TestEPPRuntimeHotUpdate_AddrChange(t *testing.T) {
+	primary := startEPPTestServer(t, false)
+	backup := startEPPTestServer(t, false)
+	server2 := startEPPTestServer(t, true)
+
+	oldGrace := eppRetireGrace
+	eppRetireGrace = 100 * time.Millisecond
+	t.Cleanup(func() { eppRetireGrace = oldGrace })
+
+	addrs := []string{primary.addr, backup.addr}
+	bal := makeTestBal(t, makeEPPGslbBasicConf(t, addrs, fastCheckConf))
+	rt1 := bal.getEPPRt()
+	require.NotNil(t, rt1)
+
+	// establish failover state on the old runtime
+	primary.setServing(false)
+	waitForCond(t, 5*time.Second, "failover to backup", func() bool {
+		return bal.getEPPRt().activeIndex() == 1
+	})
+
+	// address table change: rebuild, failover state NOT inherited
+	bal.SetGslbBasic(makeEPPGslbBasicConf(t, []string{server2.addr}, nil))
+	rt2 := bal.getEPPRt()
+	require.NotNil(t, rt2)
+	assert.NotSame(t, rt1, rt2)
+	assert.Equal(t, 0, rt2.activeIndex(), "active resets on address table change")
+
+	bal.eppMu.Lock()
+	require.Len(t, bal.eppRetired, 1)
+	retired := bal.eppRetired[0]
+	bal.eppMu.Unlock()
+
+	// retired runtime's connections are closed after the shortened grace
+	waitForCond(t, 5*time.Second, "retired runtime conns closed", func() bool {
+		return atomic.LoadInt32(&retired.closed) == 1
+	})
+
+	// new requests go to the new address
+	bk, err := bal.BalanceEpp(prepareEPPRequest())
+	require.NoError(t, err)
+	require.NotNil(t, bk)
+	assert.NotNil(t, server2.proc.capturedFirst())
 }
