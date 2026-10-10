@@ -17,6 +17,7 @@ package sc21
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -24,8 +25,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -978,8 +981,13 @@ func TestTC12_ClientAbortMirrorCompletes(t *testing.T) {
 	e := newTestEnv(t)
 	defer e.Close()
 
-	// primary: write the first SSE frame, then block (long inference)
+	// primary: write the first SSE frame, then block (long inference).
+	// The holds must be released even when an assertion below fails,
+	// otherwise the deferred e.Close() deadlocks on the held connection
+	// and the whole package runs into the go test timeout.
 	primaryHold := make(chan struct{})
+	var releasePrimary sync.Once
+	defer releasePrimary.Do(func() { close(primaryHold) })
 	e.primary.SSEEvents = []string{
 		`{"choices":[{"index":0,"delta":{"content":"partial"}}]}`,
 	}
@@ -988,6 +996,8 @@ func TestTC12_ClientAbortMirrorCompletes(t *testing.T) {
 	// mirror: hold the response until the client has aborted, so a completed
 	// mirror strictly proves the mirror outlives the client abort
 	mirrorHold := make(chan struct{})
+	var releaseMirror sync.Once
+	defer releaseMirror.Do(func() { close(mirrorHold) })
 	e.mirror.HoldResponse = mirrorHold
 
 	e.startBFE(defaultMirrorRule(), nil, nil)
@@ -1019,7 +1029,7 @@ func TestTC12_ClientAbortMirrorCompletes(t *testing.T) {
 	_ = resp.Body.Close()
 
 	// client is gone: release the mirror target; the mirror must still complete
-	close(mirrorHold)
+	releaseMirror.Do(func() { close(mirrorHold) })
 
 	if !e.waitMirrorMetric(5*time.Second, "req_labeled_total",
 		map[string]string{"cluster": clusterMirror}, eq(1)) {
@@ -1032,12 +1042,28 @@ func TestTC12_ClientAbortMirrorCompletes(t *testing.T) {
 	if e.mirror.Hits() != 1 {
 		t.Fatalf("mirror target should receive the request once, got %d", e.mirror.Hits())
 	}
-	if bodies := e.mirror.RequestBodies(); len(bodies) != 1 || !bytes.Equal(bodies[0], streamBody) {
-		t.Fatalf("mirror should receive the full request body, got %q", bodies)
+	bodies := e.mirror.RequestBodies()
+	if len(bodies) != 1 {
+		t.Fatalf("mirror should receive the request body once, got %d bodies", len(bodies))
+	}
+	// BFE rewrites streaming requests before forwarding (it injects
+	// stream_options.include_usage for usage billing), so the mirror sees
+	// the rewritten body — the same bytes the primary receives — not the
+	// raw client bytes. Compare the JSON semantically.
+	var gotBody, wantBody map[string]any
+	if err := json.Unmarshal(bodies[0], &gotBody); err != nil {
+		t.Fatalf("mirror body is not valid JSON: %v (%q)", err, bodies[0])
+	}
+	if err := json.Unmarshal(streamBody, &wantBody); err != nil {
+		t.Fatalf("test request body is not valid JSON: %v", err)
+	}
+	wantBody["stream_options"] = map[string]any{"include_usage": true}
+	if !reflect.DeepEqual(gotBody, wantBody) {
+		t.Fatalf("mirror should receive the rewritten request body, got %q", bodies[0])
 	}
 
 	// let the primary finish its held stream for a clean shutdown
-	close(primaryHold)
+	releasePrimary.Do(func() { close(primaryHold) })
 }
 
 // ---------------------------------------------------------------------------

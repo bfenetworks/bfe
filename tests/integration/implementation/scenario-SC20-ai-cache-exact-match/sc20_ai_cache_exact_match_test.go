@@ -524,13 +524,13 @@ func TestTC08_FailedUpstreamNotCached(t *testing.T) {
 
 	// the backend reads part of the request and closes the connection
 	// without sending any response
-	e.backend.ReadBeforeClose = 10
+	e.backend.SetReadBeforeClose(10)
 	resp, _, err := e.sendRequest(apiKey, questionBody)
 	if err == nil && resp.StatusCode == http.StatusOK {
 		t.Fatal("first request should fail when the backend dies")
 	}
 
-	e.backend.ReadBeforeClose = 0
+	e.backend.SetReadBeforeClose(0)
 	e.expectOK(e.sendRequest(apiKey, questionBody))
 	if e.backend.Hits() != 2 {
 		t.Fatalf("failed response must not be cached, got %d hits", e.backend.Hits())

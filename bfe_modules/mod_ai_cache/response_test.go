@@ -258,13 +258,13 @@ func TestCacheResponseHandlerSemanticUpload(t *testing.T) {
 	}
 
 	// vector upload is asynchronous and reuses the request-phase embedding
-	if !waitFor(func() bool { return vec.uploadCalls == 1 }) {
+	if !waitFor(func() bool { return vec.uploads() == 1 }) {
 		t.Fatal("async vector upload did not happen")
 	}
 	if emb.calls != 1 {
 		t.Errorf("embedding must be computed exactly once (reused at write-back), got %d", emb.calls)
 	}
-	item := vec.lastUpload
+	item := vec.lastUploaded()
 	if item.ID != vector.ItemID("key_001", "what is bfe") {
 		t.Errorf("upload id must be deterministic, got %s", item.ID)
 	}
@@ -304,7 +304,7 @@ func TestCacheResponseHandlerNoEmbeddingNoUpload(t *testing.T) {
 		t.Errorf("redis write-back must still happen, got %d setex", fake.setexCalls)
 	}
 	time.Sleep(50 * time.Millisecond)
-	if vec.uploadCalls != 0 {
+	if vec.uploads() != 0 {
 		t.Error("no vector upload without a computed embedding (no recomputation)")
 	}
 }

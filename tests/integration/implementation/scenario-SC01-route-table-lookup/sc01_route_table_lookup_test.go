@@ -419,7 +419,7 @@ func TestTC08_FallbackWithPartialBody(t *testing.T) {
 	})
 	defer e.Close()
 
-	e.backends["cluster_primary_a"].ReadBeforeClose = 1024
+	e.backends["cluster_primary_a"].SetReadBeforeClose(1024)
 
 	body := generateBody(1024 * 1024)
 	resp, respBody, err := e.sendRequestWithContentType(largeHost, apiKeyUserA, body, "application/octet-stream")
