@@ -127,20 +127,22 @@ func TestGslbBasicConfEPPCheckInvalid(t *testing.T) {
 }
 
 func TestGslbBasicConfEPPTLS(t *testing.T) {
-	t.Run("nil EPPTLS defaults to Insecure=true", func(t *testing.T) {
-		// old cluster_conf.data without EPPTLS must still load, with the
-		// legacy behavior formalized as an explicit default
+	t.Run("nil EPPTLS defaults to Plaintext=true", func(t *testing.T) {
+		// a cluster_conf.data without EPPTLS dials EPP without TLS
+		// (plaintext); configure EPPTLS explicitly to use TLS
 		conf := eppGslbBasicConf([]string{"10.0.0.1:9002"})
 		require.NoError(t, GslbBasicConfCheck(conf))
 		require.NotNil(t, conf.EPPTLS)
-		assert.True(t, conf.EPPTLS.Insecure)
-		assert.False(t, conf.EPPTLS.Plaintext)
+		assert.True(t, conf.EPPTLS.Plaintext)
+		assert.False(t, conf.EPPTLS.Insecure)
 	})
 
 	t.Run("insecure without CAFile is valid", func(t *testing.T) {
 		conf := eppGslbBasicConf([]string{"10.0.0.1:9002"})
 		conf.EPPTLS = &EPPTLSConf{Insecure: true}
 		require.NoError(t, GslbBasicConfCheck(conf))
+		// explicit Insecure selects TLS: Plaintext stays false
+		assert.False(t, conf.EPPTLS.Plaintext)
 	})
 
 	t.Run("secure without CAFile rejected", func(t *testing.T) {

@@ -583,6 +583,15 @@ func (b *BFEConfigBuilder) generateClusterTable() error {
 	return os.WriteFile(path, data, 0644)
 }
 
+// WriteClusterConfData regenerates cluster_conf.data in the target conf dir
+// from the current builder settings. Tests mutate EPPClusters (or Backends)
+// and call it to produce a new cluster_conf.data before triggering
+// /reload/server_data_conf, so cluster GslbBasic (e.g. EPP parameters) is
+// hot-updated without restarting BFE.
+func (b *BFEConfigBuilder) WriteClusterConfData() error {
+	return b.generateClusterConfData()
+}
+
 func (b *BFEConfigBuilder) generateClusterConfData() error {
 	clusterConf := map[string]interface{}{
 		"Version": "20260720150000",
@@ -599,6 +608,7 @@ func (b *BFEConfigBuilder) generateClusterConfData() error {
 			}
 			conf["AIConf"] = aiConfMap
 		}
+		applyEPPConf(conf, b.EPPClusters[name])
 		config[name] = conf
 	}
 	for name := range b.StaticBackends {

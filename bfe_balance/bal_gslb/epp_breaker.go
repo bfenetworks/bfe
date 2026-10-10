@@ -58,7 +58,10 @@ type eppBreaker struct {
 	halfOpenInflight bool // a half-open probe request is in flight
 }
 
-func newEppBreaker(name string, conf eppBreakerConf) *eppBreaker {
+// normalizeEppBreakerConf applies defaults to unset fields. Shared by
+// newEppBreaker and updateConf so that both judge configuration equality
+// against the same normalized value.
+func normalizeEppBreakerConf(conf eppBreakerConf) eppBreakerConf {
 	if conf.windowSize < 1 {
 		conf.windowSize = 1
 	}
@@ -71,6 +74,11 @@ func newEppBreaker(name string, conf eppBreakerConf) *eppBreaker {
 	if conf.openTimeout <= 0 {
 		conf.openTimeout = 30 * time.Second
 	}
+	return conf
+}
+
+func newEppBreaker(name string, conf eppBreakerConf) *eppBreaker {
+	conf = normalizeEppBreakerConf(conf)
 
 	return &eppBreaker{
 		name:    name,
@@ -80,21 +88,16 @@ func newEppBreaker(name string, conf eppBreakerConf) *eppBreaker {
 }
 
 // updateConf replaces configuration, keeping current state and window.
+// If the normalized configuration is unchanged (e.g. a reload that did not
+// touch EPPBreaker), the sliding window, counters and state are left intact
+// so periodic reloads do not reset the breaker.
 func (b *eppBreaker) updateConf(conf eppBreakerConf) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if conf.windowSize < 1 {
-		conf.windowSize = 1
-	}
-	if conf.minVolume < 1 {
-		conf.minVolume = 1
-	}
-	if conf.errorRatePercent < 1 || conf.errorRatePercent > 100 {
-		conf.errorRatePercent = 50
-	}
-	if conf.openTimeout <= 0 {
-		conf.openTimeout = 30 * time.Second
+	conf = normalizeEppBreakerConf(conf)
+	if b.conf == conf {
+		return
 	}
 
 	b.conf = conf
