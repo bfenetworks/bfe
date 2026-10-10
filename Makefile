@@ -96,10 +96,17 @@ else
 	$(GOBUILD) -ldflags "-X main.version=$(BFE_VERSION) -X main.commit=$(GIT_COMMIT) -extldflags=-static -s -w"
 endif
 
+UNIT_PKGS  := $(shell $(GO) list ./... | grep -v /tests/integration)
+INTEG_PKGS := $(shell $(GO) list ./tests/integration/... | grep -v /tests/integration/implementation/scenario-SC20-ai-cache-exact-match)
+
 # make test, test your code
 test: test-case vet-case
 test-case:
-	$(GOTEST) -cover ./...
+# 	$(GOTEST) -cover ./...
+	$(GOTEST) -cover $(UNIT_PKGS)
+	$(GOTEST) -cover -p 1 -timeout 5m ./tests/integration/...
+# 	$(GOTEST) -cover -p 1 -timeout 5m $(INTEG_PKGS)
+# 	$(GOTEST) -cover ./tests/integration/implementation/scenario-SC20-ai-cache-exact-match/ 
 vet-case:
 	${GOVET} ./...
 

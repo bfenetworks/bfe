@@ -420,8 +420,8 @@ func TestCacheRequestHandlerExactHitSkipsEmbedding(t *testing.T) {
 	if emb.calls != 0 {
 		t.Errorf("exact hit must not call embedding, got %d calls", emb.calls)
 	}
-	if vec.queryCalls != 0 {
-		t.Errorf("exact hit must not call vector query, got %d calls", vec.queryCalls)
+	if vec.queries() != 0 {
+		t.Errorf("exact hit must not call vector query, got %d calls", vec.queries())
 	}
 	ai := req.GetAiBasicInfo()
 	if !ai.AiCacheHit || ai.AiCacheStatus != CacheStatusHit || ai.AiCacheSemantic {
@@ -469,11 +469,12 @@ func TestCacheRequestHandlerSemanticHit(t *testing.T) {
 	if emb.calls != 1 {
 		t.Errorf("embedding should be computed exactly once, got %d", emb.calls)
 	}
-	if vec.lastQueryTenant != "key_001" {
-		t.Errorf("vector query must be tenant-scoped, got %s", vec.lastQueryTenant)
+	tenant, _, ttl := vec.lastQuery()
+	if tenant != "key_001" {
+		t.Errorf("vector query must be tenant-scoped, got %s", tenant)
 	}
-	if vec.lastQueryTTL != 60*time.Second {
-		t.Errorf("vector query ttl should be the rule cacheTTL, got %v", vec.lastQueryTTL)
+	if ttl != 60*time.Second {
+		t.Errorf("vector query ttl should be the rule cacheTTL, got %v", ttl)
 	}
 }
 
@@ -544,7 +545,7 @@ func TestCacheRequestHandlerSemanticQuestionTooLong(t *testing.T) {
 	if ret != bfe_module.BfeHandlerGoOn {
 		t.Fatalf("expected pass when the question is too long, got ret=%d", ret)
 	}
-	if emb.calls != 0 || vec.queryCalls != 0 {
+	if emb.calls != 0 || vec.queries() != 0 {
 		t.Error("overlong question must skip the semantic lookup entirely")
 	}
 	if m.ruleTable.snapshotCounters().semanticSkipped != 1 {
@@ -572,7 +573,7 @@ func TestCacheRequestHandlerSemanticNotEnabled(t *testing.T) {
 	if ret != bfe_module.BfeHandlerGoOn {
 		t.Fatalf("expected pass, got ret=%d", ret)
 	}
-	if emb.calls != 0 || vec.queryCalls != 0 {
+	if emb.calls != 0 || vec.queries() != 0 {
 		t.Error("semantic lookup must stay off when the module has no semantic cache")
 	}
 }

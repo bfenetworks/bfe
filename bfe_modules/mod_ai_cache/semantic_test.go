@@ -16,6 +16,7 @@ package mod_ai_cache
 
 import (
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -37,8 +38,12 @@ func (f *fakeEmbeddingProvider) Embed(text string) ([]float32, error) {
 	return f.vec, nil
 }
 
-// fakeVectorProvider is a vector.VectorProvider for unit tests.
+// fakeVectorProvider is a vector.VectorProvider for unit tests. Upload is
+// called from an asynchronous write-back goroutine (see ModuleAiCache.writeBack),
+// so all recorded state is mutex-guarded and must be read via the accessors.
 type fakeVectorProvider struct {
+	mu sync.Mutex
+
 	queryCalls  int
 	uploadCalls int
 	err         error
@@ -52,10 +57,12 @@ type fakeVectorProvider struct {
 
 func (f *fakeVectorProvider) Query(embedding []float32, tenant string, topK int,
 	ttl time.Duration) ([]vector.Result, error) {
+	f.mu.Lock()
 	f.queryCalls++
 	f.lastQueryTenant = tenant
 	f.lastQueryTopK = topK
 	f.lastQueryTTL = ttl
+	f.mu.Unlock()
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -63,9 +70,35 @@ func (f *fakeVectorProvider) Query(embedding []float32, tenant string, topK int,
 }
 
 func (f *fakeVectorProvider) Upload(item vector.Item) error {
+	f.mu.Lock()
 	f.uploadCalls++
 	f.lastUpload = item
+	f.mu.Unlock()
 	return f.err
+}
+
+func (f *fakeVectorProvider) queries() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.queryCalls
+}
+
+func (f *fakeVectorProvider) uploads() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.uploadCalls
+}
+
+func (f *fakeVectorProvider) lastQuery() (string, int, time.Duration) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.lastQueryTenant, f.lastQueryTopK, f.lastQueryTTL
+}
+
+func (f *fakeVectorProvider) lastUploaded() vector.Item {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.lastUpload
 }
 
 func TestCompareScore(t *testing.T) {
@@ -128,9 +161,9 @@ func TestSemanticLookupHit(t *testing.T) {
 	if len(emb0) != 2 {
 		t.Errorf("embedding should be returned for the write-back reuse, got %v", emb0)
 	}
-	if vec.lastQueryTenant != "key_001" || vec.lastQueryTopK != 3 || vec.lastQueryTTL != time.Minute {
-		t.Errorf("unexpected query args: tenant=%s topK=%d ttl=%v",
-			vec.lastQueryTenant, vec.lastQueryTopK, vec.lastQueryTTL)
+	tenant, topK, ttl := vec.lastQuery()
+	if tenant != "key_001" || topK != 3 || ttl != time.Minute {
+		t.Errorf("unexpected query args: tenant=%s topK=%d ttl=%v", tenant, topK, ttl)
 	}
 }
 
@@ -147,7 +180,7 @@ func TestSemanticLookupEmbeddingFailure(t *testing.T) {
 	if emb0 != nil {
 		t.Errorf("embedding must be nil on failure, got %v", emb0)
 	}
-	if vec.queryCalls != 0 {
+	if vec.queries() != 0 {
 		t.Error("vector query must not be called when embedding fails")
 	}
 	if s.table.snapshotCounters().embeddingErr != 1 {
@@ -226,10 +259,10 @@ func TestSemanticUpload(t *testing.T) {
 	if err := s.Upload("what is bfe", "key_001", []float32{0.1, 0.2}, "the answer"); err != nil {
 		t.Fatalf("Upload error: %v", err)
 	}
-	if vec.uploadCalls != 1 {
-		t.Fatalf("expected 1 upload, got %d", vec.uploadCalls)
+	if vec.uploads() != 1 {
+		t.Fatalf("expected 1 upload, got %d", vec.uploads())
 	}
-	item := vec.lastUpload
+	item := vec.lastUploaded()
 	if item.ID != vector.ItemID("key_001", "what is bfe") {
 		t.Errorf("upload id must be deterministic, got %s", item.ID)
 	}

@@ -92,6 +92,15 @@ type MockBackend struct {
 	headerCopies       []http.Header
 }
 
+// SetReadBeforeClose sets ReadBeforeClose. It is called from tests while the
+// server may still be handling a previous request, so the write must be
+// synchronized with the handler reads.
+func (b *MockBackend) SetReadBeforeClose(n int) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.ReadBeforeClose = n
+}
+
 // NewMockBackend starts a local HTTP server that returns the given status code.
 func NewMockBackend(clusterName string, response int, body string) *MockBackend {
 	b := &MockBackend{
@@ -116,8 +125,14 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 			<-b.HoldBeforeRead
 		}
 
-		if b.ReadBeforeClose > 0 {
-			_, _ = io.CopyN(io.Discard, r.Body, int64(b.ReadBeforeClose))
+		// snapshot under lock: tests may toggle ReadBeforeClose (via
+		// SetReadBeforeClose) while a previous request is still being handled
+		b.mu.Lock()
+		readBeforeClose := b.ReadBeforeClose
+		b.mu.Unlock()
+
+		if readBeforeClose > 0 {
+			_, _ = io.CopyN(io.Discard, r.Body, int64(readBeforeClose))
 			if hj, ok := w.(http.Hijacker); ok {
 				conn, _, _ := hj.Hijack()
 				if conn != nil {
