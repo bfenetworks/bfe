@@ -33,6 +33,7 @@ import (
 	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_model_protocol/utils"
 	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_util"
 	"github.com/bfenetworks/bfe/bfe_util/crypto"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 )
@@ -207,24 +208,66 @@ func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
 	}
 }
 
+// isJSONMediaType reports whether a Content-Type header value denotes JSON,
+// ignoring media type parameters such as "; charset=utf-8".
+func isJSONMediaType(contentType string) bool {
+	mediaType := strings.ToLower(strings.TrimSpace(contentType))
+	if i := strings.IndexByte(mediaType, ';'); i >= 0 {
+		mediaType = strings.TrimSpace(mediaType[:i])
+	}
+	return mediaType == "application/json" || strings.HasSuffix(mediaType, "+json")
+}
+
+// isCompleteNonStreamBody reports whether res carries a complete, non-streaming
+// body that can be read whole during the read-response phase.
+//
+// A fixed-length response (ContentLength >= 0) is always complete. A chunked
+// response (ContentLength == -1, e.g. gzip + chunked upstream) is read whole
+// only when it is neither an SSE stream nor a non-JSON type that may stream
+// incrementally; everything else is left to mod_body_process so a real stream
+// is never blocked here (issue #1406).
+func isCompleteNonStreamBody(res *bfe_http.Response) bool {
+	if res.ContentLength >= 0 {
+		return true
+	}
+	return !res.IsSse && isJSONMediaType(res.Header.Get("Content-Type"))
+}
+
 func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
 	ctx := GetTokenAuthContext(req) // ensure token auth context is set
 	if ctx == nil {
 		return bfe_module.BfeHandlerGoOn
 	}
 	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
-	if res.StatusCode == bfe_http.StatusOK && res.ContentLength >= 0 {
+	if res.StatusCode == bfe_http.StatusOK && isCompleteNonStreamBody(res) {
 		// The full non-streaming body was read: the response is complete.
 		ctx.aiBasicInfo.MarkResponseCompleted()
+		bodyLen := 0
 		if bodyAccessor, err := res.GetBodyAccessor(); err == nil {
 			body, _ := bodyAccessor.GetBytes()
+			// Decode a parse-only copy: res.Body and res.Header are left
+			// untouched so the bytes forwarded to the client, and the
+			// Content-Encoding response header, stay exactly as the upstream
+			// sent them (issue #1406: gzip responses were never decoded).
+			if decoded, derr := bfe_util.DecodeContentEncoding(res.Header.Get("Content-Encoding"), body); derr == nil {
+				body = decoded
+			} else {
+				log.Logger.Warn("%s: decode content-encoding %q failed: %v",
+					m.name, res.Header.Get("Content-Encoding"), derr)
+			}
+			bodyLen = len(body)
 			UpdateCtxByUsage(ctx, body)
 		}
 		if tokenUsage.UsedQuota > 0 {
 			ctx.aiBasicInfo.MarkFinalUsageSeen()
 		}
 		if tokenUsage.UsedQuota <= 0 && ctx.aiBasicInfo.IsAllowEstimateToken() {
-			tokenUsage.CompletionTokens = int64(res.ContentLength) / 4                                         // estimate completion tokens
+			// A chunked response has ContentLength == -1, so estimate from the
+			// decoded body length instead of the (missing) Content-Length.
+			if bodyLen == 0 && res.ContentLength > 0 {
+				bodyLen = int(res.ContentLength)
+			}
+			tokenUsage.CompletionTokens = int64(bodyLen) / 4                                                   // estimate completion tokens
 			tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens) // calculate used quota
 		}
 	}
