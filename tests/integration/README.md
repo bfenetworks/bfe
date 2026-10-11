@@ -56,6 +56,7 @@ go test ./tests/integration/implementation/scenario-SC01-route-table-lookup/ -ru
 | SC17 AI 协议路径改写 | 验证 `AIConf.ProtocolPaths` 按协议改写上游路径（百炼/Kimi Code 形态）、双协议 cluster 独立改写、fallback 路径重算与未配置/非标准入口透传 |
 | SC21 流量镜像 | 验证 `mod_traffic_mirror` 复制一致性（body/path/header 黑名单/标识头注入）、model 与路径改写、百分比采样（0/100/50 统计分布）、条件不匹配、fallback 重试去重、SSE 读空与 usage/finish_reason 解析、错误分类、熔断与冷却、响应截断、客户端断连继续读完、访问日志 `mirror_hit`/`mirror_cluster`、规则热加载与计费隔离 |
 | SC24 上下文压缩与裁剪 | 验证 `mod_ai_context` 预算预检与主动触发（阈值上下边界）、无损裁剪（L1 工具结果截断/L2 thinking 删除）与 P2 规则改写（tombstone 保护、`[COMPRESSED:rewrite]` 标记）转发不截断、响应头 `x-ai-context-compression`、访问日志 793-796 字段、fallback 重试幂等（只压缩一次）、与 `mod_ai_cache` 共存（命中路径零压缩、cache key 不受压缩影响）、fail-open 透传（`skip_parse_err`/`repair_rollback` 逐字节放行） |
+| SC31 EPP 非调度参数热更新 | 验证 `cluster_conf.data` + `/reload/server_data_conf` 后 EPP 非调度参数生效语义：`runtimeSignature` 把 `EPPTLS`/`EPPTimeout.Connect`/`EPPCheck.Disabled`/`EPPAddr` 纳入"重建"判据（地址不变时 `inheritStateFrom` 继承 `active`/`health`），读取型 `EPPTimeout.Call` 原地生效，未变化的 `EPPBreaker` 不重置熔断窗口；含 `EPPCheck.Disabled=true`+`EPPTLS.Plaintext=true` 与 `EPPBreaker.Disabled=true`+`EPPTLS.Plaintext=true` 两组生产形态组合热更新（D1-D5，mock EPP 双通道 TLS/明文） |
 
 ## 参考文档
 

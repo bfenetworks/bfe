@@ -15,6 +15,7 @@
 package common
 
 import (
+	"bufio"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -22,6 +23,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"math/big"
 	"net"
 	"net/http"
@@ -38,23 +40,60 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+// mockEPPConfig holds optional construction parameters of MockEPP.
+type mockEPPConfig struct {
+	// dualMode makes one listen port serve both TLS and plaintext gRPC,
+	// distinguished by the first byte of each connection (a TLS ClientHello
+	// record starts with 0x16; cleartext HTTP/2 starts with 'P'). It lets a
+	// test observe which transport BFE actually uses and switch transport on
+	// hot reload while the EPP address stays the same.
+	dualMode bool
+}
+
+// MockEPPOption customizes NewMockEPP.
+type MockEPPOption func(*mockEPPConfig)
+
+// WithDualMode makes the mock EPP accept both TLS and plaintext gRPC on its
+// single listen port. Without it the mock only speaks TLS, matching the
+// historical BFE default.
+func WithDualMode() MockEPPOption {
+	return func(c *mockEPPConfig) { c.dualMode = true }
+}
+
 // MockEPP is an in-process mock EPP (ext-proc) server. It implements the
 // envoy ext_proc v3 ExternalProcessor service plus the gRPC health service
 // (used by BFE's EPP health checker), speaks TLS with a self-signed
 // certificate (BFE dials EPP with InsecureSkipVerify when EPPTLS is unset),
 // and records the pool metadata, request headers/body and response
 // headers/body of every processed stream for test assertions.
+//
+// In dual mode the same port additionally serves cleartext gRPC, so a test
+// can flip EPPTLS.Plaintext on reload and prove which transport BFE's data
+// connection and health probe use (TLSConnCount / PlaintextConnCount, and
+// RestrictProtocols to break the abandoned transport).
 type MockEPP struct {
 	t    *testing.T
 	addr string
-	srv  *grpc.Server
 	ln   net.Listener
+	// srv handles TLS connections.
+	srv *grpc.Server
+	// srvPlain handles cleartext connections; non-nil only in dual mode.
+	srvPlain *grpc.Server
+	dualMode bool
 
 	// decisionEndpoint is returned as x-gateway-destination-endpoint.
 	decisionEndpoint string
 	// requestError, if non-nil, is returned as a gRPC status error on the
 	// first message (RequestHeaders) of every stream.
 	requestError error
+	// decisionDelay delays the scheduling decision reply of every stream,
+	// used to exercise EPPTimeout.Call.
+	decisionDelay time.Duration
+
+	// acceptTLS / acceptPlaintext control whether the dual-mode dispatcher
+	// delivers a transport or closes it immediately.
+	acceptTLS       bool
+	acceptPlaintext bool
 
 	mu             sync.Mutex
 	pools          []string
@@ -66,11 +105,20 @@ type MockEPP struct {
 	health         *health.Server
 	healthShutdown bool
 	done           chan struct{}
+	tlsConns       int
+	plainConns     int
+	tlsConnList    []net.Conn
+	plainConnList  []net.Conn
 }
 
 // NewMockEPP starts a mock EPP server on a free loopback port.
-func NewMockEPP(t *testing.T) *MockEPP {
+func NewMockEPP(t *testing.T, opts ...MockEPPOption) *MockEPP {
 	t.Helper()
+
+	cfg := mockEPPConfig{}
+	for _, o := range opts {
+		o(&cfg)
+	}
 
 	certPEM, keyPEM := generateSelfSignedCert(t)
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
@@ -88,34 +136,69 @@ func NewMockEPP(t *testing.T) *MockEPP {
 	}
 
 	m := &MockEPP{
-		t:       t,
-		addr:    ln.Addr().String(),
-		serving: true,
-		done:    make(chan struct{}),
+		t:               t,
+		addr:            ln.Addr().String(),
+		ln:              ln,
+		dualMode:        cfg.dualMode,
+		serving:         true,
+		done:            make(chan struct{}),
+		acceptTLS:       true,
+		acceptPlaintext: true,
 	}
 	m.srv = grpc.NewServer(grpc.Creds(credentials.NewServerTLSFromCert(&cert)))
-	extprocv3.RegisterExternalProcessorServer(m.srv, m)
 	hs := health.NewServer()
 	m.setHealthStatusLocked(hs)
-	grpc_health_v1.RegisterHealthServer(m.srv, hs)
 	m.health = hs
 
-	go func() {
-		if err := m.srv.Serve(ln); err != nil {
-			select {
-			case <-m.done:
-			default:
-				t.Logf("mock epp: serve error: %v", err)
+	if cfg.dualMode {
+		m.srvPlain = grpc.NewServer()
+		m.registerServices(m.srv, hs)
+		m.registerServices(m.srvPlain, hs)
+		tlsLn := newChanListener(ln.Addr())
+		plainLn := newChanListener(ln.Addr())
+		go func() {
+			if err := m.srv.Serve(tlsLn); err != nil {
+				m.logServeErr("tls", err)
 			}
-		}
-	}()
+		}()
+		go func() {
+			if err := m.srvPlain.Serve(plainLn); err != nil {
+				m.logServeErr("plaintext", err)
+			}
+		}()
+		go m.dispatch(tlsLn, plainLn)
+	} else {
+		m.registerServices(m.srv, hs)
+		go func() {
+			if err := m.srv.Serve(ln); err != nil {
+				m.logServeErr("tls", err)
+			}
+		}()
+	}
 
 	if err := WaitForTCP(m.addr, 10*time.Second); err != nil {
 		m.srv.Stop()
+		if m.srvPlain != nil {
+			m.srvPlain.Stop()
+		}
 		t.Fatalf("mock epp did not start: %v", err)
 	}
 	t.Cleanup(func() { m.Close() })
 	return m
+}
+
+// registerServices registers the ext-proc and gRPC health services on srv.
+func (m *MockEPP) registerServices(srv *grpc.Server, hs *health.Server) {
+	extprocv3.RegisterExternalProcessorServer(srv, m)
+	grpc_health_v1.RegisterHealthServer(srv, hs)
+}
+
+func (m *MockEPP) logServeErr(which string, err error) {
+	select {
+	case <-m.done:
+	default:
+		m.t.Logf("mock epp: %s serve error: %v", which, err)
+	}
 }
 
 // generateSelfSignedCert creates a throwaway server certificate. BFE skips
@@ -165,8 +248,14 @@ func (m *MockEPP) Close() {
 	default:
 		close(m.done)
 	}
+	if m.ln != nil {
+		m.ln.Close()
+	}
 	if m.srv != nil {
 		m.srv.Stop()
+	}
+	if m.srvPlain != nil {
+		m.srvPlain.Stop()
 	}
 }
 
@@ -185,6 +274,14 @@ func (m *MockEPP) SetRequestError(err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.requestError = err
+}
+
+// SetDecisionDelay makes the server wait d before replying with the
+// scheduling decision. It is used to exercise EPPTimeout.Call.
+func (m *MockEPP) SetDecisionDelay(d time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.decisionDelay = d
 }
 
 // SetServing controls the gRPC health status reported to BFE's EPP health
@@ -206,6 +303,100 @@ func (m *MockEPP) ShutdownHealth() {
 	m.healthShutdown = true
 	if m.health != nil {
 		m.health.Shutdown()
+	}
+}
+
+// TLSConnCount returns the number of accepted TLS connections (data and
+// probe) in dual mode.
+func (m *MockEPP) TLSConnCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.tlsConns
+}
+
+// PlaintextConnCount returns the number of accepted cleartext connections
+// (data and probe) in dual mode.
+func (m *MockEPP) PlaintextConnCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.plainConns
+}
+
+// RestrictProtocols makes the mock accept only the given transport for new
+// connections and closes every existing connection of the other transport.
+// It lets a test prove that BFE actually abandoned the previous transport
+// after a hot reload: the old connection is broken, so only a client that
+// re-established the connection with the new transport keeps working.
+func (m *MockEPP) RestrictProtocols(tls, plaintext bool) {
+	m.mu.Lock()
+	m.acceptTLS = tls
+	m.acceptPlaintext = plaintext
+	var closeList []net.Conn
+	if !tls {
+		closeList = append(closeList, m.tlsConnList...)
+		m.tlsConnList = nil
+	}
+	if !plaintext {
+		closeList = append(closeList, m.plainConnList...)
+		m.plainConnList = nil
+	}
+	m.mu.Unlock()
+
+	for _, c := range closeList {
+		c.Close()
+	}
+}
+
+// dispatch accepts raw connections and routes each one to the TLS or
+// cleartext server according to the first byte the peer sends.
+func (m *MockEPP) dispatch(tlsLn, plainLn *chanListener) {
+	for {
+		c, err := m.ln.Accept()
+		if err != nil {
+			return
+		}
+		go m.routeConn(c, tlsLn, plainLn)
+	}
+}
+
+// routeConn peeks at the first byte of a connection and delivers it to the
+// matching transport. TLS ClientHello records start with 0x16; cleartext
+// HTTP/2 starts with the connection preface ('P').
+func (m *MockEPP) routeConn(c net.Conn, tlsLn, plainLn *chanListener) {
+	br := bufio.NewReader(c)
+	head, err := br.Peek(1)
+	if err != nil {
+		c.Close()
+		return
+	}
+	isTLS := head[0] == 0x16
+	conn := net.Conn(&bufferedConn{Conn: c, r: br})
+
+	m.mu.Lock()
+	deliver := false
+	if isTLS {
+		if m.acceptTLS {
+			m.tlsConns++
+			m.tlsConnList = append(m.tlsConnList, conn)
+			deliver = true
+		}
+	} else {
+		if m.acceptPlaintext {
+			m.plainConns++
+			m.plainConnList = append(m.plainConnList, conn)
+			deliver = true
+		}
+	}
+	m.mu.Unlock()
+
+	if !deliver {
+		c.Close()
+		return
+	}
+	if isTLS {
+		tlsLn.deliver(conn, m.done)
+	} else {
+		plainLn.deliver(conn, m.done)
 	}
 }
 
@@ -285,6 +476,7 @@ func (m *MockEPP) Process(stream extprocv3.ExternalProcessor_ProcessServer) erro
 	m.reqHeaders = append(m.reqHeaders, headersToHTTP(rh.GetHeaders()))
 	reqErr := m.requestError
 	decision := m.decisionEndpoint
+	delay := m.decisionDelay
 	m.mu.Unlock()
 
 	if reqErr != nil {
@@ -307,6 +499,10 @@ func (m *MockEPP) Process(stream extprocv3.ExternalProcessor_ProcessServer) erro
 	m.mu.Lock()
 	m.reqBodies = append(m.reqBodies, reqBody)
 	m.mu.Unlock()
+
+	if delay > 0 {
+		time.Sleep(delay)
+	}
 
 	// reply to RequestHeaders with the scheduling decision
 	if err := stream.Send(decisionResponse(decision)); err != nil {
@@ -429,4 +625,58 @@ func decisionResponse(endpoint string) *extprocv3.ProcessingResponse {
 		},
 	}
 	return resp
+}
+
+// bufferedConn replays the bytes buffered while sniffing the connection
+// preface, so the gRPC server above it sees the full byte stream.
+type bufferedConn struct {
+	net.Conn
+	r io.Reader
+}
+
+func (c *bufferedConn) Read(b []byte) (int, error) { return c.r.Read(b) }
+
+// chanListener is a net.Listener backed by a channel of already-accepted
+// connections, letting one real listen port fan out to several gRPC servers.
+type chanListener struct {
+	ch     chan net.Conn
+	addr   net.Addr
+	closed chan struct{}
+	once   sync.Once
+}
+
+func newChanListener(addr net.Addr) *chanListener {
+	return &chanListener{
+		ch:     make(chan net.Conn),
+		addr:   addr,
+		closed: make(chan struct{}),
+	}
+}
+
+func (l *chanListener) Accept() (net.Conn, error) {
+	select {
+	case c := <-l.ch:
+		return c, nil
+	case <-l.closed:
+		return nil, fmt.Errorf("mock epp: listener closed")
+	}
+}
+
+func (l *chanListener) Close() error {
+	l.once.Do(func() { close(l.closed) })
+	return nil
+}
+
+func (l *chanListener) Addr() net.Addr { return l.addr }
+
+// deliver hands an accepted connection to the server reading from this
+// listener, or closes it if the server (or the whole mock) has stopped.
+func (l *chanListener) deliver(c net.Conn, done <-chan struct{}) {
+	select {
+	case l.ch <- c:
+	case <-done:
+		c.Close()
+	case <-l.closed:
+		c.Close()
+	}
 }
