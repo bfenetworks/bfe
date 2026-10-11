@@ -132,6 +132,14 @@ type AiBasicInfo struct {
 	// finish by mod_ai_token_auth; the zero value means "not judged"
 	// (non-token-auth traffic) and keeps the legacy behaviour.
 	usageDisposition string
+
+	// usageSource tells the access log where the reported token usage came
+	// from: parsed (final usage from the upstream response), estimated
+	// (EstimateToken estimate approved for billing) or unrecognized (no
+	// final usage and not estimatable: billing skipped, issue #1410). It is
+	// set at the same decision point as the billing-yardstick guard; the
+	// zero value means "not judged" and the log field stays absent.
+	usageSource string
 }
 
 // ClusterKeyName represents a tried cluster and API-Key pair during request processing
@@ -209,6 +217,39 @@ func (aiinfo *AiBasicInfo) SetUsageDisposition(disposition string) {
 // finish (UsageDispositionUnset when it was never judged).
 func (aiinfo *AiBasicInfo) UsageDisposition() string {
 	return aiinfo.usageDisposition
+}
+
+// Usage sources for the access log (issue #1410): where the reported token
+// usage came from. Orthogonal to UsageDisposition, which decides whether
+// usage is reported at all; the source is set at the same decision point
+// as the billing-yardstick guard so the signal can never diverge from the
+// billing call.
+const (
+	// UsageSourceParsed means a final usage was parsed from the upstream
+	// response (including genuine zero-usage requests, which never fall
+	// into the unrecognized branch).
+	UsageSourceParsed = "parsed"
+	// UsageSourceEstimated means no final usage was parsed but the request
+	// is billable by EstimateToken (estimate allowed and response
+	// completed); the approved estimate is mirrored into the shared usage
+	// (issue #1398).
+	UsageSourceEstimated = "estimated"
+	// UsageSourceUnrecognized means no final usage was parsed and the
+	// request is not estimatable: billing was skipped and the reported
+	// token fields are auth-time seeding residue.
+	UsageSourceUnrecognized = "unrecognized"
+)
+
+// SetUsageSource records where the reported token usage came from (issue
+// #1410); the access log reports it as ai_usage_source.
+func (aiinfo *AiBasicInfo) SetUsageSource(source string) {
+	aiinfo.usageSource = source
+}
+
+// UsageSource returns the usage source set at request finish (empty when
+// it was never judged, e.g. the upstream call never succeeded).
+func (aiinfo *AiBasicInfo) UsageSource() string {
+	return aiinfo.usageSource
 }
 
 func GetApiKey(req *Request) string {

@@ -824,3 +824,50 @@ func TestReqAiInfoGenDetectsInconsistentUsageTriple(t *testing.T) {
 		t.Error("per-image billed rows must be exempt from the token-triple invariant")
 	}
 }
+
+// Issue #1410: ai_usage_source reports where the logged usage came from
+// (parsed / estimated / unrecognized) so billing bypasses and estimate-billed
+// rows are directly queryable in reconciliation. The field stays absent when
+// no source was judged, and absent together with the whole usage block when
+// the upstream call never succeeded (UsageDispositionNone, issue #1409).
+func TestReqAiInfoGenUsageSource(t *testing.T) {
+	cases := []struct {
+		name        string
+		disposition string
+		source      string
+		want        *string // nil means the field must stay absent
+	}{
+		{"parsed", bfe_basic.UsageDispositionObserved, bfe_basic.UsageSourceParsed, strPtr("parsed")},
+		{"estimated", bfe_basic.UsageDispositionObserved, bfe_basic.UsageSourceEstimated, strPtr("estimated")},
+		{"unrecognized", bfe_basic.UsageDispositionObserved, bfe_basic.UsageSourceUnrecognized, strPtr("unrecognized")},
+		{"unset source stays absent", bfe_basic.UsageDispositionObserved, "", nil},
+		{"non-2xx suppresses the source too", bfe_basic.UsageDispositionNone, bfe_basic.UsageSourceUnrecognized, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, req, res := makeRequestLogTest(t)
+			aiInfo := &bfe_basic.AiBasicInfo{ClientKeyId: "key-id-123"}
+			aiInfo.SetUsageDisposition(tc.disposition)
+			aiInfo.GetTokenUsage().UsedQuota = 30
+			if tc.source != "" {
+				aiInfo.SetUsageSource(tc.source)
+			}
+			req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+			reqLog := &bfe_access_pb3.RequestLog{}
+			reqAiInfoGen(reqLog, req, res)
+
+			if tc.want == nil {
+				if reqLog.AiUsageSource != nil {
+					t.Errorf("ai_usage_source = %v, want absent", *reqLog.AiUsageSource)
+				}
+				return
+			}
+			if reqLog.AiUsageSource == nil || *reqLog.AiUsageSource != *tc.want {
+				t.Errorf("ai_usage_source = %v, want %q", reqLog.AiUsageSource, *tc.want)
+			}
+		})
+	}
+}
+
+func strPtr(s string) *string { return &s }
