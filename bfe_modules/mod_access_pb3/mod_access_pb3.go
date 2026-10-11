@@ -38,6 +38,16 @@ var (
 type ModuleAccessLogState struct {
 	AllReqLogCount *metrics.Counter
 	AllSesLogCount *metrics.Counter
+	// AiUsageSuppressed counts ACCESS-LOG rows whose AI token fields were
+	// withheld because the request never successfully called the upstream
+	// (non-2xx): no model usage exists, so reporting the EstimateToken
+	// residue would pollute token-based reports (issue #1409).
+	AiUsageSuppressed *metrics.Counter
+	// AiUsageInconsistent counts rows whose token triple breaks the billing
+	// yardstick invariant ai_total_tokens == ai_input_tokens +
+	// ai_output_tokens (image/video count rows excepted). It must stay 0;
+	// a non-zero value means a new code path writes partial usage.
+	AiUsageInconsistent *metrics.Counter
 }
 
 type ModuleAccessPb3 struct {

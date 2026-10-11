@@ -74,7 +74,13 @@ func (m *ModuleAccessPb3) requestLogGen(req *bfe_basic.Request, res *bfe_http.Re
 	reqTimeInfoGen(requestLog, req)
 
 	// AI info
-	reqAiInfoGen(requestLog, req, res)
+	usageSuppressed, usageInconsistent := reqAiInfoGen(requestLog, req, res)
+	if usageSuppressed {
+		m.state.AiUsageSuppressed.Inc(1)
+	}
+	if usageInconsistent {
+		m.state.AiUsageInconsistent.Inc(1)
+	}
 
 	// credential masking gate: the last line of defense before log output,
 	// ensure raw API Key never lands in any field (see bfenetworks/bfe#1357)
@@ -379,10 +385,15 @@ func isStreamResponse(req *bfe_basic.Request, res *bfe_http.Response) bool {
 }
 
 // AI observability info
-func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res *bfe_http.Response) {
+// reqAiInfoGen fills the AI observability fields of the request log. It
+// returns whether the token-usage fields were withheld (usageSuppressed: no
+// successful upstream call, issue #1409) and whether the reported triple
+// broke the billing yardstick invariant (usageInconsistent), so the caller
+// can count both conditions.
+func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res *bfe_http.Response) (usageSuppressed bool, usageInconsistent bool) {
 	aiInfo := req.GetAiBasicInfo()
 	if aiInfo == nil {
-		return
+		return false, false
 	}
 
 	// API Key ID (not the raw API Key value)
@@ -429,7 +440,7 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 
 	// Token usage
 	usage := aiInfo.GetTokenUsage()
-	if usage != nil {
+	if usage != nil && aiInfo.UsageDisposition() != bfe_basic.UsageDispositionNone {
 		reqLog.AiInputTokens = proto.Int64(usage.PromptTokens)
 		// CompletionTokens is preset to the COMPLETION_TOKENS_UNKNOWN
 		// sentinel (-1) at auth time; when no usage ever arrives and
@@ -468,6 +479,31 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		if usage.UsedCost > 0 {
 			reqLog.AiCostValue = proto.Int64(usage.UsedCost)
 		}
+		if aiInfo.IsPriceMiss() {
+			// The (model, mode) price entry was absent: the cost was computed
+			// by falling back to the model's chat price, or billed 0 with no
+			// fallback (issue #1408). Distinguishes under-priced rows from
+			// legitimate zero-cost rows in reconciliation.
+			reqLog.AiPriceMiss = proto.Bool(true)
+		}
+		if source := aiInfo.UsageSource(); source != "" {
+			// Where the reported usage came from: parsed (final usage from
+			// the upstream response, including genuine zero-usage rows),
+			// estimated (EstimateToken estimate approved for billing) or
+			// unrecognized (billing skipped, the token fields are auth-time
+			// seeding residue). Makes billing bypasses directly queryable
+			// in reconciliation (issue #1410).
+			reqLog.AiUsageSource = proto.String(source)
+		}
+		usageInconsistent = usageTripleInconsistent(usage, outputTokens)
+	} else if usage != nil {
+		// The upstream was never successfully called (mod_ai_token_auth sets
+		// UsageDispositionNone for non-2xx responses, issue #1409): no model
+		// usage exists, so the EstimateToken residue must not be reported as
+		// usage. The fields stay absent (proto optional) so "no usage" is
+		// distinguishable from "usage = 0"; aggregations that use
+		// SUM(COALESCE(ai_*, 0)) are unaffected.
+		usageSuppressed = true
 	}
 
 	// Cost currency
@@ -669,4 +705,21 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 			}
 		}
 	}
+
+	return usageSuppressed, usageInconsistent
+}
+
+// usageTripleInconsistent reports whether the logged token triple breaks the
+// billing yardstick invariant ai_total_tokens == ai_input_tokens +
+// ai_output_tokens (issue #1409, assertion A-02). Rows billed per image or
+// per video carry a count instead of tokens in ai_total_tokens and are
+// therefore excepted.
+func usageTripleInconsistent(usage *bfe_basic.TokenUsage, outputTokens int64) bool {
+	if usage.UsedQuota <= 0 {
+		return false
+	}
+	if usage.ImageCount > 0 || usage.VideoCount > 0 {
+		return false
+	}
+	return usage.UsedQuota != usage.PromptTokens+outputTokens
 }

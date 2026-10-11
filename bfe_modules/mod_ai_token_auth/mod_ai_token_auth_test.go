@@ -1286,28 +1286,54 @@ func TestCalcCostUnits_PriceLookupMissCounter(t *testing.T) {
 	model := "gpt-5-codex"
 	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
 	// price table only carries a "chat" mode entry for the model; the
-	// request is billed as mode "responses" (the issue #1382 shape before
-	// the fix). The lookup must miss, bill 0 and count the miss.
+	// request is billed as mode "responses". Since issue #1408 the miss
+	// falls back to the model's chat-mode price (product decision: an
+	// unpriced mode is billed the same as chat), marks the request
+	// ai_price_miss and counts PriceFallbackUsed instead of PriceLookupMiss.
 	cluster := buildTestClusterConf(model, 0.000003, 0.000009)
 	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
 	req.GetAiBasicInfo().Mode = bfe_basic.ModeResponses
 
 	usage := &bfe_basic.TokenUsage{PromptTokens: 100, CompletionTokens: 200}
-	if got := m.calcCostUnits(req, req.SvrDataConf, usage); got != 0 {
+	want := quota.RmbToFixedPoint(100*0.000003 + 200*0.000009)
+	if got := m.calcCostUnits(req, req.SvrDataConf, usage); got != want {
+		t.Errorf("expected fallback cost %d, got %d", want, got)
+	}
+	if v := m.state.PriceLookupMiss.Get(); v != 0 {
+		t.Errorf("expected PriceLookupMiss 0 on fallback, got %d", v)
+	}
+	if v := m.state.PriceFallbackUsed.Get(); v != 1 {
+		t.Errorf("expected PriceFallbackUsed 1, got %d", v)
+	}
+	if !req.GetAiBasicInfo().IsPriceMiss() {
+		t.Error("expected PriceMiss to be marked on fallback")
+	}
+
+	// billing with the configured mode hits the price: no counter bump.
+	req.GetAiBasicInfo().Mode = bfe_basic.ModeChat
+	if got := m.calcCostUnits(req, req.SvrDataConf, usage); got != want {
+		t.Errorf("expected cost %d, got %d", want, got)
+	}
+	if v := m.state.PriceLookupMiss.Get(); v != 0 {
+		t.Errorf("expected PriceLookupMiss still 0 after a hit, got %d", v)
+	}
+	if v := m.state.PriceFallbackUsed.Get(); v != 1 {
+		t.Errorf("expected PriceFallbackUsed still 1 after a hit, got %d", v)
+	}
+
+	// A model absent from the table entirely has no chat baseline: the chat
+	// mode itself never falls back, so it bills 0 and counts PriceLookupMiss.
+	noModelReq := newTestRequestWithCluster("ak-123", "AI_product", clusterName, "no-such-model")
+	noModelReq.SvrDataConf = req.SvrDataConf
+	noModelReq.GetAiBasicInfo().Mode = bfe_basic.ModeChat
+	if got := m.calcCostUnits(noModelReq, noModelReq.SvrDataConf, usage); got != 0 {
 		t.Errorf("expected 0 cost on price lookup miss, got %d", got)
 	}
 	if v := m.state.PriceLookupMiss.Get(); v != 1 {
 		t.Errorf("expected PriceLookupMiss 1, got %d", v)
 	}
-
-	// billing with the configured mode hits the price: no counter bump.
-	req.GetAiBasicInfo().Mode = bfe_basic.ModeChat
-	want := quota.RmbToFixedPoint(100*0.000003 + 200*0.000009)
-	if got := m.calcCostUnits(req, req.SvrDataConf, usage); got != want {
-		t.Errorf("expected cost %d, got %d", want, got)
-	}
-	if v := m.state.PriceLookupMiss.Get(); v != 1 {
-		t.Errorf("expected PriceLookupMiss still 1 after a hit, got %d", v)
+	if !noModelReq.GetAiBasicInfo().IsPriceMiss() {
+		t.Error("expected PriceMiss to be marked on unrecoverable miss")
 	}
 }
 
@@ -2695,5 +2721,263 @@ func TestUpdateCtxByUsage_Gemini(t *testing.T) {
 	usage3 := ai3.GetTokenUsage()
 	if usage3.UsedQuota != 20 {
 		t.Errorf("expected UsedQuota 20 (12+8 fallback), got %d", usage3.UsedQuota)
+	}
+}
+
+// Issue #1409: a non-2xx response means the upstream was never successfully
+// called, so the EstimateToken residue (prompt tokens seeded at auth time,
+// completion tokens accumulated from response bytes) must be dropped from the
+// shared TokenUsage and the request must be marked as "no usable usage" so the
+// access log reports no token field at all.
+func TestTokenRequestFinishHandler_Non2xxDropsEstimateResidue(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-Non2xxDropsEstimate",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id",
+		QuotaPlans: []*QuotaPlan{rmbPlan}}, 100, nil)
+
+	ai := req.GetAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+	// Residue: the auth-time prompt seeding plus completion tokens guessed
+	// from the (404) response body, as described in issue #1409.
+	usage := ai.GetTokenUsage()
+	usage.CompletionTokens = 75
+
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusNotFound}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if _, ok := client.data[rmbPlan.RedisKey]; ok {
+		t.Error("non-2xx response must not deduct quota")
+	}
+	if got := ai.UsageDisposition(); got != bfe_basic.UsageDispositionNone {
+		t.Errorf("UsageDisposition = %q, want %q", got, bfe_basic.UsageDispositionNone)
+	}
+	if u := ai.GetTokenUsage(); u.PromptTokens != 0 || u.CompletionTokens != 0 || u.UsedQuota != 0 {
+		t.Errorf("estimate residue must be dropped, got %+v", *u)
+	}
+}
+
+// Issue #1409: even a non-2xx response that happens to carry a real parsed
+// usage is never reported as usage of a failed request; the observation itself
+// is not destroyed (issue #1398 keeps observations on the shared object).
+func TestTokenRequestFinishHandler_Non2xxKeepsRealUsageObservation(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	req := newTestRequestWithCluster("ak-123", "AI_product", "deepseek-backup", "deepseek-v4-flash")
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 0, nil)
+
+	ai := req.GetAiBasicInfo()
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 10
+	usage.CompletionTokens = 20
+	usage.UsedQuota = 30
+	ai.MarkFinalUsageSeen()
+
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusInternalServerError}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := ai.UsageDisposition(); got != bfe_basic.UsageDispositionNone {
+		t.Errorf("UsageDisposition = %q, want %q", got, bfe_basic.UsageDispositionNone)
+	}
+	if u := ai.GetTokenUsage(); u.PromptTokens != 10 || u.CompletionTokens != 20 || u.UsedQuota != 30 {
+		t.Errorf("real usage observation must be kept, got %+v", *u)
+	}
+	if len(client.data) != 0 {
+		t.Error("non-2xx response must not deduct quota")
+	}
+}
+
+// Issue #1409: a successful (2xx) call keeps the observed disposition, and the
+// #1398/#1352 log view is untouched: a client abort without final usage keeps
+// the auth-seeded prompt estimate while nothing is deducted.
+func TestTokenRequestFinishHandler_ObservedDispositionKeepsLogView(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{
+		clusterName: buildTestClusterConf(model, 0.000003, 0.000009),
+	}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-ObservedDisposition",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id",
+		QuotaPlans: []*QuotaPlan{rmbPlan}}, 100, nil)
+
+	ai := req.GetAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+	req.ErrCode = bfe_basic.ErrClientWrite // aborted before the final usage
+
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK, ContentLength: -1}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := ai.UsageDisposition(); got != bfe_basic.UsageDispositionObserved {
+		t.Errorf("UsageDisposition = %q, want %q", got, bfe_basic.UsageDispositionObserved)
+	}
+	if _, ok := client.data[rmbPlan.RedisKey]; ok {
+		t.Error("client abort without final usage must not be deducted")
+	}
+	if u := ai.GetTokenUsage(); u.PromptTokens != 100 || u.UsedQuota != 0 {
+		t.Errorf("log view must keep the auth-seeded estimate (issue #1398), got %+v", *u)
+	}
+}
+
+// Issue #1410: a 2xx request whose upstream usage was never recognized and
+// which is not estimatable (EstimateToken disabled here) hits the billing
+// guard: billing fields are zeroed, nothing is deducted, and the bypass is
+// now observable (UsageUnrecognized counter + ai_usage_source=unrecognized).
+func TestTokenRequestFinishHandler_UsageUnrecognizedSignal(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	req := newTestRequestWithCluster("ak-123", "AI_product", "deepseek-backup", "deepseek-v4-flash")
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-UsageUnrecognized",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id",
+		QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+
+	ai := req.GetAiBasicInfo()
+	ai.SetAllowEstimateToken(false) // not estimatable
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 100 // auth-time seeding residue stays on the shared object
+	usage.UsedQuota = 0
+
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := m.state.UsageUnrecognized.Get(); got != 1 {
+		t.Errorf("UsageUnrecognized = %d, want 1", got)
+	}
+	if got := ai.UsageSource(); got != bfe_basic.UsageSourceUnrecognized {
+		t.Errorf("UsageSource = %q, want %q", got, bfe_basic.UsageSourceUnrecognized)
+	}
+	if _, ok := client.data[rmbPlan.RedisKey]; ok {
+		t.Error("unrecognized usage must not deduct quota")
+	}
+	if u := ai.GetTokenUsage(); u.PromptTokens != 100 || u.UsedQuota != 0 {
+		t.Errorf("log view must keep the auth-seeded residue (issue #1398), got %+v", *u)
+	}
+}
+
+// Issue #1410 (distinguishability): a genuine zero-usage request parses its
+// final usage (all zero) and must NOT be counted as unrecognized; the two
+// shapes stay separable in both the counter and ai_usage_source.
+func TestTokenRequestFinishHandler_RealZeroUsageNotUnrecognized(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	m.redisClient = newMockRedisClient()
+
+	req := newTestRequestWithCluster("ak-123", "AI_product", "deepseek-backup", "deepseek-v4-flash")
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 0, nil)
+
+	ai := req.GetAiBasicInfo()
+	ai.SetAllowEstimateToken(false)
+	ai.MarkFinalUsageSeen() // a real parsed usage arrived, and it is all zero
+
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := m.state.UsageUnrecognized.Get(); got != 0 {
+		t.Errorf("UsageUnrecognized = %d, want 0 for a genuine zero-usage request", got)
+	}
+	if got := ai.UsageSource(); got != bfe_basic.UsageSourceParsed {
+		t.Errorf("UsageSource = %q, want %q", got, bfe_basic.UsageSourceParsed)
+	}
+}
+
+// Issue #1410: a request billable by EstimateToken (estimate allowed and
+// response completed, no final usage) is not "unrecognized": the approved
+// estimate is mirrored into the shared usage and the source is "estimated".
+func TestTokenRequestFinishHandler_EstimateBilledSource(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	m.redisClient = newMockRedisClient()
+
+	req := newTestRequestWithCluster("ak-123", "AI_product", "deepseek-backup", "deepseek-v4-flash")
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 0, nil)
+
+	ai := req.GetAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+	ai.MarkResponseCompleted()
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 100
+	usage.CompletionTokens = 20
+	usage.UsedQuota = 0
+
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := m.state.UsageUnrecognized.Get(); got != 0 {
+		t.Errorf("UsageUnrecognized = %d, want 0 for an estimate-billed request", got)
+	}
+	if got := ai.UsageSource(); got != bfe_basic.UsageSourceEstimated {
+		t.Errorf("UsageSource = %q, want %q", got, bfe_basic.UsageSourceEstimated)
+	}
+	want := CalcReqUsedQuota(req, 100, 20)
+	if u := ai.GetTokenUsage(); u.UsedQuota != want {
+		t.Errorf("mirrored UsedQuota = %d, want %d (issue #1398 estimate mirror)", u.UsedQuota, want)
+	}
+}
+
+// Issue #1410: the client-abort zero-deduction (issue #1352 yardstick) is a
+// billing bypass too and is now counted (counter-only, no warn).
+func TestTokenRequestFinishHandler_ClientAbortCounted(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	m.redisClient = newMockRedisClient()
+
+	req := newTestRequestWithCluster("ak-123", "AI_product", "deepseek-backup", "deepseek-v4-flash")
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 100, nil)
+
+	ai := req.GetAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+	req.ErrCode = bfe_basic.ErrClientReset
+
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK, ContentLength: -1}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := m.state.UsageUnrecognized.Get(); got != 1 {
+		t.Errorf("UsageUnrecognized = %d, want 1 for an aborted unrecognized request", got)
+	}
+	// The abort branch returns before the source decision; the log keeps the
+	// issue #1352/#1398 view (seeded prompt, total 0) with no source marker.
+	if got := ai.UsageSource(); got != "" {
+		t.Errorf("UsageSource = %q, want empty for the abort branch", got)
 	}
 }

@@ -40,6 +40,11 @@ const (
 	apiKey   = "ak_user_a"
 	apiKeyId = "user_a_key_id"
 
+	// noRouteHost is mapped to the ai_product (host_rule.data) but has no
+	// ai_route rule, so BFE answers 404 "AI route not found" without calling
+	// any backend (issue #1409 arm A: token auth matched first).
+	noRouteHost = "noroute.example.org"
+
 	clusterRMB         = "cluster_rmb"
 	clusterNoTable     = "cluster_no_table"
 	clusterFallbackRMB = "cluster_fallback_rmb"
@@ -1546,5 +1551,191 @@ func assertNoBackendTimeFields(t *testing.T, name string, reqLog *bfe_access_pb.
 	}
 	if len(reqLog.AiClusterKeyNames) != 0 {
 		t.Errorf("%s: expected no cluster_key_names on rejected request, got %d", name, len(reqLog.AiClusterKeyNames))
+	}
+}
+
+// assertNoUsageFields asserts that the AI token fields of a row whose request
+// never successfully called the upstream are absent (issue #1409). Absent is
+// deliberately different from 0: it tells "no model usage" apart from
+// "usage = 0", while aggregations using SUM(COALESCE(ai_*, 0)) are unaffected.
+func assertNoUsageFields(t *testing.T, name string, reqLog *bfe_access_pb.RequestLog) {
+	t.Helper()
+	if reqLog.AiInputTokens != nil {
+		t.Errorf("%s: ai_input_tokens = %d, want absent (no model usage on a failed request)",
+			name, *reqLog.AiInputTokens)
+	}
+	if reqLog.AiOutputTokens != nil {
+		t.Errorf("%s: ai_output_tokens = %d, want absent (no model usage on a failed request)",
+			name, *reqLog.AiOutputTokens)
+	}
+	if reqLog.AiTotalTokens != nil {
+		t.Errorf("%s: ai_total_tokens = %d, want absent (no model usage on a failed request)",
+			name, *reqLog.AiTotalTokens)
+	}
+	if reqLog.AiCostValue != nil {
+		t.Errorf("%s: ai_cost_value = %d, want absent (nothing is billed for a failed request)",
+			name, *reqLog.AiCostValue)
+	}
+}
+
+// sendRequestNoKeepAlive sends a request on a dedicated connection. Arm A of
+// TC-19 is answered with closeAfterReply ("AI route not found"), which closes
+// the connection; a dedicated transport keeps the arms independent so a stale
+// pooled connection cannot surface as a spurious request error.
+func (e *testEnv) sendRequestNoKeepAlive(host string, body []byte) (*http.Response, string, error) {
+	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, apiPath)
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, "", err
+	}
+	req.Host = host
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.Close = true
+
+	client := &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: &http.Transport{DisableKeepAlives: true},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, "", err
+	}
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", err
+	}
+	return resp, string(respBody), nil
+}
+
+// TestTC19_Non2xxNoUsageFields verifies issue #1409: a request whose upstream
+// call never succeeded (non-2xx) must report no model usage in the access log,
+// and a billable row must keep the token triple consistent.
+//
+// Arm A: no ai_route rule for the host -> BFE generated 404, no backend call.
+//
+//	The product/token rule still matched first, so the auth-time prompt
+//	estimate was seeded: this is the production shape that polluted the
+//	pb3 log with ai_input_tokens > 0 while ai_total_tokens stayed 0.
+//
+// Arm B: the upstream itself returns 404 -> straight through (404 is not in
+//
+//	the fallback status-code set), again with no model usage.
+//
+// Arm C: control arm, a 200 response without usage: EstimateToken bills and
+//
+//	logs the approved estimate, and the logged triple must satisfy
+//	ai_total_tokens = ai_input_tokens + ai_output_tokens.
+func TestTC19_Non2xxNoUsageFields(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	// Arm A: BFE generated 404 "AI route not found".
+	respA, bodyA, err := e.sendRequestNoKeepAlive(noRouteHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm A: send request failed: %v", err)
+	}
+	if respA.StatusCode != http.StatusNotFound {
+		e.logBFEException()
+		t.Fatalf("arm A: expected status 404, got %d, body: %s", respA.StatusCode, bodyA)
+	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 0 {
+		t.Fatalf("arm A: expected no backend hit, got %d", hits)
+	}
+
+	// Arm B: upstream 404 straight through.
+	e.backends[clusterRMB].Response = http.StatusNotFound
+	e.backends[clusterRMB].Body = `{"error":{"message":"model not found","type":"invalid_request_error"}}`
+	respB, bodyB, err := e.sendRequestNoKeepAlive(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm B: send request failed: %v", err)
+	}
+	if respB.StatusCode != http.StatusNotFound {
+		e.logBFEException()
+		t.Fatalf("arm B: expected status 404, got %d, body: %s", respB.StatusCode, bodyB)
+	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 1 {
+		t.Fatalf("arm B: expected 1 backend hit, got %d", hits)
+	}
+
+	// Arm C: 200 without usage -> approved estimate (control arm, unchanged
+	// behaviour: the estimate口径 must still be logged consistently).
+	e.backends[clusterRMB].Response = http.StatusOK
+	e.backends[clusterRMB].Body = `{"choices":[{"message":{"role":"assistant","content":"hi"}}]}`
+	respC, bodyC, err := e.sendRequestNoKeepAlive(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm C: send request failed: %v", err)
+	}
+	if respC.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("arm C: expected status 200, got %d, body: %s", respC.StatusCode, bodyC)
+	}
+
+	// Wait for access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLogs := e.accessLogs()
+	if len(reqLogs) != 3 {
+		t.Fatalf("expected 3 access logs, got %d", len(reqLogs))
+	}
+
+	var logNoRoute, logUpstream404, logOK *bfe_access_pb.RequestLog
+	for _, reqLog := range reqLogs {
+		assertNoSensitiveCredential(t, reqLog)
+		switch {
+		case reqLog.GetResStatusCode() == http.StatusOK:
+			logOK = reqLog
+		case len(reqLog.GetAiRouteRuleHits()) == 0:
+			logNoRoute = reqLog
+		default:
+			logUpstream404 = reqLog
+		}
+	}
+	if logNoRoute == nil || logUpstream404 == nil || logOK == nil {
+		t.Fatalf("expected one log per arm (no-route / upstream 404 / 200), got %d logs", len(reqLogs))
+	}
+
+	// Arm A: no upstream call at all, yet the AI context fields are logged.
+	if logNoRoute.GetResStatusCode() != http.StatusNotFound {
+		t.Errorf("arm A: res_status_code = %d, want 404", logNoRoute.GetResStatusCode())
+	}
+	assertNoUsageFields(t, "arm A (no ai route)", logNoRoute)
+	assertStringField(t, logNoRoute.AiApikeyId, "arm A: ai_apikey_id", apiKeyId)
+	if len(logNoRoute.GetAiClusterKeyNames()) != 0 {
+		t.Errorf("arm A: expected no cluster_key_names, got %d", len(logNoRoute.GetAiClusterKeyNames()))
+	}
+
+	// Arm B: upstream 404, the response body must not be turned into an
+	// estimated output token count.
+	if logUpstream404.GetResStatusCode() != http.StatusNotFound {
+		t.Errorf("arm B: res_status_code = %d, want 404", logUpstream404.GetResStatusCode())
+	}
+	assertNoUsageFields(t, "arm B (upstream 404)", logUpstream404)
+	if len(logUpstream404.GetAiClusterKeyNames()) == 0 {
+		t.Error("arm B: expected cluster_key_names of the tried cluster/key")
+	}
+
+	// Arm C: billable row keeps ai_total_tokens = ai_input_tokens + ai_output_tokens.
+	if logOK.AiInputTokens == nil || *logOK.AiInputTokens <= 0 {
+		t.Errorf("arm C: ai_input_tokens = %v, want > 0 (auth estimate is reported for a 2xx row)",
+			logOK.AiInputTokens)
+	}
+	if logOK.AiOutputTokens == nil || *logOK.AiOutputTokens <= 0 {
+		t.Errorf("arm C: ai_output_tokens = %v, want > 0 (approved estimate)", logOK.AiOutputTokens)
+	}
+	if logOK.AiTotalTokens == nil {
+		t.Fatal("arm C: ai_total_tokens is nil, want the approved estimate")
+	}
+	if got, want := *logOK.AiTotalTokens, *logOK.AiInputTokens+*logOK.AiOutputTokens; got != want {
+		t.Errorf("arm C: ai_total_tokens = %d, want %d (ai_input_tokens + ai_output_tokens)", got, want)
 	}
 }
