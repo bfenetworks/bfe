@@ -32,6 +32,7 @@ import (
 	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_model_protocol/utils"
 	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_util"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 )
 
@@ -48,10 +49,36 @@ type ModuleAITokenAuthState struct {
 	ReqAuth     *metrics.Counter
 	ReqAuthFail *metrics.Counter
 	// PriceLookupMiss counts billing attempts whose model price lookup
-	// missed (unknown cluster/model/mode). A miss bills 0 by design
-	// (issue #1382 acceptance: never fall back to a wrong-mode price), so
-	// the counter is the monitoring signal for misconfigured price tables.
+	// missed with no fallback available (unknown cluster/model, or the model
+	// has no chat-mode baseline entry to fall back to). Such misses bill 0;
+	// non-chat misses with a chat baseline fall back instead (issue #1408).
+	// The counter is the monitoring signal for misconfigured price tables.
 	PriceLookupMiss *metrics.Counter
+	// PriceFallbackUsed counts billing attempts whose (model, mode) price
+	// entry was missing but the cost was recovered by falling back to the
+	// model's chat-mode price (issue #1408 product decision: an unpriced mode
+	// is billed the same as chat). Together with the per-request ai_price_miss
+	// access-log marker it keeps the price-table gap visible.
+	PriceFallbackUsed *metrics.Counter
+	// Non2xxEstimateDropped counts requests whose upstream call never
+	// succeeded (non-2xx) and whose EstimateToken residue (auth-time prompt
+	// seeding / response-time completion guessing) was dropped from the
+	// shared TokenUsage so it could not be reported as model usage
+	// (issue #1409).
+	Non2xxEstimateDropped *metrics.Counter
+	// Non2xxRealUsageKept counts non-2xx requests that still carried a real
+	// parsed usage. Such observations are kept in the shared TokenUsage but
+	// never reported by the access log (issue #1409); a non-zero value means
+	// an upstream returned usage on an error response.
+	Non2xxRealUsageKept *metrics.Counter
+	// UsageUnrecognized counts 2xx requests whose upstream usage was never
+	// recognized (no final usage parsed) and which are not billable by
+	// EstimateToken (estimate disabled, or response not completed). Their
+	// billing fields are zeroed and no RMB deduction happens. Together with
+	// the per-request ai_usage_source access-log marker this is the
+	// product-side signal for the billing bypass (issue #1410); a genuine
+	// zero-usage request parses successfully and never lands here.
+	UsageUnrecognized *metrics.Counter
 }
 
 type ModuleAITokenAuth struct {
@@ -181,24 +208,66 @@ func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
 	}
 }
 
+// isJSONMediaType reports whether a Content-Type header value denotes JSON,
+// ignoring media type parameters such as "; charset=utf-8".
+func isJSONMediaType(contentType string) bool {
+	mediaType := strings.ToLower(strings.TrimSpace(contentType))
+	if i := strings.IndexByte(mediaType, ';'); i >= 0 {
+		mediaType = strings.TrimSpace(mediaType[:i])
+	}
+	return mediaType == "application/json" || strings.HasSuffix(mediaType, "+json")
+}
+
+// isCompleteNonStreamBody reports whether res carries a complete, non-streaming
+// body that can be read whole during the read-response phase.
+//
+// A fixed-length response (ContentLength >= 0) is always complete. A chunked
+// response (ContentLength == -1, e.g. gzip + chunked upstream) is read whole
+// only when it is neither an SSE stream nor a non-JSON type that may stream
+// incrementally; everything else is left to mod_body_process so a real stream
+// is never blocked here (issue #1406).
+func isCompleteNonStreamBody(res *bfe_http.Response) bool {
+	if res.ContentLength >= 0 {
+		return true
+	}
+	return !res.IsSse && isJSONMediaType(res.Header.Get("Content-Type"))
+}
+
 func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
 	ctx := GetTokenAuthContext(req) // ensure token auth context is set
 	if ctx == nil {
 		return bfe_module.BfeHandlerGoOn
 	}
 	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
-	if res.StatusCode == bfe_http.StatusOK && res.ContentLength >= 0 {
+	if res.StatusCode == bfe_http.StatusOK && isCompleteNonStreamBody(res) {
 		// The full non-streaming body was read: the response is complete.
 		ctx.aiBasicInfo.MarkResponseCompleted()
+		bodyLen := 0
 		if bodyAccessor, err := res.GetBodyAccessor(); err == nil {
 			body, _ := bodyAccessor.GetBytes()
+			// Decode a parse-only copy: res.Body and res.Header are left
+			// untouched so the bytes forwarded to the client, and the
+			// Content-Encoding response header, stay exactly as the upstream
+			// sent them (issue #1406: gzip responses were never decoded).
+			if decoded, derr := bfe_util.DecodeContentEncoding(res.Header.Get("Content-Encoding"), body); derr == nil {
+				body = decoded
+			} else {
+				log.Logger.Warn("%s: decode content-encoding %q failed: %v",
+					m.name, res.Header.Get("Content-Encoding"), derr)
+			}
+			bodyLen = len(body)
 			UpdateCtxByUsage(ctx, body)
 		}
 		if tokenUsage.UsedQuota > 0 {
 			ctx.aiBasicInfo.MarkFinalUsageSeen()
 		}
 		if tokenUsage.UsedQuota <= 0 && ctx.aiBasicInfo.IsAllowEstimateToken() {
-			tokenUsage.CompletionTokens = int64(res.ContentLength) / 4                                         // estimate completion tokens
+			// A chunked response has ContentLength == -1, so estimate from the
+			// decoded body length instead of the (missing) Content-Length.
+			if bodyLen == 0 && res.ContentLength > 0 {
+				bodyLen = int(res.ContentLength)
+			}
+			tokenUsage.CompletionTokens = int64(bodyLen) / 4                                                   // estimate completion tokens
 			tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens) // calculate used quota
 		}
 	}
@@ -224,13 +293,16 @@ func isClientAbortErr(err error) bool {
 }
 
 func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
-	// Skip token-count endpoints which should never be billed.
-	if strings.Contains(req.HttpRequest.RequestURI, "/count_tokens") {
+	if res == nil || res.StatusCode != bfe_http.StatusOK {
+		// only count used quota for successful requests; a non-2xx response
+		// means the upstream was never successfully called, so the request
+		// must not report model usage (issue #1409).
+		m.dropUnbilledEstimate(req, res)
 		return bfe_module.BfeHandlerGoOn
 	}
 
-	if res == nil || res.StatusCode != bfe_http.StatusOK {
-		// only count used quota for successful requests
+	// Skip token-count endpoints which should never be billed.
+	if strings.Contains(req.HttpRequest.RequestURI, "/count_tokens") {
 		return bfe_module.BfeHandlerGoOn
 	}
 
@@ -238,6 +310,12 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	if ctx == nil {
 		return bfe_module.BfeHandlerGoOn
 	}
+
+	// The upstream was successfully called: the shared TokenUsage holds the
+	// observed usage (real values, or the EstimateToken estimate approved by
+	// the billing yardstick). It may be reported by the access log
+	// (issue #1398 / #1409).
+	ctx.aiBasicInfo.SetUsageDisposition(bfe_basic.UsageDispositionObserved)
 
 	// Prevent duplicate deduction when HandleRequestFinish is triggered more than once.
 	if ctx.deducted {
@@ -248,6 +326,12 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	// seen: never bill by full-request estimation (issue #1352).
 	aborted := isClientAbortErr(req.ErrCode)
 	if aborted && !ctx.aiBasicInfo.IsFinalUsageSeen() {
+		// The abort zero-deduction is a billing bypass too (usage
+		// unrecognized and not estimatable, cause fixed as client abort):
+		// count it so the bypass is observable (issue #1410). Counter-only
+		// here: a warn per aborted request would track the client-abort
+		// rate, the counter carries the trend.
+		m.state.UsageUnrecognized.Inc(1)
 		ctx.deducted = true
 		return bfe_module.BfeHandlerGoOn
 	}
@@ -270,7 +354,8 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	// billing result UsedCost is written back.
 	billingUsage := *tokenUsage
 	estimateBillable := ctx.aiBasicInfo.IsAllowEstimateToken() && ctx.aiBasicInfo.IsResponseCompleted()
-	if !ctx.aiBasicInfo.IsFinalUsageSeen() && !estimateBillable {
+	unrecognized := !ctx.aiBasicInfo.IsFinalUsageSeen() && !estimateBillable
+	if unrecognized {
 		billingUsage.PromptTokens = 0
 		billingUsage.CompletionTokens = 0
 		billingUsage.CacheReadTokens = 0
@@ -282,6 +367,28 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 		billingUsage.VideoCount = 0
 		billingUsage.ImageCount = 0
 		billingUsage.UsedQuota = 0
+
+		// issue #1410: this branch silently skipped billing (no deduction,
+		// total=0 indistinguishable from a genuine zero-usage row in the
+		// access log). Make the bypass observable: count it (alertable via
+		// monitorHandlers) and warn with the sub-criteria so the cause is
+		// readable without going back to the source.
+		m.state.UsageUnrecognized.Inc(1)
+		log.Logger.Warn("%s: usage unrecognized and not estimatable, billing skipped: cluster=%s key_id=%s model=%s response_completed=%v allow_estimate=%v",
+			m.name, req.Route.ClusterName, ctx.aiBasicInfo.ClientKeyId, ctx.aiBasicInfo.TargetModel,
+			ctx.aiBasicInfo.IsResponseCompleted(), ctx.aiBasicInfo.IsAllowEstimateToken())
+	}
+	// issue #1410: record where the reported usage came from at the same
+	// decision point, so the ai_usage_source log marker can never diverge
+	// from the billing call. A genuine zero-usage request parses its final
+	// usage and lands in the parsed branch, never here.
+	switch {
+	case ctx.aiBasicInfo.IsFinalUsageSeen():
+		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceParsed)
+	case unrecognized:
+		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceUnrecognized)
+	default:
+		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceEstimated)
 	}
 	if billingUsage.UsedQuota <= 0 && estimateBillable {
 		billingUsage.UsedQuota = CalcReqUsedQuota(req, billingUsage.PromptTokens, billingUsage.CompletionTokens) // calculate used quota
@@ -329,6 +436,67 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 
 	ctx.deducted = true
 	return bfe_module.BfeHandlerGoOn
+}
+
+// dropUnbilledEstimate handles the request-finish path of a response whose
+// upstream call never succeeded (res == nil or non-2xx, issue #1409).
+//
+// Such a request cannot have produced model usage, yet the shared TokenUsage
+// may still carry EstimateToken residue: the prompt tokens seeded at auth
+// time (mod_ai_token_auth.tokenFoundProductHandler, gated only by
+// Server.EstimateToken) and the completion tokens accumulated from response
+// bytes by mod_body_process.QuotaUsageProcessor. Because the access log
+// (mod_access_pb3) reads that shared object directly, the residue used to be
+// written as ai_input_tokens/ai_output_tokens while ai_total_tokens stayed 0,
+// polluting every token-based report.
+//
+// The residue is dropped here and the request is marked so the access log
+// reports no token field at all. Real usage parsed from the response is
+// never dropped: issue #1398 keeps observations visible on the shared
+// object, so it is only marked (and counted) as not-reportable.
+func (m *ModuleAITokenAuth) dropUnbilledEstimate(req *bfe_basic.Request, res *bfe_http.Response) {
+	aiBasicInfo := req.GetAiBasicInfo()
+	if aiBasicInfo == nil {
+		return
+	}
+
+	status := 0
+	if res != nil {
+		status = res.StatusCode
+	}
+
+	aiBasicInfo.SetUsageDisposition(bfe_basic.UsageDispositionNone)
+
+	if aiBasicInfo.IsFinalUsageSeen() {
+		// A real usage was parsed even though the final status is not 2xx
+		// (e.g. an upstream returning usage on an error response): keep the
+		// observation but never report it as usage of a failed request.
+		m.state.Non2xxRealUsageKept.Inc(1)
+		log.Logger.Warn("%s: non-2xx response carries real usage, not reported: status=%d cluster=%s key_id=%s",
+			m.name, status, req.Route.ClusterName, aiBasicInfo.ClientKeyId)
+		return
+	}
+
+	usage := aiBasicInfo.GetTokenUsage()
+	if usage.PromptTokens == 0 && usage.CompletionTokens <= 0 && usage.UsedQuota == 0 {
+		return // no residue to drop
+	}
+
+	usage.PromptTokens = 0
+	usage.CompletionTokens = 0
+	usage.CacheReadTokens = 0
+	usage.CacheWriteTokens = 0
+	usage.CacheWriteTokens1h = 0
+	usage.AudioInputTokens = 0
+	usage.AudioOutputTokens = 0
+	usage.ImageInputTokens = 0
+	usage.ImageCount = 0
+	usage.VideoCount = 0
+	usage.UsedQuota = 0
+
+	m.state.Non2xxEstimateDropped.Inc(1)
+	log.Logger.Warn("%s: drop estimated usage of non-2xx response: status=%d cluster=%s model=%s req_body_len=%d",
+		m.name, status, req.Route.ClusterName, aiBasicInfo.TargetModel, req.HttpRequest.ContentLength)
 }
 
 func SetApiKey(req *bfe_http.Request, apiKey string, authStyle string) {
@@ -595,13 +763,31 @@ func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe
 	}
 
 	entry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, targetModel, mode)
+	priceMissed := false
 	if entry == nil {
-		// Bill 0 explicitly: falling back to another mode's price would
-		// charge a wrong price silently (issue #1382). The counter makes
-		// the misconfiguration monitorable.
-		m.state.PriceLookupMiss.Inc(1)
-		log.Logger.Warn("model price not found for cluster %s model %s mode %s", clusterName, targetModel, mode)
-		return 0
+		// Semantic fallback (issue #1408, product decision): when the
+		// (model, mode) entry is absent, bill at the model's chat-mode price
+		// (an unpriced mode is billed the same as chat). The chat mode itself
+		// never falls back: a missing chat baseline stays fail-loud (bill 0).
+		// The miss is never silent: the request is marked ai_price_miss and
+		// counted, so the price-table gap stays visible in reconciliation.
+		if mode != bfe_basic.ModeChat {
+			if chatEntry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, targetModel, bfe_basic.ModeChat); chatEntry != nil {
+				entry = chatEntry
+				priceMissed = true
+			}
+		}
+		if entry == nil {
+			m.state.PriceLookupMiss.Inc(1)
+			aiMeta.MarkPriceMiss()
+			log.Logger.Warn("model price not found for cluster %s model %s mode %s", clusterName, targetModel, mode)
+			return 0
+		}
+	}
+	if priceMissed {
+		m.state.PriceFallbackUsed.Inc(1)
+		aiMeta.MarkPriceMiss()
+		log.Logger.Warn("model price fell back to chat price: cluster=%s model=%s mode=%s", clusterName, targetModel, mode)
 	}
 
 	tierName := ""

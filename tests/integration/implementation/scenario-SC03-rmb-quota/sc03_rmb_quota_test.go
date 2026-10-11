@@ -16,11 +16,13 @@ package sc03
 
 import (
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -91,12 +93,13 @@ var audioStreamUsageResponse = "data: {\"choices\":[{\"delta\":{\"role\":\"assis
 
 // testEnv holds all resources for a single SC03 integration test.
 type testEnv struct {
-	t          *testing.T
-	processEnv *common.ProcessEnv
-	backends   map[string]*common.MockBackend
-	redis      *common.RedisServer
-	bfePort    int
-	stopBFE    func()
+	t              *testing.T
+	processEnv     *common.ProcessEnv
+	backends       map[string]*common.MockBackend
+	redis          *common.RedisServer
+	bfePort        int
+	bfeMonitorPort int
+	stopBFE        func()
 }
 
 func newTestEnv(t *testing.T, aiConfs map[string]*cluster_conf.AIConf, quotaPlans []common.QuotaPlan) *testEnv {
@@ -156,7 +159,7 @@ func newTestEnv(t *testing.T, aiConfs map[string]*cluster_conf.AIConf, quotaPlan
 		t.Fatalf("build bfe config failed: %v", err)
 	}
 
-	e.bfePort, _, e.stopBFE = e.processEnv.StartBFE(confDir, logDir)
+	e.bfePort, e.bfeMonitorPort, e.stopBFE = e.processEnv.StartBFE(confDir, logDir)
 	return e
 }
 
@@ -194,11 +197,97 @@ func (e *testEnv) logBFEAccess() {
 	}
 }
 
+// tokenAuthMetricsRaw fetches /monitor/mod_ai_token_auth in prometheus
+// format and returns the raw body.
+func (e *testEnv) tokenAuthMetricsRaw() string {
+	e.t.Helper()
+	url := fmt.Sprintf("http://127.0.0.1:%d/monitor/mod_ai_token_auth?format=prometheus", e.bfeMonitorPort)
+	resp, err := http.Get(url)
+	if err != nil {
+		e.t.Fatalf("get mod_ai_token_auth monitor failed: %v", err)
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		e.t.Fatalf("mod_ai_token_auth monitor status = %d, body: %s", resp.StatusCode, data)
+	}
+	return string(data)
+}
+
+// tokenAuthMetric returns the value of the named counter (0 when absent).
+// The web-monitor prometheus export renders keys in SNAKE_CASE, so callers
+// pass the Go field name (e.g. "UsageUnrecognized") and the lookup key
+// becomes "mod_ai_token_auth_USAGE_UNRECOGNIZED".
+func (e *testEnv) tokenAuthMetric(name string) float64 {
+	e.t.Helper()
+	data := e.tokenAuthMetricsRaw()
+
+	fullName := "mod_ai_token_auth_" + camelToSnake(name)
+	for _, line := range strings.Split(data, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		idx := strings.LastIndex(line, " ")
+		if idx < 0 || strings.TrimSpace(line[:idx]) != fullName {
+			continue
+		}
+		v, err := strconv.ParseFloat(strings.TrimSpace(line[idx+1:]), 64)
+		if err != nil {
+			continue
+		}
+		return v
+	}
+	return 0
+}
+
+// camelToSnake converts a CamelCase counter field name to the SNAKE_CASE
+// key used by the web-monitor prometheus export (e.g. "UsageUnrecognized"
+// -> "USAGE_UNRECOGNIZED").
+func camelToSnake(s string) string {
+	var b strings.Builder
+	for i, r := range s {
+		if r >= 'A' && r <= 'Z' {
+			if i > 0 {
+				b.WriteByte('_')
+			}
+			b.WriteRune(r + ('a' - 'A'))
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return strings.ToUpper(b.String())
+}
+
+// waitForTokenAuthMetric polls a mod_ai_token_auth counter until cond is
+// satisfied or the timeout elapses (the monitor handler reads counters on
+// demand, so no refresh lag is expected; the poll only guards the startup
+// race).
+func (e *testEnv) waitForTokenAuthMetric(name string, timeout time.Duration, cond func(float64) bool) bool {
+	e.t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if cond(e.tokenAuthMetric(name)) {
+			return true
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return false
+}
+
 func (e *testEnv) sendRequest(host string, body []byte) (*http.Response, string, error) {
 	return e.sendRequestToPath(host, apiPath, body)
 }
 
 func (e *testEnv) sendRequestToPath(host string, path string, body []byte) (*http.Response, string, error) {
+	return e.sendRequestWithHeaders(host, path, body, nil)
+}
+
+// sendRequestWithHeaders is sendRequestToPath with extra request headers. It is
+// used to set Accept-Encoding explicitly so net/http does not transparently
+// gunzip the response: the test then observes exactly the bytes BFE forwards
+// (issue #1406).
+func (e *testEnv) sendRequestWithHeaders(host string, path string, body []byte, headers map[string]string) (*http.Response, string, error) {
 	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, path)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
@@ -207,6 +296,9 @@ func (e *testEnv) sendRequestToPath(host string, path string, body []byte) (*htt
 	req.Host = host
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -1003,6 +1095,154 @@ func TestTC17_RMBQuotaDeduction_Anthropic_NonStream_ContentLength(t *testing.T) 
 	anthropicMismatchRequest(t, false)
 }
 
+// gzipResponseBody returns the gzip-compressed form of body, to be served as a
+// MockBackend body together with Content-Encoding: gzip.
+func gzipResponseBody(t *testing.T, body string) string {
+	t.Helper()
+
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	if _, err := zw.Write([]byte(body)); err != nil {
+		t.Fatalf("gzip write failed: %v", err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("gzip close failed: %v", err)
+	}
+	return buf.String()
+}
+
+// TestTC22 verifies RMB quota deduction for a non-streaming Anthropic response
+// that is gzip-compressed, framed as chunked (no Content-Length) and labelled
+// with a media type parameter ("application/json; charset=utf-8"). Before the
+// fix (issue #1406) none of these shapes reached the usage parser: the final
+// usage was never marked and the deduction was 0. The test also asserts the
+// forwarded bytes and Content-Encoding header are unchanged, i.e. the
+// decompression only feeds the parser.
+func TestTC22_RMBQuotaDeduction_Anthropic_NonStream_ChunkedGzip(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: anthropicAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	e.backends[clusterRMB].ResponseHeaders = map[string]string{
+		"Content-Type":     "application/json; charset=utf-8",
+		"Content-Encoding": "gzip",
+	}
+	e.backends[clusterRMB].NoContentLength = true
+	e.backends[clusterRMB].Body = gzipResponseBody(t, anthropicUsageResponse)
+
+	// Accept-Encoding is set explicitly so net/http does not transparently
+	// gunzip the response and the test observes the forwarded gzip bytes.
+	resp, body, err := e.sendRequestWithHeaders(apiHost, apiPath, anthropicBody, map[string]string{
+		"Accept-Encoding": "gzip",
+	})
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Forwarding stays byte-identical: gzip payload + Content-Encoding header.
+	if got := resp.Header.Get("Content-Encoding"); got != "gzip" {
+		t.Errorf("Content-Encoding = %q, want gzip", got)
+	}
+	zr, err := gzip.NewReader(strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("forwarded body is not gzip: %v", err)
+	}
+	decoded, err := io.ReadAll(zr)
+	if err != nil {
+		t.Fatalf("gunzip forwarded body: %v", err)
+	}
+	if string(decoded) != anthropicUsageResponse {
+		t.Errorf("forwarded body mismatch:\n got: %s\nwant: %s", decoded, anthropicUsageResponse)
+	}
+
+	// Wait for async redis deduction.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - 900000)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
+	}
+}
+
+// TestTC23 verifies the issue #1408 mode-price fallback: when the cluster
+// price table has no (model, mode) entry for the request's mode but the model
+// has a chat baseline entry, the cost falls back to the chat price (product
+// decision: an unpriced mode is billed the same as chat), the request is
+// marked ai_price_miss and PriceFallbackUsed counts it. The chat-mode arm on
+// the same model bills unchanged, and a model absent from the price table
+// entirely still bills 0 (the chat baseline never falls back).
+func TestTC23_RMBQuotaDeduction_ModePriceFallback(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(), // chat-only entries, no "responses" mode
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	e.backends[clusterRMB].ResponseHeaders = map[string]string{"Content-Type": "application/json"}
+	e.backends[clusterRMB].Body = usageResponse // prompt 100, completion 50
+
+	// chat arm: hits the chat entry directly (100*100 + 50*200 = 20000).
+	resp, body, err := e.sendRequest(apiHost, []byte(`{"model":"deepseek-chat"}`))
+	if err != nil {
+		t.Fatalf("send chat request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	// responses arm: (deepseek-chat, responses) has no entry; falls back to
+	// the chat price and bills the same 20000.
+	resp2, body2, err := e.sendRequestToPath(apiHost, "/v1/responses", []byte(`{"model":"deepseek-chat"}`))
+	if err != nil {
+		t.Fatalf("send responses request failed: %v", err)
+	}
+	if resp2.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp2.StatusCode, body2)
+	}
+
+	if e.backends[clusterRMB].Hits() != 2 {
+		t.Fatalf("expected 2 hits on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// no-baseline arm: the model is absent from the price table entirely; the
+	// chat mode never falls back, so this bills 0 (PriceLookupMiss).
+	resp3, body3, err := e.sendRequest(apiHost, []byte(`{"model":"no-such-model"}`))
+	if err != nil {
+		t.Fatalf("send no-baseline request failed: %v", err)
+	}
+	if resp3.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp3.StatusCode, body3)
+	}
+
+	// Wait for async redis deduction: only the two priced arms deduct.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - 20000 - 20000)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d", remaining, want)
+	}
+}
+
 var responsesBody = []byte(`{"model":"gpt-5-codex","stream":true}`)
 var responsesNonStreamBody = []byte(`{"model":"gpt-5-codex"}`)
 
@@ -1243,4 +1483,101 @@ func TestTC21_RMBQuotaDeduction_ResponsesAPI_NoCachePrice(t *testing.T) {
 		e.logBFEAccess()
 		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
 	}
+}
+
+// Issue #1410: a 2xx response whose usage is never recognized (no usage
+// field at all) and not estimatable (EstimateToken off in this scenario's
+// bfe.conf) keeps the yardstick behavior (zero deduction) but must now be
+// observable: the UsageUnrecognized counter increments and a warn is
+// logged. The zero-output and normal control arms prove recognized traffic
+// never pollutes the bypass counter.
+func TestTC24_RMBQuotaDeduction_UsageUnrecognizedSignal(t *testing.T) {
+	e := newTestEnv(t, map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	backend := e.backends[clusterRMB]
+
+	// Arm 1 (unrecognized): 200 response without any usage field. The
+	// yardstick needs "not estimatable": Server.EstimateToken defaults to
+	// true in bfe.conf, so a completable JSON body would be estimate-billed
+	// (source=estimated, not this branch). A chunked non-SSE non-JSON body
+	// is never marked responseCompleted (tokenReadResponseHandler only
+	// parses complete non-stream bodies; mod_body_process finds no
+	// termination event in plain text), so the request lands in the
+	// unrecognized branch: zero deduction, counter +1, one warn.
+	backend.ResponseHeaders = map[string]string{"Content-Type": "text/plain"}
+	backend.NoContentLength = true
+	backend.Body = `hello, no usage here`
+	resp, body, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("send unrecognized-usage request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+	if !e.waitForTokenAuthMetric("UsageUnrecognized", 5*time.Second, func(v float64) bool { return v == 1 }) {
+		e.t.Logf("mod_ai_token_auth monitor body:\n%s", e.tokenAuthMetricsRaw())
+		e.logBFEException()
+		t.Fatalf("UsageUnrecognized = %v, want 1 after the unrecognized arm", e.tokenAuthMetric("UsageUnrecognized"))
+	}
+
+	// Arm 2 (zero-output parsed control): completion_tokens=0 is a real
+	// final usage (issue #1398 yardstick); it bills prompt-only and must
+	// NOT count as unrecognized.
+	backend.NoContentLength = false
+	backend.ResponseHeaders = map[string]string{"Content-Type": "application/json"}
+	backend.Body = `{"usage":{"prompt_tokens":100,"completion_tokens":0,"total_tokens":100}}`
+	resp2, body2, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("send zero-output request failed: %v", err)
+	}
+	if resp2.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp2.StatusCode, body2)
+	}
+	if v := e.tokenAuthMetric("UsageUnrecognized"); v != 1 {
+		e.logBFEException()
+		t.Fatalf("UsageUnrecognized = %v, want 1 (zero-output control arm must not be counted)", v)
+	}
+
+	// Arm 3 (normal billing control): the standard usage fixture.
+	backend.Body = usageResponse
+	resp3, body3, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("send normal request failed: %v", err)
+	}
+	if resp3.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp3.StatusCode, body3)
+	}
+	if v := e.tokenAuthMetric("UsageUnrecognized"); v != 1 {
+		e.logBFEException()
+		t.Fatalf("UsageUnrecognized = %v, want 1 (normal arm must not be counted)", v)
+	}
+
+	if e.backends[clusterRMB].Hits() != 3 {
+		t.Fatalf("expected 3 hits on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Async deduction: arm 1 bills 0 (yardstick), arm 2 bills 100*100,
+	// arm 3 bills 100*100 + 50*200.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - 10000 - 20000)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d", remaining, want)
+	}
+
+	// The warn itself goes to the BFE process console (StartBFE wires stdout
+	// directly to the test process, and this scenario's bfe.conf has no
+	// [log] section, so no exception.log file exists); it is visible in the
+	// test output and shares the guard body with the asserted counter, so
+	// the integration layer asserts the counter as the signal of record.
 }

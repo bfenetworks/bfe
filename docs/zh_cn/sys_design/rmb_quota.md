@@ -425,7 +425,9 @@ mode 用于后续定价匹配（`(model, mode)` 二维索引）和访问日志�
 
 `bfe/bfe_modules/mod_ai_token_auth/mod_ai_token_auth.go`
 
-响应阶段负责从响应体中提取 `usage`，或在未返回 `usage` 时按响应体长度估算 Token 数。对于图像生成响应，优先读取 `usage.image_count`，未返回时统计响应 `data` 数组长度，仍无则兜底请求体 `n` 字段（默认 1）。对于视频生成响应，优先读取 `usage.video_count`，未返回时兜底请求体 `n` 字段（默认 1）。对于非流式响应，`ContentLength >= 0` 时可直接读取完整响应体：
+响应阶段负责从响应体中提取 `usage`，或在未返回 `usage` 时按响应体长度估算 Token 数。对于图像生成响应，优先读取 `usage.image_count`，未返回时统计响应 `data` 数组长度，仍无则兜底请求体 `n` 字段（默认 1）。对于视频生成响应，优先读取 `usage.video_count`，未返回时兜底请求体 `n` 字段（默认 1）。
+
+对于非流式响应，BFE 会在读取完整响应体后解析 usage。判定见 `isCompleteNonStreamBody`：定长响应（`ContentLength >= 0`）始终整体读取；chunked 响应（`ContentLength == -1`）在既非 SSE、内容类型又是 JSON 时也整体读取（issue #1406）。响应体若带 `Content-Encoding: gzip`，只对**解析副本**解压（`bfe_util.DecodeContentEncoding`），转发给客户端的字节与 `Content-Encoding` 响应头保持上游原样：
 
 ```go
 func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
@@ -434,18 +436,28 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
         return bfe_module.BfeHandlerGoOn
     }
     tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
-    if res.StatusCode == bfe_http.StatusOK && res.ContentLength >= 0 {
+    if res.StatusCode == bfe_http.StatusOK && isCompleteNonStreamBody(res) {
         // 完整读取非流式响应体：响应视为完成（issue #1352）
         ctx.aiBasicInfo.MarkResponseCompleted()
+        bodyLen := 0
         if bodyAccessor, err := res.GetBodyAccessor(); err == nil {
             body, _ := bodyAccessor.GetBytes()
+            // 仅解压解析副本，不改动转发的字节与响应头（issue #1406）
+            if decoded, derr := bfe_util.DecodeContentEncoding(res.Header.Get("Content-Encoding"), body); derr == nil {
+                body = decoded
+            }
+            bodyLen = len(body)
             UpdateCtxByUsage(ctx, body)
         }
         if tokenUsage.UsedQuota > 0 {
             ctx.aiBasicInfo.MarkFinalUsageSeen()
         }
         if tokenUsage.UsedQuota <= 0 && ctx.aiBasicInfo.IsAllowEstimateToken() {
-            tokenUsage.CompletionTokens = int64(res.ContentLength) / 4
+            // chunked 时 ContentLength == -1，改用解码后 body 长度估算
+            if bodyLen == 0 && res.ContentLength > 0 {
+                bodyLen = int(res.ContentLength)
+            }
+            tokenUsage.CompletionTokens = int64(bodyLen) / 4
             tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
         }
     }
@@ -454,11 +466,12 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 }
 ```
 
-> 说明：旧实现中 RMB 成本在此阶段计算，导致流式响应（`ContentLength = -1`）无法计费。当前实现已将成本计算移到请求结束阶段，见 7.5。
+> 说明 1：旧实现中 RMB 成本在此阶段计算，导致流式响应（`ContentLength = -1`）无法计费。当前实现已将成本计算移到请求结束阶段，见 7.5。
+> 说明 2（issue #1406）：此前 `ContentLength >= 0` 的判定使 chunked 非流式响应整段跳过；叠加 gzip 响应体未解码、以及 `Content-Type` 带 `; charset=utf-8` 时解码器精确匹配失配，usage 采集全部失效（访问日志 `ai_output_tokens` / `ai_total_tokens` 为 0，RMB 按 0 入账）。现在 chunked 非流式 JSON 走同一整体解析路径，并在解析副本上解压。
 
 #### 流式响应的 Token 用量收集
 
-对于 `stream: true` 的 SSE 流式响应，`mod_body_process` 默认会注册 `QuotaUsageProcessor`：
+对于 `stream: true` 的 SSE 流式响应，`mod_body_process` 会注册 `QuotaUsageProcessor`（仅当响应状态为 200 时才创建，见 `content_quota_usage.go` 的 `NewQuotaUsageProcessor`；非 2xx 响应不产生任何用量口径）：
 
 - `mod_body_process.DoResponseProcess` 根据响应 `Content-Type` 选择 SSE 解码器；
 - 每个 SSE 事件经过 `QuotaUsageProcessor.Process` 时，会从事件数据中提取 `usage.*_tokens`；
@@ -630,10 +643,22 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 | 客户端中断/写失败，未拿到最终 usage | false | 零扣费 |
 | 客户端中断/写失败，已拿到最终 usage | true | 按实际 usage |
 | 非流式 Anthropic（chunked）完整响应，有 usage | true（#1364 起，`type:"message"` 视同最终 usage） | 按实际 usage（未命中输入 + cache read/write + 输出全额） |
+| 非 2xx（未成功调用上游，如 AI 路由未命中的 404、上游 404 直通） | false | 零扣费；访问日志不输出 token 字段（issue #1409）
 
 > 说明（issue #1364）：修复前 Anthropic 非流式（尤其 chunked）响应既无 `finalUsageSeen` 也无 `responseCompleted`，落入"不可计费"守卫；但守卫只清 `PromptTokens`/`CompletionTokens`/`UsedQuota`，`CacheReadTokens` 等子字段幸存，`calcChatCost` 对其按 `cache_read_input_token_cost` 计费，导致 RMB 只收缓存命中、漏计未命中输入与输出（实测漏计约 4.65x）。修复后守卫清零全部计费字段，并通过最终 usage 认可 + 完成置位让正常完成的非流式响应按实际 usage 全额计费。
 >
 > 说明（issue #1398）：上表"扣费"列全部在计费副本 `billingUsage` 上结算；无论何种场景，**访问日志与统计读共享 `TokenUsage`，保留真实解析值或批准口径的估算值，不再被守卫抹零**——仅 `UsedCost` 写回共享对象。清零守卫曾直接改写共享对象，而 mod_access_pb3 与其读同一对象（`AiTotalTokens = UsedQuota`），导致后端真实产出 token 的请求在统计明细与计费中落成 `total_tokens=0`（实测 200 响应的 42.7%，且 TTFT 全部 > 0）。另：OpenAI 流式在 `InjectStreamUsage=true`（出厂默认）时对未显式设置 `stream_options.include_usage` 的 chat completion 请求自动注入，从上游拿到真实 final usage，"完成无 usage"场景退化为罕见兜底。
+
+> 说明（issue #1409）：上述"保留观测值/估算值"的前提是**请求成功调用了上游**。非 2xx 响应（未成功调用上游，如 AI 路由未命中的 404、上游 404 直通）不存在任何模型用量，鉴权阶段按请求体长度播种的 `PromptTokens`、以及响应阶段累加的 `CompletionTokens` 都只是估算残留：请求结束时这些估算值会从共享 `TokenUsage` 中清除（真实解析值仍保留），并把该请求标记为"无可用 usage"，`mod_access_pb3` 据此**不输出** `ai_input_tokens` / `ai_output_tokens` / `ai_total_tokens`（字段缺席，与"用量为 0"区分）。修复前 404 行会带 `ai_input_tokens = 请求体/4`、`ai_output_tokens` 为哨兵夹取值，而 `ai_total_tokens=0`，三元组口径断裂并污染按 token 聚合的报表。
+
+> 说明（issue #1410）："usage 未识别且不可估算"守卫分支（上表"零扣费"且 2xx 的两行）本身**计费口径不变**，但必须可观测，绝不静默跳过。修复后该分支在判定成立处产生两类同源信号：
+>
+> 1. **模块计数器 + 告警日志**：`mod_ai_token_auth.UsageUnrecognized` 自增（经 `monitorHandlers` 及 `.diff` 导出，可直接配阈值告警），并输出 Warn（携带 cluster / key_id / model / response_completed / allow_estimate，免回源码即可初判成因）；客户端中止跳过计费分支（issue #1352 既定口径）同模式计数（warn 量与客户端中断率相关，属观测收益）。
+> 2. **访问日志 usage 来源标记**：请求结束时按同一判定设置 `ai_usage_source`（`bfe-access-pb >= v0.3.15` 字段 764）——`parsed`（上游响应解析出 final usage）、`estimated`（`EstimateToken` 估算且已获准计费）、`unrecognized`（本分支：计费被跳过，日志 token 字段为鉴权期播种残留）；非 2xx 行维持 usage 字段整体缺席、本字段亦缺席。`unrecognized` 行照常输出数值字段（issue #1398 口径：missing usage 可见），对账查询 `ai_usage_source='unrecognized'` 即漏计费候选集，不再依赖 `total=0 且 in/out>0` 的跨字段矛盾签名或外部先验。
+>
+> **已知限制**：usage 对象全部计数为 0（`total=0 且 in/out=0`）的响应在识别层与"无 usage"不可区分——`isguess` 判定为值-based（`UsedQuota > 0`，`GetQuotaUsage` 与 `tokenReadResponseHandler` 同构），此类行会计入 `unrecognized`（计费为 0 属正确结果，仅分类语义受限）；识别层的 presence 检测（按 usage 键存在性判定）是独立后续改造，不在本 issue 范围。含零值分量但总量 > 0 的 final 事件（如 `completion_tokens=0`，issue #1398 已认可）正常归入 `parsed`。
+>
+> 修复前该分支全链零信号：守卫体内既无计数器也无日志，`ai_total_tokens=0` 与真实零用量同形，估算镜像生效（`tokenUsage.UsedQuota` 被回写估算值）后"漏计费"行与"估算计费"行亦同形——生产实测单日 95.5% 的收入缺口（736 行）只能靠带外人工对账脚本发现。
 
 ### 7.6 成本计算辅助方法
 
@@ -1328,6 +1353,7 @@ return {yuan, frac}
    - 记录告警日志；
    - 本次请求不对该 RMB 配额进行扣减（相当于按 `0` 成本处理）；
    - 具体是否拒绝请求，需产品进一步确认。
+   - **mode 维度缺失的语义回退**（issue #1408，产品决策）：`(model, mode)` 无价格条目、但同 model 存在 `chat` 条目时，按 `chat` 价计费（未单独定价的 mode 与 chat 同价）；请求被标记 `ai_price_miss`（`bfe-access-pb >= v0.3.14` 字段 763）并计入 `PriceFallbackUsed`，保证缺口可见。`chat` 自身缺失不回退，维持按 `0` 计费 + `PriceLookupMiss` 告警（基准价缺失属配置事故）。该行为显式反转了 #1382 的「miss 即按 0、不回退」验收决定。
 4. **与多 Key 改造的关系**：`AIConf.Keys` 与 `ModelTable` 相互独立，可并行下发、独立解析。
 5. **流式响应计费**：RMB 成本在请求结束阶段计算，依赖 `mod_body_process`（或其他响应处理模块）在流式传输过程中填充 `PromptTokens` / `CompletionTokens` / `CacheReadTokens` / `CacheWriteTokens` / `AudioInputTokens` / `AudioOutputTokens` / `ImageInputTokens` / `ImageCount` / `VideoCount`。生产环境若启用流式计费，需确保 `mod_body_process` 已加载。
 6. **模块顺序建议**：`mod_ai_token_auth` 的 `HandleReadResponse` 不再负责 RMB 成本计算，因此对模块加载顺序的敏感度降低；但仍建议保持 `mod_ai_token_auth` 在 `mod_body_process` 之前注册，以便非流式场景下 token 用量解析逻辑保持一致。
@@ -1340,3 +1366,5 @@ return {yuan, frac}
 10. **EstimateToken 语义收窄**（issue #1352）：`EstimateToken = true` 播种的估算值仅在响应正常完成时计费；客户端中断（RST/断开/写客户端失败）且未拿到最终 usage 的请求零扣费，已拿到最终 usage 的按实际 usage 扣费。客户端中断请求的收费金额会 **下降**（从按全量估算变为零扣费或按实际 usage），历史多扣需在计费对账层单独处理。
 11. **非流式 Anthropic 计费修复**（issue #1364）：非流式 Anthropic（尤其 chunked）响应此前因最终 usage / 完成标记缺失 + 守卫漏清子字段，RMB 只按 `cache_read_input_token_cost` 收缓存命中，漏计未命中输入与输出（实测漏计约 4.65x）。修复后该场景计费金额会 **上升至正确全额**（未命中输入 + cache read/write + 输出），与上游（DeepSeek）账单对齐；守卫语义为"宁漏收、不错收"——未确认完成的响应全部计费字段清零，不再产生部分字段入账。
 12. **长度分档与 1h 缓存写向后兼容**：未配置 `above_*_tokens` 档位键的模型走基础价，未配置 `cache_creation_input_token_cost_1h` 时全部 cache write 按基础 5m 价计，两者均与旧行为逐分一致；配置档位键但不配置 1h 价（或反之）互不干扰。`EstimateToken` 估算路径不区分长度档位与缓存 TTL，统一按基础价计（估算本身已保守）。访问日志新增 `ai_cache_write_1h_tokens`（field 788）依赖 `bfe-access-pb >= v0.3.6`。
+13. **mode 未定价回退计费影响**（issue #1408）：此前 `(model, mode)` 无价格条目时请求按 `0` 计费且访问日志无任何标记（如生产 /responses 入口 13 次请求全部漏计）。修复后该场景按 `chat` 价计费，金额会 **上升**；同时访问日志新增 `ai_price_miss`（field 763，依赖 `bfe-access-pb >= v0.3.14`），对账时可直接筛出「回退/未定价」行并反推应补齐的价格表条目。
+14. **未识别 usage 可观测信号**（issue #1410）：「usage 未识别且不可估算 → 守卫清零跳过计费」分支的计费金额**不变**（仍零扣费），新增信号使其可被产品自身发现：`UsageUnrecognized` 模块计数器 + Warn，以及访问日志 `ai_usage_source`（field 764，依赖 `bfe-access-pb >= v0.3.15`，取值 `parsed` / `estimated` / `unrecognized`）。客户端中止零扣费分支（issue #1352）同模式新增计数。已识别流量（含 `completion_tokens=0` 的零输出 final 事件，issue #1398 口径）归 `parsed`、不会污染计费跳过计数；usage 全 0 对象因识别层值-based 判定（`isguess` 要求 `UsedQuota > 0`）暂归入 `unrecognized`，presence 检测为独立后续改造。对账侧原依赖带外脚本扫描 `total=0 且 in/out>0` 的检测方式可由 `ai_usage_source='unrecognized'` 查询替代。

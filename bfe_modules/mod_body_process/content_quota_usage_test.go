@@ -15,6 +15,8 @@
 package mod_body_process
 
 import (
+	"bytes"
+	"io"
 	"testing"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
@@ -22,10 +24,57 @@ import (
 )
 
 func TestNewQuotaUsageProcessorNonOK(t *testing.T) {
+	// issue #1409: only a 2xx response can carry model usage. A non-2xx body
+	// (404 etc.) must never feed the completion-token estimator, otherwise a
+	// failed request is reported as "response bytes / 4" output tokens.
+	for _, code := range []int{
+		bfe_http.StatusBadRequest,
+		bfe_http.StatusNotFound,
+		bfe_http.StatusInternalServerError,
+	} {
+		req := newTestRequest("AI_product")
+		req.InitAiBasicInfo()
+		res := &bfe_http.Response{StatusCode: code}
+		if p := NewQuotaUsageProcessor(req, res); p != nil {
+			t.Errorf("status %d: expected nil processor for non-2xx response", code)
+		}
+	}
+}
+
+// TestDoResponseProcessNon2xxNoCompletionEstimate drives the response body of
+// a non-2xx response through the body processor with EstimateToken on and
+// asserts that neither the completion estimate nor UsedQuota is written
+// (issue #1409: "ai_output_tokens = response bytes / 4" is only reachable on
+// a 2xx response).
+func TestDoResponseProcessNon2xxNoCompletionEstimate(t *testing.T) {
+	m := NewModuleBodyProcess()
 	req := newTestRequest("AI_product")
-	res := &bfe_http.Response{StatusCode: bfe_http.StatusBadRequest}
-	if p := NewQuotaUsageProcessor(req, res); p != nil {
-		t.Error("expected nil processor for non-OK response")
+	ai := req.InitAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+
+	body := `{"error":{"message":"model not found","type":"invalid_request_error"}}`
+	res := &bfe_http.Response{
+		StatusCode: bfe_http.StatusNotFound,
+		Body:       io.NopCloser(bytes.NewBufferString(body)),
+		Header:     make(bfe_http.Header),
+	}
+	res.Header.Set("Content-Type", "application/json")
+
+	bp := m.DoResponseProcess(req, res, &BodyProcessConfig{Dec: "json"})
+	if bp == nil {
+		t.Fatal("expected BodyProcessor with an explicit response config")
+	}
+	if _, err := io.ReadAll(bp); err != nil {
+		t.Fatalf("read processed body failed: %s", err)
+	}
+
+	usage := ai.GetTokenUsage()
+	if usage.CompletionTokens != bfe_basic.COMPLETION_TOKENS_UNKNOWN {
+		t.Errorf("CompletionTokens = %d, want the unknown sentinel: non-2xx bodies must not be estimated",
+			usage.CompletionTokens)
+	}
+	if usage.UsedQuota != 0 {
+		t.Errorf("UsedQuota = %d, want 0 for a non-2xx response", usage.UsedQuota)
 	}
 }
 

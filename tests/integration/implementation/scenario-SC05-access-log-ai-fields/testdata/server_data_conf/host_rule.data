@@ -3,7 +3,8 @@
     "Hosts": {
         "ai_product": [
             "rmb.example.org",
-            "notable.example.org"
+            "notable.example.org",
+            "noroute.example.org"
         ]
     },
     "HostTags": {

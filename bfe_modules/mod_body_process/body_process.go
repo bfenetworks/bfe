@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/tidwall/gjson"
 
@@ -278,6 +279,12 @@ func (m *ModuleBodyProcess) DoRequestProcess(req *bfe_basic.Request, conf *BodyP
 	case "json":
 		bp.CreateEventDecoder(NewJsonDecoder)
 	default:
+		if hasContentEncoding(req.HttpRequest.Header.Get("Content-Encoding")) {
+			// A compressed request body is not the declared media type; pass it
+			// through so a strict decoder cannot truncate it (issue #1406).
+			bp.CreateEventDecoder(NewLineDecoder)
+			break
+		}
 		contentType := req.HttpRequest.Header.Get("Content-Type")
 		bp.CreateEventDecoder(func(source io.Reader) (EventDecoder, error) {
 			return NewContentTypeDecoder(source, contentType)
@@ -328,6 +335,22 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 	case "json":
 		bp.CreateEventDecoder(NewJsonDecoder)
 	default:
+		if hasContentEncoding(res.Header.Get("Content-Encoding")) {
+			// The body is compressed, so it is not the declared media type: a
+			// JSON/SSE decoder would fail on the compressed bytes and truncate
+			// the forwarded body. Pass the bytes through untouched
+			// (LineDecoder preserves them verbatim); for non-stream responses
+			// mod_ai_token_auth parses the decoded copy instead (issue #1406).
+			bp.CreateEventDecoder(NewLineDecoder)
+			break
+		}
+		if res.IsSse {
+			// res.IsSse is derived from the Content-Type with media type
+			// parameters handled (bfe_http.isSSEResponse), so a value such as
+			// "text/event-stream; charset=utf-8" still selects the SSE decoder.
+			bp.CreateEventDecoder(NewSSEEventDecoder)
+			break
+		}
 		contentType := res.Header.Get("Content-Type")
 		bp.CreateEventDecoder(func(source io.Reader) (EventDecoder, error) {
 			return NewContentTypeDecoder(source, contentType)
@@ -522,9 +545,35 @@ type ContentTypeDecoder struct {
 	dec         EventDecoder
 }
 
+// hasContentEncoding reports whether a Content-Encoding header value applies an
+// encoding other than identity, i.e. whether the body bytes differ from the
+// declared media type.
+func hasContentEncoding(encoding string) bool {
+	for _, part := range strings.Split(encoding, ",") {
+		switch strings.ToLower(strings.TrimSpace(part)) {
+		case "", "identity":
+			continue
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+// mediaTypeOnly returns the media type of a Content-Type header value,
+// dropping any parameters ("; charset=utf-8"), trimmed and lower-cased, so
+// that "application/json; charset=utf-8" still selects the JSON decoder.
+func mediaTypeOnly(contentType string) string {
+	mediaType := strings.ToLower(strings.TrimSpace(contentType))
+	if i := strings.IndexByte(mediaType, ';'); i >= 0 {
+		mediaType = strings.TrimSpace(mediaType[:i])
+	}
+	return mediaType
+}
+
 func NewContentTypeDecoder(source io.Reader, contentType string) (EventDecoder, error) {
 	var dec EventDecoder
-	switch contentType {
+	switch mediaTypeOnly(contentType) {
 	case "application/sse", "text/event-stream", "application/x-sse":
 		dec, _ = NewSSEEventDecoder(source)
 	case "application/json", "application/ndjson", "application/x-ndjson":

@@ -119,6 +119,27 @@ type AiBasicInfo struct {
 	// response. An initial usage such as Anthropic message_start
 	// (output_tokens = 0) does not count.
 	finalUsageSeen bool
+
+	// priceMiss marks that the (model, mode) price entry was absent from the
+	// cluster price table and the cost was computed by falling back to the
+	// model's chat-mode price (or billed 0 when no fallback price exists).
+	// Surfaced to the access log as ai_price_miss so under-priced rows stay
+	// visible in reconciliation (issue #1408).
+	priceMiss bool
+
+	// usageDisposition tells the access log whether the token figures of
+	// this request may be reported (issue #1409). It is decided at request
+	// finish by mod_ai_token_auth; the zero value means "not judged"
+	// (non-token-auth traffic) and keeps the legacy behaviour.
+	usageDisposition string
+
+	// usageSource tells the access log where the reported token usage came
+	// from: parsed (final usage from the upstream response), estimated
+	// (EstimateToken estimate approved for billing) or unrecognized (no
+	// final usage and not estimatable: billing skipped, issue #1410). It is
+	// set at the same decision point as the billing-yardstick guard; the
+	// zero value means "not judged" and the log field stays absent.
+	usageSource string
 }
 
 // ClusterKeyName represents a tried cluster and API-Key pair during request processing
@@ -153,6 +174,82 @@ func (aiinfo *AiBasicInfo) MarkFinalUsageSeen() {
 
 func (aiinfo *AiBasicInfo) IsFinalUsageSeen() bool {
 	return aiinfo.finalUsageSeen
+}
+
+// MarkPriceMiss records that the request's (model, mode) price entry was
+// absent and its cost was computed with a fallback (or billed 0); the access
+// log reports it as ai_price_miss (issue #1408).
+func (aiinfo *AiBasicInfo) MarkPriceMiss() {
+	aiinfo.priceMiss = true
+}
+
+// IsPriceMiss reports whether MarkPriceMiss was recorded for this request.
+func (aiinfo *AiBasicInfo) IsPriceMiss() bool {
+	return aiinfo.priceMiss
+}
+
+// Token-usage dispositions for the access log (issue #1409).
+const (
+	// UsageDispositionUnset is the zero value: no disposition was judged
+	// (the request did not go through token authentication, or the module
+	// was not loaded). The access-log fields keep their legacy behaviour.
+	UsageDispositionUnset = ""
+	// UsageDispositionNone means the request never successfully called the
+	// upstream (non-2xx response), so no model usage can exist: the access
+	// log must not report ai_input_tokens / ai_output_tokens /
+	// ai_total_tokens, and any auth-time or response-time estimate is
+	// residue, not usage.
+	UsageDispositionNone = "none"
+	// UsageDispositionObserved means the upstream was successfully called
+	// and the shared TokenUsage holds the real parsed usage or the
+	// EstimateToken estimate of this request (issue #1398 keeps that view
+	// observable); the access log reports it as-is.
+	UsageDispositionObserved = "observed"
+)
+
+// SetUsageDisposition records whether the token usage of this request may
+// be reported by the access log (issue #1409).
+func (aiinfo *AiBasicInfo) SetUsageDisposition(disposition string) {
+	aiinfo.usageDisposition = disposition
+}
+
+// UsageDisposition returns the token-usage disposition set at request
+// finish (UsageDispositionUnset when it was never judged).
+func (aiinfo *AiBasicInfo) UsageDisposition() string {
+	return aiinfo.usageDisposition
+}
+
+// Usage sources for the access log (issue #1410): where the reported token
+// usage came from. Orthogonal to UsageDisposition, which decides whether
+// usage is reported at all; the source is set at the same decision point
+// as the billing-yardstick guard so the signal can never diverge from the
+// billing call.
+const (
+	// UsageSourceParsed means a final usage was parsed from the upstream
+	// response (including genuine zero-usage requests, which never fall
+	// into the unrecognized branch).
+	UsageSourceParsed = "parsed"
+	// UsageSourceEstimated means no final usage was parsed but the request
+	// is billable by EstimateToken (estimate allowed and response
+	// completed); the approved estimate is mirrored into the shared usage
+	// (issue #1398).
+	UsageSourceEstimated = "estimated"
+	// UsageSourceUnrecognized means no final usage was parsed and the
+	// request is not estimatable: billing was skipped and the reported
+	// token fields are auth-time seeding residue.
+	UsageSourceUnrecognized = "unrecognized"
+)
+
+// SetUsageSource records where the reported token usage came from (issue
+// #1410); the access log reports it as ai_usage_source.
+func (aiinfo *AiBasicInfo) SetUsageSource(source string) {
+	aiinfo.usageSource = source
+}
+
+// UsageSource returns the usage source set at request finish (empty when
+// it was never judged, e.g. the upstream call never succeeded).
+func (aiinfo *AiBasicInfo) UsageSource() string {
+	return aiinfo.usageSource
 }
 
 func GetApiKey(req *Request) string {
