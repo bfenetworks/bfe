@@ -120,6 +120,13 @@ type AiBasicInfo struct {
 	// (output_tokens = 0) does not count.
 	finalUsageSeen bool
 
+	// priceMiss marks that the (model, mode) price entry was absent from the
+	// cluster price table and the cost was computed by falling back to the
+	// model's chat-mode price (or billed 0 when no fallback price exists).
+	// Surfaced to the access log as ai_price_miss so under-priced rows stay
+	// visible in reconciliation (issue #1408).
+	priceMiss bool
+
 	// usageDisposition tells the access log whether the token figures of
 	// this request may be reported (issue #1409). It is decided at request
 	// finish by mod_ai_token_auth; the zero value means "not judged"
@@ -159,6 +166,18 @@ func (aiinfo *AiBasicInfo) MarkFinalUsageSeen() {
 
 func (aiinfo *AiBasicInfo) IsFinalUsageSeen() bool {
 	return aiinfo.finalUsageSeen
+}
+
+// MarkPriceMiss records that the request's (model, mode) price entry was
+// absent and its cost was computed with a fallback (or billed 0); the access
+// log reports it as ai_price_miss (issue #1408).
+func (aiinfo *AiBasicInfo) MarkPriceMiss() {
+	aiinfo.priceMiss = true
+}
+
+// IsPriceMiss reports whether MarkPriceMiss was recorded for this request.
+func (aiinfo *AiBasicInfo) IsPriceMiss() bool {
+	return aiinfo.priceMiss
 }
 
 // Token-usage dispositions for the access log (issue #1409).

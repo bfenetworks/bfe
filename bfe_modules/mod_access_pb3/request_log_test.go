@@ -429,6 +429,37 @@ func TestIsStreamResponse(t *testing.T) {
 	}
 }
 
+func TestReqAiInfoGenPriceMiss(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+
+	aiInfo := &bfe_basic.AiBasicInfo{}
+	aiInfo.GetTokenUsage().UsedQuota = 30
+	aiInfo.MarkPriceMiss()
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiPriceMiss == nil || !*reqLog.AiPriceMiss {
+		t.Error("AiPriceMiss should be true when PriceMiss is marked")
+	}
+	if reqLog.AiCostValue != nil {
+		t.Errorf("AiCostValue should stay unset when UsedCost is 0, got %v", *reqLog.AiCostValue)
+	}
+
+	// Without the marker the field stays unset (distinguishes marked rows
+	// from ordinary traffic in reconciliation).
+	_, req2, res2 := makeRequestLogTest(t)
+	plain := &bfe_basic.AiBasicInfo{}
+	plain.GetTokenUsage().UsedQuota = 30
+	req2.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, plain)
+	reqLog2 := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog2, req2, res2)
+	if reqLog2.AiPriceMiss != nil {
+		t.Error("AiPriceMiss should be unset without the marker")
+	}
+}
+
 func TestReqAiInfoGen(t *testing.T) {
 	_, req, res := makeRequestLogTest(t)
 

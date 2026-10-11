@@ -1344,6 +1344,7 @@ return {yuan, frac}
    - 记录告警日志；
    - 本次请求不对该 RMB 配额进行扣减（相当于按 `0` 成本处理）；
    - 具体是否拒绝请求，需产品进一步确认。
+   - **mode 维度缺失的语义回退**（issue #1408，产品决策）：`(model, mode)` 无价格条目、但同 model 存在 `chat` 条目时，按 `chat` 价计费（未单独定价的 mode 与 chat 同价）；请求被标记 `ai_price_miss`（`bfe-access-pb >= v0.3.14` 字段 763）并计入 `PriceFallbackUsed`，保证缺口可见。`chat` 自身缺失不回退，维持按 `0` 计费 + `PriceLookupMiss` 告警（基准价缺失属配置事故）。该行为显式反转了 #1382 的「miss 即按 0、不回退」验收决定。
 4. **与多 Key 改造的关系**：`AIConf.Keys` 与 `ModelTable` 相互独立，可并行下发、独立解析。
 5. **流式响应计费**：RMB 成本在请求结束阶段计算，依赖 `mod_body_process`（或其他响应处理模块）在流式传输过程中填充 `PromptTokens` / `CompletionTokens` / `CacheReadTokens` / `CacheWriteTokens` / `AudioInputTokens` / `AudioOutputTokens` / `ImageInputTokens` / `ImageCount` / `VideoCount`。生产环境若启用流式计费，需确保 `mod_body_process` 已加载。
 6. **模块顺序建议**：`mod_ai_token_auth` 的 `HandleReadResponse` 不再负责 RMB 成本计算，因此对模块加载顺序的敏感度降低；但仍建议保持 `mod_ai_token_auth` 在 `mod_body_process` 之前注册，以便非流式场景下 token 用量解析逻辑保持一致。
@@ -1356,3 +1357,4 @@ return {yuan, frac}
 10. **EstimateToken 语义收窄**（issue #1352）：`EstimateToken = true` 播种的估算值仅在响应正常完成时计费；客户端中断（RST/断开/写客户端失败）且未拿到最终 usage 的请求零扣费，已拿到最终 usage 的按实际 usage 扣费。客户端中断请求的收费金额会 **下降**（从按全量估算变为零扣费或按实际 usage），历史多扣需在计费对账层单独处理。
 11. **非流式 Anthropic 计费修复**（issue #1364）：非流式 Anthropic（尤其 chunked）响应此前因最终 usage / 完成标记缺失 + 守卫漏清子字段，RMB 只按 `cache_read_input_token_cost` 收缓存命中，漏计未命中输入与输出（实测漏计约 4.65x）。修复后该场景计费金额会 **上升至正确全额**（未命中输入 + cache read/write + 输出），与上游（DeepSeek）账单对齐；守卫语义为"宁漏收、不错收"——未确认完成的响应全部计费字段清零，不再产生部分字段入账。
 12. **长度分档与 1h 缓存写向后兼容**：未配置 `above_*_tokens` 档位键的模型走基础价，未配置 `cache_creation_input_token_cost_1h` 时全部 cache write 按基础 5m 价计，两者均与旧行为逐分一致；配置档位键但不配置 1h 价（或反之）互不干扰。`EstimateToken` 估算路径不区分长度档位与缓存 TTL，统一按基础价计（估算本身已保守）。访问日志新增 `ai_cache_write_1h_tokens`（field 788）依赖 `bfe-access-pb >= v0.3.6`。
+13. **mode 未定价回退计费影响**（issue #1408）：此前 `(model, mode)` 无价格条目时请求按 `0` 计费且访问日志无任何标记（如生产 /responses 入口 13 次请求全部漏计）。修复后该场景按 `chat` 价计费，金额会 **上升**；同时访问日志新增 `ai_price_miss`（field 763，依赖 `bfe-access-pb >= v0.3.14`），对账时可直接筛出「回退/未定价」行并反推应补齐的价格表条目。

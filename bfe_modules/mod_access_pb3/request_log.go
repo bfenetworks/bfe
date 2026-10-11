@@ -479,6 +479,13 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		if usage.UsedCost > 0 {
 			reqLog.AiCostValue = proto.Int64(usage.UsedCost)
 		}
+		if aiInfo.IsPriceMiss() {
+			// The (model, mode) price entry was absent: the cost was computed
+			// by falling back to the model's chat price, or billed 0 with no
+			// fallback (issue #1408). Distinguishes under-priced rows from
+			// legitimate zero-cost rows in reconciliation.
+			reqLog.AiPriceMiss = proto.Bool(true)
+		}
 		usageInconsistent = usageTripleInconsistent(usage, outputTokens)
 	} else if usage != nil {
 		// The upstream was never successfully called (mod_ai_token_auth sets
