@@ -10,6 +10,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.8.8.3] - 2026-10-11
+
+### Fixed
+- Fix token usage collection for non-streaming gzip responses (`Content-Encoding: gzip` with `Transfer-Encoding: chunked`): the compressed body is now decompressed on a parse-only copy (forwarding bytes untouched), the whole-body parse gate accepts chunked non-SSE JSON bodies, and the content-type decoder tolerates media type parameters (e.g. `application/json; charset=utf-8`) while passing compressed bodies through untouched, so `ai_output_tokens` / `ai_total_tokens` / `ai_cache_read_tokens` and RMB billing reflect the real usage instead of 0 (issue #1406)
+- Fall back to the model's chat-mode price when the `(model, mode)` price entry is missing but a chat entry exists (product decision: an unpriced mode bills the same as chat), and mark such requests with the new `ai_price_miss` access-log field (bfe-access-pb >= v0.3.14, field 763) counted by `PriceFallbackUsed`, so under-priced rows stay visible in reconciliation (issue #1408)
+- Drop the EstimateToken residue (auth-time prompt seeding / response-byte completion guessing) from the shared `TokenUsage` and suppress the token fields in the access log for non-2xx responses (new usage disposition, `UsageDispositionNone`): a failed request no longer logs request-body/4 as `ai_input_tokens` while `ai_total_tokens` stays 0 (issue #1409)
+
+### Added
+- Make the "usage unrecognized and not estimatable" billing bypass observable (issue #1410): the request-finish guard keeps its yardstick behavior (billing fields zeroed, no RMB deduction) but now increments the `UsageUnrecognized` module counter (exported via monitorHandlers, alertable) and logs a warn with cluster/key_id/model and the `response_completed`/`allow_estimate` sub-criteria; the client-abort zero-deduction branch is counted too (counter-only). The access log gains `ai_usage_source` (bfe-access-pb >= v0.3.15, field 764): `parsed` (final usage from the upstream response, including zero-output final events) / `estimated` (approved EstimateToken fallback) / `unrecognized` (billing skipped, the reported token fields are auth-time seeding residue), orthogonal to the non-2xx suppression, so billing bypasses become directly queryable (`ai_usage_source='unrecognized'`) instead of requiring out-of-band reconciliation. SC03 TC-24 covers the three-way distinction end to end
+
 ## [v1.8.8.2] - 2026-10-09
 
 ### Fixed
