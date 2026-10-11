@@ -486,6 +486,15 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 			// legitimate zero-cost rows in reconciliation.
 			reqLog.AiPriceMiss = proto.Bool(true)
 		}
+		if source := aiInfo.UsageSource(); source != "" {
+			// Where the reported usage came from: parsed (final usage from
+			// the upstream response, including genuine zero-usage rows),
+			// estimated (EstimateToken estimate approved for billing) or
+			// unrecognized (billing skipped, the token fields are auth-time
+			// seeding residue). Makes billing bypasses directly queryable
+			// in reconciliation (issue #1410).
+			reqLog.AiUsageSource = proto.String(source)
+		}
 		usageInconsistent = usageTripleInconsistent(usage, outputTokens)
 	} else if usage != nil {
 		// The upstream was never successfully called (mod_ai_token_auth sets

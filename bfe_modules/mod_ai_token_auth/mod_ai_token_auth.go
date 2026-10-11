@@ -78,6 +78,14 @@ type ModuleAITokenAuthState struct {
 	// never reported by the access log (issue #1409); a non-zero value means
 	// an upstream returned usage on an error response.
 	Non2xxRealUsageKept *metrics.Counter
+	// UsageUnrecognized counts 2xx requests whose upstream usage was never
+	// recognized (no final usage parsed) and which are not billable by
+	// EstimateToken (estimate disabled, or response not completed). Their
+	// billing fields are zeroed and no RMB deduction happens. Together with
+	// the per-request ai_usage_source access-log marker this is the
+	// product-side signal for the billing bypass (issue #1410); a genuine
+	// zero-usage request parses successfully and never lands here.
+	UsageUnrecognized *metrics.Counter
 }
 
 type ModuleAITokenAuth struct {
@@ -358,6 +366,12 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	// seen: never bill by full-request estimation (issue #1352).
 	aborted := isClientAbortErr(req.ErrCode)
 	if aborted && !ctx.aiBasicInfo.IsFinalUsageSeen() {
+		// The abort zero-deduction is a billing bypass too (usage
+		// unrecognized and not estimatable, cause fixed as client abort):
+		// count it so the bypass is observable (issue #1410). Counter-only
+		// here: a warn per aborted request would track the client-abort
+		// rate, the counter carries the trend.
+		m.state.UsageUnrecognized.Inc(1)
 		ctx.deducted = true
 		return bfe_module.BfeHandlerGoOn
 	}
@@ -380,7 +394,8 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	// billing result UsedCost is written back.
 	billingUsage := *tokenUsage
 	estimateBillable := ctx.aiBasicInfo.IsAllowEstimateToken() && ctx.aiBasicInfo.IsResponseCompleted()
-	if !ctx.aiBasicInfo.IsFinalUsageSeen() && !estimateBillable {
+	unrecognized := !ctx.aiBasicInfo.IsFinalUsageSeen() && !estimateBillable
+	if unrecognized {
 		billingUsage.PromptTokens = 0
 		billingUsage.CompletionTokens = 0
 		billingUsage.CacheReadTokens = 0
@@ -392,6 +407,28 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 		billingUsage.VideoCount = 0
 		billingUsage.ImageCount = 0
 		billingUsage.UsedQuota = 0
+
+		// issue #1410: this branch silently skipped billing (no deduction,
+		// total=0 indistinguishable from a genuine zero-usage row in the
+		// access log). Make the bypass observable: count it (alertable via
+		// monitorHandlers) and warn with the sub-criteria so the cause is
+		// readable without going back to the source.
+		m.state.UsageUnrecognized.Inc(1)
+		log.Logger.Warn("%s: usage unrecognized and not estimatable, billing skipped: cluster=%s key_id=%s model=%s response_completed=%v allow_estimate=%v",
+			m.name, req.Route.ClusterName, ctx.aiBasicInfo.ClientKeyId, ctx.aiBasicInfo.TargetModel,
+			ctx.aiBasicInfo.IsResponseCompleted(), ctx.aiBasicInfo.IsAllowEstimateToken())
+	}
+	// issue #1410: record where the reported usage came from at the same
+	// decision point, so the ai_usage_source log marker can never diverge
+	// from the billing call. A genuine zero-usage request parses its final
+	// usage and lands in the parsed branch, never here.
+	switch {
+	case ctx.aiBasicInfo.IsFinalUsageSeen():
+		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceParsed)
+	case unrecognized:
+		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceUnrecognized)
+	default:
+		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceEstimated)
 	}
 	if billingUsage.UsedQuota <= 0 && estimateBillable {
 		billingUsage.UsedQuota = CalcReqUsedQuota(req, billingUsage.PromptTokens, billingUsage.CompletionTokens) // calculate used quota
