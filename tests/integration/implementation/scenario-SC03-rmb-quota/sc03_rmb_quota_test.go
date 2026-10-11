@@ -1097,6 +1097,72 @@ func TestTC22_RMBQuotaDeduction_Anthropic_NonStream_ChunkedGzip(t *testing.T) {
 	}
 }
 
+// TestTC23 verifies the issue #1408 mode-price fallback: when the cluster
+// price table has no (model, mode) entry for the request's mode but the model
+// has a chat baseline entry, the cost falls back to the chat price (product
+// decision: an unpriced mode is billed the same as chat), the request is
+// marked ai_price_miss and PriceFallbackUsed counts it. The chat-mode arm on
+// the same model bills unchanged, and a model absent from the price table
+// entirely still bills 0 (the chat baseline never falls back).
+func TestTC23_RMBQuotaDeduction_ModePriceFallback(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(), // chat-only entries, no "responses" mode
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	e.backends[clusterRMB].ResponseHeaders = map[string]string{"Content-Type": "application/json"}
+	e.backends[clusterRMB].Body = usageResponse // prompt 100, completion 50
+
+	// chat arm: hits the chat entry directly (100*100 + 50*200 = 20000).
+	resp, body, err := e.sendRequest(apiHost, []byte(`{"model":"deepseek-chat"}`))
+	if err != nil {
+		t.Fatalf("send chat request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	// responses arm: (deepseek-chat, responses) has no entry; falls back to
+	// the chat price and bills the same 20000.
+	resp2, body2, err := e.sendRequestToPath(apiHost, "/v1/responses", []byte(`{"model":"deepseek-chat"}`))
+	if err != nil {
+		t.Fatalf("send responses request failed: %v", err)
+	}
+	if resp2.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp2.StatusCode, body2)
+	}
+
+	if e.backends[clusterRMB].Hits() != 2 {
+		t.Fatalf("expected 2 hits on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// no-baseline arm: the model is absent from the price table entirely; the
+	// chat mode never falls back, so this bills 0 (PriceLookupMiss).
+	resp3, body3, err := e.sendRequest(apiHost, []byte(`{"model":"no-such-model"}`))
+	if err != nil {
+		t.Fatalf("send no-baseline request failed: %v", err)
+	}
+	if resp3.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp3.StatusCode, body3)
+	}
+
+	// Wait for async redis deduction: only the two priced arms deduct.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - 20000 - 20000)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d", remaining, want)
+	}
+}
+
 var responsesBody = []byte(`{"model":"gpt-5-codex","stream":true}`)
 var responsesNonStreamBody = []byte(`{"model":"gpt-5-codex"}`)
 

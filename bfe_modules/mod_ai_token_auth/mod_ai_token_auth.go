@@ -56,10 +56,17 @@ type ModuleAITokenAuthState struct {
 	ReqAuth     *metrics.Counter
 	ReqAuthFail *metrics.Counter
 	// PriceLookupMiss counts billing attempts whose model price lookup
-	// missed (unknown cluster/model/mode). A miss bills 0 by design
-	// (issue #1382 acceptance: never fall back to a wrong-mode price), so
-	// the counter is the monitoring signal for misconfigured price tables.
+	// missed with no fallback available (unknown cluster/model, or the model
+	// has no chat-mode baseline entry to fall back to). Such misses bill 0;
+	// non-chat misses with a chat baseline fall back instead (issue #1408).
+	// The counter is the monitoring signal for misconfigured price tables.
 	PriceLookupMiss *metrics.Counter
+	// PriceFallbackUsed counts billing attempts whose (model, mode) price
+	// entry was missing but the cost was recovered by falling back to the
+	// model's chat-mode price (issue #1408 product decision: an unpriced mode
+	// is billed the same as chat). Together with the per-request ai_price_miss
+	// access-log marker it keeps the price-table gap visible.
+	PriceFallbackUsed *metrics.Counter
 	// Non2xxEstimateDropped counts requests whose upstream call never
 	// succeeded (non-2xx) and whose EstimateToken residue (auth-time prompt
 	// seeding / response-time completion guessing) was dropped from the
@@ -768,13 +775,31 @@ func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe
 	}
 
 	entry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, targetModel, mode)
+	priceMissed := false
 	if entry == nil {
-		// Bill 0 explicitly: falling back to another mode's price would
-		// charge a wrong price silently (issue #1382). The counter makes
-		// the misconfiguration monitorable.
-		m.state.PriceLookupMiss.Inc(1)
-		log.Logger.Warn("model price not found for cluster %s model %s mode %s", clusterName, targetModel, mode)
-		return 0
+		// Semantic fallback (issue #1408, product decision): when the
+		// (model, mode) entry is absent, bill at the model's chat-mode price
+		// (an unpriced mode is billed the same as chat). The chat mode itself
+		// never falls back: a missing chat baseline stays fail-loud (bill 0).
+		// The miss is never silent: the request is marked ai_price_miss and
+		// counted, so the price-table gap stays visible in reconciliation.
+		if mode != bfe_basic.ModeChat {
+			if chatEntry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, targetModel, bfe_basic.ModeChat); chatEntry != nil {
+				entry = chatEntry
+				priceMissed = true
+			}
+		}
+		if entry == nil {
+			m.state.PriceLookupMiss.Inc(1)
+			aiMeta.MarkPriceMiss()
+			log.Logger.Warn("model price not found for cluster %s model %s mode %s", clusterName, targetModel, mode)
+			return 0
+		}
+	}
+	if priceMissed {
+		m.state.PriceFallbackUsed.Inc(1)
+		aiMeta.MarkPriceMiss()
+		log.Logger.Warn("model price fell back to chat price: cluster=%s model=%s mode=%s", clusterName, targetModel, mode)
 	}
 
 	tierName := ""
