@@ -425,7 +425,9 @@ mode 用于后续定价匹配（`(model, mode)` 二维索引）和访问日志�
 
 `bfe/bfe_modules/mod_ai_token_auth/mod_ai_token_auth.go`
 
-响应阶段负责从响应体中提取 `usage`，或在未返回 `usage` 时按响应体长度估算 Token 数。对于图像生成响应，优先读取 `usage.image_count`，未返回时统计响应 `data` 数组长度，仍无则兜底请求体 `n` 字段（默认 1）。对于视频生成响应，优先读取 `usage.video_count`，未返回时兜底请求体 `n` 字段（默认 1）。对于非流式响应，`ContentLength >= 0` 时可直接读取完整响应体：
+响应阶段负责从响应体中提取 `usage`，或在未返回 `usage` 时按响应体长度估算 Token 数。对于图像生成响应，优先读取 `usage.image_count`，未返回时统计响应 `data` 数组长度，仍无则兜底请求体 `n` 字段（默认 1）。对于视频生成响应，优先读取 `usage.video_count`，未返回时兜底请求体 `n` 字段（默认 1）。
+
+对于非流式响应，BFE 会在读取完整响应体后解析 usage。判定见 `isCompleteNonStreamBody`：定长响应（`ContentLength >= 0`）始终整体读取；chunked 响应（`ContentLength == -1`）在既非 SSE、内容类型又是 JSON 时也整体读取（issue #1406）。响应体若带 `Content-Encoding: gzip`，只对**解析副本**解压（`bfe_util.DecodeContentEncoding`），转发给客户端的字节与 `Content-Encoding` 响应头保持上游原样：
 
 ```go
 func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
@@ -434,18 +436,28 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
         return bfe_module.BfeHandlerGoOn
     }
     tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
-    if res.StatusCode == bfe_http.StatusOK && res.ContentLength >= 0 {
+    if res.StatusCode == bfe_http.StatusOK && isCompleteNonStreamBody(res) {
         // 完整读取非流式响应体：响应视为完成（issue #1352）
         ctx.aiBasicInfo.MarkResponseCompleted()
+        bodyLen := 0
         if bodyAccessor, err := res.GetBodyAccessor(); err == nil {
             body, _ := bodyAccessor.GetBytes()
+            // 仅解压解析副本，不改动转发的字节与响应头（issue #1406）
+            if decoded, derr := bfe_util.DecodeContentEncoding(res.Header.Get("Content-Encoding"), body); derr == nil {
+                body = decoded
+            }
+            bodyLen = len(body)
             UpdateCtxByUsage(ctx, body)
         }
         if tokenUsage.UsedQuota > 0 {
             ctx.aiBasicInfo.MarkFinalUsageSeen()
         }
         if tokenUsage.UsedQuota <= 0 && ctx.aiBasicInfo.IsAllowEstimateToken() {
-            tokenUsage.CompletionTokens = int64(res.ContentLength) / 4
+            // chunked 时 ContentLength == -1，改用解码后 body 长度估算
+            if bodyLen == 0 && res.ContentLength > 0 {
+                bodyLen = int(res.ContentLength)
+            }
+            tokenUsage.CompletionTokens = int64(bodyLen) / 4
             tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
         }
     }
@@ -454,7 +466,8 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 }
 ```
 
-> 说明：旧实现中 RMB 成本在此阶段计算，导致流式响应（`ContentLength = -1`）无法计费。当前实现已将成本计算移到请求结束阶段，见 7.5。
+> 说明 1：旧实现中 RMB 成本在此阶段计算，导致流式响应（`ContentLength = -1`）无法计费。当前实现已将成本计算移到请求结束阶段，见 7.5。
+> 说明 2（issue #1406）：此前 `ContentLength >= 0` 的判定使 chunked 非流式响应整段跳过；叠加 gzip 响应体未解码、以及 `Content-Type` 带 `; charset=utf-8` 时解码器精确匹配失配，usage 采集全部失效（访问日志 `ai_output_tokens` / `ai_total_tokens` 为 0，RMB 按 0 入账）。现在 chunked 非流式 JSON 走同一整体解析路径，并在解析副本上解压。
 
 #### 流式响应的 Token 用量收集
 

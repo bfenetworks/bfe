@@ -16,6 +16,7 @@ package sc03
 
 import (
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
@@ -199,6 +200,14 @@ func (e *testEnv) sendRequest(host string, body []byte) (*http.Response, string,
 }
 
 func (e *testEnv) sendRequestToPath(host string, path string, body []byte) (*http.Response, string, error) {
+	return e.sendRequestWithHeaders(host, path, body, nil)
+}
+
+// sendRequestWithHeaders is sendRequestToPath with extra request headers. It is
+// used to set Accept-Encoding explicitly so net/http does not transparently
+// gunzip the response: the test then observes exactly the bytes BFE forwards
+// (issue #1406).
+func (e *testEnv) sendRequestWithHeaders(host string, path string, body []byte, headers map[string]string) (*http.Response, string, error) {
 	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, path)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
@@ -207,6 +216,9 @@ func (e *testEnv) sendRequestToPath(host string, path string, body []byte) (*htt
 	req.Host = host
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -1001,6 +1013,88 @@ func TestTC16_RMBQuotaDeduction_Anthropic_NonStream_Chunked(t *testing.T) {
 // fix this deducted 0.
 func TestTC17_RMBQuotaDeduction_Anthropic_NonStream_ContentLength(t *testing.T) {
 	anthropicMismatchRequest(t, false)
+}
+
+// gzipResponseBody returns the gzip-compressed form of body, to be served as a
+// MockBackend body together with Content-Encoding: gzip.
+func gzipResponseBody(t *testing.T, body string) string {
+	t.Helper()
+
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	if _, err := zw.Write([]byte(body)); err != nil {
+		t.Fatalf("gzip write failed: %v", err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("gzip close failed: %v", err)
+	}
+	return buf.String()
+}
+
+// TestTC22 verifies RMB quota deduction for a non-streaming Anthropic response
+// that is gzip-compressed, framed as chunked (no Content-Length) and labelled
+// with a media type parameter ("application/json; charset=utf-8"). Before the
+// fix (issue #1406) none of these shapes reached the usage parser: the final
+// usage was never marked and the deduction was 0. The test also asserts the
+// forwarded bytes and Content-Encoding header are unchanged, i.e. the
+// decompression only feeds the parser.
+func TestTC22_RMBQuotaDeduction_Anthropic_NonStream_ChunkedGzip(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: anthropicAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	e.backends[clusterRMB].ResponseHeaders = map[string]string{
+		"Content-Type":     "application/json; charset=utf-8",
+		"Content-Encoding": "gzip",
+	}
+	e.backends[clusterRMB].NoContentLength = true
+	e.backends[clusterRMB].Body = gzipResponseBody(t, anthropicUsageResponse)
+
+	// Accept-Encoding is set explicitly so net/http does not transparently
+	// gunzip the response and the test observes the forwarded gzip bytes.
+	resp, body, err := e.sendRequestWithHeaders(apiHost, apiPath, anthropicBody, map[string]string{
+		"Accept-Encoding": "gzip",
+	})
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Forwarding stays byte-identical: gzip payload + Content-Encoding header.
+	if got := resp.Header.Get("Content-Encoding"); got != "gzip" {
+		t.Errorf("Content-Encoding = %q, want gzip", got)
+	}
+	zr, err := gzip.NewReader(strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("forwarded body is not gzip: %v", err)
+	}
+	decoded, err := io.ReadAll(zr)
+	if err != nil {
+		t.Fatalf("gunzip forwarded body: %v", err)
+	}
+	if string(decoded) != anthropicUsageResponse {
+		t.Errorf("forwarded body mismatch:\n got: %s\nwant: %s", decoded, anthropicUsageResponse)
+	}
+
+	// Wait for async redis deduction.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - 900000)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
+	}
 }
 
 var responsesBody = []byte(`{"model":"gpt-5-codex","stream":true}`)
