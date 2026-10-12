@@ -360,6 +360,8 @@ type AiBasicInfo struct {
 
 > 如果需要更严格（如按 `max_tokens` 估算最坏成本），可在后续迭代中补充。
 
+余额预检的拒绝（余额为 0 等）发生在审计身份块写入之后：`ValidateUserTokenByReq` 在查到 token 时即写入 `ClientKeyId` / `ApikeyTags`，因此配额类拒绝日志仍携带 701/702 身份块（见 `ai_access_log_fields.md` §5.2 与 issue #1418）。
+
 ### 7.2 在 `TokenAuthContext` 中缓存 `serverConf`
 
 `bfe/bfe_modules/mod_ai_token_auth/mod_ai_token_auth.go`

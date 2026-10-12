@@ -236,7 +236,7 @@ message AIRouteRuleHit {
 
 ### 5.2 `mod_ai_token_auth`
 
-- 在 `ValidateUserTokenByReq()` 中找到 Token 后，立即把 `Token.KeyId` 写入 `AiBasicInfo.ClientKeyId`，确保即使后续拒绝也能在日志中识别 key；
+- 在 `ValidateUserTokenByReq()` 中找到 Token 后，立即把 `Token.KeyId` 与 `Token.Tags` 写入 `AiBasicInfo.ClientKeyId` / `ApikeyTags`，确保即使后续拒绝也能在日志中识别 key 并保留 Entity 归属（issue #1418）；
 - 通过 `SetTokenAuthContext()` 写入 `ApikeyTags` 和初始 `PromptTokens`；
 - 在响应阶段解析 `usage`（含 `prompt_tokens`、`completion_tokens`、`cache_read_tokens`、`cache_write_tokens`、`cache_creation.ephemeral_1h_input_tokens`、`audio_input_tokens`、`audio_output_tokens`、`image_count`、`image_input_tokens`、`video_count`）并估算 token，填充 `TokenUsage`；
 - 对 `image_generation` 模式，在认证阶段预读请求体 `n` 字段作为 `ImageCount` 兜底；

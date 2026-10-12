@@ -123,7 +123,7 @@ func newTestEnv(t *testing.T, aiConfs map[string]*cluster_conf.AIConf, quotaPlan
 					UnlimitedQuota: false,
 					QuotaPlans:     planIDs(quotaPlans),
 					Tags: []bfe_basic.ApikeyTag{
-						{TagName: "department", TagValue: "ai-team"},
+						{TagName: "department", TagValue: "ai-team", TagLevel: 3},
 					},
 				},
 			},
@@ -529,7 +529,7 @@ func TestTC01_SuccessfulRequestAIFields(t *testing.T) {
 
 	reqLog := e.mustFindSingleLog(e.accessLogs())
 	assertStringField(t, reqLog.AiApikeyId, "ai_apikey_id", apiKeyId)
-	assertApikeyTags(t, reqLog.AiApikeytags, []bfe_basic.ApikeyTag{{TagName: "department", TagValue: "ai-team"}})
+	assertApikeyTags(t, reqLog.AiApikeytags, []bfe_basic.ApikeyTag{{TagName: "department", TagValue: "ai-team", TagLevel: 3}})
 	assertStringField(t, reqLog.AiRequestedModel, "ai_requested_model", "deepseek-chat")
 	assertStringField(t, reqLog.AiTargetModel, "ai_target_model", "deepseek-chat")
 	assertStringField(t, reqLog.AiProvider, "ai_provider", "mock-provider")
@@ -821,6 +821,10 @@ func assertApikeyTags(t *testing.T, got []*bfe_access_pb.ApikeyTag, want []bfe_b
 		if got[i].GetTagname() != w.TagName || got[i].GetTagvalue() != w.TagValue {
 			t.Errorf("ai_apikeytags[%d] = (%s,%s), want (%s,%s)", i,
 				got[i].GetTagname(), got[i].GetTagvalue(), w.TagName, w.TagValue)
+		}
+		if got[i].GetTaglevel() != int32(w.TagLevel) {
+			t.Errorf("ai_apikeytags[%d].taglevel = %d, want %d", i,
+				got[i].GetTaglevel(), w.TagLevel)
 		}
 	}
 }
@@ -1738,4 +1742,86 @@ func TestTC19_Non2xxNoUsageFields(t *testing.T) {
 	if got, want := *logOK.AiTotalTokens, *logOK.AiInputTokens+*logOK.AiOutputTokens; got != want {
 		t.Errorf("arm C: ai_total_tokens = %d, want %d (ai_input_tokens + ai_output_tokens)", got, want)
 	}
+}
+
+// TestTC20 verifies that a request rejected by the quota pre-check (429
+// QUOTA_EXHAUSTED) keeps the same identity block (ai_apikey_id +
+// ai_apikeytags, with TagLevel) as a successful request of the same key, so
+// rejected requests remain attributable to their Entity in the access log
+// (issue #1418).
+func TestTC20_QuotaRejectKeepsApikeyTags(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	wantTags := []bfe_basic.ApikeyTag{{TagName: "department", TagValue: "ai-team", TagLevel: 3}}
+
+	// Arm A: quota exhausted -> 429 QUOTA_EXHAUSTED, rejected before routing.
+	e.redis.SetQuota(redisKeyRMB, 0)
+	respA, bodyA, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm A: send request failed: %v", err)
+	}
+	if respA.StatusCode != http.StatusTooManyRequests {
+		e.logBFEException()
+		t.Fatalf("arm A: expected status 429, got %d, body: %s", respA.StatusCode, bodyA)
+	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 0 {
+		t.Fatalf("arm A: expected no backend hit, got %d", hits)
+	}
+
+	// Arm B: same key with quota restored -> 200 control arm. The 200 record
+	// is the tag baseline the rejected record must match.
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	respB, bodyB, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm B: send request failed: %v", err)
+	}
+	if respB.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("arm B: expected status 200, got %d, body: %s", respB.StatusCode, bodyB)
+	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 1 {
+		t.Fatalf("arm B: expected 1 backend hit, got %d", hits)
+	}
+
+	// Wait for access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLogs := e.accessLogs()
+	if len(reqLogs) != 2 {
+		t.Fatalf("expected 2 access logs, got %d", len(reqLogs))
+	}
+	var logRejected, logOK *bfe_access_pb.RequestLog
+	for _, reqLog := range reqLogs {
+		assertNoSensitiveCredential(t, reqLog)
+		switch reqLog.GetResStatusCode() {
+		case http.StatusTooManyRequests:
+			logRejected = reqLog
+		case http.StatusOK:
+			logOK = reqLog
+		}
+	}
+	if logRejected == nil || logOK == nil {
+		t.Fatalf("expected one 429 log and one 200 log, got %d logs", len(reqLogs))
+	}
+
+	// Arm A: the rejected request keeps the full identity/audit block.
+	if logRejected.GetResStatusCode() != http.StatusTooManyRequests {
+		t.Errorf("arm A: res_status_code = %d, want 429", logRejected.GetResStatusCode())
+	}
+	assertStringField(t, logRejected.AiApikeyId, "arm A: ai_apikey_id", apiKeyId)
+	assertApikeyTags(t, logRejected.AiApikeytags, wantTags)
+	assertStringField(t, logRejected.AiAuthRejectReason, "arm A: ai_auth_reject_reason", "QUOTA_EXHAUSTED")
+	assertStringSliceField(t, logRejected.AiAuthRejectQuotaPlans, "arm A: ai_auth_reject_quota_plans", []string{planRMB})
+
+	// Arm B (control): the successful request of the same key logs the same
+	// key id and the same Entity tags.
+	assertStringField(t, logOK.AiApikeyId, "arm B: ai_apikey_id", apiKeyId)
+	assertApikeyTags(t, logOK.AiApikeytags, wantTags)
 }

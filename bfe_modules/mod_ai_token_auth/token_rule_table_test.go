@@ -15,6 +15,7 @@
 package mod_ai_token_auth
 
 import (
+	"net"
 	"net/http"
 	"strings"
 	"testing"
@@ -97,4 +98,121 @@ func TestValidateUserTokenByReqModelCheckRemoved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gemini path model: got err %v, want pass at auth stage", err)
 	}
+}
+
+// issue #1418: every rejection path after the token is found must still
+// leave the identity/audit block (ClientKeyId + ApikeyTags) in AiBasicInfo,
+// so that rejected requests remain attributable to their Entity in the
+// access log.
+func TestValidateUserTokenByReqRejectionKeepsIdentity(t *testing.T) {
+	testTags := []bfe_basic.ApikeyTag{{TagName: "entity.type", TagValue: "entity.svc", TagLevel: 3}}
+
+	assertIdentity := func(t *testing.T, req *bfe_basic.Request, wantReason string) {
+		t.Helper()
+		ai := req.GetAiBasicInfo()
+		if ai == nil {
+			t.Fatal("AiBasicInfo is nil")
+		}
+		if ai.ClientKeyId != "key-1" {
+			t.Errorf("ClientKeyId = %q, want key-1", ai.ClientKeyId)
+		}
+		if len(ai.ApikeyTags) != 1 || ai.ApikeyTags[0] != testTags[0] {
+			t.Errorf("ApikeyTags = %v, want %v", ai.ApikeyTags, testTags)
+		}
+		if ai.AiAuthInfo.RejectReason != wantReason {
+			t.Errorf("RejectReason = %q, want %q", ai.AiAuthInfo.RejectReason, wantReason)
+		}
+	}
+
+	t.Run("key disabled", func(t *testing.T) {
+		tok := newWhitelistTestToken(nil, nil)
+		tok.Enabled = false
+		tok.Tags = testTags
+		m := newWhitelistTestModule(tok)
+
+		req := newWhitelistTestRequest(t, "/v1/chat/completions", `{"model":"gpt-4"}`)
+		if _, err := m.ValidateUserTokenByReq(req); err == nil {
+			t.Fatal("expected rejection for disabled key")
+		}
+		assertIdentity(t, req, bfe_basic.CodeKeyDisabled)
+	})
+
+	t.Run("key expired", func(t *testing.T) {
+		tok := newWhitelistTestToken(nil, nil)
+		tok.ExpiredTime = 1 // long past
+		tok.Tags = testTags
+		m := newWhitelistTestModule(tok)
+
+		req := newWhitelistTestRequest(t, "/v1/chat/completions", `{"model":"gpt-4"}`)
+		if _, err := m.ValidateUserTokenByReq(req); err == nil {
+			t.Fatal("expected rejection for expired key")
+		}
+		assertIdentity(t, req, bfe_basic.CodeKeyExpired)
+	})
+
+	t.Run("subnet not allowed", func(t *testing.T) {
+		_, cidr, err := net.ParseCIDR("10.0.0.0/8")
+		if err != nil {
+			t.Fatalf("ParseCIDR failed: %v", err)
+		}
+		tok := newWhitelistTestToken(nil, nil)
+		tok.Subnet = []*net.IPNet{cidr}
+		tok.Tags = testTags
+		m := newWhitelistTestModule(tok)
+
+		// the test request carries no client/remote address, so it can never
+		// match the allowed subnet.
+		req := newWhitelistTestRequest(t, "/v1/chat/completions", `{"model":"gpt-4"}`)
+		if _, err := m.ValidateUserTokenByReq(req); err == nil {
+			t.Fatal("expected rejection for out-of-subnet client")
+		}
+		assertIdentity(t, req, bfe_basic.CodeSubnetNotAllowed)
+	})
+
+	t.Run("quota exhausted", func(t *testing.T) {
+		client := newMockRedisClient()
+		client.data["quota-key"] = 0
+		tok := newWhitelistTestToken(nil, nil)
+		tok.UnlimitedQuota = false
+		tok.Tags = testTags
+		tok.QuotaPlans = []*QuotaPlan{{
+			Id:          "qplan-1",
+			RedisKey:    "quota-key",
+			ExpiredTime: -1,
+			Unit:        "total_token",
+			Quota:       100,
+		}}
+		m := newWhitelistTestModule(tok)
+		m.redisClient = client
+
+		req := newWhitelistTestRequest(t, "/v1/chat/completions", `{"model":"gpt-4"}`)
+		_, err := m.ValidateUserTokenByReq(req)
+		if err == nil {
+			t.Fatal("expected rejection for exhausted quota")
+		}
+		if err.Code != bfe_basic.CodeQuotaExhausted {
+			t.Fatalf("err.Code = %q, want %q", err.Code, bfe_basic.CodeQuotaExhausted)
+		}
+		assertIdentity(t, req, bfe_basic.CodeQuotaExhausted)
+		if got := req.GetAiBasicInfo().AiAuthInfo.RejectQuotaPlans; len(got) != 1 || got[0] != "qplan-1" {
+			t.Errorf("RejectQuotaPlans = %v, want [qplan-1]", got)
+		}
+	})
+
+	t.Run("invalid api key writes no identity", func(t *testing.T) {
+		m := newWhitelistTestModule(newWhitelistTestToken(nil, nil))
+
+		req := newWhitelistTestRequest(t, "/v1/chat/completions", `{"model":"gpt-4"}`)
+		req.HttpRequest.Header.Set("x-goog-api-key", "unknown-key")
+		if _, err := m.ValidateUserTokenByReq(req); err == nil {
+			t.Fatal("expected rejection for unknown key")
+		}
+		ai := req.GetAiBasicInfo()
+		if ai.ClientKeyId != "" {
+			t.Errorf("ClientKeyId = %q, want empty for unknown key", ai.ClientKeyId)
+		}
+		if len(ai.ApikeyTags) != 0 {
+			t.Errorf("ApikeyTags = %v, want empty for unknown key", ai.ApikeyTags)
+		}
+	})
 }
