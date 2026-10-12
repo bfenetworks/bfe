@@ -21,6 +21,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -48,6 +49,31 @@ type eppRuntimeConf struct {
 	successThreshold int
 }
 
+// eppRuntimeSignature captures the connection-shaped and lifecycle-shaped
+// parameters of an eppRuntime. Unlike read-once-per-request parameters
+// (callTimeout, check hysteresis), these are baked into connections or
+// goroutines at construction time, so any change requires rebuilding the
+// runtime. sig is immutable after construction and may be read lock-free.
+type eppRuntimeSignature struct {
+	addrs          string // strings.Join(addrs, ",") —— order sensitive
+	tlsInsecure    bool
+	tlsCAFile      string
+	plaintext      bool
+	connectTimeout time.Duration
+	checkDisabled  bool
+}
+
+func runtimeSignature(addrs []string, conf eppRuntimeConf) eppRuntimeSignature {
+	return eppRuntimeSignature{
+		addrs:          strings.Join(addrs, ","),
+		tlsInsecure:    conf.tlsInsecure,
+		tlsCAFile:      conf.tlsCAFile,
+		plaintext:      conf.plaintext,
+		connectTimeout: conf.connectTimeout,
+		checkDisabled:  conf.checkDisabled,
+	}
+}
+
 // eppAddrHealth tracks failover state of one EPP address.
 type eppAddrHealth struct {
 	lastOK        bool      // result of most recent probe
@@ -64,6 +90,7 @@ type eppRuntime struct {
 	addrs   []string // ordered, addrs[0] is primary
 	conf    eppRuntimeConf
 	tlsConf *tls.Config
+	sig     eppRuntimeSignature // immutable, set at construction
 
 	mu     sync.Mutex
 	conns  []*grpc.ClientConn // lazy data connection per addr
@@ -92,6 +119,7 @@ func newEPPRuntime(name string, addrs []string, conf eppRuntimeConf) (*eppRuntim
 		addrs:   append([]string(nil), addrs...),
 		conf:    conf,
 		tlsConf: tlsConf,
+		sig:     runtimeSignature(addrs, conf),
 		conns:   make([]*grpc.ClientConn, len(addrs)),
 		health:  make([]eppAddrHealth, len(addrs)),
 		stopCh:  make(chan struct{}),
@@ -120,16 +148,33 @@ func newEPPRuntime(name string, addrs []string, conf eppRuntimeConf) (*eppRuntim
 	return rt, nil
 }
 
-func (rt *eppRuntime) sameAddrs(addrs []string) bool {
-	if len(rt.addrs) != len(addrs) {
-		return false
+// sameSignature reports whether the runtime was built from the same
+// connection/lifecycle parameters. sig is immutable, so no lock is needed.
+func (rt *eppRuntime) sameSignature(sig eppRuntimeSignature) bool {
+	return rt.sig == sig
+}
+
+// inheritStateFrom carries over failover state (active index and per-address
+// health) from a replaced runtime, but only when the address table is
+// identical so indexes still line up. Rebuilding for a TLS/timeout/disabled
+// change must not reset the failover state and cause flapping.
+func (rt *eppRuntime) inheritStateFrom(old *eppRuntime) {
+	if old == nil || rt.sig.addrs != old.sig.addrs {
+		return // different address table: indexes no longer correspond
 	}
-	for i := range addrs {
-		if rt.addrs[i] != addrs[i] {
-			return false
-		}
+	old.mu.Lock()
+	active := old.active
+	health := append([]eppAddrHealth(nil), old.health...)
+	old.mu.Unlock()
+
+	rt.mu.Lock()
+	if len(health) == len(rt.health) {
+		rt.active = active
+		rt.health = health
 	}
-	return true
+	a := rt.active
+	rt.mu.Unlock()
+	eppProm.activeAddr.WithLabelValues(rt.name).Set(float64(a))
 }
 
 // updateConf refreshes runtime parameters. They take effect on next probe
@@ -226,6 +271,9 @@ func (rt *eppRuntime) probe(idx int) error {
 	if rt.conf.plaintext {
 		creds = insecure.NewCredentials()
 	} else {
+		if rt.tlsConf == nil { // should not happen (signature guarantees it); defensive
+			return fmt.Errorf("epp: TLS config missing while plaintext=false")
+		}
 		creds = credentials.NewTLS(rt.tlsConf)
 	}
 	conn, err := grpc.DialContext(ctx, addr,

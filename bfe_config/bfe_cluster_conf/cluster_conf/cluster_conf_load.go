@@ -512,7 +512,7 @@ func (c *EPPTimeoutConf) CallDuration() time.Duration {
 type EPPTLSConf struct {
 	Insecure  bool   // true = skip certificate verification (testing only)
 	CAFile    string // CA certificate file for verifying EPP server, required if Insecure is false
-	Plaintext bool   // dial EPP without TLS (EPP serves plaintext gRPC; mutually exclusive with Insecure/CAFile)
+	Plaintext bool   // dial EPP without TLS (EPP serves plaintext gRPC; mutually exclusive with Insecure/CAFile; defaults to true when EPPTLS is absent)
 }
 
 // EPPBreakerConf is circuit breaker conf of the EPP path, only effective
@@ -934,10 +934,11 @@ func GslbBasicConfCheck(conf *GslbBasicConf) error {
 			return err
 		}
 		if conf.EPPTLS == nil {
-			// Formalize the legacy default: a missing EPPTLS means TLS with
-			// skipped certificate verification, same as {Insecure: true}.
-			conf.EPPTLS = &EPPTLSConf{Insecure: true}
-			log.Logger.Warn("EPPTLS not configured, default to Insecure=true (skip certificate verification), please configure EPPTLS explicitly")
+			// Default: a missing EPPTLS means dialing EPP without TLS
+			// (plaintext), i.e. {Plaintext: true}. Configure EPPTLS
+			// explicitly ({Insecure: true} or {CAFile: ...}) to use TLS.
+			conf.EPPTLS = &EPPTLSConf{Plaintext: true}
+			log.Logger.Warn("EPPTLS not configured, default to Plaintext=true (dial EPP without TLS); set {Insecure:true} or {CAFile:...} explicitly to use TLS")
 		}
 		if err := EPPTLSConfCheck(conf.EPPTLS); err != nil {
 			return err
@@ -1093,7 +1094,7 @@ func EPPBreakerConfCheck(conf *EPPBreakerConf) error {
 }
 
 // EPPTLSConfCheck checks EPPTLSConf. A nil conf is valid here:
-// GslbBasicConfCheck fills the default (Insecure=true) before calling it.
+// GslbBasicConfCheck fills the default (Plaintext=true) before calling it.
 func EPPTLSConfCheck(conf *EPPTLSConf) error {
 	if conf == nil {
 		return nil

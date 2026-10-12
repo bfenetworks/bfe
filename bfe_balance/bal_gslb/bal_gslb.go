@@ -196,10 +196,12 @@ func buildEPPBreakerConf(gslbBasic cluster_conf.GslbBasicConf) eppBreakerConf {
 }
 
 // initEPP initializes or refreshes EPP runtime with given addresses.
-// If only check/timeout/tls parameters changed (address table unchanged),
-// they are applied to the existing runtime so in-flight requests are not
-// interrupted; address table change swaps in a new runtime and the old one
-// is closed after a grace period.
+// Rebuild-vs-inplace is decided by the runtime signature: changes to
+// connection-shaped (EPPTLS, EPPTimeout.Connect), lifecycle-shaped
+// (EPPCheck.Disabled) or topology (address table) parameters rebuild the
+// runtime (old one is closed after a grace period); changes to read-once
+// parameters (EPPTimeout.Call, EPPCheck hysteresis) are applied in place so
+// in-flight requests are not interrupted.
 func (bal *BalanceGslb) initEPP(addrs []string, gslbBasic cluster_conf.GslbBasicConf) error {
 	conf := buildEPPRuntimeConf(gslbBasic)
 	breakerConf := buildEPPBreakerConf(gslbBasic)
@@ -212,14 +214,17 @@ func (bal *BalanceGslb) initEPP(addrs []string, gslbBasic cluster_conf.GslbBasic
 		return nil
 	}
 
-	// create or refresh the circuit breaker (EPP path only)
+	// create or refresh the circuit breaker (EPP path only); updateConf
+	// returns early when the configuration is unchanged
 	if bal.eppBreaker == nil {
 		bal.eppBreaker = newEppBreaker(bal.name, breakerConf)
 	} else {
 		bal.eppBreaker.updateConf(breakerConf)
 	}
 
-	if bal.eppRt != nil && bal.eppRt.sameAddrs(addrs) {
+	newSig := runtimeSignature(addrs, conf)
+	if bal.eppRt != nil && bal.eppRt.sameSignature(newSig) {
+		// only read-type parameters changed: update in place
 		bal.eppRt.updateConf(conf)
 		return nil
 	}
@@ -227,6 +232,10 @@ func (bal *BalanceGslb) initEPP(addrs []string, gslbBasic cluster_conf.GslbBasic
 	rt, err := newEPPRuntime(bal.name, addrs, conf)
 	if err != nil {
 		return err
+	}
+	if bal.eppRt != nil {
+		// same address table: keep failover state (active/health)
+		rt.inheritStateFrom(bal.eppRt)
 	}
 
 	old := bal.eppRt
