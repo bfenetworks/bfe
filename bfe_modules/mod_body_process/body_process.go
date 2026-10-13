@@ -453,11 +453,12 @@ func (e *RawEvent) GetQuotaUsage(authStyle string) QuotaUsage {
 	data := *e
 	fields := utils.ParseUsageFieldsCrossProtocol(data)
 
+	// issue #1414: usage presence (not "some value is > 0") decides whether
+	// this payload carries usage, so an upstream reporting all-zero usage is
+	// billed at 0 instead of being estimated or misfiled as unrecognized.
 	curtoken := int64(0)
-	isguess := true
-	if fields.UsedQuota > 0 || fields.ImageCount > 0 || fields.VideoCount > 0 {
-		isguess = false
-	} else {
+	isguess := !fields.UsagePresent
+	if isguess {
 		curtoken = EstimateContentToken(string(data))
 	}
 
@@ -490,6 +491,8 @@ func (e *RawEvent) GetQuotaUsage(authStyle string) QuotaUsage {
 		VideoCount:         fields.VideoCount,
 		ImageCount:         fields.ImageCount,
 		UsedQuota:          fields.UsedQuota,
+		UsagePresent:       fields.UsagePresent,
+		PromptPresent:      fields.PromptPresent,
 		CurrentTokens:      curtoken,
 		IsGuess:            isguess,
 		IsFinalUsage:       isFinalUsage,

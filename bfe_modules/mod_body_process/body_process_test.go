@@ -509,3 +509,19 @@ func TestQuotaUsageProcessorMarksResponseCompletion(t *testing.T) {
 		t.Error("expected response completed after [DONE]")
 	}
 }
+
+// Issue #1414: the non-SSE (whole-body) path classifies by usage presence too.
+func TestRawEventGetQuotaUsageAllZeroUsageIsPresent(t *testing.T) {
+	e := newRawEvent(`{"usage":{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}}`)
+	q := e.GetQuotaUsage("openai")
+
+	if !q.UsagePresent {
+		t.Error("expected UsagePresent true for an explicit all-zero usage object")
+	}
+	if q.IsGuess {
+		t.Error("an explicit all-zero usage must not be treated as a guess")
+	}
+	if !q.IsFinalUsage {
+		t.Error("expected IsFinalUsage true for a whole-body usage object")
+	}
+}

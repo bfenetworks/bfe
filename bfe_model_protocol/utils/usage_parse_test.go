@@ -95,6 +95,8 @@ func TestParseGeminiUsageFields(t *testing.T) {
 	fields := ParseGeminiUsageFields([]byte(
 		`{"candidates":[{"content":{"parts":[{"text":"hi"}]}}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5,"cachedContentTokenCount":3,"totalTokenCount":15}}`))
 	want := UsageFields{
+		UsagePresent:     true,
+		PromptPresent:    true,
 		UsedQuota:        15,
 		PromptTokens:     10,
 		CompletionTokens: 5,
@@ -118,10 +120,11 @@ func TestParseGeminiUsageFieldsMissingTotal(t *testing.T) {
 }
 
 func TestParseGeminiUsageFieldsAllZero(t *testing.T) {
-	// Empty usageMetadata stays all-zero (a guess for the callers).
+	// Empty usageMetadata is still a present usage object (issue #1414): the
+	// counts stay all-zero, but the callers must not treat it as "no usage".
 	fields := ParseGeminiUsageFields([]byte(`{"usageMetadata":{}}`))
-	if fields != (UsageFields{}) {
-		t.Errorf("expected all-zero fields, got %+v", fields)
+	if fields != (UsageFields{UsagePresent: true}) {
+		t.Errorf("expected present-but-empty fields, got %+v", fields)
 	}
 }
 

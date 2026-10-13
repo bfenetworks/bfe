@@ -211,12 +211,22 @@ type AiBasicInfo struct {
 	usageDisposition string
 
 	// usageSource tells the access log where the reported token usage came
-	// from: parsed (final usage from the upstream response), estimated
-	// (EstimateToken estimate approved for billing) or unrecognized (no
-	// final usage and not estimatable: billing skipped, issue #1410). It is
-	// set at the same decision point as the billing-yardstick guard; the
-	// zero value means "not judged" and the log field stays absent.
+	// from: parsed (final usage from the upstream response, including a
+	// genuine zero-usage object), estimated (EstimateToken estimate approved
+	// for billing), aborted (client disconnected before the final usage,
+	// issue #1414) or unrecognized (no final usage and not estimatable:
+	// billing skipped, issue #1410). It is set at the same decision point as
+	// the billing-yardstick guard; the zero value means "not judged" and the
+	// log field stays absent.
 	usageSource string
+
+	// zeroCostReason tells the access log why a 2xx request that holds an RMB
+	// quota plan was charged 0 (issue #1414), reported as ai_zero_cost_reason.
+	// It is marked at the site that produced the zero cost (unrecognized
+	// usage guard, client abort, cache hit, batch release, pricing gaps) and
+	// read back at the single billing checkpoint, which also counts
+	// BillingZeroCost. Empty means "not a zero-cost request" or "not judged".
+	zeroCostReason string
 }
 
 // ClusterKeyName represents a tried cluster and API-Key pair during request processing
@@ -303,18 +313,59 @@ func (aiinfo *AiBasicInfo) UsageDisposition() string {
 // billing call.
 const (
 	// UsageSourceParsed means a final usage was parsed from the upstream
-	// response (including genuine zero-usage requests, which never fall
-	// into the unrecognized branch).
+	// response, decided by the presence of the usage object rather than by
+	// its values (issue #1414): an upstream that explicitly reports all-zero
+	// usage also lands here and is billed at 0, instead of being estimated.
 	UsageSourceParsed = "parsed"
-	// UsageSourceEstimated means no final usage was parsed but the request
-	// is billable by EstimateToken (estimate allowed and response
+	// UsageSourceEstimated means the upstream returned no usage at all but the
+	// request is billable by EstimateToken (estimate allowed and response
 	// completed); the approved estimate is mirrored into the shared usage
 	// (issue #1398).
 	UsageSourceEstimated = "estimated"
+	// UsageSourceAborted means the client disconnected (RST/close/write
+	// failure) before the final usage was seen: billing is skipped per the
+	// issue #1352 yardstick, and the reported token fields are either
+	// auth-time seeding residue or the initial usage of the stream
+	// (issue #1414).
+	UsageSourceAborted = "aborted"
 	// UsageSourceUnrecognized means no final usage was parsed and the
 	// request is not estimatable: billing was skipped and the reported
 	// token fields are auth-time seeding residue.
 	UsageSourceUnrecognized = "unrecognized"
+)
+
+// Zero-cost reasons for the access log (issue #1414): why a 2xx request that
+// holds an RMB quota plan was charged 0. Reported as ai_zero_cost_reason and
+// counted by the BillingZeroCost module counter (AI cache hits are marked but
+// not counted: they never call the upstream, so their zero cost is by design).
+const (
+	// ZeroCostReasonUnrecognized: upstream usage was neither recognized nor
+	// estimatable.
+	ZeroCostReasonUnrecognized = "unrecognized"
+	// ZeroCostReasonAborted: the client disconnected before the final usage.
+	ZeroCostReasonAborted = "aborted"
+	// ZeroCostReasonCacheHit: AI cache hit, the upstream was never called.
+	ZeroCostReasonCacheHit = "cache_hit"
+	// ZeroCostReasonBatchRelease: batch contract released without billing.
+	ZeroCostReasonBatchRelease = "batch_release"
+	// ZeroCostReasonPriceMiss: no price entry and no fallback price.
+	ZeroCostReasonPriceMiss = "price_miss"
+	// ZeroCostReasonPriceZero: the price entry exists but the billed
+	// dimensions are priced 0.
+	ZeroCostReasonPriceZero = "price_zero"
+	// ZeroCostReasonModelTableMissing: the cluster model table is missing or
+	// unlookupable.
+	ZeroCostReasonModelTableMissing = "model_table_missing"
+	// ZeroCostReasonConfigMissing: pricing configuration (server data conf /
+	// cluster / target model) is unavailable at billing time.
+	ZeroCostReasonConfigMissing = "config_missing"
+	// ZeroCostReasonNoUsageTokens: no billable token count, although no usage
+	// problem was detected (e.g. a genuine zero-usage response, or image /
+	// video modes with a zero generated count).
+	ZeroCostReasonNoUsageTokens = "no_usage_tokens"
+	// ZeroCostReasonCostZero: fallback for a zero cost with no classified
+	// cause.
+	ZeroCostReasonCostZero = "cost_zero"
 )
 
 // SetUsageSource records where the reported token usage came from (issue
@@ -327,6 +378,18 @@ func (aiinfo *AiBasicInfo) SetUsageSource(source string) {
 // it was never judged, e.g. the upstream call never succeeded).
 func (aiinfo *AiBasicInfo) UsageSource() string {
 	return aiinfo.usageSource
+}
+
+// SetZeroCostReason records why a zero-cost request was charged 0 (issue
+// #1414); the access log reports it as ai_zero_cost_reason.
+func (aiinfo *AiBasicInfo) SetZeroCostReason(reason string) {
+	aiinfo.zeroCostReason = reason
+}
+
+// ZeroCostReason returns the zero-cost reason (empty when the request was
+// billed, when no RMB plan was bound, or when nothing judged it).
+func (aiinfo *AiBasicInfo) ZeroCostReason() string {
+	return aiinfo.zeroCostReason
 }
 
 func GetApiKey(req *Request) string {

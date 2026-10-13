@@ -64,11 +64,15 @@ func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 				} else if rquota.VideoCount > 0 {
 					tctx.VideoCount = rquota.VideoCount
 					tctx.UsedQuota = rquota.VideoCount
-				} else if rquota.UsedQuota > 0 {
-					if rquota.IsFinalUsage && rquota.PromptTokens == 0 && tctx.PromptTokens > 0 {
-						// Anthropic message_delta carries only output tokens;
-						// keep the prompt (and sub-token) fields parsed earlier
-						// from message_start.
+				} else if rquota.UsedQuota > 0 || rquota.IsFinalUsage {
+					// issue #1414: an upstream that reports an all-zero usage
+					// object has really observed zero usage, so the values are
+					// written through (the request is billed at 0) instead of
+					// being left to the estimate path.
+					if rquota.IsFinalUsage && !rquota.PromptPresent && tctx.PromptTokens > 0 {
+						// Anthropic message_delta omits the prompt field (it is
+						// absent, not 0); keep the prompt (and sub-token)
+						// fields parsed earlier from message_start.
 						rquota.PromptTokens = tctx.PromptTokens
 						rquota.CacheReadTokens = tctx.CacheReadTokens
 						rquota.CacheWriteTokens = tctx.CacheWriteTokens
@@ -104,7 +108,11 @@ func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 			}
 		}
 
-		if tctx.UsedQuota <= 0 && caf.aiBasicInfo.IsAllowEstimateToken() {
+		// issue #1414 (part of the EstimateToken yardstick): estimation backs
+		// only a request from which no usage object was ever collected. Once a
+		// final usage was seen the observed values are authoritative — an
+		// all-zero final usage must not be topped up with estimates.
+		if !caf.aiBasicInfo.IsFinalUsageSeen() && tctx.UsedQuota <= 0 && caf.aiBasicInfo.IsAllowEstimateToken() {
 			// still not got usage, estimate from content length
 			if tctx.CompletionTokens == -1 {
 				tctx.CompletionTokens = 0 // 初始化为0

@@ -258,6 +258,10 @@ func (m *ModuleAITokenAuth) batchSettle(req *bfe_basic.Request, ctx *TokenAuthCo
 				entry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, model, bfe_basic.ModeBatch)
 				if entry == nil {
 					m.state.PriceLookupMiss.Inc(1)
+					// issue #1414: mark the row like the streaming price miss
+					// does, and record the cause for the billing checkpoint.
+					aiMeta.MarkPriceMiss()
+					aiMeta.SetZeroCostReason(bfe_basic.ZeroCostReasonPriceMiss)
 					log.Logger.Warn("mod_ai_token_auth: batch price miss, cluster=%s model=%s mode=%s",
 						clusterName, model, bfe_basic.ModeBatch)
 					continue
@@ -265,7 +269,31 @@ func (m *ModuleAITokenAuth) batchSettle(req *bfe_basic.Request, ctx *TokenAuthCo
 				costUnits += calcChatCost(entry, &u, tierName)
 				totalTokens += u.UsedQuota
 			}
+		} else {
+			// issue #1414: previously silent (contrast the identical check in
+			// calcCostUnits, which at least warns); the settlement releases the
+			// reserve without charging anything.
+			aiMeta.SetZeroCostReason(bfe_basic.ZeroCostReasonModelTableMissing)
+			log.Logger.Warn("mod_ai_token_auth: batch settle model table not found, cluster=%s batch=%s",
+				clusterName, settleKey)
 		}
+	} else if len(usageByModel) > 0 {
+		// serverConf or cluster name unavailable at settle time
+		aiMeta.SetZeroCostReason(bfe_basic.ZeroCostReasonConfigMissing)
+	}
+
+	// issue #1414: the batch path has its own checkpoint — a settlement that
+	// charges nothing is a released-without-billing batch, and it must be
+	// countable rather than only visible in the released reserve.
+	if costUnits == 0 && hasRMBPlan(ctx.Token.QuotaPlans) {
+		reason := aiMeta.ZeroCostReason()
+		if reason == "" {
+			reason = bfe_basic.ZeroCostReasonBatchRelease
+		}
+		aiMeta.SetZeroCostReason(reason)
+		m.state.BillingZeroCost.Inc(1)
+		log.Logger.Warn("mod_ai_token_auth: batch settle released without billing: cluster=%s batch=%s reason=%s",
+			clusterName, settleKey, reason)
 	}
 
 	// deduct like a normal request; reserve mirrors are released regardless
@@ -276,11 +304,13 @@ func (m *ModuleAITokenAuth) batchSettle(req *bfe_basic.Request, ctx *TokenAuthCo
 		if quota.IsRMB(plan.Unit) {
 			if costUnits > 0 {
 				if _, err := plan.Deduct(m.redisClient, costUnits); err != nil {
+					m.state.DeductFailed.Inc(1)
 					log.Logger.Warn("mod_ai_token_auth: batch settle deduct rmb err: %v", err)
 				}
 			}
 		} else if totalTokens > 0 {
 			if _, err := plan.Deduct(m.redisClient, totalTokens); err != nil {
+				m.state.DeductFailed.Inc(1)
 				log.Logger.Warn("mod_ai_token_auth: batch settle deduct token err: %v", err)
 			}
 		}

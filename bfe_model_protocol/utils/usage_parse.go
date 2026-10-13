@@ -25,6 +25,18 @@ import (
 // bfe_basic.TokenUsage) each map these fields onto their own structures, so
 // this package stays free of dependencies on bfe_basic / bfe_modules.
 type UsageFields struct {
+	// UsagePresent records that the upstream response actually carried a
+	// usage object (the key exists), regardless of the values inside it
+	// (issue #1414). It is what distinguishes an upstream that explicitly
+	// reports all-zero usage from an upstream that reports none: the
+	// callers classify and bill by presence, not by "some value is > 0".
+	UsagePresent bool
+	// PromptPresent records that this usage object actually carried the
+	// prompt/input token field. Anthropic's streaming final usage
+	// (message_delta) omits it, so "absent" must be told apart from
+	// "reported as 0" before an earlier prompt is carried over during
+	// streaming accumulation (issue #1414).
+	PromptPresent      bool
 	UsedQuota          int64
 	PromptTokens       int64
 	CompletionTokens   int64
@@ -60,6 +72,8 @@ func parseCacheWriteTokens1h(data []byte, prefix string) int64 {
 func parseOpenAIUsageFieldsWithPrefix(data []byte, prefix, leafIn, leafOut string) UsageFields {
 	var fields UsageFields
 
+	fields.UsagePresent = gjson.GetBytes(data, prefix).IsObject()
+	fields.PromptPresent = gjson.GetBytes(data, prefix+"."+leafIn).Exists()
 	fields.UsedQuota = gjson.GetBytes(data, prefix+".total_tokens").Int()
 	fields.PromptTokens = gjson.GetBytes(data, prefix+"."+leafIn).Int()
 	fields.CompletionTokens = gjson.GetBytes(data, prefix+"."+leafOut).Int()
@@ -210,6 +224,11 @@ func ParseUsageFieldsCrossProtocol(data []byte) UsageFields {
 		if fields.UsedQuota == 0 {
 			fields.UsedQuota = claude.UsedQuota
 		}
+		// Presence is the union of the chains: a body whose usage object
+		// exists in any protocol's shape is "usage present" (issue #1414),
+		// even when every count inside it is 0.
+		fields.UsagePresent = fields.UsagePresent || claude.UsagePresent
+		fields.PromptPresent = fields.PromptPresent || claude.PromptPresent
 	}
 	if fields.PromptTokens == 0 && fields.CompletionTokens == 0 {
 		gemini := ParseGeminiUsageFields(data)
@@ -221,6 +240,8 @@ func ParseUsageFieldsCrossProtocol(data []byte) UsageFields {
 		if fields.UsedQuota == 0 {
 			fields.UsedQuota = gemini.UsedQuota
 		}
+		fields.UsagePresent = fields.UsagePresent || gemini.UsagePresent
+		fields.PromptPresent = fields.PromptPresent || gemini.PromptPresent
 	}
 	return fields
 }
@@ -239,6 +260,14 @@ func ParseUsageFieldsCrossProtocol(data []byte) UsageFields {
 // message_delta event. Both shapes are accepted.
 func ParseAnthropicUsageFields(data []byte) UsageFields {
 	var fields UsageFields
+
+	// Presence first (issue #1414): the Anthropic usage object is either the
+	// top-level "usage" (message_delta / non-streaming body) or the nested
+	// "message.usage" (streaming message_start).
+	fields.UsagePresent = gjson.GetBytes(data, "usage").IsObject() ||
+		gjson.GetBytes(data, "message.usage").IsObject()
+	fields.PromptPresent = gjson.GetBytes(data, "usage.input_tokens").Exists() ||
+		gjson.GetBytes(data, "message.usage.input_tokens").Exists()
 
 	prompt := gjson.GetBytes(data, "usage.input_tokens")
 	completion := gjson.GetBytes(data, "usage.output_tokens")
@@ -290,6 +319,8 @@ func ParseAnthropicUsageFields(data []byte) UsageFields {
 func ParseGeminiUsageFields(data []byte) UsageFields {
 	var fields UsageFields
 
+	fields.UsagePresent = gjson.GetBytes(data, "usageMetadata").IsObject()
+	fields.PromptPresent = gjson.GetBytes(data, "usageMetadata.promptTokenCount").Exists()
 	fields.PromptTokens = gjson.GetBytes(data, "usageMetadata.promptTokenCount").Int()
 	fields.CompletionTokens = gjson.GetBytes(data, "usageMetadata.candidatesTokenCount").Int()
 	fields.CacheReadTokens = gjson.GetBytes(data, "usageMetadata.cachedContentTokenCount").Int()

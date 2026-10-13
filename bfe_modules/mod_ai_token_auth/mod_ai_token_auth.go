@@ -86,6 +86,28 @@ type ModuleAITokenAuthState struct {
 	// product-side signal for the billing bypass (issue #1410); a genuine
 	// zero-usage request parses successfully and never lands here.
 	UsageUnrecognized *metrics.Counter
+	// AbortBillingSkipped counts client aborts (RST/close/write failure)
+	// detected before the final usage was seen: billing is skipped entirely
+	// per the issue #1352 yardstick, whether or not an initial usage (e.g.
+	// Anthropic message_start) was already parsed. It was counted by
+	// UsageUnrecognized until issue #1414 split the two causes, so that an
+	// upstream/parsing problem and a client-side disconnect stay separable:
+	// only the former should be alerted on, while the latter tracks the
+	// client-abort rate.
+	AbortBillingSkipped *metrics.Counter
+	// BillingZeroCost counts 2xx requests that hold an RMB quota plan and were
+	// charged 0, excluding AI cache hits (which never call the upstream, so
+	// their zero cost is by design). It is the structural counterpart of
+	// UsageUnrecognized: instead of covering one billing bypass, it covers
+	// every zero-cost 2xx request — unrecognized usage, client aborts, batch
+	// releases, price-table gaps, deduction-time configuration loss — so a new
+	// bypass shape cannot stay silent. The per-request cause is reported as
+	// ai_zero_cost_reason (issue #1414).
+	BillingZeroCost *metrics.Counter
+	// DeductFailed counts quota deductions that the Redis write rejected.
+	// Such requests were billed in the log but not charged; the failure used
+	// to produce only a log line (issue #1414).
+	DeductFailed *metrics.Counter
 }
 
 type ModuleAITokenAuth struct {
@@ -172,66 +194,75 @@ func (m *ModuleAITokenAuth) matchTokenRule(req *bfe_basic.Request) bool {
 	return false
 }
 
-func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) {
+// UpdateCtxByUsage writes the usage observed in a complete non-streaming body
+// into the shared TokenUsage. It reports whether the upstream carried a usage
+// object at all (issue #1414): presence, not "some value is > 0", is what
+// distinguishes a genuine all-zero usage report from a missing one, and the
+// caller marks the final usage / gates the estimate on it.
+func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) bool {
 	// The protocol/auth style is identified per request before the response
 	// is processed (GetApiKey / DetectAuthStyle), so the adapter for
 	// aiMeta.AuthStyle carries the same usage chain the legacy all-chain
 	// extraction applied to this response.
 	fields := modelprotocol.Get(ctx.aiBasicInfo.AuthStyle).ExtractUsageFields(data)
-	if fields.UsedQuota == 0 && fields.PromptTokens == 0 && fields.CompletionTokens == 0 &&
-		fields.ImageCount == 0 && fields.VideoCount == 0 {
+	if !fields.UsagePresent ||
+		(fields.UsedQuota == 0 && fields.PromptTokens == 0 && fields.CompletionTokens == 0 &&
+			fields.ImageCount == 0 && fields.VideoCount == 0) {
 		// Auth style / response format mismatch (e.g. a Bearer key detected
-		// as openai while the backend returns an Anthropic body): the
-		// single adapter parsed nothing. Fall back to the composed
-		// cross-protocol chain so the final usage is still recognized
-		// (issue #1364); otherwise UsedQuota stays 0, the final-usage mark
-		// is never set, and the request-finish guard would zero the usage.
+		// as openai while the backend returns an Anthropic body): the single
+		// adapter found no usable usage (possibly a usage object in another
+		// protocol's field names). Fall back to the composed cross-protocol
+		// chain so the final usage is still recognized (issue #1364);
+		// otherwise the final-usage mark is never set and the request-finish
+		// guard would zero the usage. A present-but-all-zero usage object also
+		// re-runs the chain, which is harmless: the fallback keeps presence
+		// (issue #1414).
 		fields = utils.ParseUsageFieldsCrossProtocol(data)
 	}
-	used := fields.UsedQuota
-	prompt := fields.PromptTokens
-	completion := fields.CompletionTokens
-	cacheRead := fields.CacheReadTokens
-	cacheWrite := fields.CacheWriteTokens
-	cacheWrite1h := fields.CacheWriteTokens1h
-	audioInput := fields.AudioInputTokens
-	audioOutput := fields.AudioOutputTokens
-	imageInput := fields.ImageInputTokens
-	imageCount := fields.ImageCount
-	videoCount := fields.VideoCount
+	if !fields.UsagePresent {
+		return false
+	}
 
 	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
-	if used > 0 {
-		tokenUsage.UsedQuota = used
-		tokenUsage.PromptTokens = prompt
-		tokenUsage.CompletionTokens = completion
-		tokenUsage.CacheReadTokens = cacheRead
-		tokenUsage.CacheWriteTokens = cacheWrite
-		tokenUsage.CacheWriteTokens1h = cacheWrite1h
-		tokenUsage.AudioInputTokens = audioInput
-		tokenUsage.AudioOutputTokens = audioOutput
-		tokenUsage.ImageInputTokens = imageInput
-		tokenUsage.ImageCount = imageCount
-		tokenUsage.VideoCount = videoCount
-	} else if prompt > 0 || completion > 0 || imageCount > 0 || videoCount > 0 {
-		if imageCount > 0 {
-			tokenUsage.UsedQuota = imageCount
-		} else if videoCount > 0 {
-			tokenUsage.UsedQuota = videoCount
-		} else {
-			tokenUsage.UsedQuota = prompt + completion
-		}
-		tokenUsage.PromptTokens = prompt
-		tokenUsage.CompletionTokens = completion
-		tokenUsage.CacheReadTokens = cacheRead
-		tokenUsage.CacheWriteTokens = cacheWrite
-		tokenUsage.CacheWriteTokens1h = cacheWrite1h
-		tokenUsage.AudioInputTokens = audioInput
-		tokenUsage.AudioOutputTokens = audioOutput
-		tokenUsage.ImageInputTokens = imageInput
-		tokenUsage.ImageCount = imageCount
-		tokenUsage.VideoCount = videoCount
+
+	// Generated counts are not part of every upstream's usage object: keep the
+	// request-derived fallback installed at auth time (image_generation /
+	// video_generation) exactly as the streaming accumulator does, so an
+	// object that omits image_count cannot zero a billable count.
+	if fields.ImageCount == 0 && fields.VideoCount == 0 {
+		fields.ImageCount = tokenUsage.ImageCount
+		fields.VideoCount = tokenUsage.VideoCount
 	}
+
+	// total_tokens is absent in some shapes (Anthropic): derive the quota from
+	// the parts, with the generated count as the quota unit for image / video
+	// modes (legacy derivation, issue #1414 keeps it).
+	if fields.UsedQuota == 0 {
+		switch {
+		case fields.ImageCount > 0:
+			fields.UsedQuota = fields.ImageCount
+		case fields.VideoCount > 0:
+			fields.UsedQuota = fields.VideoCount
+		default:
+			fields.UsedQuota = fields.PromptTokens + fields.CompletionTokens
+		}
+	}
+
+	// The upstream reported usage: its values are the observation, including
+	// an explicit all-zero report (billed at 0, classified as parsed).
+	tokenUsage.UsedQuota = fields.UsedQuota
+	tokenUsage.PromptTokens = fields.PromptTokens
+	tokenUsage.CompletionTokens = fields.CompletionTokens
+	tokenUsage.CacheReadTokens = fields.CacheReadTokens
+	tokenUsage.CacheWriteTokens = fields.CacheWriteTokens
+	tokenUsage.CacheWriteTokens1h = fields.CacheWriteTokens1h
+	tokenUsage.AudioInputTokens = fields.AudioInputTokens
+	tokenUsage.AudioOutputTokens = fields.AudioOutputTokens
+	tokenUsage.ImageInputTokens = fields.ImageInputTokens
+	tokenUsage.ImageCount = fields.ImageCount
+	tokenUsage.VideoCount = fields.VideoCount
+
+	return true
 }
 
 // isJSONMediaType reports whether a Content-Type header value denotes JSON,
@@ -269,6 +300,7 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 		// The full non-streaming body was read: the response is complete.
 		ctx.aiBasicInfo.MarkResponseCompleted()
 		bodyLen := 0
+		usagePresent := false
 		if bodyAccessor, err := res.GetBodyAccessor(); err == nil {
 			body, _ := bodyAccessor.GetBytes()
 			// Decode a parse-only copy: res.Body and res.Header are left
@@ -282,12 +314,15 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 					m.name, res.Header.Get("Content-Encoding"), derr)
 			}
 			bodyLen = len(body)
-			UpdateCtxByUsage(ctx, body)
+			usagePresent = UpdateCtxByUsage(ctx, body)
 		}
-		if tokenUsage.UsedQuota > 0 {
+		if usagePresent {
+			// The upstream carried a usage object — including an explicit
+			// all-zero report, which is a real observation and must not be
+			// re-estimated (issue #1414).
 			ctx.aiBasicInfo.MarkFinalUsageSeen()
 		}
-		if tokenUsage.UsedQuota <= 0 && ctx.aiBasicInfo.IsAllowEstimateToken() {
+		if !usagePresent && ctx.aiBasicInfo.IsAllowEstimateToken() {
 			// A chunked response has ContentLength == -1, so estimate from the
 			// decoded body length instead of the (missing) Content-Length.
 			if bodyLen == 0 && res.ContentLength > 0 {
@@ -353,6 +388,11 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	// AI cache hit (mod_ai_cache): the upstream was never called and no
 	// usage exists, so token/cost deduction must be skipped entirely.
 	if ctx.aiBasicInfo.AiCacheHit {
+		// issue #1414: mark why this 2xx request is free. Cache hits are the
+		// one zero-cost shape that is legitimate by construction, so they are
+		// reported per request but deliberately not counted by BillingZeroCost
+		// (counting them would drown the anomalies).
+		ctx.aiBasicInfo.SetZeroCostReason(bfe_basic.ZeroCostReasonCacheHit)
 		ctx.deducted = true
 		return bfe_module.BfeHandlerGoOn
 	}
@@ -366,12 +406,18 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	// seen: never bill by full-request estimation (issue #1352).
 	aborted := isClientAbortErr(req.ErrCode)
 	if aborted && !ctx.aiBasicInfo.IsFinalUsageSeen() {
-		// The abort zero-deduction is a billing bypass too (usage
-		// unrecognized and not estimatable, cause fixed as client abort):
-		// count it so the bypass is observable (issue #1410). Counter-only
-		// here: a warn per aborted request would track the client-abort
-		// rate, the counter carries the trend.
-		m.state.UsageUnrecognized.Inc(1)
+		// The abort zero-deduction is a billing bypass too. issue #1414 split
+		// it out of UsageUnrecognized (a client-side disconnect is not an
+		// upstream/parsing problem and must not pollute that alert), gave it a
+		// per-request marker and counted it in BillingZeroCost. Counter-only on
+		// purpose: a warn per aborted request would just track the client-abort
+		// rate, so this branch is also excluded from the checkpoint's warn set.
+		m.state.AbortBillingSkipped.Inc(1)
+		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceAborted)
+		if hasRMBPlan(ctx.Token.QuotaPlans) {
+			ctx.aiBasicInfo.SetZeroCostReason(bfe_basic.ZeroCostReasonAborted)
+			m.state.BillingZeroCost.Inc(1)
+		}
 		ctx.deducted = true
 		return bfe_module.BfeHandlerGoOn
 	}
@@ -417,11 +463,15 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 		log.Logger.Warn("%s: usage unrecognized and not estimatable, billing skipped: cluster=%s key_id=%s model=%s response_completed=%v allow_estimate=%v",
 			m.name, req.Route.ClusterName, ctx.aiBasicInfo.ClientKeyId, ctx.aiBasicInfo.TargetModel,
 			ctx.aiBasicInfo.IsResponseCompleted(), ctx.aiBasicInfo.IsAllowEstimateToken())
+		// issue #1414: the cause is consumed by the billing checkpoint below,
+		// which counts BillingZeroCost for this request.
+		ctx.aiBasicInfo.SetZeroCostReason(bfe_basic.ZeroCostReasonUnrecognized)
 	}
-	// issue #1410: record where the reported usage came from at the same
-	// decision point, so the ai_usage_source log marker can never diverge
-	// from the billing call. A genuine zero-usage request parses its final
-	// usage and lands in the parsed branch, never here.
+	// issue #1410 / #1414: record where the reported token usage came from at
+	// the same decision point, so the ai_usage_source log marker can never
+	// diverge from the billing call. Since #1414 the final-usage mark is
+	// presence-driven, so an upstream reporting all-zero usage lands in the
+	// parsed branch (billed at 0) instead of being mistaken for missing usage.
 	switch {
 	case ctx.aiBasicInfo.IsFinalUsageSeen():
 		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceParsed)
@@ -430,10 +480,13 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	default:
 		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceEstimated)
 	}
-	if billingUsage.UsedQuota <= 0 && estimateBillable {
+	// issue #1414 (EstimateToken yardstick): the estimate backs only a request
+	// from which no usage object was ever collected. A final usage that
+	// reports all zeros is an observation, not a gap.
+	if !ctx.aiBasicInfo.IsFinalUsageSeen() && billingUsage.UsedQuota <= 0 && estimateBillable {
 		billingUsage.UsedQuota = CalcReqUsedQuota(req, billingUsage.PromptTokens, billingUsage.CompletionTokens) // calculate used quota
 	}
-	if estimateBillable && tokenUsage.UsedQuota <= 0 && billingUsage.UsedQuota > 0 {
+	if !ctx.aiBasicInfo.IsFinalUsageSeen() && estimateBillable && tokenUsage.UsedQuota <= 0 && billingUsage.UsedQuota > 0 {
 		// Mirror the approved estimate into the shared object so the access
 		// log (AiTotalTokens) records the estimate instead of 0 (issue
 		// #1398: "missing usage" must be observable, never silently zeroed).
@@ -451,6 +504,42 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 
 	costUnits := billingUsage.UsedCost
 
+	// issue #1414: single checkpoint for "an RMB plan was bound but nothing was
+	// charged". Each bypass site marks a reason on the request, and this block
+	// turns it into the alertable counter and the per-request log marker, so a
+	// future bypass shape only needs to mark its reason to become visible.
+	//
+	// Two shapes are deliberately excluded because their zero cost is by
+	// design, not an anomaly:
+	//   - AI cache hits, which returned earlier (the upstream was never called);
+	//   - requests that never became a billable model call: batch / files
+	//     management endpoints (upload, create, get, list, cancel, download) and
+	//     anything else without a resolved target model. Counting them would
+	//     inflate the alert baseline of every batch lifecycle; the batch
+	//     settlement itself is counted separately in batchSettle, and
+	//     calcCostUnits marks no reason for these shapes either.
+	if costUnits == 0 && hasRMBPlan(ctx.Token.QuotaPlans) &&
+		ctx.aiBasicInfo.TargetModel != "" && !isBatchManagementMode(ctx.aiBasicInfo.Mode) {
+		reason := ctx.aiBasicInfo.ZeroCostReason()
+		if reason == "" {
+			if noBillableTokens(&billingUsage) {
+				reason = bfe_basic.ZeroCostReasonNoUsageTokens
+			} else {
+				reason = bfe_basic.ZeroCostReasonCostZero
+			}
+		}
+		ctx.aiBasicInfo.SetZeroCostReason(reason)
+		m.state.BillingZeroCost.Inc(1)
+		// Shapes that already logged a line at their own site (unrecognized
+		// guard, abort branch, price lookup, model table lookup) are not
+		// logged twice here.
+		if zeroCostNeedsWarn(reason) {
+			log.Logger.Warn("%s: RMB plan bound but cost is 0: cluster=%s key_id=%s model=%s mode=%s reason=%s",
+				m.name, req.Route.ClusterName, ctx.aiBasicInfo.ClientKeyId,
+				ctx.aiBasicInfo.TargetModel, ctx.aiBasicInfo.Mode, reason)
+		}
+	}
+
 	if billingUsage.UsedQuota > 0 || costUnits > 0 {
 		for _, plan := range ctx.Token.QuotaPlans {
 			if plan.Unlimited {
@@ -460,6 +549,7 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 				if costUnits > 0 {
 					_, err := plan.Deduct(m.redisClient, costUnits)
 					if err != nil {
+						m.state.DeductFailed.Inc(1)
 						log.Logger.Warn("deduct rmb quota failed: %v", err)
 					}
 				}
@@ -467,6 +557,7 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 				if billingUsage.UsedQuota > 0 {
 					_, err := plan.Deduct(m.redisClient, billingUsage.UsedQuota)
 					if err != nil {
+						m.state.DeductFailed.Inc(1)
 						log.Logger.Warn("deduct token quota failed: %v", err)
 					}
 				}
@@ -786,8 +877,43 @@ func hasRMBPlan(plans []*QuotaPlan) bool {
 	return false
 }
 
+// isBatchManagementMode reports whether an AI mode belongs to a batch / files
+// management endpoint. Such requests carry the API key and its quota plan but
+// never invoke a model, so a zero cost is by design and must be neither
+// counted nor attributed (issue #1414).
+func isBatchManagementMode(mode string) bool {
+	return mode == bfe_basic.ModeFile || mode == bfe_basic.ModeBatch
+}
+
+// noBillableTokens reports whether every billed dimension of the usage is 0
+// (issue #1414). It distinguishes a zero cost that the observation itself
+// explains from one caused by a pricing or configuration problem.
+func noBillableTokens(u *bfe_basic.TokenUsage) bool {
+	return u.PromptTokens == 0 && u.CompletionTokens == 0 && u.CacheReadTokens == 0 &&
+		u.CacheWriteTokens == 0 && u.CacheWriteTokens1h == 0 && u.AudioInputTokens == 0 &&
+		u.AudioOutputTokens == 0 && u.ImageInputTokens == 0 && u.ImageCount == 0 && u.VideoCount == 0
+}
+
+// zeroCostNeedsWarn reports whether a zero-cost reason still needs a log line
+// from the billing checkpoint. Unrecognized usage, client aborts, price
+// lookups and model-table lookups already log at their own site with more
+// context (issue #1414).
+func zeroCostNeedsWarn(reason string) bool {
+	switch reason {
+	case bfe_basic.ZeroCostReasonPriceZero, bfe_basic.ZeroCostReasonNoUsageTokens,
+		bfe_basic.ZeroCostReasonCostZero, bfe_basic.ZeroCostReasonBatchRelease,
+		bfe_basic.ZeroCostReasonConfigMissing:
+		return true
+	}
+	return false
+}
+
 func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe_basic.ServerDataConfInterface, usage *bfe_basic.TokenUsage) int64 {
 	aiMeta := req.GetAiBasicInfo()
+	// issue #1414: every early return that bills 0 marks why, so the billing
+	// checkpoint can report the cause instead of a bare zero. Returns that are
+	// excluded from the checkpoint (see below) deliberately mark nothing, so
+	// the per-request reason can never contradict the counter.
 	if aiMeta == nil || usage == nil {
 		return 0
 	}
@@ -798,15 +924,32 @@ func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe
 	if mode == "" {
 		mode = bfe_basic.ModeChat
 	}
-	if clusterName == "" || targetModel == "" {
+	if isBatchManagementMode(mode) {
+		// Batch / files management endpoints (upload, create, get, list,
+		// cancel, download) carry the API key and its quota plan but never
+		// call a model: there is nothing to price, and their zero cost is by
+		// design rather than a billing anomaly.
+		return 0
+	}
+	if targetModel == "" {
+		// No target model was resolved, so the request never became a billable
+		// model call: nothing to price and nothing to attribute.
+		return 0
+	}
+	if clusterName == "" {
+		// A model call that resolved no cluster cannot be priced: a genuine
+		// billing-configuration gap.
+		aiMeta.SetZeroCostReason(bfe_basic.ZeroCostReasonConfigMissing)
 		return 0
 	}
 
 	if serverConf == nil {
+		aiMeta.SetZeroCostReason(bfe_basic.ZeroCostReasonConfigMissing)
 		return 0
 	}
 	cluster, err := serverConf.ClusterTableLookup(clusterName)
 	if err != nil || cluster == nil || cluster.AIConf == nil || cluster.AIConf.ModelTable == nil {
+		aiMeta.SetZeroCostReason(bfe_basic.ZeroCostReasonModelTableMissing)
 		log.Logger.Warn("model table not found for cluster %s", clusterName)
 		return 0
 	}
@@ -829,6 +972,7 @@ func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe
 		if entry == nil {
 			m.state.PriceLookupMiss.Inc(1)
 			aiMeta.MarkPriceMiss()
+			aiMeta.SetZeroCostReason(bfe_basic.ZeroCostReasonPriceMiss)
 			log.Logger.Warn("model price not found for cluster %s model %s mode %s", clusterName, targetModel, mode)
 			return 0
 		}
@@ -844,16 +988,25 @@ func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe
 		tierName = cluster.AIConf.ModelTable.ActiveTierName(time.Now())
 	}
 
+	var cost int64
 	switch mode {
 	case bfe_basic.ModeImageGeneration:
-		return calcImageGenerationCost(entry, usage, tierName)
+		cost = calcImageGenerationCost(entry, usage, tierName)
 	case bfe_basic.ModeVideoGeneration:
-		return calcVideoGenerationCost(entry, usage, tierName)
+		cost = calcVideoGenerationCost(entry, usage, tierName)
 	case bfe_basic.ModeResponses:
-		return calcResponsesCost(entry, usage, tierName)
+		cost = calcResponsesCost(entry, usage, tierName)
 	default:
-		return calcChatCost(entry, usage, tierName)
+		cost = calcChatCost(entry, usage, tierName)
 	}
+	if cost == 0 && !noBillableTokens(usage) {
+		// issue #1414: a real observation that costs nothing is impossible
+		// once the price entry was found, so the entry exists but every billed
+		// dimension is priced 0 (an unconfigured image/video price key, or a
+		// rate configured as 0 — the config check only rejects negatives).
+		aiMeta.SetZeroCostReason(bfe_basic.ZeroCostReasonPriceZero)
+	}
+	return cost
 }
 
 func calcResponsesCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, tierName string) int64 {

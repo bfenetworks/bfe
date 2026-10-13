@@ -64,6 +64,12 @@ var videoGenerationBody = []byte(`{"model":"kling-1","n":3}`)
 var responsesBody = []byte(`{"model":"o3-deep-research"}`)
 
 var usageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`
+
+// zeroUsageResponse is an upstream that explicitly reports an all-zero usage
+// object: since issue #1414 the usage object's presence (not its values)
+// decides recognition, so this is a real observation billed at 0, never an
+// estimation gap.
+var zeroUsageResponse = `{"usage":{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}}`
 var imageGenerationUsageResponse = `{"usage":{"image_count":2}}`
 var imageGenerationWithImageInputUsageResponse = `{"usage":{"image_count":1,"input_token_details":{"image_tokens":200}}}`
 var cacheUsageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150,"cache_read_tokens":30,"cache_write_tokens":20}}`
@@ -1824,4 +1830,167 @@ func TestTC20_QuotaRejectKeepsApikeyTags(t *testing.T) {
 	// key id and the same Entity tags.
 	assertStringField(t, logOK.AiApikeyId, "arm B: ai_apikey_id", apiKeyId)
 	assertApikeyTags(t, logOK.AiApikeytags, wantTags)
+}
+
+// waitForQuota polls the RMB balance until it reaches want and reports the
+// last observed value. The deduction runs in HandleRequestFinish, after the
+// response was flushed to the client.
+func (e *testEnv) waitForQuota(t *testing.T, want int64) int64 {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		got := e.redis.GetQuota(redisKeyRMB)
+		if got == want || !time.Now().Before(deadline) {
+			return got
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// TestTC21_ZeroCostRowsExplicitCostAndReason verifies issue #1414 in the access
+// log: every observed 2xx row reports ai_cost_value (0 included, so "charged
+// nothing" is distinguishable from "field absent"), a zero-cost row that holds
+// an RMB plan is attributed by ai_zero_cost_reason, and a non-2xx row keeps
+// both fields absent.
+//
+// Arm 1: a normally billed request -> ai_cost_value > 0, no reason.
+//
+// Arm 2: the upstream explicitly reports an all-zero usage object. Because
+// recognition is presence-driven since #1414, the row is parsed (never
+// estimated), billed 0, and attributed to no_usage_tokens (no billing
+// dimension is > 0 although no usage problem was detected).
+//
+// Arm 3: BFE-generated 404 (no ai_route rule) -> usage, cost and reason all
+// stay absent, the issue #1409 convention.
+func TestTC21_ZeroCostRowsExplicitCostAndReason(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	const initialQuota = int64(10000000000)
+	// Arm 1 bills 100 * 100 + 50 * 200 = 20000 units.
+	const billedCost = int64(100*100 + 50*200)
+	e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+	// Arm 1: normal usage, normally billed.
+	resp1, body1, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm 1: send request failed: %v", err)
+	}
+	if resp1.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("arm 1: expected status 200, got %d, body: %s", resp1.StatusCode, body1)
+	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 1 {
+		t.Fatalf("arm 1: expected 1 backend hit, got %d", hits)
+	}
+
+	// The deduction of arm 1 is the baseline for the zero-cost arms.
+	afterArm1 := e.waitForQuota(t, initialQuota-billedCost)
+	if afterArm1 != initialQuota-billedCost {
+		t.Fatalf("arm 1: quota = %d, want %d (normal usage must be billed)", afterArm1, initialQuota-billedCost)
+	}
+
+	// Arm 2: the upstream explicitly reports all-zero usage. EstimateToken is
+	// on by default in this scenario, so being billed 0 is only possible if
+	// the all-zero object was recognized as an observation.
+	e.backends[clusterRMB].Body = zeroUsageResponse
+	resp2, body2, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm 2: send request failed: %v", err)
+	}
+	if resp2.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("arm 2: expected status 200, got %d, body: %s", resp2.StatusCode, body2)
+	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 2 {
+		t.Fatalf("arm 2: expected 2 backend hits, got %d", hits)
+	}
+
+	// Arm 3: BFE-generated 404 "AI route not found", the upstream is never
+	// called (dedicated connection: the 404 reply closes it).
+	resp3, body3, err := e.sendRequestNoKeepAlive(noRouteHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm 3: send request failed: %v", err)
+	}
+	if resp3.StatusCode != http.StatusNotFound {
+		e.logBFEException()
+		t.Fatalf("arm 3: expected status 404, got %d, body: %s", resp3.StatusCode, body3)
+	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 2 {
+		t.Fatalf("arm 3: expected no additional backend hit, got %d", hits)
+	}
+
+	// Wait for the access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	// Arm 2 must not have been billed by the estimate either: no deduction on
+	// top of arm 1's (arm 3 bills nothing).
+	if got := e.redis.GetQuota(redisKeyRMB); got != afterArm1 {
+		t.Errorf("arm 2/3: quota = %d, want %d (an explicit all-zero usage is billed at 0, never estimated)",
+			got, afterArm1)
+	}
+
+	reqLogs := e.accessLogs()
+	if len(reqLogs) != 3 {
+		t.Fatalf("expected 3 access logs, got %d", len(reqLogs))
+	}
+
+	var logBilled, logZeroCost, logNon2xx *bfe_access_pb.RequestLog
+	for _, reqLog := range reqLogs {
+		assertNoSensitiveCredential(t, reqLog)
+		switch {
+		case reqLog.GetResStatusCode() != http.StatusOK:
+			logNon2xx = reqLog
+		case reqLog.GetAiTotalTokens() == 0:
+			logZeroCost = reqLog
+		default:
+			logBilled = reqLog
+		}
+	}
+	if logBilled == nil || logZeroCost == nil || logNon2xx == nil {
+		for _, reqLog := range reqLogs {
+			t.Logf("access log record: %s", common.FormatAccessLogError(reqLog))
+		}
+		t.Fatalf("expected one record per arm (billed 200 / all-zero-usage 200 / non-2xx), got %d records", len(reqLogs))
+	}
+
+	// Arm 1: billed normally, no zero-cost reason.
+	assertInt64Field(t, logBilled.AiCostValue, "arm 1: ai_cost_value", billedCost)
+	if logBilled.AiZeroCostReason != nil {
+		t.Errorf("arm 1: ai_zero_cost_reason = %q, want absent (the request was billed)",
+			*logBilled.AiZeroCostReason)
+	}
+	assertStringField(t, logBilled.AiUsageSource, "arm 1: ai_usage_source", bfe_basic.UsageSourceParsed)
+	assertInt64Field(t, logBilled.AiTotalTokens, "arm 1: ai_total_tokens", 150)
+
+	// Arm 2: explicit 0 cost, parsed (not estimated), attributed.
+	assertInt64Field(t, logZeroCost.AiCostValue, "arm 2: ai_cost_value", 0)
+	assertStringField(t, logZeroCost.AiUsageSource, "arm 2: ai_usage_source", bfe_basic.UsageSourceParsed)
+	assertStringField(t, logZeroCost.AiZeroCostReason, "arm 2: ai_zero_cost_reason",
+		bfe_basic.ZeroCostReasonNoUsageTokens)
+	assertInt64Field(t, logZeroCost.AiInputTokens, "arm 2: ai_input_tokens", 0)
+	assertInt64Field(t, logZeroCost.AiOutputTokens, "arm 2: ai_output_tokens", 0)
+	assertInt64Field(t, logZeroCost.AiTotalTokens, "arm 2: ai_total_tokens", 0)
+
+	// Arm 3: no upstream call, nothing to report (issue #1409 convention).
+	assertNoUsageFields(t, "arm 3 (no ai route)", logNon2xx)
+	if logNon2xx.AiZeroCostReason != nil {
+		t.Errorf("arm 3: ai_zero_cost_reason = %q, want absent (the upstream was never called)",
+			*logNon2xx.AiZeroCostReason)
+	}
+
+	t.Logf("arm 1 (billed): ai_cost_value = %d, ai_usage_source = %q, ai_zero_cost_reason = %q, ai_total_tokens = %d",
+		logBilled.GetAiCostValue(), logBilled.GetAiUsageSource(), logBilled.GetAiZeroCostReason(),
+		logBilled.GetAiTotalTokens())
+	t.Logf("arm 2 (all-zero usage): ai_cost_value = %d (set=%v), ai_usage_source = %q, ai_zero_cost_reason = %q, ai_total_tokens = %d",
+		logZeroCost.GetAiCostValue(), logZeroCost.AiCostValue != nil, logZeroCost.GetAiUsageSource(),
+		logZeroCost.GetAiZeroCostReason(), logZeroCost.GetAiTotalTokens())
+	t.Logf("arm 3 (non-2xx): ai_cost_value set = %v, ai_zero_cost_reason set = %v, res_status_code = %d",
+		logNon2xx.AiCostValue != nil, logNon2xx.AiZeroCostReason != nil, logNon2xx.GetResStatusCode())
 }
