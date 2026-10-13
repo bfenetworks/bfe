@@ -335,7 +335,8 @@ type AiBasicInfo struct {
 
     // responseCompleted：上游响应是否正常完成
     // （流式：收到终止事件，如 Anthropic message_stop、OpenAI [DONE]；
-    //  非流式：完整读取响应体）
+    //  非流式：完整读取响应体；
+    //  流式兜底：SSE 响应体已完整交付且上游干净 EOF，issue #1415）
     responseCompleted bool
     // finalUsageSeen：是否已解析到最终 usage。
     // Anthropic message_start 的初始 usage（output_tokens = 0）不算。
@@ -345,6 +346,7 @@ type AiBasicInfo struct {
 
 - `mod_body_process`（流式）在解析到最终 usage / 终止事件时置位，见 7.4。
 - `mod_ai_token_auth`（非流式）在 `tokenReadResponseHandler` 完整读取响应体后置位，见 7.4。
+- **流式 clean-EOF 兜底**（issue #1415）：`ServeHTTPForAI` 在 SSE 响应体完整交付（`copyResponse` 成功，chunked 读到终止 chunk / 定长凑齐 `Content-Length`）且状态 200 时置位 `MarkResponseCompleted()`。上游不发终止事件也不发 usage、以干净 HTTP EOF 收尾的流（如部分 anthropic-compat 端点的 omit-usage 响应）由此满足估算计费门控——与 gemini 适配器 `StreamEndsAtEOF` 的「流结束于 EOF」口径对齐，且对全部协议一致适用。客户端中断与上游中途断流表现为拷贝错误，不会误置位，#1352 中断语义不变。
 - **非流式 Anthropic JSON 视同最终 usage**（issue #1364）：顶层 `type:"message"` 且解析出非 guess usage（`output_tokens > 0`）的整体响应，与 SSE `message_delta` 等价，置位 `finalUsageSeen`；整条 body 作为单个事件处理完成时同时置位 `responseCompleted`。否则 Anthropic 非流式响应（尤其是 chunked、`ContentLength = -1`）两个标记都打不上，会落入"未完成"守卫。
 - 计费语义：EstimateToken 的估算值仅在 `responseCompleted` 为 true 时可计费；客户端中断（`ErrClientWrite` / `ErrClientClose` / `ErrClientReset`）且未拿到最终 usage 的请求零扣费，已拿到最终 usage 的按实际 usage 扣费，见 7.5。
 - **计费与统计视图隔离**（issue #1398）：请求结束阶段的"不可计费"清零守卫只作用于计费副本（`billingUsage := *tokenUsage`），不回写共享 `TokenUsage`——访问日志（mod_access_pb3）与下游统计读共享对象，保留真实解析值/批准口径的估算值，不再静默记 0；仅计费结果 `UsedCost` 写回共享对象。
@@ -502,6 +504,8 @@ SSE 事件的 `QuotaUsage` 携带 `IsFinalUsage` / `IsTermination` 标志（`bfe
 
 1. **最终 usage 合并**：Anthropic `message_delta` 只携带输出 token。原实现在 `message_start` 设置 `UsedQuota` 后，`message_delta` 的 completion tokens 会被 `UsedQuota <= 0` 门槛忽略，导致输出 token 漏计；现改为 `UsedQuota <= 0 || IsFinalUsage` 都进入处理，`message_delta` 落账时从已解析的上下文补齐 prompt 及子 token 字段（`UsedQuota = prompt + completion`）。
 2. **真实报文结构解析**：线上 Anthropic 流式的初始 usage 位于 `message_start.message.usage`，`bfe_model_protocol/utils/usage_parse.go` 的 `ParseAnthropicUsageFields` 增加 `message.usage.*` 回退路径。
+
+> 说明（issue #1415）：上表的两个标记都来自**协议层事件**。上游省略终止事件（且无 usage）时，事件路径两个标记都置不上——生产实测 deepseek anthropic-compat 端点的大上下文 omit-usage 流即此形态（完整交付但 `total=0` 零扣费）。修复：`ServeHTTPForAI` 在 SSE 响应**完整交付**（`copyResponse` 返回 nil）且 200 时置位 `MarkResponseCompleted()`（`bfe_server/reverseproxy.go` 的 `shouldMarkAIStreamCompleted`）。「完整交付」是传输层事实——chunked 仅在终止 chunk 处 EOF、定长仅在字节凑齐时 EOF——因此客户端中断（`ErrClientWrite`）与上游中途断流（读错误）天然不会误置位，#1352 的「中断未拿 final usage 不估算扣费」语义不受影响；gemini 流因每个 chunk 带 usage 本来就走不到该门控。对 EstimateToken=true 的请求，该形态自此按批准口径的估算兜底计费；EstimateToken=false 时仍为不可计费形态，但走 `UsageUnrecognized` 信号（issue #1410），不再是静默 0。
 
 #### DeepSeek / Responses API cache 字段兜底
 

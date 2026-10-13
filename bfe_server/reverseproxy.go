@@ -1472,9 +1472,33 @@ send_response:
 			basicReq.ErrMsg = err.Error()
 
 			p.proxyState.ErrClientWrite.Inc(1)
+		} else if shouldMarkAIStreamCompleted(res, aiMeta, err) {
+			// issue #1415: the full SSE body was delivered and the upstream
+			// closed cleanly. Streams whose upstream omits the protocol
+			// termination event never reach MarkResponseCompleted via the
+			// event path; clean EOF is the completion signal.
+			aiMeta.MarkResponseCompleted()
 		}
 	}
 	return
+}
+
+// shouldMarkAIStreamCompleted reports whether a fully delivered streaming
+// (SSE) response completes the AI request for the billing gate. A nil copy
+// error is the transport-level completion fact: chunked responses only EOF
+// at the terminating chunk and fixed-length responses only EOF after
+// Content-Length bytes, so copyResponse success means the upstream delivered
+// everything. Protocol termination events ([DONE]/message_stop) mark
+// completion earlier on the event path (issue #1352); this catches streams
+// that end at a clean HTTP EOF without one (issue #1415) — the same
+// "ends at EOF" yardstick the gemini adapter declares via StreamEndsAtEOF,
+// applied to the billing completion gate for every protocol. Client aborts
+// and mid-stream upstream drops surface as a copy error and never reach
+// here, so the issue #1352 no-estimation-on-abort semantics are untouched.
+func shouldMarkAIStreamCompleted(res *bfe_http.Response, aiMeta *bfe_basic.AiBasicInfo, copyErr error) bool {
+	return copyErr == nil && res != nil && res.StatusCode == bfe_http.StatusOK &&
+		res.IsSse && aiMeta != nil &&
+		aiMeta.Mode != bfe_basic.ModeFile && aiMeta.Mode != bfe_basic.ModeBatch
 }
 
 // stripProviderPrefix strips the configured provider/model prefix from model.
