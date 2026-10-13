@@ -62,6 +62,15 @@ var anthropicBody = []byte(`{"model":"claude-sonnet-4-5"}`)
 var usageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`
 var imageGenerationUsageResponse = `{"usage":{"image_count":2}}`
 
+// imageTokenBillingBody and tokenPricedImageUsageResponse reproduce issue
+// #1420: a token-priced image_generation rule (gpt-image-2) with the
+// Responses-API-style usage field names (input/output_tokens) and image token
+// details reported by the real upstream.
+var imageTokenBillingBody = []byte(`{"model":"gpt-image-2"}`)
+var tokenPricedImageUsageResponse = `{"data":[{"b64_json":"..."}],` +
+	`"usage":{"input_tokens":19,"input_tokens_details":{"cached_tokens":0,"image_tokens":0,"text_tokens":19},` +
+	`"output_tokens":196,"output_tokens_details":{"image_tokens":196,"text_tokens":0},"total_tokens":215}}`
+
 // SSE format: final chunk contains usage. The trailing blank line is required.
 // anthropicUsageResponse is a complete Anthropic "message" response (note the
 // type:"message" field and input_tokens/output_tokens usage field names).
@@ -411,6 +420,85 @@ func imageGenerationAIConf() *cluster_conf.AIConf {
 			"output_cost_per_image": 0.03,
 		},
 	})
+	return conf
+}
+
+// tokenPricedImageGenerationAIConf adds the issue #1420 reproduction entry: a
+// token-priced image_generation rule whose Prices carry only token unit price
+// keys (exactly the reported gpt-image-2 pricing rule) and no
+// output_cost_per_image. Before the fix the per-image formula alone was
+// applied and the RMB plan was never charged.
+func tokenPricedImageGenerationAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models = append(conf.ModelTable.Models, cluster_conf.ModelPrice{
+		Provider:            "mock-provider",
+		Model:               "gpt-image-2",
+		BaseModel:           "gpt-image-2",
+		Mode:                "image_generation",
+		Capabilities:        []string{"image_generation"},
+		SupportedParameters: []string{"prompt", "n", "size"},
+		Limits: map[string]interface{}{
+			"context_window": 128000,
+		},
+		Prices: cluster_conf.PriceMap{
+			"input_cost_per_token":        2.402e-5,
+			"output_cost_per_token":       0.00014414,
+			"cache_read_input_token_cost": 6.01e-6,
+			"input_cost_per_image_token":  3.844e-5,
+		},
+	})
+	return conf
+}
+
+// billingMethodAIConf adds the three entries of TC-28: a mixed entry
+// (per-image key plus token prices), an entry with an explicit
+// output_cost_per_image = 0 (key present), and a token-priced
+// video_generation entry (no output_cost_per_video key).
+func billingMethodAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models = append(conf.ModelTable.Models,
+		cluster_conf.ModelPrice{
+			Provider:            "mock-provider",
+			Model:               "gpt-image-mixed",
+			BaseModel:           "gpt-image-mixed",
+			Mode:                "image_generation",
+			Capabilities:        []string{"image_generation"},
+			SupportedParameters: []string{"prompt", "n", "size"},
+			Limits:              map[string]interface{}{"context_window": 128000},
+			Prices: cluster_conf.PriceMap{
+				"output_cost_per_image": 0.03,
+				"input_cost_per_token":  0.000001,
+				"output_cost_per_token": 0.000002,
+			},
+		},
+		cluster_conf.ModelPrice{
+			Provider:            "mock-provider",
+			Model:               "gpt-image-free",
+			BaseModel:           "gpt-image-free",
+			Mode:                "image_generation",
+			Capabilities:        []string{"image_generation"},
+			SupportedParameters: []string{"prompt", "n", "size"},
+			Limits:              map[string]interface{}{"context_window": 128000},
+			Prices: cluster_conf.PriceMap{
+				"output_cost_per_image": 0,
+				"input_cost_per_token":  0.000001,
+				"output_cost_per_token": 0.000002,
+			},
+		},
+		cluster_conf.ModelPrice{
+			Provider:            "mock-provider",
+			Model:               "kling-token",
+			BaseModel:           "kling-token",
+			Mode:                "video_generation",
+			Capabilities:        []string{"video_generation"},
+			SupportedParameters: []string{"prompt", "n"},
+			Limits:              map[string]interface{}{"context_window": 128000},
+			Prices: cluster_conf.PriceMap{
+				"input_cost_per_token":  0.000001,
+				"output_cost_per_token": 0.000002,
+			},
+		},
+	)
 	return conf
 }
 
@@ -924,6 +1012,120 @@ func TestTC12_RMBQuotaDeduction_ImageGeneration(t *testing.T) {
 		e.logBFEException()
 		e.logBFEAccess()
 		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
+	}
+}
+
+// TestTC27 verifies issue #1420: a token-priced image_generation entry (token
+// unit prices but no output_cost_per_image) bills by the token formula. With
+// the issue's exact prices and usage (prompt=19, completion=196):
+//
+//	cost = round(19 * 2.402e-5 * 1e8) + round(196 * 0.00014414 * 1e8)
+//	     = 45638 + 2825144 = 2870782 fixed-point units
+//
+// Before the fix the per-image formula alone was applied (per-image price
+// unconfigured, image input tokens 0) and the RMB plan was never charged.
+func TestTC27_RMBQuotaDeduction_ImageGenerationTokenPriced(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: tokenPricedImageGenerationAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	e.backends[clusterRMB].Body = tokenPricedImageUsageResponse
+
+	resp, body, err := e.sendRequestToPath(apiHost, "/v1/images/generations", imageTokenBillingBody)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for async redis deduction after response finishes.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - 2870782)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d, response body: %s", remaining, want, body)
+	}
+}
+
+// TestTC28 locks the entry-driven billing-method discrimination of issue
+// #1420 with three arms:
+//
+//  1. mixed entry (per-image key plus token prices) bills per image:
+//     2 * 0.03 = 6000000 (the token keys must not win);
+//  2. an explicit output_cost_per_image = 0 (key present) stays per-image
+//     billing at zero cost and does not fall back to the token formula;
+//  3. a token-priced video_generation entry (no output_cost_per_video key)
+//     falls back to the token formula: 100*100 + 50*200 = 20000.
+func TestTC28_RMBQuotaDeduction_BillingMethodDiscriminator(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: billingMethodAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	// Arm 1: per-image key wins over the token keys on a mixed entry.
+	e.backends[clusterRMB].Body = imageGenerationUsageResponse
+	resp, body, err := e.sendRequestToPath(apiHost, "/v1/images/generations",
+		[]byte(`{"model":"gpt-image-mixed","n":2}`))
+	if err != nil {
+		t.Fatalf("arm 1 send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("arm 1 expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	// Arm 2: explicit output_cost_per_image = 0 (key present) bills per image
+	// at zero cost; the token formula must not take over.
+	e.backends[clusterRMB].Body = usageResponse
+	resp, body, err = e.sendRequestToPath(apiHost, "/v1/images/generations",
+		[]byte(`{"model":"gpt-image-free"}`))
+	if err != nil {
+		t.Fatalf("arm 2 send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("arm 2 expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	// Arm 3: token-priced video_generation entry falls back to the token
+	// formula.
+	resp, body, err = e.sendRequestToPath(apiHost, "/v1/video/generations",
+		[]byte(`{"model":"kling-token"}`))
+	if err != nil {
+		t.Fatalf("arm 3 send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("arm 3 expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	if e.backends[clusterRMB].Hits() != 3 {
+		t.Fatalf("expected 3 hits on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Wait for async redis deduction after response finishes.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	// arm1: 2 * 3000000 = 6000000; arm2: 0; arm3: 100*100 + 50*200 = 20000
+	want := int64(10000000000 - 6020000)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d", remaining, want)
 	}
 }
 

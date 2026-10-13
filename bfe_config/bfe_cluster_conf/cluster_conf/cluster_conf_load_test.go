@@ -710,6 +710,48 @@ func TestGetPrice(t *testing.T) {
 	}
 }
 
+func TestHasPrice(t *testing.T) {
+	table := &ModelTable{
+		Currency: "RMB",
+		Models: []ModelPrice{
+			{
+				Model: "m",
+				Mode:  "image_generation",
+				Prices: PriceMap{
+					PriceInputCostPerToken:      1,
+					PriceOutputCostPerImage:     0, // present but zero: still unit billing
+					PriceInputCostPerImageToken: 2,
+				},
+				TierPrices: TierPriceMap{
+					"peak": {
+						PriceOutputCostPerImage: 5,
+					},
+				},
+			},
+		},
+	}
+	if err := ModelTableCheck(table); err != nil {
+		t.Fatalf("ModelTableCheck failed: %v", err)
+	}
+	entry := LookupModelPrice(table, "m", "image_generation")
+	if entry == nil {
+		t.Fatal("LookupModelPrice should return entry")
+	}
+
+	if !entry.HasPrice("", PriceOutputCostPerImage) {
+		t.Error("HasPrice(default, output_cost_per_image) should be true for explicit zero")
+	}
+	if !entry.HasPrice("peak", PriceOutputCostPerImage) {
+		t.Error("HasPrice(peak, output_cost_per_image) should be true from tier price")
+	}
+	if entry.HasPrice("", PriceOutputCostPerVideo) {
+		t.Error("HasPrice(default, output_cost_per_video) should be false for unconfigured key")
+	}
+	if !entry.HasPrice("peak", PriceInputCostPerImageToken) {
+		t.Error("HasPrice(peak, input_cost_per_image_token) should fallback to default Prices")
+	}
+}
+
 func TestGetPriceHighPrecision(t *testing.T) {
 	// Prices with more than 8 decimal places must survive config loading
 	// without being truncated to fixed-point integers.

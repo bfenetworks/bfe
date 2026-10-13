@@ -902,7 +902,9 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 
 #### 图像生成计费公式
 
-`image_generation` 模式下成本由 **图像张数** 与 **图片输入 token** 两部分组成：
+**计费方法由命中的价格条目决定（entry-driven，issue #1420）**，而非仅由请求 mode 决定：条目配置了 `output_cost_per_image` 键即按张计费；**未配置**（如控制面"按 token 量计费"的生图规则，只配 `input_cost_per_token`/`output_cost_per_token` 等 token 单价键）则回落到 `calcChatCost` 的 token 计费公式——否则 token 计价条目的 RMB 计划会被算成 0 漏扣。
+
+按张计费时，成本由 **图像张数** 与 **图片输入 token** 两部分组成：
 
 ```
 image_count = usage.image_count
@@ -923,7 +925,11 @@ cost = image_count * output_cost_per_image
 - 未返回时统计响应 `data` 数组长度（OpenAI 风格图像生成响应）；
 - 仍无则兜底读取请求体 `n` 字段，未传时默认 `1`；
 - 图片输入 token 优先读取 `usage.input_tokens_details.image_tokens`（官方复数形态），兼容单数 `usage.input_token_details.image_tokens`（issue #1381），fallback 到 `usage.image_input_tokens`；
-- 未配置 `input_cost_per_image_token` 时，图片输入 token 按普通 input token 计费。
+- 未配置 `input_cost_per_image_token` 时，图片输入 token 按普通 input token 计费；
+- 混合条目（按张键与 token 键同在）按张优先（按次键是更显式的计费方法声明）；
+- 显式把 `output_cost_per_image` 配成 `0`（键存在）仍走按张公式计 0，不回落 token 公式——判别信号是键的存在性（`ModelPrice.HasPrice`），不是值的大小。
+
+token 计费的生图条目（无 `output_cost_per_image` 键）回落 `calcChatCost`：input/output/cache/audio/image-input 分项、长度分档与 peak 分时价全部适用，`input_cost_per_image_token` 由 chat 公式的 image-aware 拆分继续生效。
 
 #### chat 模式 cache/image/audio 计费拆分公式
 
@@ -955,7 +961,7 @@ cost = video_count * output_cost_per_video
 
 - 优先读取响应 `usage.video_count`；
 - 未返回时兜底读取请求体 `n` 字段，未传时默认 `1`；
-- 未配置 `output_cost_per_video` 时按 `0` 成本处理。
+- 计费方法同样 entry-driven（issue #1420）：条目配置了 `output_cost_per_video` 键按次计费（上式）；未配置（token 计价的生视频规则）回落 `calcChatCost` 的 token 计费公式，不再按 `0` 成本处理。
 
 #### responses 计费公式
 
@@ -1329,8 +1335,8 @@ return {yuan, frac}
      - 覆盖 cache read/write 与 audio input/output 子项拆分；
      - 覆盖子项用量大于总量时的 clamp 行为；
      - 覆盖未配置子项价格时回退到普通 input/output 价格的行为；
-     - 覆盖 `image_generation` 模式按 `image_count × output_cost_per_image + image_input_tokens × input_cost_per_image_token` 计费，以及未配置 `output_cost_per_image` 时按 0 成本处理；
-     - 覆盖 `video_generation` 模式按 `video_count × output_cost_per_video` 计费；
+     - 覆盖 `image_generation` 模式按 `image_count × output_cost_per_image + image_input_tokens × input_cost_per_image_token` 计费；条目未配置 `output_cost_per_image`（token 计价的生图规则，issue #1420）时回落 `calcChatCost` 按 token 公式计费；显式配置 `output_cost_per_image = 0`（键存在）仍走按张公式计 0、不回落；
+     - 覆盖 `video_generation` 模式按 `video_count × output_cost_per_video` 计费；未配置 `output_cost_per_video` 时同样回落 token 公式（issue #1420）；
      - 覆盖 `responses` 模式按 chat 公式计费；
      - 覆盖 chat 模式下 `image_input_tokens` 从 normal input 中拆分计费；
      - 覆盖 Anthropic 高 cache 命中场景（`cache_read_tokens > prompt_tokens`）不再被截断，cache 按实际值计费；

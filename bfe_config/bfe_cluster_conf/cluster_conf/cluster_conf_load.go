@@ -1603,6 +1603,16 @@ func (p *ModelPrice) lookupPrice(tier, key string) (float64, bool) {
 	return v, ok
 }
 
+// HasPrice reports whether the given price key is configured for the tier
+// (tier price map or default Prices), regardless of its value. It is the
+// billing-method discriminator between per-unit and token pricing
+// (issue #1420): a configured per-image/per-video key means unit billing,
+// its absence means the entry is token-priced and bills by the token formula.
+func (p *ModelPrice) HasPrice(tier, key string) bool {
+	_, ok := p.lookupPrice(tier, key)
+	return ok
+}
+
 // GetLengthTierPrice returns the length-tier input/output unit prices
 // (yuan per token) selected by the total input token count (promptTokens,
 // including cache read/write). The selected tier is the highest tier whose
