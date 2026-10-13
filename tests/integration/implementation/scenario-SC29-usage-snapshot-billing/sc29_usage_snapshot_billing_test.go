@@ -29,6 +29,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	bfe_access_pb "github.com/bfenetworks/bfe-access-pb/bfe_access_pb"
+	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/tests/integration/common"
 )
@@ -63,6 +64,16 @@ var (
 	// after the client has aborted the connection (same trick as SC12).
 	openAILargeChunk = fmt.Sprintf(`{"id":"chatcmpl-1","choices":[{"delta":{"content":%q}}]}`,
 		strings.Repeat("x", 1<<20))
+
+	// Issue #1415: an Anthropic stream whose upstream ends at a clean HTTP
+	// EOF without message_stop and without any usage event — the production
+	// bucket-A shape. Data payloads are kept in separate variables so the
+	// per-event estimate math in the tests stays exact.
+	anthropicMessagesBody = []byte(`{"model":"claude-3","stream":true,"messages":[{"role":"user","content":"hi"}],"max_tokens":100}`)
+
+	anthropicMessageStartData = `{"type":"message_start","message":{"id":"msg_01","type":"message","role":"assistant","content":[],"model":"claude-3-sonnet"}}`
+	anthropicDeltaData        = `{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}`
+	anthropicBlockStopData    = `{"type":"content_block_stop","index":0}`
 )
 
 type testEnv struct {
@@ -76,6 +87,13 @@ type testEnv struct {
 }
 
 func newTestEnv(t *testing.T) *testEnv {
+	return newTestEnvWithEstimateToken(t, true)
+}
+
+// newTestEnvWithEstimateToken builds the SC29 environment; estimateToken
+// rewrites the generated bfe.conf so TC-06 can run with estimation disabled
+// (the template ships EstimateToken = true).
+func newTestEnvWithEstimateToken(t *testing.T, estimateToken bool) *testEnv {
 	e := &testEnv{t: t}
 
 	e.backend = common.NewMockBackend(clusterUsageSnapshot, http.StatusOK, "")
@@ -127,7 +145,6 @@ func newTestEnv(t *testing.T) *testEnv {
 	aiConfs := map[string]*cluster_conf.AIConf{
 		clusterUsageSnapshot: usageSnapshotAIConf(),
 	}
-
 	builder := &common.BFEConfigBuilder{
 		TemplateDir:   "testdata",
 		TargetConfDir: confDir,
@@ -140,8 +157,28 @@ func newTestEnv(t *testing.T) *testEnv {
 		t.Fatalf("build bfe config failed: %v", err)
 	}
 
+	if !estimateToken {
+		rewriteEstimateToken(t, filepath.Join(confDir, "bfe.conf"))
+	}
+
 	e.bfePort, _, e.stopBFE = e.processEnv.StartBFE(confDir, e.logDir)
 	return e
+}
+
+// rewriteEstimateToken flips the generated bfe.conf to EstimateToken = false.
+func rewriteEstimateToken(t *testing.T, path string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read bfe.conf failed: %v", err)
+	}
+	replaced := strings.Replace(string(data), "EstimateToken = true", "EstimateToken = false", 1)
+	if replaced == string(data) {
+		t.Fatalf("EstimateToken = true not found in %s", path)
+	}
+	if err := os.WriteFile(path, []byte(replaced), 0644); err != nil {
+		t.Fatalf("write bfe.conf failed: %v", err)
+	}
 }
 
 func (e *testEnv) Close() {
@@ -182,9 +219,11 @@ func (e *testEnv) logBFEException() {
 
 func usageSnapshotAIConf() *cluster_conf.AIConf {
 	return &cluster_conf.AIConf{
-		Type: 0,
+		Type:           0,
+		ModelProtocols: []string{"openai", "anthropic"}, // TC-05 drives an anthropic-compat upstream
 		ModelMapping: &map[string]string{
-			"gpt-4": "deepseek-chat",
+			"gpt-4":    "deepseek-chat",
+			"claude-3": "deepseek-chat",
 		},
 		Provider: "mock-provider",
 		Keys: []cluster_conf.AIKey{
@@ -227,6 +266,39 @@ func (e *testEnv) sendOpenAIStream(t *testing.T, body []byte) string {
 	}
 	req.Host = apiHost
 	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		e.logBFEException()
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response failed: %v", err)
+	}
+	return string(respBody)
+}
+
+// sendAnthropicStream sends a messages request (x-api-key auth) and drains
+// the SSE stream.
+func (e *testEnv) sendAnthropicStream(t *testing.T, body []byte) string {
+	t.Helper()
+
+	url := fmt.Sprintf("http://127.0.0.1:%d/v1/messages", e.bfePort)
+	req, err := http.NewRequest(http.MethodPost, url, strings.NewReader(string(body)))
+	if err != nil {
+		t.Fatalf("new request failed: %v", err)
+	}
+	req.Host = apiHost
+	req.Header.Set("x-api-key", apiKey)
+	req.Header.Set("anthropic-version", "2023-06-01")
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: 30 * time.Second}
@@ -465,5 +537,139 @@ func TestTC03_ClientAbortKeepsLogViewZeroDeduction(t *testing.T) {
 	}
 	if reqLog.AiTotalTokens == nil || *reqLog.AiTotalTokens != 0 {
 		t.Errorf("ai_total_tokens = %v, want 0 (aborted, nothing billed)", reqLog.AiTotalTokens)
+	}
+}
+
+// TestTC04 verifies issue #1415 (OpenAI arm): an upstream that ends its SSE
+// stream at a clean HTTP EOF without [DONE] and without any usage chunk
+// still completes the response — the approved EstimateToken fallback bills
+// the request and the access log records the estimate (never silently zero).
+func TestTC04_CleanEofWithoutDoneBillsEstimate(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+	// No usage chunk, no [DONE]; the handler returns right after the frame,
+	// so the chunked stream terminates cleanly at HTTP EOF.
+	e.backend.SSERaw = []string{"data: " + openAIContentChunk + "\n\n"}
+
+	respBody := e.sendOpenAIStream(t, openAIStreamBody)
+	if !strings.Contains(respBody, "chatcmpl-1") {
+		t.Errorf("client must receive the content frame, got: %s", respBody)
+	}
+
+	// Estimate fallback (same formula as TC-02): prompt = request body
+	// bytes / 4 (seeded at auth time); completion = per-event data bytes / 4
+	// (QuotaUsageProcessor). The [DONE] frame is absent, so it contributes
+	// nothing.
+	promptEst := int64(len(openAIStreamBody)) / 4
+	completionEst := int64(len(openAIContentChunk)) / 4
+	expectedCost := promptEst*300 + completionEst*900
+
+	remaining := e.quotaRemaining(t)
+	if remaining != initialQuota-expectedCost {
+		t.Fatalf("billing by estimate on clean EOF: remaining = %d, want %d (promptEst=%d completionEst=%d)",
+			remaining, initialQuota-expectedCost, promptEst, completionEst)
+	}
+
+	reqLogs := e.stopAndParseLogs()
+	reqLog := reqLogs[len(reqLogs)-1]
+	if got := logInt64(reqLog.AiInputTokens); got != promptEst {
+		t.Errorf("ai_input_tokens = %d, want %d", got, promptEst)
+	}
+	if got := logInt64(reqLog.AiOutputTokens); got != completionEst {
+		t.Errorf("ai_output_tokens = %d, want %d", got, completionEst)
+	}
+	if got := logInt64(reqLog.AiTotalTokens); got != promptEst+completionEst {
+		t.Errorf("ai_total_tokens = %d, want %d", got, promptEst+completionEst)
+	}
+	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceEstimated {
+		t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceEstimated)
+	}
+}
+
+// TestTC05 verifies issue #1415 (Anthropic arm, the production bucket-A
+// shape): an anthropic-compat upstream that omits usage entirely and closes
+// at a clean HTTP EOF without message_stop is completed by the EOF fallback
+// and billed by the approved estimate.
+func TestTC05_AnthropicCleanEofWithoutMessageStopBillsEstimate(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+	// message_start carries NO usage field; content frames; no message_delta,
+	// no message_stop. Handler return = clean chunked EOF.
+	e.backend.SSERaw = []string{
+		"event: message_start\ndata: " + anthropicMessageStartData + "\n\n",
+		"event: content_block_delta\ndata: " + anthropicDeltaData + "\n\n",
+		"event: content_block_stop\ndata: " + anthropicBlockStopData + "\n\n",
+	}
+
+	respBody := e.sendAnthropicStream(t, anthropicMessagesBody)
+	if !strings.Contains(respBody, "msg_01") {
+		t.Errorf("client must receive the message_start frame, got: %s", respBody)
+	}
+	if strings.Contains(respBody, "message_stop") {
+		t.Errorf("upstream sent no message_stop; client must not receive one: %s", respBody)
+	}
+
+	promptEst := int64(len(anthropicMessagesBody)) / 4
+	completionEst := int64(len(anthropicMessageStartData))/4 +
+		int64(len(anthropicDeltaData))/4 +
+		int64(len(anthropicBlockStopData))/4
+	expectedCost := promptEst*300 + completionEst*900
+
+	remaining := e.quotaRemaining(t)
+	if remaining != initialQuota-expectedCost {
+		t.Fatalf("billing by estimate on clean EOF: remaining = %d, want %d (promptEst=%d completionEst=%d)",
+			remaining, initialQuota-expectedCost, promptEst, completionEst)
+	}
+
+	reqLogs := e.stopAndParseLogs()
+	reqLog := reqLogs[len(reqLogs)-1]
+	if got := logInt64(reqLog.AiInputTokens); got != promptEst {
+		t.Errorf("ai_input_tokens = %d, want %d", got, promptEst)
+	}
+	if got := logInt64(reqLog.AiOutputTokens); got != completionEst {
+		t.Errorf("ai_output_tokens = %d, want %d", got, completionEst)
+	}
+	if got := logInt64(reqLog.AiTotalTokens); got != promptEst+completionEst {
+		t.Errorf("ai_total_tokens = %d, want %d", got, promptEst+completionEst)
+	}
+	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceEstimated {
+		t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceEstimated)
+	}
+}
+
+// TestTC06 verifies issue #1415 stays observable when estimation is
+// disabled: the clean-EOF stream is still marked completed, but with
+// EstimateToken=false the request is unbillable — zero deduction with the
+// ai_usage_source=unrecognized signal (issue #1410/#1414), never a silent
+// zero.
+func TestTC06_CleanEofEstimateTokenOffStaysZeroWithSignal(t *testing.T) {
+	e := newTestEnvWithEstimateToken(t, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+	e.backend.SSERaw = []string{"data: " + openAIContentChunk + "\n\n"}
+
+	e.sendOpenAIStream(t, openAIStreamBody)
+
+	remaining := e.quotaRemaining(t)
+	if remaining != initialQuota {
+		t.Fatalf("EstimateToken=false must not bill: remaining = %d, want %d", remaining, initialQuota)
+	}
+
+	reqLogs := e.stopAndParseLogs()
+	reqLog := reqLogs[len(reqLogs)-1]
+	if reqLog.AiTotalTokens == nil || *reqLog.AiTotalTokens != 0 {
+		t.Errorf("ai_total_tokens = %v, want 0 (nothing billed)", reqLog.AiTotalTokens)
+	}
+	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceUnrecognized {
+		t.Errorf("ai_usage_source = %q, want %q (unbillable shape must keep its signal)",
+			got, bfe_basic.UsageSourceUnrecognized)
 	}
 }

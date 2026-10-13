@@ -335,7 +335,8 @@ type AiBasicInfo struct {
 
     // responseCompleted：上游响应是否正常完成
     // （流式：收到终止事件，如 Anthropic message_stop、OpenAI [DONE]；
-    //  非流式：完整读取响应体）
+    //  非流式：完整读取响应体；
+    //  流式兜底：SSE 响应体已完整交付且上游干净 EOF，issue #1415）
     responseCompleted bool
     // finalUsageSeen：是否已解析到最终 usage。
     // Anthropic message_start 的初始 usage（output_tokens = 0）不算。
@@ -345,6 +346,7 @@ type AiBasicInfo struct {
 
 - `mod_body_process`（流式）在解析到最终 usage / 终止事件时置位，见 7.4。
 - `mod_ai_token_auth`（非流式）在 `tokenReadResponseHandler` 完整读取响应体后置位，见 7.4。
+- **流式 clean-EOF 兜底**（issue #1415）：`ServeHTTPForAI` 在 SSE 响应体完整交付（`copyResponse` 成功，chunked 读到终止 chunk / 定长凑齐 `Content-Length`）且状态 200 时置位 `MarkResponseCompleted()`。上游不发终止事件也不发 usage、以干净 HTTP EOF 收尾的流（如部分 anthropic-compat 端点的 omit-usage 响应）由此满足估算计费门控——与 gemini 适配器 `StreamEndsAtEOF` 的「流结束于 EOF」口径对齐，且对全部协议一致适用。客户端中断与上游中途断流表现为拷贝错误，不会误置位，#1352 中断语义不变。
 - **非流式 Anthropic JSON 视同最终 usage**（issue #1364）：顶层 `type:"message"` 且解析出非 guess usage（`output_tokens > 0`）的整体响应，与 SSE `message_delta` 等价，置位 `finalUsageSeen`；整条 body 作为单个事件处理完成时同时置位 `responseCompleted`。否则 Anthropic 非流式响应（尤其是 chunked、`ContentLength = -1`）两个标记都打不上，会落入"未完成"守卫。
 - 计费语义：EstimateToken 的估算值仅在 `responseCompleted` 为 true 时可计费；客户端中断（`ErrClientWrite` / `ErrClientClose` / `ErrClientReset`）且未拿到最终 usage 的请求零扣费，已拿到最终 usage 的按实际 usage 扣费，见 7.5。
 - **计费与统计视图隔离**（issue #1398）：请求结束阶段的"不可计费"清零守卫只作用于计费副本（`billingUsage := *tokenUsage`），不回写共享 `TokenUsage`——访问日志（mod_access_pb3）与下游统计读共享对象，保留真实解析值/批准口径的估算值，不再静默记 0；仅计费结果 `UsedCost` 写回共享对象。
@@ -502,6 +504,8 @@ SSE 事件的 `QuotaUsage` 携带 `IsFinalUsage` / `IsTermination` 标志（`bfe
 
 1. **最终 usage 合并**：Anthropic `message_delta` 只携带输出 token。原实现在 `message_start` 设置 `UsedQuota` 后，`message_delta` 的 completion tokens 会被 `UsedQuota <= 0` 门槛忽略，导致输出 token 漏计；现改为 `UsedQuota <= 0 || IsFinalUsage` 都进入处理，`message_delta` 落账时从已解析的上下文补齐 prompt 及子 token 字段（`UsedQuota = prompt + completion`）。
 2. **真实报文结构解析**：线上 Anthropic 流式的初始 usage 位于 `message_start.message.usage`，`bfe_model_protocol/utils/usage_parse.go` 的 `ParseAnthropicUsageFields` 增加 `message.usage.*` 回退路径。
+
+> 说明（issue #1415）：上表的两个标记都来自**协议层事件**。上游省略终止事件（且无 usage）时，事件路径两个标记都置不上——生产实测 deepseek anthropic-compat 端点的大上下文 omit-usage 流即此形态（完整交付但 `total=0` 零扣费）。修复：`ServeHTTPForAI` 在 SSE 响应**完整交付**（`copyResponse` 返回 nil）且 200 时置位 `MarkResponseCompleted()`（`bfe_server/reverseproxy.go` 的 `shouldMarkAIStreamCompleted`）。「完整交付」是传输层事实——chunked 仅在终止 chunk 处 EOF、定长仅在字节凑齐时 EOF——因此客户端中断（`ErrClientWrite`）与上游中途断流（读错误）天然不会误置位，#1352 的「中断未拿 final usage 不估算扣费」语义不受影响；gemini 流因每个 chunk 带 usage 本来就走不到该门控。对 EstimateToken=true 的请求，该形态自此按批准口径的估算兜底计费；EstimateToken=false 时仍为不可计费形态，但走 `UsageUnrecognized` 信号（issue #1410），不再是静默 0。
 
 #### DeepSeek / Responses API cache 字段兜底
 
@@ -898,7 +902,9 @@ func calcChatCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, t
 
 #### 图像生成计费公式
 
-`image_generation` 模式下成本由 **图像张数** 与 **图片输入 token** 两部分组成：
+**计费方法由命中的价格条目决定（entry-driven，issue #1420）**，而非仅由请求 mode 决定：条目配置了 `output_cost_per_image` 键即按张计费；**未配置**（如控制面"按 token 量计费"的生图规则，只配 `input_cost_per_token`/`output_cost_per_token` 等 token 单价键）则回落到 `calcChatCost` 的 token 计费公式——否则 token 计价条目的 RMB 计划会被算成 0 漏扣。
+
+按张计费时，成本由 **图像张数** 与 **图片输入 token** 两部分组成：
 
 ```
 image_count = usage.image_count
@@ -919,7 +925,11 @@ cost = image_count * output_cost_per_image
 - 未返回时统计响应 `data` 数组长度（OpenAI 风格图像生成响应）；
 - 仍无则兜底读取请求体 `n` 字段，未传时默认 `1`；
 - 图片输入 token 优先读取 `usage.input_tokens_details.image_tokens`（官方复数形态），兼容单数 `usage.input_token_details.image_tokens`（issue #1381），fallback 到 `usage.image_input_tokens`；
-- 未配置 `input_cost_per_image_token` 时，图片输入 token 按普通 input token 计费。
+- 未配置 `input_cost_per_image_token` 时，图片输入 token 按普通 input token 计费；
+- 混合条目（按张键与 token 键同在）按张优先（按次键是更显式的计费方法声明）；
+- 显式把 `output_cost_per_image` 配成 `0`（键存在）仍走按张公式计 0，不回落 token 公式——判别信号是键的存在性（`ModelPrice.HasPrice`），不是值的大小。
+
+token 计费的生图条目（无 `output_cost_per_image` 键）回落 `calcChatCost`：input/output/cache/audio/image-input 分项、长度分档与 peak 分时价全部适用，`input_cost_per_image_token` 由 chat 公式的 image-aware 拆分继续生效。
 
 #### chat 模式 cache/image/audio 计费拆分公式
 
@@ -951,7 +961,7 @@ cost = video_count * output_cost_per_video
 
 - 优先读取响应 `usage.video_count`；
 - 未返回时兜底读取请求体 `n` 字段，未传时默认 `1`；
-- 未配置 `output_cost_per_video` 时按 `0` 成本处理。
+- 计费方法同样 entry-driven（issue #1420）：条目配置了 `output_cost_per_video` 键按次计费（上式）；未配置（token 计价的生视频规则）回落 `calcChatCost` 的 token 计费公式，不再按 `0` 成本处理。
 
 #### responses 计费公式
 
@@ -1325,8 +1335,8 @@ return {yuan, frac}
      - 覆盖 cache read/write 与 audio input/output 子项拆分；
      - 覆盖子项用量大于总量时的 clamp 行为；
      - 覆盖未配置子项价格时回退到普通 input/output 价格的行为；
-     - 覆盖 `image_generation` 模式按 `image_count × output_cost_per_image + image_input_tokens × input_cost_per_image_token` 计费，以及未配置 `output_cost_per_image` 时按 0 成本处理；
-     - 覆盖 `video_generation` 模式按 `video_count × output_cost_per_video` 计费；
+     - 覆盖 `image_generation` 模式按 `image_count × output_cost_per_image + image_input_tokens × input_cost_per_image_token` 计费；条目未配置 `output_cost_per_image`（token 计价的生图规则，issue #1420）时回落 `calcChatCost` 按 token 公式计费；显式配置 `output_cost_per_image = 0`（键存在）仍走按张公式计 0、不回落；
+     - 覆盖 `video_generation` 模式按 `video_count × output_cost_per_video` 计费；未配置 `output_cost_per_video` 时同样回落 token 公式（issue #1420）；
      - 覆盖 `responses` 模式按 chat 公式计费；
      - 覆盖 chat 模式下 `image_input_tokens` 从 normal input 中拆分计费；
      - 覆盖 Anthropic 高 cache 命中场景（`cache_read_tokens > prompt_tokens`）不再被截断，cache 按实际值计费；

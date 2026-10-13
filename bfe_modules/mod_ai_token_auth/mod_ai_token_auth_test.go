@@ -2473,6 +2473,112 @@ func TestCalcVideoGenerationCost_HighPrecision(t *testing.T) {
 	}
 }
 
+// Issue #1420: a token-priced image_generation entry (token unit prices but
+// no output_cost_per_image) must bill by the token formula. The issue
+// reproduced this with gpt-image-2: prompt=19, completion=196, and the RMB
+// plan was never charged because the per-image formula alone was applied.
+func TestCalcImageGenerationCost_TokenPriced(t *testing.T) {
+	entry := &cluster_conf.ModelPrice{
+		Model: "gpt-image-2",
+		Mode:  "image_generation",
+		Prices: cluster_conf.PriceMap{
+			cluster_conf.PriceInputCostPerToken:       2.402e-5,
+			cluster_conf.PriceOutputCostPerToken:      0.00014414,
+			cluster_conf.PriceCacheReadInputTokenCost: 6.01e-6,
+			cluster_conf.PriceInputCostPerImageToken:  3.844e-5,
+		},
+	}
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:     19,
+		CompletionTokens: 196,
+		ImageCount:       1,
+	}
+
+	// input:  round(19 * 2.402e-5 * 1e8)    = 45638
+	// output: round(196 * 0.00014414 * 1e8) = 2825144
+	expectedCost := int64(45638 + 2825144)
+	if got := calcImageGenerationCost(entry, usage, ""); got != expectedCost {
+		t.Errorf("token-priced image generation cost = %d, want %d", got, expectedCost)
+	}
+}
+
+// An entry carrying both the per-image key and token prices bills per image:
+// the per-unit key is the more explicit billing-method declaration.
+func TestCalcImageGenerationCost_PerImageKeyWins(t *testing.T) {
+	entry := &cluster_conf.ModelPrice{
+		Model: "gpt-image-2",
+		Mode:  "image_generation",
+		Prices: cluster_conf.PriceMap{
+			cluster_conf.PriceOutputCostPerImage:     0.03,
+			cluster_conf.PriceInputCostPerToken:      2.402e-5,
+			cluster_conf.PriceOutputCostPerToken:     0.00014414,
+			cluster_conf.PriceInputCostPerImageToken: 3.844e-5,
+		},
+	}
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:     19,
+		CompletionTokens: 196,
+		ImageCount:       2,
+		ImageInputTokens: 100,
+	}
+
+	// round(2*0.03*1e8) + round(100*3.844e-5*1e8) = 6000000 + 384400
+	expectedCost := int64(6000000 + 384400)
+	if got := calcImageGenerationCost(entry, usage, ""); got != expectedCost {
+		t.Errorf("mixed image generation cost = %d, want %d", got, expectedCost)
+	}
+}
+
+// An explicit output_cost_per_image = 0 (key present) stays per-image
+// billing at zero cost: presence, not value, selects the billing method.
+func TestCalcImageGenerationCost_ExplicitZeroPerImage(t *testing.T) {
+	entry := &cluster_conf.ModelPrice{
+		Model: "gpt-image-2",
+		Mode:  "image_generation",
+		Prices: cluster_conf.PriceMap{
+			cluster_conf.PriceOutputCostPerImage: 0,
+			cluster_conf.PriceInputCostPerToken:  2.402e-5,
+			cluster_conf.PriceOutputCostPerToken: 0.00014414,
+		},
+	}
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:     19,
+		CompletionTokens: 196,
+		ImageCount:       1,
+	}
+
+	if got := calcImageGenerationCost(entry, usage, ""); got != 0 {
+		t.Errorf("explicit zero per-image cost = %d, want 0", got)
+	}
+}
+
+func TestCalcVideoGenerationCost_TokenPriced(t *testing.T) {
+	entry := &cluster_conf.ModelPrice{
+		Model: "kling-video-pro",
+		Mode:  "video_generation",
+		Prices: cluster_conf.PriceMap{
+			cluster_conf.PriceInputCostPerToken:  2.402e-5,
+			cluster_conf.PriceOutputCostPerToken: 0.00014414,
+		},
+	}
+
+	usage := &bfe_basic.TokenUsage{
+		PromptTokens:     19,
+		CompletionTokens: 196,
+		VideoCount:       1,
+	}
+
+	// input:  round(19 * 2.402e-5 * 1e8)    = 45638
+	// output: round(196 * 0.00014414 * 1e8) = 2825144
+	expectedCost := int64(45638 + 2825144)
+	if got := calcVideoGenerationCost(entry, usage, ""); got != expectedCost {
+		t.Errorf("token-priced video generation cost = %d, want %d", got, expectedCost)
+	}
+}
+
 func buildTestEntryWithPrices(model string, prices cluster_conf.PriceMap, tierPrices cluster_conf.TierPriceMap) *cluster_conf.ModelPrice {
 	modelTable := &cluster_conf.ModelTable{
 		Currency: "RMB",

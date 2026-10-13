@@ -1014,6 +1014,13 @@ func calcResponsesCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsa
 }
 
 func calcVideoGenerationCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, tierName string) int64 {
+	// Billing method is entry-driven (issue #1420): a token-priced
+	// video_generation entry (token unit prices but no output_cost_per_video)
+	// bills by the token formula; mode alone must not pick the formula.
+	if !entry.HasPrice(tierName, cluster_conf.PriceOutputCostPerVideo) {
+		return calcChatCost(entry, usage, tierName)
+	}
+
 	videoCount := usage.VideoCount
 	if videoCount < 0 {
 		videoCount = 0
@@ -1026,6 +1033,15 @@ func calcVideoGenerationCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.To
 }
 
 func calcImageGenerationCost(entry *cluster_conf.ModelPrice, usage *bfe_basic.TokenUsage, tierName string) int64 {
+	// Billing method is entry-driven (issue #1420): a token-priced
+	// image_generation entry (token unit prices but no output_cost_per_image)
+	// bills by the token formula; mode alone must not pick the formula. The
+	// per-image key is checked for presence, not value, so an explicit
+	// output_cost_per_image = 0 stays per-image billing at zero cost.
+	if !entry.HasPrice(tierName, cluster_conf.PriceOutputCostPerImage) {
+		return calcChatCost(entry, usage, tierName)
+	}
+
 	imageCount := usage.ImageCount
 	if imageCount < 0 {
 		imageCount = 0
