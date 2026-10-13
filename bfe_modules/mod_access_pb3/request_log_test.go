@@ -443,8 +443,11 @@ func TestReqAiInfoGenPriceMiss(t *testing.T) {
 	if reqLog.AiPriceMiss == nil || !*reqLog.AiPriceMiss {
 		t.Error("AiPriceMiss should be true when PriceMiss is marked")
 	}
-	if reqLog.AiCostValue != nil {
-		t.Errorf("AiCostValue should stay unset when UsedCost is 0, got %v", *reqLog.AiCostValue)
+	// issue #1414: the cost is reported for every observed row, 0 included, so
+	// "charged nothing" is distinguishable from "field absent" (non-2xx or
+	// never billed). Before this the field was absent whenever UsedCost was 0.
+	if reqLog.AiCostValue == nil || *reqLog.AiCostValue != 0 {
+		t.Errorf("AiCostValue should be written as 0 for an observed row, got %v", reqLog.AiCostValue)
 	}
 
 	// Without the marker the field stays unset (distinguishes marked rows
@@ -1083,3 +1086,68 @@ func TestReqAiInfoGenUsageSource(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+// Issue #1414: the zero-cost reason is the per-request counterpart of the
+// BillingZeroCost counter, so zero-cost rows become attributable.
+func TestReqAiInfoGenZeroCostReason(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+	res.StatusCode = bfe_http.StatusOK
+
+	aiInfo := &bfe_basic.AiBasicInfo{ClientKeyId: "key-id-123"}
+	aiInfo.SetUsageDisposition(bfe_basic.UsageDispositionObserved)
+	aiInfo.GetTokenUsage().UsedQuota = 0
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+	if reqLog.AiZeroCostReason != nil {
+		t.Errorf("ai_zero_cost_reason must stay absent when nothing was judged, got %v", *reqLog.AiZeroCostReason)
+	}
+
+	aiInfo.SetZeroCostReason(bfe_basic.ZeroCostReasonPriceZero)
+	reqLog = &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+	if reqLog.AiZeroCostReason == nil || *reqLog.AiZeroCostReason != bfe_basic.ZeroCostReasonPriceZero {
+		t.Errorf("ai_zero_cost_reason = %v, want %q", reqLog.AiZeroCostReason, bfe_basic.ZeroCostReasonPriceZero)
+	}
+}
+
+// Issue #1414: the triple check used to be disabled exactly when total == 0,
+// which is the "input > 0 while total == 0" shape it exists to catch. Rows
+// whose usage was reported as non-usage-based residue stay exempt, since their
+// own counter and ai_usage_source value cover them.
+func TestReqAiInfoGenDetectsInconsistentTripleWithoutTotal(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+	res.StatusCode = bfe_http.StatusOK
+
+	aiInfo := &bfe_basic.AiBasicInfo{ClientKeyId: "key-id-123"}
+	aiInfo.SetUsageDisposition(bfe_basic.UsageDispositionObserved)
+	usage := aiInfo.GetTokenUsage()
+	usage.PromptTokens = 100
+	usage.CompletionTokens = 0
+	usage.UsedQuota = 0
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	if _, inconsistent := reqAiInfoGen(reqLog, req, res); !inconsistent {
+		t.Error("input=100 with total=0 must be reported as an inconsistent triple")
+	}
+
+	// unrecognized / aborted rows report auth-time residue by design and are
+	// exempt from the invariant.
+	for _, source := range []string{bfe_basic.UsageSourceUnrecognized, bfe_basic.UsageSourceAborted} {
+		aiInfo.SetUsageSource(source)
+		reqLog = &bfe_access_pb3.RequestLog{}
+		if _, inconsistent := reqAiInfoGen(reqLog, req, res); inconsistent {
+			t.Errorf("source=%s rows must be exempt from the token-triple invariant", source)
+		}
+	}
+
+	// A parsed all-zero row is consistent (total == input + output).
+	aiInfo.SetUsageSource(bfe_basic.UsageSourceParsed)
+	usage.PromptTokens = 0
+	reqLog = &bfe_access_pb3.RequestLog{}
+	if _, inconsistent := reqAiInfoGen(reqLog, req, res); inconsistent {
+		t.Error("a parsed all-zero row satisfies the triple and must not be flagged")
+	}
+}

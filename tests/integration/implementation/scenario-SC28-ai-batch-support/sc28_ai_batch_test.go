@@ -32,6 +32,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/tests/integration/common"
 )
@@ -364,6 +365,15 @@ func (e *testEnv) upload(t *testing.T, content string) (int, string) {
 // download body. Any step failure fails the test.
 func (e *testEnv) runLifecycle(t *testing.T) []byte {
 	t.Helper()
+	e.runLifecycleToDownload(t)
+	return e.downloadResult(t)
+}
+
+// runLifecycleToDownload executes upload -> create -> get, i.e. the lifecycle
+// steps that do not settle the batch. It lets a test read the module counters
+// after the control requests and before the settlement runs (TC-11).
+func (e *testEnv) runLifecycleToDownload(t *testing.T) {
+	t.Helper()
 
 	if status, id := e.upload(t, inputJSONL); status != 200 || id != fileInID {
 		t.Fatalf("upload: status=%d id=%q", status, id)
@@ -380,6 +390,12 @@ func (e *testEnv) runLifecycle(t *testing.T) []byte {
 	if status != 200 || !strings.Contains(string(respBody), `"completed"`) {
 		t.Fatalf("get: status=%d body=%s", status, respBody)
 	}
+}
+
+// downloadResult downloads the batch output file, which triggers the
+// post-paid settlement.
+func (e *testEnv) downloadResult(t *testing.T) []byte {
+	t.Helper()
 
 	status, dl := e.do(t, "GET", "/v1/files/"+fileOutID+"/content", nil, "")
 	if status != 200 {
@@ -426,6 +442,15 @@ func findBatchLog(t *testing.T, e *testEnv, op string) *batchLogEntry {
 					found = &batchLogEntry{
 						mode: r.GetAiMode(), op: r.GetAiBatchOp(), batchId: r.GetAiBatchId(),
 						fileId: r.GetAiFileId(), status: r.GetAiBatchStatus(), settle: r.GetAiBatchSettle(),
+						// issue #1414: the settlement records why a batch was
+						// released without billing (price_miss / batch_release)
+						// and reports the cost for observed rows explicitly.
+						zeroCostReason:    r.GetAiZeroCostReason(),
+						zeroCostReasonSet: r.AiZeroCostReason != nil,
+						costValue:         r.GetAiCostValue(),
+						costValueSet:      r.AiCostValue != nil,
+						priceMiss:         r.GetAiPriceMiss(),
+						priceMissSet:      r.AiPriceMiss != nil,
 					}
 					break
 				}
@@ -443,6 +468,12 @@ func findBatchLog(t *testing.T, e *testEnv, op string) *batchLogEntry {
 
 type batchLogEntry struct {
 	mode, op, batchId, fileId, status, settle string
+	zeroCostReason                            string
+	zeroCostReasonSet                         bool
+	costValue                                 int64
+	costValueSet                              bool
+	priceMiss                                 bool
+	priceMissSet                              bool
 }
 
 func (b *batchLogEntry) GetAiMode() string        { return b.mode }
@@ -451,6 +482,30 @@ func (b *batchLogEntry) GetAiBatchId() string     { return b.batchId }
 func (b *batchLogEntry) GetAiFileId() string      { return b.fileId }
 func (b *batchLogEntry) GetAiBatchStatus() string { return b.status }
 func (b *batchLogEntry) GetAiBatchSettle() string { return b.settle }
+
+// tokenAuthMetric reads a mod_ai_token_auth counter by its Go field name
+// (issue #1414: BillingZeroCost added next to the pre-existing
+// PriceLookupMiss signal for a batch settlement that charges nothing).
+func (e *testEnv) tokenAuthMetric(t *testing.T, field string) float64 {
+	t.Helper()
+	v, err := common.ModuleMetric(e.monitorPort, "mod_ai_token_auth", field)
+	if err != nil {
+		t.Fatalf("read mod_ai_token_auth.%s failed: %v", field, err)
+	}
+	return v
+}
+
+// waitTokenAuthMetric polls a counter until it reaches want (the settlement
+// runs in HandleRequestFinish, i.e. after the download response is flushed).
+func (e *testEnv) waitTokenAuthMetric(t *testing.T, field string, want float64) float64 {
+	t.Helper()
+	got, err := common.WaitForModuleMetric(e.monitorPort, "mod_ai_token_auth", field,
+		10*time.Second, func(v float64) bool { return v >= want })
+	if err != nil {
+		t.Fatalf("read mod_ai_token_auth.%s failed: %v", field, err)
+	}
+	return got
+}
 
 // TC-01: lifecycle passes through byte-exact; batch access-log fields land.
 func TestTC01_LifecycleEquivalenceAndLogFields(t *testing.T) {
@@ -812,7 +867,41 @@ func TestTC11_NoBatchPriceBillsZero(t *testing.T) {
 	const balance = int64(10_000_000_000)
 	e.startBFE(t, balance, nil, withNoBatchPrice())
 
-	e.runLifecycle(t)
+	e.runLifecycleToDownload(t)
+
+	// The lifecycle control requests (upload / create / get) hold the API key
+	// and its RMB plan but never became a model call (no target model), so the
+	// BillingZeroCost checkpoint deliberately excludes them: their zero cost is
+	// by design, and counting them would inflate the alert baseline of every
+	// batch lifecycle. Waiting for the "get" record guarantees their finish
+	// handlers ran, so the baseline below is meaningful rather than merely
+	// early; together with the "exactly 1 after the settlement" assertion below
+	// it is the reverse proof that none of the three control requests counted.
+	getLog := findBatchLog(t, e, "get")
+	baseZeroCost := e.tokenAuthMetric(t, "BillingZeroCost")
+	basePriceMiss := e.tokenAuthMetric(t, "PriceLookupMiss")
+	t.Logf("before the settlement: BillingZeroCost = %v, PriceLookupMiss = %v (control requests excluded)",
+		baseZeroCost, basePriceMiss)
+	if baseZeroCost != 0 {
+		t.Errorf("BillingZeroCost = %v before the settlement, want 0 (a request without a target model is not counted)",
+			baseZeroCost)
+	}
+	if basePriceMiss != 0 {
+		t.Errorf("PriceLookupMiss = %v before the settlement, want 0 (only the settlement looks up a batch price)",
+			basePriceMiss)
+	}
+	// Residual, reported but deliberately not asserted: the control row still
+	// carries ai_zero_cost_reason, because calcCostUnits marks
+	// config_missing at its own early return (no target model) and the access
+	// log writes any marked reason. The counter exclusion above is what keeps
+	// the alert baseline clean; the row marker is not gated on the target
+	// model yet (see 测试设计文档/scenario-SC28-批量任务支持/TC-11).
+	if getLog.zeroCostReasonSet {
+		t.Logf("note: control request (get) still logs ai_zero_cost_reason = %q (counter excluded, row marker not)",
+			getLog.zeroCostReason)
+	}
+
+	e.downloadResult(t)
 
 	if !waitForRedis(t, e, func() bool { return e.redis.GetQuota(redisKeyRMB) == balance }) {
 		t.Fatalf("balance = %d, want unchanged %d (batch price missing must bill 0, not the chat price)",
@@ -822,6 +911,41 @@ func TestTC11_NoBatchPriceBillsZero(t *testing.T) {
 	if dlLog.settle != "settle" {
 		t.Fatalf("ai_batch_settle = %q, want settle", dlLog.settle)
 	}
+
+	// issue #1414: a settlement that charges nothing must be countable and
+	// attributable, and the observed row must report its cost explicitly.
+	// PriceLookupMiss is the pre-existing (#1408) signal for the missing
+	// batch price row; BillingZeroCost is the single zero-cost checkpoint of
+	// issue #1414, which the batch settlement reaches with its own reason code
+	// (its own checkpoint in batchSettle, unaffected by the target-model
+	// exclusion). The result file has two rows of the same model, so the
+	// settlement walks one model group: each counter ends at exactly 1.
+	if got := e.waitTokenAuthMetric(t, "PriceLookupMiss", 1); got != 1 {
+		t.Errorf("PriceLookupMiss = %v, want 1 (batch price entry missing, one model group)", got)
+	}
+	if got := e.waitTokenAuthMetric(t, "BillingZeroCost", 1); got != 1 {
+		t.Errorf("BillingZeroCost = %v, want 1 (RMB plan bound, settlement charged 0)", got)
+	}
+	if got := e.tokenAuthMetric(t, "UsageUnrecognized"); got != 0 {
+		t.Errorf("UsageUnrecognized = %v, want 0: a missing batch price is not an unrecognized-usage problem", got)
+	}
+
+	if dlLog.zeroCostReason != bfe_basic.ZeroCostReasonPriceMiss {
+		t.Errorf("ai_zero_cost_reason = %q, want %q (the price-miss branch marks the reason)",
+			dlLog.zeroCostReason, bfe_basic.ZeroCostReasonPriceMiss)
+	}
+	if !dlLog.priceMissSet || !dlLog.priceMiss {
+		t.Errorf("ai_price_miss = %v (set=%v), want true (issue #1414 marks the batch price miss per row)",
+			dlLog.priceMiss, dlLog.priceMissSet)
+	}
+	if !dlLog.costValueSet {
+		t.Error("ai_cost_value is absent, want an explicit 0 (issue #1414: observed 2xx rows always report the cost)")
+	} else if dlLog.costValue != 0 {
+		t.Errorf("ai_cost_value = %d, want 0", dlLog.costValue)
+	}
+	// ai_usage_source is deliberately NOT asserted: the batch settlement runs
+	// before the usage-source decision point, so the field stays absent on the
+	// download row (see 测试设计文档/scenario-SC28-批量任务支持/TC-11).
 }
 
 // TC-12: an underestimated reserve settles to the actual usage (which exceeds

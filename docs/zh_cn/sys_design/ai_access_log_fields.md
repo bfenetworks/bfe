@@ -42,6 +42,9 @@ AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前
 | 717 | `ai_protocol` | `string` | AI 协议/认证风格，如 `openai`、`anthropic` | `bfe_basic.GetApiKey` / `bfe_server/reverseproxy.go` |
 | 761 | `ai_cost_value` | `int64` | 估算成本（定点整数，精度由币种决定） | `mod_ai_token_auth` |
 | 762 | `ai_cost_currency` | `string` | 成本币种，如 `RMB` / `USD` | `bfe_server/reverseproxy.go` |
+| 763 | `ai_price_miss` | `bool` | 价格缺失标记：`(model, mode)` 价格条目缺失、成本按 chat 价回退或按 0 计费时置真，用于区分「未定价的低价/0 计费」与合法 0 成本行（issue #1408） | `mod_ai_token_auth` |
+| 764 | `ai_usage_source` | `string` | usage 来源标记：`parsed` / `estimated` / `aborted` / `unrecognized`；非 2xx 行缺席（issue #1410、#1414） | `mod_ai_token_auth` |
+| 765 | `ai_zero_cost_reason` | `string` | 零成本原因标记：绑定 RMB 计划的**可计费** 2xx 请求计费为 0 时的成因（`unrecognized` / `aborted` / `cache_hit` / `batch_release` / `price_miss` / `price_zero` / `model_table_missing` / `config_missing` / `no_usage_tokens` / `cost_zero`）；已计费、未绑定 RMB 计划或非 2xx 时缺席；**批量与 files 管理端点（`mode` 为 `file`/`batch`）与未解析出 `target_model` 的请求不写该字段**（从未成为可计费模型调用，零成本属设计）；配合计数器 `BillingZeroCost` 使用（issue #1414） | `mod_ai_token_auth` |
 | 781 | `ai_cache_read_tokens` | `int64` | 从 cache 读取的 Token 数（已包含在 `ai_input_tokens` 中） | `mod_ai_token_auth` / `mod_body_process` |
 | 782 | `ai_cache_write_tokens` | `int64` | 写入 cache 的 Token 数（独立附加项） | `mod_ai_token_auth` / `mod_body_process` |
 | 783 | `ai_audio_input_tokens` | `int64` | 音频输入 Token 数（已包含在 `ai_input_tokens` 中） | `mod_ai_token_auth` / `mod_body_process` |
@@ -236,7 +239,7 @@ message AIRouteRuleHit {
 
 ### 5.2 `mod_ai_token_auth`
 
-- 在 `ValidateUserTokenByReq()` 中找到 Token 后，立即把 `Token.KeyId` 写入 `AiBasicInfo.ClientKeyId`，确保即使后续拒绝也能在日志中识别 key；
+- 在 `ValidateUserTokenByReq()` 中找到 Token 后，立即把 `Token.KeyId` 与 `Token.Tags` 写入 `AiBasicInfo.ClientKeyId` / `ApikeyTags`，确保即使后续拒绝也能在日志中识别 key 并保留 Entity 归属（issue #1418）；
 - 通过 `SetTokenAuthContext()` 写入 `ApikeyTags` 和初始 `PromptTokens`；
 - 在响应阶段解析 `usage`（含 `prompt_tokens`、`completion_tokens`、`cache_read_tokens`、`cache_write_tokens`、`cache_creation.ephemeral_1h_input_tokens`、`audio_input_tokens`、`audio_output_tokens`、`image_count`、`image_input_tokens`、`video_count`）并估算 token，填充 `TokenUsage`；
 - 对 `image_generation` 模式，在认证阶段预读请求体 `n` 字段作为 `ImageCount` 兜底；
@@ -244,7 +247,9 @@ message AIRouteRuleHit {
 - 对 RMB 配额调用 `calcCostUnits()` 计算 `UsedCost`，支持 input/output、cache read/write（5m 与 1h TTL 两段拆分）、audio input/output/image input 多价格子项拆分；input/output 单价支持按上下文长度分档（`above_Nk_tokens` 档位键）；
 - 对 `/count_tokens` 等 token 计数端点跳过扣费，避免误收；
 - 通过 `TokenAuthContext.deducted` 标记保证同一请求生命周期内仅扣费一次，防止 `HandleRequestFinish` 重复触发导致重复扣费；
-- 在认证成功时记录 `HitQuotaPlans`，拒绝时记录 `RejectReason` 和 `RejectQuotaPlans`。
+- 在认证成功时记录 `HitQuotaPlans`，拒绝时记录 `RejectReason` 和 `RejectQuotaPlans`；
+- 请求结束时标记 usage 来源 `ai_usage_source`（764）：`parsed` / `estimated` / `aborted` / `unrecognized`，与计费判定同点设置，使计费旁路在对账中可直接查询（issue #1410、#1414）；
+- 绑定 RMB 配额计划且计费为 0 的**可计费** 2xx 请求，标记零成本原因 `ai_zero_cost_reason`（765）并计数 `BillingZeroCost`，同时对已观测行的 `ai_cost_value` 显式写 0，使"零成本"与"字段缺席"可区分；批量与 files 管理端点、未解析出 `target_model` 的请求、以及 AI 缓存命中不计入计数器（缓存命中仅写 `cache_hit` 标记），因为它们的零成本属设计而非异常（issue #1414）。
 
 ### 5.3 `mod_ai_route`
 
@@ -287,7 +292,8 @@ message AIRouteRuleHit {
 - 字段重命名：`AiApikey`→`AiApikeyId`、`AiMappedModel`→`AiTargetModel`、`AiPromptTokens`→`AiInputTokens`；
 - 新增字段：`AiMode`、`AiProtocol`、`AiProvider`、`AiRetryCount`、`AiCostValue`、`AiCostCurrency`、`AiCacheReadTokens`、`AiCacheWriteTokens`、`AiCacheWrite_1HTokens`、`AiAudioInputTokens`、`AiAudioOutputTokens`、`AiImageCount`、`AiImageInputTokens`、`AiVideoCount`、`AiRouteRuleHits`、`AiClusterKeyNames`、`AiAuthHitQuotaPlans`；
 - 意图字段（803-809）：读取请求上下文中已解析的 `*bfe_basic.AiIntent`（仅读缓存结果，不触发懒解析），按 `ConsumedQuestion` 回填，详见 `docs/zh_cn/sys_design/mod_ai_intent.md` 5.4；
-- 缓存字段（789-792）：`AiCacheStatus` / `AiCacheKey`（debug 时）直接映射，语义命中时同时写 `AiCacheSemantic`（=true）与 `AiCacheSimilarity`，详见 `docs/zh_cn/sys_design/ai_cache.md`。
+- 缓存字段（789-792）：`AiCacheStatus` / `AiCacheKey`（debug 时）直接映射，语义命中时同时写 `AiCacheSemantic`（=true）与 `AiCacheSimilarity`，详见 `docs/zh_cn/sys_design/ai_cache.md`；
+- 计费观测标记（763-765）：`AiPriceMiss`（763）、`AiUsageSource`（764）、`AiZeroCostReason`（765）在 usage 观测块内写出；`AiCostValue` 对已观测行显式写 0（原仅在 > 0 时写出），非 2xx 行整组 usage 与标记字段缺席（issue #1408 / #1410 / #1414）。
 
 ---
 

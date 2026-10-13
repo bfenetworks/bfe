@@ -2954,14 +2954,22 @@ func TestTokenRequestFinishHandler_EstimateBilledSource(t *testing.T) {
 	}
 }
 
-// Issue #1410: the client-abort zero-deduction (issue #1352 yardstick) is a
-// billing bypass too and is now counted (counter-only, no warn).
+// Issue #1410 / #1414: the client-abort zero-deduction (issue #1352 yardstick)
+// is a billing bypass too. Since #1414 it is counted by its own counter (so it
+// cannot pollute the UsageUnrecognized alert) and carries a per-request marker.
 func TestTokenRequestFinishHandler_ClientAbortCounted(t *testing.T) {
 	m := NewModuleAITokenAuth()
 	m.redisClient = newMockRedisClient()
 
 	req := newTestRequestWithCluster("ak-123", "AI_product", "deepseek-backup", "deepseek-v4-flash")
-	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 100, nil)
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-ClientAbort",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id",
+		QuotaPlans: []*QuotaPlan{rmbPlan}}, 100, nil)
 
 	ai := req.GetAiBasicInfo()
 	ai.SetAllowEstimateToken(true)
@@ -2972,12 +2980,248 @@ func TestTokenRequestFinishHandler_ClientAbortCounted(t *testing.T) {
 		t.Fatalf("expected goon, got %d", ret)
 	}
 
-	if got := m.state.UsageUnrecognized.Get(); got != 1 {
-		t.Errorf("UsageUnrecognized = %d, want 1 for an aborted unrecognized request", got)
+	if got := m.state.AbortBillingSkipped.Get(); got != 1 {
+		t.Errorf("AbortBillingSkipped = %d, want 1 for an aborted request", got)
 	}
-	// The abort branch returns before the source decision; the log keeps the
-	// issue #1352/#1398 view (seeded prompt, total 0) with no source marker.
-	if got := ai.UsageSource(); got != "" {
-		t.Errorf("UsageSource = %q, want empty for the abort branch", got)
+	if got := m.state.UsageUnrecognized.Get(); got != 0 {
+		t.Errorf("UsageUnrecognized = %d, want 0: a client abort is not an upstream usage problem", got)
+	}
+	if got := m.state.BillingZeroCost.Get(); got != 1 {
+		t.Errorf("BillingZeroCost = %d, want 1: the request holds an RMB plan and was charged 0", got)
+	}
+	if got := ai.UsageSource(); got != bfe_basic.UsageSourceAborted {
+		t.Errorf("UsageSource = %q, want %q", got, bfe_basic.UsageSourceAborted)
+	}
+	if got := ai.ZeroCostReason(); got != bfe_basic.ZeroCostReasonAborted {
+		t.Errorf("ZeroCostReason = %q, want %q", got, bfe_basic.ZeroCostReasonAborted)
+	}
+	// The log view itself is unchanged (issue #1352/#1398): seeded prompt,
+	// total 0, no deduction.
+	if got := ai.GetTokenUsage().UsedQuota; got != 0 {
+		t.Errorf("UsedQuota = %d, want 0 (no deduction on abort)", got)
+	}
+}
+
+// Issue #1414 (assertion A-01): an upstream that explicitly reports all-zero
+// usage is a real observation, not missing usage. It must be classified as
+// parsed, must never be topped up by the EstimateToken yardstick (even when
+// estimation is allowed and the response completed), and must not pollute the
+// unrecognized-usage counter.
+func TestTokenRequestFinishHandler_AllZeroUsageIsParsed(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{
+		clusterName: buildTestClusterConf(model, 0.00000452, 0.00002262),
+	}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-AllZeroUsage",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id",
+		QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+
+	ai := req.GetAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+	ai.MarkResponseCompleted()
+	ai.MarkFinalUsageSeen() // the upstream reported usage, all counts zero
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 0
+	usage.CompletionTokens = 0
+	usage.UsedQuota = 0
+
+	if ret := m.tokenRequestFinishHandler(req, &bfe_http.Response{StatusCode: bfe_http.StatusOK}); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := m.state.UsageUnrecognized.Get(); got != 0 {
+		t.Errorf("UsageUnrecognized = %d, want 0 for a genuine zero-usage request", got)
+	}
+	if got := ai.UsageSource(); got != bfe_basic.UsageSourceParsed {
+		t.Errorf("UsageSource = %q, want %q", got, bfe_basic.UsageSourceParsed)
+	}
+	if u := ai.GetTokenUsage(); u.UsedQuota != 0 || u.UsedCost != 0 {
+		t.Errorf("all-zero usage must stay 0 and must not be estimated: %+v", *u)
+	}
+	if got := m.state.BillingZeroCost.Get(); got != 1 {
+		t.Errorf("BillingZeroCost = %d, want 1: an RMB plan was bound and cost is 0", got)
+	}
+	if got := ai.ZeroCostReason(); got != bfe_basic.ZeroCostReasonNoUsageTokens {
+		t.Errorf("ZeroCostReason = %q, want %q", got, bfe_basic.ZeroCostReasonNoUsageTokens)
+	}
+	if _, ok := client.data[rmbPlan.RedisKey]; ok {
+		t.Error("a zero-cost request must not deduct quota")
+	}
+}
+
+// Issue #1414: a price entry that exists but prices every billed dimension at
+// 0 used to produce a silent zero charge. It is now attributed to price_zero
+// and counted by the BillingZeroCost checkpoint.
+func TestTokenRequestFinishHandler_ZeroCostReasonPriceZero(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	m.redisClient = newMockRedisClient()
+
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	// The price entry is present but both rates are 0 (the config check only
+	// rejects negative rates).
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{
+		clusterName: buildTestClusterConf(model, 0, 0),
+	}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-PriceZero",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id",
+		QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+
+	ai := req.GetAiBasicInfo()
+	ai.SetAllowEstimateToken(false)
+	ai.MarkResponseCompleted()
+	ai.MarkFinalUsageSeen()
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 100
+	usage.CompletionTokens = 50
+	usage.UsedQuota = 150
+
+	if ret := m.tokenRequestFinishHandler(req, &bfe_http.Response{StatusCode: bfe_http.StatusOK}); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := m.state.BillingZeroCost.Get(); got != 1 {
+		t.Errorf("BillingZeroCost = %d, want 1", got)
+	}
+	if got := ai.ZeroCostReason(); got != bfe_basic.ZeroCostReasonPriceZero {
+		t.Errorf("ZeroCostReason = %q, want %q", got, bfe_basic.ZeroCostReasonPriceZero)
+	}
+	// A real observation that bills 0 is not an unrecognized-usage problem.
+	if got := m.state.UsageUnrecognized.Get(); got != 0 {
+		t.Errorf("UsageUnrecognized = %d, want 0", got)
+	}
+}
+
+// Issue #1414: the price-table lookup failure of the batch settlement used to
+// be the one silent variant of the calcCostUnits check. It still bills 0, but
+// now carries a reason and is counted.
+func TestTokenRequestFinishHandler_ZeroCostReasonModelTableMissing(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	m.redisClient = newMockRedisClient()
+
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+	// Cluster present but without an AIConf.ModelTable.
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{
+		clusterName: {Name: clusterName},
+	}}
+
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-ModelTableMissing",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id",
+		QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+
+	ai := req.GetAiBasicInfo()
+	ai.SetAllowEstimateToken(false)
+	ai.MarkResponseCompleted()
+	ai.MarkFinalUsageSeen()
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 100
+	usage.CompletionTokens = 50
+	usage.UsedQuota = 150
+
+	if ret := m.tokenRequestFinishHandler(req, &bfe_http.Response{StatusCode: bfe_http.StatusOK}); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := m.state.BillingZeroCost.Get(); got != 1 {
+		t.Errorf("BillingZeroCost = %d, want 1", got)
+	}
+	if got := ai.ZeroCostReason(); got != bfe_basic.ZeroCostReasonModelTableMissing {
+		t.Errorf("ZeroCostReason = %q, want %q", got, bfe_basic.ZeroCostReasonModelTableMissing)
+	}
+}
+
+// Issue #1414: an AI cache hit is free by construction — it is marked on the
+// request for reconciliation but deliberately excluded from BillingZeroCost,
+// otherwise cache-heavy deployments would drown the anomaly counter.
+func TestTokenRequestFinishHandler_CacheHitIsMarkedButNotCounted(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	m.redisClient = newMockRedisClient()
+
+	req := newTestRequestWithCluster("ak-123", "AI_product", "deepseek-backup", "deepseek-v4-flash")
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-CacheHit",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id",
+		QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+
+	ai := req.GetAiBasicInfo()
+	ai.AiCacheHit = true
+
+	if ret := m.tokenRequestFinishHandler(req, &bfe_http.Response{StatusCode: bfe_http.StatusOK}); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := ai.ZeroCostReason(); got != bfe_basic.ZeroCostReasonCacheHit {
+		t.Errorf("ZeroCostReason = %q, want %q", got, bfe_basic.ZeroCostReasonCacheHit)
+	}
+	if got := m.state.BillingZeroCost.Get(); got != 0 {
+		t.Errorf("BillingZeroCost = %d, want 0 for a cache hit", got)
+	}
+}
+
+// Issue #1414 (assertion A-01, non-streaming path): a 2xx body carrying an
+// explicit all-zero usage object marks the final usage and replaces the
+// auth-time seeding, instead of being estimated or landing in the
+// unrecognized branch.
+func TestTokenReadResponseHandler_AllZeroUsageIsRecognized(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	m.redisClient = newMockRedisClient()
+
+	clusterName := "deepseek-backup"
+	model := "deepseek-v4-flash"
+	req := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
+
+	body := `{"usage":{"total_tokens":0,"prompt_tokens":0,"completion_tokens":0}}`
+	res := &bfe_http.Response{
+		StatusCode:    200,
+		ContentLength: int64(len(body)),
+		Body:          ioutil.NopCloser(strings.NewReader(body)),
+	}
+
+	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{
+		clusterName: buildTestClusterConf(model, 0.00000452, 0.00002262),
+	}}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 100, nil)
+	ai := req.GetAiBasicInfo()
+	ai.SetAllowEstimateToken(true) // estimation allowed: presence must still win
+
+	if ret := m.tokenReadResponseHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("read response handler failed: %d", ret)
+	}
+
+	if !ai.IsFinalUsageSeen() {
+		t.Error("an explicit all-zero usage must mark the final usage")
+	}
+	if u := ai.GetTokenUsage(); u.UsedQuota != 0 || u.PromptTokens != 0 || u.CompletionTokens != 0 {
+		t.Errorf("the reported zeros must replace the auth-time seeding, got %+v", *u)
 	}
 }

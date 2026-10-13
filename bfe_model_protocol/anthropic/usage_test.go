@@ -32,6 +32,8 @@ func TestExtractUsageFieldsClaudeCache(t *testing.T) {
 	// PromptTokens normalized to 320+8000+200 (total input), UsedQuota
 	// falls back to prompt+completion (8520+150).
 	want := utils.UsageFields{
+		UsagePresent:     true,
+		PromptPresent:    true,
 		UsedQuota:        8670,
 		PromptTokens:     8520,
 		CompletionTokens: 150,
@@ -50,6 +52,8 @@ func TestExtractUsageFieldsClaudeStreamingMessageUsage(t *testing.T) {
 	start := []byte(`{"type":"message_start","message":{"id":"msg_1","usage":{"input_tokens":320,"output_tokens":0,"cache_read_input_tokens":8000,"cache_creation_input_tokens":200}}}`)
 	f := New().ExtractUsageFields(start)
 	want := utils.UsageFields{
+		UsagePresent:     true,
+		PromptPresent:    true,
 		UsedQuota:        8520,
 		PromptTokens:     8520,
 		CompletionTokens: 0,
@@ -73,6 +77,8 @@ func TestExtractUsageFieldsFullCacheHit(t *testing.T) {
 	f := New().ExtractUsageFields(data)
 
 	want := utils.UsageFields{
+		UsagePresent:     true,
+		PromptPresent:    true,
 		UsedQuota:        5042,
 		PromptTokens:     5000,
 		CompletionTokens: 42,

@@ -1581,3 +1581,174 @@ func TestTC24_RMBQuotaDeduction_UsageUnrecognizedSignal(t *testing.T) {
 	// test output and shares the guard body with the asserted counter, so
 	// the integration layer asserts the counter as the signal of record.
 }
+
+// Issue #1414 (assertion A-01): usage recognition is presence-based, so an
+// upstream that explicitly reports an all-zero usage object is a real
+// observation (parsed, billed at 0) instead of being estimated or misfiled as
+// unrecognized. The balance assertion is the proof that presence wins over the
+// EstimateToken yardstick: before #1414 this arm was billed by the estimate.
+func TestTC25_RMBQuotaDeduction_UsagePresenceDistinguishable(t *testing.T) {
+	e := newTestEnv(t, map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	backend := e.backends[clusterRMB]
+
+	// Arm 1: explicit all-zero usage. EstimateToken is true in this scenario's
+	// bfe.conf, so only presence-based recognition keeps this arm at 0.
+	backend.NoContentLength = false
+	backend.ResponseHeaders = map[string]string{"Content-Type": "application/json"}
+	backend.Body = `{"usage":{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}}`
+	resp, body, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("send all-zero-usage request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+	if v := e.tokenAuthMetric("UsageUnrecognized"); v != 0 {
+		e.t.Logf("mod_ai_token_auth monitor body:\n%s", e.tokenAuthMetricsRaw())
+		t.Fatalf("UsageUnrecognized = %v, want 0: an explicit all-zero usage is not unrecognized usage", v)
+	}
+	if !e.waitForTokenAuthMetric("BillingZeroCost", 5*time.Second, func(v float64) bool { return v == 1 }) {
+		e.t.Logf("mod_ai_token_auth monitor body:\n%s", e.tokenAuthMetricsRaw())
+		t.Fatalf("BillingZeroCost = %v, want 1 after the all-zero-usage arm", e.tokenAuthMetric("BillingZeroCost"))
+	}
+
+	// Arm 2: no usage at all and not estimatable (unchanged yardstick: zero
+	// deduction, but this one IS unrecognized usage).
+	backend.ResponseHeaders = map[string]string{"Content-Type": "text/plain"}
+	backend.NoContentLength = true
+	backend.Body = `hello, no usage here`
+	resp2, body2, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("send missing-usage request failed: %v", err)
+	}
+	if resp2.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp2.StatusCode, body2)
+	}
+	if !e.waitForTokenAuthMetric("UsageUnrecognized", 5*time.Second, func(v float64) bool { return v == 1 }) {
+		e.t.Logf("mod_ai_token_auth monitor body:\n%s", e.tokenAuthMetricsRaw())
+		t.Fatalf("UsageUnrecognized = %v, want 1 after the missing-usage arm", e.tokenAuthMetric("UsageUnrecognized"))
+	}
+	if !e.waitForTokenAuthMetric("BillingZeroCost", 5*time.Second, func(v float64) bool { return v == 2 }) {
+		t.Fatalf("BillingZeroCost = %v, want 2 after the missing-usage arm", e.tokenAuthMetric("BillingZeroCost"))
+	}
+
+	// Arm 3: normal billing control.
+	backend.NoContentLength = false
+	backend.ResponseHeaders = map[string]string{"Content-Type": "application/json"}
+	backend.Body = usageResponse
+	resp3, body3, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("send normal request failed: %v", err)
+	}
+	if resp3.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp3.StatusCode, body3)
+	}
+	if v := e.tokenAuthMetric("UsageUnrecognized"); v != 1 {
+		t.Fatalf("UsageUnrecognized = %v, want 1 (the billed control arm must not be counted)", v)
+	}
+	if v := e.tokenAuthMetric("BillingZeroCost"); v != 2 {
+		t.Fatalf("BillingZeroCost = %v, want 2 (the billed control arm must not be counted)", v)
+	}
+
+	if e.backends[clusterRMB].Hits() != 3 {
+		t.Fatalf("expected 3 hits on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+	}
+
+	// Async deduction: arms 1 and 2 bill 0, arm 3 bills 100*100 + 50*200.
+	// Arm 1's unchanged share is what proves it was not estimated.
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - 20000)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d (arm 1 must not be estimate-billed)", remaining, want)
+	}
+}
+
+// Issue #1414: every 2xx request that holds an RMB plan and was charged 0 is
+// counted by BillingZeroCost at a single checkpoint, so pricing/configuration
+// gaps stop being silent while staying distinguishable from unrecognized
+// usage (UsageUnrecognized must not move: the usage was recognized).
+func TestTC26_RMBQuotaDeduction_BillingZeroCostSignal(t *testing.T) {
+	e := newTestEnv(t, map[string]*cluster_conf.AIConf{
+		clusterRMB:     defaultRMBAIConf(),
+		clusterNoTable: noTableAIConf(),
+	}, []common.QuotaPlan{rmbQuotaPlan(10000000000)})
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	// Arm 1 model_table_missing: the cluster has no AIConf.ModelTable, so the
+	// cost computation bails out with 0 (previously only a warn).
+	resp, body, err := e.sendRequest("notable.example.org", defaultBody)
+	if err != nil {
+		t.Fatalf("send no-model-table request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+	if e.backends[clusterNoTable].Hits() != 1 {
+		t.Fatalf("expected 1 hit on %s, got %d", clusterNoTable, e.backends[clusterNoTable].Hits())
+	}
+	if !e.waitForTokenAuthMetric("BillingZeroCost", 5*time.Second, func(v float64) bool { return v == 1 }) {
+		e.t.Logf("mod_ai_token_auth monitor body:\n%s", e.tokenAuthMetricsRaw())
+		t.Fatalf("BillingZeroCost = %v, want 1 after the no-model-table arm", e.tokenAuthMetric("BillingZeroCost"))
+	}
+
+	// Arm 2 price_miss: the model is absent from the price table entirely and
+	// the chat mode never falls back (TC-23's no-baseline shape).
+	resp2, body2, err := e.sendRequest(apiHost, []byte(`{"model":"no-such-model"}`))
+	if err != nil {
+		t.Fatalf("send no-baseline request failed: %v", err)
+	}
+	if resp2.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp2.StatusCode, body2)
+	}
+	if !e.waitForTokenAuthMetric("BillingZeroCost", 5*time.Second, func(v float64) bool { return v == 2 }) {
+		t.Fatalf("BillingZeroCost = %v, want 2 after the price-miss arm", e.tokenAuthMetric("BillingZeroCost"))
+	}
+	if !e.waitForTokenAuthMetric("PriceLookupMiss", 5*time.Second, func(v float64) bool { return v == 1 }) {
+		t.Fatalf("PriceLookupMiss = %v, want 1 (issue #1408 signal must not regress)", e.tokenAuthMetric("PriceLookupMiss"))
+	}
+
+	// Both zero-cost arms have recognized usage: zero cost is not
+	// unrecognized usage, and the two must stay separable.
+	if v := e.tokenAuthMetric("UsageUnrecognized"); v != 0 {
+		t.Fatalf("UsageUnrecognized = %v, want 0: pricing zero-cost is not unrecognized usage", v)
+	}
+
+	// Arm 3 billed control.
+	e.backends[clusterRMB].Body = usageResponse
+	resp3, body3, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("send normal request failed: %v", err)
+	}
+	if resp3.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp3.StatusCode, body3)
+	}
+	if v := e.tokenAuthMetric("BillingZeroCost"); v != 2 {
+		t.Fatalf("BillingZeroCost = %v, want 2 (the billed control arm must not be counted)", v)
+	}
+
+	time.Sleep(500 * time.Millisecond)
+	remaining := e.redis.GetQuota(redisKeyRMB)
+	want := int64(10000000000 - 20000)
+	if remaining != want {
+		e.logBFEException()
+		e.logBFEAccess()
+		t.Fatalf("remaining quota = %d, want %d", remaining, want)
+	}
+}

@@ -360,6 +360,8 @@ type AiBasicInfo struct {
 
 > 如果需要更严格（如按 `max_tokens` 估算最坏成本），可在后续迭代中补充。
 
+余额预检的拒绝（余额为 0 等）发生在审计身份块写入之后：`ValidateUserTokenByReq` 在查到 token 时即写入 `ClientKeyId` / `ApikeyTags`，因此配额类拒绝日志仍携带 701/702 身份块（见 `ai_access_log_fields.md` §5.2 与 issue #1418）。
+
 ### 7.2 在 `TokenAuthContext` 中缓存 `serverConf`
 
 `bfe/bfe_modules/mod_ai_token_auth/mod_ai_token_auth.go`
@@ -633,14 +635,15 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 }
 ```
 
-计费判定规则汇总（issue #1352、#1364、#1398）：
+计费判定规则汇总（issue #1352、#1364、#1398、#1414）：
 
 | 场景 | finalUsageSeen | 扣费 |
 |------|----------------|------|
 | 正常完成，有 usage | true | 按实际 usage |
+| 正常完成，usage 存在但各项计数为 0 | true（issue #1414 起按 usage 对象存在性判定） | 按真实 0 计费（不估算；修复前该形态被值判定误判为"无 usage"而按估算计费） |
 | 正常完成，无 usage + EstimateToken | false（responseCompleted=true） | 按估算计费 |
 | 正常完成，无 usage + `EstimateToken=false` | false | 零扣费（issue #1398 起出厂默认 EstimateToken=true，该行为仅显式关闭时出现） |
-| 客户端中断/写失败，未拿到最终 usage | false | 零扣费 |
+| 客户端中断/写失败，未拿到最终 usage | false | 零扣费（无论此前是否已解析出初始 usage，如 Anthropic `message_start`） |
 | 客户端中断/写失败，已拿到最终 usage | true | 按实际 usage |
 | 非流式 Anthropic（chunked）完整响应，有 usage | true（#1364 起，`type:"message"` 视同最终 usage） | 按实际 usage（未命中输入 + cache read/write + 输出全额） |
 | 非 2xx（未成功调用上游，如 AI 路由未命中的 404、上游 404 直通、归一化后的 404） | false | 零扣费；访问日志不输出 token 字段（issue #1409）
@@ -653,12 +656,24 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 
 > 说明（issue #1410）："usage 未识别且不可估算"守卫分支（上表"零扣费"且 2xx 的两行）本身**计费口径不变**，但必须可观测，绝不静默跳过。修复后该分支在判定成立处产生两类同源信号：
 >
-> 1. **模块计数器 + 告警日志**：`mod_ai_token_auth.UsageUnrecognized` 自增（经 `monitorHandlers` 及 `.diff` 导出，可直接配阈值告警），并输出 Warn（携带 cluster / key_id / model / response_completed / allow_estimate，免回源码即可初判成因）；客户端中止跳过计费分支（issue #1352 既定口径）同模式计数（warn 量与客户端中断率相关，属观测收益）。
-> 2. **访问日志 usage 来源标记**：请求结束时按同一判定设置 `ai_usage_source`（`bfe-access-pb >= v0.3.15` 字段 764）——`parsed`（上游响应解析出 final usage）、`estimated`（`EstimateToken` 估算且已获准计费）、`unrecognized`（本分支：计费被跳过，日志 token 字段为鉴权期播种残留）；非 2xx 行维持 usage 字段整体缺席、本字段亦缺席。`unrecognized` 行照常输出数值字段（issue #1398 口径：missing usage 可见），对账查询 `ai_usage_source='unrecognized'` 即漏计费候选集，不再依赖 `total=0 且 in/out>0` 的跨字段矛盾签名或外部先验。
->
-> **已知限制**：usage 对象全部计数为 0（`total=0 且 in/out=0`）的响应在识别层与"无 usage"不可区分——`isguess` 判定为值-based（`UsedQuota > 0`，`GetQuotaUsage` 与 `tokenReadResponseHandler` 同构），此类行会计入 `unrecognized`（计费为 0 属正确结果，仅分类语义受限）；识别层的 presence 检测（按 usage 键存在性判定）是独立后续改造，不在本 issue 范围。含零值分量但总量 > 0 的 final 事件（如 `completion_tokens=0`，issue #1398 已认可）正常归入 `parsed`。
+> 1. **模块计数器 + 告警日志**：`mod_ai_token_auth.UsageUnrecognized` 自增（经 `monitorHandlers` 及 `.diff` 导出，可直接配阈值告警），并输出 Warn（携带 cluster / key_id / model / response_completed / allow_estimate，免回源码即可初判成因）。客户端中止跳过计费分支（issue #1352 既定口径）当时同模式计数；**issue #1414 起该分支改由独立计数器 `AbortBillingSkipped` 承载**，`UsageUnrecognized` 语义随之收窄为"仅上游 usage 未识别"。
+> 2. **访问日志 usage 来源标记**：请求结束时按同一判定设置 `ai_usage_source`（`bfe-access-pb >= v0.3.15` 字段 764）——`parsed`（上游响应解析出 final usage）、`estimated`（`EstimateToken` 估算且已获准计费）、`unrecognized`（本分支：计费被跳过，日志 token 字段为鉴权期播种残留）；非 2xx 行维持 usage 字段整体缺席、本字段亦缺席。`unrecognized` 行照常输出数值字段（issue #1398 口径：missing usage 可见），对账查询 `ai_usage_source='unrecognized'` 即漏计费候选集，不再依赖 `total=0 且 in/out>0` 的跨字段矛盾签名或外部先验。**issue #1414 起新增第 4 个取值 `aborted`**（客户端中止且未拿到 final usage）。
 >
 > 修复前该分支全链零信号：守卫体内既无计数器也无日志，`ai_total_tokens=0` 与真实零用量同形，估算镜像生效（`tokenUsage.UsedQuota` 被回写估算值）后"漏计费"行与"估算计费"行亦同形——生产实测单日 95.5% 的收入缺口（736 行）只能靠带外人工对账脚本发现。
+>
+> 历史限制（**已由 issue #1414 消除**）：本 issue 落地时，usage 对象全部计数为 0（`total=0 且 in/out=0`）的响应在识别层与"无 usage"不可区分——`isguess` 判定为值-based（`UsedQuota > 0`，`GetQuotaUsage` 与 `tokenReadResponseHandler` 同构），此类行会计入 `unrecognized`（计费为 0 属正确结果，仅分类语义受限）。
+
+> 说明（issue #1414）：在 issue #1410 的单点信号之上做**结构性收口**——把"usage 是否被识别"从值判定改为 presence 判定，并让所有零计费形态统一可计数、可归因。
+>
+> 1. **识别层 presence 判定**：`UsageFields` / `QuotaUsage` 新增 `UsagePresent`（按 usage 对象的存在性判定，三族解析与跨协议组合各自置位）；`finalUsageSeen` 与估算门槛改由"上游是否提供 usage"驱动，`UsedQuota` 不再承担"usage 是否被识别"的哨兵语义。**计费口径变化**：usage 存在但各项计数为 0 的响应按真实 0 计费（此前被值判定误判为"无 usage"、在 `EstimateToken=true` 下按估算计费）；usage 缺失路径的口径不变。
+> 2. **三元一致性检查解除自我禁用**：`usageTripleInconsistent` 原先在 `UsedQuota <= 0` 时直接返回 false，使 `total=0 且 in/out>0`（生产 736 行漏计费行的形态）恰好不触发 `AiUsageInconsistent`；改为按 usage 来源判定该行是否本应满足三元等式。
+> 3. **零计费收口信号**：新增计数器 `mod_ai_token_auth.BillingZeroCost` 与访问日志字段 `ai_zero_cost_reason`（`bfe-access-pb >= v0.3.16`，field 765），在每个"绑定 RMB 计划且计费为 0"的**可计费** 2xx 请求的收口点计数并归因（`unrecognized` / `aborted` / `cache_hit` / `batch_release` / `price_miss` / `price_zero` / `model_table_missing` / `config_missing` / `no_usage_tokens`，未分类时兜底 `cost_zero`）；同时 `ai_cost_value` 对已观测行显式写 0，使"零成本"与"字段缺席"可区分。
+>    - **两类形态被有意排除（计数器与原因码两侧一致，都不产生）**：① AI 缓存命中——上游从未调用，零成本属设计，仅写 `ai_zero_cost_reason=cache_hit` 供行级查询，不计入计数器；② 从未成为可计费模型调用的请求——`mode` 为 `file`/`batch` 的批量与 files 管理端点（upload/create/get/list/cancel/download）以及未解析出 `target_model` 的请求（绑定 API Key 与 RMB 计划但无模型用量，计入会抬高每个批量生命周期的告警基数）。批量**结算**有独立收口点，不受此排除影响。
+>    - `no_usage_tokens` 承接"观测本身解释了零成本"的形态（上游明确报零用量、image/video 模式生成数为 0），`cost_zero` 为兜底；已在自身位置告警的形态（未识别守卫、中止分支、价格查找、model table 查找）不在收口点重复告警。
+> 4. **中止分支拆分**：客户端中止且未拿到 final usage 的分支（issue #1352 既定口径，无论此前是否已解析出初始 usage，如 Anthropic `message_start`）改计 `AbortBillingSkipped` 并置 `ai_usage_source=aborted`，在监控与日志两侧都与"上游未识别"可区分；不追加 Warn（客户端中断率会放大日志量）。
+> 5. **扣减失败可计数**：新增 `DeductFailed` 计数器，Redis 扣减失败不再只有一行日志。
+>
+> 已知边界：`BillingZeroCost` 会把"上游合法返回 0 用量且未被判为 `parsed`"的形态（如 image 模式 `image_count=0`）归入 `no_usage_tokens`，需在运营初期据此校准告警阈值；缓存维度拆分漏计与余额封顶欠额属计费口径缺陷，另案处理。
 
 ### 7.6 成本计算辅助方法
 
@@ -1368,3 +1383,8 @@ return {yuan, frac}
 12. **长度分档与 1h 缓存写向后兼容**：未配置 `above_*_tokens` 档位键的模型走基础价，未配置 `cache_creation_input_token_cost_1h` 时全部 cache write 按基础 5m 价计，两者均与旧行为逐分一致；配置档位键但不配置 1h 价（或反之）互不干扰。`EstimateToken` 估算路径不区分长度档位与缓存 TTL，统一按基础价计（估算本身已保守）。访问日志新增 `ai_cache_write_1h_tokens`（field 788）依赖 `bfe-access-pb >= v0.3.6`。
 13. **mode 未定价回退计费影响**（issue #1408）：此前 `(model, mode)` 无价格条目时请求按 `0` 计费且访问日志无任何标记（如生产 /responses 入口 13 次请求全部漏计）。修复后该场景按 `chat` 价计费，金额会 **上升**；同时访问日志新增 `ai_price_miss`（field 763，依赖 `bfe-access-pb >= v0.3.14`），对账时可直接筛出「回退/未定价」行并反推应补齐的价格表条目。
 14. **未识别 usage 可观测信号**（issue #1410）：「usage 未识别且不可估算 → 守卫清零跳过计费」分支的计费金额**不变**（仍零扣费），新增信号使其可被产品自身发现：`UsageUnrecognized` 模块计数器 + Warn，以及访问日志 `ai_usage_source`（field 764，依赖 `bfe-access-pb >= v0.3.15`，取值 `parsed` / `estimated` / `unrecognized`）。客户端中止零扣费分支（issue #1352）同模式新增计数。已识别流量（含 `completion_tokens=0` 的零输出 final 事件，issue #1398 口径）归 `parsed`、不会污染计费跳过计数；usage 全 0 对象因识别层值-based 判定（`isguess` 要求 `UsedQuota > 0`）暂归入 `unrecognized`，presence 检测为独立后续改造。对账侧原依赖带外脚本扫描 `total=0 且 in/out>0` 的检测方式可由 `ai_usage_source='unrecognized'` 查询替代。
+15. **usage 识别改 presence 判定 + 零计费收口**（issue #1414）：
+   - **计费口径变化（唯一一项）**：usage 存在但各项计数为 0 的响应改为按真实 0 计费，不再按 `EstimateToken` 估算——该边界形态金额会 **下降**，需在灰度期用"`ai_usage_source='parsed'` 且各项计数为 0 的行数"实测核对缺口量；usage 缺失路径（含"缺失 + 估算"主流量）口径完全不变。
+   - **口径不变的部分**：usage 未识别且不可估算仍零扣费；客户端中止且未拿到 final usage 仍零扣费（含此前已解析出初始 usage 的中止请求，按 issue #1352 既定口径整笔跳过，含 token 计划）。
+   - **信号新增**：`ai_usage_source` 扩为四态（新增 `aborted`，field 764 取值扩展、**无需新版本 proto**）；新增计数器 `BillingZeroCost`（所有"绑定 RMB 计划且计费为 0"的 2xx 请求）与 `AbortBillingSkipped`（中止分支，从 `UsageUnrecognized` 拆出，**该计数器数值基线会下降，既有告警阈值/看板需同步调整**）；新增 `DeductFailed`（Redis 扣减失败）；新增访问日志字段 `ai_zero_cost_reason`（field 765，依赖 `bfe-access-pb >= v0.3.16`）。
+   - **行级可分辨性**：`ai_cost_value` 对已观测行显式写 0（原仅在 >0 时写出），使"零成本"与"字段缺席（非 2xx / 未计费）"可区分；`usageTripleInconsistent` 解除 `UsedQuota <= 0` 的自我禁用，`total=0 且 in/out>0` 起可触发 `AiUsageInconsistent`。使用 `ai_cost_value IS NULL` 判定的对账脚本需改为 `= 0` / `IS NULL` 组合。

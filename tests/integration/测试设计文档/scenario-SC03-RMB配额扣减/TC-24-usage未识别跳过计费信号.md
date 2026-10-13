@@ -27,6 +27,8 @@ SC03 RMB 配额扣减
 
 **已知限制（诚实边界）**：usage 对象**全部计数为 0**（`prompt=0, completion=0, total=0`）的响应在识别层与"无 usage"不可区分——`isguess` 判定为值-based（`UsedQuota > 0`，`body_process.go` GetQuotaUsage 与 `tokenReadResponseHandler` 的 `UsedQuota > 0` 门槛同构），此类行会落入 `unrecognized` 计数。该形态计费为 0 属正确结果，仅分类语义受限；识别层 presence 检测（按 usage 键存在性而非数值判定）是独立的后续改造，不在 issue #1410（观测性）范围内。
 
+> **该限制已由 issue #1414 修复（2026-10-13）**：识别层改为按 usage 对象存在性判定后，显式全 0 usage 归 `parsed` 并按真实 0 计费（不再被 `EstimateToken` 估算），只有"完全没有 usage 对象"才归 `unrecognized`。本 TC 的臂 1（无 usage、不可估算 → `unrecognized`）语义不变、断言保持有效；该限制的回归载体见 **TC-25**。另：issue #1414 起客户端中止零扣费分支不再计入 `UsageUnrecognized`，而由独立计数器 `AbortBillingSkipped` 承载（该分支不属于本 TC 的臂）。
+
 修复前：守卫跳过分支全链零信号（无计数器维度、无 Warn），访问日志只能以 `ai_total_tokens=0` 表达、与真实零用量同形，漏计费只能靠带外人工对账发现（生产实测单日 95.5% 缺口）。
 
 ## 运行模式

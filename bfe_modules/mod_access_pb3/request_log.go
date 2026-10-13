@@ -476,9 +476,11 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		if usage.VideoCount > 0 {
 			reqLog.AiVideoCount = proto.Int64(usage.VideoCount)
 		}
-		if usage.UsedCost > 0 {
-			reqLog.AiCostValue = proto.Int64(usage.UsedCost)
-		}
+		// issue #1414: report the cost for every observed 2xx row, 0 included, so
+		// "charged nothing" is distinguishable from "field absent" (non-2xx or
+		// never billed). Before this, a zero-cost row and a row whose cost was
+		// never computed were byte-identical.
+		reqLog.AiCostValue = proto.Int64(usage.UsedCost)
 		if aiInfo.IsPriceMiss() {
 			// The (model, mode) price entry was absent: the cost was computed
 			// by falling back to the model's chat price, or billed 0 with no
@@ -487,15 +489,23 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 			reqLog.AiPriceMiss = proto.Bool(true)
 		}
 		if source := aiInfo.UsageSource(); source != "" {
-			// Where the reported usage came from: parsed (final usage from
-			// the upstream response, including genuine zero-usage rows),
-			// estimated (EstimateToken estimate approved for billing) or
-			// unrecognized (billing skipped, the token fields are auth-time
-			// seeding residue). Makes billing bypasses directly queryable
-			// in reconciliation (issue #1410).
+			// Where the reported usage came from: parsed (final usage from the
+			// upstream response, including an explicit all-zero usage object),
+			// estimated (EstimateToken estimate approved for billing), aborted
+			// (client disconnected before the final usage) or unrecognized
+			// (billing skipped, the token fields are auth-time seeding
+			// residue). Makes billing bypasses directly queryable in
+			// reconciliation (issue #1410, #1414).
 			reqLog.AiUsageSource = proto.String(source)
 		}
-		usageInconsistent = usageTripleInconsistent(usage, outputTokens)
+		if reason := aiInfo.ZeroCostReason(); reason != "" {
+			// Why a 2xx request that holds an RMB quota plan was charged 0
+			// (issue #1414): the per-request counterpart of the
+			// BillingZeroCost module counter, so zero-cost rows are
+			// attributable instead of relying on cross-field heuristics.
+			reqLog.AiZeroCostReason = proto.String(reason)
+		}
+		usageInconsistent = usageTripleInconsistent(usage, outputTokens, aiInfo.UsageSource())
 	} else if usage != nil {
 		// The upstream was never successfully called (mod_ai_token_auth sets
 		// UsageDispositionNone for non-2xx responses, issue #1409): no model
@@ -714,8 +724,14 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 // ai_output_tokens (issue #1409, assertion A-02). Rows billed per image or
 // per video carry a count instead of tokens in ai_total_tokens and are
 // therefore excepted.
-func usageTripleInconsistent(usage *bfe_basic.TokenUsage, outputTokens int64) bool {
-	if usage.UsedQuota <= 0 {
+//
+// issue #1414: rows whose usage was deliberately reported as non-usage-based
+// residue (unrecognized / aborted) are skipped — their own counter and
+// ai_usage_source value cover them — but the check no longer returns early on
+// "total == 0", which used to disable it for exactly the shape it exists to
+// catch (input > 0 while total == 0).
+func usageTripleInconsistent(usage *bfe_basic.TokenUsage, outputTokens int64, source string) bool {
+	if source == bfe_basic.UsageSourceUnrecognized || source == bfe_basic.UsageSourceAborted {
 		return false
 	}
 	if usage.ImageCount > 0 || usage.VideoCount > 0 {

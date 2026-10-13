@@ -54,6 +54,12 @@ var (
 	anthropicMessageDelta = `{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":150}}`
 	anthropicMessageStop  = `{"type":"message_stop"}`
 
+	// Usage-free first frame. The mock backend only flushes the SSE response
+	// header when it writes an event, so arm A1 (abort before any usage
+	// event) needs one frame that carries no usage for the client to observe
+	// the 200 and synchronize with the stream.
+	anthropicPing = `{"type":"ping"}`
+
 	// Large trailing frame used to force a client write error (ECONNRESET)
 	// after the client has aborted the connection.
 	anthropicLargeBlock = fmt.Sprintf(`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":%q}}`,
@@ -65,12 +71,13 @@ var (
 )
 
 type testEnv struct {
-	t          *testing.T
-	processEnv *common.ProcessEnv
-	backend    *common.MockBackend
-	redis      *common.RedisServer
-	bfePort    int
-	stopBFE    func()
+	t              *testing.T
+	processEnv     *common.ProcessEnv
+	backend        *common.MockBackend
+	redis          *common.RedisServer
+	bfePort        int
+	bfeMonitorPort int
+	stopBFE        func()
 }
 
 func newTestEnv(t *testing.T) *testEnv {
@@ -138,7 +145,7 @@ func newTestEnv(t *testing.T) *testEnv {
 		t.Fatalf("build bfe config failed: %v", err)
 	}
 
-	e.bfePort, _, e.stopBFE = e.processEnv.StartBFE(confDir, logDir)
+	e.bfePort, e.bfeMonitorPort, e.stopBFE = e.processEnv.StartBFE(confDir, logDir)
 	return e
 }
 
@@ -278,6 +285,56 @@ func (e *testEnv) quotaRemaining(t *testing.T) int64 {
 	return e.redis.GetQuota(redisKeyRMB)
 }
 
+// tokenAuthMetric reads a mod_ai_token_auth counter by its Go field name
+// (issue #1414: BillingZeroCost / AbortBillingSkipped / UsageUnrecognized).
+func (e *testEnv) tokenAuthMetric(t *testing.T, field string) float64 {
+	t.Helper()
+	v, err := common.ModuleMetric(e.bfeMonitorPort, "mod_ai_token_auth", field)
+	if err != nil {
+		t.Fatalf("read mod_ai_token_auth.%s failed: %v", field, err)
+	}
+	return v
+}
+
+// waitTokenAuthMetric polls a counter until it reaches want (the abort branch
+// is only reached after BFE fails to write to the closed client connection,
+// i.e. after the trailing frame is released).
+func (e *testEnv) waitTokenAuthMetric(t *testing.T, field string, want float64) float64 {
+	t.Helper()
+	got, err := common.WaitForModuleMetric(e.bfeMonitorPort, "mod_ai_token_auth", field,
+		10*time.Second, func(v float64) bool { return v >= want })
+	if err != nil {
+		t.Fatalf("read mod_ai_token_auth.%s failed: %v", field, err)
+	}
+	return got
+}
+
+// assertAbortSignals asserts the issue #1414 zero-deduction signals of one
+// aborted request: the abort branch is counted on its own counter, the
+// unrecognized-usage counter stays untouched (the semantic split), and the
+// request is counted by the zero-cost checkpoint while it holds an RMB plan.
+func (e *testEnv) assertAbortSignals(t *testing.T, arm string, wantAbort, wantZeroCost float64) {
+	t.Helper()
+
+	abort := e.waitTokenAuthMetric(t, "AbortBillingSkipped", wantAbort)
+	// The abort branch increments both counters in the same handler call; wait
+	// for each of them so an HTTP round trip cannot observe the gap.
+	zeroCost := e.waitTokenAuthMetric(t, "BillingZeroCost", wantZeroCost)
+	unrecognized := e.tokenAuthMetric(t, "UsageUnrecognized")
+	t.Logf("%s: AbortBillingSkipped = %v (want %v), BillingZeroCost = %v (want %v), UsageUnrecognized = %v (want 0)",
+		arm, abort, wantAbort, zeroCost, wantZeroCost, unrecognized)
+
+	if abort != wantAbort {
+		t.Errorf("%s: AbortBillingSkipped = %v, want %v", arm, abort, wantAbort)
+	}
+	if zeroCost != wantZeroCost {
+		t.Errorf("%s: BillingZeroCost = %v, want %v (RMB plan bound, charged 0)", arm, zeroCost, wantZeroCost)
+	}
+	if unrecognized != 0 {
+		t.Errorf("%s: UsageUnrecognized = %v, want 0 (a client abort is not an upstream usage problem)", arm, unrecognized)
+	}
+}
+
 // TestTC01 verifies issue #1352: EstimateToken=true, the client aborts
 // (TCP RST) right after message_start, before any final usage. BFE must not
 // bill the request by full-request estimation.
@@ -359,4 +416,61 @@ func TestTC03_CompleteStreamBillsActualUsage(t *testing.T) {
 	if remaining != want {
 		t.Fatalf("complete stream must bill actual usage: remaining = %d, want %d", remaining, want)
 	}
+}
+
+// TestTC04_AbortBillingSkippedSignals verifies issue #1414 (step 5, plan A+B):
+// the client-abort zero-deduction (issue #1352 yardstick) is observable and
+// separable from "upstream usage unrecognized". Two arms cover the two shapes
+// the abort branch absorbs:
+//
+//	A1: the client aborts before any usage event was seen;
+//	A2: message_start (initial usage, UsedQuota > 0, not a final event) was
+//	    already parsed when the client aborts.
+//
+// Both must stay at zero deduction (the #1352 yardstick this case does not
+// claim should be billed), be counted by AbortBillingSkipped, counted by
+// BillingZeroCost (an RMB plan is bound), and must NOT touch
+// UsageUnrecognized.
+func TestTC04_AbortBillingSkippedSignals(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+	// Arm A1: abort with no usage event seen. The usage-free ping frame only
+	// flushes the response header so the client can observe the 200 and
+	// synchronize before the RST.
+	holdA1 := make(chan struct{})
+	e.backend.SSEEvents = []string{anthropicPing}
+	e.backend.SSEHold = holdA1
+	e.backend.SSETrailing = []string{anthropicLargeBlock}
+
+	_, reader, conn := e.startSSERequest(t, "/anthropic/v1/messages", claudeStreamBody)
+	readUntilSSEMarker(t, conn, reader, "ping")
+	abortRST(t, conn)
+	close(holdA1)
+
+	if remaining := e.quotaRemaining(t); remaining != initialQuota {
+		t.Fatalf("arm A1: abort before any usage must not be deducted: remaining = %d, want %d",
+			remaining, initialQuota)
+	}
+	e.assertAbortSignals(t, "arm A1 (no usage before abort)", 1, 1)
+
+	// Arm A2: message_start was parsed (initial usage, UsedQuota > 0) before
+	// the client aborts; the abort branch must still absorb this shape.
+	holdA2 := make(chan struct{})
+	e.backend.SSEEvents = []string{anthropicMessageStart}
+	e.backend.SSEHold = holdA2
+	e.backend.SSETrailing = []string{anthropicLargeBlock}
+
+	_, reader, conn = e.startSSERequest(t, "/anthropic/v1/messages", claudeStreamBody)
+	readUntilSSEMarker(t, conn, reader, "message_start")
+	abortRST(t, conn)
+	close(holdA2)
+
+	if remaining := e.quotaRemaining(t); remaining != initialQuota {
+		t.Fatalf("arm A2: abort after the initial usage must not be deducted either: remaining = %d, want %d",
+			remaining, initialQuota)
+	}
+	e.assertAbortSignals(t, "arm A2 (initial usage before abort)", 2, 2)
 }

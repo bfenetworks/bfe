@@ -12,8 +12,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add `ai_zero_cost_reason` access-log marker (requires `bfe-access-pb >= v0.3.16`): why a 2xx request holding an RMB quota plan was charged 0, together with the `BillingZeroCost` and `AbortBillingSkipped` module counters (issue #1414). Requests that never became a model call (batch/files management endpoints) and AI cache hits are excluded from `BillingZeroCost`, since their zero cost is by design rather than an anomaly
+
 ### Changed
 - AI key session affinity now uses a server-owned Redis connection configured via the new `[AIKeyAffinity]` section in `bfe.conf`, instead of implicitly borrowing the `mod_ai_rate_limit` module's Redis. **Config migration required**: deployments that enabled affinity (`AIConf.KeyPolicy.SessionAffinity=true`) must add the `[AIKeyAffinity]` section (with `Disabled=false` and the Redis `ServiceConf`) before upgrading; otherwise affinity silently turns off after the upgrade (fail-open, no error, bindings lost)
+- `Server.EstimateToken` now applies only when the upstream returned **no usage at all**, decided by the presence of the usage object: a response whose usage object reports all zeros is billed at 0 instead of being estimated, and is reported as `ai_usage_source=parsed`. Only that edge case changes amount (downward); requests whose response carries no usage keep the previous estimate behaviour (issue #1414)
+- `ai_cost_value` is now written for every observed 2xx row, 0 included, so "charged nothing" is distinguishable from "field absent" (non-2xx / never billed). Reconciliation that tests `ai_cost_value IS NULL` for "no cost" should switch to `ai_cost_value = 0` / `IS NULL` (issue #1414)
+- `mod_ai_token_auth.UsageUnrecognized` no longer counts client aborts — they are counted by the new `AbortBillingSkipped` counter, so the two causes (upstream/parsing problem vs client-side disconnect) stay separable; existing thresholds on `UsageUnrecognized` need to be realigned. `ai_usage_source` gained the fourth value `aborted` (no new protobuf field: the value is added to the existing `ai_usage_source`) (issue #1414)
+
+### Fixed
+- Make usage recognition presence-based instead of value-based: an upstream that explicitly reports all-zero usage is no longer misclassified as "usage unrecognized" nor over-billed by `EstimateToken` (issue #1414)
+- Report every zero-cost 2xx request that holds an RMB plan through the new `BillingZeroCost` counter and `ai_zero_cost_reason` marker, covering unrecognized usage, client aborts, batch releases, price-table gaps and pricing configuration loss at deduction time (issue #1414)
+- Count failed quota deductions (`DeductFailed`) instead of leaving them as a log line only (issue #1414)
+- Fix the token-triple consistency check (`AiUsageInconsistent`) returning early on `ai_total_tokens == 0`, which disabled it for exactly the `input > 0 while total == 0` rows it exists to catch (issue #1414)
+- Batch settlement now marks price misses (`ai_price_miss`), warns when the model table is missing and records a release without billing instead of staying silent (issue #1414)
 
 ## [v1.8.8] - 2026-09-24
 

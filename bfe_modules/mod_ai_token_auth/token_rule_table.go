@@ -117,10 +117,12 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 			})
 	}
 
-	// record key_id into AiBasicInfo as early as possible so that access log
-	// can still identify the token even if the request is later rejected.
+	// record key_id and entity tags into AiBasicInfo as early as possible, so
+	// that the access log can still identify the key and its Entity attribution
+	// even if the request is later rejected (issue #1418).
 	if aiBasicInfo := req.GetAiBasicInfo(); aiBasicInfo != nil {
 		aiBasicInfo.ClientKeyId = token.KeyId
+		aiBasicInfo.ApikeyTags = token.Tags
 	}
 
 	if !token.Enabled {

@@ -432,3 +432,54 @@ func TestQuotaUsageProcessorProcessResponsesAPIIncomplete(t *testing.T) {
 		t.Error("response.incomplete must not mark the response completed")
 	}
 }
+
+// Issue #1414: an event that carries an explicit all-zero usage object is an
+// observation. It must mark the final usage and write the zeros through, so the
+// request is billed at 0 instead of being topped up by the estimator.
+func TestQuotaUsageProcessorProcessAllZeroUsage(t *testing.T) {
+	req := newTestRequest("AI_product")
+	ai := req.InitAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	p := NewQuotaUsageProcessor(req, res)
+
+	events := []Event{newRawEvent(`{"usage":{"total_tokens":0,"prompt_tokens":0,"completion_tokens":0}}`)}
+	if _, err := p.Process(events); err != nil {
+		t.Fatalf("Process failed: %s", err)
+	}
+
+	if !ai.IsFinalUsageSeen() {
+		t.Error("an explicit all-zero usage must mark the final usage")
+	}
+	usage := ai.GetTokenUsage()
+	if usage.UsedQuota != 0 || usage.PromptTokens != 0 || usage.CompletionTokens != 0 {
+		t.Errorf("expected the reported zeros to be written through, got %+v", *usage)
+	}
+}
+
+// Issue #1414 regression guard: an Anthropic final event carries only output
+// tokens (the prompt field is absent, not 0), so a zero-output message_delta
+// must still keep the prompt parsed from message_start. "Absent" and "reported
+// as 0" must not be conflated.
+func TestQuotaUsageProcessorProcessAnthropicPromptCarriedOver(t *testing.T) {
+	req := newTestRequest("AI_product")
+	ai := req.InitAiBasicInfo()
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	p := NewQuotaUsageProcessor(req, res)
+
+	events := []Event{
+		newRawEvent(`{"type":"message_start","message":{"id":"msg_1","usage":{"input_tokens":100,"output_tokens":0}}}`),
+		newRawEvent(`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":0}}`),
+	}
+	if _, err := p.Process(events); err != nil {
+		t.Fatalf("Process failed: %s", err)
+	}
+
+	usage := ai.GetTokenUsage()
+	if usage.PromptTokens != 100 {
+		t.Errorf("PromptTokens = %d, want 100: message_delta omits the prompt field", usage.PromptTokens)
+	}
+	if usage.UsedQuota != 100 {
+		t.Errorf("UsedQuota = %d, want 100", usage.UsedQuota)
+	}
+}
