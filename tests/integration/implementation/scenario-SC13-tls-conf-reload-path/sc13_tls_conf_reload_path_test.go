@@ -183,13 +183,17 @@ func (e *testEnv) httpRequest(clientCert *tls.Certificate, maxVersion uint16) er
 	}
 	buf := make([]byte, 1024)
 	n, err := conn.Read(buf)
+	// Per the io.Reader contract, n>0 bytes must be processed before err.
+	// Since the migration to the standard library crypto/tls, a close_notify
+	// alert coalesced with the final response makes Read return (n, io.EOF)
+	// in a single call; the old bfe_tls fork returned (n, nil) first.
+	if n > 0 && strings.HasPrefix(string(buf[:n]), "HTTP/") {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
-	if !strings.HasPrefix(string(buf[:n]), "HTTP/") {
-		return fmt.Errorf("unexpected response: %q", string(buf[:n]))
-	}
-	return nil
+	return fmt.Errorf("unexpected response: %q", string(buf[:n]))
 }
 
 // reloadTLSConf calls the BFE monitor endpoint /reload/tls_conf and returns
