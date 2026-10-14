@@ -1091,6 +1091,55 @@ func (t *PeriodicTimeMatcher) Match(v interface{}) bool {
 	return seconds >= t.startTime && seconds <= t.endTime
 }
 
+// WeekdayMatcher matches whether the weekday of a time value is in a weekday set.
+// Weekday numbers follow Go's time.Weekday convention: 0=Sunday, 1=Monday, ...,
+// 6=Saturday, the same convention as the cluster_conf TimeRange.Weekdays field.
+type WeekdayMatcher struct {
+	weekdayMask uint8          // bit i set means weekday i matches
+	loc         *time.Location // time zone used to derive the weekday
+}
+
+// NewWeekdayMatcher follows weekdayStr format: dd[|dd]*, dd in [0, 6], 0=Sunday.
+// zoneStr is one letter defined in bfe_util.TimeZoneMap (e.g. "H" for UTC+8);
+// an empty string means "Z" (UTC).
+func NewWeekdayMatcher(weekdayStr, zoneStr string) (*WeekdayMatcher, error) {
+	if strings.TrimSpace(zoneStr) == "" {
+		zoneStr = "Z"
+	}
+	offset, ok := bfe_util.TimeZoneMap[strings.ToUpper(strings.TrimSpace(zoneStr))]
+	if !ok {
+		return nil, fmt.Errorf("invalid zone:%s", zoneStr)
+	}
+
+	if strings.TrimSpace(weekdayStr) == "" {
+		return nil, fmt.Errorf("weekday list is empty")
+	}
+	var mask uint8
+	for _, item := range strings.Split(weekdayStr, "|") {
+		wd, err := strconv.Atoi(strings.TrimSpace(item))
+		if err != nil || wd < 0 || wd > 6 {
+			return nil, fmt.Errorf("invalid weekday:%s, should be an integer in [0, 6]",
+				strings.TrimSpace(item))
+		}
+		mask |= 1 << uint(wd)
+	}
+
+	return &WeekdayMatcher{
+		weekdayMask: mask,
+		loc:         time.FixedZone("zone", offset),
+	}, nil
+}
+
+func (m *WeekdayMatcher) Match(v interface{}) bool {
+	tm, ok := v.(time.Time)
+	if !ok {
+		return false
+	}
+	// tm is in UTC, convert it to the configured time zone
+	tm = tm.In(m.loc)
+	return m.weekdayMask&(1<<uint(tm.Weekday())) != 0
+}
+
 type ReqBodyJsonFetcher struct {
 	path string
 }

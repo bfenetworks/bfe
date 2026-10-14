@@ -336,6 +336,107 @@ var buildPrimitiveTests = []struct {
 		nil,
 		true,
 	},
+	{
+		"testTimeWeekdayInErr1",
+		`time_weekday_in("")`,
+		nil,
+		true,
+	},
+	{
+		"testTimeWeekdayInErr2",
+		`time_weekday_in("7")`,
+		nil,
+		true,
+	},
+	{
+		"testTimeWeekdayInErr3",
+		`time_weekday_in("-1")`,
+		nil,
+		true,
+	},
+	{
+		"testTimeWeekdayInErr4",
+		`time_weekday_in("a")`,
+		nil,
+		true,
+	},
+	{
+		"testTimeWeekdayInErr5",
+		`time_weekday_in("1-5")`,
+		nil,
+		true,
+	},
+	{
+		"testTimeWeekdayInErr6",
+		`time_weekday_in("0", "QQ")`,
+		nil,
+		true,
+	},
+	{
+		"testTimeWeekdayInErr7",
+		`time_weekday_in(0)`,
+		nil,
+		true,
+	},
+	{
+		"testTimeWeekdayInErr8",
+		`time_weekday_in()`,
+		nil,
+		true,
+	},
+	{
+		"testTimeWeekdayInErr9",
+		`time_weekday_in("0", "H", "Z")`,
+		nil,
+		true,
+	},
+}
+
+// TestBuildTimeWeekdayIn verifies the DSL path of time_weekday_in: the
+// optional zone argument and the mocked time (X-Bfe-Debug-Time).
+// 2019-02-03 is a Sunday, 2019-02-04 is a Monday.
+func TestBuildTimeWeekdayIn(t *testing.T) {
+	weekend, err := Build(`time_weekday_in("0|6", "H")`)
+	if err != nil {
+		t.Fatalf("build time_weekday_in(\"0|6\", \"H\") failed: %v", err)
+	}
+	weekday, err := Build(`time_weekday_in("1", "H")`)
+	if err != nil {
+		t.Fatalf("build time_weekday_in(\"1\", \"H\") failed: %v", err)
+	}
+	// zone omitted: UTC
+	utcWeekend, err := Build(`time_weekday_in("0|6")`)
+	if err != nil {
+		t.Fatalf("build time_weekday_in(\"0|6\") failed: %v", err)
+	}
+
+	req.HttpRequest.Header = make(map[string][]string)
+	defer func() { req.HttpRequest.Header = nil }()
+
+	// Beijing Sunday 23:59:59 == UTC Sunday 15:59:59
+	req.HttpRequest.Header["X-Bfe-Debug-Time"] = []string{"20190203235959H"}
+	if !weekend.Match(&req) {
+		t.Errorf("Beijing Sunday 23:59:59 should match time_weekday_in(\"0|6\", \"H\")")
+	}
+	if weekday.Match(&req) {
+		t.Errorf("Beijing Sunday 23:59:59 should not match time_weekday_in(\"1\", \"H\")")
+	}
+	if !utcWeekend.Match(&req) {
+		t.Errorf("UTC Sunday 15:59:59 should match time_weekday_in(\"0|6\")")
+	}
+
+	// Beijing Monday 00:00:00 == UTC Sunday 16:00:00: the same instant is a
+	// weekday in UTC+8 but still a weekend day in UTC.
+	req.HttpRequest.Header["X-Bfe-Debug-Time"] = []string{"20190204000000H"}
+	if weekend.Match(&req) {
+		t.Errorf("Beijing Monday 00:00:00 should not match time_weekday_in(\"0|6\", \"H\")")
+	}
+	if !weekday.Match(&req) {
+		t.Errorf("Beijing Monday 00:00:00 should match time_weekday_in(\"1\", \"H\")")
+	}
+	if !utcWeekend.Match(&req) {
+		t.Errorf("UTC Sunday 16:00:00 should still match time_weekday_in(\"0|6\") without zone")
+	}
 }
 
 func TestBuildPrimitive(t *testing.T) {
