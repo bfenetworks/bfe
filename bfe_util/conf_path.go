@@ -15,7 +15,9 @@
 package bfe_util
 
 import (
+	"path"
 	"path/filepath"
+	"strings"
 )
 
 // ConfPathProc return path of config file
@@ -27,17 +29,18 @@ import (
 // Returns:
 //
 //	the final path of config file
-//	(1) absolute path (e.g. "/xx" on unix, "C:\xx" on windows),
-//	    return path untouched
-//	(2) else, it's relative path, return filepath.Join(confRoot, path)
+//	(1) path starts with "/", it's absolute path, return path untouched
+//	(2) else, it's relative path, return path.Join(confRoot, path)
 //
-// NOTE: use filepath (os-aware) instead of path (slash-only) so that
-// relative elements like ".." are resolved correctly on windows, where
-// confRoot uses back-slash separators.
+// NOTE: the returned path always uses "/" separators, which is the
+// contract relied upon by config loaders and their tests. confRoot is
+// normalized to "/" before joining so that relative elements like ".."
+// are collapsed correctly on windows, where confRoot uses "\" separators
+// and path.Join would otherwise treat the whole confRoot as one element.
 func ConfPathProc(confPath string, confRoot string) string {
-	if !filepath.IsAbs(confPath) {
+	if !strings.HasPrefix(confPath, "/") {
 		// relative path to confRoot
-		confPath = filepath.Join(confRoot, confPath)
+		confPath = path.Join(filepath.ToSlash(confRoot), confPath)
 	}
 
 	return confPath
