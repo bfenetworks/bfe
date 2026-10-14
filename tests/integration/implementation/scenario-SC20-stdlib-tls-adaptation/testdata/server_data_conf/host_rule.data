@@ -1,0 +1,15 @@
+{
+    "Version": "20260720150000",
+    "Hosts": {
+        "example_product": [
+            "example.org",
+            "example.net",
+            "unknown.example"
+        ]
+    },
+    "HostTags": {
+        "example_product": [
+            "example_product"
+        ]
+    }
+}

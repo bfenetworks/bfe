@@ -36,8 +36,9 @@ import (
 )
 
 import (
+	tls "crypto/tls"
+
 	bufio "github.com/bfenetworks/bfe/bfe_bufio"
-	tls "github.com/bfenetworks/bfe/bfe_tls"
 )
 
 // DefaultMaxHeaderBytes is the maximum permitted size of the headers in an HTTP request.

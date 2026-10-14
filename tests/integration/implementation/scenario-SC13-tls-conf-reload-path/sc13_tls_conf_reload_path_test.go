@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 	"os"
@@ -134,12 +135,14 @@ func readHTTPSPort(t *testing.T, bfeConf string) int {
 }
 
 // tlsHandshake performs a TLS handshake against the BFE https listener.
-// A nil clientCert means the client sends no certificate.
-func (e *testEnv) tlsHandshake(clientCert *tls.Certificate) error {
+// A nil clientCert means the client sends no certificate. maxVersion may
+// pin the negotiated version (e.g. tls.VersionTLS12); zero means no cap.
+func (e *testEnv) tlsHandshake(clientCert *tls.Certificate, maxVersion uint16) error {
 	conf := &tls.Config{
 		InsecureSkipVerify: true, //nolint:gosec // tests verify reload behavior, not server identity
 		ServerName:         sniName,
 		NextProtos:         []string{"http/1.1"},
+		MaxVersion:         maxVersion,
 	}
 	if clientCert != nil {
 		conf.Certificates = []tls.Certificate{*clientCert}
@@ -150,6 +153,43 @@ func (e *testEnv) tlsHandshake(clientCert *tls.Certificate) error {
 		return err
 	}
 	return conn.Close()
+}
+
+// httpRequest performs a TLS handshake followed by a raw HTTP/1.1 request.
+// It is used for TLS 1.3 client-auth enforcement, where the standard
+// library's tls.Dial may return before the server's post-handshake
+// "certificate required" alert arrives; the alert (or connection close)
+// is surfaced by the first read/write instead. A received HTTP response
+// means the connection was accepted.
+func (e *testEnv) httpRequest(clientCert *tls.Certificate, maxVersion uint16) error {
+	conf := &tls.Config{
+		InsecureSkipVerify: true, //nolint:gosec // tests verify reload behavior, not server identity
+		ServerName:         sniName,
+		NextProtos:         []string{"http/1.1"},
+		MaxVersion:         maxVersion,
+	}
+	if clientCert != nil {
+		conf.Certificates = []tls.Certificate{*clientCert}
+	}
+
+	conn, err := tls.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", e.httpsPort), conf)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	if _, err := conn.Write([]byte("GET / HTTP/1.1\r\nHost: example.org\r\nConnection: close\r\n\r\n")); err != nil {
+		return err
+	}
+	buf := make([]byte, 1024)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return err
+	}
+	if !strings.HasPrefix(string(buf[:n]), "HTTP/") {
+		return fmt.Errorf("unexpected response: %q", string(buf[:n]))
+	}
+	return nil
 }
 
 // reloadTLSConf calls the BFE monitor endpoint /reload/tls_conf and returns
@@ -166,11 +206,19 @@ func (e *testEnv) reloadTLSConf(path string) string {
 	}
 	defer resp.Body.Close()
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		e.t.Fatalf("read reload rsp failed: %v", err)
+	}
 	rsp := &struct {
 		Error string `json:"error"`
 	}{}
-	if err := json.NewDecoder(resp.Body).Decode(rsp); err != nil {
-		e.t.Fatalf("decode reload rsp failed: %v", err)
+	if err := json.Unmarshal(body, rsp); err != nil {
+		// go-lib/web_monitor builds the response with fmt.Sprintf without
+		// JSON escaping; on Windows a raw backslash in a file path makes
+		// the payload invalid JSON. Fall back to the raw body so error
+		// assertions stay cross-platform.
+		return string(body)
 	}
 	return rsp.Error
 }
@@ -316,7 +364,7 @@ func TestTC01_ReloadWithPathUsesVersionDirClientCA(t *testing.T) {
 	}
 
 	// Baseline: ClientAuth=false, handshake without client cert succeeds.
-	if err := e.tlsHandshake(nil); err != nil {
+	if err := e.tlsHandshake(nil, 0); err != nil {
 		t.Fatalf("baseline handshake without client cert should succeed: %v", err)
 	}
 
@@ -326,17 +374,30 @@ func TestTC01_ReloadWithPathUsesVersionDirClientCA(t *testing.T) {
 		t.Fatalf("reload with path should succeed, got error: %s", errMsg)
 	}
 
-	// After reload: server requires client cert. Handshake without cert fails.
-	if err := e.tlsHandshake(nil); err == nil {
-		t.Fatal("handshake without client cert should fail after ClientAuth reload")
+	// After reload: server requires client cert.
+	// Under TLS 1.2 the missing certificate fails the handshake itself.
+	if err := e.tlsHandshake(nil, tls.VersionTLS12); err == nil {
+		t.Fatal("tls1.2 handshake without client cert should fail after ClientAuth reload")
 	} else {
-		t.Logf("handshake without client cert failed as expected: %v", err)
+		t.Logf("tls1.2 handshake without client cert failed as expected: %v", err)
 	}
 
-	// Handshake with a valid client cert succeeds.
+	// Under TLS 1.3 the server's Finished is sent before the client
+	// certificate is inspected, so tls.Dial may succeed; enforcement is
+	// observable on the first request instead (alert / connection close).
+	if err := e.httpRequest(nil, 0); err == nil {
+		t.Fatal("tls1.3 request without client cert should fail after ClientAuth reload")
+	} else {
+		t.Logf("tls1.3 request without client cert failed as expected: %v", err)
+	}
+
+	// Requests with a valid client cert succeed on both TLS versions.
 	clientCert := e.makeClientCert()
-	if err := e.tlsHandshake(&clientCert); err != nil {
-		t.Fatalf("handshake with client cert should succeed: %v", err)
+	if err := e.httpRequest(&clientCert, tls.VersionTLS12); err != nil {
+		t.Fatalf("tls1.2 request with client cert should succeed: %v", err)
+	}
+	if err := e.httpRequest(&clientCert, 0); err != nil {
+		t.Fatalf("tls1.3 request with client cert should succeed: %v", err)
 	}
 }
 
@@ -377,7 +438,7 @@ func TestTC03_ReloadWithoutPathKeepsActivatedDir(t *testing.T) {
 	}
 
 	// Activated config still has ClientAuth=false: handshake without cert works.
-	if err := e.tlsHandshake(nil); err != nil {
+	if err := e.tlsHandshake(nil, 0); err != nil {
 		t.Fatalf("handshake without client cert should succeed after no-path reload: %v", err)
 	}
 }

@@ -22,6 +22,7 @@ package bfe_http
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -39,7 +40,6 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_net/textproto"
-	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 const (
@@ -211,7 +211,7 @@ type Request struct {
 	// TLS-enabled connections before invoking a handler;
 	// otherwise it leaves the field nil.
 	// This field is ignored by the HTTP client.
-	TLS *bfe_tls.ConnectionState
+	TLS *tls.ConnectionState
 
 	// State allows HTTP server and other software to record
 	// information about the request. This filed may be not filled.
@@ -347,6 +347,7 @@ func valueOrDefault(value, def string) string {
 
 // Write writes an HTTP/1.1 request -- header and body -- in wire format.
 // This method consults the following fields of the request:
+//
 //	Host
 //	URL
 //	Method (defaults to "GET")
@@ -988,7 +989,7 @@ func (r *Request) GetBodyAccessor() (BodyAccessor, error) {
 		if !ok {
 			break
 		}
-			
+
 		body = sourcer.GetSource()
 	}
 
@@ -1001,8 +1002,9 @@ func (r *Request) GetBodyAccessor() (BodyAccessor, error) {
 	return r.Body.(BodyAccessor), nil
 }
 
-const DefaultAccessibleBodySize = 1024*1024*2
-const MaxAccessibleBodySize = 1024*1024*8
+const DefaultAccessibleBodySize = 1024 * 1024 * 2
+const MaxAccessibleBodySize = 1024 * 1024 * 8
+
 var accessibleBodySize = int64(DefaultAccessibleBodySize)
 
 func SetAccessibleBodySize(size int64) {

@@ -17,6 +17,7 @@
 package bfe_server
 
 import (
+	"crypto/tls"
 	"encoding/hex"
 	"fmt"
 	"net"
@@ -36,7 +37,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_route"
 	"github.com/bfenetworks/bfe/bfe_spdy"
 	"github.com/bfenetworks/bfe/bfe_stream"
-	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util"
 	"github.com/bfenetworks/bfe/bfe_util/signal_table"
 	"github.com/bfenetworks/bfe/bfe_websocket"
 	"github.com/bfenetworks/go-lib/log"
@@ -54,9 +55,6 @@ type BfeServer struct {
 
 	// for http server
 	ReverseProxy *ReverseProxy // reverse proxy
-
-	// TLS session cache
-	SessionCache *ServerSessionCache
 
 	// TLS certificates
 	MultiCert *MultiCertMap
@@ -194,35 +192,25 @@ func (srv *BfeServer) InitHttps() (err error) {
 }
 
 func (srv *BfeServer) initTLSConfig() (err error) {
-	srv.TLSConfig = new(bfe_tls.Config)
+	srv.TLSConfig = new(tls.Config)
 	httpsConf := srv.Config.HttpsBasic
 
 	// set max and min TLS version
 	srv.TLSConfig.MaxVersion, srv.TLSConfig.MinVersion = bfe_conf.GetTlsVersion(&httpsConf)
 
-	// enable Sslv2 ClientHello for compatible with ancient TLS-capable clients
-	srv.TLSConfig.EnableSslv2ClientHello = httpsConf.EnableSslv2ClientHello
-
 	// initialize ciphersuites preference
 	srv.TLSConfig.PreferServerCipherSuites = true
-	cipherSuites, cipherSuitesPriority, err := bfe_conf.GetCipherSuites(httpsConf.CipherSuites)
+	cipherSuites, err := bfe_conf.GetCipherSuites(httpsConf.CipherSuites)
 	if err != nil {
 		return fmt.Errorf("in ServerCertConfLoad() :%s", err.Error())
 	}
 	srv.TLSConfig.CipherSuites = cipherSuites
-	srv.TLSConfig.CipherSuitesPriority = cipherSuitesPriority
-
-	// set Ssl3PoodleProofed true make server free of poodle attach
-	srv.TLSConfig.Ssl3PoodleProofed = true
 
 	// initialize elliptic curves preference
 	srv.TLSConfig.CurvePreferences, err = bfe_conf.GetCurvePreferences(httpsConf.CurvePreferences)
 	if err != nil {
 		return fmt.Errorf("in ServerCertConfLoad() :%s", err.Error())
 	}
-
-	// initialize session cache
-	srv.initTLSSessionCache()
 
 	// initialize session ticket
 	if err = srv.initTLSSessionTicket(); err != nil {
@@ -235,16 +223,6 @@ func (srv *BfeServer) initTLSConfig() (err error) {
 	}
 
 	return nil
-}
-
-func (srv *BfeServer) initTLSSessionCache() {
-	sessionCacheConf := srv.Config.SessionCache
-	srv.TLSConfig.SessionCacheDisabled = sessionCacheConf.SessionCacheDisabled
-
-	if !sessionCacheConf.SessionCacheDisabled {
-		srv.SessionCache = NewServerSessionCache(sessionCacheConf, srv.serverStatus.ProxyState)
-		srv.TLSConfig.ServerSessionCache = srv.SessionCache
-	}
 }
 
 func (srv *BfeServer) initTLSSessionTicket() error {
@@ -263,8 +241,7 @@ func (srv *BfeServer) initTLSSessionTicket() error {
 			return fmt.Errorf("wrong session ticket key %s (%s)", err, key)
 		}
 
-		copy(srv.TLSConfig.SessionTicketKeyName[:], key[:16])
-		copy(srv.TLSConfig.SessionTicketKey[:], key[16:])
+		copy(srv.TLSConfig.SessionTicketKey[:], key)
 	} else {
 		srv.TLSConfig.SessionTicketsDisabled = true
 	}
@@ -285,18 +262,63 @@ func (srv *BfeServer) initTLSRule(httpsConf bfe_conf.ConfigHttpsBasic) error {
 		return fmt.Errorf("createTlsConfig get default Cert error")
 	}
 
-	// Note: config.Certificates must be initialized, but we just use config.MultiCert
-	// for server certificates
-	srv.TLSConfig.Certificates = make([]bfe_tls.Certificate, 1)
+	// Note: the default certificate is used only when GetCertificate
+	// (wired to MultiCert) returns nil, which should not happen since
+	// MultiCert always falls back to the default certificate.
+	srv.TLSConfig.Certificates = make([]tls.Certificate, 1)
 	srv.TLSConfig.Certificates[0] = *cert
-	srv.TLSConfig.MultiCert = srv.MultiCert
-	srv.TLSConfig.ServerRule = srv.TLSServerRule
+
+	// select server certificate by vip and sni
+	srv.TLSConfig.GetCertificate = func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		vip := bfe_util.GetVip(hello.Conn)
+		return srv.MultiCert.GetByVipSni(vip, hello.ServerName), nil
+	}
+
+	// apply tls server rule (next protos gray release, client auth, etc)
+	srv.TLSConfig.GetConfigForClient = func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
+		vip := bfe_util.GetVip(hello.Conn)
+		rule := srv.TLSServerRule.GetByVipSni(vip, hello.ServerName)
+
+		// Clone the listener's current config (instead of srv.TLSConfig) so
+		// that updates applied at the listener level, e.g. a rotated session
+		// ticket key after /reload/tls_session_ticket_key, take effect on
+		// new connections. srv.TLSConfig is only the startup-time base.
+		var config *tls.Config
+		if srv.HttpsListener != nil {
+			config = srv.HttpsListener.GetConfigClone()
+		} else {
+			config = srv.TLSConfig.Clone()
+		}
+
+		// select next protos for current conn
+		config.NextProtos = rule.NextProtosConf.Get(hello.Conn)
+
+		// set client auth policy
+		config.ClientAuth = rule.ClientAuth
+		config.ClientCAs = rule.ClientCAs
+
+		// check client cert revocation if CRL pool configured
+		if rule.ClientCRLPool != nil {
+			clientCRLPool := rule.ClientCRLPool
+			config.VerifyConnection = func(cs tls.ConnectionState) error {
+				for _, cert := range cs.PeerCertificates {
+					if clientCRLPool.CheckCertRevoked(cert) {
+						return fmt.Errorf("client certificate (serial %s) is revoked",
+							cert.SerialNumber)
+					}
+				}
+				return nil
+			}
+		}
+
+		return config, nil
+	}
 	return nil
 }
 
 func (srv *BfeServer) initTLSNextProtoHandler() {
 	// init next protocol handler
-	tlsNextProto := make(map[string]func(*bfe_http.Server, *bfe_tls.Conn, bfe_http.Handler))
+	tlsNextProto := make(map[string]func(*bfe_http.Server, *tls.Conn, bfe_http.Handler))
 	tlsNextProto[tls_rule_conf.SPDY31] = bfe_spdy.NewProtoHandler(nil)
 	tlsNextProto[tls_rule_conf.HTTP2] = bfe_http2.NewProtoHandler(nil)
 	tlsNextProto[tls_rule_conf.STREAM] = bfe_stream.NewProtoHandler(&bfe_stream.Server{
@@ -313,7 +335,22 @@ func (srv *BfeServer) initTLSNextProtoHandler() {
 }
 
 func (srv *BfeServer) InitModules() error {
-	return srv.Modules.Init(srv.CallBacks, srv.Monitor.WebHandlers, srv.ConfRoot)
+	if err := srv.Modules.Init(srv.CallBacks, srv.Monitor.WebHandlers, srv.ConfRoot); err != nil {
+		return err
+	}
+
+	// set tls key log writer from modules (eg. mod_key_log) that
+	// implement bfe_module.TlsKeyLogProvider
+	for _, module := range srv.Modules.GetModules() {
+		if provider, ok := module.(bfe_module.TlsKeyLogProvider); ok {
+			if w := provider.TlsKeyLogWriter(); w != nil {
+				srv.TLSConfig.KeyLogWriter = w
+				log.Logger.Info("InitModules(): set TLS KeyLogWriter from %s", module.Name())
+			}
+		}
+	}
+
+	return nil
 }
 
 func (srv *BfeServer) InitSignalTable() {

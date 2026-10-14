@@ -149,8 +149,7 @@ func sesTlsInfoGen(sesLog *bfe_access_pb3.SessionLog, session *bfe_basic.Session
 	sesLog.TlsVersion = proto.Uint32(uint32(state.Version))
 	sesLog.CipherSuite = proto.Uint32(uint32(state.CipherSuite))
 	sesLog.SessionResume = proto.Bool(state.DidResume)
-	sesLog.OcspStaple = proto.Bool(state.OcspStaple)
-	sesLog.HandshakeTime = proto.Uint32(uint32(state.HandshakeTime / time.Millisecond))
+	sesLog.OcspStaple = proto.Bool(len(state.OCSPResponse) > 0)
 }
 
 func sesLostTypeGen(sesLog *bfe_access_pb3.SessionLog, ses *bfe_basic.Session) {

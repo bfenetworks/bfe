@@ -15,13 +15,13 @@
 package mod_access_pb3
 
 import (
+	"crypto/tls"
 	"errors"
 	"net"
 	"testing"
 	"time"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
-	"github.com/bfenetworks/bfe/bfe_tls"
 
 	bfe_access_pb3 "github.com/bfenetworks/bfe-access-pb/bfe_access_pb"
 )
@@ -41,12 +41,11 @@ func makeSessionLogTest(t *testing.T) (*bfe_basic.Session, *bfe_access_pb3.Sessi
 	session.UpdateReadTotal(1024)
 	session.UpdateWriteTotal(2048)
 	session.SetError(errors.New("ses_err"), "session timeout")
-	session.TlsState = &bfe_tls.ConnectionState{
-		Version:       0x0303,
-		CipherSuite:   0x002f,
-		DidResume:     true,
-		OcspStaple:    true,
-		HandshakeTime: 100 * time.Millisecond,
+	session.TlsState = &tls.ConnectionState{
+		Version:      0x0303,
+		CipherSuite:  0x002f,
+		DidResume:    true,
+		OCSPResponse: []byte{0x01},
 	}
 
 	return session, &bfe_access_pb3.SessionLog{}
@@ -152,9 +151,6 @@ func TestSesTlsInfoGen(t *testing.T) {
 	}
 	if sesLog.OcspStaple == nil || !*sesLog.OcspStaple {
 		t.Error("OcspStaple error")
-	}
-	if sesLog.HandshakeTime == nil || *sesLog.HandshakeTime == 0 {
-		t.Error("HandshakeTime error")
 	}
 }
 

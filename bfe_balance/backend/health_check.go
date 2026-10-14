@@ -17,6 +17,7 @@
 package backend
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
@@ -32,7 +33,6 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_debug"
-	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 type checkRtn struct {
@@ -211,12 +211,11 @@ func checkHTTPSConnect(backend *BfeBackend, checkConf *cluster_conf.BackendCheck
 		checkTimeout = 30 * time.Second
 		statusCode   = 0
 		host         string
-		rootCAs      *x509.CertPool        = nil
-		certs        []bfe_tls.Certificate = nil
-		cert         bfe_tls.Certificate
-		insecure     = false
-		uri          = "/"
-		checkRtnCh   = make(chan checkRtn, 1)
+		rootCAs      *x509.CertPool    = nil
+		certs        []tls.Certificate = nil
+		insecure                       = false
+		uri                            = "/"
+		checkRtnCh                     = make(chan checkRtn, 1)
 		rtn          checkRtn
 	)
 
@@ -246,7 +245,7 @@ func checkHTTPSConnect(backend *BfeBackend, checkConf *cluster_conf.BackendCheck
 			}
 
 			// TLS Check
-			if err = conn.(*bfe_tls.Conn).Handshake(); err != nil {
+			if err = conn.(*tls.Conn).Handshake(); err != nil {
 				log.Logger.Debug("debug_https err=%s", err.Error())
 				return checkRtn{false, err}
 			}
@@ -359,20 +358,28 @@ func checkHTTPSConnect(backend *BfeBackend, checkConf *cluster_conf.BackendCheck
 
 	rootCAs, err = httpsConf.GetRSCAList()
 
-	if cert, err = httpsConf.GetBFECert(); err == nil {
-		certs = []bfe_tls.Certificate{cert}
+	if cert, err := httpsConf.GetBFECert(); err == nil {
+		// convert bfe_tls.Certificate to tls.Certificate
+		certs = []tls.Certificate{{
+			Certificate: cert.Certificate,
+			PrivateKey:  cert.PrivateKey,
+			OCSPStaple:  cert.OCSPStaple,
+			Leaf:        cert.Leaf,
+		}}
 	}
 
 	if httpsConf.RSInsecureSkipVerify != nil {
 		insecure = *httpsConf.RSInsecureSkipVerify
 	}
 
-	conn = bfe_tls.Client(conn, &bfe_tls.Config{
-		Certificates:          certs,
-		InsecureSkipVerify:    true,
-		ServerName:            host,
-		RootCAs:               rootCAs,
-		VerifyPeerCertificate: bfe_tls.NewVerifyPeerCertHooks(insecure, host, rootCAs).Ready(),
+	// Note: the fork's NewVerifyPeerCertHooks(insecure, host, rootCAs) is
+	// replaced by the standard library: when insecure is false, the client
+	// verifies the peer certificate against RootCAs and ServerName.
+	conn = tls.Client(conn, &tls.Config{
+		Certificates:       certs,
+		InsecureSkipVerify: insecure,
+		ServerName:         host,
+		RootCAs:            rootCAs,
 	})
 
 	log.Logger.Debug("httpsCheck conf=%s", toStringFn(checkConf))

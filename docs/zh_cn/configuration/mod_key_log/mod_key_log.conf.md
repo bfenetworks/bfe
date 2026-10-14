@@ -4,6 +4,8 @@
 
 `mod_key_log.conf` 是 `mod_key_log` 模块的基础配置文件，用于指定规则数据文件路径及 NSS key log 日志输出方式。
 
+> 说明：BFE 的 TLS 实现切换为标准库 `crypto/tls` 后，key log 由 `tls.Config.KeyLogWriter` 在**握手过程中**写出（NSS keylog 格式），不再在请求结束时输出。日志格式与 Wireshark 等工具的兼容性保持不变。
+
 ## 配置描述
 
 | 配置项          | 类型    | 参数含义                 | 必填 | 补充描述                                                     | 合法性条件                                                   |

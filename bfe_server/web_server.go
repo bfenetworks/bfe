@@ -78,8 +78,8 @@ func (m *BfeMonitor) monitorHandlers() map[string]interface{} {
 		"proxy_protocol_state_diff": m.srv.proxyProtocolStateGetDiff,
 
 		// for tls
-		"tls_state":      m.srv.tlsStateGetAll,
-		"tls_state_diff": m.srv.tlsStateGetDiff,
+		// Note: tls_state/tls_state_diff (bfe_tls fork internal counters)
+		// were removed together with the bfe_tls fork
 
 		// for spdy
 		"spdy_state":      m.srv.spdyStateGetAll,

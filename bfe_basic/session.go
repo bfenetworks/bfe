@@ -17,15 +17,12 @@
 package bfe_basic
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
-)
-
-import (
-	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 const (
@@ -44,9 +41,15 @@ type Session struct {
 
 	Use100Continue bool // "expect 100-continue" is used?
 
-	Proto    string                   // protocol for the connection
-	IsSecure bool                     // over tls connection?
-	TlsState *bfe_tls.ConnectionState // tls state when using TLS
+	Proto    string               // protocol for the connection
+	IsSecure bool                 // over tls connection?
+	TlsState *tls.ConnectionState // tls state when using TLS
+
+	// TlsClientAuth/TlsClientCAName are filled by bfe_server from the
+	// matched tls rule after handshake (std tls.ConnectionState has no
+	// such fields; they were extensions of the removed bfe_tls fork)
+	TlsClientAuth   bool
+	TlsClientCAName string
 
 	Vip     net.IP // the virtual ip visited
 	Vport   int    // vip virtual port visited

@@ -15,6 +15,7 @@
 package mod_header
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -22,13 +23,10 @@ import (
 	"net"
 	"testing"
 	"time"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_geo"
-	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util"
 )
 
@@ -48,10 +46,10 @@ func (c *testConn) RemoteAddr() net.Addr {
 
 type testAddrFetcher struct {
 	net.Conn
-	local      net.Addr
-	remote     net.Addr
-	virtual    net.Addr
-	balancer   net.Addr
+	local    net.Addr
+	remote   net.Addr
+	virtual  net.Addr
+	balancer net.Addr
 }
 
 func (f *testAddrFetcher) LocalAddr() net.Addr    { return f.local }
@@ -178,7 +176,7 @@ func TestGetConnReused(t *testing.T) {
 }
 
 func TestGetConnResume(t *testing.T) {
-	state := &bfe_tls.ConnectionState{DidResume: true}
+	state := &tls.ConnectionState{DidResume: true}
 	if got := getConnResume(state); got != "R" {
 		t.Errorf("getConnResume(true) = %s, want R", got)
 	}
@@ -191,12 +189,10 @@ func TestGetConnResume(t *testing.T) {
 
 func TestGetBfeSslFunctions(t *testing.T) {
 	req := makeRequestForVars()
-	req.Session.TlsState = &bfe_tls.ConnectionState{
-		Version:     bfe_tls.VersionTLS12,
-		CipherSuite: bfe_tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+	req.Session.TlsState = &tls.ConnectionState{
+		Version:     tls.VersionTLS12,
+		CipherSuite: tls.TLS_RSA_WITH_AES_128_CBC_SHA,
 		DidResume:   true,
-		JA3Raw:      "raw",
-		JA3Hash:     "hash",
 	}
 
 	if got := getBfeSslResume(req); got != "R" {
@@ -207,12 +203,6 @@ func TestGetBfeSslFunctions(t *testing.T) {
 	}
 	if got := getBfeSslVersion(req); got == "" {
 		t.Error("getBfeSslVersion empty")
-	}
-	if got := getBfeSslJa3Raw(req); got != "raw" {
-		t.Errorf("getBfeSslJa3Raw = %s, want raw", got)
-	}
-	if got := getBfeSslJa3Hash(req); got != "hash" {
-		t.Errorf("getBfeSslJa3Hash = %s, want hash", got)
 	}
 
 	req.Session.TlsState = nil
@@ -256,7 +246,7 @@ func TestGetClientCertFunctions(t *testing.T) {
 		},
 	}
 
-	req.Session.TlsState = &bfe_tls.ConnectionState{
+	req.Session.TlsState = &tls.ConnectionState{
 		PeerCertificates: []*x509.Certificate{cert},
 	}
 
@@ -301,7 +291,7 @@ func TestGetClientCertSubjectTitleNonString(t *testing.T) {
 			},
 		},
 	}
-	req.Session.TlsState = &bfe_tls.ConnectionState{
+	req.Session.TlsState = &tls.ConnectionState{
 		PeerCertificates: []*x509.Certificate{cert},
 	}
 	if got := getClientCertSubjectTitle(req); got != "" {
@@ -312,7 +302,7 @@ func TestGetClientCertSubjectTitleNonString(t *testing.T) {
 func TestGetClientCertSubjectEmpty(t *testing.T) {
 	req := makeRequestForVars()
 	cert := &x509.Certificate{Subject: pkix.Name{CommonName: ""}}
-	req.Session.TlsState = &bfe_tls.ConnectionState{
+	req.Session.TlsState = &tls.ConnectionState{
 		PeerCertificates: []*x509.Certificate{cert},
 	}
 	if got := getClientCertSubjectCommonName(req); got != "" {
@@ -332,17 +322,6 @@ func TestGetClientCertSubjectEmpty(t *testing.T) {
 	}
 	if got := getClientCertSubjectLocality(req); got != "" {
 		t.Errorf("getClientCertSubjectLocality = %s, want empty", got)
-	}
-}
-
-func TestGetBfeSslJa3NilState(t *testing.T) {
-	req := makeRequestForVars()
-	req.Session.TlsState = nil
-	if got := getBfeSslJa3Raw(req); got != "" {
-		t.Errorf("getBfeSslJa3Raw(nil) = %s, want empty", got)
-	}
-	if got := getBfeSslJa3Hash(req); got != "" {
-		t.Errorf("getBfeSslJa3Hash(nil) = %s, want empty", got)
 	}
 }
 
@@ -367,9 +346,9 @@ func TestGetBfeVip(t *testing.T) {
 
 func TestGetAddressFetcher(t *testing.T) {
 	base := &testConn{local: &net.TCPAddr{IP: net.ParseIP("1.1.1.1"), Port: 80}}
-	tlsConn := &bfe_tls.Conn{}
+	tlsConn := &tls.Conn{}
 	if got := getAddressFetcher(tlsConn); got != nil {
-		t.Error("getAddressFetcher(bfe_tls.Conn without AddressFetcher) should be nil")
+		t.Error("getAddressFetcher(tls.Conn without AddressFetcher) should be nil")
 	}
 
 	fetcher := &testAddrFetcher{balancer: &net.TCPAddr{IP: net.ParseIP("2.2.2.2"), Port: 80}}
@@ -492,7 +471,7 @@ func TestGetClientCertExtVal(t *testing.T) {
 			{Id: oidTitle, Value: []byte{0xAB, 0xCD}},
 		},
 	}
-	req.Session.TlsState = &bfe_tls.ConnectionState{
+	req.Session.TlsState = &tls.ConnectionState{
 		PeerCertificates: []*x509.Certificate{cert},
 	}
 	if got := getClientCertExtVal(req, oidTitle); got != "abcd" {
@@ -510,11 +489,11 @@ func TestGetClientCertExtVal(t *testing.T) {
 }
 
 func TestGetAddressFetcherWithTlsConn(t *testing.T) {
-	// bfe_tls.Conn.GetNetConn returns nil in test if not set,
+	// tls.Conn.NetConn returns nil in test if not set,
 	// so getAddressFetcher returns nil
-	tlsConn := &bfe_tls.Conn{}
+	tlsConn := &tls.Conn{}
 	if got := getAddressFetcher(tlsConn); got != nil {
-		t.Error("getAddressFetcher(bfe_tls.Conn) should be nil when underlying conn is nil")
+		t.Error("getAddressFetcher(tls.Conn) should be nil when underlying conn is nil")
 	}
 }
 

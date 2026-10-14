@@ -15,16 +15,14 @@
 package condition
 
 import (
+	"crypto/tls"
 	"net"
 	"reflect"
 	"regexp"
 	"testing"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
-	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util/net_util"
 )
 
@@ -435,12 +433,12 @@ func TestBuildTlsSniIn(t *testing.T) {
 			err.Error())
 	}
 
-	req.Session = &bfe_basic.Session{TlsState: &bfe_tls.ConnectionState{ServerName: "test.com"}, IsSecure: true}
+	req.Session = &bfe_basic.Session{TlsState: &tls.ConnectionState{ServerName: "test.com"}, IsSecure: true}
 	if !buildTlsSniIn.Match(&req) {
 		t.Errorf("sni not match ses_tls_sni_in(\"test.com\")")
 	}
 
-	req.Session = &bfe_basic.Session{TlsState: &bfe_tls.ConnectionState{ServerName: "test.com"}}
+	req.Session = &bfe_basic.Session{TlsState: &tls.ConnectionState{ServerName: "test.com"}}
 	if buildTlsSniIn.Match(&req) {
 		t.Errorf("sni match ses_tls_sni_in(\"test.com\")")
 	}
@@ -453,12 +451,12 @@ func TestBuildTlsClientAuth(t *testing.T) {
 			err.Error())
 	}
 
-	req.Session = &bfe_basic.Session{TlsState: &bfe_tls.ConnectionState{ClientAuth: true}, IsSecure: true}
+	req.Session = &bfe_basic.Session{TlsClientAuth: true, IsSecure: true}
 	if !buildTlsClientAuth.Match(&req) {
 		t.Errorf("clientauth not match ses_tls_client_auth()")
 	}
 
-	req.Session = &bfe_basic.Session{TlsState: &bfe_tls.ConnectionState{ClientAuth: false}, IsSecure: true}
+	req.Session = &bfe_basic.Session{TlsClientAuth: false, IsSecure: true}
 	if buildTlsClientAuth.Match(&req) {
 		t.Errorf("clientauth match ses_tls_client_auth()")
 	}
@@ -471,12 +469,12 @@ func TestBuildTlsClientCAIn(t *testing.T) {
 			err.Error())
 	}
 
-	req.Session = &bfe_basic.Session{TlsState: &bfe_tls.ConnectionState{ClientAuth: true, ClientCAName: "clientCa"}, IsSecure: true}
+	req.Session = &bfe_basic.Session{TlsClientAuth: true, TlsClientCAName: "clientCa", IsSecure: true}
 	if !buildTlsClientCAIn.Match(&req) {
 		t.Errorf("ca not match ses_tls_client_ca_in(\"clientCa\")")
 	}
 
-	req.Session = &bfe_basic.Session{TlsState: &bfe_tls.ConnectionState{ClientAuth: false, ClientCAName: "clientCa"}, IsSecure: true}
+	req.Session = &bfe_basic.Session{TlsClientAuth: false, TlsClientCAName: "clientCa", IsSecure: true}
 	if buildTlsClientCAIn.Match(&req) {
 		t.Errorf("ca match ses_tls_client_ca_in(\"clientCa\")")
 	}

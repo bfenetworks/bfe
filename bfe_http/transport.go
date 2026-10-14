@@ -25,6 +25,7 @@ package bfe_http
 
 import (
 	"compress/gzip"
+	tls "crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -36,11 +37,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bfenetworks/go-lib/gotrack"
-	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/go-lib/gotrack"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 // DefaultTransport is the default implementation of Transport and is
@@ -85,7 +85,7 @@ type Transport struct {
 
 	// TLSClientConfig specifies the TLS configuration to use with
 	// tls.Client. If nil, the default configuration is used.
-	TLSClientConfig *bfe_tls.Config
+	TLSClientConfig *tls.Config
 
 	// DisableKeepAlives, if true, prevents re-use of TCP connections
 	// between different HTTP requests.
@@ -606,10 +606,9 @@ func (t *Transport) dialConn(cm *connectMethod) (*persistConn, error) {
 		if cfg == nil || cfg.ServerName == "" {
 			var (
 				host      string
-				rootCAs   *x509.CertPool        = nil
-				certs     []bfe_tls.Certificate = nil
-				cert      bfe_tls.Certificate
-				httpsConf = t.HttpsConf
+				rootCAs   *x509.CertPool    = nil
+				certs     []tls.Certificate = nil
+				httpsConf                   = t.HttpsConf
 			)
 			if httpsConf.RSHost != nil && *httpsConf.RSHost != "" {
 				host = *httpsConf.RSHost
@@ -618,12 +617,18 @@ func (t *Transport) dialConn(cm *connectMethod) (*persistConn, error) {
 			}
 
 			if cfg == nil {
-				if cert, err = httpsConf.GetBFECert(); err == nil {
-					certs = []bfe_tls.Certificate{cert}
+				if cert, err := httpsConf.GetBFECert(); err == nil {
+					// convert bfe_tls.Certificate to tls.Certificate
+					certs = []tls.Certificate{{
+						Certificate: cert.Certificate,
+						PrivateKey:  cert.PrivateKey,
+						OCSPStaple:  cert.OCSPStaple,
+						Leaf:        cert.Leaf,
+					}}
 				}
 				if httpsConf.RSInsecureSkipVerify != nil && *httpsConf.RSInsecureSkipVerify {
 					// should skip Insecure Verify
-					cfg = &bfe_tls.Config{
+					cfg = &tls.Config{
 						Certificates:       certs,
 						InsecureSkipVerify: true,
 						ServerName:         host,
@@ -637,19 +642,18 @@ func (t *Transport) dialConn(cm *connectMethod) (*persistConn, error) {
 					// do Insecure Verify
 					if rootCAs == nil {
 						// use system cas
-						cfg = &bfe_tls.Config{
+						cfg = &tls.Config{
 							Certificates:       certs,
 							InsecureSkipVerify: false,
 							ServerName:         host,
 						}
 					} else {
 						// use custom cas only, keep unchanged.
-						cfg = &bfe_tls.Config{
-							Certificates:          certs,
-							InsecureSkipVerify:    true,
-							ServerName:            host,
-							RootCAs:               rootCAs,
-							VerifyPeerCertificate: bfe_tls.NewVerifyPeerCertHooks(*httpsConf.RSInsecureSkipVerify, host, rootCAs).Ready(),
+						cfg = &tls.Config{
+							Certificates:       certs,
+							InsecureSkipVerify: false,
+							ServerName:         host,
+							RootCAs:            rootCAs,
 						}
 					}
 				}
@@ -660,12 +664,12 @@ func (t *Transport) dialConn(cm *connectMethod) (*persistConn, error) {
 				cfg = clone
 			}
 		}
-		conn = bfe_tls.Client(conn, cfg)
-		if err = conn.(*bfe_tls.Conn).Handshake(); err != nil {
+		conn = tls.Client(conn, cfg)
+		if err = conn.(*tls.Conn).Handshake(); err != nil {
 			return nil, err
 		}
 		if !cfg.InsecureSkipVerify {
-			if err = conn.(*bfe_tls.Conn).VerifyHostname(cfg.ServerName); err != nil {
+			if err = conn.(*tls.Conn).VerifyHostname(cfg.ServerName); err != nil {
 				return nil, err
 			}
 		}

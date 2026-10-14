@@ -22,16 +22,12 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
-)
 
-import (
-	"github.com/bfenetworks/go-lib/log"
-)
-
-import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/server_cert_conf"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/session_ticket_key_conf"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/tls_rule_conf"
+	"github.com/bfenetworks/go-lib/log"
+
 	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_route"
 	"github.com/bfenetworks/bfe/bfe_util/bns"
@@ -103,6 +99,16 @@ func joinPath(path, suffix string) string {
 	// filepath.Base splits on os.PathSeparator; on Windows it accepts both
 	// '/' and '\\', unlike a literal strings.Split(suffix, "/").
 	return filepath.Join(path, filepath.Base(suffix))
+}
+
+// underTLSConfRoot reports whether dir is located under the tls_conf root.
+// Config paths keep forward slashes (bfe_util.ConfPathProc uses path.Join)
+// while filepath.Join produces backslashes on Windows, so both are
+// normalized before the prefix check.
+func underTLSConfRoot(dir, tlsConfRoot string) bool {
+	dir = filepath.Clean(filepath.FromSlash(dir))
+	tlsConfRoot = filepath.Clean(filepath.FromSlash(tlsConfRoot))
+	return strings.HasPrefix(dir, tlsConfRoot+string(filepath.Separator))
 }
 
 // ServerDataConfReload reloads host/route/cluster conf
@@ -237,10 +243,10 @@ func (srv *BfeServer) TLSConfReload(query url.Values) error {
 		// well, so a reload with "path" reads a self-contained config unit.
 		// Custom base dirs outside tls_conf are left untouched.
 		tlsConfRoot := filepath.Join(srv.ConfRoot, "tls_conf")
-		if strings.HasPrefix(clientCABaseDir, tlsConfRoot+string(filepath.Separator)) {
+		if underTLSConfRoot(clientCABaseDir, tlsConfRoot) {
 			clientCABaseDir = joinPath(path, clientCABaseDir)
 		}
-		if strings.HasPrefix(clientCRLBaseDir, tlsConfRoot+string(filepath.Separator)) {
+		if underTLSConfRoot(clientCRLBaseDir, tlsConfRoot) {
 			clientCRLBaseDir = joinPath(path, clientCRLBaseDir)
 		}
 	}

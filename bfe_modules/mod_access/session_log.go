@@ -16,12 +16,9 @@ package mod_access
 
 import (
 	"bytes"
-	"encoding/hex"
 	"errors"
 	"fmt"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 )
 
@@ -115,36 +112,6 @@ func onLogFmtSesReadTotal(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buff
 	}
 
 	msg := fmt.Sprintf("%d", session.ReadTotal())
-	buff.WriteString(msg)
-
-	return nil
-}
-
-func onLogFmtSesTLSClientRandom(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
-	session *bfe_basic.Session) error {
-	if session == nil {
-		return errors.New("session is nil")
-	}
-
-	msg := "-"
-	if session.TlsState != nil {
-		msg = hex.EncodeToString(session.TlsState.ClientRandom)
-	}
-	buff.WriteString(msg)
-
-	return nil
-}
-
-func onLogFmtSesTLSServerRandom(m *ModuleAccess, logItem *LogFmtItem, buff *bytes.Buffer,
-	session *bfe_basic.Session) error {
-	if session == nil {
-		return errors.New("session is nil")
-	}
-
-	msg := "-"
-	if session.TlsState != nil {
-		msg = hex.EncodeToString(session.TlsState.ServerRandom)
-	}
 	buff.WriteString(msg)
 
 	return nil

@@ -15,50 +15,47 @@
 package bfe_conf
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"strings"
-)
 
-import (
+	"github.com/bfenetworks/bfe/bfe_util"
 	"github.com/bfenetworks/go-lib/log"
 )
 
-import (
-	"github.com/bfenetworks/bfe/bfe_tls"
-	"github.com/bfenetworks/bfe/bfe_util"
-)
-
 var TlsVersionMap = map[string]uint16{
-	"VersionSSL30": bfe_tls.VersionSSL30,
-	"VersionTLS10": bfe_tls.VersionTLS10,
-	"VersionTLS11": bfe_tls.VersionTLS11,
-	"VersionTLS12": bfe_tls.VersionTLS12,
+	"VersionSSL30": tls.VersionSSL30,
+	"VersionTLS10": tls.VersionTLS10,
+	"VersionTLS11": tls.VersionTLS11,
+	"VersionTLS12": tls.VersionTLS12,
+	"VersionTLS13": tls.VersionTLS13,
 }
 
-var CurvesMap = map[string]bfe_tls.CurveID{
-	"CurveP256": bfe_tls.CurveP256,
-	"CurveP384": bfe_tls.CurveP384,
-	"CurveP521": bfe_tls.CurveP521,
+var CurvesMap = map[string]tls.CurveID{
+	"CurveP256":   tls.CurveP256,
+	"CurveP384":   tls.CurveP384,
+	"CurveP521":   tls.CurveP521,
+	"CurveX25519": tls.X25519,
 }
 
 var CipherSuitesMap = map[string]uint16{
-	"TLS_RSA_WITH_RC4_128_SHA":                      bfe_tls.TLS_RSA_WITH_RC4_128_SHA,
-	"TLS_RSA_WITH_3DES_EDE_CBC_SHA":                 bfe_tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
-	"TLS_RSA_WITH_AES_128_CBC_SHA":                  bfe_tls.TLS_RSA_WITH_AES_128_CBC_SHA,
-	"TLS_RSA_WITH_AES_256_CBC_SHA":                  bfe_tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-	"TLS_ECDHE_ECDSA_WITH_RC4_128_SHA":              bfe_tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
-	"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA":          bfe_tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-	"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA":          bfe_tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-	"TLS_ECDHE_RSA_WITH_RC4_128_SHA":                bfe_tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,
-	"TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA":           bfe_tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
-	"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA":            bfe_tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-	"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA":            bfe_tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-	"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":         bfe_tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-	"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256":       bfe_tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-	"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256":   bfe_tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
-	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256": bfe_tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+	"TLS_RSA_WITH_RC4_128_SHA":                      tls.TLS_RSA_WITH_RC4_128_SHA,
+	"TLS_RSA_WITH_3DES_EDE_CBC_SHA":                 tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+	"TLS_RSA_WITH_AES_128_CBC_SHA":                  tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+	"TLS_RSA_WITH_AES_256_CBC_SHA":                  tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+	"TLS_ECDHE_ECDSA_WITH_RC4_128_SHA":              tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+	"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA":          tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+	"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA":          tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+	"TLS_ECDHE_RSA_WITH_RC4_128_SHA":                tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,
+	"TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA":           tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+	"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA":            tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+	"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA":            tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+	"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":         tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256":       tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+	"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256":   tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256": tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
 }
 
 const (
@@ -75,7 +72,9 @@ type ConfigHttpsBasic struct {
 	MaxTlsVersion string // max tls version supported
 	MinTlsVersion string // min tls version supported
 
-	EnableSslv2ClientHello bool // support sslv2 client hello for backward compatibility
+	// Deprecated: SSLv2 ClientHello compatibility was removed with the
+	// bfe_tls fork. The value is parsed but ignored.
+	EnableSslv2ClientHello bool
 
 	ClientCABaseDir  string // client root CAs base directory
 	ClientCRLBaseDir string // client cert CRL base directory
@@ -214,10 +213,10 @@ func clientCABaseDirCheck(cfg *ConfigHttpsBasic, confRoot string) error {
 
 func tlsVersionCheck(cfg *ConfigHttpsBasic) error {
 	if len(cfg.MaxTlsVersion) == 0 {
-		cfg.MaxTlsVersion = "VersionTLS12"
+		cfg.MaxTlsVersion = "VersionTLS13"
 	}
 	if len(cfg.MinTlsVersion) == 0 {
-		cfg.MinTlsVersion = "VersionSSL30"
+		cfg.MinTlsVersion = "VersionTLS10"
 	}
 
 	maxTlsVer, ok := TlsVersionMap[cfg.MaxTlsVersion]
@@ -247,8 +246,8 @@ func LoadClientCAFile(path string) (*x509.CertPool, error) {
 	return roots, nil
 }
 
-func GetCurvePreferences(curveConf []string) ([]bfe_tls.CurveID, error) {
-	curvePreferences := make([]bfe_tls.CurveID, 0, len(curveConf))
+func GetCurvePreferences(curveConf []string) ([]tls.CurveID, error) {
+	curvePreferences := make([]tls.CurveID, 0, len(curveConf))
 	for _, curveStr := range curveConf {
 		curve, ok := CurvesMap[curveStr]
 		if !ok {
@@ -259,34 +258,35 @@ func GetCurvePreferences(curveConf []string) ([]bfe_tls.CurveID, error) {
 	return curvePreferences, nil
 }
 
-func GetCipherSuites(cipherConf []string) ([]uint16, []uint16, error) {
+// GetCipherSuites converts cipher suite names to cipher suite ids.
+// Note: cipher suites priority (CipherSuitesPriority) was removed with the
+// bfe_tls fork, only the cipher suite list is returned.
+func GetCipherSuites(cipherConf []string) ([]uint16, error) {
 	cipherSuites := make([]uint16, 0, len(cipherConf))
-	cipherSuitesPriority := make([]uint16, 0, len(cipherConf))
 
-	for i, cipherGroup := range cipherConf {
+	for _, cipherGroup := range cipherConf {
 		ciphers := strings.Split(cipherGroup, EquivCipherSep)
 		for _, cipher := range ciphers {
 			cipherSuite, ok := CipherSuitesMap[cipher]
 			if !ok {
-				return nil, nil, fmt.Errorf("ciphersuite (%s) not support", cipher)
+				return nil, fmt.Errorf("ciphersuite (%s) not support", cipher)
 			}
 			cipherSuites = append(cipherSuites, cipherSuite)
-			cipherSuitesPriority = append(cipherSuitesPriority, uint16(i))
 		}
 	}
 
-	return cipherSuites, cipherSuitesPriority, nil
+	return cipherSuites, nil
 }
 
 func GetTlsVersion(cfg *ConfigHttpsBasic) (maxVer, minVer uint16) {
 	maxTlsVersion, ok := TlsVersionMap[cfg.MaxTlsVersion]
 	if !ok {
-		maxTlsVersion = bfe_tls.VersionTLS12
+		maxTlsVersion = tls.VersionTLS13
 	}
 
 	minTlsVersion, ok := TlsVersionMap[cfg.MinTlsVersion]
 	if !ok {
-		minTlsVersion = bfe_tls.VersionSSL30
+		minTlsVersion = tls.VersionTLS10
 	}
 
 	return maxTlsVersion, minTlsVersion

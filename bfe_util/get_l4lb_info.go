@@ -15,12 +15,9 @@
 package bfe_util
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
-)
-
-import (
-	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 // GetVipPort return vip and port for given conn
@@ -29,8 +26,8 @@ func GetVipPort(conn net.Conn) (net.IP, int, error) {
 	//  - TLS Connection (optional)
 	//  - BFE Connection (PROXY, optional)
 	//  - TCP Connection
-	if tc, ok := conn.(*bfe_tls.Conn); ok {
-		conn = tc.GetNetConn()
+	if tc, ok := conn.(*tls.Conn); ok {
+		conn = tc.NetConn()
 	}
 
 	// get virtual vip

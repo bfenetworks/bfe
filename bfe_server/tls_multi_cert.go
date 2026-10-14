@@ -17,7 +17,9 @@
 package bfe_server
 
 import (
+	"crypto/tls"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 )
@@ -25,35 +27,33 @@ import (
 import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/server_cert_conf"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/tls_rule_conf"
-	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 type MultiCertMap struct {
-	vipCertMap  map[string]*bfe_tls.Certificate // vip -> certificate
-	nameCertMap *NameCertMap                    // name -> certificate
-	defaultCert *bfe_tls.Certificate            // default cert
+	vipCertMap  map[string]*tls.Certificate // vip -> certificate
+	nameCertMap *NameCertMap                // name -> certificate
+	defaultCert *tls.Certificate            // default cert
 	lock        sync.RWMutex
 	state       *ProxyState // state for MultiCertMap
 }
 
 func NewMultiCertMap(state *ProxyState) *MultiCertMap {
 	m := new(MultiCertMap)
-	m.vipCertMap = make(map[string]*bfe_tls.Certificate)
+	m.vipCertMap = make(map[string]*tls.Certificate)
 	m.nameCertMap = NewNameCertMap()
 	m.state = state
 	return m
 }
 
-// Get gets certificate for given connection.
-func (m *MultiCertMap) Get(c *bfe_tls.Conn) *bfe_tls.Certificate {
-	var cert *bfe_tls.Certificate
+// GetByVipSni gets certificate for given vip and server name.
+func (m *MultiCertMap) GetByVipSni(vip net.IP, serverName string) *tls.Certificate {
+	var cert *tls.Certificate
 	m.state.TlsMultiCertGet.Inc(1)
 
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
 	// choose certificate by vip
-	vip := c.GetVip()
 	if vip != nil {
 		key := vip.String()
 		cert = m.vipCertMap[key]
@@ -67,7 +67,6 @@ func (m *MultiCertMap) Get(c *bfe_tls.Conn) *bfe_tls.Certificate {
 	// if vip for connection is not found unexpectedly, or vip for connection is unknown,
 	// try to choose cert by SNI (Server Name Indication)
 	if cert == nil {
-		serverName := c.GetServerName()
 		if len(serverName) > 0 {
 			cert = m.nameCertMap.Get(serverName)
 		} else {
@@ -84,7 +83,7 @@ func (m *MultiCertMap) Get(c *bfe_tls.Conn) *bfe_tls.Certificate {
 	return cert
 }
 
-func (m *MultiCertMap) GetDefault() *bfe_tls.Certificate {
+func (m *MultiCertMap) GetDefault() *tls.Certificate {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
@@ -96,11 +95,11 @@ func (m *MultiCertMap) GetDefault() *bfe_tls.Certificate {
 }
 
 // Update updates all certificates.
-func (m *MultiCertMap) Update(certConf map[string]*bfe_tls.Certificate,
+func (m *MultiCertMap) Update(certConf map[string]*tls.Certificate,
 	ruleMap tls_rule_conf.TlsRuleMap) error {
 	m.state.TlsMultiCertUpdate.Inc(1)
 
-	vipCertMap := make(map[string]*bfe_tls.Certificate)
+	vipCertMap := make(map[string]*tls.Certificate)
 	for _, ruleConf := range ruleMap {
 		cert, ok := certConf[ruleConf.CertName]
 		if !ok {
@@ -131,18 +130,18 @@ func (m *MultiCertMap) Update(certConf map[string]*bfe_tls.Certificate,
 }
 
 type NameCertMap struct {
-	normalCertMap   map[string]*bfe_tls.Certificate // cert map for normal name
-	wildcardCertMap map[string]*bfe_tls.Certificate // cert map for wildcard name
+	normalCertMap   map[string]*tls.Certificate // cert map for normal name
+	wildcardCertMap map[string]*tls.Certificate // cert map for wildcard name
 }
 
 func NewNameCertMap() *NameCertMap {
 	m := new(NameCertMap)
-	m.normalCertMap = make(map[string]*bfe_tls.Certificate)
-	m.wildcardCertMap = make(map[string]*bfe_tls.Certificate)
+	m.normalCertMap = make(map[string]*tls.Certificate)
+	m.wildcardCertMap = make(map[string]*tls.Certificate)
 	return m
 }
 
-func (m *NameCertMap) Get(serverName string) *bfe_tls.Certificate {
+func (m *NameCertMap) Get(serverName string) *tls.Certificate {
 	serverName = strings.ToLower(serverName)
 	for len(serverName) > 0 && serverName[len(serverName)-1] == '.' {
 		serverName = serverName[:len(serverName)-1]
@@ -163,9 +162,9 @@ func (m *NameCertMap) Get(serverName string) *bfe_tls.Certificate {
 	return nil
 }
 
-func (m *NameCertMap) Update(certConf map[string]*bfe_tls.Certificate) {
-	normalCertMap := make(map[string]*bfe_tls.Certificate)
-	wildcardCertMap := make(map[string]*bfe_tls.Certificate)
+func (m *NameCertMap) Update(certConf map[string]*tls.Certificate) {
+	normalCertMap := make(map[string]*tls.Certificate)
+	wildcardCertMap := make(map[string]*tls.Certificate)
 
 	for _, cert := range certConf {
 		names := server_cert_conf.GetNamesForCert(cert)

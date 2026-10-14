@@ -27,7 +27,6 @@ import (
 	"github.com/bfenetworks/bfe/bfe_proxy"
 	"github.com/bfenetworks/bfe/bfe_spdy"
 	"github.com/bfenetworks/bfe/bfe_stream"
-	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util/epp"
 	"github.com/bfenetworks/bfe/bfe_util/json"
 	"github.com/bfenetworks/bfe/bfe_websocket"
@@ -55,10 +54,6 @@ type ServerStatus struct {
 	// for proxy protocol
 	ProxyProtocolState   *bfe_proxy.ProxyState
 	ProxyProtocolMetrics metrics.Metrics
-
-	// for tls protocol
-	TlsState   *bfe_tls.TlsState
-	TlsMetrics metrics.Metrics
 
 	// for spdy protocol
 	SpdyState   *bfe_spdy.SpdyState
@@ -109,7 +104,6 @@ func NewServerStatus() *ServerStatus {
 
 	// initialize counter state
 	m.ProxyProtocolState = bfe_proxy.GetProxyState()
-	m.TlsState = bfe_tls.GetTlsState()
 	m.SpdyState = bfe_spdy.GetSpdyState()
 	m.Http2State = bfe_http2.GetHttp2State()
 	m.HttpState = bfe_http.GetHttpState()
@@ -121,7 +115,6 @@ func NewServerStatus() *ServerStatus {
 
 	// initialize metrics
 	m.ProxyProtocolMetrics.Init(m.ProxyProtocolState, KP_PROXY_STATE, 0)
-	m.TlsMetrics.Init(m.TlsState, KP_PROXY_STATE, 0)
 	m.SpdyMetrics.Init(m.SpdyState, KP_PROXY_STATE, 0)
 	m.Http2Metrics.Init(m.Http2State, KP_PROXY_STATE, 0)
 	m.HttpMetrics.Init(m.HttpState, KP_PROXY_STATE, 0)
@@ -160,16 +153,6 @@ func (srv *BfeServer) proxyProtocolStateGetAll(params map[string][]string) ([]by
 
 func (srv *BfeServer) proxyProtocolStateGetDiff(params map[string][]string) ([]byte, error) {
 	s := srv.serverStatus.ProxyProtocolMetrics.GetDiff()
-	return s.Format(params)
-}
-
-func (srv *BfeServer) tlsStateGetAll(params map[string][]string) ([]byte, error) {
-	s := srv.serverStatus.TlsMetrics.GetAll()
-	return s.Format(params)
-}
-
-func (srv *BfeServer) tlsStateGetDiff(params map[string][]string) ([]byte, error) {
-	s := srv.serverStatus.TlsMetrics.GetDiff()
 	return s.Format(params)
 }
 

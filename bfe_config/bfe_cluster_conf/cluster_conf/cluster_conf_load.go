@@ -17,6 +17,7 @@
 package cluster_conf
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -31,7 +32,6 @@ import (
 	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/go-lib/quota"
 
-	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
@@ -125,9 +125,9 @@ type BackendHTTPS struct {
 	BFEKeyFile           *string   // Privatekey file of BFECert
 
 	// caches
-	rsCAList *x509.CertPool       // cache RSCAList
-	bfeCert  *bfe_tls.Certificate // cache BFECertFile & BFEKeyFile
-	protocol string               // protocol of backend https
+	rsCAList *x509.CertPool   // cache RSCAList
+	bfeCert  *tls.Certificate // cache BFECertFile & BFEKeyFile
+	protocol string           // protocol of backend https
 }
 
 // AIKey represents a single API key for AI service
@@ -302,15 +302,15 @@ func (conf *BackendHTTPS) SetRSCAList(cal *x509.CertPool) {
 }
 
 // GetBFECert : cache the cert in memory
-func (conf *BackendHTTPS) GetBFECert() (bfe_tls.Certificate, error) {
+func (conf *BackendHTTPS) GetBFECert() (tls.Certificate, error) {
 	if conf.bfeCert == nil {
-		return bfe_tls.Certificate{}, errors.New("BFECert not found.")
+		return tls.Certificate{}, errors.New("BFECert not found.")
 	}
 	return *conf.bfeCert, nil
 }
 
 // SetBFECert : just for unit test
-func (conf *BackendHTTPS) SetBFECert(cert *bfe_tls.Certificate) {
+func (conf *BackendHTTPS) SetBFECert(cert *tls.Certificate) {
 	conf.bfeCert = cert
 }
 
@@ -318,7 +318,7 @@ func (conf *BackendHTTPS) SetBFECert(cert *bfe_tls.Certificate) {
 func (conf *BackendHTTPS) CheckBFECertAndKey() error {
 	var (
 		certPem, keyPem []byte
-		cert            bfe_tls.Certificate
+		cert            tls.Certificate
 		err             error = nil
 	)
 	conf.bfeCert = nil
@@ -334,7 +334,7 @@ func (conf *BackendHTTPS) CheckBFECertAndKey() error {
 	}
 	if certPem == nil || keyPem == nil {
 		return nil
-	} else if cert, err = bfe_tls.X509KeyPair(certPem, keyPem); err != nil {
+	} else if cert, err = tls.X509KeyPair(certPem, keyPem); err != nil {
 		return err
 	}
 	conf.bfeCert = &cert
