@@ -37,7 +37,7 @@ func makeRequestLogTest(t *testing.T) (*ModuleAccessPb3, *bfe_basic.Request, *bf
 	session.Vip = net.ParseIP("10.0.0.1")
 	session.StartTime = time.Now().Add(-time.Second)
 	session.SetTrustSource(true)
-	session.SessionId = "100"
+	session.SessionId = "123456789012345"
 	session.Proto = "http"
 
 	req, err := bfe_http.NewRequest("GET", "http://www.example.org/path?key=value", nil)
@@ -152,9 +152,9 @@ func TestReqLogTagGen(t *testing.T) {
 }
 
 func TestReqBasicInfoGen(t *testing.T) {
-	_, req, _ := makeRequestLogTest(t)
+	m, req, _ := makeRequestLogTest(t)
 	reqLog := &bfe_access_pb3.RequestLog{}
-	reqBasicInfoGen(reqLog, req)
+	m.reqBasicInfoGen(reqLog, req)
 
 	if reqLog.ErrCode == nil || *reqLog.ErrCode != "err001" {
 		t.Error("ErrCode error")
@@ -168,7 +168,7 @@ func TestReqBasicInfoGen(t *testing.T) {
 	if reqLog.ReqBodyLen == nil || *reqLog.ReqBodyLen != 200 {
 		t.Error("ReqBodyLen error")
 	}
-	if reqLog.SessionId == nil || *reqLog.SessionId != 100 {
+	if reqLog.SessionId == nil || *reqLog.SessionId != 123456789012345 {
 		t.Error("SessionId error")
 	}
 	if reqLog.AddrInfo == nil {

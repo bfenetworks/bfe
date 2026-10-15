@@ -15,6 +15,8 @@
 package mod_access_pb3
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"net"
 	"strconv"
 	"strings"
@@ -37,6 +39,55 @@ var (
 		proto.Int32(int32(bfe_access_pb3.BfeLogType_Session)))
 )
 
+// maxLogid is the upper bound of the uint64 logid written to the access log
+// (bfenetworks/bfe#1417): a value in [0, 2^63-1]. logid is stored as a signed
+// BIGINT on MySQL / Doris / StarRocks; an out-of-range value would be
+// truncated to the boundary value by Doris (non-strict) — making every
+// high-bit row share one logid and overwrite each other under the report
+// table's unique key — or reject the whole batch on MySQL (Error 1264).
+const maxLogid = uint64(1)<<63 - 1
+
+// logIdToUint64 converts the BFE log id string into the uint64 logid carried
+// by the pb access log.
+//
+// genLogId has emitted a decimal string since bfenetworks/bfe#1417, so the
+// conversion is complete and lossless:
+//
+//	logid_str == strconv.FormatUint(logid, 10)
+//
+// ok is false when the string is empty, not decimal, or above maxLogid. The
+// caller then regenerates a local id and counts it: writing 0 — what
+// `strconv.ParseUint(req.LogId, 10, 64)` with a discarded error did for every
+// request — makes the row indistinguishable from any other same-second row of
+// the same API key and model, which is exactly the data loss this exists to
+// prevent.
+func logIdToUint64(logId string) (uint64, bool) {
+	if logId == "" {
+		return 0, false
+	}
+	v, err := strconv.ParseUint(logId, 10, 64)
+	if err != nil || v > maxLogid {
+		return 0, false
+	}
+	return v, true
+}
+
+// randUint64NonZero returns a cryptographically random value in [1, maxLogid],
+// used as the log id when the request carries no usable one. It loops on
+// rand.Read failure on purpose: a broken system random source is no reason to
+// fall back to a silently colliding 0.
+func randUint64NonZero() uint64 {
+	for {
+		b := make([]byte, 8)
+		if _, err := rand.Read(b); err != nil {
+			continue
+		}
+		if v := binary.LittleEndian.Uint64(b) & maxLogid; v != 0 {
+			return v
+		}
+	}
+}
+
 // prepare pb log for request
 func (m *ModuleAccessPb3) requestLogGen(req *bfe_basic.Request, res *bfe_http.Response) *bfe_access_pb3.BfeLog {
 	// create request log
@@ -47,8 +98,13 @@ func (m *ModuleAccessPb3) requestLogGen(req *bfe_basic.Request, res *bfe_http.Re
 	// fill log tag
 	bfeLog.LogTag = proto.String(reqLogTagGen(req))
 
-	// log id
-	logId, _ := strconv.ParseUint(req.LogId, 10, 64)
+	// log id: reuse the id assigned by mod_logid; when it cannot be converted,
+	// regenerate a unique non-zero id instead of writing 0 (bfenetworks/bfe#1417)
+	logId, ok := logIdToUint64(req.LogId)
+	if !ok || logId == 0 {
+		logId = randUint64NonZero()
+		m.state.LogidRegenerated.Inc(1)
+	}
 	bfeLog.Logid = proto.Uint64(logId)
 
 	// timestamp
@@ -59,7 +115,7 @@ func (m *ModuleAccessPb3) requestLogGen(req *bfe_basic.Request, res *bfe_http.Re
 	bfeLog.RequestLog = requestLog
 
 	// basic info
-	reqBasicInfoGen(requestLog, req)
+	m.reqBasicInfoGen(requestLog, req)
 
 	// request header info
 	reqReqHeaderInfoGen(requestLog, req)
@@ -122,7 +178,7 @@ func reqLogTagGen(req *bfe_basic.Request) string {
 }
 
 // basic info
-func reqBasicInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request) {
+func (m *ModuleAccessPb3) reqBasicInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request) {
 	// err coder, err msg
 	if req.ErrCode != nil {
 		reqLog.ErrCode = proto.String(req.ErrCode.Error())
@@ -135,8 +191,14 @@ func reqBasicInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request) 
 	reqLog.ReqHeaderLen = proto.Uint32(uint32(req.Stat.HeaderLenIn))
 	reqLog.ReqBodyLen = proto.Uint32(uint32(req.Stat.BodyLenIn))
 
-	// session id
-	sessionId, _ := strconv.ParseUint(req.Session.SessionId, 10, 64)
+	// session id: same conversion and fallback as the session log's logid, with
+	// its own counter so the two write paths stay distinguishable
+	// (bfenetworks/bfe#1417)
+	sessionId, ok := logIdToUint64(req.Session.SessionId)
+	if !ok || sessionId == 0 {
+		sessionId = randUint64NonZero()
+		m.state.SessionIdRegenerated.Inc(1)
+	}
 	reqLog.SessionId = proto.Uint64(sessionId)
 
 	// connection addr info

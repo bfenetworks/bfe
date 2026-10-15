@@ -17,7 +17,7 @@ package mod_logid
 import (
 	"io/ioutil"
 	"os"
-	"regexp"
+	"strconv"
 	"testing"
 )
 
@@ -30,6 +30,11 @@ import (
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
 )
+
+// maxUint63 is the upper bound of a log id (bfenetworks/bfe#1417): logid is
+// stored as a signed BIGINT on MySQL / Doris / StarRocks, so values above
+// 2^63-1 would be truncated (Doris, non-strict) or rejected (MySQL, strict).
+const maxUint63 = uint64(1)<<63 - 1
 
 func TestNewModuleLogId(t *testing.T) {
 	m := NewModuleLogId()
@@ -91,18 +96,18 @@ func TestSessionIdHandler(t *testing.T) {
 	if ret != bfe_module.BfeHandlerGoOn {
 		t.Errorf("sessionIdHandler() = %d, want %d", ret, bfe_module.BfeHandlerGoOn)
 	}
-	if !isHexLogId(session.SessionId) {
-		t.Errorf("SessionId = %q, want 32-char hex string", session.SessionId)
+	if !isDecimalLogId(session.SessionId) {
+		t.Errorf("SessionId = %q, want decimal log id (<= 2^63-1)", session.SessionId)
 	}
 }
 
 func TestRequestIdHandler(t *testing.T) {
 	tests := []struct {
-		name           string
-		trustSource    bool
-		headerLogId    string
-		expectSame     bool // expect request to keep headerLogId unchanged
-		expectCounter  int
+		name          string
+		trustSource   bool
+		headerLogId   string
+		expectSame    bool // expect request to keep headerLogId unchanged
+		expectCounter int
 	}{
 		{
 			name: "not trust source",
@@ -154,8 +159,8 @@ func TestRequestIdHandler(t *testing.T) {
 					t.Errorf("header %s = %q, want %q", bfe_basic.HeaderBfeLogId, got, tt.headerLogId)
 				}
 			} else {
-				if !isHexLogId(req.LogId) {
-					t.Errorf("LogId = %q, want 32-char hex string", req.LogId)
+				if !isDecimalLogId(req.LogId) {
+					t.Errorf("LogId = %q, want decimal log id (<= 2^63-1)", req.LogId)
 				}
 				if got := httpReq.Header.Get(bfe_basic.HeaderBfeLogId); got != req.LogId {
 					t.Errorf("header %s = %q, want %q", bfe_basic.HeaderBfeLogId, got, req.LogId)
@@ -172,8 +177,21 @@ func TestRequestIdHandler(t *testing.T) {
 
 func TestGenLogId(t *testing.T) {
 	logId := genLogId()
-	if !isHexLogId(logId) {
-		t.Errorf("genLogId() = %q, want 32-char hex string", logId)
+	if !isDecimalLogId(logId) {
+		t.Errorf("genLogId() = %q, want decimal log id (<= 2^63-1)", logId)
+	}
+
+	// the conversion into the uint64 access-log field must be lossless
+	// (bfenetworks/bfe#1417): parse and re-format on the same value
+	v, err := strconv.ParseUint(logId, 10, 64)
+	if err != nil {
+		t.Fatalf("ParseUint(%q) error: %v", logId, err)
+	}
+	if v == 0 {
+		t.Errorf("genLogId() = %q, want non-zero value", logId)
+	}
+	if strconv.FormatUint(v, 10) != logId {
+		t.Errorf("FormatUint(ParseUint(%q)) = %q, want identity", logId, strconv.FormatUint(v, 10))
 	}
 
 	// two generated ids should differ with overwhelming probability
@@ -191,6 +209,17 @@ func TestGetState(t *testing.T) {
 	}
 }
 
-func isHexLogId(s string) bool {
-	return len(s) == 32 && regexp.MustCompile("^[0-9a-f]+$").MatchString(s)
+// isDecimalLogId reports whether s is a log id in the current format
+// (bfenetworks/bfe#1417): a decimal string denoting a value in [1, 2^63-1].
+func isDecimalLogId(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	v, err := strconv.ParseUint(s, 10, 64)
+	return err == nil && v > 0 && v <= maxUint63
 }

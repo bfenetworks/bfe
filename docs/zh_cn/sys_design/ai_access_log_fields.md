@@ -294,6 +294,7 @@ message AIRouteRuleHit {
 - 意图字段（803-809）：读取请求上下文中已解析的 `*bfe_basic.AiIntent`（仅读缓存结果，不触发懒解析），按 `ConsumedQuestion` 回填，详见 `docs/zh_cn/sys_design/mod_ai_intent.md` 5.4；
 - 缓存字段（789-792）：`AiCacheStatus` / `AiCacheKey`（debug 时）直接映射，语义命中时同时写 `AiCacheSemantic`（=true）与 `AiCacheSimilarity`，详见 `docs/zh_cn/sys_design/ai_cache.md`；
 - 计费观测标记（763-765）：`AiPriceMiss`（763）、`AiUsageSource`（764）、`AiZeroCostReason`（765）在 usage 观测块内写出；`AiCostValue` 对已观测行显式写 0（原仅在 > 0 时写出），非 2xx 行整组 usage 与标记字段缺席（issue #1408 / #1410 / #1414）。
+- **logid / session_id（bfenetworks/bfe#1417）**：`BfeLog.logid` 与 `RequestLog.session_id` 由 `logIdToUint64()` 从字符串无损转换（十进制串，取值 `[1, 2^63-1]`——`genLogId()` 已改产十进制并被掩到 63 位）；转换失败（mod_logid 未加载、异形串、滚动升级期旧版 32-hex 头）时由 `randUint64NonZero()` 本地重生非 0 值，并计入 `LogidRegenerated` / `SessionIdRegenerated`，不再静默写 0——写 0 会使报表库同秒同 Key 同模型的并发行互相覆盖。详见 `docs/zh_cn/modifications/2026-10-13-issue-1417-logid-dedup-fix/design-changes.md`。
 
 ---
 

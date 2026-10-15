@@ -1994,3 +1994,129 @@ func TestTC21_ZeroCostRowsExplicitCostAndReason(t *testing.T) {
 	t.Logf("arm 3 (non-2xx): ai_cost_value set = %v, ai_zero_cost_reason set = %v, res_status_code = %d",
 		logNon2xx.AiCostValue != nil, logNon2xx.AiZeroCostReason != nil, logNon2xx.GetResStatusCode())
 }
+
+// TestTC22 verifies the log-level field `logid` is a real per-request unique
+// identifier (bfenetworks/bfe#1417).
+//
+// Before the fix `strconv.ParseUint(req.LogId, 10, 64)` parsed the 32-char hex
+// log id as decimal and discarded the error, so `logid` was written as 0 for
+// every request. The report table `bfe_ai_request_log` dedups on
+// (hostid, log_time, ai_apikey_id, ai_requested_model, logid) with a
+// second-granularity log_time and a full-row ON DUPLICATE KEY UPDATE, so n
+// concurrent requests of one API key and model inside one second kept only 1
+// row — measured loss was exactly (n-1)/n.
+//
+// Two arms, both firing 3 requests in the same second from one API key and
+// model (the collision precondition of that key):
+//
+//	arm 1: default testdata — mod_logid is NOT loaded, so the id comes from the
+//	       local regeneration fallback. This is the stricter arm: the fix must
+//	       not depend on mod_logid being enabled.
+//	arm 2: mod_logid enabled and BFE restarted — the normal production shape,
+//	       where the access log reuses the id assigned by mod_logid.
+//
+// The downstream half of the defect (the report table actually keeping all n
+// rows under its unique key) is asserted by log-reader's LR03 scenario.
+func TestTC22_LogidNonZeroAndUnique(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	confDir := filepath.Join(e.processEnv.WorkDir(), "conf")
+	logFile := filepath.Join(e.logDir, "pb_access3.log")
+
+	// Arm 1: mod_logid absent.
+	sendThreeRequestsSameSecond(t, e)
+	assertLogidArm(t, e, "arm 1 (mod_logid absent)")
+
+	// Arm 2: enable mod_logid, drop arm 1's log file and restart BFE so the
+	// file holds arm 2's rows only.
+	if err := os.Remove(logFile); err != nil && !os.IsNotExist(err) {
+		t.Fatalf("remove access log before arm 2 failed: %v", err)
+	}
+	if err := e.enableModuleInBFEConf(confDir, "mod_logid"); err != nil {
+		t.Fatalf("enable mod_logid in bfe.conf failed: %v", err)
+	}
+	e.bfePort, _, e.stopBFE = e.processEnv.StartBFE(confDir, e.logDir)
+
+	sendThreeRequestsSameSecond(t, e)
+	assertLogidArm(t, e, "arm 2 (mod_logid enabled)")
+}
+
+// sendThreeRequestsSameSecond fires 3 successful requests back to back and
+// stops BFE so the access log is flushed.
+func sendThreeRequestsSameSecond(t *testing.T, e *testEnv) {
+	t.Helper()
+
+	const requests = 3
+	for i := 0; i < requests; i++ {
+		resp, body, err := e.sendRequest(apiHost, defaultBody)
+		if err != nil {
+			t.Fatalf("send request %d failed: %v", i, err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			e.logBFEException()
+			t.Fatalf("request %d: expected status 200, got %d, body: %s", i, resp.StatusCode, body)
+		}
+	}
+
+	// Wait for access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+}
+
+// assertLogidArm asserts the logid contract of one arm: every request carries a
+// non-zero id, the ids differ across requests (otherwise the report table's
+// unique key would collapse them again), and the value fits the signed BIGINT
+// of the report databases.
+func assertLogidArm(t *testing.T, e *testEnv, arm string) {
+	t.Helper()
+
+	const requests = 3
+	bfeLogs, err := common.ParseBfeLogsAfterStop(e.logDir)
+	if err != nil {
+		t.Fatalf("%s: parse access log failed: %v", arm, err)
+	}
+
+	// The file also carries session logs (LOG_TYPE_SESSION), which have their
+	// own logid; keep the request logs only.
+	var reqLogs []*bfe_access_pb.BfeLog
+	for _, bfeLog := range bfeLogs {
+		if bfeLog.GetLogType() == bfe_access_pb.BfeLogType_Request && bfeLog.RequestLog != nil {
+			reqLogs = append(reqLogs, bfeLog)
+		}
+	}
+	if len(reqLogs) != requests {
+		t.Fatalf("%s: request log records = %d, want %d", arm, len(reqLogs), requests)
+	}
+
+	seen := make(map[uint64]bool, requests)
+	for i, bfeLog := range reqLogs {
+		id := bfeLog.GetLogid()
+		switch {
+		case id == 0:
+			t.Errorf("%s: record %d: logid = 0, want non-zero (bfenetworks/bfe#1417)", arm, i)
+			continue
+		case id > math.MaxInt64:
+			t.Errorf("%s: record %d: logid = %d, above 2^63-1 (signed BIGINT of the report DBs)", arm, i, id)
+		}
+		if seen[id] {
+			t.Errorf("%s: record %d: duplicate logid %d — same-second rows of one API key/model would overwrite each other", arm, i, id)
+		}
+		seen[id] = true
+
+		reqLog := bfeLog.GetRequestLog()
+		if reqLog == nil {
+			t.Errorf("%s: record %d: RequestLog is nil", arm, i)
+			continue
+		}
+		t.Logf("%s: record %d: logid = %d, timestamp = %d, ai_apikey_id = %q, ai_requested_model = %q",
+			arm, i, id, bfeLog.GetTimestamp(), reqLog.GetAiApikeyId(), reqLog.GetAiRequestedModel())
+	}
+}
