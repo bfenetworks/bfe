@@ -92,7 +92,7 @@ func TestSessionIdHandler(t *testing.T) {
 		t.Errorf("sessionIdHandler() = %d, want %d", ret, bfe_module.BfeHandlerGoOn)
 	}
 	if !isHexLogId(session.SessionId) {
-		t.Errorf("SessionId = %q, want 16-char hex string", session.SessionId)
+		t.Errorf("SessionId = %q, want 32-char hex string", session.SessionId)
 	}
 }
 
@@ -155,7 +155,7 @@ func TestRequestIdHandler(t *testing.T) {
 				}
 			} else {
 				if !isHexLogId(req.LogId) {
-					t.Errorf("LogId = %q, want 16-char hex string", req.LogId)
+					t.Errorf("LogId = %q, want 32-char hex string", req.LogId)
 				}
 				if got := httpReq.Header.Get(bfe_basic.HeaderBfeLogId); got != req.LogId {
 					t.Errorf("header %s = %q, want %q", bfe_basic.HeaderBfeLogId, got, req.LogId)
@@ -173,7 +173,7 @@ func TestRequestIdHandler(t *testing.T) {
 func TestGenLogId(t *testing.T) {
 	logId := genLogId()
 	if !isHexLogId(logId) {
-		t.Errorf("genLogId() = %q, want 16-char hex string", logId)
+		t.Errorf("genLogId() = %q, want 32-char hex string", logId)
 	}
 
 	// two generated ids should differ with overwhelming probability
@@ -192,5 +192,5 @@ func TestGetState(t *testing.T) {
 }
 
 func isHexLogId(s string) bool {
-	return len(s) == 16 && regexp.MustCompile("^[0-9a-f]+$").MatchString(s)
+	return len(s) == 32 && regexp.MustCompile("^[0-9a-f]+$").MatchString(s)
 }
