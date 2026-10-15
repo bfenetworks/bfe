@@ -42,7 +42,7 @@ fork 的代价是：无法获得标准库多年累积的安全修复与 TLS 1.3 
 
 | fork 机制 | 标准库替代 | 说明 |
 |-----------|-----------|------|
-| `Config.MultiCert`（握手中选证书） | `Config.GetCertificate(hello *tls.ClientHelloInfo)` | VIP 从 `hello.Conn.LocalAddr()` 取（要求 Go ≥1.18，`ClientHelloInfo.Conn` 可用），SNI 从 `hello.ServerName` 取，与 fork 中 `MultiCertMap.Get(conn)` 的查找顺序一致 |
+| `Config.MultiCert`（握手中选证书） | `Config.GetCertificate(hello *tls.ClientHelloInfo)` | VIP 用 `bfe_util.GetVip(hello.Conn)` 取——解开 `*tls.Conn` 后查底层连接的 `AddressFetcher.VirtualAddr()`（L4 LB 经 PROXY 协议注入），并非 `LocalAddr()`；SNI 从 `hello.ServerName` 取，与 fork 中 `MultiCertMap.Get(conn)` 的查找顺序一致 |
 | `Config.ServerRule`（握手中匹配规则） | `Config.GetConfigForClient(hello)` 返回规则对应的 `*tls.Config` | 规则在 `Update()` 时预构建为不可变的 `*tls.Config` 模板，`GetConfigForClient` 只做查表，不在握手热路径上分配 |
 | `NextProtoConf.Get(conn)`（灰度 + 全局开关） | `GetConfigForClient` 内计算 `NextProtos` | murmur3 hash 远端 IP 的灰度逻辑、全局 h2/spdy 开关（`EnableNextProto`）、`PROTO_OPTIONAL/MANDATORY` 语义原样保留 |
 | `ClientCRLPool` 吊销检查 | `Config.VerifyConnection` | 标准库完成链校验后，在 `VerifyConnection(cs tls.ConnectionState)` 中用 `cs.VerifiedChains` 做 CRL 吊销检查（CRLPool 逻辑迁入 bfe_server） |
@@ -56,8 +56,8 @@ fork 的代价是：无法获得标准库多年累积的安全修复与 TLS 1.3 
 
 TLS 规则（`TLSServerRuleMap`）需要在两个时机被查询：
 
-1. **握手时**（`GetConfigForClient`）：输入 `ClientHelloInfo`，VIP 取 `hello.Conn.LocalAddr()`，SNI 取 `hello.ServerName`。
-2. **握手后**（h2/spdy/stream 参数）：输入 `*tls.Conn`，VIP 取 `tlsConn.LocalAddr()`，SNI 取 `tlsConn.ConnectionState().ServerName`。
+1. **握手时**（`GetConfigForClient`/`GetCertificate`）：输入 `ClientHelloInfo`，VIP 用 `bfe_util.GetVip(hello.Conn)` 取（解开 `*tls.Conn` → `NetConn()` → `AddressFetcher.VirtualAddr()`，即 PROXY 协议注入的虚地址），SNI 取 `hello.ServerName`。
+2. **握手后**（h2/spdy/stream 参数）：输入 `*tls.Conn`，VIP 同样用 `bfe_util.GetVip(tlsConn)` 取，SNI 取 `tlsConn.ConnectionState().ServerName`。
 
 匹配顺序保持不变：VIP 精确命中 → SNI 命中 → 默认规则。`getDefaultRule` 语义不变（NextProtos 用默认值、ClientAuth=false、h2/stream 参数为零值）。
 
