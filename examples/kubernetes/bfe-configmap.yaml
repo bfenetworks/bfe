@@ -102,7 +102,7 @@ data:
     # tls rule for https
     TlsRuleConf = tls_conf/tls_rule_conf.data
 
-    # supported cipherSuites preference settings
+    # enabled cipherSuites (whitelist)
 
     # ciphersuites implemented in golang
     #     TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
@@ -125,9 +125,13 @@ data:
     # -. Do not use cipher suite with 3DES which is insecure now 
     #    and with poor performance
     #
-    # -. Equivalent cipher suites (cipher suites with same priority in server side):
+    # -. CipherSuites acts as a whitelist: it only selects which suites are enabled.
+    #    The actual negotiation order is determined by the fixed preference order of
+    #    the standard library crypto/tls. The order of the config lines and the '|'
+    #    grouping no longer affect priority.
+    # -. Listing several suites on one line separated by '|' is still accepted and is
+    #    equivalent to listing them on separate lines:
     #    CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
-    #    CipherSuites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
     #
     CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
     CipherSuites=TLS_ECDHE_RSA_WITH_RC4_128_SHA

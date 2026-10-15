@@ -52,7 +52,7 @@ bfe.conf is the core configuration file of BFE.
 | ------------------------------------ | --------- | ------------------------------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | HttpsBasic.ServerCertConf            | String    | Path of [server cert and key config](tls_conf/server_cert_conf.data.md) file    | N          | Default `tls_conf/server_cert_conf.data`; see [FilePath](00-common.md#3-filepath) type definition             | Type is [FilePath](00-common.md#3-filepath)                                         |
 | HttpsBasic.TlsRuleConf               | String    | Path of [TLS rule config](tls_conf/tls_rule_conf.data.md) file                  | N          | Default `tls_conf/tls_rule_conf.data`; see [FilePath](00-common.md#3-filepath) type definition                | Type is [FilePath](00-common.md#3-filepath)                                         |
-| HttpsBasic.CipherSuites              | String[]  | List of enabled cipher suites                                                   | N          | To enable multiple suites, add multiple `CipherSuites` lines; equivalent suites can be separated by `&#124;`, see example | Must be cipher suites supported by BFE, e.g. `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` etc. |
+| HttpsBasic.CipherSuites              | String[]  | List of enabled cipher suites (whitelist)                                        | N          | To enable multiple suites, add multiple `CipherSuites` lines; several suites may be separated by `&#124;` on one line. This config only selects which suites are enabled; the order of the config lines and the `&#124;` grouping **no longer affect negotiation priority**, which is determined by the fixed preference order of the standard library `crypto/tls`. See example | Must be cipher suites supported by BFE, e.g. `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` etc. |
 | HttpsBasic.CurvePreferences          | String[]  | List of enabled ECC curves                                                      | N          | Default `CurveP256`                                                                                            | Only `CurveP256`, `CurveP384`, `CurveP521` supported                                |
 | HttpsBasic.EnableSslv2ClientHello    | Boolean   | Enable SSLv2 format ClientHello compatibility for SSLv3 protocol                | N          | **Deprecated**: parsed but ignored (standard `crypto/tls` does not support SSLv2 ClientHello)                    | -                                                                                   |
 | HttpsBasic.ClientCABaseDir           | String    | Base directory of client CA certificates                                        | N          | Default `tls_conf/client_ca`; certificate files in the directory must have `.crt` suffix; see [DirPath](00-common.md#4-dirpath) type definition | Type is [DirPath](00-common.md#4-dirpath)                                         |
@@ -154,7 +154,7 @@ ServerCertConf = tls_conf/server_cert_conf.data
 # tls rule for https
 TlsRuleConf = tls_conf/tls_rule_conf.data
 
-# supported cipherSuites preference settings
+# enabled cipherSuites (whitelist)
 #
 # ciphersuites implemented in golang
 #     TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
@@ -174,9 +174,13 @@ TlsRuleConf = tls_conf/tls_rule_conf.data
 #     TLS_RSA_WITH_3DES_EDE_CBC_SHA
 #
 # Note:
-# -. Equivalent cipher suites (cipher suites with same priority in server side):
+# -. CipherSuites acts as a whitelist: it only selects which suites are enabled.
+#    The actual negotiation order is determined by the fixed preference order of
+#    the standard library crypto/tls. The order of the config lines and the '|'
+#    grouping no longer affect priority.
+# -. Listing several suites on one line separated by '|' is still accepted and is
+#    equivalent to listing them on separate lines:
 #    CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
-#    CipherSuites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
 #
 CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
 CipherSuites=TLS_ECDHE_RSA_WITH_RC4_128_SHA

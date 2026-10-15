@@ -49,6 +49,7 @@ fork 的代价是：无法获得标准库多年累积的安全修复与 TLS 1.3 
 | Redis `ServerSessionCache` | 删除 | 用标准库内置 session ticket，`SessionTicketKey` 配置保留；`SessionTicketKeyName` 废弃 |
 | `JA3/SSLv2/握手指标/HandshakeTime/DynamicRecord` | 删除 | 握手延迟统计在 `http_conn.go` 外层用 `time.Since` 包住 `Handshake()` 调用，继续写入现有 `ProxyHandshakeDelay` 指标 |
 | Grade → cipher suites | 废弃 | TLS1.2 套件用标准库默认安全子集；TLS1.3 套件不可配（标准库行为） |
+| `CipherSuitesPriority` + `PreferServerCipherSuites` 协商 | `Config.CipherSuites` 白名单 | 配置行序与 `|` 分组不再影响优先级，详见 4.7 |
 | mod_key_log 读 `ClientRandom/MasterSecret` | `Config.KeyLogWriter` | 模块 init 时向 bfe_server 注册 writer，标准库握手时按 NSS keylog 格式写出 |
 
 ### 4.2 规则匹配的双通道
@@ -92,6 +93,50 @@ TLS 规则（`TLSServerRuleMap`）需要在两个时机被查询：
 | `tls_rule_conf.data` | `Grade` | 废弃，TLS1.2 套件用标准库默认 |
 | `tls_rule_conf.data` | `Chacha20`/`DynamicRecord`（含默认值 `DefaultChacha20`/`DefaultDynamicRecord`） | 废弃忽略 |
 
+### 4.7 CipherSuites 优先级语义变化
+
+fork 时代 `bfe.conf` 中 `HttpsBasic.CipherSuites` 的**配置行序**参与握手协商；改用标准库后该语义丢失，仅保留"白名单（可用套件集合）"语义。
+
+#### 4.7.1 旧实现（fork）
+
+`bfe_conf.GetCipherSuites` 返回两个平行数组 `(cipherSuites, cipherSuitesPriority)`：
+
+- `cipherSuites`：把 `|` 展开后的扁平套件 ID 列表；
+- `cipherSuitesPriority`：与之一一对应，值为该套件所属的**配置行序号**（同一行内 `|` 分隔的套件共享同一行号）。
+
+两者分别装配到 `TLSConfig.CipherSuites` 与 `TLSConfig.CipherSuitesPriority`。握手时因 `PreferServerCipherSuites=true` 且两数组长度必然相等，总是走 `negotiateEquivalentCipherSuites`：
+
+- 先比较 `serverOrder`（行号，小者优先）→ **配置行序即服务端优先级**；
+- 行号相同时再比较 `clientOrder` → **同一行（`|` 分组）内由客户端偏好决定**。
+
+因此默认配置把 `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256` 写在一行，表示为"等效档"：有 AES-GCM 硬件加速的客户端选 GCM，移动端选 ChaCha20。
+
+#### 4.7.2 新实现（标准库）
+
+`bfe_conf.GetCipherSuites` 只返回扁平列表，`bfe_server` 仅赋值 `TLSConfig.CipherSuites`。标准库 `Config.cipherSuites()` 以固定的 `cipherSuitesPreferenceOrder` 为基准、用 `slices.DeleteFunc` 按 `Config.CipherSuites` 过滤，其注释明确：
+
+> Cipher suites are filtered but **not reordered** based on the application and peer's preferences.
+
+即 `TLSConfig.CipherSuites` 退化为**纯白名单（集合语义）**，实际协商顺序由标准库固定表决定（AEAD+ECDHE 优先、AES-128 优先于 AES-256、ECDSA 优先于 RSA、3DES/RC4 垫底）。`bfe_server.go` 中仍赋值的 `PreferServerCipherSuites = true` 自 Go 1.17 起 deprecated 且被忽略；服务端仍是"自行定序"的一方，但用的是标准库顺序而非配置顺序。
+
+#### 4.7.3 影响
+
+| 维度 | 影响 |
+|------|------|
+| 可用套件**集合** | 不变。白名单仍生效；显式列出的 RC4/RSA-kex/3DES 仍会被重新启用（`disabledCipherSuites`/`rsaKexCiphers`/`tdesCiphers` 仅在 `Config.CipherSuites == nil` 时才自动禁用） |
+| 套件**顺序/优先级** | 丢失。改为标准库固定顺序，配置行序失效 |
+| `|` 等效分组 | 失效。仍能解析与校验，但不再影响协商结果 |
+| `PreferServerCipherSuites` | 空操作（Go 1.17+ 忽略） |
+| TLS1.3 套件 | 本就不可配置（标准库行为），无影响 |
+
+#### 4.7.4 配置兼容性
+
+`bfe.conf` 的 `HttpsBasic.CipherSuites` 格式与解析逻辑不变，旧配置可直接启动、无需修改。但需注意：
+
+- 若历史配置以**行序强制某套件优先**，该意图已不再生效；
+- 若配置目的是**裁剪可用套件**（禁用弱套件），仍然有效；
+- 文档中"等效套件可用 `|` 分隔"的表述已同步更新：`docs/zh_cn/configuration/bfe.conf.md`、`docs/en_us/configuration/bfe.conf.md`、`conf/bfe.conf`。
+
 ## 5. 参考方案分析：lsegroup fork 的适配层改造
 
 社区存在另一种迁移路线（lsegroup/bfe fork）：**不删除 `bfe_tls`，而是把它从"深度 fork"降级为"薄适配层"**——删除整个握手实现，用标准库 `crypto/tls` 做底层，`bfe_tls` 只保留与原 API 同形的类型和回调接线，约 70 个调用方文件基本不用改。
@@ -130,6 +175,7 @@ TLS 规则（`TLSServerRuleMap`）需要在两个时机被查询：
 |----|---------------|------------------|
 | TLS 版本 | 最高 TLS 1.2 | 支持 TLS 1.3；TLS 1.0/1.1 被标准库移除，最低 TLS 1.2 |
 | TLS1.2 cipher | 按 Grade（A+/A/B/C）裁剪 | 标准库默认安全子集，不可按 Grade 裁剪 |
+| TLS1.2 cipher 优先级 | 按配置行序，`|` 分组为等效档 | 标准库固定顺序；配置行序与 `|` 分组不再影响优先级，`CipherSuites` 退化为白名单（见 4.7） |
 | 会话恢复 | 支持 Redis 跨实例共享 | 仅本进程 session ticket |
 | 灰度发布 | NextProtos 按远端 IP hash 灰度 | 保留，逻辑不变 |
 | 证书选择 | VIP/SNI 三级查找 | 保留，逻辑不变 |

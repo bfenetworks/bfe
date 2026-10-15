@@ -52,7 +52,7 @@ bfe.conf是BFE的核心配置
 | ------------------------------------ | --------- | -------------------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
 | HttpsBasic.ServerCertConf            | String    | [服务端证书与密钥的配置](tls_conf/server_cert_conf.data.md)文件路径              | N    | 默认值`tls_conf/server_cert_conf.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
 | HttpsBasic.TlsRuleConf               | String    | [TLS协议参数配置](tls_conf/tls_rule_conf.data.md)文件路径                        | N    | 默认值`tls_conf/tls_rule_conf.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
-| HttpsBasic.CipherSuites              | String[]  | 启用的加密套件列表                                                               | N    | 启用多个套件请增加多行`CipherSuites`配置，等效套件可用`&#124;`分隔，详见示例 | 必须是BFE支持的加密套件，如 `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` 等     |
+| HttpsBasic.CipherSuites              | String[]  | 启用的加密套件列表（白名单）                                                     | N    | 启用多个套件请增加多行`CipherSuites`配置，同一行可用`&#124;`分隔；该配置仅决定"哪些套件可用"，配置行序与 `&#124;` 分组**不再影响协商优先级**，实际优先级由标准库 `crypto/tls` 的固定顺序决定，详见示例 | 必须是BFE支持的加密套件，如 `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` 等     |
 | HttpsBasic.CurvePreferences          | String[]  | 启用的ECC椭圆曲线                                                                | N    | 默认值`CurveP256`                                                        | 仅支持 `CurveP256`、`CurveP384`、`CurveP521`                               |
 | HttpsBasic.EnableSslv2ClientHello    | Boolean   | 针对SSLv3协议，启用对SSLv2格式ClientHello的兼容                                  | N    | **已废弃**：BFE 改用标准库 `crypto/tls` 后不再支持 SSLv2 ClientHello，该字段解析但忽略 | -                                                                          |
 | HttpsBasic.ClientCABaseDir           | String    | 客户端根CA证书基目录                                                             | N    | 默认值`tls_conf/client_ca`；目录下证书文件后缀须为 `.crt`；参见 [DirPath](00-common.md#4-目录路径dirpath) 类型定义 | 类型为 [DirPath](../00-common.md#4-目录路径dirpath)                         |
@@ -156,7 +156,7 @@ ServerCertConf = tls_conf/server_cert_conf.data
 # tls rule
 TlsRuleConf = tls_conf/tls_rule_conf.data
 
-# supported cipherSuites preference settings
+# enabled cipherSuites (whitelist)
 #
 # ciphersuites implemented in golang:
 #     TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
@@ -176,9 +176,13 @@ TlsRuleConf = tls_conf/tls_rule_conf.data
 #     TLS_RSA_WITH_3DES_EDE_CBC_SHA
 #
 # Note:
-# -. Equivalent cipher suites (cipher suites with same priority in server side):
+# -. CipherSuites acts as a whitelist: it only selects which suites are enabled.
+#    The actual negotiation order is determined by the fixed preference order of
+#    the standard library crypto/tls. The order of the config lines and the '|'
+#    grouping no longer affect priority.
+# -. Listing several suites on one line separated by '|' is still accepted and is
+#    equivalent to listing them on separate lines:
 #    CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
-#    CipherSuites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
 #
 CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
 CipherSuites=TLS_ECDHE_RSA_WITH_RC4_128_SHA
