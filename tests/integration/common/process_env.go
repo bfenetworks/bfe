@@ -63,6 +63,10 @@ func (p *ProcessEnv) WorkDir() string { return p.workDir }
 // SourceRoot returns the absolute path to the bfe source root.
 func (p *ProcessEnv) SourceRoot() string { return p.sourceRoot }
 
+// BinaryPath returns the absolute path of the compiled BFE binary.
+// Build must be called first.
+func (p *ProcessEnv) BinaryPath() string { return p.bfeBinaryPath }
+
 // locateBFESourceRoot walks up from this file to find the directory whose
 // go.mod declares module "github.com/bfenetworks/bfe".
 func locateBFESourceRoot() (string, error) {

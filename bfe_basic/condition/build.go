@@ -550,6 +550,23 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			matcher: matcher,
 		}, nil
 
+	case "time_weekday_in":
+		// optional second arg (STRING): military time zone letter, "Z" (UTC) if omitted
+		zone := "Z"
+		if len(node.Args) == 2 {
+			zone = node.Args[1].Value
+		}
+		matcher, err := NewWeekdayMatcher(node.Args[0].Value, zone)
+		if err != nil {
+			return nil, fmt.Errorf("time_weekday_in \"%s\": %s", node.Args[0].Value, err.Error())
+		}
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &BfeTimeFetcher{},
+			matcher: matcher,
+		}, nil
+
 	case "req_body_json_in":
 		return &PrimitiveCond{
 			name:    node.Fun.Name,

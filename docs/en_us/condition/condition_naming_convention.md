@@ -16,6 +16,10 @@ BFE adopts the following naming convention for condition primitives.
 - Name prefix of the system primitive is "**bfe_**"
     - e.g. bfe_time_range()
 
+- Name prefix of the system-time based primitive is "**time_**"
+    - e.g. time_weekday_in()
+    - Note: `bfe_time_range()` and `bfe_periodic_time_range()` keep their historical `bfe_` prefix and are not renamed
+
 ## Name of comparison operations
 
 - **match**: exact match

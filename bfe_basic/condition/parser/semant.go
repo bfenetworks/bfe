@@ -79,6 +79,7 @@ var funcProtos = map[string][]Token{
 	"req_context_value_in":       {STRING, STRING, BOOL},
 	"bfe_time_range":             []Token{STRING, STRING},
 	"bfe_periodic_time_range":    []Token{STRING, STRING, STRING},
+	"time_weekday_in":            []Token{STRING, STRING},
 	"req_body_json_in":           []Token{STRING, STRING, BOOL},
 	"req_body_json_prefix_in":    []Token{STRING, STRING, BOOL},
 	"req_body_larger_than":       []Token{INT},
@@ -91,6 +92,7 @@ var funcProtos = map[string][]Token{
 // argument list or one argument fewer for these primitives only.
 var optionalLastArgProtos = map[string]bool{
 	"req_ai_intent_in": true,
+	"time_weekday_in":  true,
 }
 
 func prototypeCheck(expr *CallExpr) error {

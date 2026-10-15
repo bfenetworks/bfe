@@ -133,3 +133,4 @@
 
  * [bfe_periodic_time_range(start_time, end_time, period)](./system/time.md#bfe_periodic_time_rangestart_time-end_time-period) (period currently only supports empty string)
  * [bfe_time_range(start_time, end_time)](./system/time.md#bfe_time_rangestart_time-end_time)
+ * [time_weekday_in(weekday_list, zone)](./system/time.md#time_weekday_inweekday_list-zone)

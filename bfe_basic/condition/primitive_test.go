@@ -491,3 +491,60 @@ func TestReqBodyJsonPrefixInCombineWithIn(t *testing.T) {
 		t.Errorf("should match combined condition")
 	}
 }
+
+func TestWeekdayMatcher(t *testing.T) {
+	// 2019-02-03 is a Sunday, 2019-02-04 is a Monday
+	matcher, err := NewWeekdayMatcher("0|6", "H")
+	if err != nil {
+		t.Fatalf("NewWeekdayMatcher() error: %v", err)
+	}
+
+	// Beijing Sunday 23:59:59
+	tm := time.Date(2019, 2, 3, 23, 59, 59, 0, time.FixedZone("CST", 8*60*60))
+	if !matcher.Match(tm) {
+		t.Fatalf("should match %v", tm)
+	}
+	// UTC Sunday 16:00:00 == Beijing Monday 00:00:00
+	tm = time.Date(2019, 2, 3, 16, 0, 0, 0, time.UTC)
+	if matcher.Match(tm) {
+		t.Fatalf("should not match %v", tm)
+	}
+	tm = time.Date(2019, 2, 4, 0, 0, 0, 0, time.FixedZone("CST", 8*60*60))
+	if matcher.Match(tm) {
+		t.Fatalf("should not match %v", tm)
+	}
+
+	// zone omitted means UTC
+	utcMatcher, err := NewWeekdayMatcher("1", "")
+	if err != nil {
+		t.Fatalf("NewWeekdayMatcher() error: %v", err)
+	}
+	if !utcMatcher.Match(time.Date(2019, 2, 4, 13, 30, 0, 0, time.UTC)) {
+		t.Fatalf("should match Monday in UTC")
+	}
+
+	// duplicated weekdays are idempotent
+	dupMatcher, err := NewWeekdayMatcher("0|0", "H")
+	if err != nil {
+		t.Fatalf("NewWeekdayMatcher() error: %v", err)
+	}
+	if !dupMatcher.Match(time.Date(2019, 2, 3, 12, 0, 0, 0, time.FixedZone("CST", 8*60*60))) {
+		t.Fatalf("should match Sunday")
+	}
+
+	// whitespace around list items is tolerated
+	if _, err := NewWeekdayMatcher("0 | 1", "H"); err != nil {
+		t.Fatalf("NewWeekdayMatcher() should tolerate spaces: %v", err)
+	}
+
+	for _, weekdayStr := range []string{"", "7", "-1", "a", "1-5", "1|7"} {
+		if _, err := NewWeekdayMatcher(weekdayStr, "H"); err == nil {
+			t.Fatalf("NewWeekdayMatcher(%q) should failed", weekdayStr)
+		}
+	}
+	for _, zoneStr := range []string{"QQ", "HH"} {
+		if _, err := NewWeekdayMatcher("0", zoneStr); err == nil {
+			t.Fatalf("NewWeekdayMatcher() with zone %q should failed", zoneStr)
+		}
+	}
+}
