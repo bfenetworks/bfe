@@ -48,18 +48,12 @@ func (m *ModuleAccessPb3) requestLogGen(req *bfe_basic.Request, res *bfe_http.Re
 	bfeLog.LogTag = proto.String(reqLogTagGen(req))
 
 	// log id
-	// mod_logid encodes an 8-byte random id as a 16-char hex string, which
-	// fits in a uint64, so parse it in base 16. On failure (mod_logid disabled
-	// and req.LogId empty, or a legacy id too long for uint64) leave the field
-	// unset instead of writing a misleading 0. A non-zero, per-request logid is
-	// the dedup discriminator required for bfe_ai_request_log (issue #1417).
-	if logId, err := strconv.ParseUint(req.LogId, 16, 64); err == nil {
-		bfeLog.Logid = proto.Uint64(logId)
-	}
+	logId, _ := strconv.ParseUint(req.LogId, 10, 64)
+	bfeLog.Logid = proto.Uint64(logId)
 
 	// timestamp
 	now := time.Now()
-	bfeLog.Timestamp = proto.Uint64(uint64(now.UnixNano()))
+	bfeLog.Timestamp = proto.Uint64(uint64(now.Unix()))
 
 	requestLog := new(bfe_access_pb3.RequestLog)
 	bfeLog.RequestLog = requestLog

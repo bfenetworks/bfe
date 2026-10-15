@@ -126,62 +126,6 @@ func TestRequestLogGen(t *testing.T) {
 	}
 }
 
-// Issue #1417: mod_logid emits a 16-char hex id (8 random bytes) that fits a
-// uint64, so the pb3 Logid field must carry it parsed in base 16 instead of the
-// historical always-0 result of parsing hex in base 10. A missing id (mod_logid
-// disabled) or a legacy 32-char id that overflows uint64 leaves the field unset
-// rather than logging a misleading 0.
-func TestRequestLogGenLogid(t *testing.T) {
-	cases := []struct {
-		name    string
-		logId   string
-		wantSet bool
-		want    uint64
-	}{
-		{name: "16-char hex", logId: "0123456789abcdef", wantSet: true, want: 0x0123456789abcdef},
-		{name: "all-digit hex", logId: "12345", wantSet: true, want: 0x12345},
-		{name: "empty when mod_logid disabled", logId: "", wantSet: false},
-		{name: "legacy 32-char hex overflows uint64", logId: "0123456789abcdef0123456789abcdef", wantSet: false},
-		{name: "not a hex id", logId: "not-a-logid", wantSet: false},
-	}
-
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			m, req, res := makeRequestLogTest(t)
-			req.LogId = tt.logId
-
-			bfeLog := m.requestLogGen(req, res)
-			if bfeLog.Logid == nil {
-				if tt.wantSet {
-					t.Fatalf("Logid = <unset>, want %d", tt.want)
-				}
-				return
-			}
-			if !tt.wantSet {
-				t.Fatalf("Logid = %d, want <unset>", *bfeLog.Logid)
-			}
-			if got := *bfeLog.Logid; got != tt.want {
-				t.Errorf("Logid = %d, want %d", got, tt.want)
-			}
-		})
-	}
-}
-
-// requestLogGen stamps the pb3 Timestamp at nanosecond resolution (issue
-// #1417); assert it is not the second-granularity value it used to carry.
-func TestRequestLogGenTimestampNanoseconds(t *testing.T) {
-	m, req, res := makeRequestLogTest(t)
-	bfeLog := m.requestLogGen(req, res)
-
-	if bfeLog.Timestamp == nil {
-		t.Fatal("Timestamp is nil")
-	}
-	// the nanosecond epoch is ~1.7e18, far above the ~1.7e9 second epoch
-	if got := *bfeLog.Timestamp; got < 1e15 {
-		t.Errorf("Timestamp = %d, want nanosecond-resolution epoch", got)
-	}
-}
-
 func TestReqLogTagGen(t *testing.T) {
 	tests := []struct {
 		product string

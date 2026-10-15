@@ -20,12 +20,17 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+)
 
+import (
+	"github.com/bfenetworks/go-lib/web-monitor/metrics"
+	"github.com/bfenetworks/go-lib/web-monitor/web_monitor"
+)
+
+import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
-	"github.com/bfenetworks/go-lib/web-monitor/metrics"
-	"github.com/bfenetworks/go-lib/web-monitor/web_monitor"
 )
 
 const (
@@ -106,7 +111,7 @@ func (m *ModuleLogId) getState(params map[string][]string) ([]byte, error) {
 }
 
 func genLogId() string {
-	b := make([]byte, 8)
+	b := make([]byte, 16)
 	_, err := rand.Read(b)
 	if err != nil {
 		return ""

@@ -48,7 +48,7 @@ func sessionLogGen(session *bfe_basic.Session) *bfe_access_pb3.BfeLog {
 
 	// timestamp
 	now := time.Now()
-	bfeLog.Timestamp = proto.Uint64(uint64(now.UnixNano()))
+	bfeLog.Timestamp = proto.Uint64(uint64(now.Unix()))
 
 	sessionLog := new(bfe_access_pb3.SessionLog)
 	bfeLog.SessionLog = sessionLog
