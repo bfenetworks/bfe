@@ -15,7 +15,6 @@
 package mod_access_pb3
 
 import (
-	"strconv"
 	"strings"
 	"time"
 
@@ -33,7 +32,7 @@ var (
 )
 
 // prepare pb log for session
-func sessionLogGen(session *bfe_basic.Session) *bfe_access_pb3.BfeLog {
+func (m *ModuleAccessPb3) sessionLogGen(session *bfe_basic.Session) *bfe_access_pb3.BfeLog {
 	// create session log
 	bfeLog := &bfe_access_pb3.BfeLog{}
 	bfeLog.Product = BFE_PRODUCT_ID
@@ -42,8 +41,13 @@ func sessionLogGen(session *bfe_basic.Session) *bfe_access_pb3.BfeLog {
 	// fill log tag
 	bfeLog.LogTag = proto.String(sessionLogTagGen(session))
 
-	// log id
-	sessionId, _ := strconv.ParseUint(session.SessionId, 10, 64)
+	// log id: the session id shares the conversion and the fallback with
+	// RequestLog.session_id (bfenetworks/bfe#1417)
+	sessionId, ok := logIdToUint64(session.SessionId)
+	if !ok || sessionId == 0 {
+		sessionId = randUint64NonZero()
+		m.state.SessionIdRegenerated.Inc(1)
+	}
 	bfeLog.Logid = proto.Uint64(sessionId)
 
 	// timestamp

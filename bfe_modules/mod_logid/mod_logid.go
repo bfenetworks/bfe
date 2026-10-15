@@ -18,8 +18,9 @@ package mod_logid
 
 import (
 	"crypto/rand"
-	"encoding/hex"
+	"encoding/binary"
 	"fmt"
+	"strconv"
 )
 
 import (
@@ -110,11 +111,25 @@ func (m *ModuleLogId) getState(params map[string][]string) ([]byte, error) {
 	return s.Format(params)
 }
 
+// genLogId generates the unified log id shared by the session id, the request
+// log id and the X-Bfe-Log-Id header.
+//
+// Format (bfenetworks/bfe#1417): a decimal string denoting a value in
+// [1, 2^63-1]. The access log carries the same value as a uint64
+// (`BfeLog.logid`), so the string must be convertible without truncation; the
+// previous 32-char hex format (128 bits) could not fit that field and was
+// silently written as 0, which turned the report table's dedup key into a
+// same-second overwrite (n-1 of n concurrent rows lost).
+//
+// The value is masked to 63 bits on purpose: logid is stored as a signed
+// BIGINT on MySQL / Doris / StarRocks, and an out-of-range value would be
+// truncated to the boundary value by Doris (non-strict), making every high-bit
+// row collide, or reject the whole batch on MySQL (Error 1264).
 func genLogId() string {
-	b := make([]byte, 16)
+	b := make([]byte, 8)
 	_, err := rand.Read(b)
 	if err != nil {
 		return ""
 	}
-	return hex.EncodeToString(b)
+	return strconv.FormatUint(binary.LittleEndian.Uint64(b)&0x7FFFFFFFFFFFFFFF, 10)
 }

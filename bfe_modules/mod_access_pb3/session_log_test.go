@@ -31,7 +31,7 @@ func makeSessionLogTest(t *testing.T) (*bfe_basic.Session, *bfe_access_pb3.Sessi
 	session := bfe_basic.NewSession(conn)
 	session.RemoteAddr = &net.TCPAddr{IP: net.ParseIP("192.168.1.1"), Port: 12345}
 	session.Vip = net.ParseIP("10.0.0.1")
-	session.SessionId = "100"
+	session.SessionId = "123456789012345"
 	session.StartTime = time.Now().Add(-time.Second)
 	session.EndTime = time.Now()
 	session.Overhead = session.EndTime.Sub(session.StartTime)
@@ -53,8 +53,9 @@ func makeSessionLogTest(t *testing.T) (*bfe_basic.Session, *bfe_access_pb3.Sessi
 }
 
 func TestSessionLogGen(t *testing.T) {
+	m := NewModuleAccessPb3()
 	session, _ := makeSessionLogTest(t)
-	bfeLog := sessionLogGen(session)
+	bfeLog := m.sessionLogGen(session)
 
 	if bfeLog == nil {
 		t.Fatal("sessionLogGen() returns nil")
@@ -67,6 +68,14 @@ func TestSessionLogGen(t *testing.T) {
 	}
 	if bfeLog.SessionLog == nil {
 		t.Fatal("SessionLog is nil")
+	}
+	// the session log carries the session id as logid, converted without
+	// truncation (bfenetworks/bfe#1417)
+	if bfeLog.Logid == nil || *bfeLog.Logid != 123456789012345 {
+		t.Errorf("Logid = %v, want 123456789012345", bfeLog.Logid)
+	}
+	if n := m.state.SessionIdRegenerated.Get(); n != 0 {
+		t.Errorf("SessionIdRegenerated = %d, want 0", n)
 	}
 }
 
