@@ -10,6 +10,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.8.8.4] - 2026-10-19
+
+### Fixed
+- Bill streaming (SSE) responses that end at a clean HTTP EOF without the protocol termination event (`[DONE]` / `message_stop`) and without any usage, instead of silently deducting 0: `ServeHTTPForAI` now marks the response completed once the body has been fully delivered (200 SSE, `copyResponse` success). A nil copy error is the transport-level completion fact — a chunked response only EOFs at its terminating chunk and a fixed-length response only after its `Content-Length` bytes — so client aborts and mid-stream upstream drops still surface as copy errors and never satisfy the billing gate (issue #1415)
+- Keep the client connection reusable after internally constructed AI responses (issue #1416): the no-route 404 (`AI route not found`), the `findProduct` 500, the protocol-mismatch rejection, the `HandleAfterAITargetModel` `BfeHandlerResponse` rejection and the no-cluster 500 no longer set the server-level `closeAfterReply`. Those responses are self-delimited (explicit `Content-Length`) and `chunk_writer` drains the request body before writing headers, so BFE was closing the connection without advertising `Connection: close` and the next request on a pooled keep-alive connection failed with EOF; module-contract `BfeHandlerFinish` / `BfeHandlerClose` paths and the protocol-level close shapes (HTTP/1.0, `Connection: close`, undrainable bodies) still close with advertisement
+
 ## [v1.8.8.3] - 2026-10-11
 
 ### Fixed
