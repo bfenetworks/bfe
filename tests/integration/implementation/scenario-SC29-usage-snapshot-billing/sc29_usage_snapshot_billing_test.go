@@ -467,3 +467,56 @@ func TestTC03_ClientAbortKeepsLogViewZeroDeduction(t *testing.T) {
 		t.Errorf("ai_total_tokens = %v, want 0 (aborted, nothing billed)", reqLog.AiTotalTokens)
 	}
 }
+
+// TestTC04 verifies issue #1415: a streaming response whose upstream omits the
+// protocol termination event ([DONE]) and any usage, ending at a clean HTTP
+// EOF, still satisfies the billing completion gate — so the approved
+// EstimateToken fallback bills the request instead of silently deducting 0.
+// Before the fix the completion mark stayed unset (the event path never fired),
+// estimateBillable was false and the request landed as an unrecognized zero.
+func TestTC04_CleanEOFWithoutDoneBillsEstimate(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+	// Content chunk only: no usage frame and, crucially, no [DONE]. The
+	// handler returns immediately after the frame, so the client observes a
+	// clean chunked EOF (the production bucket-A shape).
+	e.backend.SSEEvents = []string{openAIContentChunk}
+
+	respBody := e.sendOpenAIStream(t, openAIStreamBody)
+	if !strings.Contains(respBody, "chatcmpl-1") {
+		t.Errorf("client must receive the content chunk, got: %s", respBody)
+	}
+	if strings.Contains(respBody, "[DONE]") {
+		t.Errorf("stream must end without a [DONE] frame, got: %s", respBody)
+	}
+
+	// Estimate fallback (same formula as the implementation):
+	// prompt = request body bytes / 4 (seeded at auth time);
+	// completion = sum of per-event data bytes / 4 (QuotaUsageProcessor),
+	// here covering the content chunk only — no [DONE] frame exists.
+	promptEst := int64(len(openAIStreamBody)) / 4
+	completionEst := int64(len(openAIContentChunk)) / 4
+	expectedCost := promptEst*300 + completionEst*900
+
+	remaining := e.quotaRemaining(t)
+	if remaining != initialQuota-expectedCost {
+		t.Fatalf("clean-EOF stream must bill by estimate: remaining = %d, want %d (promptEst=%d completionEst=%d)",
+			remaining, initialQuota-expectedCost, promptEst, completionEst)
+	}
+
+	// Access log records the estimate, not zeros.
+	reqLogs := e.stopAndParseLogs()
+	reqLog := reqLogs[len(reqLogs)-1]
+	if got := logInt64(reqLog.AiInputTokens); got != promptEst {
+		t.Errorf("ai_input_tokens = %d, want %d", got, promptEst)
+	}
+	if got := logInt64(reqLog.AiOutputTokens); got != completionEst {
+		t.Errorf("ai_output_tokens = %d, want %d", got, completionEst)
+	}
+	if got := logInt64(reqLog.AiTotalTokens); got != promptEst+completionEst {
+		t.Errorf("ai_total_tokens = %d, want %d", got, promptEst+completionEst)
+	}
+}
