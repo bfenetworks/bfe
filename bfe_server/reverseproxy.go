@@ -1186,9 +1186,9 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		log.Logger.Info("FindProduct error[%s] host[%s] vip[%s] clientip[%s]", err.Error(),
 			basicReq.HttpRequest.Host, basicReq.Session.Vip, basicReq.ClientAddr)
 
-		// close connection
+		// issue #1416: keep the connection reusable (same rationale as the
+		// no-route 404 branch below).
 		res = bfe_basic.CreateInternalSrvErrResp(basicReq)
-		action = closeAfterReply
 		goto response_got
 	}
 
@@ -1227,7 +1227,11 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		p.proxyState.ErrBkFindLocation.Inc(1)
 		res = bfe_basic.CreateSpecifiedContentResp(basicReq, bfe_http.StatusNotFound,
 			"text/plain", "AI route not found")
-		action = closeAfterReply
+		// issue #1416: keep the client connection reusable. The response is
+		// self-delimited (Content-Length set) and chunk_writer drains the
+		// request body before writing response headers; closing here without
+		// advertising "Connection: close" poisoned keep-alive reuse — the
+		// second request on the pooled connection failed with EOF.
 		goto response_got
 	}
 
@@ -1605,7 +1609,7 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 			fmt.Sprintf("request protocol %s not supported by cluster provider (model_protocols=%v)",
 				aiMeta.AuthStyle, cluster.AIConf.ModelProtocols),
 		)
-		return err.CreateErrorResponse(basicReq), closeAfterReply, nil, bodyModel
+		return err.CreateErrorResponse(basicReq), keepAlive, nil, bodyModel
 	}
 
 	// prepare out request to downstream RS backend
@@ -1652,8 +1656,13 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 		switch retVal {
 		case bfe_module.BfeHandlerClose:
 			return cbRes, closeDirectly, nil, bodyModel
-		case bfe_module.BfeHandlerFinish, bfe_module.BfeHandlerResponse:
+		case bfe_module.BfeHandlerFinish:
+			// module contract: close the connection after response
 			return cbRes, closeAfterReply, nil, bodyModel
+		case bfe_module.BfeHandlerResponse:
+			// issue #1416: use the response and keep the connection reusable
+			// (self-delimited response; chunk_writer drains the request body).
+			return cbRes, keepAlive, nil, bodyModel
 		}
 	}
 
@@ -1744,7 +1753,10 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 		basicReq.ErrCode = bfe_basic.ErrBkNoCluster
 		basicReq.ErrMsg = err.Error()
 		p.proxyState.ErrBkNoCluster.Inc(1)
-		return nil, closeAfterReply, nil, err, newBodyModel
+		// issue #1416: keepAlive — the caller turns nil res into an internal
+		// 500 response; closing here would poison keep-alive reuse (see the
+		// no-route 404 branch in ServeHTTPForAI).
+		return nil, keepAlive, nil, err, newBodyModel
 	}
 
 	// set deadline to finish read client request body
