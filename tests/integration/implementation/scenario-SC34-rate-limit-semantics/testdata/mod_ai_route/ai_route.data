@@ -1,0 +1,39 @@
+{
+    "Version": "20260720150000",
+    "route_rules": {
+        "apikey_ak_sc34": {
+            "type": "apikey",
+            "owner": "ak_sc34",
+            "rules": [
+                {
+                    "name": "sc34-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_rl_main",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": [
+                        {
+                            "ClusterName": "cluster_rl_fallback",
+                            "Model": ""
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_sc34": [
+            "apikey_ak_sc34"
+        ],
+        "ak_sc34_second": [
+            "apikey_ak_sc34"
+        ],
+        "ak_sc34_unbound": [
+            "apikey_ak_sc34"
+        ]
+    }
+}

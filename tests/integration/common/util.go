@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // copyDirContents recursively copies files and directories from src to dst.
@@ -81,6 +82,36 @@ func WriteJSONFile(path string, data interface{}) error {
 		return err
 	}
 	return os.WriteFile(path, bytes, 0644)
+}
+
+// RewriteConfLine replaces the value of key in an ini-style config file,
+// preserving every other line. It matches `key = value` case-insensitively on
+// the key and returns an error when the key is absent, so templates stay
+// honest about the knobs scenarios depend on.
+func RewriteConfLine(path, key, value string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	found := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		idx := strings.Index(trimmed, "=")
+		if idx < 0 {
+			continue
+		}
+		if !strings.EqualFold(strings.TrimSpace(trimmed[:idx]), key) {
+			continue
+		}
+		lines[i] = key + " = " + value
+		found = true
+	}
+	if !found {
+		return fmt.Errorf("%s not found in %s", key, path)
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
 }
 
 // GetBFETotalBytesBodyBuffer queries the BFE monitor endpoint for the current

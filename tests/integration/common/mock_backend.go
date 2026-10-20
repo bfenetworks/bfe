@@ -89,6 +89,7 @@ type MockBackend struct {
 	anthropicVersions  []string
 	urlPaths           []string
 	rawQueries         []string
+	hosts              []string
 	headerCopies       []http.Header
 }
 
@@ -114,6 +115,7 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 		count := b.hits
 		b.urlPaths = append(b.urlPaths, r.URL.Path)
 		b.rawQueries = append(b.rawQueries, r.URL.RawQuery)
+		b.hosts = append(b.hosts, r.Host)
 		b.headerCopies = append(b.headerCopies, r.Header.Clone())
 		if b.ReadNotify != nil {
 			close(b.ReadNotify)
@@ -284,6 +286,13 @@ func (b *MockBackend) RawQueries() []string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return append([]string(nil), b.rawQueries...)
+}
+
+// Hosts returns the Host header values observed on the backend requests.
+func (b *MockBackend) Hosts() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]string(nil), b.hosts...)
 }
 
 // HeaderCopies returns deep copies of all observed request headers.

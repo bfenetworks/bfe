@@ -25,28 +25,54 @@ import (
 // RedisServer wraps miniredis for integration tests.
 type RedisServer struct {
 	server *miniredis.Miniredis
+	addr   string
+	now    time.Time
 	t      *testing.T
 }
 
 // NewRedisServer starts a new embedded redis server.
 func NewRedisServer(t *testing.T) *RedisServer {
-	s := &RedisServer{t: t}
+	s := &RedisServer{t: t, now: time.Now().UTC()}
 	var err error
 	s.server, err = miniredis.Run()
 	if err != nil {
 		t.Fatalf("start miniredis failed: %v", err)
 	}
+	s.addr = s.server.Addr()
 	return s
 }
 
 // Addr returns the redis server address in "host:port" format.
 func (s *RedisServer) Addr() string {
-	return s.server.Addr()
+	return s.addr
 }
 
 // Close stops the redis server.
 func (s *RedisServer) Close() {
-	s.server.Close()
+	if s.server != nil {
+		s.server.Close()
+		s.server = nil
+	}
+}
+
+// Fault stops the server so that subsequent client calls are rejected
+// (connection refused), simulating a redis outage.
+func (s *RedisServer) Fault() {
+	s.Close()
+}
+
+// Recover starts a fresh empty server on the original address, restoring
+// connectivity. It is used to assert fail-open behavior after an outage.
+func (s *RedisServer) Recover() {
+	if s.server != nil {
+		return
+	}
+	srv := miniredis.NewMiniRedis()
+	if err := srv.StartAddr(s.addr); err != nil {
+		s.t.Fatalf("recover miniredis on %s failed: %v", s.addr, err)
+	}
+	s.server = srv
+	s.now = time.Now().UTC()
 }
 
 // Set stores a raw string value for the given key.
@@ -109,4 +135,28 @@ func (s *RedisServer) Keys() []string {
 // FastForward advances the redis server clock, affecting key expiry.
 func (s *RedisServer) FastForward(d time.Duration) {
 	s.server.FastForward(d)
+}
+
+// AdvanceTime advances both the key-expiry clock and the virtual server clock
+// (the one returned by the Redis TIME command). Time-based limiters that build
+// sliding windows from TIME need the latter; FastForward alone only shifts
+// key TTLs. The jump is measured from the later of the tracked virtual time
+// and the current wall clock, so a jump is never diluted by elapsed test time.
+func (s *RedisServer) AdvanceTime(d time.Duration) {
+	s.server.FastForward(d)
+	base := s.now
+	if real := time.Now().UTC(); real.After(base) {
+		base = real
+	}
+	s.now = base.Add(d)
+	s.server.SetTime(s.now)
+}
+
+// ZMembers returns the members of a sorted set (nil when missing).
+func (s *RedisServer) ZMembers(key string) []string {
+	members, err := s.server.ZMembers(key)
+	if err != nil {
+		return nil
+	}
+	return members
 }
