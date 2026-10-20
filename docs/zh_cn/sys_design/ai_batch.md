@@ -117,7 +117,18 @@ usage 与 model 位于 **`response.body`**。解析规则（`resp_capture.go:han
 
 `SETTLE_USAGE_PARSE` 长期为 0 而 `REQ_TOTAL` 有下载增长，等价于"下载没有结算"的强信号；`SETTLE_NO_USAGE`/`SETTLE_USAGE_PARSE_ERR` 用于区分"上游没写 usage"与"我们解析不了"。
 
-## 8. 边界与限制
+## 8. 请求/响应体透传完整性（数据面不改写）
+
+provider 原生 Batch API 的语义是**经网关透传**：`/v1/files` 的 multipart 原始字节（boundary、part 头、文件内容）与 `/v1/batches` 的创建 JSON 必须按客户端原样到达 provider，网关只在旁路做限流/预留/记账/簿记，不得改写请求体语义。对应地，provider 响应与回读对象（file id 等）原样返回客户端。
+
+数据面实现约束（issue #1426，`bfe_server/reverseproxy.go`）：
+
+- `doSingleAIForward` 的 target model 改写（`ReqBodyJsonSet(basicReq, "model", targetModel)`）对透传模式整体跳过：`isBatchPassthroughMode`（`ModeFile || ModeBatch`）为真时不注入/覆盖 `model` 字段，原始字节与 `Content-Length` 保持不变。
+- 兜底守卫：请求 `Content-Type` 显式非 JSON（`multipart/form-data`、`text/*`、`application/octet-stream` 等）时同样拒绝改写，防止未来新增透传类 mode 漏接 mode 判定后重蹈覆辙；头缺失或非法值不拦截（部分客户端发 JSON 体不带 Content-Type）。
+- `aiMeta.TargetModel` 的计算与记录不受守卫影响：它仍是路由/计费/访问日志的旁路决策记录，但**不代表**请求体内容——透传模式下 TargetModel 与请求体可以不一致，`TargetModel` 永远不得被消费方当作"请求体里的 model"使用。
+- chat/completion 模式的 model 覆盖、fallback 重算、`stream_options.include_usage` 注入等既有改写行为不在本节范围内，不受影响。
+
+## 9. 边界与限制
 
 - **键 TTL 48h ≫ 对账周期 1min**：理论上无丢失窗口；BFE Redis 写失败（fail-open）由控制面对账巡检的日志补登兜底。
 - **`ctx.batchId` 缺失**（输出文件绑定被 TTL 清理/历史键）：下载结算只能按 `file:<id>` 键去重，无法回写 `BATCH_TASK`，由控制面兜底结算补齐。
@@ -126,9 +137,10 @@ usage 与 model 位于 **`response.body`**。解析规则（`resp_capture.go:han
 - **`reserved_units` 与 `BATCH_RESERVE_BATCH` 双源**：前者是任务视图镜像（供控制面展示与核对），后者才是释放/结算的簿记源；两者不一致由对账巡检告警。
 - **不改计费口径**：批量价、预留公式、`BATCH_SETTLED` 去重语义与 fail-open 策略均不在本节设计范围内变动。
 
-## 9. 变更记录
+## 10. 变更记录
 
 | 日期 | 内容 |
 |------|------|
 | 2026-10-07 | 首版：批量透传一期（端点识别、`mod_ai_batch`、预留/结算/释放、粘性、限流）；见 `modifications/2026-10-07-ai-batch-support/` |
 | 2026-10-19 | 终态字段与结算修复：`BATCH_TASK` 补 `output_file_id`/`request_counts`/`endpoint`/`created_at`/`reserved_units`/`settle_units`/`usage_source`；result 文件 usage 按 `response.body.usage` 解析；结算字段改在 finish 阶段按结算结果回写；行/字节改按 file part 与 File 对象统计；见 `modifications/2026-10-19-issue-254-ai-batch-task-state-and-settle-fix/` |
+| 2026-10-20 | 透传体完整性：target model 改写对 `ModeFile`/`ModeBatch` 跳过，非 JSON Content-Type 兜底拒绝改写（issue #1426）；见 `modifications/2026-10-20-issue-1426-batch-passthrough-model-rewrite-fix/` |

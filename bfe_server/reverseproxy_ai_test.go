@@ -689,3 +689,51 @@ func TestChooseAIKeyWithAffinity_Disabled(t *testing.T) {
 		t.Errorf("expected no redis access when disabled, got %d entries", len(client.data))
 	}
 }
+
+// isBatchPassthroughMode + shouldRewriteBodyModel guard the request-body
+// model rewrite for provider-native passthrough traffic (issue #1426):
+// /v1/files multipart uploads and /v1/batches create JSON must reach the
+// backend byte-for-byte even when the AI route carries a non-empty target
+// model.
+func TestShouldRewriteBodyModel(t *testing.T) {
+	jsonHeader := func(ct string) bfe_http.Header {
+		h := make(bfe_http.Header)
+		if ct != "" {
+			h.Set("Content-Type", ct)
+		}
+		return h
+	}
+	chatMeta := &bfe_basic.AiBasicInfo{Mode: bfe_basic.ModeChat}
+	fileMeta := &bfe_basic.AiBasicInfo{Mode: bfe_basic.ModeFile}
+	batchMeta := &bfe_basic.AiBasicInfo{Mode: bfe_basic.ModeBatch}
+
+	cases := []struct {
+		name        string
+		meta        *bfe_basic.AiBasicInfo
+		contentType string
+		target      string
+		body        string
+		want        bool
+	}{
+		{"chat json body rewritten", chatMeta, "application/json", "m-a", "m-b", true},
+		{"chat json with charset rewritten", chatMeta, "application/json; charset=utf-8", "m-a", "m-b", true},
+		{"chat +json suffix rewritten", chatMeta, "application/problem+json", "m-a", "m-b", true},
+		// clients that send a JSON body without Content-Type keep working
+		{"chat missing content-type rewritten", chatMeta, "", "m-a", "m-b", true},
+		{"chat malformed content-type rewritten", chatMeta, "not a media type;==", "m-a", "m-b", true},
+		{"equal model not rewritten", chatMeta, "application/json", "m-a", "m-a", false},
+		{"empty target not rewritten", chatMeta, "application/json", "", "m-b", false},
+		// issue #1426: passthrough modes never rewrite, whatever the Content-Type
+		{"file multipart not rewritten", fileMeta, "multipart/form-data; boundary=x", "m-a", "", false},
+		{"batch json not rewritten", batchMeta, "application/json", "m-a", "", false},
+		// defense in depth: explicit non-JSON Content-Type wins over the mode
+		{"chat multipart not rewritten", chatMeta, "multipart/form-data; boundary=x", "m-a", "", false},
+		{"chat text not rewritten", chatMeta, "text/plain", "m-a", "", false},
+		{"chat octet-stream not rewritten", chatMeta, "application/octet-stream", "m-a", "", false},
+	}
+	for _, c := range cases {
+		if got := shouldRewriteBodyModel(c.meta, jsonHeader(c.contentType), c.target, c.body); got != c.want {
+			t.Errorf("%s: shouldRewriteBodyModel = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
