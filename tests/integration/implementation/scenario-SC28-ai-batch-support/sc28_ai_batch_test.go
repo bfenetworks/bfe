@@ -1426,3 +1426,274 @@ func TestTC16_PassthroughBodyNotRewritten(t *testing.T) {
 		t.Fatalf("create log wrong: %+v", crLog)
 	}
 }
+
+// TC-17: max_file_lines is measured on the multipart `file` part content, not
+// on the request envelope (issue #1434). A 2-line / 274-byte file arrives in a
+// 12-line / 638-byte envelope, so an envelope-based check rejected (or aborted)
+// uploads whose file was well within the limit.
+func TestTC17_BatchLimitFileLinesMultipart(t *testing.T) {
+	fileLines := int64(strings.Count(inputJSONL, "\n"))
+
+	t.Run("file lines at limit accepted", func(t *testing.T) {
+		e := newTestEnv(t)
+		defer e.Close()
+		e.startBFE(t, 10_000_000_000, batchLimitPolicy(&common.RateLimitBatchLimits{
+			MaxFileLines: fileLines, MaxFileBytes: 1048576,
+			RedisKey: "RL_BATCH_rlp-batch_lines",
+		}))
+
+		status, id := e.upload(t, inputJSONL)
+		if status != 200 || id != fileInID {
+			t.Fatalf("upload with file lines == limit: status=%d id=%q", status, id)
+		}
+		// binding describes the file content, not the envelope
+		in := e.batchFileHash(fileInID)
+		requireField(t, in, "lines", strconv.FormatInt(fileLines, 10))
+		requireField(t, in, "bytes", strconv.Itoa(len(inputJSONL)))
+		requireField(t, in, "lines_src", "exact")
+		requireField(t, in, "bytes_src", "exact")
+		// the provider received the file content unchanged
+		if got := string(e.providerMu.uploaded); got != inputJSONL {
+			t.Fatalf("provider file content = %q, want %q", got, inputJSONL)
+		}
+		if got := e.batchMetric(t, "UPLOAD_REJECT_SIZE"); got != 0 {
+			t.Fatalf("UPLOAD_REJECT_SIZE = %v, want 0", got)
+		}
+	})
+
+	t.Run("file lines over limit rejected", func(t *testing.T) {
+		e := newTestEnv(t)
+		defer e.Close()
+		e.startBFE(t, 10_000_000_000, batchLimitPolicy(&common.RateLimitBatchLimits{
+			MaxFileLines: fileLines - 1, MaxFileBytes: 1048576,
+			RedisKey: "RL_BATCH_rlp-batch_lines",
+		}))
+
+		status, respBody := e.uploadMultipart(t, inputJSONL)
+		if status != 413 || !strings.Contains(string(respBody), "BATCH_FILE_TOO_LARGE") {
+			t.Fatalf("upload with file lines over limit: status=%d body=%s, want 413 BATCH_FILE_TOO_LARGE",
+				status, respBody)
+		}
+		if !strings.Contains(string(respBody), `"limit_type":"batch_file"`) {
+			t.Fatalf("reject body should carry limit_type=batch_file: %s", respBody)
+		}
+		if len(e.provider.RequestBodies()) != 0 {
+			t.Fatalf("rejected upload must not reach the provider")
+		}
+		e.waitBatchMetric(t, "UPLOAD_REJECT_SIZE", 1)
+		if in := e.batchFileHash(fileInID); in != nil {
+			t.Fatalf("rejected upload must not write a BATCH_FILE binding: %v", in)
+		}
+	})
+
+	t.Run("chunked within limit accepted", func(t *testing.T) {
+		e := newTestEnv(t)
+		defer e.Close()
+		e.startBFE(t, 10_000_000_000, batchLimitPolicy(&common.RateLimitBatchLimits{
+			MaxFileLines: fileLines, MaxFileBytes: 1048576,
+			RedisKey: "RL_BATCH_rlp-batch_lines",
+		}))
+
+		status, respBody := e.uploadMultipartChunked(t, inputJSONL)
+		if status != 200 || !strings.Contains(string(respBody), fileInID) {
+			t.Fatalf("chunked upload within limit: status=%d body=%s", status, respBody)
+		}
+		// the streaming gate counted the file part, not the envelope
+		in := e.batchFileHash(fileInID)
+		requireField(t, in, "lines", strconv.FormatInt(fileLines, 10))
+		requireField(t, in, "bytes", strconv.Itoa(len(inputJSONL)))
+		requireField(t, in, "lines_src", "exact")
+		if got := e.batchMetric(t, "UPLOAD_COUNT_APPROX"); got != 0 {
+			t.Fatalf("UPLOAD_COUNT_APPROX = %v, want 0 (file part located)", got)
+		}
+	})
+
+	t.Run("chunked over limit rejected on file content", func(t *testing.T) {
+		e := newTestEnv(t)
+		defer e.Close()
+		e.startBFE(t, 10_000_000_000, batchLimitPolicy(&common.RateLimitBatchLimits{
+			MaxFileLines: 3, MaxFileBytes: 1048576,
+			RedisKey: "RL_BATCH_rlp-batch_lines",
+		}))
+
+		tenLines := strings.Repeat(
+			`{"custom_id":"req-1","method":"POST","url":"/v1/chat/completions","body":{"model":"gpt-4o","messages":[]}}`+"\n", 10)
+		status, respBody := e.uploadMultipartChunked(t, tenLines)
+		if status != 413 || !strings.Contains(string(respBody), "BATCH_FILE_TOO_LARGE") {
+			t.Fatalf("chunked upload over the file line limit: status=%d body=%s, want 413", status, respBody)
+		}
+		// the message must describe the FILE (10 lines), not the envelope (20)
+		if !strings.Contains(string(respBody), "lines 10 exceed") {
+			t.Fatalf("reject body should report file lines 10, not the envelope: %s", respBody)
+		}
+		e.waitBatchMetric(t, "UPLOAD_REJECT_SIZE", 1)
+		if len(e.provider.RequestBodies()) != 0 {
+			t.Fatalf("rejected upload must not reach the provider")
+		}
+	})
+
+	t.Run("oversized stream aborts on file content", func(t *testing.T) {
+		e := newTestEnv(t)
+		defer e.Close()
+		e.startBFE(t, 10_000_000_000, batchLimitPolicy(&common.RateLimitBatchLimits{
+			MaxFileLines: 3, MaxFileBytes: 1048576,
+			RedisKey: "RL_BATCH_rlp-batch_lines",
+		}))
+
+		// a file part larger than accessibleBodySize (4 MB in this scenario's
+		// bfe.conf) cannot be located pre-forward: the streaming gate counts
+		// the `file` part and aborts mid-stream
+		line := `{"custom_id":"req-1","method":"POST","url":"/v1/chat/completions","body":{"model":"gpt-4o","messages":[]}}` + "\n"
+		huge := strings.Repeat(line, 40000) // ~5.4 MB
+		status, _ := e.uploadMultipartChunked(t, huge)
+		if status/100 == 2 {
+			t.Fatalf("oversized streamed upload: status=%d, want failure", status)
+		}
+		e.waitBatchMetric(t, "UPLOAD_ABORT_STREAM", 1)
+		if in := e.batchFileHash(fileInID); in != nil {
+			t.Fatalf("aborted upload must not write a BATCH_FILE binding: %v", in)
+		}
+	})
+}
+
+// TC-18: max_file_bytes is measured on the multipart `file` part content, never
+// on the envelope Content-Length (issue #1434); raw uploads keep the early
+// Content-Length rejection and per-policy pre-checks stay correct.
+func TestTC18_BatchLimitFileBytesMultipart(t *testing.T) {
+	fileBytes := int64(len(inputJSONL))
+
+	t.Run("file bytes at limit accepted", func(t *testing.T) {
+		e := newTestEnv(t)
+		defer e.Close()
+		e.startBFE(t, 10_000_000_000, batchLimitPolicy(&common.RateLimitBatchLimits{
+			MaxFileBytes: fileBytes, RedisKey: "RL_BATCH_rlp-batch_bytes",
+		}))
+
+		status, id := e.upload(t, inputJSONL)
+		if status != 200 || id != fileInID {
+			t.Fatalf("upload with file bytes == limit: status=%d id=%q", status, id)
+		}
+		in := e.batchFileHash(fileInID)
+		requireField(t, in, "bytes", strconv.FormatInt(fileBytes, 10))
+		requireField(t, in, "bytes_src", "exact")
+	})
+
+	t.Run("file bytes over limit rejected", func(t *testing.T) {
+		e := newTestEnv(t)
+		defer e.Close()
+		e.startBFE(t, 10_000_000_000, batchLimitPolicy(&common.RateLimitBatchLimits{
+			MaxFileBytes: fileBytes - 1, RedisKey: "RL_BATCH_rlp-batch_bytes",
+		}))
+
+		status, respBody := e.uploadMultipart(t, inputJSONL)
+		if status != 413 || !strings.Contains(string(respBody), "BATCH_FILE_TOO_LARGE") {
+			t.Fatalf("upload with file bytes over limit: status=%d body=%s", status, respBody)
+		}
+		if len(e.provider.RequestBodies()) != 0 {
+			t.Fatalf("rejected upload must not reach the provider")
+		}
+	})
+
+	t.Run("raw upload keeps the Content-Length reject", func(t *testing.T) {
+		e := newTestEnv(t)
+		defer e.Close()
+		e.startBFE(t, 10_000_000_000, batchLimitPolicy(&common.RateLimitBatchLimits{
+			MaxFileBytes: 100, RedisKey: "RL_BATCH_rlp-batch_bytes",
+		}))
+
+		status, respBody := e.do(t, "POST", "/v1/files", bytes.NewReader(make([]byte, 200)), "application/octet-stream")
+		if status != 413 || !strings.Contains(string(respBody), "BATCH_FILE_TOO_LARGE") {
+			t.Fatalf("raw oversized upload: status=%d body=%s", status, respBody)
+		}
+		if len(e.provider.RequestBodies()) != 0 {
+			t.Fatalf("rejected raw upload must not reach the provider")
+		}
+	})
+
+	t.Run("raw upload at limit accepted", func(t *testing.T) {
+		e := newTestEnv(t)
+		defer e.Close()
+		e.startBFE(t, 10_000_000_000, batchLimitPolicy(&common.RateLimitBatchLimits{
+			MaxFileBytes: 100, RedisKey: "RL_BATCH_rlp-batch_bytes",
+		}))
+
+		status, respBody := e.do(t, "POST", "/v1/files", bytes.NewReader(make([]byte, 100)), "application/jsonl")
+		if status != 200 || !strings.Contains(string(respBody), fileInID) {
+			t.Fatalf("raw upload exactly at the limit: status=%d body=%s, want 200", status, respBody)
+		}
+	})
+
+	t.Run("per-policy precheck ignores the envelope", func(t *testing.T) {
+		e := newTestEnv(t)
+		defer e.Close()
+		// two bound policies: the looser byte limit must not be evaluated on the
+		// envelope Content-Length (638) before mod_ai_batch measures the file
+		rl := batchLimitPolicy(&common.RateLimitBatchLimits{
+			MaxFileBytes: fileBytes, RedisKey: "RL_BATCH_rlp-batch_bytes_a",
+		})
+		rl.RateLimitPolicies["rlp-batch-loose"] = common.RateLimitPolicy{
+			Name: "ratelimitBatchLoose", Enabled: true,
+			Rules: struct {
+				TPM            []common.RateLimitRule       `json:"tpm,omitempty"`
+				RPM            []common.RateLimitRule       `json:"rpm,omitempty"`
+				MaxConcurrency *int64                       `json:"max_concurrency,omitempty"`
+				Batch          *common.RateLimitBatchLimits `json:"batch,omitempty"`
+			}{Batch: &common.RateLimitBatchLimits{
+				MaxFileBytes: 400, RedisKey: "RL_BATCH_rlp-batch_bytes_b",
+			}},
+		}
+		rl.ApikeyRateLimitPolicyBindings[apiKey] = append(rl.ApikeyRateLimitPolicyBindings[apiKey], "rlp-batch-loose")
+		e.startBFE(t, 10_000_000_000, rl)
+
+		if status, id := e.upload(t, inputJSONL); status != 200 || id != fileInID {
+			t.Fatalf("upload with a 400-byte envelope-sized policy: status=%d id=%q", status, id)
+		}
+	})
+}
+
+// uploadMultipart sends a multipart batch upload and returns the raw status +
+// body, so rejection paths can be asserted too.
+func (e *testEnv) uploadMultipart(t *testing.T, content string) (int, []byte) {
+	t.Helper()
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	fw, err := w.CreateFormFile("file", "batch.jsonl")
+	if err != nil {
+		t.Fatalf("create form file: %v", err)
+	}
+	fw.Write([]byte(content))
+	w.WriteField("purpose", "batch")
+	w.Close()
+	return e.do(t, "POST", "/v1/files", &buf, w.FormDataContentType())
+}
+
+// uploadMultipartChunked sends the same multipart upload without a
+// Content-Length, exercising the streaming gate (file part counting).
+func (e *testEnv) uploadMultipartChunked(t *testing.T, content string) (int, []byte) {
+	t.Helper()
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	fw, err := w.CreateFormFile("file", "batch.jsonl")
+	if err != nil {
+		t.Fatalf("create form file: %v", err)
+	}
+	fw.Write([]byte(content))
+	w.WriteField("purpose", "batch")
+	w.Close()
+
+	req, err := http.NewRequest("POST", e.url("/v1/files"), io.NopCloser(bytes.NewReader(buf.Bytes())))
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	req.Host = apiHost
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.TransferEncoding = []string{"chunked"} // no Content-Length
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("chunked upload: %v", err)
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, respBody
+}

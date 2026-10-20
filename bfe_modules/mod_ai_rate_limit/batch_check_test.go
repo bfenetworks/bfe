@@ -15,9 +15,11 @@
 package mod_ai_rate_limit
 
 import (
+	"net/url"
 	"testing"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_http"
 )
 
 func TestBatchLimitsConvert(t *testing.T) {
@@ -94,5 +96,45 @@ func TestIsBatchOpRequest(t *testing.T) {
 	meta := &bfe_basic.AiBasicInfo{Mode: bfe_basic.ModeChat}
 	if isBatchOpRequest(nil, meta) {
 		t.Fatalf("chat mode is not a batch op")
+	}
+}
+
+// checkBatchLimits must not compare a multipart envelope's Content-Length with
+// the single-file byte limit (issue #1434): boundary lines, part headers and
+// the other form fields inflate it far beyond the file content.
+func TestCheckBatchLimitsMultipartBytePrecheck(t *testing.T) {
+	policy := &PolicyConf{
+		Name:    "ratelimitBatch",
+		Enabled: true,
+		Rules:   &LimitRulesConf{Batch: &BatchLimitsConf{MaxFileBytes: 400}},
+	}
+	meta := &bfe_basic.AiBasicInfo{Mode: bfe_basic.ModeFile}
+	m := &ModuleAiRateLimit{}
+
+	newUpload := func(contentType string, contentLength int64) *bfe_basic.Request {
+		req := &bfe_basic.Request{HttpRequest: &bfe_http.Request{
+			Method:        "POST",
+			URL:           &url.URL{Path: "/v1/files"},
+			Header:        bfe_http.Header{},
+			ContentLength: contentLength,
+		}}
+		if contentType != "" {
+			req.HttpRequest.Header.Set("Content-Type", contentType)
+		}
+		return req
+	}
+
+	// envelope 502 > limit 400, but the file part is 138 bytes: let
+	// mod_ai_batch decide on the `file` part
+	if got := m.checkBatchLimits(newUpload("multipart/form-data; boundary=xyz", 502), meta, "rlp", policy); got != "" {
+		t.Fatalf("multipart upload must not be judged on the envelope length, got %q", got)
+	}
+
+	// raw upload body: Content-Length IS the file size, the early reject stays
+	if got := m.checkBatchLimits(newUpload("application/jsonl", 401), meta, "rlp", policy); got != "batch_file" {
+		t.Fatalf("oversized raw upload = %q, want batch_file", got)
+	}
+	if got := m.checkBatchLimits(newUpload("application/jsonl", 400), meta, "rlp", policy); got != "" {
+		t.Fatalf("raw upload exactly at limit = %q, want allowed", got)
 	}
 }

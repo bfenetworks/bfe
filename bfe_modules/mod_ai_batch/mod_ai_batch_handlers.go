@@ -79,10 +79,16 @@ func (m *ModuleAiBatch) targetModelHandler(req *bfe_basic.Request) (int, *bfe_ht
 	return bfe_module.BfeHandlerGoOn, nil
 }
 
-// preCheckUpload gates uploads by the effective byte limit when
-// Content-Length is known, and installs the counting reader on the outgoing
-// request body (OutRequest: the shallow copy made before this callback is
-// what the transport actually reads).
+// preCheckUpload gates uploads by the effective file limits and installs the
+// streaming limit gate on the outgoing request body (OutRequest: the shallow
+// copy made before this callback is what the transport actually reads).
+//
+// The measured object is always the FILE CONTENT (issue #1434): a multipart
+// envelope is measured on its `file` part only, a raw upload body is the file
+// itself. When the count is already authoritative the gate is not installed at
+// all — a pre-checked upload must never be aborted mid-stream by the same
+// limits measured on a different object (that is exactly how a legal
+// 1-line/138-byte file used to fail in an 11-line/502-byte envelope).
 func (m *ModuleAiBatch) preCheckUpload(req *bfe_basic.Request, ctx *batchContext,
 	aiMeta *bfe_basic.AiBasicInfo) (int, *bfe_http.Response) {
 
@@ -93,7 +99,12 @@ func (m *ModuleAiBatch) preCheckUpload(req *bfe_basic.Request, ctx *batchContext
 	ctx.contentLength = outreq.ContentLength
 	ctx.knownContentLen = outreq.ContentLength >= 0
 
-	if ctx.knownContentLen && ctx.contentLength > 0 {
+	boundary, multipart := bfe_basic.IsMultipartUpload(outreq.Header)
+
+	// Content-Length is the file size only for raw uploads. For multipart it
+	// covers boundary lines, part headers and the other form fields, so it can
+	// never be compared against the single-file byte limit.
+	if !multipart && ctx.knownContentLen && ctx.contentLength > 0 {
 		if lim := aiMeta.BatchEffMaxFileBytes; lim > 0 && ctx.contentLength > lim {
 			m.state.Inc("UPLOAD_REJECT_SIZE", 1)
 			ctx.overSized = true
@@ -103,38 +114,50 @@ func (m *ModuleAiBatch) preCheckUpload(req *bfe_basic.Request, ctx *batchContext
 	}
 
 	// the AI gateway already buffered the body while extracting the model
-	// (ReqBodyJsonFetch wraps it into bytes_body): for fully buffered uploads
-	// (including chunked ones under the buffer cap) the file part can be
-	// located here, so the exact line/byte count is known and the rejection
-	// happens before forwarding instead of mid-stream. This must run BEFORE
-	// installing the counting wrapper: GetBodyAccessor on a wrapped body
-	// would buffer a second time and GetBytes would report all=false
-	// (source not exhausted).
+	// (ReqBodyJsonFetch wraps it into bytes_body): the `file` part can be
+	// located here as soon as its content fits in the buffered prefix, so the
+	// exact line/byte count is known and the rejection happens before
+	// forwarding instead of mid-stream. This must run BEFORE installing the
+	// gate: GetBodyAccessor on a wrapped body would buffer a second time and
+	// GetBytes would report all=false (source not exhausted).
 	if outreq.Body != nil {
 		if accessor, err := outreq.GetBodyAccessor(); err == nil && accessor != nil {
-			if buf, all := accessor.GetBytes(); all && len(buf) > 0 {
+			if buf, all := accessor.GetBytes(); len(buf) > 0 {
 				// Limit checks use the FILE CONTENT, never the multipart
 				// envelope: part headers and boundary lines would inflate the
-				// numbers (1 line / 206 B was read as 11 lines / 509 B) and
+				// numbers (1 line / 138 B was read as 11 lines / 502 B) and
 				// with them the reserve estimate.
 				fileBytes := int64(len(buf))
 				fileLines := int64(bytes.Count(buf, []byte{10}))
-				if stats, ok := multipartFilePartStats(outreq.Header.Get("Content-Type"), buf); ok {
-					ctx.uploadPartOK = true
-					ctx.uploadFilename = stats.Filename
-					ctx.uploadPartBytes = stats.Bytes
-					ctx.uploadPartLines = stats.Lines
-					fileBytes, fileLines = stats.Bytes, stats.Lines
+				counted := !multipart && all
+				if multipart {
+					// a fully read `file` part is exact even when buf is only
+					// a prefix of the body (the part itself was not truncated)
+					if stats, ok := multipartFilePartStats(boundary, buf); ok {
+						ctx.uploadPartOK = true
+						ctx.uploadFilename = stats.Filename
+						ctx.uploadPartBytes = stats.Bytes
+						ctx.uploadPartLines = stats.Lines
+						fileBytes, fileLines = stats.Bytes, stats.Lines
+						counted = true
+					}
 				}
-				if overBatchFileLimit(fileBytes, fileLines, aiMeta) {
-					m.state.Inc("UPLOAD_REJECT_SIZE", 1)
-					ctx.overSized = true
-					return m.batchLimitReject(req, aiMeta,
-						fmt.Sprintf("file bytes %d/lines %d exceed effective limits", fileBytes, fileLines))
+				if counted {
+					if overBatchFileLimit(fileBytes, fileLines, aiMeta) {
+						m.state.Inc("UPLOAD_REJECT_SIZE", 1)
+						ctx.overSized = true
+						return m.batchLimitReject(req, aiMeta,
+							fmt.Sprintf("file bytes %d/lines %d exceed effective limits", fileBytes, fileLines))
+					}
+					// authoritative count: the limits are already checked, so
+					// no mid-stream gate is needed
+					return bfe_module.BfeHandlerGoOn, nil
 				}
 			}
 		}
-		outreq.Body = newCountingBody(outreq.Body, ctx, aiMeta)
+		// not locatable: measure while streaming, on the `file` part when the
+		// envelope can be parsed and on the whole body otherwise
+		outreq.Body = newUploadLimitBody(outreq.Body, boundary, ctx, aiMeta)
 	}
 	return bfe_module.BfeHandlerGoOn, nil
 }

@@ -39,8 +39,8 @@ type batchContext struct {
 	provider    string
 
 	// upload counting (OpUpload)
-	uploadBytes     int64  // bytes counted by countingBody (multipart envelope)
-	uploadLines     int64  // newlines counted by countingBody
+	uploadBytes     int64  // whole-body bytes counted by the limit gate (envelope)
+	uploadLines     int64  // whole-body newlines counted by the limit gate
 	uploadFilename  string // file part filename (when the part was located)
 	uploadPartBytes int64  // file part content bytes
 	uploadPartLines int64  // file part content newlines

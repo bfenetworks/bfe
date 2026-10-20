@@ -54,8 +54,13 @@ func (m *ModuleAiRateLimit) checkBatchLimits(req *bfe_basic.Request, meta *bfe_b
 			}
 		}
 	case bfe_basic.BatchOpUpload:
-		// known Content-Length only; chunked streams are enforced by
-		// mod_ai_batch's counting reader via the effective limits
+		// Content-Length is only the file size for raw (non-multipart)
+		// uploads. For multipart envelopes it covers boundary lines, part
+		// headers and other form fields too, so the byte/line limits are
+		// measured by mod_ai_batch on the `file` part instead (issue #1434).
+		if _, multipart := bfe_basic.IsMultipartUpload(req.HttpRequest.Header); multipart {
+			break
+		}
 		if b.MaxFileBytes > 0 && req.HttpRequest.ContentLength > b.MaxFileBytes {
 			return "batch_file"
 		}
@@ -93,7 +98,7 @@ func (m *ModuleAiRateLimit) executeBatchPolicyAction(req *bfe_basic.Request, met
 // resolveBatchFileLimits computes the effective per-request file limits as
 // min(bound policies' batch_limits, mod_ai_batch.data global hard ceilings)
 // and publishes them into AiBasicInfo for mod_ai_batch (single computation
-// point: its pre-forward checks and its counting reader read the same
+// point: its pre-forward checks and its streaming limit gate read the same
 // values). 0 means unlimited.
 func resolveBatchFileLimits(meta *bfe_basic.AiBasicInfo, policyIds []string,
 	getPolicy func(string) *PolicyConf) {
