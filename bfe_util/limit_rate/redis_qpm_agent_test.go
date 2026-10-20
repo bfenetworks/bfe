@@ -15,303 +15,248 @@
 package limit_rate
 
 import (
-	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
 
+// 窗口内放行：limit 次请求依次通过，返回值逐次累加。
+func TestQpmWithinLimit(t *testing.T) {
+	resetRedis(t)
+	const key, period, limit = "qpm_within", 60, 3
+
+	for i := int64(1); i <= limit; i++ {
+		tick(time.Duration(i) * time.Second)
+		currentTime, allowed, tat, err := testAgent.QpmCheck(key, period, limit, 1)
+		if err != nil {
+			t.Fatalf("QpmCheck #%d failed: %v", i, err)
+		}
+		if !allowed {
+			t.Fatalf("QpmCheck #%d should be allowed", i)
+		}
+		if tat != float64(i) {
+			t.Errorf("tat #%d = %v, want %d", i, tat, i)
+		}
+		if currentTime <= 0 {
+			t.Errorf("currentTime = %d, want > 0", currentTime)
+		}
+	}
+
+	if ttl := testRedis.TTL(key); ttl <= 0 {
+		t.Errorf("key should carry a TTL, got %v", ttl)
+	}
+}
+
+// 超限拒绝：达到 limit 后再请求被拒，且不写入新成员。
+func TestQpmExceedLimit(t *testing.T) {
+	resetRedis(t)
+	const key, period, limit = "qpm_exceed", 60, 2
+
+	for i := 0; i < limit; i++ {
+		tick(time.Duration(i) * time.Second)
+		if _, allowed, _, err := testAgent.QpmCheck(key, period, limit, 1); err != nil || !allowed {
+			t.Fatalf("request #%d should be allowed, err=%v", i, err)
+		}
+	}
+
+	tick(3 * time.Second)
+	_, allowed, tat, err := testAgent.QpmCheck(key, period, limit, 1)
+	if err != nil {
+		t.Fatalf("QpmCheck failed: %v", err)
+	}
+	if allowed {
+		t.Fatal("request over limit should be rejected")
+	}
+	// 拒绝时返回的是当前窗口计数，不含本次
+	if tat != float64(limit) {
+		t.Errorf("tat = %v, want %d", tat, limit)
+	}
+
+	members, err := testRedis.ZMembers(key)
+	if err != nil {
+		t.Fatalf("ZMembers failed: %v", err)
+	}
+	if len(members) != limit {
+		t.Errorf("zset size = %d, want %d (rejected request must not be recorded)", len(members), limit)
+	}
+}
+
+// 窗口过期后恢复：整窗滑出后计数归零。
+func TestQpmWindowExpire(t *testing.T) {
+	resetRedis(t)
+	const key, period, limit = "qpm_expire", 10, 3
+
+	for i := 0; i < limit; i++ {
+		tick(time.Duration(i) * time.Second)
+		if _, allowed, _, err := testAgent.QpmCheck(key, period, limit, 1); err != nil || !allowed {
+			t.Fatalf("request #%d should be allowed, err=%v", i, err)
+		}
+	}
+
+	// 推进到所有成员都早于 now-period
+	tick(time.Duration(period+10) * time.Second)
+
+	_, allowed, tat, err := testAgent.QpmCheck(key, period, limit, 1)
+	if err != nil {
+		t.Fatalf("QpmCheck failed: %v", err)
+	}
+	if !allowed {
+		t.Fatal("request should be allowed after window expired")
+	}
+	if tat != 1 {
+		t.Errorf("tat = %v, want 1 (window should be empty)", tat)
+	}
+}
+
+// 滑动而非固定窗口：只滑出已过期的成员，保留仍在窗口内的成员。
 func TestQpmSlidingWindow(t *testing.T) {
-	// Integration tests requiring Redis at 127.0.0.1:6379
-	// t.Run("WithinLimit", testQpmWithinLimit)
-	// t.Run("ExceedLimit", testQpmExceedLimit)
-	// t.Run("WindowExpire", testQpmWindowExpire)
-	// t.Run("SlidingBehavior", testQpmSlidingBehavior)
-	// t.Run("CountCorrectness", testQpmCountCorrectness)
-	// t.Run("KeyIsolation", testQpmKeyIsolation)
-	// t.Run("LimitOne", testQpmLimitOne)
-	// t.Run("EmissionCost", testQpmEmissionCost)
+	resetRedis(t)
+	const key, period, limit = "qpm_sliding", 10, 2
+
+	tick(0)
+	if _, allowed, _, err := testAgent.QpmCheck(key, period, limit, 1); err != nil || !allowed {
+		t.Fatalf("t=0 should be allowed, err=%v", err)
+	}
+
+	tick(5 * time.Second)
+	if _, allowed, _, err := testAgent.QpmCheck(key, period, limit, 1); err != nil || !allowed {
+		t.Fatalf("t=5 should be allowed, err=%v", err)
+	}
+
+	tick(9 * time.Second)
+	if _, allowed, _, err := testAgent.QpmCheck(key, period, limit, 1); err != nil {
+		t.Fatalf("QpmCheck failed: %v", err)
+	} else if allowed {
+		t.Fatal("t=9 should be rejected: both members are still in window")
+	}
+
+	// 10.5s 时只剩 t=5 的成员在窗口内（now-period = 0.5），允许 1 次
+	tick(10500 * time.Millisecond)
+	_, allowed, tat, err := testAgent.QpmCheck(key, period, limit, 1)
+	if err != nil {
+		t.Fatalf("QpmCheck failed: %v", err)
+	}
+	if !allowed {
+		t.Fatal("t=10.5 should be allowed: the t=0 member has slid out")
+	}
+	if tat != 2 {
+		t.Errorf("tat = %v, want 2 (one old member remains)", tat)
+	}
 }
 
-func testQpmWithinLimit(t *testing.T) {
-	client := makeRedisClient()
-	agent := NewRedisLRAgent(client)
+// 同一微秒内的多次请求会折叠成同一个 ZSET 成员，因此只计 1 次。
+// 这是成员命名（now:microsecond）带来的既有语义，此处固化以防回归。
+// 同一微秒内的多次请求会命中同一个 ZSET 成员（成员名为 now:microsecond），
+// 因此成员数只增加 1 个，而返回值 tat 仍按 count+cost 递增。
+// 即：极短时间内的并发请求在存储侧被折叠、实际计数偏小。这是既有语义，
+// 此处固化以防回归；如需严格计数需改造成员命名（如加入随机后缀）。
+func TestQpmSameInstantCollapsesMember(t *testing.T) {
+	resetRedis(t)
+	const key, period, limit = "qpm_same_instant", 60, 10
 
-	key := "testcase_qpm_within"
-	period := int64(60)
-	limit := int64(10)
-
-	for i := int64(0); i < limit; i++ {
-		_, isAllowed, _, err := agent.QpmCheck(key, period, limit, 1)
-		if err != nil {
-			t.Fatalf("QpmCheck error at idx %d: %v", i, err)
-		}
-		if !isAllowed {
-			t.Errorf("request %d should be allowed", i)
-		}
+	tick(0)
+	if _, allowed, tat, err := testAgent.QpmCheck(key, period, limit, 1); err != nil || !allowed {
+		t.Fatalf("first call should be allowed, err=%v", err)
+	} else if tat != 1 {
+		t.Errorf("first tat = %v, want 1", tat)
 	}
-	fmt.Println("WithinLimit: all 10 requests allowed")
+
+	// 时钟不动，再请求一次
+	_, allowed, tat, err := testAgent.QpmCheck(key, period, limit, 1)
+	if err != nil {
+		t.Fatalf("QpmCheck failed: %v", err)
+	}
+	if !allowed {
+		t.Fatal("second call should be allowed")
+	}
+	if tat != 2 {
+		t.Errorf("tat = %v, want 2 (returned count still increments)", tat)
+	}
+
+	members, err := testRedis.ZMembers(key)
+	if err != nil {
+		t.Fatalf("ZMembers failed: %v", err)
+	}
+	if len(members) != 1 {
+		t.Errorf("zset size = %d, want 1: same-instant calls collapse into one member", len(members))
+	}
 }
 
-func testQpmExceedLimit(t *testing.T) {
-	client := makeRedisClient()
-	agent := NewRedisLRAgent(client)
+// expectUse 只影响返回值，不改变实际记账的成员数：限流按"请求次数"生效，
+// 不按"消耗单位数"生效。调用方不能依赖 tat 做累计计费。
+func TestQpmExpectUseAffectsOnlyReturnedCount(t *testing.T) {
+	resetRedis(t)
+	const key, period, limit = "qpm_cost", 60, 10
 
-	key := "testcase_qpm_exceed"
-	period := int64(60)
-	limit := int64(10)
-
-	for i := int64(0); i < limit; i++ {
-		_, isAllowed, _, err := agent.QpmCheck(key, period, limit, 1)
-		if err != nil {
-			t.Fatalf("QpmCheck error at idx %d: %v", i, err)
-		}
-		if !isAllowed {
-			t.Fatalf("request %d should be allowed, but was rejected", i)
-		}
+	tick(0)
+	_, allowed, tat, err := testAgent.QpmCheck(key, period, limit, 5)
+	if err != nil || !allowed {
+		t.Fatalf("first call should be allowed, err=%v", err)
+	}
+	if tat != 5 {
+		t.Errorf("tat = %v, want 5", tat)
 	}
 
-	_, isAllowed, count, err := agent.QpmCheck(key, period, limit, 1)
-	if err != nil {
-		t.Fatalf("QpmCheck error: %v", err)
+	tick(time.Second)
+	_, allowed, tat, err = testAgent.QpmCheck(key, period, limit, 5)
+	if err != nil || !allowed {
+		t.Fatalf("second call should be allowed, err=%v", err)
 	}
-	if isAllowed {
-		t.Errorf("request %d should be rejected, count=%f", limit+1, count)
+	if tat != 6 {
+		t.Errorf("tat = %v, want 6", tat)
 	}
-	if int64(count) != limit {
-		t.Errorf("count should be %d, got %f", limit, count)
+
+	members, _ := testRedis.ZMembers(key)
+	if len(members) != 2 {
+		t.Errorf("zset size = %d, want 2: each call records one member regardless of cost", len(members))
 	}
-	fmt.Printf("ExceedLimit: 11th request rejected, count=%f\n", count)
 }
 
-func testQpmWindowExpire(t *testing.T) {
-	client := makeRedisClient()
-	agent := NewRedisLRAgent(client)
+// 不同 key 互不影响。
+func TestQpmKeyIsolation(t *testing.T) {
+	resetRedis(t)
+	const period, limit = 60, 1
 
-	key := "testcase_qpm_expire"
-	period := int64(2)
-	limit := int64(5)
-
-	for i := int64(0); i < limit; i++ {
-		_, isAllowed, _, err := agent.QpmCheck(key, period, limit, 1)
-		if err != nil {
-			t.Fatalf("QpmCheck error at idx %d: %v", i, err)
-		}
-		if !isAllowed {
-			t.Fatalf("request %d should be allowed", i)
-		}
+	tick(0)
+	if _, allowed, _, err := testAgent.QpmCheck("qpm_iso_a", period, limit, 1); err != nil || !allowed {
+		t.Fatalf("key a should be allowed, err=%v", err)
 	}
-
-	_, isAllowed, _, err := agent.QpmCheck(key, period, limit, 1)
-	if err != nil {
-		t.Fatalf("QpmCheck error: %v", err)
+	tick(time.Second)
+	if _, allowed, _, err := testAgent.QpmCheck("qpm_iso_a", period, limit, 1); err != nil {
+		t.Fatalf("QpmCheck failed: %v", err)
+	} else if allowed {
+		t.Fatal("key a should be exhausted")
 	}
-	if isAllowed {
-		t.Errorf("request should be rejected when window full")
+	if _, allowed, _, err := testAgent.QpmCheck("qpm_iso_b", period, limit, 1); err != nil || !allowed {
+		t.Fatalf("key b should be independent and allowed, err=%v", err)
 	}
-	fmt.Println("WindowExpire: window full, request rejected")
-
-	time.Sleep(3 * time.Second)
-
-	_, isAllowed, _, err = agent.QpmCheck(key, period, limit, 1)
-	if err != nil {
-		t.Fatalf("QpmCheck error after window expire: %v", err)
-	}
-	if !isAllowed {
-		t.Errorf("request should be allowed after window expired")
-	}
-	fmt.Println("WindowExpire: after 3s, request allowed")
 }
 
-func testQpmCountCorrectness(t *testing.T) {
-	client := makeRedisClient()
-	agent := NewRedisLRAgent(client)
-
-	key := "testcase_qpm_count"
-	period := int64(60)
-	limit := int64(10)
-
-	for i := int64(1); i <= 5; i++ {
-		_, _, count, err := agent.QpmCheck(key, period, limit, 1)
-		if err != nil {
-			t.Fatalf("QpmCheck error: %v", err)
-		}
-		if int64(count) != i {
-			t.Errorf("count should be %d, got %f", i, count)
+// 非法 period 直接报错，不触达 Redis。
+func TestQpmInvalidPeriod(t *testing.T) {
+	resetRedis(t)
+	for _, period := range []int64{0, -1} {
+		if _, _, _, err := testAgent.QpmCheck("qpm_bad_period", period, 10, 1); err == nil {
+			t.Fatalf("period=%d should fail", period)
+		} else if !strings.Contains(err.Error(), "period") {
+			t.Errorf("unexpected error: %v", err)
 		}
 	}
-	fmt.Println("CountCorrectness: count increments correctly from 1 to 5")
 }
 
-func testQpmKeyIsolation(t *testing.T) {
-	client := makeRedisClient()
-	agent := NewRedisLRAgent(client)
-
-	key1 := "testcase_qpm_iso_1"
-	key2 := "testcase_qpm_iso_2"
-	period := int64(60)
-	limit := int64(5)
-
-	for i := int64(0); i < limit; i++ {
-		_, isAllowed, _, err := agent.QpmCheck(key1, period, limit, 1)
-		if err != nil {
-			t.Fatalf("key1 QpmCheck error at idx %d: %v", i, err)
-		}
-		if !isAllowed {
-			t.Fatalf("key1 request %d should be allowed", i)
-		}
+// 脚本未初始化时报错，避免空指针。
+func TestQpmScriptNotInitialized(t *testing.T) {
+	resetRedis(t)
+	agent := &RedisLRAgent{}
+	if _, _, _, err := agent.QpmCheck("qpm_no_script", 60, 10, 1); err == nil {
+		t.Fatal("expected error when script is nil")
 	}
-
-	_, isAllowed, _, err := agent.QpmCheck(key1, period, limit, 1)
-	if err != nil {
-		t.Fatalf("key1 QpmCheck error: %v", err)
-	}
-	if isAllowed {
-		t.Errorf("key1 should be rejected")
-	}
-
-	_, isAllowed, _, err = agent.QpmCheck(key2, period, limit, 1)
-	if err != nil {
-		t.Fatalf("key2 QpmCheck error: %v", err)
-	}
-	if !isAllowed {
-		t.Errorf("key2 should be allowed (isolated from key1)")
-	}
-	fmt.Println("KeyIsolation: key2 not affected by key1 exhaustion")
 }
 
-func testQpmLimitOne(t *testing.T) {
-	client := makeRedisClient()
-	agent := NewRedisLRAgent(client)
-
-	key := "testcase_qpm_limit1"
-	period := int64(60)
-	limit := int64(1)
-
-	_, isAllowed, _, err := agent.QpmCheck(key, period, limit, 1)
-	if err != nil {
-		t.Fatalf("QpmCheck error: %v", err)
+// Redis 不可用时错误向上传播。
+func TestQpmRedisError(t *testing.T) {
+	resetRedis(t)
+	if _, _, _, err := deadAgent.QpmCheck("qpm_dead", 60, 10, 1); err == nil {
+		t.Fatal("expected redis error")
 	}
-	if !isAllowed {
-		t.Errorf("first request should be allowed")
-	}
-
-	_, isAllowed, _, err = agent.QpmCheck(key, period, limit, 1)
-	if err != nil {
-		t.Fatalf("QpmCheck error: %v", err)
-	}
-	if isAllowed {
-		t.Errorf("second request should be rejected (limit=1)")
-	}
-	fmt.Println("LimitOne: 1st allowed, 2nd rejected")
-}
-
-func testQpmEmissionCost(t *testing.T) {
-	client := makeRedisClient()
-	agent := NewRedisLRAgent(client)
-
-	key := "testcase_qpm_cost"
-	period := int64(60)
-	limit := int64(10)
-
-	_, isAllowed, count, err := agent.QpmCheck(key, period, limit, 3)
-	if err != nil {
-		t.Fatalf("QpmCheck error: %v", err)
-	}
-	if !isAllowed {
-		t.Errorf("request with emission_cost=3 should be allowed")
-	}
-	if int64(count) != 3 {
-		t.Errorf("count should be 3, got %f", count)
-	}
-
-	_, isAllowed, count, err = agent.QpmCheck(key, period, limit, 1)
-	if err != nil {
-		t.Fatalf("QpmCheck error: %v", err)
-	}
-	if !isAllowed {
-		t.Errorf("request should be allowed")
-	}
-	if int64(count) != 2 {
-		t.Errorf("count should be 2, got %f", count)
-	}
-	fmt.Println("EmissionCost: count reflects emission_cost correctly")
-}
-
-func testQpmSlidingBehavior(t *testing.T) {
-	client := makeRedisClient()
-	agent := NewRedisLRAgent(client)
-
-	key := "testcase_qpm_sliding"
-	period := int64(10)
-	limit := int64(5)
-
-	// t≈1s: send 3 requests, all allowed (count 0→3)
-	time.Sleep(1 * time.Second)
-	for i := 0; i < 3; i++ {
-		_, isAllowed, _, err := agent.QpmCheck(key, period, limit, 1)
-		if err != nil {
-			t.Fatalf("t=1s idx %d: %v", i, err)
-		}
-		if !isAllowed {
-			t.Errorf("t=1s idx %d should be allowed", i)
-		}
-	}
-	fmt.Println("t≈1s: 3 requests allowed")
-
-	// t≈2s: send 3 requests, first 2 allowed, 3rd rejected (count 3→5)
-	time.Sleep(1 * time.Second)
-	for i := 0; i < 2; i++ {
-		_, isAllowed, _, err := agent.QpmCheck(key, period, limit, 1)
-		if err != nil {
-			t.Fatalf("t=2s idx %d: %v", i, err)
-		}
-		if !isAllowed {
-			t.Errorf("t=2s idx %d should be allowed", i)
-		}
-	}
-	_, isAllowed, _, err := agent.QpmCheck(key, period, limit, 1)
-	if err != nil {
-		t.Fatalf("t=2s idx 3: %v", err)
-	}
-	if isAllowed {
-		t.Errorf("t=2s idx 3 should be rejected (window full)")
-	}
-	fmt.Println("t≈2s: 2 allowed, 1 rejected (window full at 5)")
-
-	// t≈6s: send 4 requests, all rejected (window still full)
-	time.Sleep(4 * time.Second)
-	for i := 0; i < 4; i++ {
-		_, isAllowed, _, err := agent.QpmCheck(key, period, limit, 1)
-		if err != nil {
-			t.Fatalf("t=6s idx %d: %v", i, err)
-		}
-		if isAllowed {
-			t.Errorf("t=6s idx %d should be rejected", i)
-		}
-	}
-	fmt.Println("t≈6s: all 4 rejected")
-
-	// t≈7s: send 1 request, rejected
-	time.Sleep(1 * time.Second)
-	_, isAllowed, _, err = agent.QpmCheck(key, period, limit, 1)
-	if err != nil {
-		t.Fatalf("t=7s: %v", err)
-	}
-	if isAllowed {
-		t.Errorf("t=7s should be rejected")
-	}
-	fmt.Println("t≈7s: rejected")
-
-	// t≈12s: send 3 requests, all allowed (t≈1s entries expired, window slid)
-	time.Sleep(5 * time.Second)
-	for i := 0; i < 3; i++ {
-		_, isAllowed, _, err := agent.QpmCheck(key, period, limit, 1)
-		if err != nil {
-			t.Fatalf("t=12s idx %d: %v", i, err)
-		}
-		if !isAllowed {
-			t.Errorf("t=12s idx %d should be allowed", i)
-		}
-	}
-	fmt.Println("t≈12s: 3 requests allowed (window slid)")
 }

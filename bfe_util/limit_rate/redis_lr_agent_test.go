@@ -15,180 +15,162 @@
 package limit_rate
 
 import (
-	"fmt"
 	"testing"
 	"time"
-
-	"github.com/bfenetworks/bfe/bfe_util/bns"
-	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 )
 
-func makeRedisClient() redis_client.Client {
-	filename := "./testdata/name_conf.data"
-	err := bns.LoadLocalNameConf(filename)
-	if err != nil {
-		fmt.Println("LoadLocalNameConf err", err.Error())
-	}
+// 并发槽位内放行：计数随 acquire 递增。
+func TestConAcquireWithinLimit(t *testing.T) {
+	resetRedis(t)
+	const key, threshold, ttl = "con_within", 2, 60
 
-	opts := &redis_client.Options{
-		//ServiceConf: "127.0.0.1:6379",
-		ServiceConf: "testredis",
-
-		MaxIdle:   10,
-		MaxActive: 20,
-		Wait:      true,
-
-		ConnTimeoutMs:  100,
-		ReadTimeoutMs:  100,
-		WriteTimeoutMs: 100,
-
-		Password: "",
-	}
-	err = opts.Format()
-	if err != nil {
-		fmt.Println("Format Options err", err.Error())
-	}
-
-	client := redis_client.NewRedisClient(opts)
-	return client
-}
-
-func TestRedisAgent(t *testing.T) {
-	// //disable when git push
-	//tmpRedisAgentImplTtl(t)
-	//tmpRedisAgentImpl(t)
-}
-
-func tmpRedisAgentImplTtl(t *testing.T) {
-	client := makeRedisClient()
-	agent := NewRedisLRAgent(client)
-
-	key := "testcase_conn_ttl"
-	conThreshold := int64(1)
-	ttl := int64(3)
-	currentTime, isAllowed, curCount, err := agent.ConAcquire(
-		key,
-		conThreshold,
-		ttl,
-	)
-	if err != nil {
-		t.Fatalf("ConAcquire returned error: %v", err)
-	}
-	if !isAllowed {
-		t.Errorf("isAllowed should be allowed")
-	}
-	fmt.Printf("ConAcquire0 currentTime:%v, isAllowed:%v, curCount:%v, err:%v\n", currentTime, isAllowed, curCount, err)
-
-	currentTime, isAllowed, curCount, err = agent.ConAcquire(
-		key,
-		conThreshold,
-		ttl,
-	)
-	if err != nil {
-		t.Fatalf("ConAcquire returned error: %v", err)
-	}
-	if isAllowed {
-		t.Errorf("isAllowed should not be allowed")
-	}
-	fmt.Printf("ConAcquire1 currentTime:%v, isAllowed:%v, curCount:%v, err:%v\n", currentTime, isAllowed, curCount, err)
-
-	time.Sleep(6 * time.Second)
-	currentTime, isAllowed, curCount, err = agent.ConAcquire(
-		key,
-		conThreshold,
-		ttl,
-	)
-	if err != nil {
-		t.Fatalf("ConAcquire returned error: %v", err)
-	}
-	if !isAllowed {
-		t.Errorf("isAllowed should be allowed")
-	}
-	fmt.Printf("ConAcquire2 currentTime:%v, isAllowed:%v, curCount:%v, err:%v\n", currentTime, isAllowed, curCount, err)
-}
-
-func tmpRedisAgentImpl(t *testing.T) {
-	client := makeRedisClient()
-	agent := NewRedisLRAgent(client)
-
-	key := "testcase_conn"
-	conThreshold := int64(5)
-	ttl := int64(60)
-
-	for idx := 0; idx < 5; idx++ {
-		currentTime, isAllowed, curCount, err := agent.ConAcquire(
-			key,
-			conThreshold,
-			ttl,
-		)
+	for i := int64(1); i <= threshold; i++ {
+		currentTime, allowed, curCount, err := testAgent.ConAcquire(key, threshold, ttl)
 		if err != nil {
-			t.Fatalf("ConAcquire returned error: %v, idx:%d", err, idx)
+			t.Fatalf("ConAcquire #%d failed: %v", i, err)
 		}
-
+		if !allowed {
+			t.Fatalf("ConAcquire #%d should be allowed", i)
+		}
+		if curCount != i {
+			t.Errorf("curCount #%d = %d, want %d", i, curCount, i)
+		}
 		if currentTime <= 0 {
-			t.Errorf("unexpected currentTime: %v, idx:%d", currentTime, idx)
-		}
-		if !isAllowed {
-			t.Errorf("isAllowed should be allowed on %d consume", idx)
-		}
-		expected := int64(idx) + 1
-		if curCount != expected {
-			t.Errorf("unexpected curCount: got %v, want %v, idx:%d", curCount, expected, idx)
+			t.Errorf("currentTime = %d, want > 0", currentTime)
 		}
 	}
 
-	for idx := 5; idx < 8; idx++ {
-		currentTime, isAllowed, curCount, err := agent.ConAcquire(
-			key,
-			conThreshold,
-			ttl,
-		)
+	if got := redisInt(t, key); got != threshold {
+		t.Errorf("stored counter = %d, want %d", got, threshold)
+	}
+	if ttlLeft := testRedis.TTL(key); ttlLeft <= 0 {
+		t.Errorf("key should carry a TTL, got %v", ttlLeft)
+	}
+}
+
+// 超过上限拒绝，且不递增计数。
+func TestConAcquireExceedLimit(t *testing.T) {
+	resetRedis(t)
+	const key, threshold, ttl = "con_exceed", 1, 60
+
+	if _, allowed, _, err := testAgent.ConAcquire(key, threshold, ttl); err != nil || !allowed {
+		t.Fatalf("first acquire should be allowed, err=%v", err)
+	}
+
+	_, allowed, curCount, err := testAgent.ConAcquire(key, threshold, ttl)
+	if err != nil {
+		t.Fatalf("ConAcquire failed: %v", err)
+	}
+	if allowed {
+		t.Fatal("acquire over limit should be rejected")
+	}
+	if curCount != threshold {
+		t.Errorf("curCount = %d, want %d (rejected acquire must not increment)", curCount, threshold)
+	}
+	if got := redisInt(t, key); got != threshold {
+		t.Errorf("stored counter = %d, want %d", got, threshold)
+	}
+}
+
+// 释放递减计数，且不会减成负数。
+func TestConRelease(t *testing.T) {
+	resetRedis(t)
+	const key, threshold, ttl = "con_release", 2, 60
+
+	for i := 0; i < threshold; i++ {
+		if _, allowed, _, err := testAgent.ConAcquire(key, threshold, ttl); err != nil || !allowed {
+			t.Fatalf("acquire #%d should be allowed, err=%v", i, err)
+		}
+	}
+
+	for want := int64(threshold - 1); want >= 0; want-- {
+		curCount, err := testAgent.ConRelease(key, ttl)
 		if err != nil {
-			t.Fatalf("ConAcquire returned error: %v, idx:%d", err, idx)
+			t.Fatalf("ConRelease failed: %v", err)
 		}
-
-		if currentTime <= 0 {
-			t.Errorf("unexpected currentTime: %v, idx:%d", currentTime, idx)
-		}
-		if isAllowed {
-			t.Errorf("isAllowed should not be allowed on %d consume", idx)
-		}
-
-		if curCount != conThreshold {
-			t.Errorf("unexpected curCount: got %v, want %v, idx:%d", curCount, conThreshold, idx)
+		if curCount != want {
+			t.Errorf("curCount = %d, want %d", curCount, want)
 		}
 	}
 
-	for idx := 0; idx < 5; idx++ {
-		curCount, err := agent.ConRelease(
-			key,
-			ttl,
-		)
-		if err != nil {
-			t.Fatalf("ConRelease returned error: %v, idx:%d", err, idx)
-		}
-
-		expected := int64(conThreshold - int64(idx) - 1)
-		if curCount != expected {
-			t.Errorf("unexpected curCount: got %v, want %v, idx:%d", curCount, expected, idx)
-		}
+	// 已归零后再释放：返回值 0，且不写负值
+	curCount, err := testAgent.ConRelease(key, ttl)
+	if err != nil {
+		t.Fatalf("ConRelease on empty key failed: %v", err)
 	}
-
-	currentTime, isAllowed, curCount, err := agent.ConAcquire(
-		key,
-		conThreshold,
-		ttl,
-	)
-	if !isAllowed {
-		t.Errorf("isAllowed should be allowed")
-	}
-	fmt.Printf("ConAcquire currentTime:%v, isAllowed:%v, curCount:%v, err:%v\n", currentTime, isAllowed, curCount, err)
-	curCount, err = agent.ConRelease(
-		key,
-		ttl,
-	)
 	if curCount != 0 {
-		t.Errorf("unexpected curCount")
+		t.Errorf("curCount = %d, want 0", curCount)
 	}
-	fmt.Printf("ConRelease curCount:%v, err:%v\n", curCount, err)
+	if testRedis.Exists(key) && redisInt(t, key) < 0 {
+		t.Error("counter must not go negative")
+	}
+}
+
+// 未 acquire 就 release：返回 0，不创建键。
+func TestConReleaseWithoutAcquire(t *testing.T) {
+	resetRedis(t)
+	curCount, err := testAgent.ConRelease("con_release_missing", 60)
+	if err != nil {
+		t.Fatalf("ConRelease failed: %v", err)
+	}
+	if curCount != 0 {
+		t.Errorf("curCount = %d, want 0", curCount)
+	}
+	if testRedis.Exists("con_release_missing") {
+		t.Error("release must not create the counter key")
+	}
+}
+
+// TTL 到期后槽位自动回收，避免实例崩溃导致并发额度永久占用。
+func TestConAcquireAfterTTLExpire(t *testing.T) {
+	resetRedis(t)
+	const key, threshold, ttl = "con_ttl", 1, 2
+
+	if _, allowed, _, err := testAgent.ConAcquire(key, threshold, ttl); err != nil || !allowed {
+		t.Fatalf("first acquire should be allowed, err=%v", err)
+	}
+	if _, allowed, _, err := testAgent.ConAcquire(key, threshold, ttl); err != nil {
+		t.Fatalf("ConAcquire failed: %v", err)
+	} else if allowed {
+		t.Fatal("second acquire should be rejected before TTL expires")
+	}
+
+	testRedis.FastForward(3 * time.Second)
+	if testRedis.Exists(key) {
+		t.Fatal("counter key should expire after TTL")
+	}
+
+	_, allowed, curCount, err := testAgent.ConAcquire(key, threshold, ttl)
+	if err != nil {
+		t.Fatalf("ConAcquire after expiry failed: %v", err)
+	}
+	if !allowed {
+		t.Fatal("acquire after TTL expiry should be allowed")
+	}
+	if curCount != 1 {
+		t.Errorf("curCount = %d, want 1 (counter restarted)", curCount)
+	}
+}
+
+// 脚本未初始化时报错。
+func TestConScriptNotInitialized(t *testing.T) {
+	resetRedis(t)
+	agent := &RedisLRAgent{}
+	if _, _, _, err := agent.ConAcquire("con_no_script", 1, 60); err == nil {
+		t.Fatal("expected error when acquire script is nil")
+	}
+	if _, err := agent.ConRelease("con_no_script", 60); err == nil {
+		t.Fatal("expected error when release script is nil")
+	}
+}
+
+// Redis 不可用时错误向上传播。
+func TestConRedisError(t *testing.T) {
+	resetRedis(t)
+	if _, _, _, err := deadAgent.ConAcquire("con_dead", 1, 60); err == nil {
+		t.Fatal("expected redis error on acquire")
+	}
+	if _, err := deadAgent.ConRelease("con_dead", 60); err == nil {
+		t.Fatal("expected redis error on release")
+	}
 }
