@@ -16,6 +16,7 @@ package bfe_server
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -92,11 +93,46 @@ func newTestUpstream(t *testing.T, handler http.HandlerFunc) *testUpstream {
 	return u
 }
 
+// forwardOpts 描述一个测试用转发服务。
+type forwardOpts struct {
+	// upstreamAddr 是上游地址；为空时使用一个已关闭的端口（模拟连不上后端）
+	upstreamAddr string
+	// clusterExtra 注入 cluster_conf.data 中 cluster_test 对象的额外 JSON 字段，
+	// 不要结尾逗号，例如 `"BackendConf": {"TimeoutResponseHeader": 50}`
+	clusterExtra string
+	// tweak 在 NewBfeServer 之前覆盖 bfe.conf 中的字段（如 MaxHeaderBytes）
+	tweak func(*bfe_conf.BfeConfig)
+}
+
 // newForwardServer 构造一个最小可服务的 BfeServer：
 // 主机 example.org -> 产品 prod_test -> 集群 cluster_test -> upstreamAddr。
-// tweak 可在 NewBfeServer 之前覆盖 bfe.conf 中的字段（如 MaxHeaderBytes）。
 func newForwardServer(t *testing.T, upstreamAddr string, tweak func(*bfe_conf.BfeConfig)) *BfeServer {
 	t.Helper()
+	return newForwardServerWith(t, forwardOpts{upstreamAddr: upstreamAddr, tweak: tweak})
+}
+
+// closedAddr 返回一个当前没有监听者的地址，用于构造后端不可达的场景。
+func closedAddr(t *testing.T) string {
+	t.Helper()
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen failed: %v", err)
+	}
+	addr := ln.Addr().String()
+	if err := ln.Close(); err != nil {
+		t.Fatalf("close listener failed: %v", err)
+	}
+	return addr
+}
+
+func newForwardServerWith(t *testing.T, opts forwardOpts) *BfeServer {
+	t.Helper()
+
+	upstreamAddr := opts.upstreamAddr
+	if upstreamAddr == "" {
+		upstreamAddr = closedAddr(t)
+	}
 
 	host, portStr, err := net.SplitHostPort(upstreamAddr)
 	if err != nil {
@@ -132,6 +168,15 @@ func newForwardServer(t *testing.T, upstreamAddr string, tweak func(*bfe_conf.Bf
 	}
 }`, testProduct, testCluster))
 
+	// cluster_conf.data 承载集群级参数（ClusterBasic/BackendConf/CheckConf），
+	// 与只描述 subcluster/backends 的 cluster_table.data 是两类文件。
+	clusterConfFile := writeConf("cluster_conf.data", fmt.Sprintf(`{
+	"Version": "1",
+	"Config": {
+		"%s": {%s}
+	}
+}`, testCluster, opts.clusterExtra))
+
 	clusterTableFile := writeConf("cluster_table.data", fmt.Sprintf(`{
 	"Version": "1",
 	"Config": {
@@ -154,13 +199,13 @@ func newForwardServer(t *testing.T, upstreamAddr string, tweak func(*bfe_conf.Bf
 	cfg.Server.SetDefaultConf()
 	// 关掉 AI 网关，走传统 ServeHTTP 路径；后续用例可按需覆盖
 	cfg.Server.EnableAiGateway = false
-	if tweak != nil {
-		tweak(&cfg)
+	if opts.tweak != nil {
+		opts.tweak(&cfg)
 	}
 
 	srv := NewBfeServer(cfg, dir, "unit-test")
 
-	conf, err := bfe_route.LoadServerDataConf(hostFile, vipFile, routeFile, clusterTableFile, nil)
+	conf, err := bfe_route.LoadServerDataConf(hostFile, vipFile, routeFile, clusterConfFile, nil)
 	if err != nil {
 		t.Fatalf("load server data conf failed: %v", err)
 	}
@@ -295,8 +340,13 @@ func (c *testClient) expectClosed() {
 
 	_ = c.conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	buf := make([]byte, 1)
-	if n, err := c.conn.Read(buf); err == nil {
+	n, err := c.conn.Read(buf)
+	if err == nil {
 		c.t.Fatalf("connection should be closed, but read %d more byte(s): %q", n, buf[:n])
+	}
+	// 只有 EOF 才算"对端主动关闭"；超时说明连接还开着，只是没有数据
+	if !errors.Is(err, io.EOF) {
+		c.t.Fatalf("connection should be closed by the peer, got err=%v", err)
 	}
 }
 
