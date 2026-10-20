@@ -177,6 +177,11 @@ type BFEConfigBuilder struct {
 	TargetConfDir string
 	// Backends maps cluster names to mock backends.
 	Backends map[string]*MockBackend
+	// BackendGroups maps cluster names to additional mock backends that share
+	// the same sub-cluster (same weight as the primary backend). It is used by
+	// scenarios that must distinguish which backend served a request, e.g.
+	// session sticky. Backends and BackendGroups may be combined.
+	BackendGroups map[string][]*MockBackend
 	// StaticBackends maps cluster names to host:port addresses of real
 	// backend processes (e.g. llm-d-inference-sim) that are not MockBackends.
 	StaticBackends map[string]string
@@ -211,6 +216,81 @@ type BFEConfigBuilder struct {
 	// the address of a mock vector store). If empty, the section is left
 	// untouched.
 	VectorServiceAddr string
+	// ClusterOverrides customizes the generated cluster_conf.data per cluster.
+	// Nil sections keep the defaults produced by clusterBasicConf().
+	ClusterOverrides map[string]*ClusterOverride
+}
+
+// ClusterOverride overrides individual sections of the generated
+// cluster_conf.data entry for one cluster. Keys are merged into the
+// corresponding section, so a test only has to name the knobs it changes.
+// Remove lists keys to delete from a section, letting BFE apply its own
+// defaults for knobs the shared harness pre-populates.
+type ClusterOverride struct {
+	BackendConf        map[string]interface{}
+	CheckConf          map[string]interface{}
+	ClusterBasic       map[string]interface{}
+	GslbBasic          map[string]interface{}
+	HTTPSConf          map[string]interface{}
+	RemoveBackendConf  []string
+	RemoveCheckConf    []string
+	RemoveClusterBasic []string
+	RemoveGslbBasic    []string
+}
+
+// applyClusterOverride merges a ClusterOverride into a generated cluster conf.
+func applyClusterOverride(conf map[string]interface{}, ov *ClusterOverride) {
+	if ov == nil {
+		return
+	}
+	mergeConfSection(conf, "BackendConf", ov.BackendConf)
+	mergeConfSection(conf, "CheckConf", ov.CheckConf)
+	mergeConfSection(conf, "ClusterBasic", ov.ClusterBasic)
+	mergeConfSection(conf, "GslbBasic", ov.GslbBasic)
+	removeConfKeys(conf, "BackendConf", ov.RemoveBackendConf)
+	removeConfKeys(conf, "CheckConf", ov.RemoveCheckConf)
+	removeConfKeys(conf, "ClusterBasic", ov.RemoveClusterBasic)
+	removeConfKeys(conf, "GslbBasic", ov.RemoveGslbBasic)
+	if ov.HTTPSConf != nil {
+		httpsConf, _ := conf["HTTPSConf"].(map[string]interface{})
+		if httpsConf == nil {
+			httpsConf = map[string]interface{}{}
+		}
+		for k, v := range ov.HTTPSConf {
+			httpsConf[k] = v
+		}
+		conf["HTTPSConf"] = httpsConf
+	}
+}
+
+// removeConfKeys deletes keys from conf[section] (no-op for absent keys).
+func removeConfKeys(conf map[string]interface{}, section string, keys []string) {
+	if len(keys) == 0 {
+		return
+	}
+	target, _ := conf[section].(map[string]interface{})
+	if target == nil {
+		return
+	}
+	for _, k := range keys {
+		delete(target, k)
+	}
+}
+
+// mergeConfSection merges values into conf[section], creating the section when
+// it is absent.
+func mergeConfSection(conf map[string]interface{}, section string, values map[string]interface{}) {
+	if values == nil {
+		return
+	}
+	target, _ := conf[section].(map[string]interface{})
+	if target == nil {
+		target = map[string]interface{}{}
+	}
+	for k, v := range values {
+		target[k] = v
+	}
+	conf[section] = target
 }
 
 // Build prepares the BFE configuration directory.
@@ -402,7 +482,7 @@ func (b *BFEConfigBuilder) setupRedisBns() error {
 		return fmt.Errorf("parse redis addr %s failed: %w", b.RedisAddr, err)
 	}
 
-	// rewrite mod_ai_token_auth.conf and mod_ai_rate_limit.conf to use the fixed bns name
+	// rewrite module confs that support a Bns line to use the fixed bns name
 	if err := b.rewriteModBns("mod_ai_token_auth"); err != nil {
 		return fmt.Errorf("rewrite mod_ai_token_auth bns failed: %w", err)
 	}
@@ -411,6 +491,9 @@ func (b *BFEConfigBuilder) setupRedisBns() error {
 	}
 	if err := b.rewriteModBns("mod_ai_cache"); err != nil {
 		return fmt.Errorf("rewrite mod_ai_cache bns failed: %w", err)
+	}
+	if err := b.rewriteModBns("mod_session_sticky"); err != nil {
+		return fmt.Errorf("rewrite mod_session_sticky bns failed: %w", err)
 	}
 	// mod_ai_batch keeps its BATCH_* state in the same Redis as the quota
 	// keys; rewrite it when present (scenarios that do not ship the conf
@@ -544,33 +627,38 @@ func (b *BFEConfigBuilder) generateClusterTable() error {
 	}
 	config := clusterTable["Config"].(map[string]interface{})
 
-	for name, backend := range b.Backends {
-		host, port := backend.HostPort()
-		config[name] = map[string]interface{}{
-			"sub_" + clusterSubName(name): []map[string]interface{}{
-				{
-					"Name":   name + "-backend-0",
-					"Addr":   host,
-					"Port":   port,
-					"Weight": 100,
-				},
-			},
+	for name := range b.clusterNames() {
+		entries := make([]map[string]interface{}, 0, 1+len(b.BackendGroups[name]))
+		appendBackend := func(backend *MockBackend) {
+			host, port := backend.HostPort()
+			entries = append(entries, map[string]interface{}{
+				"Name":   fmt.Sprintf("%s-backend-%d", name, len(entries)),
+				"Addr":   host,
+				"Port":   port,
+				"Weight": 100,
+			})
 		}
-	}
-	for name, addr := range b.StaticBackends {
-		host, port, err := splitHostPort(addr)
-		if err != nil {
-			return fmt.Errorf("parse static backend addr for %s failed: %w", name, err)
+
+		if backend := b.Backends[name]; backend != nil {
+			appendBackend(backend)
+		}
+		for _, backend := range b.BackendGroups[name] {
+			appendBackend(backend)
+		}
+		if addr := b.StaticBackends[name]; addr != "" {
+			host, port, err := splitHostPort(addr)
+			if err != nil {
+				return fmt.Errorf("parse static backend addr for %s failed: %w", name, err)
+			}
+			entries = append(entries, map[string]interface{}{
+				"Name":   fmt.Sprintf("%s-backend-%d", name, len(entries)),
+				"Addr":   host,
+				"Port":   port,
+				"Weight": 100,
+			})
 		}
 		config[name] = map[string]interface{}{
-			"sub_" + clusterSubName(name): []map[string]interface{}{
-				{
-					"Name":   name + "-backend-0",
-					"Addr":   host,
-					"Port":   port,
-					"Weight": 100,
-				},
-			},
+			"sub_" + clusterSubName(name): entries,
 		}
 	}
 
@@ -581,6 +669,22 @@ func (b *BFEConfigBuilder) generateClusterTable() error {
 
 	path := filepath.Join(b.TargetConfDir, "cluster_conf", "cluster_table.data")
 	return os.WriteFile(path, data, 0644)
+}
+
+// clusterNames returns the union of cluster names that need a cluster_table /
+// cluster_conf entry.
+func (b *BFEConfigBuilder) clusterNames() map[string]struct{} {
+	names := make(map[string]struct{}, len(b.Backends)+len(b.StaticBackends)+len(b.BackendGroups))
+	for name := range b.Backends {
+		names[name] = struct{}{}
+	}
+	for name := range b.BackendGroups {
+		names[name] = struct{}{}
+	}
+	for name := range b.StaticBackends {
+		names[name] = struct{}{}
+	}
+	return names
 }
 
 // WriteClusterConfData regenerates cluster_conf.data in the target conf dir
@@ -599,7 +703,7 @@ func (b *BFEConfigBuilder) generateClusterConfData() error {
 	}
 	config := clusterConf["Config"].(map[string]interface{})
 
-	for name := range b.Backends {
+	for name := range b.clusterNames() {
 		conf := clusterBasicConf()
 		if aiConf, ok := b.AIConfs[name]; ok && aiConf != nil {
 			aiConfMap, err := aiConfToMap(aiConf)
@@ -609,11 +713,7 @@ func (b *BFEConfigBuilder) generateClusterConfData() error {
 			conf["AIConf"] = aiConfMap
 		}
 		applyEPPConf(conf, b.EPPClusters[name])
-		config[name] = conf
-	}
-	for name := range b.StaticBackends {
-		conf := clusterBasicConf()
-		applyEPPConf(conf, b.EPPClusters[name])
+		applyClusterOverride(conf, b.ClusterOverrides[name])
 		config[name] = conf
 	}
 

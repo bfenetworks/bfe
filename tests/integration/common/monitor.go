@@ -185,3 +185,23 @@ func CamelToSnake(s string) string {
 	}
 	return strings.ToUpper(b.String())
 }
+
+// WaitForModuleMetricValue polls one module metric until it reaches at least
+// want or the timeout elapses, returning the last observed value. It is used
+// by scenarios that assert a counter/gauge moved (e.g. proxy_state SSE
+// counters) without depending on a fixed sleep.
+func WaitForModuleMetricValue(port int, module, field string, want float64, timeout time.Duration) float64 {
+	var got float64
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		v, err := ModuleMetric(port, module, field)
+		if err == nil {
+			got = v
+			if v >= want {
+				return v
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return got
+}

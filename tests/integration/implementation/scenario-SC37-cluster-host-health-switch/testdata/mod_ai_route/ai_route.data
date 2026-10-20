@@ -1,0 +1,34 @@
+{
+    "Version": "20260720150000",
+    "route_rules": {
+        "apikey_ak_auth": {
+            "type": "apikey",
+            "owner": "ak_auth",
+            "rules": [
+                {
+                    "name": "auth-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_switch",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_auth": [
+            "apikey_ak_auth"
+        ],
+        "ak_auth_second": [
+            "apikey_ak_auth"
+        ],
+        "ak_auth_nokey": [
+            "apikey_ak_auth"
+        ]
+    }
+}
