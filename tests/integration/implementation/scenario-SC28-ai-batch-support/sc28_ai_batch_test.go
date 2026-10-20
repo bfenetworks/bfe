@@ -96,6 +96,12 @@ const (
 type mockBatchProvider struct {
 	uploaded []byte
 
+	// contentTypes/contentLengths record what actually arrived at the
+	// provider per request, in arrival order (issue #1426: passthrough
+	// must preserve the client's Content-Type and Content-Length).
+	contentTypes   []string
+	contentLengths []int64
+
 	// test behavior switches
 	expiredOnGet  bool   // GET /v1/batches/{id} answers status=expired
 	failKeyAOnGet bool   // GET /v1/batches/{id} answers 404 when authorized as key-a
@@ -103,6 +109,8 @@ type mockBatchProvider struct {
 }
 
 func (p *mockBatchProvider) handler(r *http.Request, count int, bodies [][]byte) (int, string) {
+	p.contentTypes = append(p.contentTypes, r.Header.Get("Content-Type"))
+	p.contentLengths = append(p.contentLengths, r.ContentLength)
 	switch {
 	case r.Method == "POST" && r.URL.Path == "/v1/files":
 		if len(bodies) > 0 {
@@ -111,6 +119,22 @@ func (p *mockBatchProvider) handler(r *http.Request, count int, bodies [][]byte)
 		return 200, fmt.Sprintf(
 			`{"id":%q,"object":"file","purpose":"batch","bytes":%d,"filename":%q}`,
 			fileInID, len(p.uploaded), uploadFileName)
+	case r.Method == "POST" && r.URL.Path == "/v1/chat/completions":
+		// echo the model the gateway actually forwarded, so a test can
+		// distinguish "target model override applied" (chat) from
+		// "body rewritten" (the issue #1426 defect on passthrough modes)
+		model := ""
+		if len(bodies) > 0 {
+			var body map[string]interface{}
+			if json.Unmarshal(bodies[len(bodies)-1], &body) == nil {
+				if m, ok := body["model"].(string); ok {
+					model = m
+				}
+			}
+		}
+		return 200, fmt.Sprintf(
+			`{"id":"chatcmpl-sc28","object":"chat.completion","model":%q,"choices":[],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`,
+			model)
 	case r.Method == "POST" && r.URL.Path == "/v1/batches":
 		return 200, fmt.Sprintf(
 			`{"id":%q,"object":"batch","status":"in_progress","input_file_id":%q,"output_file_id":%q,`+
@@ -205,14 +229,21 @@ func newTestEnv(t *testing.T) *testEnv {
 }
 
 type startOpts struct {
-	twoKeys      bool
-	noBatchPrice bool
+	twoKeys          bool
+	noBatchPrice     bool
+	routeTargetModel string // non-empty: set the ai-route target Model (issue #1426)
 }
 
 type startOption func(*startOpts)
 
 func withTwoKeys() startOption      { return func(o *startOpts) { o.twoKeys = true } }
 func withNoBatchPrice() startOption { return func(o *startOpts) { o.noBatchPrice = true } }
+
+// withRouteTargetModel gives the ai-route target a non-empty model override,
+// the exact condition that triggered the issue #1426 body rewrite.
+func withRouteTargetModel(model string) startOption {
+	return func(o *startOpts) { o.routeTargetModel = model }
+}
 
 // startBFE assembles the conf from testdata and starts the server.
 func (e *testEnv) startBFE(t *testing.T, balance int64, rl *common.RateLimitPolicyData, opts ...startOption) {
@@ -328,6 +359,24 @@ func (e *testEnv) startBFE(t *testing.T, balance int64, rl *common.RateLimitPoli
 	}
 	if err := builder.Build(); err != nil {
 		t.Fatalf("build conf: %v", err)
+	}
+
+	if so.routeTargetModel != "" {
+		// give the ai-route target a non-empty model in the BUILT conf,
+		// leaving the shared testdata untouched for the other TCs
+		routePath := filepath.Join(e.confDir, "mod_ai_route", "ai_route.data")
+		data, err := os.ReadFile(routePath)
+		if err != nil {
+			t.Fatalf("read ai_route.data: %v", err)
+		}
+		old := `"Model": ""`
+		if strings.Count(string(data), old) != 1 {
+			t.Fatalf("ai_route.data should contain exactly one %q, got:\n%s", old, data)
+		}
+		data = bytes.Replace(data, []byte(old), []byte(fmt.Sprintf(`"Model": %q`, so.routeTargetModel)), 1)
+		if err := os.WriteFile(routePath, data, 0644); err != nil {
+			t.Fatalf("write ai_route.data: %v", err)
+		}
 	}
 
 	var err error
@@ -476,6 +525,8 @@ func findBatchLog(t *testing.T, e *testEnv, op string) *batchLogEntry {
 					found = &batchLogEntry{
 						mode: r.GetAiMode(), op: r.GetAiBatchOp(), batchId: r.GetAiBatchId(),
 						fileId: r.GetAiFileId(), status: r.GetAiBatchStatus(), settle: r.GetAiBatchSettle(),
+						targetModel:    r.GetAiTargetModel(),
+						requestedModel: r.GetAiRequestedModel(),
 						// issue #1414: the settlement records why a batch was
 						// released without billing (price_miss / batch_release)
 						// and reports the cost for observed rows explicitly.
@@ -502,6 +553,8 @@ func findBatchLog(t *testing.T, e *testEnv, op string) *batchLogEntry {
 
 type batchLogEntry struct {
 	mode, op, batchId, fileId, status, settle string
+	targetModel                               string
+	requestedModel                            string
 	zeroCostReason                            string
 	zeroCostReasonSet                         bool
 	costValue                                 int64
@@ -1275,5 +1328,101 @@ func TestTC13_Failover404Rebind(t *testing.T) {
 	status, body := e.do(t, "GET", "/v1/batches/"+batchID, nil, "")
 	if status != 200 || !strings.Contains(string(body), `"completed"`) {
 		t.Fatalf("second get: status=%d body=%s, want 200 via the other key", status, body)
+	}
+}
+
+// TC-16: with a non-empty AI route target model, provider-native batch
+// endpoints pass the request body through byte-for-byte (issue #1426):
+// /v1/files multipart is not replaced by {"model":...}, /v1/batches JSON
+// gets no injected model field, while the chat-mode target model override
+// still applies.
+func TestTC16_PassthroughBodyNotRewritten(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+	const targetModel = "controlled-batch-model"
+	e.startBFE(t, 10_000_000_000, nil, withRouteTargetModel(targetModel))
+
+	// 1. chat: target model override must still rewrite the body
+	status, respBody := e.do(t, "POST", "/v1/chat/completions",
+		strings.NewReader(`{"model":"gpt-4o","messages":[{"role":"user","content":"hi"}]}`),
+		"application/json")
+	if status != 200 {
+		t.Fatalf("chat: status=%d body=%s", status, respBody)
+	}
+	var chatResp struct {
+		Model string `json:"model"`
+	}
+	if err := json.Unmarshal(respBody, &chatResp); err != nil {
+		t.Fatalf("parse chat response %q: %v", respBody, err)
+	}
+	if chatResp.Model != targetModel {
+		t.Fatalf("chat body model = %q, want %q (target model override must still apply)",
+			chatResp.Model, targetModel)
+	}
+
+	// 2. files: multipart body sent byte-exact; Content-Type/Length must
+	//    survive the gateway unchanged
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	fw, err := w.CreateFormFile("file", "batch.jsonl")
+	if err != nil {
+		t.Fatalf("create form file: %v", err)
+	}
+	fw.Write([]byte(inputJSONL))
+	w.WriteField("purpose", "batch")
+	w.Close()
+	clientBody := buf.Bytes()
+
+	status, respBody = e.do(t, "POST", "/v1/files", bytes.NewReader(clientBody), w.FormDataContentType())
+	if status != 200 || !strings.Contains(string(respBody), fileInID) {
+		t.Fatalf("upload: status=%d body=%s (multipart body must not be rewritten)", status, respBody)
+	}
+
+	// 3. batches: JSON body must not gain a model field
+	createBody := fmt.Sprintf(`{"input_file_id":%q,"endpoint":"/v1/chat/completions","completion_window":"24h"}`, fileInID)
+	status, respBody = e.do(t, "POST", "/v1/batches", strings.NewReader(createBody), "application/json")
+	if status != 200 || !strings.Contains(string(respBody), batchID) {
+		t.Fatalf("create: status=%d body=%s", status, respBody)
+	}
+
+	bodies := e.provider.RequestBodies()
+	if len(bodies) != 3 {
+		t.Fatalf("provider saw %d requests, want 3 (chat, files, batches)", len(bodies))
+	}
+
+	// B. byte-exact multipart passthrough, headers intact
+	if !bytes.Equal(bodies[1], clientBody) {
+		t.Fatalf("upload body changed in transit:\n got %q\nwant %q", bodies[1], clientBody)
+	}
+	if got := e.providerMu.uploaded; !bytes.Equal(got, []byte(inputJSONL)) {
+		t.Fatalf("uploaded file content changed in transit:\n got %q", got)
+	}
+	if ct := e.providerMu.contentTypes[1]; !strings.HasPrefix(ct, "multipart/form-data; boundary=") {
+		t.Fatalf("upload Content-Type = %q, want multipart/form-data with boundary", ct)
+	}
+	if cl := e.providerMu.contentLengths[1]; cl != int64(len(clientBody)) {
+		t.Fatalf("upload Content-Length = %d, want %d (body forwarded unchanged, not chunked)", cl, len(clientBody))
+	}
+
+	// C. no model injection into the batches create body
+	var gotCreate map[string]interface{}
+	if err := json.Unmarshal(bodies[2], &gotCreate); err != nil {
+		t.Fatalf("batches body is not valid JSON: %v; body=%q", err, bodies[2])
+	}
+	if _, ok := gotCreate["model"]; ok {
+		t.Fatalf("batches body gained a model field: %q", bodies[2])
+	}
+	if gotCreate["input_file_id"] != fileInID || gotCreate["endpoint"] != "/v1/chat/completions" {
+		t.Fatalf("batches body fields changed: %q", bodies[2])
+	}
+
+	// D. access log: target model recorded on the side, requested model empty
+	upLog := findBatchLog(t, e, "upload")
+	if upLog.mode != "file" || upLog.targetModel != targetModel || upLog.requestedModel != "" {
+		t.Fatalf("upload log wrong: %+v", upLog)
+	}
+	crLog := findBatchLog(t, e, "create")
+	if crLog.mode != "batch" || crLog.targetModel != targetModel || crLog.requestedModel != "" {
+		t.Fatalf("create log wrong: %+v", crLog)
 	}
 }

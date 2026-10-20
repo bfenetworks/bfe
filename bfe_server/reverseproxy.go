@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"mime"
 	"net"
 	"reflect"
 	"strconv"
@@ -1682,8 +1683,10 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 
 	// bodyModel is cached by the caller and updated here only when we actually
 	// change the body, so we avoid parsing the request body on every attempt.
+	// issue #1426: batch/file passthrough and non-JSON bodies are never
+	// rewritten; aiMeta.TargetModel was already recorded above for logging.
 	newBodyModel = bodyModel
-	if targetModel != bodyModel {
+	if shouldRewriteBodyModel(aiMeta, outreq.Header, targetModel, bodyModel) {
 		if err := condition.ReqBodyJsonSet(basicReq, "model", targetModel); err != nil {
 			log.Logger.Warn("Failed to set model in request body: %s", err)
 		} else {
@@ -2026,10 +2029,50 @@ func (p *ReverseProxy) resetRequestForRetry(basicReq *bfe_basic.Request) bool {
 	return true
 }
 
+// shouldRewriteBodyModel reports whether the resolved target model may be
+// written into the request body on this attempt (issue #1426). The rewrite is
+// skipped for provider-native batch/file passthrough traffic, whose body
+// (multipart upload, batch create JSON) must reach the backend byte-for-byte,
+// and for any request whose Content-Type explicitly says the body is not
+// JSON (defense in depth for future passthrough-like modes).
+func shouldRewriteBodyModel(aiMeta *bfe_basic.AiBasicInfo, h bfe_http.Header, targetModel, bodyModel string) bool {
+	if targetModel == "" || targetModel == bodyModel {
+		return false
+	}
+	if isBatchPassthroughMode(aiMeta) {
+		return false
+	}
+	if isNonJsonContentType(h) {
+		return false
+	}
+	return true
+}
+
+// isNonJsonContentType reports whether the request Content-Type explicitly
+// declares a non-JSON body. A missing or malformed header is treated as
+// JSON-allowed: some clients send a JSON body without a Content-Type and the
+// model rewrite must keep working for them.
+func isNonJsonContentType(h bfe_http.Header) bool {
+	ct := h.Get("Content-Type")
+	if ct == "" {
+		return false
+	}
+	mediaType, _, err := mime.ParseMediaType(ct)
+	if err != nil {
+		return false
+	}
+	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
+	if mediaType == "application/json" || strings.HasSuffix(mediaType, "+json") {
+		return false
+	}
+	return true
+}
+
 // isBatchPassthroughMode reports whether the request is a files/batches
 // (OpenAI Batch API) operation. Batch traffic streams potentially large
 // file bodies that must never be buffered for retry: the proxy forwards it
-// exactly once, without cluster fallback or key-level retry. Upload counting
+// exactly once, without cluster fallback or key-level retry, and without
+// rewriting the request body (shouldRewriteBodyModel). Upload counting
 // and download usage parsing are handled by mod_ai_batch on the stream.
 func isBatchPassthroughMode(aiMeta *bfe_basic.AiBasicInfo) bool {
 	return aiMeta != nil &&
