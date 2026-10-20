@@ -382,7 +382,9 @@ func TestTC06_BfeDefaultsForBothSwitches(t *testing.T) {
 
 	e.backend.ResponseFunc = func(r *http.Request, count int) (int, string) {
 		if r.URL.Path == "/healthcheck" {
-			return http.StatusOK, "ok"
+			// Keep the probe failing so the backend cannot come back between
+			// the two requests; recovery is covered by TC-05.
+			return http.StatusInternalServerError, "down"
 		}
 		return http.StatusInternalServerError, `{"error":"backend down"}`
 	}

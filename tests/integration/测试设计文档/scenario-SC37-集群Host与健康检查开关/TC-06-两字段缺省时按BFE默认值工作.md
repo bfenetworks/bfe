@@ -30,7 +30,7 @@ SC37 集群 Host 与健康检查开关
 ## 配置构造
 
 - 通过覆盖结构删除 `DisableHealthCheck` 与 `DisableHostHeader` 两个键，让 BFE 应用自身默认值。
-- `OutlierDetectionHttpCode=5xx`；业务路径 500，`/healthcheck` 200。
+- `OutlierDetectionHttpCode=5xx`；业务路径与 `/healthcheck` 均返回 500（保持后端下线，恢复路径由 TC-05 覆盖）。
 
 ## BFE 请求
 

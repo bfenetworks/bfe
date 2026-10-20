@@ -65,6 +65,7 @@ go test ./tests/integration/implementation/scenario-SC01-route-table-lookup/ -ru
 | SC38 HTTPS 后端 TLS | 验证 `RSHost` 的 SNI/校验名语义与未配时的地址回退、`RSInsecureSkipVerify`、系统 CA 与 `RSCAList` 的校验选择、双向 TLS 客户端证书，以及 TLS 失败时快速失败且后端不被调用 |
 | SC39 鉴权错误矩阵与 Token 配额 | 验证 `mod_ai_token_auth` 五类鉴权失败（无/无效/禁用/过期/子网）的状态码与 `error.code`/`details`/`ai_auth_reject_reason`、Token 配额扣减与耗尽、计划过期、配额 Redis 故障、`Unlimited`/`PassNoQuota`、多计划、`Cond` 不匹配跳过鉴权、默认规则路径 |
 | SC40 AI 网关开关与空安全 | 验证 `EnableAiGateway=false` 时 AI 形态请求走普通转发（原 Host/body、不鉴权、无 AI 日志字段）、AI 模块空安全不 panic、开启态基线（401/200 与 `ai_mode`/`ai_target_model`）、关闭态 SSE 仍可用并计入 `proxy_state` 指标 |
+| SC41 会话级访问日志与 b2log | 验证 `mod_access_pb3` 会话级 `BfeLog` 基本字段与 `session_<product>`/`session_err_<product>` 标签（含 PROXY VIP→product）、请求 `session_id` 与会话 `logid` 关联（`mod_logid`）、HTTPS 会话 TLS 版本/套件/握手耗时、握手失败错误码，以及 b2log 头部与载荷解析 |
 
 ## 参考文档
 
