@@ -194,6 +194,13 @@ HandleRequestFinish: mod_ai_token_auth 配额结算（命中跳过扣减，不�
 限制、`cacheKeyStrategy` 三策略、TTL 与 `CacheKeyPrefix`、SSE 解析、
 `AiCacheStatus` 取值（hit/miss/skip）、命中响应的 header/body 形态。
 
+> **补注（issue #1433，2026-10-20）**：本文只覆盖了"鉴权在缓存之前"，
+> 未定义命中时**模型访问控制 / 限流 / 配额**的语义。该语义现已作为条款确认：
+> 命中不执行上述成本类策略、不消耗额度，且不新增日志字段（由 `ai_cache_status` 派生），
+> 策略变更为后生效（滞后上界 = 条目 TTL）。条款与理由见
+> `docs/zh_cn/modifications/2026-10-20-issue-1433-cache-hit-policy-matrix/design-changes.md`，
+> 运行时语义见 `docs/zh_cn/sys_design/ai_cache.md` §9.1。
+
 **拒绝的备选方案**：① 缓存探针前置 + 原回调保留（查两次 Redis，双倍 RTT）；
 ② 路由求值延迟到缓存 miss 之后（两模块需共享 condition 求值内部状态）；
 ③ 缓存查找并入 `mod_ai_route`（破坏模块边界与独立热更）；

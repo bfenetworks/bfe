@@ -65,10 +65,11 @@ AI 网关场景中，终端用户重复提问占比可观，分两档：
                  ▼ mod_ai_token_auth (HandleFoundProduct)  鉴权、配额计划绑定
                  ▼ mod_ai_cache     (HandleFoundProduct)  查缓存
                  │     ├─ ① Redis GET ── 命中(exact)：BfeHandlerFinish，模板构造响应
+                 │     │     命中即短路 ⟹ 模型访问控制 / 限流 / 配额扣减均不执行（issue #1433，见 9.1）
                  │     ├─ ② 规则开启语义？── 否 → 放行
                  │     ├─ ③ embedding.Embed(question)
                  │     ├─ ④ vector.Query（强制 tenant + TTL 过滤）
-                 │     ├─ ⑤ 阈值判定 ── 命中(semantic)：BfeHandlerFinish
+                 │     ├─ ⑤ 阈值判定 ── 命中(semantic)：BfeHandlerFinish（同上：策略均不执行）
                  │     └─ 未命中：保存 ctx{key, question, embedding, stream, rule}，放行
                  ▼ mod_ai_route     (HandleFoundProduct)  路由解析
                  │     （命中短路时本模块不执行：mod_ai_intent 懒解析不触发）
@@ -328,6 +329,40 @@ if ctx.aiBasicInfo.AiCacheHit {
 }
 ```
 
+### 9.1 命中时的策略语义（issue #1433）
+
+命中请求在 `HandleFoundProduct` 短路出响应，而模型访问控制与限流都注册在更晚的
+`HandleAfterAITargetModel`（`mod_ai_token_auth.go:746`、`mod_ai_rate_limit.go:501`），
+配额扣减在 `HandleRequestFinish`（`mod_ai_token_auth.go:756`）。因此命中请求
+**不执行**这些策略，这是设计如此、不是遗漏。条款（已确认 2026-10-20，
+详见 `docs/zh_cn/modifications/2026-10-20-issue-1433-cache-hit-policy-matrix/design-changes.md`）：
+
+| 维度 | 注册点 | 命中时 | 依据 |
+|------|--------|--------|------|
+| API-Key 鉴权（有效/启用/过期/子网） | `HandleFoundProduct`（`mod_ai_token_auth.go:737`） | **执行** | 身份有效性，与成本无关；注册序保证鉴权先于缓存 |
+| target allow/block（模型访问控制） | `HandleAfterAITargetModel`（`:746`） | **不执行** | 目标是约束"可使用的有成本模型"；命中不产生 provider 调用、不产生 token |
+| 限流 rpm/tpm/concurrency | `HandleAfterAITargetModel`（`mod_ai_rate_limit.go:501`） | **不执行、不计量** | 保护上游容量与计费公平，命中皆不涉及 |
+| 配额扣减 / 计费 | `HandleRequestFinish`（`:756`） | **不扣减** | `AiCacheHit` 跳过扣减（§9） |
+| 路由 / 意图懒解析 | `HandleFoundProduct`（`mod_ai_route.go`） | **不执行** | `2026-10-02` 前移的收益 |
+
+条款要点：
+
+1. **T-1433-1**：命中不执行模型访问控制、限流与配额扣减，也不消耗任何额度。
+2. **T-1433-2**：鉴权始终先于缓存查找，非法/失效 Key 绝拿不到缓存内容。
+3. **T-1433-3（变更为后生效）**：收紧 `allow_models` 或新绑限流策略**不主动失效**已有条目，
+   对命中请求的生效滞后上界 = 条目 TTL（默认 3600s）。要立即生效只能等 TTL 或清空
+   `ai_cache:<key_id>:*` 键。
+4. **T-1433-4（可观测，不新增字段）**：`ai_cache_status ∈ {hit, hit_semantic}` 即表示上述
+   成本类策略未执行——同一行必然 `ai_rate_limit_hits` 为空、`ai_zero_cost_reason=cache_hit`
+   （`mod_ai_token_auth.go:395`）、token usage 与费用为 0、`ai_route_rule_hits` 为空。
+   判定规则见 `ai_access_log_fields.md`，不新增日志字段。
+5. **T-1433-5**：命中路径不产生新错误码，`MODEL_NOT_ALLOWED` / `RPM_LIMIT_EXCEEDED`
+   只出现在未命中链路。
+
+对照实验（qa 实测）：同一 Key 收紧 `models` 后未命中请求稳定 `400 MODEL_NOT_ALLOWED`、
+rpm 额度耗尽后未命中请求稳定 `429 RPM_LIMIT_EXCEEDED`，而两种状态下的命中请求均
+`200` + `X-Bfe-Ai-Cache: hit`。回归断言见 `scenario-SC20` / `scenario-SC25`。
+
 ## 10. 访问日志与监控
 
 ### 10.1 访问日志字段（bfe-access-pb）
@@ -338,6 +373,9 @@ if ctx.aiBasicInfo.AiCacheHit {
 | `ai_cache_key` | 790 | 缓存键，仅 debug 开启时记录，避免日志膨胀 |
 | `ai_cache_semantic` | 791 | 语义缓存命中标志：命中来自语义缓存时写 true |
 | `ai_cache_similarity` | 792 | 语义命中归一化相似度 [0,1]，阈值调优依据；未做语义检索不写 |
+
+命中（`hit` / `hit_semantic`）行的完整字段语义——包括"为什么没有独立的策略未执行字段"——
+见 §9.1。
 
 ### 10.2 模块监控指标
 

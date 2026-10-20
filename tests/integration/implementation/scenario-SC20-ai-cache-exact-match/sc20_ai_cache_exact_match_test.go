@@ -16,6 +16,7 @@ package sc20
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -36,9 +37,18 @@ const (
 	apiKeyId  = "cache_key_id"
 	apiKeyId2 = "cache_key_id_2"
 
+	// apiKey3 is used only by TC-13: it is the single key bound to a rate
+	// limit policy, so the limit cannot leak into the other test cases.
+	apiKey3   = "ak_cache_rl"
+	apiKeyId3 = "cache_key_id_3"
+
 	clusterCache = "cluster_cache"
 
 	quotaKeyTotal = "quota:plan_total"
+
+	// rate limit policy of TC-13: one request per minute, all models.
+	policyIdRateLimit = "rlp-sc20"
+	rpmRedisKey       = "RL_RPM_rlp-sc20_0"
 )
 
 var (
@@ -54,7 +64,19 @@ var (
 		`{"choices":[{"index":0,"delta":{"content":"BFE is"}}]}`,
 		`{"choices":[{"index":0,"delta":{"content":" a gateway"}}]}`,
 	}
+
+	questionBody2 = []byte(`{"model":"deepseek-chat","messages":[{"role":"user","content":"how does bfe route?"}]}`)
+	questionBody3 = []byte(`{"model":"deepseek-chat","messages":[{"role":"user","content":"what is a cache?"}]}`)
 )
+
+// aiErrorBody is the AI error response body (bfe_basic.AiErrorBody) view used
+// to assert the local rejection code of the control-group requests.
+type aiErrorBody struct {
+	Error struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
 
 // testEnv holds all resources for a single SC20 integration test.
 type testEnv struct {
@@ -176,18 +198,108 @@ func defaultCacheRule() *common.AiCacheRuleData {
 	return cacheRule("lastQuestion", 3600, 1048576, 1048576)
 }
 
+// tokenRuleWithAllowModels returns unlimitedTokenRule() with the given
+// comma-separated allow_models list applied to every API key, used by TC-12
+// to tighten the model allow list between two BFE runs.
+func tokenRuleWithAllowModels(models string) *common.TokenRuleData {
+	rule := unlimitedTokenRule()
+	for key, token := range rule.Tokens["ai_product"] {
+		allow := models
+		token.Models = &allow
+		rule.Tokens["ai_product"][key] = token
+	}
+	return rule
+}
+
+// tokenRuleWithRateLimitKey returns unlimitedTokenRule() extended with the
+// dedicated API key of TC-13 (ak_cache_rl). No other key is bound to a rate
+// limit policy, so TC-01..TC-12 stay unaffected by the rate limit module.
+func tokenRuleWithRateLimitKey() *common.TokenRuleData {
+	rule := unlimitedTokenRule()
+	rule.Tokens["ai_product"][apiKey3] = common.TokenFile{
+		Key:            apiKey3,
+		KeyId:          apiKeyId3,
+		Enabled:        true,
+		ExpiredTime:    -1,
+		UnlimitedQuota: false,
+		QuotaPlans:     []string{"unlimited_plan"},
+	}
+	return rule
+}
+
+// emptyRateLimitData is the baseline ai_rate_limit.data written for every
+// SC20 test: the module is loaded (bfe.conf) but no key is bound to a policy,
+// so the rate limit check passes for ak_cache / ak_cache2.
+func emptyRateLimitData() *common.RateLimitPolicyData {
+	return &common.RateLimitPolicyData{
+		Version:                       "1.0",
+		Config:                        map[string][]common.RateLimitProductRule{},
+		RateLimitPolicies:             map[string]common.RateLimitPolicy{},
+		ApikeyRateLimitPolicyBindings: map[string][]string{},
+	}
+}
+
+// rpmPolicy binds a 1 request/minute RPM policy (all models) to apikey.
+func rpmPolicy(apikey string) *common.RateLimitPolicyData {
+	data := emptyRateLimitData()
+	data.Config["ai_product"] = []common.RateLimitProductRule{
+		{
+			Cond: "default_t()",
+			HitAction: struct {
+				Cmd    string   `json:"cmd"`
+				Params []string `json:"params,omitempty"`
+			}{Cmd: "FINISH"},
+		},
+	}
+	data.RateLimitPolicies[policyIdRateLimit] = common.RateLimitPolicy{
+		Name:    "sc20-rpm",
+		Enabled: true,
+		Rules: struct {
+			TPM            []common.RateLimitRule       `json:"tpm,omitempty"`
+			RPM            []common.RateLimitRule       `json:"rpm,omitempty"`
+			MaxConcurrency *int64                       `json:"max_concurrency,omitempty"`
+			Batch          *common.RateLimitBatchLimits `json:"batch,omitempty"`
+		}{
+			RPM: []common.RateLimitRule{
+				{
+					Name:          "sc20-rpm-rule",
+					WindowMinutes: 1,
+					MaxRequests:   1,
+					Burst:         1,
+					Models:        []string{"*"},
+					RedisKey:      rpmRedisKey,
+				},
+			},
+		},
+	}
+	data.ApikeyRateLimitPolicyBindings[apikey] = []string{policyIdRateLimit}
+	return data
+}
+
 func (e *testEnv) startBFE(cacheRuleData *common.AiCacheRuleData, tokenRule *common.TokenRuleData) {
+	e.startBFEWithRateLimit(cacheRuleData, tokenRule, nil)
+}
+
+// startBFEWithRateLimit starts BFE with an explicit ai_rate_limit.data; a nil
+// rateLimitData falls back to emptyRateLimitData().
+func (e *testEnv) startBFEWithRateLimit(cacheRuleData *common.AiCacheRuleData,
+	tokenRule *common.TokenRuleData, rateLimitData *common.RateLimitPolicyData) {
+	if rateLimitData == nil {
+		rateLimitData = emptyRateLimitData()
+	}
+
 	backends := map[string]*common.MockBackend{
 		clusterCache: e.backend,
 	}
 
 	builder := &common.BFEConfigBuilder{
-		TemplateDir:     "testdata",
-		TargetConfDir:   e.confDir,
-		Backends:        backends,
-		RedisAddr:       e.redis.Addr(),
-		TokenRuleData:   tokenRule,
-		AiCacheRuleData: cacheRuleData,
+		TemplateDir:         "testdata",
+		TargetConfDir:       e.confDir,
+		Backends:            backends,
+		RedisAddr:           e.redis.Addr(),
+		TokenRuleData:       tokenRule,
+		RateLimitPolicyData: rateLimitData,
+		AiCacheRuleData:     cacheRuleData,
 	}
 	if err := builder.Build(); err != nil {
 		e.t.Fatalf("build bfe config failed: %v", err)
@@ -616,5 +728,143 @@ func TestTC11_OversizedRequestBodyNotCached(t *testing.T) {
 	e.expectOK(e.sendRequest(apiKey, questionBody))
 	if e.backend.Hits() != 2 {
 		t.Fatalf("oversized request should reach upstream every time, got %d hits", e.backend.Hits())
+	}
+}
+
+// TestTC12 verifies the negative aspect of clause T-1433-1 for model access
+// control: a request served from the cache never evaluates the key
+// allow_models / block_models list, so tightening the allow list to exclude
+// the requested model does not reject cache hits. This is expected behavior
+// (the allow list is a cost/quota governance control and a hit costs nothing),
+// not a defect: the control group below proves the tightened list is live on
+// the miss path.
+func TestTC12_CacheHitSkipsModelAllowList(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+
+	// first run: the key may use the requested model, so the question is
+	// forwarded to the upstream and cached.
+	e.startBFE(defaultCacheRule(), tokenRuleWithAllowModels("deepseek-chat"))
+
+	resp, body, err := e.sendRequest(apiKey, questionBody2)
+	e.expectOK(resp, body, err, "cache fill request")
+	if cache := resp.Header.Get("X-Bfe-Ai-Cache"); cache == "hit" {
+		t.Fatalf("first request must miss, got X-Bfe-Ai-Cache=%q", cache)
+	}
+	if e.backend.Hits() != 1 {
+		t.Fatalf("first request should reach upstream, got %d hits", e.backend.Hits())
+	}
+	if !e.waitForCacheKey("ai_cache:cache_key_id:", 5*time.Second) {
+		e.logBFEException()
+		t.Fatalf("answer should be cached, redis keys: %v", e.redis.Keys())
+	}
+
+	// restart BFE against the same redis, with the allow list tightened to a
+	// model the request does not use.
+	e.stopBFE()
+	e.stopBFE = nil
+	e.startBFE(defaultCacheRule(), tokenRuleWithAllowModels("other-model"))
+
+	// control group: bypassing the cache evaluates the allow list and is
+	// rejected with 400 MODEL_NOT_ALLOWED without reaching the upstream.
+	resp, body, err = e.sendRequestSkip(apiKey, questionBody2, true)
+	if err != nil {
+		e.logBFEException()
+		t.Fatalf("control request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		e.logBFEException()
+		t.Fatalf("control request should be rejected with 400, got %d, body: %s", resp.StatusCode, body)
+	}
+	var eb aiErrorBody
+	if err := json.Unmarshal([]byte(body), &eb); err != nil {
+		t.Fatalf("parse control response failed: %v, body: %s", err, body)
+	}
+	if eb.Error.Code != "MODEL_NOT_ALLOWED" {
+		t.Fatalf("control request should fail with MODEL_NOT_ALLOWED, got %q, body: %s", eb.Error.Code, body)
+	}
+	hitsAfterControl := e.backend.Hits()
+	if hitsAfterControl != 1 {
+		t.Fatalf("rejected control request must not reach upstream, got %d hits", hitsAfterControl)
+	}
+
+	// main assertion: the same question served from the cache is 200 with the
+	// hit header even though the allow list no longer contains the model.
+	resp, body, err = e.sendRequest(apiKey, questionBody2)
+	e.expectOK(resp, body, err, "cache hit request with tightened allow list")
+	if cache := resp.Header.Get("X-Bfe-Ai-Cache"); cache != "hit" {
+		t.Fatalf("expected X-Bfe-Ai-Cache hit, got %q, body: %s", cache, body)
+	}
+	if !strings.Contains(body, "BFE is a layer-7 load balancer") {
+		t.Fatalf("cache hit should return the cached answer, got: %s", body)
+	}
+	if got := e.backend.Hits(); got != hitsAfterControl {
+		t.Fatalf("cache hit must not reach upstream, hits %d -> %d", hitsAfterControl, got)
+	}
+}
+
+// TestTC13 verifies the negative aspect of clause T-1433-1 for rate limiting:
+// a request served from the cache neither checks nor consumes the RPM quota,
+// so a key whose only RPM slot is exhausted still gets 200 + cache hit. The
+// control group shows the exhausted quota is live on the miss path (429
+// RPM_LIMIT_EXCEEDED). This is expected behavior, not a defect.
+func TestTC13_CacheHitSkipsRateLimit(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+
+	// only ak_cache_rl is bound to the 1 rpm policy, so the other test cases
+	// are unaffected by the rate limit module.
+	e.startBFEWithRateLimit(defaultCacheRule(), tokenRuleWithRateLimitKey(), rpmPolicy(apiKey3))
+
+	// step 1: the cache fill request consumes the only rpm slot and is cached.
+	resp, body, err := e.sendRequest(apiKey3, questionBody)
+	e.expectOK(resp, body, err, "cache fill request")
+	if cache := resp.Header.Get("X-Bfe-Ai-Cache"); cache == "hit" {
+		t.Fatalf("first request must miss, got X-Bfe-Ai-Cache=%q", cache)
+	}
+	if e.backend.Hits() != 1 {
+		t.Fatalf("first request should reach upstream, got %d hits", e.backend.Hits())
+	}
+	if !e.waitForCacheKey("ai_cache:cache_key_id_3:", 5*time.Second) {
+		e.logBFEException()
+		t.Fatalf("answer should be cached, redis keys: %v", e.redis.Keys())
+	}
+
+	// step 2: the identical request hits the cache; the rate limit check is
+	// never evaluated, so no 429 is returned.
+	resp, body, err = e.sendRequest(apiKey3, questionBody)
+	e.expectOK(resp, body, err, "cache hit request with exhausted rpm quota")
+	if resp.StatusCode == http.StatusTooManyRequests {
+		e.logBFEException()
+		t.Fatalf("cache hit must not be rate limited, got 429, body: %s", body)
+	}
+	if cache := resp.Header.Get("X-Bfe-Ai-Cache"); cache != "hit" {
+		t.Fatalf("expected X-Bfe-Ai-Cache hit, got %q, body: %s", cache, body)
+	}
+	hitsAfterHit := e.backend.Hits()
+	if hitsAfterHit != 1 {
+		t.Fatalf("cache hit must not reach upstream, got %d hits", hitsAfterHit)
+	}
+
+	// step 3: control group, a new question bypassing the cache is rejected
+	// with 429 RPM_LIMIT_EXCEEDED, proving the quota is really exhausted.
+	resp, body, err = e.sendRequestSkip(apiKey3, questionBody3, true)
+	if err != nil {
+		e.logBFEException()
+		t.Fatalf("control request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusTooManyRequests {
+		e.logBFEException()
+		t.Fatalf("control request should be rejected with 429, got %d, body: %s", resp.StatusCode, body)
+	}
+	var eb aiErrorBody
+	if err := json.Unmarshal([]byte(body), &eb); err != nil {
+		t.Fatalf("parse control response failed: %v, body: %s", err, body)
+	}
+	if eb.Error.Code != "RPM_LIMIT_EXCEEDED" {
+		t.Fatalf("control request should fail with RPM_LIMIT_EXCEEDED, got %q, body: %s", eb.Error.Code, body)
+	}
+	if got := e.backend.Hits(); got != hitsAfterHit {
+		t.Fatalf("rate limited control request must not reach upstream, hits %d -> %d", hitsAfterHit, got)
 	}
 }
