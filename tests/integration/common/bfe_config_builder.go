@@ -211,6 +211,81 @@ type BFEConfigBuilder struct {
 	// the address of a mock vector store). If empty, the section is left
 	// untouched.
 	VectorServiceAddr string
+	// ClusterOverrides customizes the generated cluster_conf.data per cluster.
+	// Nil sections keep the defaults produced by clusterBasicConf().
+	ClusterOverrides map[string]*ClusterOverride
+}
+
+// ClusterOverride overrides individual sections of the generated
+// cluster_conf.data entry for one cluster. Keys are merged into the
+// corresponding section, so a test only has to name the knobs it changes.
+// Remove lists keys to delete from a section, letting BFE apply its own
+// defaults for knobs the shared harness pre-populates.
+type ClusterOverride struct {
+	BackendConf        map[string]interface{}
+	CheckConf          map[string]interface{}
+	ClusterBasic       map[string]interface{}
+	GslbBasic          map[string]interface{}
+	HTTPSConf          map[string]interface{}
+	RemoveBackendConf  []string
+	RemoveCheckConf    []string
+	RemoveClusterBasic []string
+	RemoveGslbBasic    []string
+}
+
+// applyClusterOverride merges a ClusterOverride into a generated cluster conf.
+func applyClusterOverride(conf map[string]interface{}, ov *ClusterOverride) {
+	if ov == nil {
+		return
+	}
+	mergeConfSection(conf, "BackendConf", ov.BackendConf)
+	mergeConfSection(conf, "CheckConf", ov.CheckConf)
+	mergeConfSection(conf, "ClusterBasic", ov.ClusterBasic)
+	mergeConfSection(conf, "GslbBasic", ov.GslbBasic)
+	removeConfKeys(conf, "BackendConf", ov.RemoveBackendConf)
+	removeConfKeys(conf, "CheckConf", ov.RemoveCheckConf)
+	removeConfKeys(conf, "ClusterBasic", ov.RemoveClusterBasic)
+	removeConfKeys(conf, "GslbBasic", ov.RemoveGslbBasic)
+	if ov.HTTPSConf != nil {
+		httpsConf, _ := conf["HTTPSConf"].(map[string]interface{})
+		if httpsConf == nil {
+			httpsConf = map[string]interface{}{}
+		}
+		for k, v := range ov.HTTPSConf {
+			httpsConf[k] = v
+		}
+		conf["HTTPSConf"] = httpsConf
+	}
+}
+
+// removeConfKeys deletes keys from conf[section] (no-op for absent keys).
+func removeConfKeys(conf map[string]interface{}, section string, keys []string) {
+	if len(keys) == 0 {
+		return
+	}
+	target, _ := conf[section].(map[string]interface{})
+	if target == nil {
+		return
+	}
+	for _, k := range keys {
+		delete(target, k)
+	}
+}
+
+// mergeConfSection merges values into conf[section], creating the section when
+// it is absent.
+func mergeConfSection(conf map[string]interface{}, section string, values map[string]interface{}) {
+	if values == nil {
+		return
+	}
+	target, _ := conf[section].(map[string]interface{})
+	if target == nil {
+		target = map[string]interface{}{}
+	}
+	for k, v := range values {
+		target[k] = v
+	}
+	conf[section] = target
 }
 
 // Build prepares the BFE configuration directory.
@@ -609,11 +684,13 @@ func (b *BFEConfigBuilder) generateClusterConfData() error {
 			conf["AIConf"] = aiConfMap
 		}
 		applyEPPConf(conf, b.EPPClusters[name])
+		applyClusterOverride(conf, b.ClusterOverrides[name])
 		config[name] = conf
 	}
 	for name := range b.StaticBackends {
 		conf := clusterBasicConf()
 		applyEPPConf(conf, b.EPPClusters[name])
+		applyClusterOverride(conf, b.ClusterOverrides[name])
 		config[name] = conf
 	}
 

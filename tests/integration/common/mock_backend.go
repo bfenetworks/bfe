@@ -78,7 +78,19 @@ type MockBackend struct {
 	SSEHold <-chan struct{}
 	// SSETrailing, if non-nil, is written (and flushed) after SSEHold is
 	// released, simulating backend data arriving after a client abort.
-	SSETrailing        []string
+	SSETrailing []string
+	// SSEContentType overrides the Content-Type used in SSE/SSERaw modes
+	// (default "text/event-stream"). It exists to exercise the response-side
+	// SSE detection for vendor media types.
+	SSEContentType string
+	// SNIRecorder, if non-nil, is called with the TLS ClientHello server name
+	// on every TLS handshake (TLS mock backend only).
+	SNIRecorder func(serverName string)
+	// HoldAfterHeader, if non-nil, blocks the handler after the response
+	// status/headers have been flushed and before the body is written. It
+	// keeps BFE blocked on the response body while the headers are already on
+	// the wire, so a client-side write timeout can be observed.
+	HoldAfterHeader    <-chan struct{}
 	hits               int
 	mu                 sync.Mutex
 	models             []string
@@ -91,6 +103,14 @@ type MockBackend struct {
 	rawQueries         []string
 	hosts              []string
 	headerCopies       []http.Header
+}
+
+// sseContentType returns the configured SSE media type.
+func (b *MockBackend) sseContentType() string {
+	if b.SSEContentType != "" {
+		return b.SSEContentType
+	}
+	return "text/event-stream"
 }
 
 // SetReadBeforeClose sets ReadBeforeClose. It is called from tests while the
@@ -109,7 +129,14 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 		Response:    response,
 		Body:        body,
 	}
-	b.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	b.server = httptest.NewServer(b.handler())
+	return b
+}
+
+// handler returns the recording mock handler shared by the plain and TLS
+// mock backends.
+func (b *MockBackend) handler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		b.mu.Lock()
 		b.hits++
 		count := b.hits
@@ -173,7 +200,7 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 		}
 
 		if b.SSERaw != nil {
-			w.Header().Set("Content-Type", "text/event-stream")
+			w.Header().Set("Content-Type", b.sseContentType())
 			w.WriteHeader(status)
 			flusher, _ := w.(http.Flusher)
 			for _, chunk := range b.SSERaw {
@@ -186,7 +213,7 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 		}
 
 		if b.SSEEvents != nil {
-			w.Header().Set("Content-Type", "text/event-stream")
+			w.Header().Set("Content-Type", b.sseContentType())
 			w.WriteHeader(status)
 			flusher, _ := w.(http.Flusher)
 			writeSSE := func(events []string) {
@@ -209,6 +236,12 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 			w.Header().Set(k, v)
 		}
 		w.WriteHeader(status)
+		if b.HoldAfterHeader != nil {
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+			<-b.HoldAfterHeader
+		}
 		if b.NoContentLength {
 			if flusher, ok := w.(http.Flusher); ok {
 				flusher.Flush()
@@ -217,8 +250,7 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 		if body != "" {
 			w.Write([]byte(body))
 		}
-	}))
-	return b
+	}
 }
 
 // Hits returns the number of requests received.

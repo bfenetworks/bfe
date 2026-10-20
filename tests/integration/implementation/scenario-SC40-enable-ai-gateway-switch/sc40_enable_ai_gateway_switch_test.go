@@ -396,25 +396,8 @@ func TestTC05_GatewayOffSseStillWorks(t *testing.T) {
 		t.Fatalf("expected text/event-stream content type, got %q", ct)
 	}
 
-	served := waitForMetric(t, e.monitorPort, "proxy_state", "SseReqServed", 1)
+	served := common.WaitForModuleMetricValue(e.monitorPort, "proxy_state", "SseReqServed", 1, 5*time.Second)
 	if served < 1 {
 		t.Fatalf("expected proxy_state SSE_REQ_SERVED >= 1, got %f", served)
 	}
-}
-
-func waitForMetric(t *testing.T, port int, module, field string, want float64) float64 {
-	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	var got float64
-	for time.Now().Before(deadline) {
-		v, err := common.ModuleMetric(port, module, field)
-		if err == nil {
-			got = v
-			if v >= want {
-				return v
-			}
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	return got
 }
