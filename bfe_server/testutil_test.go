@@ -215,10 +215,6 @@ func newForwardServerWith(t *testing.T, opts forwardOpts) *BfeServer {
 		t.Fatalf("init balance table failed: %v", err)
 	}
 
-	// 清理顺序（LIFO）：先由 dialServer 注册的 cleanup 关闭客户端连接，
-	// 再回到这里等待 conn.serve() 退出，避免 goroutine 泄漏到后续用例。
-	t.Cleanup(func() { waitConns(t, srv) })
-
 	return srv
 }
 
@@ -252,6 +248,11 @@ type testClient struct {
 	t    *testing.T
 	conn *recordingConn
 	br   *bfe_bufio.Reader
+
+	// done 在服务端 conn.serve() 返回后关闭。
+	// 不能用 srv.connWaitGroup.Wait() 代替：serve() 会并发调用 Add(1)，
+	// 而 WaitGroup 在计数为 0 时不允许 Add 与 Wait 并发（-race 会直接报错）。
+	done chan struct{}
 }
 
 // dialServer 建立一条 loopback 连接并交给 conn.serve() 处理。
@@ -264,18 +265,22 @@ func dialServer(t *testing.T, srv *BfeServer) *testClient {
 	}
 	t.Cleanup(func() { _ = ln.Close() })
 
-	accepted := make(chan struct{})
+	serving, done := make(chan struct{}), make(chan struct{})
 	go func() {
+		defer close(done)
+
 		raw, err := ln.Accept()
 		if err != nil {
+			close(serving)
 			return
 		}
 		c, err := newConn(raw, srv)
 		if err != nil {
 			_ = raw.Close()
+			close(serving)
 			return
 		}
-		close(accepted)
+		close(serving)
 		c.serve()
 	}()
 
@@ -283,16 +288,21 @@ func dialServer(t *testing.T, srv *BfeServer) *testClient {
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
 	}
-	t.Cleanup(func() { _ = raw.Close() })
 
 	select {
-	case <-accepted:
+	case <-serving:
 	case <-time.After(5 * time.Second):
 		t.Fatal("server did not accept the connection")
 	}
 
 	rc := &recordingConn{Conn: raw}
-	return &testClient{t: t, conn: rc, br: bfe_bufio.NewReader(rc)}
+	tc := &testClient{t: t, conn: rc, br: bfe_bufio.NewReader(rc), done: done}
+
+	// 清理顺序（LIFO）：先关闭客户端连接，再等 serve() 退出。
+	t.Cleanup(func() { tc.waitDone(5 * time.Second) })
+	t.Cleanup(func() { _ = raw.Close() })
+
+	return tc
 }
 
 // send 写出原始请求报文。
@@ -360,19 +370,16 @@ func (c *testClient) readRawUntilEOF() string {
 	return c.conn.raw()
 }
 
-// waitConns 等待服务端连接处理完毕，避免 goroutine 泄漏到后续用例。
-func waitConns(t *testing.T, srv *BfeServer) {
-	t.Helper()
+// waitDone 等待服务端 conn.serve() 退出，避免 goroutine 泄漏到后续用例。
+func (c *testClient) waitDone(timeout time.Duration) bool {
+	c.t.Helper()
 
-	done := make(chan struct{})
-	go func() {
-		srv.connWaitGroup.Wait()
-		close(done)
-	}()
 	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Error("client connections did not finish in 5s")
+	case <-c.done:
+		return true
+	case <-time.After(timeout):
+		c.t.Errorf("conn.serve() did not return within %v", timeout)
+		return false
 	}
 }
 

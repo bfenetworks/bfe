@@ -235,7 +235,7 @@ func TestForwardClientDisconnect(t *testing.T) {
 	}
 
 	// serve() 必须在合理时间内退出，且不触发 panic 兜底
-	waitConns(t, srv)
+	c.waitDone(5 * time.Second)
 	if got := srv.serverStatus.ProxyState.PanicClientConnServe.Get(); got != 0 {
 		t.Errorf("PanicClientConnServe = %d, want 0", got)
 	}
