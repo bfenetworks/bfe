@@ -1,0 +1,28 @@
+{
+    "Version": "20260720150000",
+    "route_rules": {
+        "apikey_ak_audit": {
+            "type": "apikey",
+            "owner": "ak_audit",
+            "rules": [
+                {
+                    "name": "audit-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_audit",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_audit": [
+            "apikey_ak_audit"
+        ]
+    }
+}

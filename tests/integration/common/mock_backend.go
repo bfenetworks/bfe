@@ -102,6 +102,8 @@ type MockBackend struct {
 	urlPaths           []string
 	rawQueries         []string
 	hosts              []string
+	contentLengths     []int64
+	transferEncodings  [][]string
 	headerCopies       []http.Header
 }
 
@@ -143,6 +145,8 @@ func (b *MockBackend) handler() http.HandlerFunc {
 		b.urlPaths = append(b.urlPaths, r.URL.Path)
 		b.rawQueries = append(b.rawQueries, r.URL.RawQuery)
 		b.hosts = append(b.hosts, r.Host)
+		b.contentLengths = append(b.contentLengths, r.ContentLength)
+		b.transferEncodings = append(b.transferEncodings, append([]string(nil), r.TransferEncoding...))
 		b.headerCopies = append(b.headerCopies, r.Header.Clone())
 		if b.ReadNotify != nil {
 			close(b.ReadNotify)
@@ -325,6 +329,26 @@ func (b *MockBackend) Hosts() []string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return append([]string(nil), b.hosts...)
+}
+
+// ContentLengths returns the ContentLength value of each backend request
+// (-1 for chunked requests, 0 for requests without a body).
+func (b *MockBackend) ContentLengths() []int64 {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]int64(nil), b.contentLengths...)
+}
+
+// TransferEncodings returns the TransferEncoding values of each backend
+// request (e.g. ["chunked"]).
+func (b *MockBackend) TransferEncodings() [][]string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := make([][]string, len(b.transferEncodings))
+	for i, enc := range b.transferEncodings {
+		out[i] = append([]string(nil), enc...)
+	}
+	return out
 }
 
 // HeaderCopies returns deep copies of all observed request headers.
