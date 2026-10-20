@@ -322,6 +322,12 @@ func (m *ModuleAITokenAuth) batchSettle(req *bfe_basic.Request, ctx *TokenAuthCo
 	tu := aiMeta.GetTokenUsage()
 	tu.UsedCost = costUnits
 	tu.UsedQuota = totalTokens
+
+	// publish the settlement outcome for mod_ai_batch's finish handler, which
+	// persists BATCH_TASK.settle_units/settle_status (registered after this
+	// module, so it observes the flags set here)
+	aiMeta.BatchSettledUnits = costUnits
+	aiMeta.BatchSettleApplied = true
 }
 
 // batchContractHandler executes the settle/release contract published by
@@ -337,7 +343,12 @@ func (m *ModuleAITokenAuth) batchContractHandler(req *bfe_basic.Request, ctx *To
 	case bfe_basic.BatchSettleSettle:
 		m.batchSettle(req, ctx)
 	case bfe_basic.BatchSettleRelease:
-		BatchRelease(ctx.aiBasicInfo.BatchSettleId)
+		// BatchRelease is idempotent: false means the reserve record was
+		// already gone (released by another path), in which case mod_ai_batch
+		// must not re-mark the task as released.
+		if BatchRelease(ctx.aiBasicInfo.BatchSettleId) {
+			ctx.aiBasicInfo.BatchSettleApplied = true
+		}
 	}
 	return true
 }

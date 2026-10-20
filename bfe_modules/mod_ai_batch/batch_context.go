@@ -31,6 +31,7 @@ type batchContext struct {
 	batchId      string // path batch id (get/cancel) or response id (create)
 	inputFileId  string // create request body
 	outputFileId string // create/get response body
+	endpoint     string // create request body: passthrough endpoint
 
 	// routing snapshot, used for affinity bindings and BATCH_* key scoping
 	clusterName string
@@ -38,9 +39,13 @@ type batchContext struct {
 	provider    string
 
 	// upload counting (OpUpload)
-	uploadBytes     int64
-	uploadLines     int64
-	uploadAborted   bool // stream aborted because a limit was hit
+	uploadBytes     int64  // bytes counted by countingBody (multipart envelope)
+	uploadLines     int64  // newlines counted by countingBody
+	uploadFilename  string // file part filename (when the part was located)
+	uploadPartBytes int64  // file part content bytes
+	uploadPartLines int64  // file part content newlines
+	uploadPartOK    bool   // file part located: part stats are authoritative
+	uploadAborted   bool   // stream aborted because a limit was hit
 	contentLength   int64
 	knownContentLen bool
 

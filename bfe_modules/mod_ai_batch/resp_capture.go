@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"strconv"
 
 	"github.com/bfenetworks/go-lib/log"
 
@@ -129,6 +128,12 @@ func (u *usageScanBody) Read(p []byte) (int, error) {
 // handled inside mod_ai_token_auth's settle primitive; a client-aborted
 // stream simply never finalizes and the control-plane reconcile job settles
 // from the provider side instead.
+//
+// The BATCH_TASK settlement fields are NOT written here: the SETNX claim that
+// decides whether this download really settles happens later, in
+// mod_ai_token_auth's finish handler. Writing them here would mark a batch
+// settled even when another path (reconcile backstop) already owns it. The
+// write-back runs in requestFinishHandler once the contract has executed.
 func (u *usageScanBody) finalize() {
 	if !u.ctx.usageParsed || u.aiMeta == nil {
 		return
@@ -142,20 +147,7 @@ func (u *usageScanBody) finalize() {
 	u.aiMeta.BatchUsageByModel = usage
 	u.aiMeta.BatchLines = u.ctx.parsedLines
 
-	// task bookkeeping: record the parsed usage and settle state
 	u.m.state.Inc("SETTLE_USAGE_PARSE", 1)
-	if batchId := u.ctx.batchId; batchId != "" {
-		var in, out int64
-		for _, tu := range u.ctx.usageByModel {
-			in += tu.PromptTokens
-			out += tu.CompletionTokens
-		}
-		u.m.writeTaskRecord(batchId, map[string]string{
-			"usage_in":      strconv.FormatInt(in, 10),
-			"usage_out":     strconv.FormatInt(out, 10),
-			"settle_status": "settled",
-		}, defaultBatchStateTTL)
-	}
 }
 
 // feed pushes bytes into the line parser.
@@ -187,21 +179,23 @@ func (u *usageScanBody) handleLine(line []byte) {
 	if len(trimmed) == 0 {
 		return
 	}
-	var row struct {
-		Response struct {
-			Model string `json:"model"`
-			Usage *struct {
-				PromptTokens     int64 `json:"prompt_tokens"`
-				CompletionTokens int64 `json:"completion_tokens"`
-				TotalTokens      int64 `json:"total_tokens"`
-			} `json:"usage"`
-		} `json:"response"`
-	}
-	if err := json.Unmarshal(trimmed, &row); err != nil || row.Response.Usage == nil {
-		// error rows carry no usage; anything unparseable is skipped
+	var row batchResultRow
+	if err := json.Unmarshal(trimmed, &row); err != nil {
+		// malformed line: dropped and counted, never billed
+		u.m.state.Inc("SETTLE_USAGE_PARSE_ERR", 1)
 		return
 	}
-	model := row.Response.Model
+	if row.Response == nil {
+		// error rows ({"custom_id":...,"error":{...}}) carry no usage at all
+		return
+	}
+	usage, model := row.usageAndModel()
+	if usage == nil {
+		// a response without usage cannot be billed; distinguish it from a
+		// malformed line so "provider wrote no usage" is observable
+		u.m.state.Inc("SETTLE_NO_USAGE", 1)
+		return
+	}
 	if model == "" {
 		model = "unknown"
 	}
@@ -210,12 +204,12 @@ func (u *usageScanBody) handleLine(line []byte) {
 		tu = &bfe_basic.TokenUsage{}
 		u.ctx.usageByModel[model] = tu
 	}
-	tu.PromptTokens += row.Response.Usage.PromptTokens
-	tu.CompletionTokens += row.Response.Usage.CompletionTokens
-	if row.Response.Usage.TotalTokens > 0 {
-		tu.UsedQuota += row.Response.Usage.TotalTokens
+	tu.PromptTokens += usage.PromptTokens
+	tu.CompletionTokens += usage.CompletionTokens
+	if usage.TotalTokens > 0 {
+		tu.UsedQuota += usage.TotalTokens
 	} else {
-		tu.UsedQuota += row.Response.Usage.PromptTokens + row.Response.Usage.CompletionTokens
+		tu.UsedQuota += usage.PromptTokens + usage.CompletionTokens
 	}
 	u.ctx.usageParsed = true
 	u.ctx.parsedLines++
@@ -228,16 +222,62 @@ func (u *usageScanBody) Close() error {
 // parse helpers for the small-JSON responses (shared by the finish handler).
 
 type fileResponse struct {
-	Id      string `json:"id"`
-	Purpose string `json:"purpose"`
-	Bytes   int64  `json:"bytes"`
+	Id       string `json:"id"`
+	Purpose  string `json:"purpose"`
+	Bytes    int64  `json:"bytes"`
+	Filename string `json:"filename"`
 }
 
+// batchResponse is the minimal read view of a provider batch object. The
+// fields mirror what the control plane (ai-gateway-api batch_tasks) needs, so
+// the BATCH_TASK record can expose the batch terminal facts.
 type batchResponse struct {
 	Id           string `json:"id"`
 	Status       string `json:"status"`
 	InputFileId  string `json:"input_file_id"`
 	OutputFileId string `json:"output_file_id"`
+	Endpoint     string `json:"endpoint"`
+	// RequestCounts is kept verbatim (contract: provider counts as-is); nil
+	// when the provider omitted it, in which case nothing is written.
+	RequestCounts json.RawMessage `json:"request_counts"`
+	CreatedAt     int64           `json:"created_at"`
+}
+
+// usageFields is the token usage object carried by a batch result row.
+type usageFields struct {
+	PromptTokens     int64 `json:"prompt_tokens"`
+	CompletionTokens int64 `json:"completion_tokens"`
+	TotalTokens      int64 `json:"total_tokens"`
+}
+
+// batchResultRow is one line of a batch result file. An OpenAI-style row
+// nests the chat completion under response.body, so model/usage live at
+// response.body.model / response.body.usage; a flat response.model /
+// response.usage layout is still accepted for non-standard providers.
+type batchResultRow struct {
+	Response *struct {
+		Model string       `json:"model"`
+		Usage *usageFields `json:"usage"`
+		Body  *struct {
+			Model string       `json:"model"`
+			Usage *usageFields `json:"usage"`
+		} `json:"body"`
+	} `json:"response"`
+}
+
+// usageAndModel returns the row's usage object and model, preferring the
+// nested response.body shape.
+func (r *batchResultRow) usageAndModel() (*usageFields, string) {
+	if r == nil || r.Response == nil {
+		return nil, ""
+	}
+	if body := r.Response.Body; body != nil && body.Usage != nil {
+		return body.Usage, body.Model
+	}
+	if r.Response.Usage != nil {
+		return r.Response.Usage, r.Response.Model
+	}
+	return nil, ""
 }
 
 func parseFileResponse(buf []byte) *fileResponse {

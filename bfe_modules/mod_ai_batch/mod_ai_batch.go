@@ -60,20 +60,23 @@ const (
 
 // key for counter of mod_ai_batch
 var counterKeys = []string{
-	"REQ_TOTAL",             // classified batch requests
-	"FILE_BIND_WRITE",       // BATCH_FILE bindings written
-	"FILE_BIND_WRITE_FAIL",  // BATCH_FILE write failed (fail-open)
-	"TASK_WRITE",            // BATCH_TASK writes
-	"TASK_WRITE_FAIL",       // BATCH_TASK write failed (fail-open)
-	"UPLOAD_REJECT_SIZE",    // upload rejected by effective file limits
-	"UPLOAD_ABORT_STREAM",   // chunked upload aborted mid-stream on limit
-	"OWNER_CHECK_REJECT",    // download rejected by ownership check
-	"OWNER_CHECK_MISS",      // ownership binding missing (allow_log policy)
-	"RESERVE_OK",            // reserve written at batch create
-	"RESERVE_PRECHECK_MISS", // balance pre-check failed, create rejected
-	"RELEASE_OK",            // reserve released (terminal status/cancel)
-	"SETTLE_USAGE_PARSE",    // download usage parsed (jsonl lines)
-	"SETTLE_USAGE_PARSE_ERR",
+	"REQ_TOTAL",              // classified batch requests
+	"FILE_BIND_WRITE",        // BATCH_FILE bindings written
+	"FILE_BIND_WRITE_FAIL",   // BATCH_FILE write failed (fail-open)
+	"TASK_WRITE",             // BATCH_TASK writes
+	"TASK_WRITE_FAIL",        // BATCH_TASK write failed (fail-open)
+	"UPLOAD_REJECT_SIZE",     // upload rejected by effective file limits
+	"UPLOAD_ABORT_STREAM",    // chunked upload aborted mid-stream on limit
+	"OWNER_CHECK_REJECT",     // download rejected by ownership check
+	"OWNER_CHECK_MISS",       // ownership binding missing (allow_log policy)
+	"RESERVE_OK",             // reserve written at batch create
+	"RESERVE_PRECHECK_MISS",  // balance pre-check failed, create rejected
+	"RELEASE_OK",             // reserve released (terminal status/cancel)
+	"SETTLE_USAGE_PARSE",     // download usage parsed (jsonl lines)
+	"SETTLE_NO_USAGE",        // result line with a response but no usage in either shape
+	"SETTLE_USAGE_PARSE_ERR", // result line that failed to parse as JSON
+	"TASK_SETTLE_WRITE",      // settlement fields written to BATCH_TASK at finish
+	"UPLOAD_COUNT_APPROX",    // upload counted on the whole request body (no file part)
 	"REDIS_ERR",
 }
 

@@ -28,6 +28,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -47,9 +48,20 @@ const (
 	planRMB     = "plan-rmb-sc28"
 	redisKeyRMB = "QUOTA_RMB_sc28"
 
-	// result file: two gpt-4o rows, prompt/completion = 10/5 and 3/2
-	resultJSONL = `{"custom_id":"req-1","response":{"model":"gpt-4o","usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}},"error":null}` + "\n" +
-		`{"custom_id":"req-2","response":{"model":"gpt-4o","usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}},"error":null}` + "\n"
+	// result file: two gpt-4o rows, prompt/completion = 10/5 and 3/2. Usage
+	// lives under response.body (the OpenAI batch result contract); a flat
+	// response.usage fixture would hide the parser defect (issue #254).
+	resultJSONL = `{"custom_id":"req-1","response":{"status_code":200,"body":{"model":"gpt-4o","usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}},"error":null}` + "\n" +
+		`{"custom_id":"req-2","response":{"status_code":200,"body":{"model":"gpt-4o","usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}},"error":null}` + "\n"
+
+	// resultJSONLMixed covers every row shape the download scanner must
+	// handle (TC-15): contract shape, legacy flat shape, a response without
+	// usage, a plain error row and a malformed line.
+	resultJSONLMixed = `{"custom_id":"body","response":{"status_code":200,"body":{"model":"gpt-4o","usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}},"error":null}` + "\n" +
+		`{"custom_id":"flat","response":{"model":"gpt-4o","usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}},"error":null}` + "\n" +
+		`{"custom_id":"no-usage","response":{"status_code":200,"body":{"model":"gpt-4o"}},"error":null}` + "\n" +
+		`{"custom_id":"error-row","response":null,"error":{"message":"upstream failed"}}` + "\n" +
+		`not-a-json-line` + "\n"
 
 	inputJSONL = `{"custom_id":"req-1","method":"POST","url":"/v1/chat/completions","body":{"model":"gpt-4o","messages":[{"role":"user","content":"hi"}]}}` + "\n" +
 		`{"custom_id":"req-2","method":"POST","url":"/v1/chat/completions","body":{"model":"gpt-4o","messages":[{"role":"user","content":"yo"}]}}` + "\n"
@@ -58,10 +70,23 @@ const (
 	fileOutID = "file-out-1"
 	batchID   = "batch-1"
 
+	// uploadFileName is echoed by the mock File object; the BATCH_FILE
+	// binding must record it (control-plane contract batch_files[].filename).
+	uploadFileName = "batch-input.jsonl"
+
+	// providerBatchCreatedAt is the batch object creation time (unix seconds)
+	// recorded as BATCH_TASK.created_at.
+	providerBatchCreatedAt = 1760000000
+
 	// batch prices: in 1e-6/token, out 2e-6/token -> (13*1 + 7*2)e-6 = 27e-6 yuan
 	// = 2700 units (1e-8). chat prices are double, so any chat-priced charge
 	// would be 5400 and is distinguishable in assertions.
 	wantSettleUnits = int64(2700)
+
+	// billable totals of resultJSONL / resultJSONLMixed: (10+3) prompt and
+	// (5+2) completion tokens.
+	wantUsageIn  = int64(13)
+	wantUsageOut = int64(7)
 )
 
 // mockBatchProvider routes the files/batches endpoints like an OpenAI-style
@@ -72,8 +97,9 @@ type mockBatchProvider struct {
 	uploaded []byte
 
 	// test behavior switches
-	expiredOnGet  bool // GET /v1/batches/{id} answers status=expired
-	failKeyAOnGet bool // GET /v1/batches/{id} answers 404 when authorized as key-a
+	expiredOnGet  bool   // GET /v1/batches/{id} answers status=expired
+	failKeyAOnGet bool   // GET /v1/batches/{id} answers 404 when authorized as key-a
+	resultBody    string // overrides the result file served by the download
 }
 
 func (p *mockBatchProvider) handler(r *http.Request, count int, bodies [][]byte) (int, string) {
@@ -82,11 +108,14 @@ func (p *mockBatchProvider) handler(r *http.Request, count int, bodies [][]byte)
 		if len(bodies) > 0 {
 			p.uploaded = extractMultipartFile(r.Header.Get("Content-Type"), bodies[len(bodies)-1])
 		}
-		return 200, fmt.Sprintf(`{"id":%q,"object":"file","purpose":"batch","bytes":%d}`,
-			fileInID, len(p.uploaded))
+		return 200, fmt.Sprintf(
+			`{"id":%q,"object":"file","purpose":"batch","bytes":%d,"filename":%q}`,
+			fileInID, len(p.uploaded), uploadFileName)
 	case r.Method == "POST" && r.URL.Path == "/v1/batches":
-		return 200, fmt.Sprintf(`{"id":%q,"object":"batch","status":"in_progress","input_file_id":%q,"output_file_id":%q}`,
-			batchID, fileInID, fileOutID)
+		return 200, fmt.Sprintf(
+			`{"id":%q,"object":"batch","status":"in_progress","input_file_id":%q,"output_file_id":%q,`+
+				`"endpoint":"/v1/chat/completions","created_at":%d,"request_counts":{"completed":0,"failed":0,"total":2}}`,
+			batchID, fileInID, fileOutID, providerBatchCreatedAt)
 	case r.Method == "GET" && r.URL.Path == "/v1/batches/"+batchID:
 		if p.failKeyAOnGet && strings.Contains(r.Header.Get("Authorization"), "sk-key-a") {
 			return 404, `{"error":{"message":"batch not found on this key"}}`
@@ -95,11 +124,16 @@ func (p *mockBatchProvider) handler(r *http.Request, count int, bodies [][]byte)
 		if p.expiredOnGet {
 			status = "expired"
 		}
-		return 200, fmt.Sprintf(`{"id":%q,"object":"batch","status":%q,"input_file_id":%q,"output_file_id":%q}`,
-			batchID, status, fileInID, fileOutID)
+		return 200, fmt.Sprintf(
+			`{"id":%q,"object":"batch","status":%q,"input_file_id":%q,"output_file_id":%q,`+
+				`"endpoint":"/v1/chat/completions","created_at":%d,"request_counts":{"completed":2,"failed":0,"total":2}}`,
+			batchID, status, fileInID, fileOutID, providerBatchCreatedAt)
 	case r.Method == "POST" && r.URL.Path == "/v1/batches/"+batchID+"/cancel":
 		return 200, fmt.Sprintf(`{"id":%q,"object":"batch","status":"cancelling"}`, batchID)
 	case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/v1/files/") && strings.HasSuffix(r.URL.Path, "/content"):
+		if p.resultBody != "" {
+			return 200, p.resultBody
+		}
 		return 200, resultJSONL
 	default:
 		return 404, `{"error":{"message":"not found"}}`
@@ -505,6 +539,225 @@ func (e *testEnv) waitTokenAuthMetric(t *testing.T, field string, want float64) 
 		t.Fatalf("read mod_ai_token_auth.%s failed: %v", field, err)
 	}
 	return got
+}
+
+// batchMetric reads a mod_ai_batch counter by its state key (the module
+// declares its counters in upper snake case). mod_ai_batch exposes state via
+// module_state2.StateData.FormatOutput, which has no prometheus renderer, so
+// the counter is read from the JSON document.
+func (e *testEnv) batchMetric(t *testing.T, key string) float64 {
+	t.Helper()
+	v, err := common.ModuleCounterJSON(e.monitorPort, "mod_ai_batch", key)
+	if err != nil {
+		t.Fatalf("read mod_ai_batch.%s failed: %v", key, err)
+	}
+	return v
+}
+
+// waitBatchMetric polls a mod_ai_batch counter until it reaches want (the
+// settlement write-back runs in HandleRequestFinish, after the response).
+func (e *testEnv) waitBatchMetric(t *testing.T, key string, want float64) float64 {
+	t.Helper()
+	got, err := common.WaitForModuleCounterJSON(e.monitorPort, "mod_ai_batch", key,
+		10*time.Second, func(v float64) bool { return v >= want })
+	if err != nil {
+		t.Fatalf("read mod_ai_batch.%s failed: %v", key, err)
+	}
+	if got < want {
+		t.Fatalf("mod_ai_batch.%s = %v, want >= %v", key, got, want)
+	}
+	return got
+}
+
+// batchTaskHash / batchFileHash read the BATCH_* records the control plane
+// syncs from (nil when absent).
+func (e *testEnv) batchTaskHash(batchId string) map[string]string {
+	return e.redis.HGetAll("BATCH_TASK:" + batchId)
+}
+
+func (e *testEnv) batchFileHash(fileId string) map[string]string {
+	return e.redis.HGetAll("BATCH_FILE:" + clusterName + ":" + fileId)
+}
+
+// requireField asserts one hash field, failing with the whole record so a
+// missing write is debuggable.
+func requireField(t *testing.T, rec map[string]string, key, want string) {
+	t.Helper()
+	if got := rec[key]; got != want {
+		t.Fatalf("%s = %q, want %q; record=%v", key, got, want, rec)
+	}
+}
+
+// TC-14: the completed batch exposes the full terminal record the control
+// plane syncs (output_file_id / request_counts / endpoint / created_at /
+// reserved_units / settlement fields) and BATCH_FILE describes file CONTENT,
+// not the multipart envelope (issue #254).
+func TestTC14_TerminalFieldsAndFileContentStats(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+	e.startBFE(t, 10_000_000_000, nil)
+
+	// upload + create only: the poll below overwrites status/request_counts,
+	// so the create-time record is asserted before it runs.
+	if status, id := e.upload(t, inputJSONL); status != 200 || id != fileInID {
+		t.Fatalf("upload: status=%d id=%q", status, id)
+	}
+	status, respBody := e.do(t, "POST", "/v1/batches",
+		strings.NewReader(fmt.Sprintf(`{"input_file_id":%q,"endpoint":"/v1/chat/completions","completion_window":"24h"}`, fileInID)),
+		"application/json")
+	if status != 200 || !strings.Contains(string(respBody), batchID) {
+		t.Fatalf("create: status=%d body=%s", status, respBody)
+	}
+
+	// A. input file binding: content lines/bytes, provider filename
+	in := e.batchFileHash(fileInID)
+	if in == nil {
+		t.Fatalf("BATCH_FILE binding for the input file missing")
+	}
+	requireField(t, in, "lines", "2")
+	requireField(t, in, "bytes", strconv.Itoa(len(inputJSONL)))
+	requireField(t, in, "filename", uploadFileName)
+	requireField(t, in, "lines_src", "exact")
+	requireField(t, in, "bytes_src", "exact")
+	requireField(t, in, "purpose", "batch")
+	requireField(t, in, "dir", "input")
+	requireField(t, in, "api_key_id", apiKeyID)
+
+	// B. create-time task record: identity, endpoint, counts, reserve mirror
+	task := e.batchTaskHash(batchID)
+	if task == nil {
+		t.Fatalf("BATCH_TASK record missing")
+	}
+	requireField(t, task, "status", "in_progress")
+	requireField(t, task, "input_file_id", fileInID)
+	requireField(t, task, "output_file_id", fileOutID)
+	requireField(t, task, "endpoint", "/v1/chat/completions")
+	requireField(t, task, "request_counts", `{"completed":0,"failed":0,"total":2}`)
+	requireField(t, task, "created_at", strconv.Itoa(providerBatchCreatedAt))
+	requireField(t, task, "est_lines", "2")
+	requireField(t, task, "reserved", "1")
+	if units := parseIntField(t, task, "reserved_units"); units <= 0 {
+		t.Fatalf("reserved_units = %d, want > 0; record=%v", units, task)
+	}
+	// not settled yet
+	for _, k := range []string{"usage_in", "usage_out", "settle_units", "settle_status", "usage_source"} {
+		if _, ok := task[k]; ok {
+			t.Fatalf("%s must be absent before the download settles; record=%v", k, task)
+		}
+	}
+
+	// poll: status and provider counts advance, the output binding appears
+	status, respBody = e.do(t, "GET", "/v1/batches/"+batchID, nil, "")
+	if status != 200 || !strings.Contains(string(respBody), `"completed"`) {
+		t.Fatalf("get: status=%d body=%s", status, respBody)
+	}
+	task = e.batchTaskHash(batchID)
+	requireField(t, task, "status", "completed")
+	requireField(t, task, "request_counts", `{"completed":2,"failed":0,"total":2}`)
+	out := e.batchFileHash(fileOutID)
+	if out == nil {
+		t.Fatalf("BATCH_FILE binding for the output file missing")
+	}
+	requireField(t, out, "dir", "output")
+	requireField(t, out, "batch_id", batchID)
+
+	// C. download settles: usage/settle fields land, counters flip
+	dl := e.downloadResult(t)
+	if string(dl) != resultJSONL {
+		t.Fatalf("download body differs from provider bytes:\n got %q", dl)
+	}
+	if !waitForRedis(t, e, func() bool {
+		rec := e.batchTaskHash(batchID)
+		return rec != nil && rec["settle_status"] == "settled"
+	}) {
+		t.Fatalf("BATCH_TASK never reached settle_status=settled; record=%v", e.batchTaskHash(batchID))
+	}
+	task = e.batchTaskHash(batchID)
+	requireField(t, task, "status", "completed")
+	requireField(t, task, "request_counts", `{"completed":2,"failed":0,"total":2}`)
+	requireField(t, task, "usage_in", strconv.FormatInt(wantUsageIn, 10))
+	requireField(t, task, "usage_out", strconv.FormatInt(wantUsageOut, 10))
+	requireField(t, task, "settle_units", strconv.FormatInt(wantSettleUnits, 10))
+	requireField(t, task, "settle_status", "settled")
+	requireField(t, task, "usage_source", "download")
+	if !e.redis.Exists("BATCH_SETTLED:" + batchID) {
+		t.Fatalf("settled marker missing")
+	}
+
+	// D. counters: parsed once, written once, no degraded upload counting
+	e.waitBatchMetric(t, "SETTLE_USAGE_PARSE", 1)
+	e.waitBatchMetric(t, "TASK_SETTLE_WRITE", 1)
+	for field, want := range map[string]float64{
+		"SETTLE_NO_USAGE":        0,
+		"SETTLE_USAGE_PARSE_ERR": 0,
+		"UPLOAD_COUNT_APPROX":    0,
+	} {
+		if got := e.batchMetric(t, field); got != want {
+			t.Fatalf("mod_ai_batch.%s = %v, want %v", field, got, want)
+		}
+	}
+}
+
+// TC-15: the download scanner bills the contract shape (response.body.usage)
+// and the legacy flat shape equally, and reports rows it cannot bill instead
+// of silently zeroing them (issue #254).
+func TestTC15_ResultRowShapesAndAnomalySignals(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+	e.providerMu.resultBody = resultJSONLMixed
+	e.startBFE(t, 10_000_000_000, nil)
+
+	e.runLifecycleToDownload(t)
+
+	dl := e.downloadResult(t)
+	if string(dl) != resultJSONLMixed {
+		t.Fatalf("download body differs from provider bytes:\n got %q", dl)
+	}
+
+	if !waitForRedis(t, e, func() bool {
+		rec := e.batchTaskHash(batchID)
+		return rec != nil && rec["settle_status"] == "settled"
+	}) {
+		t.Fatalf("BATCH_TASK never reached settle_status=settled; record=%v", e.batchTaskHash(batchID))
+	}
+	task := e.batchTaskHash(batchID)
+	// only the two billable rows count: contract shape + legacy flat shape
+	requireField(t, task, "usage_in", strconv.FormatInt(wantUsageIn, 10))
+	requireField(t, task, "usage_out", strconv.FormatInt(wantUsageOut, 10))
+	requireField(t, task, "settle_units", strconv.FormatInt(wantSettleUnits, 10))
+	requireField(t, task, "settle_status", "settled")
+	requireField(t, task, "usage_source", "download")
+
+	// anomaly rows are counted, error rows are not
+	for field, want := range map[string]float64{
+		"SETTLE_USAGE_PARSE":     1,
+		"SETTLE_NO_USAGE":        1,
+		"SETTLE_USAGE_PARSE_ERR": 1,
+		"TASK_SETTLE_WRITE":      1,
+	} {
+		if got := e.waitBatchMetric(t, field, want); got != want {
+			t.Fatalf("mod_ai_batch.%s = %v, want %v", field, got, want)
+		}
+	}
+
+	dlLog := findBatchLog(t, e, "download")
+	if dlLog.settle != "settle" {
+		t.Fatalf("ai_batch_settle = %q, want settle", dlLog.settle)
+	}
+}
+
+// parseIntField reads an integer hash field (0 when absent or malformed).
+func parseIntField(t *testing.T, rec map[string]string, key string) int64 {
+	t.Helper()
+	raw := rec[key]
+	if raw == "" {
+		return 0
+	}
+	v, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		t.Fatalf("field %s = %q is not an integer", key, raw)
+	}
+	return v
 }
 
 // TC-01: lifecycle passes through byte-exact; batch access-log fields land.

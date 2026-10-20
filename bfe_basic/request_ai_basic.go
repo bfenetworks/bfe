@@ -185,6 +185,19 @@ type AiBasicInfo struct {
 	// price the settlement at mode=batch rates per model group.
 	BatchUsageByModel map[string]TokenUsage
 
+	// BatchSettleApplied reports whether this request actually executed the
+	// settle/release contract: mod_ai_token_auth sets it once the
+	// BATCH_SETTLED claim is won and the deduction/release ran. mod_ai_batch
+	// persists the settlement fields into BATCH_TASK only when it is true, so
+	// a batch already settled/released by another path (control-plane
+	// reconcile backstop, concurrent download) is never re-marked.
+	BatchSettleApplied bool
+	// BatchSettledUnits carries the RMB amount (1e-8 fixed-point units)
+	// actually charged by the settlement, published alongside
+	// BatchSettleApplied so mod_ai_batch can persist BATCH_TASK.settle_units.
+	// Zero is a legitimate value (price miss, no usage) and is still written.
+	BatchSettledUnits int64
+
 	allowEstimateToken bool
 
 	// responseCompleted marks whether the upstream response finished
