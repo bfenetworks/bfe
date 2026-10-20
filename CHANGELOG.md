@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Count failed quota deductions (`DeductFailed`) instead of leaving them as a log line only (issue #1414)
 - Fix the token-triple consistency check (`AiUsageInconsistent`) returning early on `ai_total_tokens == 0`, which disabled it for exactly the `input > 0 while total == 0` rows it exists to catch (issue #1414)
 - Batch settlement now marks price misses (`ai_price_miss`), warns when the model table is missing and records a release without billing instead of staying silent (issue #1414)
+- Measure the batch single-file limits (`batch_limits.max_file_bytes` / `max_file_lines`) on the multipart `file` part content instead of the request envelope: a 1-line/203-byte upload was rejected as `BATCH_FILE_TOO_LARGE` because the envelope (boundaries, part headers, `purpose` field) read as 11 lines / 509 bytes, and even a pre-accepted upload was aborted mid-stream by the same envelope count. The per-policy `Content-Length` pre-check now applies to raw uploads only, a pre-checked multipart upload no longer carries the streaming gate, and the gate parses the multipart envelope incrementally so only the `file` part is measured (also making chunked upload bindings exact instead of approximate) (bfenetworks/bfe#1434)
 
 ## [v1.8.8] - 2026-09-24
 

@@ -175,6 +175,19 @@ func buildRpmRedisKey(policyId string, rule *RPMRuleConf) string {
 }
 ```
 
+### 6.4 缓存命中时不计量（issue #1433）
+
+上述所有计数器的读写（rpm 的 `Check` 自增、tpm 的 `TryCheck` 预扣与结算、并发
+`ConnAcquire/ConnRelease`）都只发生在 `HandleAfterAITargetModel`（`mod_ai_rate_limit.go:501`）
+与 `HandleRequestFinish`（`:506`）——而 `mod_ai_cache` 命中会在更早的
+`HandleFoundProduct` 直接 `BfeHandlerFinish`，这两个回调都不会触发。
+
+因此：**缓存命中既不检查限流、也不消耗 rpm/tpm/concurrency 额度**，Redis 计数不变。
+这与"命中不扣配额、不计费"（`mod_ai_token_auth.go:393-399`）是同一口径；条款与理由见
+`docs/zh_cn/sys_design/ai_cache.md` §9.1 与
+`docs/zh_cn/modifications/2026-10-20-issue-1433-cache-hit-policy-matrix/design-changes.md`。
+副作用是"策略收紧为后生效"：新绑的限流策略不会让已有缓存条目失效，滞后上界为条目 TTL。
+
 ## 7. 配置示例
 
 ```json

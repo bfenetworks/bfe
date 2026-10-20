@@ -16,7 +16,10 @@ package bfe_basic
 
 import (
 	"encoding/json"
+	"mime"
 	"strings"
+
+	"github.com/bfenetworks/bfe/bfe_http"
 )
 
 // ClassifyBatchOp maps (method, request path) to a batch operation type. It
@@ -94,6 +97,30 @@ func normalizeBatchPath(path string) string {
 		return path[idx:]
 	}
 	return path
+}
+
+// IsMultipartUpload reports whether the request body is a multipart envelope
+// and returns its boundary. Batch file limits (max_file_bytes/max_file_lines)
+// are defined on the `file` part content, never on the envelope (boundary
+// lines, part headers, other form fields), so callers must not measure
+// Content-Length against the limits when this returns true. Shared by
+// mod_ai_batch and mod_ai_rate_limit.
+func IsMultipartUpload(header bfe_http.Header) (boundary string, ok bool) {
+	contentType := header.Get("Content-Type")
+	if contentType == "" {
+		return "", false
+	}
+	mediaType, params, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return "", false
+	}
+	switch mediaType {
+	case "multipart/form-data", "multipart/mixed":
+	default:
+		return "", false
+	}
+	boundary = params["boundary"]
+	return boundary, boundary != ""
 }
 
 // ExtractBatchInputFileId parses input_file_id from a buffered batch create

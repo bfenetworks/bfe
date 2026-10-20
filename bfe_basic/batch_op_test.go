@@ -14,7 +14,11 @@
 
 package bfe_basic
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/bfenetworks/bfe/bfe_http"
+)
 
 func TestClassifyBatchOp(t *testing.T) {
 	cases := []struct {
@@ -57,5 +61,37 @@ func TestBatchPathIds(t *testing.T) {
 	}
 	if got := BatchPathFileId("/v1/batches/batch-abc"); got != "" {
 		t.Errorf("BatchPathFileId = %q, want empty", got)
+	}
+}
+
+// IsMultipartUpload decides whether batch file limits may be compared against
+// the request Content-Length (issue #1434).
+func TestIsMultipartUpload(t *testing.T) {
+	cases := []struct {
+		contentType string
+		wantOK      bool
+		wantBound   string
+	}{
+		{"multipart/form-data; boundary=----abc123", true, "----abc123"},
+		{`multipart/form-data; boundary="quoted-boundary"`, true, "quoted-boundary"},
+		{"multipart/form-data", false, ""},             // no boundary: unparsable
+		{"multipart/mixed; boundary=xyz", true, "xyz"}, // tolerated
+		{"application/jsonl", false, ""},               // raw upload body
+		{"application/octet-stream", false, ""},        // raw upload body
+		{"application/json; charset=utf-8", false, ""}, // not a file upload envelope
+		{"", false, ""}, // header absent
+		{"multipart/form-data; boundary=", false, ""},              // empty boundary
+		{"multipart/form-data; boundary=a; boundary=b", false, ""}, // ambiguous, leave to Go
+	}
+	for _, c := range cases {
+		h := bfe_http.Header{}
+		if c.contentType != "" {
+			h.Set("Content-Type", c.contentType)
+		}
+		bound, ok := IsMultipartUpload(h)
+		if ok != c.wantOK || bound != c.wantBound {
+			t.Errorf("IsMultipartUpload(%q) = (%q, %v), want (%q, %v)",
+				c.contentType, bound, ok, c.wantBound, c.wantOK)
+		}
 	}
 }

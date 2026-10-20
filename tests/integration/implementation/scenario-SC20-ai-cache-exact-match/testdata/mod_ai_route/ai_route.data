@@ -36,6 +36,24 @@
                     "fallbacks": []
                 }
             ]
+        },
+        "apikey_ak_cache_rl": {
+            "type": "apikey",
+            "owner": "ak_cache_rl",
+            "rules": [
+                {
+                    "name": "cache-default-rl",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_cache",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
         }
     },
     "ApikeyRouteTableBindings": {
@@ -44,6 +62,9 @@
         ],
         "ak_cache2": [
             "apikey_ak_cache2"
+        ],
+        "ak_cache_rl": [
+            "apikey_ak_cache_rl"
         ]
     }
 }

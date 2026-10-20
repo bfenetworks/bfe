@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_http"
 )
 
 func TestBatchDataConfCheck(t *testing.T) {
@@ -45,14 +46,15 @@ func TestBatchDataConfCheck(t *testing.T) {
 	}
 }
 
-// countingBody enforces the effective limits while streaming.
-func TestCountingBodyLimits(t *testing.T) {
+// envelopeCountingBody enforces the effective limits on the whole body while
+// streaming (degraded path: body is the file, or the envelope is unparsable).
+func TestEnvelopeCountingBodyLimits(t *testing.T) {
 	payload := strings.Repeat("a", 100) + "\n" + strings.Repeat("b", 100) + "\n"
 	ctx := &batchContext{}
 	aiMeta := &bfe_basic.AiBasicInfo{}
 	aiMeta.BatchEffMaxFileBytes = 150 // exceed within the first chunk
 
-	cb := newCountingBody(ioutil.NopCloser(strings.NewReader(payload)), ctx, aiMeta)
+	cb := newEnvelopeCountingBody(ioutil.NopCloser(strings.NewReader(payload)), ctx, aiMeta)
 	buf := make([]byte, 512)
 	_, err := cb.Read(buf)
 	if err != errUploadLimitExceeded {
@@ -66,13 +68,13 @@ func TestCountingBodyLimits(t *testing.T) {
 	}
 }
 
-func TestCountingBodyLines(t *testing.T) {
+func TestEnvelopeCountingBodyLines(t *testing.T) {
 	payload := "l1\nl2\nl3\n"
 	ctx := &batchContext{}
 	aiMeta := &bfe_basic.AiBasicInfo{}
 	aiMeta.BatchEffMaxFileLines = 2
 
-	cb := newCountingBody(ioutil.NopCloser(strings.NewReader(payload)), ctx, aiMeta)
+	cb := newEnvelopeCountingBody(ioutil.NopCloser(strings.NewReader(payload)), ctx, aiMeta)
 	data, err := ioutil.ReadAll(cb)
 	// the read that crosses the line limit returns the bytes plus the abort
 	// error; total content is still counted before abort
@@ -167,8 +169,9 @@ func TestUsageScanBodyAbortedNoFinalize(t *testing.T) {
 func TestMultipartFilePartStats(t *testing.T) {
 	content := `{"custom_id":"1","method":"POST","url":"/v1/chat/completions"}` + "\n"
 	contentType, body := buildMultipartBody(t, "batch-input.jsonl", content)
+	boundary := multipartBoundaryOf(t, contentType)
 
-	stats, ok := multipartFilePartStats(contentType, body)
+	stats, ok := multipartFilePartStats(boundary, body)
 	if !ok {
 		t.Fatalf("file part should be located")
 	}
@@ -186,11 +189,20 @@ func TestMultipartFilePartStats(t *testing.T) {
 		t.Fatalf("envelope (%d) should exceed the file content (%d)", len(body), stats.Bytes)
 	}
 
-	if _, ok := multipartFilePartStats(contentType, nil); ok {
+	// a truncated prefix that still contains the whole file part stays exact
+	// (the part itself was not cut); a prefix cutting into the part does not
+	if stats, ok := multipartFilePartStats(boundary, body[:len(body)-8]); !ok || stats.Bytes != int64(len(content)) {
+		t.Fatalf("prefix with a complete file part: ok=%v stats=%+v", ok, stats)
+	}
+	if _, ok := multipartFilePartStats(boundary, body[:len(body)/2]); ok {
+		t.Fatalf("truncated file part must not yield part stats")
+	}
+
+	if _, ok := multipartFilePartStats(boundary, nil); ok {
 		t.Fatalf("empty body must not yield part stats")
 	}
-	if _, ok := multipartFilePartStats("application/json", []byte(`{}`)); ok {
-		t.Fatalf("non-multipart body must not yield part stats")
+	if _, ok := multipartFilePartStats("", body); ok {
+		t.Fatalf("missing boundary must not yield part stats")
 	}
 
 	// a multipart body without a file part (field only) is not locatable
@@ -198,7 +210,7 @@ func TestMultipartFilePartStats(t *testing.T) {
 	w := multipart.NewWriter(&buf)
 	w.WriteField("purpose", "batch")
 	w.Close()
-	if _, ok := multipartFilePartStats(w.FormDataContentType(), buf.Bytes()); ok {
+	if _, ok := multipartFilePartStats(w.Boundary(), buf.Bytes()); ok {
 		t.Fatalf("field-only multipart must not yield part stats")
 	}
 }
@@ -445,4 +457,16 @@ func buildMultipartBody(t *testing.T, filename, content string) (string, []byte)
 		t.Fatalf("close multipart writer: %v", err)
 	}
 	return w.FormDataContentType(), buf.Bytes()
+}
+
+// multipartBoundaryOf extracts the boundary from a multipart Content-Type.
+func multipartBoundaryOf(t *testing.T, contentType string) string {
+	t.Helper()
+	h := bfe_http.Header{}
+	h.Set("Content-Type", contentType)
+	boundary, ok := bfe_basic.IsMultipartUpload(h)
+	if !ok {
+		t.Fatalf("content type %q is not a multipart upload", contentType)
+	}
+	return boundary
 }

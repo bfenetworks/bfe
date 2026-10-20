@@ -87,6 +87,26 @@ AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前
 
 > 说明：编号 781-792 已用于 cache/audio/image 子项与网关级缓存状态字段——781-788 为 token 计量子项（`cache_read` / `cache_write` / `audio_input` / `audio_output` / `image_count` / `image_input_tokens` / `video_count` / `cache_write_1h`），789-792 为 `mod_ai_cache` 状态字段（`ai_cache_status` / `ai_cache_key` / `ai_cache_semantic` / `ai_cache_similarity`）。后续新增子项可向 793-800 扩展。
 
+**缓存命中的策略语义（issue #1433）**：`ai_cache_status` 为 `hit` / `hit_semantic`
+的行表示响应由缓存直接产出、请求在 `HandleFoundProduct` 短路。这类行必然同时满足：
+`ai_rate_limit_hits` 为空（限流未检查也未计量）、`ai_zero_cost_reason=cache_hit`
+（`mod_ai_token_auth.go:395` 的唯一零成本形状标记，计入 `cache_hit` 而不计
+`BillingZeroCost`）、token usage 与成本为 0（配额未扣减）、`ai_route_rule_hits` 为空
+（路由未求值）。
+
+模型访问控制（allow/block）"未执行"这件事**没有独立日志字段**，也不需要：它是命中
+短路的结构性后果（命中不路由 ⇒ target model 未解析 ⇒ `ValidateTargetModel` 无从执行），
+判别依据就是 `ai_cache_status` 本身。另设 `ai_policy_skipped` 之类的字段只会把同一个
+事实写两遍、形成双事实来源，因此不引入（详见
+`docs/zh_cn/modifications/2026-10-20-issue-1433-cache-hit-policy-matrix/design-changes.md`
+§4.1）。报表与审计按上述映射判定即可；`skip`（跳过头）与 `miss` 不适用该规则——它们
+走完整链路，策略正常执行。
+
+命中行的 `ai_target_model`（704）仍为**客户端请求的模型**：`InitAiBasicInfo` 在请求入口
+把它置为 `ClientModel`（`bfe_server/http_conn.go:567`），而覆盖真实 target model 的
+`computeTargetModel` 发生在 `doSingleAIForward`（`bfe_server/reverseproxy.go:1660`），
+命中请求到不了那里。需要"这条答案由哪个模型产出"时，请看该条目写入缓存时的请求行。
+
 ---
 
 ## 3. 总体架构

@@ -93,20 +93,22 @@ usage 与 model 位于 **`response.body`**。解析规则（`resp_capture.go:han
 
 ## 6. 文件行/字节统计口径
 
-`BATCH_FILE.lines/bytes` 与 `BATCH_TASK.est_lines`（预留公式输入）必须描述**文件内容**，不是 HTTP 信封：
+`BATCH_FILE.lines/bytes` 与 `BATCH_TASK.est_lines`（预留公式输入）**以及限额判定**必须描述**文件内容**，不是 HTTP 信封：
 
 1. `bytes` 优先取 `POST /v1/files` 响应里的 File 对象 `bytes`（权威值），`lines` 取 multipart 中 `name="file"` 那一 part 的内容换行数；
-2. 上传请求体已整体缓冲（AI 网关在提取 model 时已缓冲）时，用 `mime/multipart` 解析 part 得到 `filename`/`lines`/`bytes`，并**用同一结果**做前置限额检查（`BatchEffMaxFileBytes` / `BatchEffMaxFileLines`）；
-3. 流式（chunked 或超缓冲上限）无法定位 part 时，退回整包近似计数，并在绑定上写 `lines_src=approx`/`bytes_src=approx`，同时计 `UPLOAD_COUNT_APPROX`；
-4. 早期实现统计的是整个出站 multipart 请求体（含 part 头、boundary、CRLF），会把 1 行/206 字节的文件记成 11 行/509 字节，直接放大 `est_lines` 与预留额，已修正。
+2. 上传请求体已整体缓冲（AI 网关在提取 model 时已缓冲）时，用 `mime/multipart` 解析 part 得到 `filename`/`lines`/`bytes`，并**用同一结果**做前置限额检查（`BatchEffMaxFileBytes` / `BatchEffMaxFileLines`）；只要 `file` part 完整落在缓冲前缀内即为权威值（part 之后的截断不影响），判定通过后**不再安装流式闸门**，避免"前置放行、转发中途又被同一组上限拦下"；
+3. 流式（chunked 或 `file` part 超出缓冲上限）无法前置定位 part 时，由 `multipartLimitBody` 在转发路径上做 multipart 增量状态机：只对 `name="file"` part 的内容统计字节/换行（原样透传，O(1) 内存），part 完整读完即回填 `partBytes/partLines`（绑定为 exact）；解析失败才退回整包计数，并写 `lines_src=approx`/`bytes_src=approx`、计 `UPLOAD_COUNT_APPROX`；
+4. 限额的度量对象与统计口径一致：multipart 只认 `file` part，raw 上传（`application/jsonl` 等）信封即文件。`mod_ai_rate_limit` 的逐策略字节预检只对 raw 上传生效（`Content-Length` 只在那时等于文件大小），multipart 一律交给 `mod_ai_batch` 判定；
+5. 早期实现统计/判定的是整个出站 multipart 请求体（含 part 头、boundary、CRLF），会把 1 行/206 字节的文件记成 11 行/509 字节，直接放大 `est_lines` 与预留额，并让合法小文件被 413/中断误拒（issue #1434），已修正。
 
 ## 7. 监控计数器（`mod_ai_batch`）
 
 | 计数器 | 含义 |
 |--------|------|
 | `REQ_TOTAL` | 被识别为批量操作的请求数 |
-| `UPLOAD_REJECT_SIZE` / `UPLOAD_ABORT_STREAM` | 上传超限拒绝 / 流式上传中途超限中断 |
-| `UPLOAD_COUNT_APPROX` | 无法解析 file part、退回整包近似计数的上传数 |
+| `UPLOAD_REJECT_SIZE` | 前置 413：文件内容超过有效上限（`file` part 已定位时） |
+| `UPLOAD_ABORT_STREAM` | 文件内容超过有效上限且到流式阶段才发现（请求头已发出，只能中断） |
+| `UPLOAD_COUNT_APPROX` | multipart 信封无法解析、退回整包近似计数的上传数 |
 | `FILE_BIND_WRITE(_FAIL)` / `TASK_WRITE(_FAIL)` | 绑定与任务写入成功/失败（fail-open 计数） |
 | `OWNER_CHECK_REJECT` / `OWNER_CHECK_MISS` | 下载归属校验拒绝 / 绑定缺失按策略放行 |
 | `RESERVE_OK` / `RESERVE_PRECHECK_MISS` / `RELEASE_OK` | 预留成功 / 余额预检失败 / 释放 |
@@ -133,7 +135,8 @@ provider 原生 Batch API 的语义是**经网关透传**：`/v1/files` 的 mult
 - **键 TTL 48h ≫ 对账周期 1min**：理论上无丢失窗口；BFE Redis 写失败（fail-open）由控制面对账巡检的日志补登兜底。
 - **`ctx.batchId` 缺失**（输出文件绑定被 TTL 清理/历史键）：下载结算只能按 `file:<id>` 键去重，无法回写 `BATCH_TASK`，由控制面兜底结算补齐。
 - **客户端中止下载**：`usageScanBody` 不 finalize（结算契约不发布），避免按半截文件结算；由控制面对账 job 兜底。
-- **chunked 上传**：行/字节只能近似（`*_src=approx`），预留额可能偏大，属已知限制；精确化需要在流式路径上做 multipart 增量状态机。
+- **chunked 上传**：`multipartLimitBody` 已能精确统计 `file` part（字节/行与绑定均 exact）；只有在 multipart 信封无法解析（缺失 boundary、part 头超限、非常规编码）时才退回整包近似（`*_src=approx`），此时按严格口径计数——宁可误拒也不允许绕过限额。
+- **流式超限的错误形态**：`file` part 超出上限时请求头已发往 provider，只能中断连接（客户端看到 5xx/截断），无法返回干净的 413；前置 413 只在 `file` part 可在缓冲前缀内定位时发生。
 - **`reserved_units` 与 `BATCH_RESERVE_BATCH` 双源**：前者是任务视图镜像（供控制面展示与核对），后者才是释放/结算的簿记源；两者不一致由对账巡检告警。
 - **不改计费口径**：批量价、预留公式、`BATCH_SETTLED` 去重语义与 fail-open 策略均不在本节设计范围内变动。
 
@@ -144,3 +147,4 @@ provider 原生 Batch API 的语义是**经网关透传**：`/v1/files` 的 mult
 | 2026-10-07 | 首版：批量透传一期（端点识别、`mod_ai_batch`、预留/结算/释放、粘性、限流）；见 `modifications/2026-10-07-ai-batch-support/` |
 | 2026-10-19 | 终态字段与结算修复：`BATCH_TASK` 补 `output_file_id`/`request_counts`/`endpoint`/`created_at`/`reserved_units`/`settle_units`/`usage_source`；result 文件 usage 按 `response.body.usage` 解析；结算字段改在 finish 阶段按结算结果回写；行/字节改按 file part 与 File 对象统计；见 `modifications/2026-10-19-issue-254-ai-batch-task-state-and-settle-fix/` |
 | 2026-10-20 | 透传体完整性：target model 改写对 `ModeFile`/`ModeBatch` 跳过，非 JSON Content-Type 兜底拒绝改写（issue #1426）；见 `modifications/2026-10-20-issue-1426-batch-passthrough-model-rewrite-fix/` |
+| 2026-10-20 | 限额判定对象修正：multipart 上传的 `max_file_bytes`/`max_file_lines` 只对 `file` part 生效（逐策略预检跳过信封 `Content-Length`、`preCheckUpload` 判定通过不再装流式闸门、流式路径改 multipart 增量状态机）（issue #1434）；见 `modifications/2026-10-20-issue-1434-batch-multipart-file-limit-envelope-fix/` |
