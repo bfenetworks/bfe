@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v1.8.9.0] - 2026-10-20
+## [v1.8.9-preview.1] - 2026-10-20
 
 ### Added
 - Add `ai_zero_cost_reason` access-log marker (requires `bfe-access-pb >= v0.3.16`): why a 2xx request holding an RMB quota plan was charged 0, together with the `BillingZeroCost` and `AbortBillingSkipped` module counters (issue #1414). Requests that never became a model call (batch/files management endpoints) and AI cache hits are excluded from `BillingZeroCost`, since their zero cost is by design rather than an anomaly
@@ -561,7 +561,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
-[v1.8.9.0]: https://github.com/bfenetworks/bfe/compare/v1.8.8...v1.8.9.0
+[v1.8.9-preview.1]: https://github.com/bfenetworks/bfe/compare/v1.8.8...v1.8.9-preview.1
 [v1.8.8]: https://github.com/bfenetworks/bfe/compare/v1.8.7...v1.8.8
 [v1.8.7]: https://github.com/bfenetworks/bfe/compare/v1.8.6...v1.8.7
 [v1.8.6]: https://github.com/bfenetworks/bfe/compare/v1.8.5...v1.8.6
