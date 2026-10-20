@@ -16,6 +16,7 @@ package bfe_server
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -92,11 +93,46 @@ func newTestUpstream(t *testing.T, handler http.HandlerFunc) *testUpstream {
 	return u
 }
 
+// forwardOpts 描述一个测试用转发服务。
+type forwardOpts struct {
+	// upstreamAddr 是上游地址；为空时使用一个已关闭的端口（模拟连不上后端）
+	upstreamAddr string
+	// clusterExtra 注入 cluster_conf.data 中 cluster_test 对象的额外 JSON 字段，
+	// 不要结尾逗号，例如 `"BackendConf": {"TimeoutResponseHeader": 50}`
+	clusterExtra string
+	// tweak 在 NewBfeServer 之前覆盖 bfe.conf 中的字段（如 MaxHeaderBytes）
+	tweak func(*bfe_conf.BfeConfig)
+}
+
 // newForwardServer 构造一个最小可服务的 BfeServer：
 // 主机 example.org -> 产品 prod_test -> 集群 cluster_test -> upstreamAddr。
-// tweak 可在 NewBfeServer 之前覆盖 bfe.conf 中的字段（如 MaxHeaderBytes）。
 func newForwardServer(t *testing.T, upstreamAddr string, tweak func(*bfe_conf.BfeConfig)) *BfeServer {
 	t.Helper()
+	return newForwardServerWith(t, forwardOpts{upstreamAddr: upstreamAddr, tweak: tweak})
+}
+
+// closedAddr 返回一个当前没有监听者的地址，用于构造后端不可达的场景。
+func closedAddr(t *testing.T) string {
+	t.Helper()
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen failed: %v", err)
+	}
+	addr := ln.Addr().String()
+	if err := ln.Close(); err != nil {
+		t.Fatalf("close listener failed: %v", err)
+	}
+	return addr
+}
+
+func newForwardServerWith(t *testing.T, opts forwardOpts) *BfeServer {
+	t.Helper()
+
+	upstreamAddr := opts.upstreamAddr
+	if upstreamAddr == "" {
+		upstreamAddr = closedAddr(t)
+	}
 
 	host, portStr, err := net.SplitHostPort(upstreamAddr)
 	if err != nil {
@@ -132,6 +168,15 @@ func newForwardServer(t *testing.T, upstreamAddr string, tweak func(*bfe_conf.Bf
 	}
 }`, testProduct, testCluster))
 
+	// cluster_conf.data 承载集群级参数（ClusterBasic/BackendConf/CheckConf），
+	// 与只描述 subcluster/backends 的 cluster_table.data 是两类文件。
+	clusterConfFile := writeConf("cluster_conf.data", fmt.Sprintf(`{
+	"Version": "1",
+	"Config": {
+		"%s": {%s}
+	}
+}`, testCluster, opts.clusterExtra))
+
 	clusterTableFile := writeConf("cluster_table.data", fmt.Sprintf(`{
 	"Version": "1",
 	"Config": {
@@ -154,13 +199,13 @@ func newForwardServer(t *testing.T, upstreamAddr string, tweak func(*bfe_conf.Bf
 	cfg.Server.SetDefaultConf()
 	// 关掉 AI 网关，走传统 ServeHTTP 路径；后续用例可按需覆盖
 	cfg.Server.EnableAiGateway = false
-	if tweak != nil {
-		tweak(&cfg)
+	if opts.tweak != nil {
+		opts.tweak(&cfg)
 	}
 
 	srv := NewBfeServer(cfg, dir, "unit-test")
 
-	conf, err := bfe_route.LoadServerDataConf(hostFile, vipFile, routeFile, clusterTableFile, nil)
+	conf, err := bfe_route.LoadServerDataConf(hostFile, vipFile, routeFile, clusterConfFile, nil)
 	if err != nil {
 		t.Fatalf("load server data conf failed: %v", err)
 	}
@@ -169,10 +214,6 @@ func newForwardServer(t *testing.T, upstreamAddr string, tweak func(*bfe_conf.Bf
 	if err := srv.balTable.Init(gslbFile, clusterTableFile); err != nil {
 		t.Fatalf("init balance table failed: %v", err)
 	}
-
-	// 清理顺序（LIFO）：先由 dialServer 注册的 cleanup 关闭客户端连接，
-	// 再回到这里等待 conn.serve() 退出，避免 goroutine 泄漏到后续用例。
-	t.Cleanup(func() { waitConns(t, srv) })
 
 	return srv
 }
@@ -207,6 +248,11 @@ type testClient struct {
 	t    *testing.T
 	conn *recordingConn
 	br   *bfe_bufio.Reader
+
+	// done 在服务端 conn.serve() 返回后关闭。
+	// 不能用 srv.connWaitGroup.Wait() 代替：serve() 会并发调用 Add(1)，
+	// 而 WaitGroup 在计数为 0 时不允许 Add 与 Wait 并发（-race 会直接报错）。
+	done chan struct{}
 }
 
 // dialServer 建立一条 loopback 连接并交给 conn.serve() 处理。
@@ -219,18 +265,22 @@ func dialServer(t *testing.T, srv *BfeServer) *testClient {
 	}
 	t.Cleanup(func() { _ = ln.Close() })
 
-	accepted := make(chan struct{})
+	serving, done := make(chan struct{}), make(chan struct{})
 	go func() {
+		defer close(done)
+
 		raw, err := ln.Accept()
 		if err != nil {
+			close(serving)
 			return
 		}
 		c, err := newConn(raw, srv)
 		if err != nil {
 			_ = raw.Close()
+			close(serving)
 			return
 		}
-		close(accepted)
+		close(serving)
 		c.serve()
 	}()
 
@@ -238,16 +288,21 @@ func dialServer(t *testing.T, srv *BfeServer) *testClient {
 	if err != nil {
 		t.Fatalf("dial failed: %v", err)
 	}
-	t.Cleanup(func() { _ = raw.Close() })
 
 	select {
-	case <-accepted:
+	case <-serving:
 	case <-time.After(5 * time.Second):
 		t.Fatal("server did not accept the connection")
 	}
 
 	rc := &recordingConn{Conn: raw}
-	return &testClient{t: t, conn: rc, br: bfe_bufio.NewReader(rc)}
+	tc := &testClient{t: t, conn: rc, br: bfe_bufio.NewReader(rc), done: done}
+
+	// 清理顺序（LIFO）：先关闭客户端连接，再等 serve() 退出。
+	t.Cleanup(func() { tc.waitDone(5 * time.Second) })
+	t.Cleanup(func() { _ = raw.Close() })
+
+	return tc
 }
 
 // send 写出原始请求报文。
@@ -295,8 +350,13 @@ func (c *testClient) expectClosed() {
 
 	_ = c.conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	buf := make([]byte, 1)
-	if n, err := c.conn.Read(buf); err == nil {
+	n, err := c.conn.Read(buf)
+	if err == nil {
 		c.t.Fatalf("connection should be closed, but read %d more byte(s): %q", n, buf[:n])
+	}
+	// 只有 EOF 才算"对端主动关闭"；超时说明连接还开着，只是没有数据
+	if !errors.Is(err, io.EOF) {
+		c.t.Fatalf("connection should be closed by the peer, got err=%v", err)
 	}
 }
 
@@ -310,19 +370,16 @@ func (c *testClient) readRawUntilEOF() string {
 	return c.conn.raw()
 }
 
-// waitConns 等待服务端连接处理完毕，避免 goroutine 泄漏到后续用例。
-func waitConns(t *testing.T, srv *BfeServer) {
-	t.Helper()
+// waitDone 等待服务端 conn.serve() 退出，避免 goroutine 泄漏到后续用例。
+func (c *testClient) waitDone(timeout time.Duration) bool {
+	c.t.Helper()
 
-	done := make(chan struct{})
-	go func() {
-		srv.connWaitGroup.Wait()
-		close(done)
-	}()
 	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Error("client connections did not finish in 5s")
+	case <-c.done:
+		return true
+	case <-time.After(timeout):
+		c.t.Errorf("conn.serve() did not return within %v", timeout)
+		return false
 	}
 }
 
