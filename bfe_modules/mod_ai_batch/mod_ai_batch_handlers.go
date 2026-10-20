@@ -104,20 +104,33 @@ func (m *ModuleAiBatch) preCheckUpload(req *bfe_basic.Request, ctx *batchContext
 
 	// the AI gateway already buffered the body while extracting the model
 	// (ReqBodyJsonFetch wraps it into bytes_body): for fully buffered uploads
-	// (including chunked ones under the buffer cap) the exact line/byte count
-	// is known here, so reject before forwarding instead of mid-stream. This
-	// must run BEFORE installing the counting wrapper: GetBodyAccessor on a
-	// wrapped body would buffer a second time and GetBytes would report
-	// all=false (source not exhausted).
+	// (including chunked ones under the buffer cap) the file part can be
+	// located here, so the exact line/byte count is known and the rejection
+	// happens before forwarding instead of mid-stream. This must run BEFORE
+	// installing the counting wrapper: GetBodyAccessor on a wrapped body
+	// would buffer a second time and GetBytes would report all=false
+	// (source not exhausted).
 	if outreq.Body != nil {
 		if accessor, err := outreq.GetBodyAccessor(); err == nil && accessor != nil {
 			if buf, all := accessor.GetBytes(); all && len(buf) > 0 {
-				lines := int64(bytes.Count(buf, []byte{10}))
-				if overBatchFileLimit(int64(len(buf)), lines, aiMeta) {
+				// Limit checks use the FILE CONTENT, never the multipart
+				// envelope: part headers and boundary lines would inflate the
+				// numbers (1 line / 206 B was read as 11 lines / 509 B) and
+				// with them the reserve estimate.
+				fileBytes := int64(len(buf))
+				fileLines := int64(bytes.Count(buf, []byte{10}))
+				if stats, ok := multipartFilePartStats(outreq.Header.Get("Content-Type"), buf); ok {
+					ctx.uploadPartOK = true
+					ctx.uploadFilename = stats.Filename
+					ctx.uploadPartBytes = stats.Bytes
+					ctx.uploadPartLines = stats.Lines
+					fileBytes, fileLines = stats.Bytes, stats.Lines
+				}
+				if overBatchFileLimit(fileBytes, fileLines, aiMeta) {
 					m.state.Inc("UPLOAD_REJECT_SIZE", 1)
 					ctx.overSized = true
 					return m.batchLimitReject(req, aiMeta,
-						fmt.Sprintf("file bytes %d/lines %d exceed effective limits", len(buf), lines))
+						fmt.Sprintf("file bytes %d/lines %d exceed effective limits", fileBytes, fileLines))
 				}
 			}
 		}
@@ -165,11 +178,15 @@ func (m *ModuleAiBatch) preCheckCreate(req *bfe_basic.Request, ctx *batchContext
 
 	var createReq struct {
 		InputFileId string `json:"input_file_id"`
+		Endpoint    string `json:"endpoint"`
 	}
 	if err := json.Unmarshal(body, &createReq); err != nil || createReq.InputFileId == "" {
 		return bfe_module.BfeHandlerGoOn, nil
 	}
 	ctx.inputFileId = createReq.InputFileId
+	// the passthrough endpoint (e.g. /v1/chat/completions) is part of the
+	// batch object contract; the create body is the cheapest source for it
+	ctx.endpoint = createReq.Endpoint
 	// the create path carries no file id; publish the referenced input file
 	// so the key affinity lookup (which runs before this callback's module
 	// order matters, in aiClusterInvoke) can chain upload -> create
@@ -354,11 +371,23 @@ func (m *ModuleAiBatch) requestFinishHandler(req *bfe_basic.Request, res *bfe_ht
 			m.state.Inc("UPLOAD_ABORT_STREAM", 1)
 		}
 	}
+
+	// Settlement/release bookkeeping. mod_ai_token_auth is registered before
+	// this module, so its finish handler has already executed the
+	// BATCH_SETTLED claim, the deduction/release and published the outcome in
+	// BatchSettleApplied/BatchSettledUnits. Writing here (instead of inside the
+	// usage scanner) means a batch owned by another path is never re-marked.
+	if aiMeta.BatchSettleApplied && ctx.batchId != "" {
+		if fields := buildSettleTaskFields(aiMeta); len(fields) > 0 {
+			m.writeTaskRecord(ctx.batchId, fields, defaultBatchStateTTL)
+			m.state.Inc("TASK_SETTLE_WRITE", 1)
+		}
+	}
 	return bfe_module.BfeHandlerGoOn
 }
 
 // finishUpload records the input file binding (id from the response body,
-// lines/bytes from the counting reader) and the affinity chain start.
+// lines/bytes from the file content) and the affinity chain start.
 func (m *ModuleAiBatch) finishUpload(ctx *batchContext, aiMeta *bfe_basic.AiBasicInfo,
 	keyName, cluster string, ttl int, buf []byte) {
 
@@ -369,16 +398,53 @@ func (m *ModuleAiBatch) finishUpload(ctx *batchContext, aiMeta *bfe_basic.AiBasi
 	ctx.fileId = fr.Id
 	aiMeta.BatchFileId = fr.Id
 
-	meta := map[string]string{
+	fields := buildUploadFileFields(ctx, aiMeta, keyName, fr)
+	aiMeta.BatchLines = parseInt64(fields["lines"])
+	aiMeta.BatchBytes = parseInt64(fields["bytes"])
+	if fields["lines_src"] == fileSrcApprox || fields["bytes_src"] == fileSrcApprox {
+		m.state.Inc("UPLOAD_COUNT_APPROX", 1)
+	}
+	m.writeFileBinding(cluster, fr.Id, fields, ttl)
+	m.writeBatchAffinity(cluster, fr.Id, keyName, ttl)
+}
+
+// buildUploadFileFields assembles the BATCH_FILE binding of an input file.
+// lines/bytes describe the file CONTENT: the provider File object `bytes` is
+// authoritative, the multipart file part is the next source, and the
+// whole-envelope counters are the last resort (marked *_src=approx so the
+// control plane can tell an estimate from an exact count).
+func buildUploadFileFields(ctx *batchContext, aiMeta *bfe_basic.AiBasicInfo,
+	keyName string, fr *fileResponse) map[string]string {
+
+	contentBytes, contentLines := ctx.uploadBytes, ctx.uploadLines
+	bytesSrc, linesSrc := fileSrcApprox, fileSrcApprox
+	filename := ""
+	if ctx.uploadPartOK {
+		contentBytes, contentLines = ctx.uploadPartBytes, ctx.uploadPartLines
+		bytesSrc, linesSrc = fileSrcExact, fileSrcExact
+		filename = ctx.uploadFilename
+	}
+	if fr.Bytes > 0 {
+		contentBytes, bytesSrc = fr.Bytes, fileSrcExact
+	}
+	if fr.Filename != "" {
+		filename = fr.Filename
+	}
+
+	fields := map[string]string{
 		"api_key_id": aiMeta.ClientKeyId,
 		"key_name":   keyName,
-		"lines":      strconv.FormatInt(ctx.uploadLines, 10),
-		"bytes":      strconv.FormatInt(ctx.uploadBytes, 10),
+		"lines":      strconv.FormatInt(contentLines, 10),
+		"bytes":      strconv.FormatInt(contentBytes, 10),
 		"purpose":    fr.Purpose,
 		"dir":        "input",
+		"lines_src":  linesSrc,
+		"bytes_src":  bytesSrc,
 	}
-	m.writeFileBinding(cluster, fr.Id, meta, ttl)
-	m.writeBatchAffinity(cluster, fr.Id, keyName, ttl)
+	if filename != "" {
+		fields["filename"] = filename
+	}
+	return fields
 }
 
 // finishCreate writes the reserve (only after the upstream 2xx: two-phase),
@@ -407,21 +473,49 @@ func (m *ModuleAiBatch) finishCreate(req *bfe_basic.Request, ctx *batchContext, 
 	}
 	m.activeAdd(aiMeta.ClientKeyId, br.Id, ttl)
 
-	fields := map[string]string{
-		"api_key_id":    aiMeta.ClientKeyId,
-		"cluster":       cluster,
-		"key_name":      keyName,
-		"input_file_id": ctx.inputFileId,
-		"est_lines":     strconv.FormatInt(ctx.estLines, 10),
-		"status":        br.Status,
-		"reserved":      boolStr(ctx.reserved),
-	}
-	m.writeTaskRecord(br.Id, fields, ttl)
+	m.writeTaskRecord(br.Id, buildCreateTaskFields(ctx, aiMeta, keyName, cluster, br), ttl)
 	m.writeBatchAffinity(cluster, br.Id, keyName, ttl)
 	if br.OutputFileId != "" {
 		ctx.outputFileId = br.OutputFileId
 		m.writeOutputFileBinding(br.OutputFileId, br.Id, aiMeta, keyName, cluster, ttl)
 	}
+}
+
+// buildCreateTaskFields assembles the BATCH_TASK record of a freshly created
+// batch: identity, endpoint, provider counts and timestamps, plus the reserve
+// mirror (reserved_units is the RMB amount actually reserved for the bound
+// RMB plan, i.e. rmbUnits; the boolean reserved marker is kept for older
+// readers).
+func buildCreateTaskFields(ctx *batchContext, aiMeta *bfe_basic.AiBasicInfo,
+	keyName, cluster string, br *batchResponse) map[string]string {
+
+	reservedUnits := int64(0)
+	if ctx.reserved {
+		reservedUnits = ctx.rmbUnits
+	}
+	fields := map[string]string{
+		"api_key_id":     aiMeta.ClientKeyId,
+		"cluster":        cluster,
+		"key_name":       keyName,
+		"input_file_id":  ctx.inputFileId,
+		"est_lines":      strconv.FormatInt(ctx.estLines, 10),
+		"status":         br.Status,
+		"reserved":       boolStr(ctx.reserved),
+		"reserved_units": strconv.FormatInt(reservedUnits, 10),
+	}
+	if endpoint := firstNonEmpty(br.Endpoint, ctx.endpoint); endpoint != "" {
+		fields["endpoint"] = endpoint
+	}
+	if br.OutputFileId != "" {
+		fields["output_file_id"] = br.OutputFileId
+	}
+	if counts, ok := compactJSONObject(br.RequestCounts); ok {
+		fields["request_counts"] = counts
+	}
+	if br.CreatedAt > 0 {
+		fields["created_at"] = strconv.FormatInt(br.CreatedAt, 10)
+	}
+	return fields
 }
 
 // writeOutputFileBinding registers a provider-side output file so that a
@@ -438,9 +532,10 @@ func (m *ModuleAiBatch) writeOutputFileBinding(fileId, batchId string, aiMeta *b
 	m.writeBatchAffinity(cluster, fileId, keyName, ttl)
 }
 
-// finishGet updates the task status; terminal no-settle statuses release the
-// reserve (the actual release runs in mod_ai_token_auth's finish handler via
-// the release contract set here).
+// finishGet updates the task status and the provider-side terminal facts
+// (output_file_id / request_counts / endpoint); terminal no-settle statuses
+// release the reserve (the actual release runs in mod_ai_token_auth's finish
+// handler via the release contract set here).
 func (m *ModuleAiBatch) finishGet(req *bfe_basic.Request, ctx *batchContext,
 	aiMeta *bfe_basic.AiBasicInfo, ttl int, buf []byte) {
 
@@ -452,7 +547,7 @@ func (m *ModuleAiBatch) finishGet(req *bfe_basic.Request, ctx *batchContext,
 		return
 	}
 	aiMeta.BatchStatus = br.Status
-	m.writeTaskRecord(br.Id, map[string]string{"status": br.Status}, ttl)
+	m.writeTaskRecord(br.Id, buildGetTaskFields(br), ttl)
 
 	if br.OutputFileId != "" && ctx.outputFileId == "" {
 		ctx.outputFileId = br.OutputFileId
@@ -463,6 +558,75 @@ func (m *ModuleAiBatch) finishGet(req *bfe_basic.Request, ctx *batchContext,
 	if batchTerminalNoSettle[br.Status] {
 		m.markRelease(ctx, aiMeta, br.Id, ttl)
 	}
+}
+
+// buildGetTaskFields assembles the BATCH_TASK update of a batch poll. Fields
+// are written only when the provider returned them, so an empty value can
+// never overwrite what a previous step recorded.
+func buildGetTaskFields(br *batchResponse) map[string]string {
+	fields := map[string]string{"status": br.Status}
+	if br.OutputFileId != "" {
+		fields["output_file_id"] = br.OutputFileId
+	}
+	if br.Endpoint != "" {
+		fields["endpoint"] = br.Endpoint
+	}
+	if counts, ok := compactJSONObject(br.RequestCounts); ok {
+		fields["request_counts"] = counts
+	}
+	return fields
+}
+
+// buildSettleTaskFields assembles the settlement write-back executed after
+// mod_ai_token_auth ran the contract. Empty result means "the contract did not
+// execute" (another path owns the batch): nothing is written.
+func buildSettleTaskFields(aiMeta *bfe_basic.AiBasicInfo) map[string]string {
+	switch aiMeta.BatchSettle {
+	case bfe_basic.BatchSettleSettle:
+		var in, out int64
+		for _, tu := range aiMeta.BatchUsageByModel {
+			in += tu.PromptTokens
+			out += tu.CompletionTokens
+		}
+		return map[string]string{
+			"usage_in":      strconv.FormatInt(in, 10),
+			"usage_out":     strconv.FormatInt(out, 10),
+			"settle_units":  strconv.FormatInt(aiMeta.BatchSettledUnits, 10),
+			"settle_status": "settled",
+			// the control plane only knows usage_source=reconcile; a download
+			// settlement must label itself or the field stays empty forever
+			"usage_source": "download",
+		}
+	case bfe_basic.BatchSettleRelease:
+		return map[string]string{"settle_status": "released"}
+	}
+	return nil
+}
+
+// compactJSONObject validates and compacts a provider JSON object; ok=false
+// when the raw value is absent or not a JSON object (nothing is written then).
+func compactJSONObject(raw json.RawMessage) (string, bool) {
+	if len(raw) == 0 {
+		return "", false
+	}
+	var buf bytes.Buffer
+	if err := json.Compact(&buf, raw); err != nil {
+		return "", false
+	}
+	compact := buf.String()
+	if len(compact) < 2 || compact[0] != '{' {
+		return "", false
+	}
+	return compact, true
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // finishCancel releases the reserve when the provider accepted the cancel.

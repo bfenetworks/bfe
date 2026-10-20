@@ -27,19 +27,38 @@ import (
 // BATCH_* Redis key layout. All keys live in the same Redis cluster as
 // QUOTA_* and the AIKeyAffinity bindings (mod_ai_batch.conf [Redis]).
 //
-//	BATCH_FILE:<cluster>:<file_id>  HASH {api_key_id, key_name, lines, bytes,
-//	                                purpose, dir}              TTL 48h
+//	BATCH_FILE:<cluster>:<file_id>  HASH {api_key_id, key_name, cluster,
+//	                                lines, bytes, purpose, dir, filename,
+//	                                batch_id, lines_src, bytes_src}
+//	                                TTL 48h; lines/bytes describe the file
+//	                                CONTENT (lines_src/bytes_src=approx when
+//	                                the multipart file part was not locatable)
 //	BATCH_TASK:<batch_id>           HASH {api_key_id, cluster, key_name,
-//	                                input_file_id, est_lines, reserved_units,
-//	                                status, usage_in, usage_out, settle_units,
-//	                                settle_status}             TTL 48h
+//	                                input_file_id, output_file_id, endpoint,
+//	                                request_counts, est_lines, reserved_units,
+//	                                reserved, status, created_at,
+//	                                usage_in, usage_out, settle_units,
+//	                                settle_status, usage_source}   TTL 48h
 //	BATCH_SETTLED:<batch_id>        STRING "1" (SET NX EX)     TTL 48h
 //	BATCH_ACTIVE:<api_key_id>       ZSET member=batch_id score=created_unix
+//
+// This layout is the contract with the control plane (ai-gateway-api
+// model/ibatch/redis_view.go + design-docs/sys-design/details/批量任务与对账.md
+// §2). Adding or renaming a field requires updating both sides.
 const (
 	batchFileKeyPrefix    = "BATCH_FILE:"
 	batchTaskKeyPrefix    = "BATCH_TASK:"
 	batchSettledKeyPrefix = "BATCH_SETTLED:"
 	batchActiveKeyPrefix  = "BATCH_ACTIVE:"
+)
+
+// Provenance of the BATCH_FILE lines/bytes values (fields lines_src /
+// bytes_src): exact means the value came from the multipart file part or the
+// provider File object, approx means only the whole request envelope could be
+// counted (chunked upload above the buffer cap).
+const (
+	fileSrcExact  = "exact"
+	fileSrcApprox = "approx"
 )
 
 // errRedisDisabled is returned when no redis is configured; it is treated
@@ -50,22 +69,31 @@ var errRedisDisabled = errors.New("mod_ai_batch: redis not configured")
 type batchFileMeta struct {
 	ApiKeyId string
 	KeyName  string
+	Cluster  string
 	Lines    int64
 	Bytes    int64
 	Purpose  string
+	Filename string
 	Dir      string // input | output
 	BatchId  string // set for dir=output bindings (created by a batch)
+	LinesSrc string // exact | approx
+	BytesSrc string // exact | approx
 }
 
 // batchTaskMeta is the read view of a BATCH_TASK record.
 type batchTaskMeta struct {
-	ApiKeyId    string
-	Cluster     string
-	KeyName     string
-	InputFileId string
-	EstLines    int64
-	Status      string
-	Reserved    bool
+	ApiKeyId      string
+	Cluster       string
+	KeyName       string
+	InputFileId   string
+	OutputFileId  string
+	Endpoint      string
+	RequestCounts string
+	EstLines      int64
+	ReservedUnits int64
+	Status        string
+	CreatedAt     int64
+	Reserved      bool
 }
 
 // Atomic Lua script sources (single key each, safe for redis cluster).
@@ -178,11 +206,15 @@ func (m *ModuleAiBatch) readFileBinding(cluster, fileId string) (*batchFileMeta,
 	return &batchFileMeta{
 		ApiKeyId: vals["api_key_id"],
 		KeyName:  vals["key_name"],
+		Cluster:  vals["cluster"],
 		Lines:    parseInt64(vals["lines"]),
 		Bytes:    parseInt64(vals["bytes"]),
 		Purpose:  vals["purpose"],
+		Filename: vals["filename"],
 		Dir:      vals["dir"],
 		BatchId:  vals["batch_id"],
+		LinesSrc: vals["lines_src"],
+		BytesSrc: vals["bytes_src"],
 	}, nil
 }
 
@@ -219,13 +251,18 @@ func (m *ModuleAiBatch) readTaskRecord(batchId string) (*batchTaskMeta, error) {
 		return nil, nil
 	}
 	return &batchTaskMeta{
-		ApiKeyId:    vals["api_key_id"],
-		Cluster:     vals["cluster"],
-		KeyName:     vals["key_name"],
-		InputFileId: vals["input_file_id"],
-		EstLines:    parseInt64(vals["est_lines"]),
-		Status:      vals["status"],
-		Reserved:    vals["reserved"] == "1",
+		ApiKeyId:      vals["api_key_id"],
+		Cluster:       vals["cluster"],
+		KeyName:       vals["key_name"],
+		InputFileId:   vals["input_file_id"],
+		OutputFileId:  vals["output_file_id"],
+		Endpoint:      vals["endpoint"],
+		RequestCounts: vals["request_counts"],
+		EstLines:      parseInt64(vals["est_lines"]),
+		ReservedUnits: parseInt64(vals["reserved_units"]),
+		Status:        vals["status"],
+		CreatedAt:     parseInt64(vals["created_at"]),
+		Reserved:      vals["reserved"] == "1",
 	}, nil
 }
 

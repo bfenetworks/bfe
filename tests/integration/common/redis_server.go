@@ -87,6 +87,20 @@ func (s *RedisServer) Exists(key string) bool {
 	return s.server.Exists(key)
 }
 
+// HGetAll returns the field/value map of a hash key (nil when the key is
+// missing or not a hash). Used by scenarios that assert on BATCH_* records.
+func (s *RedisServer) HGetAll(key string) map[string]string {
+	fields, err := s.server.HKeys(key)
+	if err != nil || len(fields) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(fields))
+	for _, field := range fields {
+		out[field] = s.server.HGet(key, field)
+	}
+	return out
+}
+
 // Keys returns all keys currently present in redis.
 func (s *RedisServer) Keys() []string {
 	return s.server.Keys()

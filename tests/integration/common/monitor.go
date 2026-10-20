@@ -15,6 +15,7 @@
 package common
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -101,20 +102,86 @@ func WaitForModuleMetric(port int, module, field string, timeout time.Duration,
 	}
 }
 
-// CamelToSnake converts a CamelCase counter field name to the SNAKE_CASE key
-// used by the web-monitor prometheus export (e.g. "UsageUnrecognized" ->
-// "USAGE_UNRECOGNIZED").
-func CamelToSnake(s string) string {
-	var b strings.Builder
-	for i, r := range s {
-		if r >= 'A' && r <= 'Z' {
-			if i > 0 {
-				b.WriteByte('_')
-			}
-			b.WriteRune(r + ('a' - 'A'))
-		} else {
-			b.WriteRune(r)
+// ModuleCounterJSON returns one counter from the module state JSON document
+// (/monitor/<module>).
+//
+// Modules built on module_state2.State expose their counters through
+// StateData.FormatOutput, which has no prometheus renderer (the endpoint
+// answers {"error":"format not support: prometheus"}); mod_ai_batch is one of
+// them, so its counters are read from the JSON document instead. A missing
+// counter reads as 0; a response without the counters document is an error so
+// a wrong module/endpoint can never look like "counter is zero".
+func ModuleCounterJSON(port int, module, key string) (float64, error) {
+	url := fmt.Sprintf("http://127.0.0.1:%d/monitor/%s", port, module)
+	resp, err := http.Get(url)
+	if err != nil {
+		return 0, fmt.Errorf("get %s monitor failed: %w", module, err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("%s monitor status = %d, body: %s", module, resp.StatusCode, data)
+	}
+
+	var doc struct {
+		SCounters map[string]int64 `json:"SCounters"`
+	}
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return 0, fmt.Errorf("%s monitor is not a module state document: %w (body: %s)", module, err, data)
+	}
+	if doc.SCounters == nil {
+		return 0, fmt.Errorf("%s monitor carries no counters (body: %s)", module, data)
+	}
+	return float64(doc.SCounters[key]), nil
+}
+
+// WaitForModuleCounterJSON polls ModuleCounterJSON until cond is satisfied or
+// the timeout elapses, returning the last observed value.
+func WaitForModuleCounterJSON(port int, module, key string, timeout time.Duration,
+	cond func(float64) bool) (float64, error) {
+
+	deadline := time.Now().Add(timeout)
+	var (
+		last float64
+		err  error
+	)
+	for {
+		last, err = ModuleCounterJSON(port, module, key)
+		if err != nil {
+			return last, err
 		}
+		if cond(last) || !time.Now().Before(deadline) {
+			return last, nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// CamelToSnake converts a counter name to the SNAKE_CASE key used by the
+// web-monitor prometheus export. Both Go-style field names and keys that are
+// already upper snake case pass through unchanged in shape:
+// "UsageUnrecognized" -> "USAGE_UNRECOGNIZED", "SETTLE_NO_USAGE" ->
+// "SETTLE_NO_USAGE" (mod_ai_batch declares its counters in upper snake case).
+func CamelToSnake(s string) string {
+	runes := []rune(s)
+	var b strings.Builder
+	for i, r := range runes {
+		if r < 'A' || r > 'Z' {
+			b.WriteRune(r)
+			continue
+		}
+		// insert a separator only at a camel-case boundary: after a lowercase
+		// run, or before a lowercase run that ends an acronym
+		prevLower := i > 0 && runes[i-1] >= 'a' && runes[i-1] <= 'z'
+		nextLower := i+1 < len(runes) && runes[i+1] >= 'a' && runes[i+1] <= 'z'
+		if i > 0 && (prevLower || nextLower) {
+			b.WriteByte('_')
+		}
+		b.WriteRune(r + ('a' - 'A'))
 	}
 	return strings.ToUpper(b.String())
 }
