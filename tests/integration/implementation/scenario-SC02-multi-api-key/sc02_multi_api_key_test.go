@@ -614,6 +614,18 @@ func TestTC09_FirstSelectionFailureSynthetic429(t *testing.T) {
 		if !strings.Contains(body, `"type":"rate_limit_error"`) {
 			t.Errorf("expected JSON error body with rate_limit_error, got: %s", body)
 		}
+		// issue #1441: unified error body must carry error.code (§3.2 必填).
+		if !strings.Contains(body, `"code":"NO_AVAILABLE_KEY"`) {
+			t.Errorf("expected JSON error body with code NO_AVAILABLE_KEY, got: %s", body)
+		}
+		// issue #1441: backoff signal - Retry-After header and
+		// details.retry_after_seconds (429 penalty TTL, 60s).
+		if ra := resp.Header.Get("Retry-After"); ra != "60" {
+			t.Errorf("expected Retry-After 60, got %q", ra)
+		}
+		if !strings.Contains(body, `"retry_after_seconds":60`) {
+			t.Errorf("expected details.retry_after_seconds=60 in body, got: %s", body)
+		}
 		if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "application/json") {
 			t.Errorf("expected application/json content type, got %q", ct)
 		}
