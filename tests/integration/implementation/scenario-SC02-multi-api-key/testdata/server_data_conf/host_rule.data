@@ -2,7 +2,8 @@
     "Version": "20260720150000",
     "Hosts": {
         "ai_product": [
-            "multikey.example.org"
+            "multikey.example.org",
+            "multikey-nofallback.example.org"
         ]
     },
     "HostTags": {

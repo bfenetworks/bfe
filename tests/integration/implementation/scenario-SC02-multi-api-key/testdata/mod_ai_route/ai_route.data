@@ -21,6 +21,17 @@
                             "Model": ""
                         }
                     ]
+                },
+                {
+                    "name": "user_a-multikey-nofallback",
+                    "Cond": "req_host_in(\"multikey-nofallback.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_multi_key",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ]
                 }
             ]
         }
