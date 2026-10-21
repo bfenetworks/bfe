@@ -10,6 +10,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.8.8.5] - 2026-10-21
+
+### Fixed
+- Return a decidable synthetic 429 when no AI key can be selected for the target cluster (all keys penalized / `Weight=0` / dead), instead of `(res=nil, err=nil)` (issue #1440): `aiClusterInvoke` now surfaces the result so the outer `ServeHTTPForAI` fallback decision can act on it — a configured fallback cluster is actually tried, and without one the client gets a retryable 429 instead of an opaque empty-body 500. `shouldTriggerFallback` also treats `(nil, nil)` as fallback-eligible as a hard invariant, so any future call path that forgets to construct a result degrades instead of silently swallowing the fallback
+- Exclude `Weight=0` keys from the session-affinity penalty filter and replace the "fallback to the original list" branch with a circuit breaker (issue #1439): a `Weight=0` key no longer counts as a candidate, and when every usable key is penalized the filter returns no candidates — key selection fails, the synthetic 429 triggers cluster fallback, and the cluster makes zero upstream interaction until the penalty TTL expires (new 429s extend the window). Previously one upstream 429 against the only usable key was amplified into a 60s cluster-wide outage by a `Weight=0` sibling key, and the circuit-breaker contract is documented in `2026-08-26-ai-key-session-affinity` §6.2.2
+- Emit the unified error contract on gateway-synthesized AI failures (issue #1441): the key-exhaustion 429 now carries `error.code = NO_AVAILABLE_KEY` (429, `rate_limit_error`), `error.details.retry_after_seconds` (equal to the 429 penalty TTL, single-sourced via `aiKeyPenaltyTTL429`) and a standard `Retry-After` header, and sets `err_code = NO_AVAILABLE_KEY` for access-log attribution (deliberately not the `ErrAiRateLimit` sentinel, so cluster fallback is not suppressed; a successful fallback still clears the code). Gateway-side failures in `ServeHTTPForAI` (findProduct failure, no cluster, backend connect/transport errors) return `BACKEND_UNAVAILABLE` (502) with the unified body instead of a bare empty-body 500; client-abort paths (`ErrClientWrite/Close/Reset`) keep the legacy empty-body record. Clients can now back off instead of amplifying the retry storm observed in production (~10x request-rate amplification when the response carried no backoff signal)
+
 ## [v1.8.8.4] - 2026-10-19
 
 ### Fixed
