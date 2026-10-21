@@ -770,3 +770,98 @@ func TestAiClusterInvokeExhaustionReturnsSynthetic429(t *testing.T) {
 		t.Errorf("expected JSON content type, got %q", res.Header.Get("Content-Type"))
 	}
 }
+
+// TestFilterPenaltyKeys_ExcludesZeroWeight verifies issue #1439: a Weight=0
+// key never counts as a penalty-filter candidate, so a penalized usable key
+// with only Weight=0 companions yields no candidates (circuit break).
+func TestFilterPenaltyKeys_ExcludesZeroWeight(t *testing.T) {
+	policy := cluster_conf.AIKeyPolicy{SessionAffinityRedisPrefix: "bfe:ai:key_affinity"}
+	client := newMockRedisClient()
+	client.Setex("bfe:ai:key_affinity:penalty:cluster:key-a", []byte("429"), 60)
+
+	keys := []cluster_conf.AIKey{
+		{Name: "key-a", Key: "ak-a", Weight: 100},
+		{Name: "key-z", Key: "ak-z", Weight: 0},
+	}
+	filtered, skipped := filterPenaltyKeys("cluster", keys, policy, client)
+	if len(filtered) != 0 {
+		t.Fatalf("expected no candidates (circuit break), got %v", filtered)
+	}
+	if skipped != 1 {
+		t.Errorf("expected skipped=1 (only the penalized usable key), got %d", skipped)
+	}
+}
+
+// TestFilterPenaltyKeys_CircuitBreakWhenAllPenalized verifies the issue
+// #1439 ruling (方案乙): when every usable key is penalized the filter
+// returns no candidates, instead of falling back to the penalized list.
+func TestFilterPenaltyKeys_CircuitBreakWhenAllPenalized(t *testing.T) {
+	policy := cluster_conf.AIKeyPolicy{SessionAffinityRedisPrefix: "bfe:ai:key_affinity"}
+	client := newMockRedisClient()
+	client.Setex("bfe:ai:key_affinity:penalty:cluster:key-a", []byte("429"), 60)
+	client.Setex("bfe:ai:key_affinity:penalty:cluster:key-b", []byte("429"), 60)
+
+	keys := []cluster_conf.AIKey{
+		{Name: "key-a", Key: "ak-a", Weight: 50},
+		{Name: "key-b", Key: "ak-b", Weight: 50},
+	}
+	filtered, skipped := filterPenaltyKeys("cluster", keys, policy, client)
+	if len(filtered) != 0 {
+		t.Fatalf("expected no candidates when all usable keys penalized, got %v", filtered)
+	}
+	if skipped != 2 {
+		t.Errorf("expected skipped=2, got %d", skipped)
+	}
+}
+
+// TestFilterPenaltyKeys_ZeroWeightNotCandidate verifies a Weight=0 key alone
+// cannot keep the filter non-empty (it is excluded before penalty checks).
+func TestFilterPenaltyKeys_ZeroWeightNotCandidate(t *testing.T) {
+	policy := cluster_conf.AIKeyPolicy{SessionAffinityRedisPrefix: "bfe:ai:key_affinity"}
+	client := newMockRedisClient()
+
+	keys := []cluster_conf.AIKey{
+		{Name: "key-z", Key: "ak-z", Weight: 0},
+		{Name: "key-a", Key: "ak-a", Weight: 100},
+	}
+	filtered, skipped := filterPenaltyKeys("cluster", keys, policy, client)
+	if len(filtered) != 1 || filtered[0].Name != "key-a" {
+		t.Fatalf("expected [key-a], got %v", filtered)
+	}
+	if skipped != 0 {
+		t.Errorf("expected skipped=0 (Weight=0 exclusion is not a penalty skip), got %d", skipped)
+	}
+}
+
+// TestChooseAIKeyWithAffinity_CircuitBreak verifies the end-to-end selection
+// path: the only usable key penalized (with only Weight=0 companions) means
+// no key can be selected, and the caller (aiClusterInvoke, issue #1440)
+// turns ok=false into a synthetic 429 for cluster fallback.
+func TestChooseAIKeyWithAffinity_CircuitBreak(t *testing.T) {
+	keys := []cluster_conf.AIKey{
+		{Name: "key-a", Key: "ak-a", Weight: 100},
+		{Name: "key-z", Key: "ak-z", Weight: 0},
+	}
+	policy := cluster_conf.AIKeyPolicy{
+		Strategy:                     "weighted_random",
+		SessionAffinity:              true,
+		SessionAffinityTTL:           300,
+		SessionAffinityRedisPrefix:   "bfe:ai:key_affinity",
+		SessionAffinityPenaltyEnable: true,
+	}
+	state := newAIKeyAttemptState()
+	client := newMockRedisClient()
+	client.Setex("bfe:ai:key_affinity:penalty:cluster:key-a", []byte("429"), 60)
+
+	proxyState := &ProxyState{
+		ReqAiKeyAffinityPenaltySkip: new(metrics.Counter),
+	}
+
+	_, _, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState)
+	if ok {
+		t.Fatal("expected circuit break (no key selected), but a key was selected")
+	}
+	if proxyState.ReqAiKeyAffinityPenaltySkip.Get() != 1 {
+		t.Errorf("expected penalty skip counter 1, got %d", proxyState.ReqAiKeyAffinityPenaltySkip.Get())
+	}
+}

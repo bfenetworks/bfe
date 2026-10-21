@@ -1513,9 +1513,9 @@ func stripProviderPrefix(model string, matchPrefix string) (string, bool) {
 // attempt. It always starts from clientModel so that fallback clusters recompute
 // from the original client value instead of inheriting the previous cluster's
 // target model. The calculation order is:
-//   1. attempt.Model override (if non-empty)
-//   2. strip provider/model prefix according to aiConf
-//   3. apply cluster model mapping according to aiConf
+//  1. attempt.Model override (if non-empty)
+//  2. strip provider/model prefix according to aiConf
+//  3. apply cluster model mapping according to aiConf
 func computeTargetModel(clientModel string, attemptModel string, aiConf *cluster_conf.AIConf) string {
 	targetModel := clientModel
 
@@ -2218,6 +2218,11 @@ func filterPenaltyKeys(clusterName string, keys []cluster_conf.AIKey, policy clu
 	var filtered []cluster_conf.AIKey
 	skipped := 0
 	for _, k := range keys {
+		if k.Weight == 0 {
+			// Weight=0 keys are never eligible for selection; they must not
+			// count as candidates (issue #1439).
+			continue
+		}
 		if !isKeyPenalized(clusterName, k.Name, policy, client) {
 			filtered = append(filtered, k)
 		} else {
@@ -2225,8 +2230,13 @@ func filterPenaltyKeys(clusterName string, keys []cluster_conf.AIKey, policy clu
 		}
 	}
 	if len(filtered) == 0 {
-		// all keys are penalized; fallback to original list to avoid no key
-		return keys, skipped
+		// All usable keys are penalized (circuit breaker, issue #1439):
+		// return no candidates so chooseNextAIKey fails and aiClusterInvoke
+		// surfaces a synthetic 429 (issue #1440) for cluster fallback. The
+		// old "fallback to original list" branch was removed on purpose:
+		// penalized keys must stay excluded until the penalty TTL expires.
+		log.Logger.Info("aiKeyAffinity: all usable keys penalized for cluster[%s], circuit break", clusterName)
+		return nil, skipped
 	}
 	return filtered, skipped
 }

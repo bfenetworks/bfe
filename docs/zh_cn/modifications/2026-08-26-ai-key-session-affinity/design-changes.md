@@ -105,6 +105,13 @@ value: <reason_code>
 TTL:   429 为 60 秒；401/403 为 3600 秒
 ```
 
+**过滤口径与熔断语义（2026-10-21 回补，issue #1439 裁定）**：
+
+- `Weight=0` 的 Key 从不参与选 Key，惩罚过滤时**不计入候选**（也不计入 `ReqAiKeyAffinityPenaltySkip` 的 skipped 计数）；
+- 被惩罚的 Key 在 TTL 窗口内**严格剔除**（熔断），**不做"回退到被惩罚 Key"的兜底**。过滤后没有候选 Key 时，判定本集群暂不可用：选 Key 失败，`aiClusterInvoke` 返回合成 429（issue #1440），由外层 cluster fallback 决策降级到备用集群；窗口内与上游零交互，TTL 到期后过滤器自然放行、流量自动恢复，新的 429 会刷新 TTL 并顺延熔断期；
+- 早期实现曾带有"全部被惩罚则回退全量列表"的兜底分支，该分支与熔断语义冲突（会让被惩罚 Key 在窗口内继续被使用），已按本条款删除；
+- 注意：物理上仅配置 1 个 Key 时，单 Key 短路（`len(keys)==1 && Weight>0` 直接返回）会绕过惩罚过滤——**单 Key 集群惩罚不生效**，请为此类集群关闭 `SessionAffinityPenaltyEnable`（配置建议见 issue #1442）。
+
 ### 6.3 Key 选择流程
 
 **文件：** `bfe/bfe_server/reverseproxy.go`

@@ -3,6 +3,10 @@
         "cluster_session_affinity": {
             "GSLB_BLACKHOLE": 0,
             "sub_sub": 100
+        },
+        "cluster_session_affinity_fallback": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
         }
     },
     "hostname": "gslb-test",
