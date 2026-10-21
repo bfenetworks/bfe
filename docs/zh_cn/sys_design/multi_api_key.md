@@ -268,8 +268,11 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 
         idx, key, ok := chooseNextAIKey(keys, state)
         if !ok {
-            log.Logger.Warn("aiClusterInvoke: all ai keys exhausted for cluster[%s]", attempt.ClusterName)
-            break
+            // issue #1440: key exhaustion must yield a decidable result —
+            // a synthetic 429 (unified AiError, no ErrCode), never (nil, nil)
+            log.Logger.Warn("aiClusterInvoke: all ai keys exhausted for cluster[%s], return synthetic 429", attempt.ClusterName)
+            res = newSynthetic429Resp(basicReq)
+            return res, action, cluster, nil
         }
 
         res, action, err = p.doSingleAIForward(..., key)
@@ -556,6 +559,10 @@ if success && usedKey.Name != boundName {
 - 若 Key 级重试最终得到 5xx、连接错误或特定 4xx（400/401/402/403/422/429），`shouldTriggerFallback()` 返回 true，触发 cluster fallback；
 - 若得到其他 4xx（如 404/405 等请求级错误），不触发 cluster fallback，直接返回。
 
+**Key 耗尽契约（issue #1440）**：当一次选 Key 都未成功（全部 Key 被惩罚 / Weight=0 / dead）时，`aiClusterInvoke()` **必须返回可判定的最终结果**——构造一个合成 429 响应（统一 AiError 目录的 `UPSTREAM_RATE_LIMITED`/`rate_limit_error` 形态，带 `X-Bfe-Gw-Error` 网关标记，**不设 `ErrCode`**，尤其不得设 `ErrAiRateLimit`，以免触发 local-RL 的 fallback 禁止短路），不得返回 `(res=nil, err=nil)`。这样外层 `shouldTriggerFallback()` 能按白名单触发 cluster fallback；未配置 fallback 时客户端拿到可重试的 429，而不是网关合成的空 body 500。网关标记同时保证 `normalizeUpstreamError`（`AIConf.NormalizeUpstreamError`）跳过该响应，不做二次改写。
+
+**nil/nil 不变量（issue #1440 加固）**：`shouldTriggerFallback()` 将 `(res=nil, err=nil)` 一律视为可降级（返回 true），作为防御不变量——任何调用路径漏构造返回值时兜底生效，而不是静默吞掉降级机会。该判定位于 `ErrAiRateLimit` 短路之后，不改变本地限流拒绝的语义；no route / no cluster 等更早的失败路径在进入 fallback 循环前即退出，不受影响。
+
 ```go
 var aiFallbackStatusCodes = map[int]struct{}{
     400: {},
@@ -604,6 +611,7 @@ func shouldTriggerFallback(res *bfe_http.Response, err error) bool {
 aiClusterInvoke: select ai key [name=%s weight=%d] for cluster[%s]
 aiClusterInvoke: ai key [name=%s] failed with status[%d], rotate/dead/retry
 aiClusterInvoke: all ai keys exhausted for cluster[%s]
+aiClusterInvoke: all ai keys exhausted for cluster[%s], return synthetic 429  # issue #1440：耗尽时返回合成 429
 ```
 
 ---

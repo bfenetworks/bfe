@@ -15,7 +15,13 @@
 package bfe_server
 
 import (
+	"encoding/json"
 	"errors"
+	"io/ioutil"
+	"net"
+	"net/url"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,6 +30,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_route"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 )
 
@@ -75,6 +82,12 @@ func TestSelectTargetZeroWeightNotSelected(t *testing.T) {
 func TestShouldTriggerFallback(t *testing.T) {
 	if !shouldTriggerFallback(nil, bfe_http.ConnectError{}, "") {
 		t.Error("expected fallback on connect error")
+	}
+
+	// Issue #1440 (step 3): (nil, nil) is not a decidable result and must
+	// be treated as fallback-eligible (hard invariant).
+	if !shouldTriggerFallback(nil, nil, "") {
+		t.Error("expected fallback on (nil, nil)")
 	}
 
 	// 5xx always triggers fallback
@@ -734,6 +747,266 @@ func TestShouldRewriteBodyModel(t *testing.T) {
 	for _, c := range cases {
 		if got := shouldRewriteBodyModel(c.meta, jsonHeader(c.contentType), c.target, c.body); got != c.want {
 			t.Errorf("%s: shouldRewriteBodyModel = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+// TestAiClusterInvokeExhaustionReturnsSynthetic429 verifies issue #1440:
+// when no AI key can be selected (here: the only configured key has
+// Weight=0), aiClusterInvoke must return a decidable synthetic 429 response
+// instead of (nil, nil), so the outer ServeHTTPForAI fallback decision can
+// trigger cluster fallback or hand the client a retryable 429.
+func TestAiClusterInvokeExhaustionReturnsSynthetic429(t *testing.T) {
+	intPtr := func(v int) *int { return &v }
+	boolPtr := func(v bool) *bool { return &v }
+	strPtr := func(v string) *string { return &v }
+
+	clusterName := "exhausted-cluster"
+	clusterConfs := cluster_conf.BfeClusterConf{
+		Version: strPtr("test"),
+		Config: &cluster_conf.ClusterToConf{
+			clusterName: {
+				ClusterBasic: &cluster_conf.ClusterBasicConf{
+					TimeoutReadClient:      intPtr(1000),
+					TimeoutWriteClient:     intPtr(1000),
+					TimeoutReadClientAgain: intPtr(1000),
+					ReqWriteBufferSize:     intPtr(4096),
+					ReqFlushInterval:       intPtr(0),
+					ResFlushInterval:       intPtr(0),
+					CancelOnClientClose:    boolPtr(false),
+					DisableHostHeader:      boolPtr(false),
+					DisableHealthCheck:     boolPtr(true),
+				},
+				AIConf: &cluster_conf.AIConf{
+					Keys: []cluster_conf.AIKey{
+						{Name: "key-zero", Key: "ak-zero", Weight: 0},
+					},
+					// KeyPolicy nil -> defaultAIKeyPolicy(): MaxRetries=0,
+					// SessionAffinity=false, no redis needed.
+				},
+			},
+		},
+	}
+	clusterTable := new(bfe_route.ClusterTable)
+	clusterTable.BasicInit(clusterConfs)
+	serverConf := &bfe_route.ServerDataConf{ClusterTable: clusterTable}
+
+	conn, _ := net.Pipe()
+	defer conn.Close()
+	httpReq := &bfe_http.Request{
+		Method: "POST",
+		URL:    &url.URL{Path: "/v1/chat/completions"},
+		Header: bfe_http.Header{},
+		Body:   ioutil.NopCloser(strings.NewReader(`{"model":"m"}`)),
+	}
+	basicReq := &bfe_basic.Request{HttpRequest: httpReq, Connection: conn}
+
+	rp := NewReverseProxy(nil, new(ProxyState))
+	// dev branch dereferences srv (AIKeyAffinityRedis) unconditionally
+	srv := &BfeServer{}
+	attempt := aiForwardAttempt{ClusterName: clusterName, Model: "m"}
+
+	res, _, cluster, err, _ := rp.aiClusterInvoke(srv, serverConf, basicReq, nil, attempt, nil, "m")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if cluster == nil || cluster.Name != clusterName {
+		t.Fatalf("expected cluster %s, got %v", clusterName, cluster)
+	}
+	if res == nil {
+		t.Fatal("expected synthetic 429 response, got nil (issue #1440)")
+	}
+	if res.StatusCode != 429 {
+		t.Fatalf("expected status 429, got %d", res.StatusCode)
+	}
+	// issue #1441: the ErrCode sentinel carries the error code for access-log
+	// attribution; it must NOT be ErrAiRateLimit (that would suppress
+	// cluster fallback and stop key rotation).
+	if basicReq.ErrCode != bfe_basic.ErrAiNoAvailableKey {
+		t.Errorf("expected ErrCode %v, got %v", bfe_basic.ErrAiNoAvailableKey, basicReq.ErrCode)
+	}
+	if basicReq.ErrCode == bfe_basic.ErrAiRateLimit {
+		t.Error("ErrCode must not be ErrAiRateLimit (would suppress fallback)")
+	}
+	if ct := res.Header.Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Errorf("expected JSON content type, got %q", ct)
+	}
+	// The unified AiError form marks the response as gateway-generated so
+	// normalizeUpstreamError (AIConf.NormalizeUpstreamError) leaves it alone.
+	if res.Header.Get(bfe_basic.HeaderBfeGwError) != "1" {
+		t.Errorf("expected %s header on gateway-generated synthetic 429", bfe_basic.HeaderBfeGwError)
+	}
+	// issue #1441: unified AiError body with error.code (§3.2 必填),
+	// retry_after_seconds detail and a Retry-After header.
+	if res.Header.Get("Retry-After") != strconv.Itoa(aiKeyPenaltyTTL429) {
+		t.Errorf("expected Retry-After %d, got %q", aiKeyPenaltyTTL429, res.Header.Get("Retry-After"))
+	}
+	body, readErr := ioutil.ReadAll(res.Body)
+	if readErr != nil {
+		t.Fatalf("read body failed: %v", readErr)
+	}
+	var aiErrBody bfe_basic.AiErrorBody
+	if jsonErr := json.Unmarshal(body, &aiErrBody); jsonErr != nil {
+		t.Fatalf("body is not a unified AiError JSON: %v, body: %s", jsonErr, body)
+	}
+	if aiErrBody.Error.Code != bfe_basic.CodeNoAvailableKey {
+		t.Errorf("expected error.code %q, got %q", bfe_basic.CodeNoAvailableKey, aiErrBody.Error.Code)
+	}
+	if aiErrBody.Error.Type != bfe_basic.TypeRateLimitError {
+		t.Errorf("expected error.type %q, got %q", bfe_basic.TypeRateLimitError, aiErrBody.Error.Type)
+	}
+	if aiErrBody.Error.Details == nil || aiErrBody.Error.Details.RetryAfterSeconds != aiKeyPenaltyTTL429 {
+		t.Errorf("expected error.details.retry_after_seconds=%d, got %+v", aiKeyPenaltyTTL429, aiErrBody.Error.Details)
+	}
+}
+
+// TestFilterPenaltyKeys_ExcludesZeroWeight verifies issue #1439: a Weight=0
+// key never counts as a penalty-filter candidate, so a penalized usable key
+// with only Weight=0 companions yields no candidates (circuit break).
+func TestFilterPenaltyKeys_ExcludesZeroWeight(t *testing.T) {
+	policy := cluster_conf.AIKeyPolicy{SessionAffinityRedisPrefix: "bfe:ai:key_affinity"}
+	client := newMockRedisClient()
+	client.Setex("bfe:ai:key_affinity:penalty:cluster:key-a", []byte("429"), 60)
+
+	keys := []cluster_conf.AIKey{
+		{Name: "key-a", Key: "ak-a", Weight: 100},
+		{Name: "key-z", Key: "ak-z", Weight: 0},
+	}
+	filtered, skipped := filterPenaltyKeys("cluster", keys, policy, client)
+	if len(filtered) != 0 {
+		t.Fatalf("expected no candidates (circuit break), got %v", filtered)
+	}
+	if skipped != 1 {
+		t.Errorf("expected skipped=1 (only the penalized usable key), got %d", skipped)
+	}
+}
+
+// TestFilterPenaltyKeys_CircuitBreakWhenAllPenalized verifies the issue
+// #1439 ruling (方案乙): when every usable key is penalized the filter
+// returns no candidates, instead of falling back to the penalized list.
+func TestFilterPenaltyKeys_CircuitBreakWhenAllPenalized(t *testing.T) {
+	policy := cluster_conf.AIKeyPolicy{SessionAffinityRedisPrefix: "bfe:ai:key_affinity"}
+	client := newMockRedisClient()
+	client.Setex("bfe:ai:key_affinity:penalty:cluster:key-a", []byte("429"), 60)
+	client.Setex("bfe:ai:key_affinity:penalty:cluster:key-b", []byte("429"), 60)
+
+	keys := []cluster_conf.AIKey{
+		{Name: "key-a", Key: "ak-a", Weight: 50},
+		{Name: "key-b", Key: "ak-b", Weight: 50},
+	}
+	filtered, skipped := filterPenaltyKeys("cluster", keys, policy, client)
+	if len(filtered) != 0 {
+		t.Fatalf("expected no candidates when all usable keys penalized, got %v", filtered)
+	}
+	if skipped != 2 {
+		t.Errorf("expected skipped=2, got %d", skipped)
+	}
+}
+
+// TestFilterPenaltyKeys_ZeroWeightNotCandidate verifies a Weight=0 key alone
+// cannot keep the filter non-empty (it is excluded before penalty checks).
+func TestFilterPenaltyKeys_ZeroWeightNotCandidate(t *testing.T) {
+	policy := cluster_conf.AIKeyPolicy{SessionAffinityRedisPrefix: "bfe:ai:key_affinity"}
+	client := newMockRedisClient()
+
+	keys := []cluster_conf.AIKey{
+		{Name: "key-z", Key: "ak-z", Weight: 0},
+		{Name: "key-a", Key: "ak-a", Weight: 100},
+	}
+	filtered, skipped := filterPenaltyKeys("cluster", keys, policy, client)
+	if len(filtered) != 1 || filtered[0].Name != "key-a" {
+		t.Fatalf("expected [key-a], got %v", filtered)
+	}
+	if skipped != 0 {
+		t.Errorf("expected skipped=0 (Weight=0 exclusion is not a penalty skip), got %d", skipped)
+	}
+}
+
+// TestChooseAIKeyWithAffinity_CircuitBreak verifies the end-to-end selection
+// path: the only usable key penalized (with only Weight=0 companions) means
+// no key can be selected, and the caller (aiClusterInvoke, issue #1440)
+// turns ok=false into a synthetic 429 for cluster fallback.
+func TestChooseAIKeyWithAffinity_CircuitBreak(t *testing.T) {
+	keys := []cluster_conf.AIKey{
+		{Name: "key-a", Key: "ak-a", Weight: 100},
+		{Name: "key-z", Key: "ak-z", Weight: 0},
+	}
+	policy := cluster_conf.AIKeyPolicy{
+		Strategy:                     "weighted_random",
+		SessionAffinity:              true,
+		SessionAffinityTTL:           300,
+		SessionAffinityRedisPrefix:   "bfe:ai:key_affinity",
+		SessionAffinityPenaltyEnable: true,
+	}
+	state := newAIKeyAttemptState()
+	client := newMockRedisClient()
+	client.Setex("bfe:ai:key_affinity:penalty:cluster:key-a", []byte("429"), 60)
+
+	proxyState := &ProxyState{
+		ReqAiKeyAffinityPenaltySkip: new(metrics.Counter),
+	}
+
+	_, _, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState, nil)
+	if ok {
+		t.Fatal("expected circuit break (no key selected), but a key was selected")
+	}
+	if proxyState.ReqAiKeyAffinityPenaltySkip.Get() != 1 {
+		t.Errorf("expected penalty skip counter 1, got %d", proxyState.ReqAiKeyAffinityPenaltySkip.Get())
+	}
+}
+
+// TestBackendUnavailableErrorResponseContract verifies issue #1441 step 3:
+// the gateway-side synthesized failures (no cluster, backend
+// connect/transport error, ...) now return the unified AiError body
+// (BACKEND_UNAVAILABLE / 502 / application/json) instead of a bare empty-body
+// 500.
+func TestBackendUnavailableErrorResponseContract(t *testing.T) {
+	basicReq := &bfe_basic.Request{HttpRequest: &bfe_http.Request{Header: bfe_http.Header{}}}
+	res := bfe_basic.NewAiError(bfe_basic.CodeBackendUnavailable, bfe_basic.TypeInternalError,
+		"upstream backend unavailable for this request").CreateErrorResponse(basicReq)
+
+	if res.StatusCode != 502 {
+		t.Fatalf("expected status 502, got %d", res.StatusCode)
+	}
+	if ct := res.Header.Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected application/json, got %q", ct)
+	}
+	// issue #1441 regression guard: other error codes must NOT get a
+	// Retry-After header (only the key-exhaustion call site sets it).
+	if res.Header.Get("Retry-After") != "" {
+		t.Errorf("BACKEND_UNAVAILABLE must not carry Retry-After, got %q", res.Header.Get("Retry-After"))
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatalf("read body failed: %v", err)
+	}
+	var aiErrBody bfe_basic.AiErrorBody
+	if jsonErr := json.Unmarshal(body, &aiErrBody); jsonErr != nil {
+		t.Fatalf("body is not a unified AiError JSON: %v, body: %s", jsonErr, body)
+	}
+	if aiErrBody.Error.Code != bfe_basic.CodeBackendUnavailable {
+		t.Errorf("expected error.code %q, got %q", bfe_basic.CodeBackendUnavailable, aiErrBody.Error.Code)
+	}
+	if aiErrBody.Error.Type != bfe_basic.TypeInternalError {
+		t.Errorf("expected error.type %q, got %q", bfe_basic.TypeInternalError, aiErrBody.Error.Type)
+	}
+	if aiErrBody.Error.Message == "" {
+		t.Error("expected non-empty error.message")
+	}
+}
+
+// TestIsAIClientAbort verifies the issue #1441 boundary predicate: only
+// client-write/close/reset sentinels keep the legacy bare-500 record; other
+// error codes (backend failures, exhaustion) get the unified AiError body.
+func TestIsAIClientAbort(t *testing.T) {
+	for _, code := range []error{bfe_basic.ErrClientWrite, bfe_basic.ErrClientClose, bfe_basic.ErrClientReset} {
+		if !isAIClientAbort(code) {
+			t.Errorf("expected %v to be treated as client abort", code)
+		}
+	}
+	for _, code := range []error{nil, bfe_basic.ErrBkNoCluster, bfe_basic.ErrBkConnectBackend, bfe_basic.ErrAiRateLimit, bfe_basic.ErrAiNoAvailableKey} {
+		if isAIClientAbort(code) {
+			t.Errorf("expected %v NOT to be treated as client abort", code)
 		}
 	}
 }

@@ -55,6 +55,8 @@ BFE 相关实现参考了 AI 网关错误返回码方案的整体思路，并依
 | 场景 | HTTP 状态码 | `error.code` | `error.type` | `error.message` 示例 | 触发条件 |
 |------|-------------|--------------|--------------|---------------------|----------|
 | 提供商协议不匹配 | 400 | `PROVIDER_PROTOCOL_MISMATCH` | `invalid_request_error` | "request protocol anthropic not supported by cluster provider (model_protocols=[openai])." | 请求的 `AuthStyle` 不在目标集群 `AIConf.ModelProtocols` 支持范围内 |
+| 目标集群无可用 Key（issue #1441） | 429 | `NO_AVAILABLE_KEY` | `rate_limit_error` | "no available upstream api key for this cluster" | 一次选 Key 均未成功：全部 Key 被惩罚（熔断，issue #1439）/ `Weight=0` / dead；响应携带 `Retry-After` 头与 `error.details.retry_after_seconds`（= 429 惩罚 TTL，60s），并带 `X-Bfe-Gw-Error` 网关标记（归一化器跳过） |
+| 网关侧后端不可用（issue #1441） | 502 | `BACKEND_UNAVAILABLE` | `internal_error` | "upstream backend unavailable for this request" | 目标集群不存在 / 后端连接或传输失败（`ServeHTTPForAI` 的 `err != nil \|\| res == nil` 出口）；客户端中断（`CLIENT_WRITE/CLOSE/RESET`）路径保持既有空体记录，不构造响应体 |
 
 ### 2.5 上游归一错误层（上游错误体归一）
 
@@ -120,7 +122,7 @@ BFE 相关实现参考了 AI 网关错误返回码方案的整体思路，并依
 | `error.details.quota_plan_id` | string | 否 | 配额计划 ID（配额类错误） |
 | `error.details.limit_type` | string | 否 | 配额/限流维度：`api_key_quota`、`rpm`、`tpm`、`concurrency` |
 | `error.details.model` | string | 否 | 请求中的模型标识 |
-| `error.details.retry_after_seconds` | int | 否 | 建议等待秒数（限流类错误预留） |
+| `error.details.retry_after_seconds` | int | 否 | 建议等待秒数；已在 `NO_AVAILABLE_KEY`（429，issue #1441）路径使用，并同步输出 HTTP `Retry-After` 响应头（秒数形式） |
 | `error.details.upstream_status` | int | 否 | 上游原始 HTTP 状态码（§2.5 上游归一错误时存在） |
 | `error.details.upstream_code` | string | 否 | 上游原始错误码（OpenAI `error.code` / Anthropic `error.type` / Gemini `error.status`），便于对照厂商文档 |
 
@@ -153,6 +155,8 @@ BFE AI 访问日志通过 `mod_access_pb3` 输出以下与错误相关的字段�
 | 日志字段 | 说明 |
 |----------|------|
 | `ai_auth_reject_reason` | 认证/配额拒绝时的错误码，对应本文档中的 `code` 字段 |
+
+> 说明：转发层产生的网关侧错误码（如 `NO_AVAILABLE_KEY`、`BACKEND_UNAVAILABLE`）**不写入** `ai_auth_reject_reason`（该字段语义为认证/配额拒绝），而是由 `err_code` 承载（issue #1441 裁定）；转发失败场景下 `err_code` 的既有值（`BK_NO_CLUSTER`、`BK_CONNECT_BACKEND` 等）保持不变。
 | `ai_auth_reject_quota_plans` | 因配额不足被拒绝时，余量不足的 Quota Plan ID 列表 |
 | `ai_auth_hit_quota_plans` | 认证通过且余额充足的 Quota Plan ID 列表 |
 | `ai_rate_limit_hits` | 触发的限流策略及规则名列表 |
@@ -175,7 +179,7 @@ BFE AI 访问日志通过 `mod_access_pb3` 输出以下与错误相关的字段�
 | 404 | 上游模型不存在（`UPSTREAM_MODEL_NOT_FOUND`） | 核对 `ModelMapping` 与上游可用模型名 |
 | 429 | 配额不足、触发限流或上游限流 | 网关限流/配额检查 Quota Plan 余额、RPM/TPM/并发策略阈值；`UPSTREAM_RATE_LIMITED`/`UPSTREAM_QUOTA_EXHAUSTED` 为上游侧限流，需稍后重试或扩容上游配额 |
 | 500 | 内部错误、Redis 访问失败、上游内部错误 | 查看 BFE 错误日志及 Redis 连通性；`MODEL_INTERNAL_ERROR` 需联系上游 |
-| 502 | 后端不可用，或上游凭证失效（`UPSTREAM_AUTH_ERROR`） | 检查后端模型服务健康状态及网络；`UPSTREAM_AUTH_ERROR` 需检查集群 API-Key 是否被上游禁用/删除 |
+| 502 | 后端不可用、目标集群不存在，或上游凭证失效（`UPSTREAM_AUTH_ERROR`） | 检查后端模型服务健康状态、网络及 cluster/route 配置；`UPSTREAM_AUTH_ERROR` 需检查集群 API-Key 是否被上游禁用/删除 |
 | 503 | 上游过载（`UPSTREAM_OVERLOADED`） | 稍后重试；评估上游容量与熔断策略 |
 | 504 | 后端或上游超时（`BACKEND_TIMEOUT`） | 检查后端模型服务响应时间及超时配置 |
 

@@ -562,6 +562,13 @@ const (
 
 	CodeProviderProtocolMismatch = "PROVIDER_PROTOCOL_MISMATCH"
 
+	// Gateway-side capacity exhaustion (issue #1441): no usable upstream API
+	// key could be selected for the target cluster (all penalized / weight 0
+	// / dead). Distinct from CodeUpstreamRateLimited (an upstream-returned
+	// rate limit, normalized by AIConf.NormalizeUpstreamError) and from
+	// RPM/TPM (client quota).
+	CodeNoAvailableKey = "NO_AVAILABLE_KEY"
+
 	// Upstream error normalization catalog (AIConf.NormalizeUpstreamError).
 	// Values are single-sourced in bfe_model_protocol/utils and shared with
 	// the protocol adapters' mapping tables.
@@ -644,6 +651,8 @@ var ErrorCodeToStatusCode = map[string]int{
 	CodeUpstreamModelNotFound:  404,
 	CodeUpstreamOverloaded:     503,
 	CodeUpstreamUnknown:        502,
+
+	CodeNoAvailableKey: 429,
 }
 
 // ErrorCodeToErrorType maps every catalog code to its error.type.
@@ -689,6 +698,8 @@ var ErrorCodeToErrorType = map[string]string{
 	CodeTimeWindowRestricted:   TypeAuthenticationError,
 
 	CodeProviderProtocolMismatch: TypeInvalidRequestError,
+
+	CodeNoAvailableKey: TypeRateLimitError,
 
 	CodeUpstreamInvalidRequest: TypeInvalidRequestError,
 	CodeUpstreamRateLimited:    TypeRateLimitError,

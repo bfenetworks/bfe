@@ -15,7 +15,12 @@
                             "Weight": 100
                         }
                     ],
-                    "fallbacks": []
+                    "fallbacks": [
+                        {
+                            "ClusterName": "cluster_session_affinity_fallback",
+                            "Model": ""
+                        }
+                    ]
                 }
             ]
         }
