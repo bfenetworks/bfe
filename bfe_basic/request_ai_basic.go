@@ -403,6 +403,11 @@ const (
 
 	CodeProviderProtocolMismatch = "PROVIDER_PROTOCOL_MISMATCH"
 
+	// Gateway-side capacity exhaustion (issue #1441): no usable upstream API
+	// key could be selected for the target cluster (all penalized / weight 0
+	// / dead). Distinct from RPM/TPM (client quota) and from an upstream 429.
+	CodeNoAvailableKey = "NO_AVAILABLE_KEY"
+
 	CodeConfigLoadError    = "CONFIG_LOAD_ERROR"
 	CodeBackendUnavailable = "BACKEND_UNAVAILABLE"
 	CodeInvalidRequestBody = "INVALID_REQUEST_BODY"
@@ -463,6 +468,7 @@ var ErrorCodeToStatusCode = map[string]int{
 	CodeTimeWindowRestricted:   403,
 
 	CodeProviderProtocolMismatch: 400,
+	CodeNoAvailableKey:           429,
 }
 
 const (

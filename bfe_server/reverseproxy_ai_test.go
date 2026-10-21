@@ -15,10 +15,12 @@
 package bfe_server
 
 import (
+	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -763,11 +765,39 @@ func TestAiClusterInvokeExhaustionReturnsSynthetic429(t *testing.T) {
 	if res.StatusCode != 429 {
 		t.Fatalf("expected status 429, got %d", res.StatusCode)
 	}
-	if basicReq.ErrCode != nil {
-		t.Errorf("expected no ErrCode on synthetic 429 (ErrAiRateLimit would suppress fallback), got %v", basicReq.ErrCode)
+	// issue #1441: the ErrCode sentinel carries the error code for access-log
+	// attribution; it must NOT be ErrAiRateLimit (that would suppress
+	// cluster fallback and stop key rotation).
+	if basicReq.ErrCode != bfe_basic.ErrAiNoAvailableKey {
+		t.Errorf("expected ErrCode %v, got %v", bfe_basic.ErrAiNoAvailableKey, basicReq.ErrCode)
+	}
+	if basicReq.ErrCode == bfe_basic.ErrAiRateLimit {
+		t.Error("ErrCode must not be ErrAiRateLimit (would suppress fallback)")
 	}
 	if res.Header.Get("Content-Type") != "application/json" {
 		t.Errorf("expected JSON content type, got %q", res.Header.Get("Content-Type"))
+	}
+	// issue #1441: unified AiError body with error.code (§3.2 必填),
+	// retry_after_seconds detail and a Retry-After header.
+	body, readErr := ioutil.ReadAll(res.Body)
+	if readErr != nil {
+		t.Fatalf("read body failed: %v", readErr)
+	}
+	var aiErrBody bfe_basic.AiErrorBody
+	if jsonErr := json.Unmarshal(body, &aiErrBody); jsonErr != nil {
+		t.Fatalf("body is not a unified AiError JSON: %v, body: %s", jsonErr, body)
+	}
+	if aiErrBody.Error.Code != bfe_basic.CodeNoAvailableKey {
+		t.Errorf("expected error.code %q, got %q", bfe_basic.CodeNoAvailableKey, aiErrBody.Error.Code)
+	}
+	if aiErrBody.Error.Type != bfe_basic.TypeRateLimitError {
+		t.Errorf("expected error.type %q, got %q", bfe_basic.TypeRateLimitError, aiErrBody.Error.Type)
+	}
+	if aiErrBody.Error.Details == nil || aiErrBody.Error.Details.RetryAfterSeconds != aiKeyPenaltyTTL429 {
+		t.Errorf("expected error.details.retry_after_seconds=%d, got %+v", aiKeyPenaltyTTL429, aiErrBody.Error.Details)
+	}
+	if res.Header.Get("Retry-After") != strconv.Itoa(aiKeyPenaltyTTL429) {
+		t.Errorf("expected Retry-After %d, got %q", aiKeyPenaltyTTL429, res.Header.Get("Retry-After"))
 	}
 }
 
@@ -863,5 +893,61 @@ func TestChooseAIKeyWithAffinity_CircuitBreak(t *testing.T) {
 	}
 	if proxyState.ReqAiKeyAffinityPenaltySkip.Get() != 1 {
 		t.Errorf("expected penalty skip counter 1, got %d", proxyState.ReqAiKeyAffinityPenaltySkip.Get())
+	}
+}
+
+// TestBackendUnavailableErrorResponseContract verifies issue #1441 step 3:
+// the gateway-side synthesized failures (no cluster, backend
+// connect/transport error, ...) now return the unified AiError body
+// (BACKEND_UNAVAILABLE / 502 / application/json) instead of a bare empty-body
+// 500.
+func TestBackendUnavailableErrorResponseContract(t *testing.T) {
+	basicReq := &bfe_basic.Request{HttpRequest: &bfe_http.Request{Header: bfe_http.Header{}}}
+	res := bfe_basic.NewAiError(bfe_basic.CodeBackendUnavailable, bfe_basic.TypeInternalError,
+		"upstream backend unavailable for this request").CreateErrorResponse(basicReq)
+
+	if res.StatusCode != 502 {
+		t.Fatalf("expected status 502, got %d", res.StatusCode)
+	}
+	if ct := res.Header.Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected application/json, got %q", ct)
+	}
+	// issue #1441 regression guard: other error codes must NOT get a
+	// Retry-After header (only the key-exhaustion call site sets it).
+	if res.Header.Get("Retry-After") != "" {
+		t.Errorf("BACKEND_UNAVAILABLE must not carry Retry-After, got %q", res.Header.Get("Retry-After"))
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatalf("read body failed: %v", err)
+	}
+	var aiErrBody bfe_basic.AiErrorBody
+	if jsonErr := json.Unmarshal(body, &aiErrBody); jsonErr != nil {
+		t.Fatalf("body is not a unified AiError JSON: %v, body: %s", jsonErr, body)
+	}
+	if aiErrBody.Error.Code != bfe_basic.CodeBackendUnavailable {
+		t.Errorf("expected error.code %q, got %q", bfe_basic.CodeBackendUnavailable, aiErrBody.Error.Code)
+	}
+	if aiErrBody.Error.Type != bfe_basic.TypeInternalError {
+		t.Errorf("expected error.type %q, got %q", bfe_basic.TypeInternalError, aiErrBody.Error.Type)
+	}
+	if aiErrBody.Error.Message == "" {
+		t.Error("expected non-empty error.message")
+	}
+}
+
+// TestIsAIClientAbort verifies the issue #1441 boundary predicate: only
+// client-write/close/reset sentinels keep the legacy bare-500 record; other
+// error codes (backend failures, exhaustion) get the unified AiError body.
+func TestIsAIClientAbort(t *testing.T) {
+	for _, code := range []error{bfe_basic.ErrClientWrite, bfe_basic.ErrClientClose, bfe_basic.ErrClientReset} {
+		if !isAIClientAbort(code) {
+			t.Errorf("expected %v to be treated as client abort", code)
+		}
+	}
+	for _, code := range []error{nil, bfe_basic.ErrBkNoCluster, bfe_basic.ErrBkConnectBackend, bfe_basic.ErrAiRateLimit, bfe_basic.ErrAiNoAvailableKey} {
+		if isAIClientAbort(code) {
+			t.Errorf("expected %v NOT to be treated as client abort", code)
+		}
 	}
 }

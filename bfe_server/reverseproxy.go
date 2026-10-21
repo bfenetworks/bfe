@@ -1188,7 +1188,11 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 
 		// issue #1416: keep the connection reusable (same rationale as the
 		// no-route 404 branch below).
-		res = bfe_basic.CreateInternalSrvErrResp(basicReq)
+		// issue #1441: gateway-synthesized failures carry the unified AiError
+		// body instead of a bare empty-body 500.
+		res = bfe_basic.NewAiError(bfe_basic.CodeBackendUnavailable, bfe_basic.TypeInternalError,
+			"gateway could not determine a product/cluster for this request").CreateErrorResponse(basicReq)
+		basicReq.BfeStatusCode = res.StatusCode
 		goto response_got
 	}
 
@@ -1364,8 +1368,23 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		}
 
 		basicReq.Stat.ResponseStart = time.Now()
-		basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
-		res = bfe_basic.CreateInternalSrvErrResp(basicReq)
+		if isAIClientAbort(basicReq.ErrCode) {
+			// The client is gone / the response could not be written: no body
+			// can be delivered, so keep the legacy bare-500 record (issue
+			// #1441 boundary: client-abort paths are out of scope).
+			basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
+			res = bfe_basic.CreateInternalSrvErrResp(basicReq)
+			goto response_got
+		}
+
+		// Gateway-side failure with a live client (no cluster found, backend
+		// connect/transport error, ...): return the unified AiError body
+		// instead of an empty-body 500 (issue #1441). The message is generic
+		// on purpose - internal topology (host/port) must not leak to
+		// clients; the detail stays in bfe.log and in err_code/err_msg.
+		res = bfe_basic.NewAiError(bfe_basic.CodeBackendUnavailable, bfe_basic.TypeInternalError,
+			"upstream backend unavailable for this request").CreateErrorResponse(basicReq)
+		basicReq.BfeStatusCode = res.StatusCode
 		goto response_got
 	}
 
@@ -1833,12 +1852,20 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 				// weight 0 / dead). Return a synthetic 429 so the outer fallback
 				// decision can act on a decidable result: a configured fallback
 				// cluster is tried, and without one the client gets a retryable
-				// 429 instead of an opaque 500. Deliberately no ErrCode: setting
-				// ErrAiRateLimit would suppress cluster fallback (the local-RL
-				// short-circuit in ServeHTTPForAI).
+				// 429 instead of an opaque 500. The unified AiError form carries
+				// error.code/type/message plus a retry hint (issue #1441). The
+				// ErrCode sentinel is deliberately NOT ErrAiRateLimit: that
+				// would suppress cluster fallback (the local-RL short-circuit
+				// in ServeHTTPForAI) and stop key rotation.
 				log.Logger.Warn("aiClusterInvoke: all ai keys exhausted for cluster[%s], return synthetic 429", attempt.ClusterName)
-				res = bfe_basic.CreateSpecifiedContentResp(basicReq, 429, "application/json",
-					`{"error":{"type":"rate_limit_error","message":"no available upstream api key"}}`)
+				retryAfter := aiKeyPenaltyTTL429
+				res = bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeNoAvailableKey, bfe_basic.TypeRateLimitError,
+					"no available upstream api key for this cluster",
+					&bfe_basic.AiErrorDetail{Model: attempt.Model, RetryAfterSeconds: retryAfter},
+				).CreateErrorResponse(basicReq)
+				res.Header.Set("Retry-After", strconv.Itoa(retryAfter))
+				basicReq.ErrCode = bfe_basic.ErrAiNoAvailableKey
+				basicReq.ErrMsg = "no available upstream api key"
 				return res, action, cluster, nil, newBodyModel
 			}
 
@@ -1881,7 +1908,7 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 			// rate limit: mark key as used and rotate to another key
 			state.usedSet[idx] = struct{}{}
 			if policy.SessionAffinity && policy.SessionAffinityPenaltyEnable && redisClient != nil {
-				setKeyPenalty(cluster.Name, key.Name, "429", 60, policy, redisClient)
+				setKeyPenalty(cluster.Name, key.Name, "429", aiKeyPenaltyTTL429, policy, redisClient)
 				if sessionID != "" {
 					redisDeleteBinding(cluster.Name, sessionID, policy, redisClient)
 				}
@@ -1923,6 +1950,24 @@ var aiFallbackStatusCodes = map[int]struct{}{
 	403: {},
 	422: {},
 	429: {},
+}
+
+// aiKeyPenaltyTTL429 is the penalty TTL (seconds) written for a key that the
+// upstream rate limited (429). It is also used as the Retry-After hint of the
+// gateway-generated NO_AVAILABLE_KEY response (issue #1441), so the write side
+// and the retry hint share a single source.
+const aiKeyPenaltyTTL429 = 60
+
+// isAIClientAbort reports whether the request failed because the client went
+// away or the response could not be written (issue #1441). For such requests
+// a synthetic body cannot be delivered, so the legacy bare-500 record is
+// kept instead of the unified AiError body.
+func isAIClientAbort(errCode error) bool {
+	switch errCode {
+	case bfe_basic.ErrClientWrite, bfe_basic.ErrClientClose, bfe_basic.ErrClientReset:
+		return true
+	}
+	return false
 }
 
 func shouldTriggerFallback(res *bfe_http.Response, err error, authStyle string) bool {
