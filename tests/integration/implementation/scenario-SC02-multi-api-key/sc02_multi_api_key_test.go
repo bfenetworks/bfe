@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,12 +30,13 @@ import (
 )
 
 const (
-	apiHost = "multikey.example.org"
-	apiPath = "/v1/chat/completions"
-	apiKey  = "ak_user_a"
-	keyA    = "sk-key-a"
-	keyB    = "sk-key-b"
-	keyC    = "sk-key-c"
+	apiHost           = "multikey.example.org"
+	apiHostNoFallback = "multikey-nofallback.example.org"
+	apiPath           = "/v1/chat/completions"
+	apiKey            = "ak_user_a"
+	keyA              = "sk-key-a"
+	keyB              = "sk-key-b"
+	keyC              = "sk-key-c"
 
 	clusterMultiKey   = "cluster_multi_key"
 	clusterFallbackOK = "cluster_fallback_ok"
@@ -102,12 +104,16 @@ func (e *testEnv) logBFEException() {
 }
 
 func (e *testEnv) sendRequest(body []byte) (*http.Response, string, error) {
+	return e.sendRequestToHost(apiHost, body)
+}
+
+func (e *testEnv) sendRequestToHost(host string, body []byte) (*http.Response, string, error) {
 	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, apiPath)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, "", err
 	}
-	req.Host = apiHost
+	req.Host = host
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -122,6 +128,15 @@ func (e *testEnv) sendRequest(body []byte) (*http.Response, string, error) {
 		return nil, "", err
 	}
 	return resp, string(respBody), nil
+}
+
+// bfeLogContains reports whether the BFE runtime log contains the substring.
+func (e *testEnv) bfeLogContains(substr string) bool {
+	data, err := os.ReadFile(filepath.Join(e.processEnv.WorkDir(), "log", "bfe.log"))
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(data), substr)
 }
 
 func defaultMultiKeyAIConf() *cluster_conf.AIConf {
@@ -539,4 +554,83 @@ func abs(x int) int {
 		return -x
 	}
 	return x
+}
+
+// TestTC09 verifies issue #1440: when the very first key selection fails
+// (all keys Weight=0, zero upstream interaction), aiClusterInvoke must
+// return a decidable synthetic 429 instead of (nil, nil).
+//   - Arm A: with a fallback configured, the outer loop degrades to the
+//     fallback cluster and the client gets 200.
+//   - Arm B: without a fallback, the client gets a retryable 429 with a
+//     JSON error body instead of a 500.
+func TestTC09_FirstSelectionFailureSynthetic429(t *testing.T) {
+	aiConf := defaultMultiKeyAIConf()
+	aiConf.Keys = []cluster_conf.AIKey{
+		{Name: "key-a", Key: keyA, Weight: 0},
+		{Name: "key-b", Key: keyB, Weight: 0},
+	}
+	aiConf.KeyPolicy.MaxRetries = 1
+
+	t.Run("armA_with_fallback", func(t *testing.T) {
+		e := newTestEnv(t, aiConf)
+		defer e.Close()
+
+		resp, body, err := e.sendRequest(defaultBody)
+		if err != nil {
+			t.Fatalf("send request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			e.logBFEException()
+			t.Fatalf("expected status 200 from fallback cluster, got %d, body: %s", resp.StatusCode, body)
+		}
+
+		// The exhausted cluster must see zero upstream interaction.
+		if hits := e.backends[clusterMultiKey].Hits(); hits != 0 {
+			t.Fatalf("expected 0 upstream hits on exhausted cluster, got %d", hits)
+		}
+		if hits := e.backends[clusterFallbackOK].Hits(); hits != 1 {
+			t.Fatalf("expected fallback cluster hit once, got %d", hits)
+		}
+		if !e.bfeLogContains("all ai keys exhausted for cluster[cluster_multi_key], return synthetic 429") {
+			t.Error("expected 'all ai keys exhausted ... return synthetic 429' in bfe.log")
+		}
+		if !e.bfeLogContains("fallback triggered, cluster[cluster_multi_key]") {
+			t.Error("expected 'fallback triggered' in bfe.log")
+		}
+	})
+
+	t.Run("armB_without_fallback", func(t *testing.T) {
+		e := newTestEnv(t, aiConf)
+		defer e.Close()
+
+		resp, body, err := e.sendRequestToHost(apiHostNoFallback, defaultBody)
+		if err != nil {
+			t.Fatalf("send request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusTooManyRequests {
+			e.logBFEException()
+			t.Fatalf("expected status 429, got %d, body: %s", resp.StatusCode, body)
+		}
+		if !strings.Contains(body, `"type":"rate_limit_error"`) {
+			t.Errorf("expected JSON error body with rate_limit_error, got: %s", body)
+		}
+		// issue #1441: unified error body must carry error.code (§3.2 必填).
+		if !strings.Contains(body, `"code":"NO_AVAILABLE_KEY"`) {
+			t.Errorf("expected JSON error body with code NO_AVAILABLE_KEY, got: %s", body)
+		}
+		// issue #1441: backoff signal - Retry-After header and
+		// details.retry_after_seconds (429 penalty TTL, 60s).
+		if ra := resp.Header.Get("Retry-After"); ra != "60" {
+			t.Errorf("expected Retry-After 60, got %q", ra)
+		}
+		if !strings.Contains(body, `"retry_after_seconds":60`) {
+			t.Errorf("expected details.retry_after_seconds=60 in body, got: %s", body)
+		}
+		if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "application/json") {
+			t.Errorf("expected application/json content type, got %q", ct)
+		}
+		if hits := e.backends[clusterMultiKey].Hits(); hits != 0 {
+			t.Fatalf("expected 0 upstream hits on exhausted cluster, got %d", hits)
+		}
+	})
 }
