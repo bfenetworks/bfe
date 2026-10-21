@@ -16,6 +16,10 @@ package bfe_server
 
 import (
 	"errors"
+	"io/ioutil"
+	"net"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,6 +28,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_route"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 )
 
@@ -75,6 +80,12 @@ func TestSelectTargetZeroWeightNotSelected(t *testing.T) {
 func TestShouldTriggerFallback(t *testing.T) {
 	if !shouldTriggerFallback(nil, bfe_http.ConnectError{}, "") {
 		t.Error("expected fallback on connect error")
+	}
+
+	// Issue #1440 (step 3): (nil, nil) is not a decidable result and must
+	// be treated as fallback-eligible (hard invariant).
+	if !shouldTriggerFallback(nil, nil, "") {
+		t.Error("expected fallback on (nil, nil)")
 	}
 
 	// 5xx always triggers fallback
@@ -735,5 +746,86 @@ func TestShouldRewriteBodyModel(t *testing.T) {
 		if got := shouldRewriteBodyModel(c.meta, jsonHeader(c.contentType), c.target, c.body); got != c.want {
 			t.Errorf("%s: shouldRewriteBodyModel = %v, want %v", c.name, got, c.want)
 		}
+	}
+}
+
+// TestAiClusterInvokeExhaustionReturnsSynthetic429 verifies issue #1440:
+// when no AI key can be selected (here: the only configured key has
+// Weight=0), aiClusterInvoke must return a decidable synthetic 429 response
+// instead of (nil, nil), so the outer ServeHTTPForAI fallback decision can
+// trigger cluster fallback or hand the client a retryable 429.
+func TestAiClusterInvokeExhaustionReturnsSynthetic429(t *testing.T) {
+	intPtr := func(v int) *int { return &v }
+	boolPtr := func(v bool) *bool { return &v }
+	strPtr := func(v string) *string { return &v }
+
+	clusterName := "exhausted-cluster"
+	clusterConfs := cluster_conf.BfeClusterConf{
+		Version: strPtr("test"),
+		Config: &cluster_conf.ClusterToConf{
+			clusterName: {
+				ClusterBasic: &cluster_conf.ClusterBasicConf{
+					TimeoutReadClient:      intPtr(1000),
+					TimeoutWriteClient:     intPtr(1000),
+					TimeoutReadClientAgain: intPtr(1000),
+					ReqWriteBufferSize:     intPtr(4096),
+					ReqFlushInterval:       intPtr(0),
+					ResFlushInterval:       intPtr(0),
+					CancelOnClientClose:    boolPtr(false),
+					DisableHostHeader:      boolPtr(false),
+					DisableHealthCheck:     boolPtr(true),
+				},
+				AIConf: &cluster_conf.AIConf{
+					Keys: []cluster_conf.AIKey{
+						{Name: "key-zero", Key: "ak-zero", Weight: 0},
+					},
+					// KeyPolicy nil -> defaultAIKeyPolicy(): MaxRetries=0,
+					// SessionAffinity=false, no redis needed.
+				},
+			},
+		},
+	}
+	clusterTable := new(bfe_route.ClusterTable)
+	clusterTable.BasicInit(clusterConfs)
+	serverConf := &bfe_route.ServerDataConf{ClusterTable: clusterTable}
+
+	conn, _ := net.Pipe()
+	defer conn.Close()
+	httpReq := &bfe_http.Request{
+		Method: "POST",
+		URL:    &url.URL{Path: "/v1/chat/completions"},
+		Header: bfe_http.Header{},
+		Body:   ioutil.NopCloser(strings.NewReader(`{"model":"m"}`)),
+	}
+	basicReq := &bfe_basic.Request{HttpRequest: httpReq, Connection: conn}
+
+	rp := NewReverseProxy(nil, new(ProxyState))
+	// dev branch dereferences srv (AIKeyAffinityRedis) unconditionally
+	srv := &BfeServer{}
+	attempt := aiForwardAttempt{ClusterName: clusterName, Model: "m"}
+
+	res, _, cluster, err, _ := rp.aiClusterInvoke(srv, serverConf, basicReq, nil, attempt, nil, "m")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if cluster == nil || cluster.Name != clusterName {
+		t.Fatalf("expected cluster %s, got %v", clusterName, cluster)
+	}
+	if res == nil {
+		t.Fatal("expected synthetic 429 response, got nil (issue #1440)")
+	}
+	if res.StatusCode != 429 {
+		t.Fatalf("expected status 429, got %d", res.StatusCode)
+	}
+	if basicReq.ErrCode != nil {
+		t.Errorf("expected no ErrCode on synthetic 429 (ErrAiRateLimit would suppress fallback), got %v", basicReq.ErrCode)
+	}
+	if ct := res.Header.Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Errorf("expected JSON content type, got %q", ct)
+	}
+	// The unified AiError form marks the response as gateway-generated so
+	// normalizeUpstreamError (AIConf.NormalizeUpstreamError) leaves it alone.
+	if res.Header.Get(bfe_basic.HeaderBfeGwError) != "1" {
+		t.Errorf("expected %s header on gateway-generated synthetic 429", bfe_basic.HeaderBfeGwError)
 	}
 }

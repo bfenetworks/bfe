@@ -1873,8 +1873,19 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 		if !keepKey {
 			idx, key, boundName, ok = chooseAIKeyWithAffinity(cluster.Name, keys, policy, state, redisClient, sessionID, p.proxyState, batchHint)
 			if !ok {
-				log.Logger.Warn("aiClusterInvoke: all ai keys exhausted for cluster[%s]", attempt.ClusterName)
-				break
+				// Issue #1440: no usable key could be selected (all penalized /
+				// weight 0 / dead). Return a synthetic 429 so the outer fallback
+				// decision can act on a decidable result: a configured fallback
+				// cluster is tried, and without one the client gets a retryable
+				// 429 instead of an opaque 500. The unified AiError form marks
+				// the response as gateway-generated (X-Bfe-Gw-Error), so
+				// normalizeUpstreamError leaves it alone. Deliberately no
+				// ErrCode: setting ErrAiRateLimit would suppress cluster
+				// fallback (the local-RL short-circuit in ServeHTTPForAI).
+				log.Logger.Warn("aiClusterInvoke: all ai keys exhausted for cluster[%s], return synthetic 429", attempt.ClusterName)
+				res = bfe_basic.NewAiError(bfe_basic.CodeUpstreamRateLimited, bfe_basic.TypeRateLimitError,
+					"no available upstream api key").CreateErrorResponse(basicReq)
+				return res, action, cluster, nil, newBodyModel
 			}
 
 			log.Logger.Info("aiClusterInvoke: select ai key [name=%s weight=%d] for cluster[%s]",
@@ -1977,6 +1988,15 @@ var aiFallbackStatusCodes = map[int]struct{}{
 
 func shouldTriggerFallback(res *bfe_http.Response, err error, authStyle string) bool {
 	if err != nil {
+		return true
+	}
+	if res == nil {
+		// Issue #1440 (step 3): (nil, nil) is not a decidable result; treat
+		// it as fallback-eligible as a hard invariant. aiClusterInvoke no
+		// longer returns this shape after the synthetic-429 change, so this
+		// branch is defense-in-depth for any future call path. The
+		// ErrAiRateLimit short-circuit in ServeHTTPForAI runs before this
+		// function and keeps its local-RL semantics.
 		return true
 	}
 	code := getResponseStatus(res)
