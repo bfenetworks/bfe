@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -303,8 +304,8 @@ func TestTC05_BothProtocolsCluster(t *testing.T) {
 	foundOpenAI := false
 	foundAnthropic := false
 	for i := 0; i < backend.Hits(); i++ {
-		// OpenAI style: Authorization is set to one of the cluster keys,
-		// x-api-key is not set by BFE (may retain client value if present).
+		// OpenAI style: Authorization is set to one of the cluster keys and
+		// the client's x-api-key is dropped (issue #1447).
 		if authHeaders[i] == "Bearer "+bothOpenAIKey || authHeaders[i] == "Bearer "+bothAnthKey {
 			foundOpenAI = true
 		}
@@ -366,6 +367,13 @@ func TestTC06_AuthorizationPrecedence(t *testing.T) {
 		t.Fatalf("expected Authorization to carry a cluster key when both headers present, got auth=%v x-api-key=%v",
 			authHeaders, xApiKeys)
 	}
+	// issue #1447: the client's own x-api-key must not survive into the
+	// outbound request - an upstream that prefers x-api-key (kimi) would
+	// otherwise authenticate with the client token and answer 401, and that
+	// 401 would be charged to the selected key.
+	if len(xApiKeys) != 1 || xApiKeys[0] != "" {
+		t.Fatalf("expected no x-api-key on the upstream request, got %v", xApiKeys)
+	}
 }
 
 // TestTC07 verifies that Anthropic-style requests preserve an explicitly
@@ -425,4 +433,146 @@ func TestTC08_ClaudeUsageFields(t *testing.T) {
 	if backend.Hits() != 1 {
 		t.Fatalf("expected 1 hit, got %d", backend.Hits())
 	}
+}
+
+const openaiOKBody = `{"choices":[{"message":{"content":"ok"}}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}`
+
+// kimiLikeResponse emulates the kimi upstream credential preference measured
+// for issue #1447: x-api-key wins over Authorization whenever it is present,
+// even when the Bearer token is the valid one.
+func kimiLikeResponse(r *http.Request, _ int) (int, string) {
+	if r.Header.Get("x-api-key") != "" {
+		return http.StatusUnauthorized,
+			`{"error":{"message":"The API Key appears to be invalid or may have expired","type":"invalid_authentication_error"}}`
+	}
+	return http.StatusOK, openaiOKBody
+}
+
+// postJSON sends a POST request to rawURL with the given Host header and
+// credential headers and returns the status code and body.
+func postJSON(t *testing.T, rawURL, host string, headers map[string]string, body []byte) (int, string) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, rawURL, bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("new request failed: %v", err)
+	}
+	if host != "" {
+		req.Host = host
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response failed: %v", err)
+	}
+	return resp.StatusCode, string(respBody)
+}
+
+// TestTC09_ClientCredentialHeadersSanitized verifies issue #1447: once the
+// gateway injects an upstream credential, the outbound request carries exactly
+// that one credential header. Upstreams pick the credential by their own
+// provider-private priority (kimi prefers x-api-key over Authorization, kimi
+// cluster keys therefore used to be marked dead after a single request from a
+// client that sends both headers).
+func TestTC09_ClientCredentialHeadersSanitized(t *testing.T) {
+	clientHeaders := map[string]string{"Authorization": "Bearer " + apiKey, "x-api-key": apiKey}
+
+	// Arm A: kimi-like upstream (x-api-key wins over Authorization).
+	t.Run("kimi_like_upstream", func(t *testing.T) {
+		e := newTestEnv(t)
+		defer e.Close()
+
+		backend := e.backends["cluster_both_protocols"]
+		backend.ResponseFunc = kimiLikeResponse
+
+		// Control arm: an independent mock with the same behavior, probed
+		// directly, proves that this upstream model really rejects a residual
+		// x-api-key - so the assertions below cannot pass for the wrong reason.
+		control := common.NewMockBackend("control", http.StatusOK, openaiOKBody)
+		defer control.Close()
+		control.ResponseFunc = kimiLikeResponse
+		if status, body := postJSON(t, "http://"+control.Addr()+pathOpenAI, "",
+			map[string]string{"x-api-key": apiKey}, openaiBody()); status != http.StatusUnauthorized {
+			t.Fatalf("control arm: expected the kimi-like mock to reject a direct request with x-api-key, got %d body=%s",
+				status, body)
+		}
+
+		status, body := postJSON(t, fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, pathOpenAI), hostBoth, clientHeaders, openaiBody())
+		if status != http.StatusOK {
+			e.logBFEException()
+			t.Fatalf("expected status 200 (residual x-api-key must be dropped), got %d body=%s", status, body)
+		}
+		authHeaders := backend.AuthHeaders()
+		xApiKeys := backend.XApiKeyHeaders()
+		if len(authHeaders) != 1 || (authHeaders[0] != "Bearer "+bothOpenAIKey && authHeaders[0] != "Bearer "+bothAnthKey) {
+			t.Fatalf("expected Authorization to carry a cluster key, got auth=%v x-api-key=%v", authHeaders, xApiKeys)
+		}
+		if len(xApiKeys) != 1 || xApiKeys[0] != "" {
+			t.Fatalf("expected no x-api-key on the upstream request, got %v", xApiKeys)
+		}
+		if logData, err := os.ReadFile(filepath.Join(e.processEnv.WorkDir(), "log", "bfe.log")); err == nil {
+			if strings.Contains(string(logData), "auth failed (401), dead") {
+				t.Errorf("expected no dead key marking for a client credential header, bfe.log:\n%s", string(logData))
+			}
+		}
+	})
+
+	// Arm B: bailian-like upstream (Authorization wins and never falls back),
+	// kept as the symmetric counterpart: the cleanup must not break the
+	// upstream that authenticates by the injected Authorization.
+	t.Run("authorization_preferring_upstream", func(t *testing.T) {
+		e := newTestEnv(t)
+		defer e.Close()
+
+		backend := e.backends["cluster_both_protocols"]
+		backend.ResponseFunc = func(r *http.Request, _ int) (int, string) {
+			auth := r.Header.Get("Authorization")
+			if auth != "Bearer "+bothOpenAIKey && auth != "Bearer "+bothAnthKey {
+				return http.StatusUnauthorized, `{"error":{"message":"InvalidApiKey","type":"invalid_request_error"}}`
+			}
+			return http.StatusOK, openaiOKBody
+		}
+
+		status, body := postJSON(t, fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, pathOpenAI), hostBoth, clientHeaders, openaiBody())
+		if status != http.StatusOK {
+			e.logBFEException()
+			t.Fatalf("expected status 200, got %d body=%s", status, body)
+		}
+		if xApiKeys := backend.XApiKeyHeaders(); len(xApiKeys) != 1 || xApiKeys[0] != "" {
+			t.Fatalf("expected no x-api-key on the upstream request, got %v", xApiKeys)
+		}
+	})
+
+	// Arm C: anthropic style with a residual gemini header - the credential
+	// header that is not injected must be dropped as well.
+	t.Run("anthropic_style_residual_header", func(t *testing.T) {
+		e := newTestEnv(t)
+		defer e.Close()
+
+		backend := e.backends["cluster_both_protocols"]
+		status, body := postJSON(t, fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, pathAnthropic), hostBoth,
+			map[string]string{"x-api-key": apiKey, "x-goog-api-key": apiKey}, anthropicBody())
+		if status != http.StatusOK {
+			e.logBFEException()
+			t.Fatalf("expected status 200, got %d body=%s", status, body)
+		}
+		xApiKeys := backend.XApiKeyHeaders()
+		if len(xApiKeys) != 1 || (xApiKeys[0] != bothOpenAIKey && xApiKeys[0] != bothAnthKey) {
+			t.Fatalf("expected x-api-key to carry a cluster key, got %v", xApiKeys)
+		}
+		if xGoogKeys := backend.XGoogApiKeyHeaders(); len(xGoogKeys) != 1 || xGoogKeys[0] != "" {
+			t.Fatalf("expected no x-goog-api-key on the upstream request, got %v", xGoogKeys)
+		}
+		if authHeaders := backend.AuthHeaders(); len(authHeaders) != 1 || authHeaders[0] != "" {
+			t.Fatalf("expected no Authorization on the upstream request, got %v", authHeaders)
+		}
+	})
 }

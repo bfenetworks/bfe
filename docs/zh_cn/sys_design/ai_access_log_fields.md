@@ -244,6 +244,7 @@ message AIRouteRuleHit {
 - 从 `cluster.AIConf.Provider` 写入 `AiBasicInfo.Provider`；
 - 从 `cluster.AIConf.ModelTable.Currency` 写入 `AiBasicInfo.CostCurrency`；
 - 调用 `AiBasicInfo.AppendClusterKeyName(cluster.Name, selectedKey.Name)` 记录尝试；
+- 删除客户端带来的残留凭证头（`Authorization` / `x-api-key` / `x-goog-api-key` 中本次不注入的那些，在 `Header.Clone()` 后的副本上删除），保证出站请求只携带一个凭证头（issue #1447）；
 - 按 `AuthStyle` 调用 `mod_ai_token_auth.SetApiKey()` 注入 `Authorization: Bearer` 或 `x-api-key`；
 - Anthropic 风格下自动补 `anthropic-version: 2023-06-01`；
 - 在 `ModelMapping`、路由 target/fallback model override、provider prefix strip 后更新 `TargetModel`。

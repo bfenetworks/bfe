@@ -54,6 +54,13 @@ type ProtocolAdapter interface {
 	// An empty key is a no-op.
 	InjectAuth(outreq *bfe_http.Request, key string) error
 
+	// CredentialHeader returns the header InjectAuth writes the upstream
+	// credential into, in canonical form (e.g. "Authorization"). Together
+	// with the other adapters' credential headers it forms the set of client
+	// credential headers that must not survive into an outbound request
+	// carrying a gateway-injected credential (issue #1447).
+	CredentialHeader() string
+
 	// ExtraHeaders returns protocol-level supplementary headers (e.g.
 	// anthropic-version). It returns nil when there are none.
 	ExtraHeaders() map[string]string

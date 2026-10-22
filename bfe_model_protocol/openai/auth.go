@@ -29,3 +29,8 @@ func (a *Adapter) InjectAuth(outreq *bfe_http.Request, key string) error {
 	outreq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key))
 	return nil
 }
+
+// CredentialHeader returns the header InjectAuth writes, in canonical form.
+func (a *Adapter) CredentialHeader() string {
+	return "Authorization"
+}

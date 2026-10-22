@@ -124,7 +124,8 @@ BFE 在 `doSingleAIForward()` 中根据请求特征识别协议/认证风格（`
 
 1. **协议匹配校验**：比较 `AuthStyle` 与 `cluster.AIConf.ModelProtocols`，不匹配时直接返回 400 `PROVIDER_PROTOCOL_MISMATCH`；
 2. **认证头注入**：`mod_ai_token_auth.SetApiKey()` 按 `AuthStyle` 注入 `Authorization: Bearer`（OpenAI）或 `x-api-key`（Anthropic）（2026-09 起内部委托协议适配层 `bfe/bfe_model_protocol/` 的适配器 `InjectAuth`，见 `sys_design/model_protocol_adapter.md`）；
-3. **版本头注入**：Anthropic 风格下自动补 `anthropic-version: 2023-06-01`。
+3. **版本头注入**：Anthropic 风格下自动补 `anthropic-version: 2023-06-01`；
+4. **残留凭证头清理（互斥注入，issue #1447）**：网关接管上游凭证时（`selectedKey.Key != ""`），出站请求**只保留本次注入的那一个凭证头**，客户端带来的其它凭证头（`Authorization` / `x-api-key` / `x-goog-api-key`）一律删除；删除发生在 `Header.Clone()` 之后的副本上，**入站请求的 header 不被改写**（客户端凭证在鉴权、计费、日志脱敏、Key 亲和性 `clientKeySessionID` 上仍完整可用）。原因：上游对这三个头的优先级是 **provider 私有且方向相反**的（实测 kimi 认 `x-api-key`、bailian 认 `Authorization`），残留头会让上游用**客户端的**凭证鉴权 → 上游 401 → 被误判为该 Key 鉴权失败并写入惩罚键（1 个客户端即可打死整个集群）；**无 `Keys` 配置的集群（透传模式）不清理、不注入**，客户端凭证原样转发。
 
 `AIConf.ModelProtocols` 为空时默认仅支持 `openai`，保证旧配置向后兼容。
 
