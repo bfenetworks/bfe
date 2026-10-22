@@ -10,6 +10,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.8.8.6] - 2026-10-22
+
+### Fixed
+- Make the outbound credential headers mutually exclusive, so a client-supplied credential can no longer override the gateway-injected upstream key (issue #1447): once BFE takes ownership of the upstream credential (`selectedKey.Key != ""`), the outbound request keeps exactly the one credential header the request's `model_protocol` adapter injects and drops the others (`Authorization` / `x-api-key` / `x-goog-api-key`). Previously `InjectAuth` only overwrote its own header, so a client sending both `Authorization` and `x-api-key` left its gateway-level `x-api-key` on the outbound request; upstreams pick the credential by their own provider-private priority — kimi prefers `x-api-key` (and falls back to it), bailian prefers `Authorization` and never falls back — so kimi authenticated with the client token, answered 401 and that 401 was charged to the selected key: two requests from one client marked both kimi keys dead for 3600s, the cluster circuit-broke and every user was silently degraded to `bailian/deepseek-v4.1-flash` while the client still saw 200. The sanitize set is derived from the adapter registry (new `ProtocolAdapter.CredentialHeader()`), so a protocol added later is covered without maintaining a second list, and the deletion runs on a cloned header map so the inbound client credential stays available to authentication, billing, access-log masking and the key-affinity session id (side effect: the inbound `Authorization` is no longer overwritten with the upstream key). Clusters without configured keys (BYOK passthrough) are unaffected — no injection, no cleanup. Dropped header names (never values) are logged as `doSingleAIForward: drop client credential headers ...`
+
 ## [v1.8.8.5] - 2026-10-21
 
 ### Fixed
