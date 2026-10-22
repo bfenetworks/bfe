@@ -469,6 +469,15 @@ func TestTC05_AuthorizationPrecedence(t *testing.T) {
 		t.Fatalf("expected Authorization to carry a cluster key when both headers present, got auth=%v x-goog-api-key=%v",
 			authHeaders, backend.XGoogApiKeyHeaders())
 	}
+	// issue #1447: the client's residual x-goog-api-key must not reach the
+	// upstream - an upstream that prefers x-goog-api-key would otherwise
+	// authenticate with the client credential and answer 401.
+	if xGoogKeys := backend.XGoogApiKeyHeaders(); len(xGoogKeys) != 1 || xGoogKeys[0] != "" {
+		t.Fatalf("expected no x-goog-api-key on the upstream request, got %v", xGoogKeys)
+	}
+	if xApiKeys := backend.XApiKeyHeaders(); len(xApiKeys) != 1 || xApiKeys[0] != "" {
+		t.Fatalf("expected no x-api-key on the upstream request, got %v", xApiKeys)
+	}
 }
 
 // TestTC06 documents the reachability boundary of path-based protocol

@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -949,5 +950,69 @@ func TestIsAIClientAbort(t *testing.T) {
 		if isAIClientAbort(code) {
 			t.Errorf("expected %v NOT to be treated as client abort", code)
 		}
+	}
+}
+
+// TestSanitizeOutboundCredentials verifies issue #1447 at the forwarding
+// layer: the outbound request keeps exactly the credential header the adapter
+// is about to inject, the inbound request is left untouched (the aliased
+// header map is detached instead of mutated, like hopByHopHeaderRemove does),
+// and the dropped names are reported for logging.
+func TestSanitizeOutboundCredentials(t *testing.T) {
+	// Case 1: the outbound header map aliases the inbound one, exactly as
+	// after the shallow copy in doSingleAIForward.
+	inbound := &bfe_http.Request{Header: bfe_http.Header{}}
+	inbound.Header.Set("Authorization", "Bearer client-key")
+	inbound.Header.Set("x-api-key", "client-key")
+	inbound.Header.Set("Content-Type", "application/json")
+	outreq := new(bfe_http.Request)
+	*outreq = *inbound
+
+	dropped := sanitizeOutboundCredentials(outreq, "Authorization")
+	if want := []string{"X-Api-Key"}; !reflect.DeepEqual(dropped, want) {
+		t.Fatalf("expected %v dropped, got %v", want, dropped)
+	}
+	if got := outreq.Header.Get("x-api-key"); got != "" {
+		t.Errorf("expected x-api-key dropped from the outbound request, got %q", got)
+	}
+	if got := inbound.Header.Get("x-api-key"); got != "client-key" {
+		t.Errorf("the inbound client credential must stay intact, got %q", got)
+	}
+	if got := outreq.Header.Get("Authorization"); got != "Bearer client-key" {
+		t.Errorf("expected the keep header to survive, got %q", got)
+	}
+	if got := outreq.Header.Get("Content-Type"); got != "application/json" {
+		t.Errorf("expected unrelated headers to survive, got %q", got)
+	}
+
+	// Case 2: nothing to drop -> no detachment (no allocation) and nothing
+	// reported. The header map must still be the aliased one, which is
+	// observable by writing through the outbound map.
+	inbound2 := &bfe_http.Request{Header: bfe_http.Header{}}
+	inbound2.Header.Set("Authorization", "Bearer client-key")
+	outreq2 := new(bfe_http.Request)
+	*outreq2 = *inbound2
+
+	if dropped := sanitizeOutboundCredentials(outreq2, "Authorization"); dropped != nil {
+		t.Errorf("expected no dropped headers, got %v", dropped)
+	}
+	if got := outreq2.Header.Get("Authorization"); got != "Bearer client-key" {
+		t.Errorf("expected Authorization untouched, got %q", got)
+	}
+	outreq2.Header.Set("X-Same-Map", "1")
+	if got := inbound2.Header.Get("X-Same-Map"); got != "1" {
+		t.Error("expected the header map to stay aliased when nothing is dropped")
+	}
+
+	// Case 3: the anthropic and gemini adapters drop the other two headers.
+	outreq3 := new(bfe_http.Request)
+	outreq3.Header = bfe_http.Header{}
+	outreq3.Header.Set("Authorization", "Bearer client-key")
+	outreq3.Header.Set("x-goog-api-key", "client-key")
+	if dropped := sanitizeOutboundCredentials(outreq3, "X-Api-Key"); !reflect.DeepEqual(dropped, []string{"Authorization", "X-Goog-Api-Key"}) {
+		t.Errorf("expected [Authorization X-Goog-Api-Key] dropped, got %v", dropped)
+	}
+	if outreq3.Header.Get("Authorization") != "" || outreq3.Header.Get("x-goog-api-key") != "" {
+		t.Errorf("expected both foreign credentials dropped, got %v", outreq3.Header)
 	}
 }
