@@ -47,3 +47,9 @@ func TestExtraHeadersNil(t *testing.T) {
 		t.Errorf("expected nil ExtraHeaders for gemini, got %v", h)
 	}
 }
+
+func TestCredentialHeader(t *testing.T) {
+	if got := New().CredentialHeader(); got != "X-Goog-Api-Key" {
+		t.Errorf("unexpected CredentialHeader: %s", got)
+	}
+}

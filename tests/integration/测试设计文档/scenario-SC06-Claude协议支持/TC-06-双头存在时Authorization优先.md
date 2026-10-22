@@ -48,6 +48,8 @@ SC06 Claude 协议支持
 
 - 响应状态码：200。
 - upstream 收到的 `Authorization` 头携带集群 key（`Bearer sk-both-openai-key` 或 `Bearer sk-both-anthropic-key`）。
+- upstream 收到的 `x-api-key` **为空**：客户端残留的凭证头在出站方向被删除（issue #1447；网关接管上游凭证时只保留本次注入的那一个凭证头）。
+- upstream 未收到 `x-goog-api-key`。
 
 ## 清理
 

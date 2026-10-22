@@ -1620,6 +1620,24 @@ func maybeInjectStreamUsage(basicReq *bfe_basic.Request, aiMeta *bfe_basic.AiBas
 	return true
 }
 
+// sanitizeOutboundCredentials enforces issue #1447: an outbound request that
+// carries a gateway-injected credential must carry exactly that one. The
+// outbound header map aliases the inbound one (see the shallow copy in
+// doSingleAIForward), so the map is detached before deleting anything — the
+// client credential must stay intact on the inbound request (auth, billing,
+// access-log masking and the key-affinity session id all read it). It returns
+// the dropped header names so the caller can log them (names only, never
+// values).
+func sanitizeOutboundCredentials(outreq *bfe_http.Request, keep string) []string {
+	foreign := modelprotocol.ForeignCredentialHeaders(outreq.Header, keep)
+	if len(foreign) == 0 {
+		return nil
+	}
+	outreq.Header = outreq.Header.Clone()
+	modelprotocol.RemoveForeignCredentialHeaders(outreq.Header, keep)
+	return foreign
+}
+
 // doSingleAIForward performs a single AI forward attempt with the given key.
 func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.BfeCluster,
 	basicReq *bfe_basic.Request, rw bfe_http.ResponseWriter,
@@ -1758,6 +1776,16 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 			aiMeta.UpstreamKey = selectedKey.Key
 		}
 		if selectedKey.Key != "" {
+			// issue #1447: the gateway owns the upstream credential from here
+			// on, so the client's credential headers must not survive into the
+			// outbound request. Upstreams pick the credential by their own
+			// provider-private priority (kimi prefers x-api-key over
+			// Authorization), so a residual client header silently overrides
+			// the injected one and the resulting 401 is charged to this key.
+			if dropped := sanitizeOutboundCredentials(outreq, adapter.CredentialHeader()); len(dropped) > 0 {
+				log.Logger.Info("doSingleAIForward: drop client credential headers %v for cluster[%s], injected credential is %s",
+					dropped, cluster.Name, adapter.CredentialHeader())
+			}
 			if err := adapter.InjectAuth(outreq, selectedKey.Key); err != nil {
 				log.Logger.Warn("doSingleAIForward: inject auth failed: %v", err)
 			}
