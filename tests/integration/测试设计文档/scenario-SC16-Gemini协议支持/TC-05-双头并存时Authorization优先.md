@@ -32,3 +32,4 @@ POST `http://<bfe>/v1/chat/completions`，Host `both.example.org`，同时携带
 
 1. 响应 200。
 2. `cluster_both_protocols` 命中 1 次；上游 `Authorization` 为 `Bearer <cluster key>`（`sk-both-openai-key` 或 `goog-both-gemini-key` 均可，key 为加权随机选择）。
+3. 上游 `x-goog-api-key` **为空**：客户端残留的 `x-goog-api-key` 在出站方向被删除（issue #1447；网关接管上游凭证时只保留本次注入的那一个凭证头），`x-api-key` 亦为空。
