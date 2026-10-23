@@ -207,3 +207,38 @@ func TestBalTableReload(t *testing.T) {
 		return
 	}
 }
+
+func TestBalTableReloadEmptyClusterBackend(t *testing.T) {
+	gslbFile := "testdata/bal_table/case1/gslb.data"
+	backendFile := "testdata/bal_table/case1/cluster_table.data"
+
+	balTable := NewBalTable(nil)
+	if err := balTable.Init(gslbFile, backendFile); err != nil {
+		t.Fatalf("BalTableReloadEmpty: balTable.Init err %s", err)
+	}
+
+	gslbConf, err := gslb_conf.GslbConfLoad(gslbFile)
+	if err != nil {
+		t.Fatalf("BalTableReloadEmpty: load gslb err %s", err)
+	}
+
+	allClusterBackend := cluster_table_conf.AllClusterBackend{}
+	for clusterName := range *gslbConf.Clusters {
+		allClusterBackend[clusterName] = cluster_table_conf.ClusterBackend{}
+	}
+	version := "empty-pool"
+	backendConf := cluster_table_conf.ClusterTableConf{
+		Config:  &allClusterBackend,
+		Version: &version,
+	}
+
+	if err := balTable.BalTableReload(gslbConf, backendConf); err != nil {
+		t.Fatalf("BalTableReloadEmpty: BalTableReload err %s", err)
+	}
+
+	balState := balTable.GetState()
+	if balState.BackendNum != 0 {
+		t.Errorf("BalTableReloadEmpty: balState.BackendNum should be 0, not [%d]",
+			balState.BackendNum)
+	}
+}
