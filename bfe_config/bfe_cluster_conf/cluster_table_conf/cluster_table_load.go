@@ -24,10 +24,9 @@ import (
 	"os"
 	"reflect"
 	"sort"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_util/json"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 // BackendConf is conf of backend
@@ -177,7 +176,8 @@ func (s *SubClusterBackend) Check() error {
 	}
 
 	if !availBackend {
-		return fmt.Errorf("no avail backend")
+		log.Logger.Warn("subcluster has no avail backend, but let is pass")
+		//return fmt.Errorf("no avail backend")
 	}
 
 	return nil

@@ -533,6 +533,9 @@ func (bal *BalanceGslb) BackendInit(clusterBackend cluster_table_conf.ClusterBac
 	for _, subCluster := range bal.subClusters {
 		if backend, ok := clusterBackend[subCluster.Name]; ok {
 			subCluster.init(backend)
+		} else {
+			//can not find subcluster rs in cluster table
+			subCluster.init(cluster_table_conf.SubClusterBackend{})
 		}
 	}
 
@@ -631,6 +634,9 @@ func (bal *BalanceGslb) BackendReload(clusterBackend cluster_table_conf.ClusterB
 	for _, subCluster := range bal.subClusters {
 		if backend, ok := clusterBackend[subCluster.Name]; ok {
 			subCluster.update(backend)
+		} else {
+			//can not find subcluster rs in cluster table
+			subCluster.update(cluster_table_conf.SubClusterBackend{})
 		}
 	}
 
