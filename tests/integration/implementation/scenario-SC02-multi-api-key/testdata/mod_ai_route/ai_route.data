@@ -32,6 +32,17 @@
                             "Weight": 100
                         }
                     ]
+                },
+                {
+                    "name": "user_a-deadbackend",
+                    "Cond": "req_host_in(\"deadbackend.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_dead_backend",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ]
                 }
             ]
         }

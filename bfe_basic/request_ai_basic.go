@@ -803,7 +803,42 @@ func (aiError *AiError) CreateErrorResponse(request *Request) *bfe_http.Response
 	res.Header.Set("Server", "bfe")
 	res.Header.Set("Content-Type", "application/json")
 	res.Header.Set(HeaderBfeGwError, "1")
+	// issue #1441 (round 2): every gateway-generated error response carries a
+	// request correlation id (ai_error_codes.md §3.3), so clients can trace
+	// the response back to the access log (logid) and the key selection /
+	// penalty trail. CreateErrorResponse is the single common exit of all
+	// gateway-generated AI errors, so the headers are written here rather
+	// than at individual call sites.
+	setCorrelationHeaders(request, res.Header)
 	res.Body = ioutil.NopCloser(strings.NewReader(aiError.GenRespBodyStr()))
 	request.HttpResponse = res
 	return res
+}
+
+// setCorrelationHeaders writes the §3.3 correlation headers on a
+// gateway-generated error response: X-Bfe-Log-Id is always set (fallback
+// chain: req.LogId -> inbound X-Bfe-Log-Id header -> generated, back-filling
+// req.LogId and the request header so the access log carries the same id),
+// and a client-supplied X-Request-ID is echoed back byte-identical.
+func setCorrelationHeaders(request *Request, header bfe_http.Header) {
+	if request.HttpRequest == nil {
+		return
+	}
+	logId := request.LogId
+	if logId == "" {
+		logId = request.HttpRequest.Header.Get(HeaderBfeLogId)
+	}
+	if logId == "" {
+		logId = GenLogId()
+	}
+	if logId != "" {
+		header.Set(HeaderBfeLogId, logId)
+		if request.LogId == "" {
+			request.LogId = logId
+			request.HttpRequest.Header.Set(HeaderBfeLogId, logId)
+		}
+	}
+	if reqId := request.HttpRequest.Header.Get(HeaderXRequestId); reqId != "" {
+		header.Set(HeaderXRequestId, reqId)
+	}
 }

@@ -126,6 +126,17 @@ BFE 相关实现参考了 AI 网关错误返回码方案的整体思路，并依
 | `error.details.upstream_status` | int | 否 | 上游原始 HTTP 状态码（§2.5 上游归一错误时存在） |
 | `error.details.upstream_code` | string | 否 | 上游原始错误码（OpenAI `error.code` / Anthropic `error.type` / Gemini `error.status`），便于对照厂商文档 |
 
+### 3.3 响应关联头（issue #1441 第二轮裁定）
+
+所有**网关自生成**错误响应（`AiError.CreateErrorResponse` 路径，即带 `X-Bfe-Gw-Error: 1` 的响应）必须携带以下请求关联头，使客户端能把错误响应回溯到访问日志与 Key 选择/penalty 轨迹：
+
+| 响应头 | 规则 | 说明 |
+|--------|------|------|
+| `X-Bfe-Log-Id` | 恒写。取值回退链：`req.LogId` → 请求头既有 `X-Bfe-Log-Id` → 网关现场生成（63-bit 十进制） | 与访问日志 `logid` 字段逐值一致；后两种取值会回写 `req.LogId` 与请求头，保证日志侧同值 |
+| `X-Request-ID` | 客户端请求携带时原样回显（字节相等）；未携带则不生成 | 兼容 OpenAI 生态惯例，便于客户端侧关联 |
+
+不适用本节：上游正常响应、上游错误归一响应（§2.5，客户端可经上游自身标识关联）、客户端中断的空体 500（响应已不可达）。
+
 ## 4. 预留错误码
 
 以下错误码已在 `bfe_basic/request_ai_basic.go` 中定义，当前版本尚未主动返回：
@@ -157,6 +168,7 @@ BFE AI 访问日志通过 `mod_access_pb3` 输出以下与错误相关的字段�
 | `ai_auth_reject_reason` | 认证/配额拒绝时的错误码，对应本文档中的 `code` 字段 |
 
 > 说明：转发层产生的网关侧错误码（如 `NO_AVAILABLE_KEY`、`BACKEND_UNAVAILABLE`）**不写入** `ai_auth_reject_reason`（该字段语义为认证/配额拒绝），而是由 `err_code` 承载（issue #1441 裁定）；转发失败场景下 `err_code` 的既有值（`BK_NO_CLUSTER`、`BK_CONNECT_BACKEND` 等）保持不变。
+> 另：网关自生成错误响应携带 `X-Bfe-Log-Id`（与日志 `logid` 逐值一致）与回显的 `X-Request-ID`（§3.3），客户端可凭响应头直接定位本表日志行。
 | `ai_auth_reject_quota_plans` | 因配额不足被拒绝时，余量不足的 Quota Plan ID 列表 |
 | `ai_auth_hit_quota_plans` | 认证通过且余额充足的 Quota Plan ID 列表 |
 | `ai_rate_limit_hits` | 触发的限流策略及规则名列表 |

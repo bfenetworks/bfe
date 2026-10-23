@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -222,6 +223,12 @@ func (e *testEnv) logBFEException() {
 
 // sendRaw posts to the given path with the given credential header style.
 func (e *testEnv) sendRaw(path, apikey, credStyle string, body []byte) (*http.Response, string, error) {
+	return e.sendRawHeaders(path, apikey, credStyle, body, nil)
+}
+
+// sendRawHeaders is sendRaw plus extra request headers (used by the issue
+// #1441 round-2 correlation-header assertions).
+func (e *testEnv) sendRawHeaders(path, apikey, credStyle string, body []byte, headers map[string]string) (*http.Response, string, error) {
 	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, path)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
@@ -237,6 +244,9 @@ func (e *testEnv) sendRaw(path, apikey, credStyle string, body []byte) (*http.Re
 		req.Header.Set("Authorization", "Bearer "+apikey)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -249,6 +259,14 @@ func (e *testEnv) sendRaw(path, apikey, credStyle string, body []byte) (*http.Re
 		return nil, "", err
 	}
 	return resp, string(respBody), nil
+}
+
+// isDecimalLogIdInRange mirrors the access-log logid contract
+// (bfenetworks/bfe#1417): pure decimal, non-zero, fits the signed BIGINT of
+// the report databases.
+func isDecimalLogIdInRange(s string) bool {
+	v, err := strconv.ParseUint(s, 10, 64)
+	return err == nil && v > 0 && v <= uint64(1)<<63-1
 }
 
 func (e *testEnv) sendChat(apikey string, body []byte) (*http.Response, string, error) {
@@ -782,7 +800,8 @@ func TestTC09_GatewayGeneratedSkipped(t *testing.T) {
 	e := newTestEnv(t, enabledConf(), nil)
 	defer e.Close()
 
-	resp, body, err := e.sendChat(denyKey, chatBody)
+	resp, body, err := e.sendRawHeaders(apiPath, denyKey, "bearer", chatBody,
+		map[string]string{"X-Request-ID": "sc27tc09-req-id"})
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -803,6 +822,16 @@ func TestTC09_GatewayGeneratedSkipped(t *testing.T) {
 		t.Errorf("rejected request must not reach the backend, hits=%d", e.errBk.Hits())
 	}
 
+	// issue #1441 round 2: §3.3 correlation headers on this auth-rejection
+	// error too (auth representative proving this is not a 429-only patch).
+	respLogId := resp.Header.Get("X-Bfe-Log-Id")
+	if !isDecimalLogIdInRange(respLogId) {
+		t.Errorf("expected non-empty decimal X-Bfe-Log-Id, got %q", respLogId)
+	}
+	if rid := resp.Header.Get("X-Request-ID"); rid != "sc27tc09-req-id" {
+		t.Errorf("expected echoed X-Request-ID %q, got %q", "sc27tc09-req-id", rid)
+	}
+
 	reqLogs := e.stopAndLogs()
 	if len(reqLogs) != 1 {
 		t.Fatalf("expected 1 access log, got %d", len(reqLogs))
@@ -810,6 +839,26 @@ func TestTC09_GatewayGeneratedSkipped(t *testing.T) {
 	log := reqLogs[0]
 	if log.AiErrNormalized != nil || log.AiErrNormalizeMiss != nil || log.AiUpstreamStatus != nil {
 		t.Errorf("normalization fields must stay unset for local errors: %+v", log)
+	}
+
+	// The response header and the access-log logid must be the same id:
+	// the gateway back-fills req.LogId, so mod_access_pb3 does not fall
+	// back to its local regeneration (bfenetworks/bfe#1441 round 2).
+	bfeLogs, err := common.ParseBfeLogsAfterStop(e.logDir)
+	if err != nil {
+		t.Fatalf("parse bfe logs failed: %v", err)
+	}
+	reqBfeLogs := make([]*bfe_access_pb.BfeLog, 0, 1)
+	for _, bl := range bfeLogs {
+		if bl.GetLogType() == bfe_access_pb.BfeLogType_Request && bl.RequestLog != nil {
+			reqBfeLogs = append(reqBfeLogs, bl)
+		}
+	}
+	if len(reqBfeLogs) != 1 {
+		t.Fatalf("expected 1 request bfe log, got %d", len(reqBfeLogs))
+	}
+	if got := strconv.FormatUint(reqBfeLogs[0].GetLogid(), 10); got != respLogId {
+		t.Errorf("access log logid %q must equal response X-Bfe-Log-Id %q", got, respLogId)
 	}
 }
 

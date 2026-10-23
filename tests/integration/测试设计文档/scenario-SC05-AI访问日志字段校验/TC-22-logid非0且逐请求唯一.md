@@ -69,6 +69,6 @@ mock 后端 `cluster_rmb` 返回 `200` 与标准 usage：
 
 ## 说明与边界
 
-- **本场景未覆盖的部分**：`mod_logid` 正常启用时「`logid` 与 `X-Bfe-Log-Id` 字符串逐值恒等」由单元测试断言（`bfe_modules/mod_access_pb3/logid_test.go` 的 `TestRequestLogGenLogidParsed`、`bfe_modules/mod_logid/mod_logid_test.go` 的 `TestGenLogId`），集成测试侧不做该断言——BFE 只在**请求 header** 上设置 `X-Bfe-Log-Id`，客户端（非信任源）无法读到该值，无法在集成层构造恒等比对。
+- **本场景未覆盖的部分**：`mod_logid` 正常启用时「`logid` 与 `X-Bfe-Log-Id` 字符串逐值恒等」由单元测试断言（`bfe_modules/mod_access_pb3/logid_test.go` 的 `TestRequestLogGenLogidParsed`、`bfe_modules/mod_logid/mod_logid_test.go` 的 `TestGenLogId`），集成测试侧不做该断言——正常响应不在响应头暴露 `X-Bfe-Log-Id`，客户端（非信任源）无法读到该值，无法在集成层构造恒等比对。（issue #1441 第二轮起，**网关自生成错误响应**已在响应头携带 `X-Bfe-Log-Id`，其响应-日志恒等由 SC27/TC-09 断言；本 TC 针对的是正常 200 响应路径，边界不变。）
 - **报表库侧**：本 TC 只断言 pb 日志；「同秒并发 n 请求 → 明细表 n 行」由 log-reader `scenario-LR03-mysql-write` 新增用例断言（需要 `ai-gateway-api` DDL 把 `logid` 加入 `uk_dedup`）。
 - **相关设计文档**：`docs/zh_cn/modifications/2026-10-13-issue-1417-logid-dedup-fix/design-changes.md`。

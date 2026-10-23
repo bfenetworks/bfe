@@ -26,6 +26,7 @@ import (
 const (
 	HeaderBfeIP         = "X-Bfe-Ip"
 	HeaderBfeLogId      = "X-Bfe-Log-Id"
+	HeaderXRequestId    = "X-Request-ID"
 	HeaderForwardedHost = "X-Forwarded-Host"
 	HeaderForwardedFor  = "X-Forwarded-For"
 	HeaderForwardedPort = "X-Forwarded-Port"

@@ -17,13 +17,8 @@
 package mod_logid
 
 import (
-	"crypto/rand"
-	"encoding/binary"
 	"fmt"
-	"strconv"
-)
 
-import (
 	"github.com/bfenetworks/go-lib/web-monitor/metrics"
 	"github.com/bfenetworks/go-lib/web-monitor/web_monitor"
 )
@@ -83,7 +78,7 @@ func (m *ModuleLogId) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 }
 
 func (m *ModuleLogId) sessionIdHandler(session *bfe_basic.Session) int {
-	session.SessionId = genLogId()
+	session.SessionId = bfe_basic.GenLogId()
 
 	return bfe_module.BfeHandlerGoOn
 }
@@ -101,7 +96,7 @@ func (m *ModuleLogId) requestIdHandler(req *bfe_basic.Request) (int, *bfe_http.R
 	}
 
 	// generate a new log id
-	req.LogId = genLogId()
+	req.LogId = bfe_basic.GenLogId()
 	req.HttpRequest.Header.Set(bfe_basic.HeaderBfeLogId, req.LogId)
 	return bfe_module.BfeHandlerGoOn, nil
 }
@@ -109,27 +104,4 @@ func (m *ModuleLogId) requestIdHandler(req *bfe_basic.Request) (int, *bfe_http.R
 func (m *ModuleLogId) getState(params map[string][]string) ([]byte, error) {
 	s := m.metrics.GetAll()
 	return s.Format(params)
-}
-
-// genLogId generates the unified log id shared by the session id, the request
-// log id and the X-Bfe-Log-Id header.
-//
-// Format (bfenetworks/bfe#1417): a decimal string denoting a value in
-// [1, 2^63-1]. The access log carries the same value as a uint64
-// (`BfeLog.logid`), so the string must be convertible without truncation; the
-// previous 32-char hex format (128 bits) could not fit that field and was
-// silently written as 0, which turned the report table's dedup key into a
-// same-second overwrite (n-1 of n concurrent rows lost).
-//
-// The value is masked to 63 bits on purpose: logid is stored as a signed
-// BIGINT on MySQL / Doris / StarRocks, and an out-of-range value would be
-// truncated to the boundary value by Doris (non-strict), making every high-bit
-// row collide, or reject the whole batch on MySQL (Error 1264).
-func genLogId() string {
-	b := make([]byte, 8)
-	_, err := rand.Read(b)
-	if err != nil {
-		return ""
-	}
-	return strconv.FormatUint(binary.LittleEndian.Uint64(b)&0x7FFFFFFFFFFFFFFF, 10)
 }

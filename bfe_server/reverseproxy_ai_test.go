@@ -800,6 +800,7 @@ func TestAiClusterInvokeExhaustionReturnsSynthetic429(t *testing.T) {
 		Header: bfe_http.Header{},
 		Body:   ioutil.NopCloser(strings.NewReader(`{"model":"m"}`)),
 	}
+	httpReq.Header.Set(bfe_basic.HeaderXRequestId, "tc09-req-id")
 	basicReq := &bfe_basic.Request{HttpRequest: httpReq, Connection: conn}
 
 	rp := NewReverseProxy(nil, new(ProxyState))
@@ -836,6 +837,16 @@ func TestAiClusterInvokeExhaustionReturnsSynthetic429(t *testing.T) {
 	// normalizeUpstreamError (AIConf.NormalizeUpstreamError) leaves it alone.
 	if res.Header.Get(bfe_basic.HeaderBfeGwError) != "1" {
 		t.Errorf("expected %s header on gateway-generated synthetic 429", bfe_basic.HeaderBfeGwError)
+	}
+	// issue #1441 (round 2): correlation headers (ai_error_codes.md §3.3) so
+	// the client can trace this error back to the access log (logid) and the
+	// key selection/penalty trail.
+	if got := res.Header.Get(bfe_basic.HeaderBfeLogId); got == "" || got != basicReq.LogId {
+		t.Errorf("expected non-empty %s back-filled into basicReq.LogId, got header %q logid %q",
+			bfe_basic.HeaderBfeLogId, got, basicReq.LogId)
+	}
+	if got := res.Header.Get(bfe_basic.HeaderXRequestId); got != "tc09-req-id" {
+		t.Errorf("expected echoed X-Request-ID %q, got %q", "tc09-req-id", got)
 	}
 	// issue #1441: unified AiError body with error.code (§3.2 必填),
 	// retry_after_seconds detail and a Retry-After header.
@@ -963,6 +974,7 @@ func TestChooseAIKeyWithAffinity_CircuitBreak(t *testing.T) {
 // 500.
 func TestBackendUnavailableErrorResponseContract(t *testing.T) {
 	basicReq := &bfe_basic.Request{HttpRequest: &bfe_http.Request{Header: bfe_http.Header{}}}
+	basicReq.HttpRequest.Header.Set(bfe_basic.HeaderXRequestId, "be-req-id")
 	res := bfe_basic.NewAiError(bfe_basic.CodeBackendUnavailable, bfe_basic.TypeInternalError,
 		"upstream backend unavailable for this request").CreateErrorResponse(basicReq)
 
@@ -976,6 +988,15 @@ func TestBackendUnavailableErrorResponseContract(t *testing.T) {
 	// Retry-After header (only the key-exhaustion call site sets it).
 	if res.Header.Get("Retry-After") != "" {
 		t.Errorf("BACKEND_UNAVAILABLE must not carry Retry-After, got %q", res.Header.Get("Retry-After"))
+	}
+	// issue #1441 (round 2): the same correlation headers as every other
+	// gateway-generated error (proof this is not a 429-only patch).
+	if got := res.Header.Get(bfe_basic.HeaderBfeLogId); got == "" || got != basicReq.LogId {
+		t.Errorf("expected non-empty %s back-filled into basicReq.LogId, got header %q logid %q",
+			bfe_basic.HeaderBfeLogId, got, basicReq.LogId)
+	}
+	if got := res.Header.Get(bfe_basic.HeaderXRequestId); got != "be-req-id" {
+		t.Errorf("expected echoed X-Request-ID %q, got %q", "be-req-id", got)
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
