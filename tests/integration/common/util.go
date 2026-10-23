@@ -189,6 +189,8 @@ func clusterSubName(clusterName string) string {
 		return "usage_snapshot"
 	case "cluster_nested_usage":
 		return "nested_usage"
+	case "cluster_dead_backend":
+		return "dead"
 	}
 	return "sub"
 }

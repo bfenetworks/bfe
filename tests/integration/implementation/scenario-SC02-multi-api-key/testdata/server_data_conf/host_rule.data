@@ -3,7 +3,8 @@
     "Hosts": {
         "ai_product": [
             "multikey.example.org",
-            "multikey-nofallback.example.org"
+            "multikey-nofallback.example.org",
+            "deadbackend.example.org"
         ]
     },
     "HostTags": {

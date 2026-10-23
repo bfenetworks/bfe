@@ -176,9 +176,11 @@ func TestRequestIdHandler(t *testing.T) {
 }
 
 func TestGenLogId(t *testing.T) {
-	logId := genLogId()
+	// generator moved to bfe_basic.GenLogId (bfenetworks/bfe#1441 round 2);
+	// mod_logid keeps a thin conformance test on the shared implementation.
+	logId := bfe_basic.GenLogId()
 	if !isDecimalLogId(logId) {
-		t.Errorf("genLogId() = %q, want decimal log id (<= 2^63-1)", logId)
+		t.Errorf("GenLogId() = %q, want decimal log id (<= 2^63-1)", logId)
 	}
 
 	// the conversion into the uint64 access-log field must be lossless
@@ -188,16 +190,16 @@ func TestGenLogId(t *testing.T) {
 		t.Fatalf("ParseUint(%q) error: %v", logId, err)
 	}
 	if v == 0 {
-		t.Errorf("genLogId() = %q, want non-zero value", logId)
+		t.Errorf("GenLogId() = %q, want non-zero value", logId)
 	}
 	if strconv.FormatUint(v, 10) != logId {
 		t.Errorf("FormatUint(ParseUint(%q)) = %q, want identity", logId, strconv.FormatUint(v, 10))
 	}
 
 	// two generated ids should differ with overwhelming probability
-	another := genLogId()
+	another := bfe_basic.GenLogId()
 	if another == logId {
-		t.Errorf("genLogId() returned duplicate value %q", logId)
+		t.Errorf("GenLogId() returned duplicate value %q", logId)
 	}
 }
 
