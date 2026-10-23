@@ -1017,6 +1017,86 @@ func TestBackendUnavailableErrorResponseContract(t *testing.T) {
 	}
 }
 
+// TestAIGatewayFailureResponseNoBackend verifies issue #1453: a gateway-side
+// failure whose balance layer reported ErrBkNoBackend keeps the
+// BK_NO_BACKEND business contract (500) instead of being rewritten into the
+// #1441 BACKEND_UNAVAILABLE / 502 contract, so "empty pool" stays
+// distinguishable from "backend failure". Every other error code keeps the
+// #1441 contract.
+func TestAIGatewayFailureResponseNoBackend(t *testing.T) {
+	if bfe_basic.CodeNoBackend != bfe_basic.ErrBkNoBackend.Error() {
+		t.Fatalf("CodeNoBackend %q must match the balance-layer sentinel %q",
+			bfe_basic.CodeNoBackend, bfe_basic.ErrBkNoBackend.Error())
+	}
+
+	decode := func(t *testing.T, res *bfe_http.Response) bfe_basic.AiErrorBody {
+		t.Helper()
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			t.Fatalf("read body failed: %v", err)
+		}
+		var aiErrBody bfe_basic.AiErrorBody
+		if jsonErr := json.Unmarshal(body, &aiErrBody); jsonErr != nil {
+			t.Fatalf("body is not a unified AiError JSON: %v, body: %s", jsonErr, body)
+		}
+		return aiErrBody
+	}
+
+	t.Run("no backend", func(t *testing.T) {
+		basicReq := &bfe_basic.Request{
+			HttpRequest: &bfe_http.Request{Header: bfe_http.Header{}},
+			ErrCode:     bfe_basic.ErrBkNoBackend,
+		}
+		basicReq.HttpRequest.Header.Set(bfe_basic.HeaderXRequestId, "no-backend-req-id")
+		res := aiGatewayFailureResponse(basicReq)
+
+		if res.StatusCode != 500 {
+			t.Fatalf("expected status 500, got %d", res.StatusCode)
+		}
+		if got := res.Header.Get(bfe_basic.HeaderBfeGwError); got != "1" {
+			t.Errorf("expected gateway-generated marker, got %q", got)
+		}
+		if got := res.Header.Get(bfe_basic.HeaderXRequestId); got != "no-backend-req-id" {
+			t.Errorf("expected echoed X-Request-ID, got %q", got)
+		}
+		if got := res.Header.Get("Retry-After"); got != "" {
+			t.Errorf("BK_NO_BACKEND must not carry Retry-After, got %q", got)
+		}
+		aiErrBody := decode(t, res)
+		if aiErrBody.Error.Code != bfe_basic.CodeNoBackend {
+			t.Errorf("expected error.code %q, got %q", bfe_basic.CodeNoBackend, aiErrBody.Error.Code)
+		}
+		if aiErrBody.Error.Type != bfe_basic.TypeInternalError {
+			t.Errorf("expected error.type %q, got %q", bfe_basic.TypeInternalError, aiErrBody.Error.Type)
+		}
+	})
+
+	t.Run("backend failure keeps unified contract", func(t *testing.T) {
+		basicReq := &bfe_basic.Request{
+			HttpRequest: &bfe_http.Request{Header: bfe_http.Header{}},
+			ErrCode:     bfe_basic.ErrBkConnectBackend,
+		}
+		res := aiGatewayFailureResponse(basicReq)
+
+		if res.StatusCode != 502 {
+			t.Fatalf("expected status 502, got %d", res.StatusCode)
+		}
+		aiErrBody := decode(t, res)
+		if aiErrBody.Error.Code != bfe_basic.CodeBackendUnavailable {
+			t.Errorf("expected error.code %q, got %q", bfe_basic.CodeBackendUnavailable, aiErrBody.Error.Code)
+		}
+	})
+
+	t.Run("no error code keeps unified contract", func(t *testing.T) {
+		basicReq := &bfe_basic.Request{HttpRequest: &bfe_http.Request{Header: bfe_http.Header{}}}
+		res := aiGatewayFailureResponse(basicReq)
+
+		if res.StatusCode != 502 {
+			t.Fatalf("expected status 502, got %d", res.StatusCode)
+		}
+	})
+}
+
 // TestIsAIClientAbort verifies the issue #1441 boundary predicate: only
 // client-write/close/reset sentinels keep the legacy bare-500 record; other
 // error codes (backend failures, exhaustion) get the unified AiError body.

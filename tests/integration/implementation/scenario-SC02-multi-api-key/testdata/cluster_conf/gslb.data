@@ -11,6 +11,10 @@
         "cluster_dead_backend": {
             "GSLB_BLACKHOLE": 0,
             "sub_dead": 100
+        },
+        "cluster_empty_backend": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_empty": 100
         }
     },
     "hostname": "gslb-test",

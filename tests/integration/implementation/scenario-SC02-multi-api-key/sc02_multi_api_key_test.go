@@ -32,18 +32,20 @@ import (
 )
 
 const (
-	apiHost           = "multikey.example.org"
-	apiHostNoFallback = "multikey-nofallback.example.org"
-	apiHostDeadBackend = "deadbackend.example.org"
-	apiPath           = "/v1/chat/completions"
-	apiKey            = "ak_user_a"
-	keyA              = "sk-key-a"
-	keyB              = "sk-key-b"
-	keyC              = "sk-key-c"
+	apiHost             = "multikey.example.org"
+	apiHostNoFallback   = "multikey-nofallback.example.org"
+	apiHostDeadBackend  = "deadbackend.example.org"
+	apiHostEmptyBackend = "emptybackend.example.org"
+	apiPath             = "/v1/chat/completions"
+	apiKey              = "ak_user_a"
+	keyA                = "sk-key-a"
+	keyB                = "sk-key-b"
+	keyC                = "sk-key-c"
 
-	clusterMultiKey    = "cluster_multi_key"
-	clusterFallbackOK  = "cluster_fallback_ok"
-	clusterDeadBackend = "cluster_dead_backend"
+	clusterMultiKey     = "cluster_multi_key"
+	clusterFallbackOK   = "cluster_fallback_ok"
+	clusterDeadBackend  = "cluster_dead_backend"
+	clusterEmptyBackend = "cluster_empty_backend"
 )
 
 var defaultBody = []byte(`{"model":"gpt-4"}`)
@@ -82,10 +84,15 @@ func newTestEnv(t *testing.T, aiConf *cluster_conf.AIConf) *testEnv {
 		TargetConfDir: confDir,
 		Backends:      e.backends,
 		AIConfs:       aiConfs,
-		// cluster_dead_backend (TC-10) is declared in the shared testdata
-		// gslb.data; every env must give it a cluster_table entry or BFE
-		// startup fails with "no backend conf". Only TC-10 routes to it.
-		StaticBackends: map[string]string{clusterDeadBackend: "127.0.0.1:1"},
+		// cluster_dead_backend (TC-10) and cluster_empty_backend (TC-11) are
+		// declared in the shared testdata gslb.data; every env must give them
+		// a cluster_table entry or BFE startup fails with "no backend conf".
+		// Only the owning testcase routes to each. An empty address keeps the
+		// cluster's sub-cluster with zero backends.
+		StaticBackends: map[string]string{
+			clusterDeadBackend:  "127.0.0.1:1",
+			clusterEmptyBackend: "",
+		},
 	}
 	if err := builder.Build(); err != nil {
 		t.Fatalf("build bfe config failed: %v", err)
@@ -729,6 +736,58 @@ func TestTC10_GatewaySideFailureSynthesized502(t *testing.T) {
 	}
 }
 
+// TestTC11 verifies issue #1453: a cluster whose instance pool is validly
+// empty (sub-cluster present, zero backends) makes the balance layer report
+// BK_NO_BACKEND. The gateway failure exit must keep that business contract
+// (HTTP 500, error.code=BK_NO_BACKEND) instead of rewriting it into the
+// #1441 BACKEND_UNAVAILABLE/502 contract, so "capacity exhausted" stays
+// distinguishable from "backend failure". No backend identity headers are
+// set and no upstream receives the request.
+func TestTC11_EmptyInstancePoolReturnsBKNoBackend(t *testing.T) {
+	e := newEmptyBackendEnv(t)
+	defer e.Close()
+
+	resp, body, err := e.sendRequestToHostWithHeaders(apiHostEmptyBackend, defaultBody,
+		map[string]string{"X-Request-ID": "tc11-req-id"})
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusInternalServerError {
+		e.logBFEException()
+		t.Fatalf("expected status 500, got %d, body: %s", resp.StatusCode, body)
+	}
+	if !strings.Contains(body, `"code":"BK_NO_BACKEND"`) {
+		t.Errorf("expected JSON error body with code BK_NO_BACKEND, got: %s", body)
+	}
+	if !strings.Contains(body, `"type":"internal_error"`) {
+		t.Errorf("expected JSON error body with type internal_error, got: %s", body)
+	}
+	if got := resp.Header.Get("X-Bfe-Gw-Error"); got != "1" {
+		t.Errorf("expected X-Bfe-Gw-Error: 1 on gateway-generated response, got %q", got)
+	}
+	if got := resp.Header.Get("X-Backend-ID"); got != "" {
+		t.Errorf("BK_NO_BACKEND must not carry X-Backend-ID, got %q", got)
+	}
+	if got := resp.Header.Get("X-Rule-Name"); got != "" {
+		t.Errorf("BK_NO_BACKEND must not carry X-Rule-Name, got %q", got)
+	}
+	if ra := resp.Header.Get("Retry-After"); ra != "" {
+		t.Errorf("BK_NO_BACKEND must not carry Retry-After, got %q", ra)
+	}
+	if logId := resp.Header.Get("X-Bfe-Log-Id"); !isDecimalLogIdInRange(logId) {
+		t.Errorf("expected non-empty decimal X-Bfe-Log-Id, got %q", logId)
+	}
+	if rid := resp.Header.Get("X-Request-ID"); rid != "tc11-req-id" {
+		t.Errorf("expected echoed X-Request-ID %q, got %q", "tc11-req-id", rid)
+	}
+	if hits := e.backends[clusterMultiKey].Hits(); hits != 0 {
+		t.Errorf("expected 0 hits on cluster_multi_key, got %d", hits)
+	}
+	if !e.bfeLogContains("BK_NO_BACKEND") {
+		t.Error("expected BK_NO_BACKEND recorded in bfe.log")
+	}
+}
+
 // newDeadBackendEnv builds an env whose route host deadbackend.example.org
 // targets cluster_dead_backend, a cluster whose single backend address has
 // no listener (connection refused on dial).
@@ -766,11 +825,58 @@ func newDeadBackendEnv(t *testing.T) *testEnv {
 	}
 
 	builder := &common.BFEConfigBuilder{
-		TemplateDir:    "testdata",
-		TargetConfDir:  confDir,
-		Backends:       e.backends,
-		AIConfs:        map[string]*cluster_conf.AIConf{clusterDeadBackend: deadAIConf},
-		StaticBackends: map[string]string{clusterDeadBackend: deadAddr},
+		TemplateDir:   "testdata",
+		TargetConfDir: confDir,
+		Backends:      e.backends,
+		AIConfs:       map[string]*cluster_conf.AIConf{clusterDeadBackend: deadAIConf},
+		StaticBackends: map[string]string{
+			clusterDeadBackend:  deadAddr,
+			clusterEmptyBackend: "",
+		},
+	}
+	if err := builder.Build(); err != nil {
+		t.Fatalf("build bfe config failed: %v", err)
+	}
+
+	e.bfePort, _, e.stopBFE = e.processEnv.StartBFE(confDir, logDir)
+	return e
+}
+
+// newEmptyBackendEnv builds an env whose route host emptybackend.example.org
+// targets cluster_empty_backend, a cluster whose sub-cluster exists but has
+// zero backends (the validly-empty instance pool of issue #1453).
+func newEmptyBackendEnv(t *testing.T) *testEnv {
+	e := &testEnv{
+		t:        t,
+		backends: make(map[string]*common.MockBackend),
+	}
+
+	e.backends[clusterMultiKey] = common.NewMockBackend(clusterMultiKey, http.StatusOK, `{"ok":true}`)
+	e.backends[clusterFallbackOK] = common.NewMockBackend(clusterFallbackOK, http.StatusOK, `{"ok":true}`)
+
+	e.processEnv = common.NewProcessEnv(t)
+	e.processEnv.Build()
+
+	confDir := filepath.Join(e.processEnv.WorkDir(), "conf")
+	logDir := filepath.Join(e.processEnv.WorkDir(), "log")
+
+	emptyAIConf := &cluster_conf.AIConf{
+		Type: 0,
+		Keys: []cluster_conf.AIKey{
+			{Name: "key-empty", Key: "sk-key-empty", Weight: 100},
+		},
+		KeyPolicy: &cluster_conf.AIKeyPolicy{MaxRetries: 0},
+	}
+
+	builder := &common.BFEConfigBuilder{
+		TemplateDir:   "testdata",
+		TargetConfDir: confDir,
+		Backends:      e.backends,
+		AIConfs:       map[string]*cluster_conf.AIConf{clusterEmptyBackend: emptyAIConf},
+		StaticBackends: map[string]string{
+			clusterDeadBackend:  "127.0.0.1:1",
+			clusterEmptyBackend: "",
+		},
 	}
 	if err := builder.Build(); err != nil {
 		t.Fatalf("build bfe config failed: %v", err)

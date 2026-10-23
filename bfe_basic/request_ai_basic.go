@@ -582,6 +582,12 @@ const (
 
 	CodeConfigLoadError    = "CONFIG_LOAD_ERROR"
 	CodeBackendUnavailable = "BACKEND_UNAVAILABLE"
+	// Gateway-side capacity exhaustion with a legitimately empty instance
+	// pool (issue #1453): the balance layer already reported BK_NO_BACKEND,
+	// so the response keeps that business code instead of collapsing it into
+	// BACKEND_UNAVAILABLE. Clients can then tell "no capacity" apart from
+	// "backend failure".
+	CodeNoBackend          = "BK_NO_BACKEND"
 	CodeInvalidRequestBody = "INVALID_REQUEST_BODY"
 	CodeModelParamMissing  = "MODEL_PARAM_MISSING"
 
@@ -632,6 +638,7 @@ var ErrorCodeToStatusCode = map[string]int{
 
 	CodeConfigLoadError:    500,
 	CodeBackendUnavailable: 502,
+	CodeNoBackend:          500,
 	CodeInvalidRequestBody: 400,
 	CodeModelParamMissing:  400,
 
@@ -687,6 +694,7 @@ var ErrorCodeToErrorType = map[string]string{
 
 	CodeConfigLoadError:    TypeInternalError,
 	CodeBackendUnavailable: TypeInternalError,
+	CodeNoBackend:          TypeInternalError,
 	CodeInvalidRequestBody: TypeInvalidRequestError,
 	CodeModelParamMissing:  TypeInvalidRequestError,
 
