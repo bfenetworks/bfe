@@ -1393,13 +1393,8 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 
 		// Gateway-side failure with a live client (no cluster found, backend
 		// connect/transport error, ...): return the unified AiError body
-		// instead of an empty-body 500 (issue #1441). The message is generic
-		// on purpose - internal topology (host/port) must not leak to
-		// clients; the detail stays in bfe.log and in err_code/err_msg.
-		// AiError.CreateErrorResponse marks the response as gateway-generated
-		// (X-Bfe-Gw-Error), so normalizeUpstreamError skips it.
-		res = bfe_basic.NewAiError(bfe_basic.CodeBackendUnavailable, bfe_basic.TypeInternalError,
-			"upstream backend unavailable for this request").CreateErrorResponse(basicReq)
+		// instead of an empty-body 500 (issue #1441).
+		res = aiGatewayFailureResponse(basicReq)
 		basicReq.BfeStatusCode = res.StatusCode
 		goto response_got
 	}
@@ -2050,6 +2045,27 @@ var aiFallbackStatusCodes = map[int]struct{}{
 // gateway-generated NO_AVAILABLE_KEY response (issue #1441), so the write side
 // and the retry hint share a single source.
 const aiKeyPenaltyTTL429 = 60
+
+// aiGatewayFailureResponse builds the unified AiError response for a
+// gateway-side failure with a live client (issue #1441). A request that the
+// balance layer rejected with ErrBkNoBackend keeps the BK_NO_BACKEND business
+// contract (HTTP 500, providers.md "effective pool" clause, issue #1453):
+// an empty instance pool is capacity exhaustion, not a backend fault, and
+// clients/alerts must be able to tell them apart. Every other failure keeps
+// the BACKEND_UNAVAILABLE / 502 contract.
+//
+// AiError.CreateErrorResponse marks the response as gateway-generated
+// (X-Bfe-Gw-Error), so normalizeUpstreamError skips it. The messages are
+// generic on purpose - internal topology (host/port) must not leak to
+// clients; the detail stays in bfe.log and in err_code/err_msg.
+func aiGatewayFailureResponse(basicReq *bfe_basic.Request) *bfe_http.Response {
+	if basicReq.ErrCode == bfe_basic.ErrBkNoBackend {
+		return bfe_basic.NewAiError(bfe_basic.CodeNoBackend, bfe_basic.TypeInternalError,
+			"no available backend for this request").CreateErrorResponse(basicReq)
+	}
+	return bfe_basic.NewAiError(bfe_basic.CodeBackendUnavailable, bfe_basic.TypeInternalError,
+		"upstream backend unavailable for this request").CreateErrorResponse(basicReq)
+}
 
 // isAIClientAbort reports whether the request failed because the client went
 // away or the response could not be written (issue #1441). For such requests
