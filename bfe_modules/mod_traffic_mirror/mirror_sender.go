@@ -134,7 +134,15 @@ func (s *mirrorSender) exec(task *mirrorTask) {
 		return
 	}
 
-	resp, ttfb, err := s.doWithLayeredTimeout(task, target)
+	// The total deadline must cover send + TTFB + body drain, so the context
+	// lives until the drain below completes. (Letting doWithLayeredTimeout
+	// own the cancel raced the drain: resp.Body reads started failing as
+	// soon as the function returned, truncating SSE parsing whenever the
+	// body wasn't fully buffered yet — the SC21 TC-08 CI flake.)
+	ctx, cancel := context.WithTimeout(context.Background(), s.totalTimeout)
+	defer cancel()
+
+	resp, ttfb, err := s.doWithLayeredTimeout(ctx, cancel, task, target)
 	if err != nil {
 		s.onFail(task, "send", err)
 		return
@@ -189,11 +197,9 @@ func (s *mirrorSender) resolveTarget(task *mirrorTask) (string, error) {
 
 // doWithLayeredTimeout sends the mirror request with three layered timeouts
 // (FR-9): connect (dialer), first byte (hard cancel timer) and total
-// (context). It returns the response and the observed time to first byte.
-func (s *mirrorSender) doWithLayeredTimeout(task *mirrorTask, target string) (*http.Response, time.Duration, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), s.totalTimeout)
-	defer cancel()
-
+// (caller-owned context, which must also cover the response drain).
+func (s *mirrorSender) doWithLayeredTimeout(ctx context.Context, cancel context.CancelFunc,
+	task *mirrorTask, target string) (*http.Response, time.Duration, error) {
 	start := time.Now()
 	var ttfb time.Duration
 	var ttfbOnce sync.Once
