@@ -276,11 +276,14 @@ func TestTransportBrokenConnection(t *testing.T) {
 	}
 	var readErr ReadRespHeaderError
 	var writeErr WriteRequestError
-	// 对端立即关闭时，write 与 read 的报错先后取决于调度时序：写成功后再读
-	// 读到 EOF → ReadRespHeaderError；FIN 先于 write 到达 → WriteRequestError。
-	// 两者都是"上游回包前断开"的可判定表现，都接受。
-	if !errors.As(err, &readErr) && !errors.As(err, &writeErr) {
-		t.Fatalf("error type = %T, want ReadRespHeaderError or WriteRequestError: %v", err, err)
+	var brokenErr TransportBrokenError
+	// 对端立即关闭时，客户端竞态存在三种可判定结局：write 先于 FIN 完成、
+	// read 读到 EOF → ReadRespHeaderError；FIN 先于 write 处理完成 →
+	// WriteRequestError；closech 先被 select 选中且 100ms failTicker 内
+	// 未等到响应 → TransportBrokenError（transport.go RoundTrip 主循环）。
+	// 三者都是"上游回包前断开"的合法表现，都接受。
+	if !errors.As(err, &readErr) && !errors.As(err, &writeErr) && !errors.As(err, &brokenErr) {
+		t.Fatalf("error type = %T, want ReadRespHeaderError, WriteRequestError or TransportBrokenError: %v", err, err)
 	}
 }
 
