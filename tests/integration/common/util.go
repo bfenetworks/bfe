@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // copyDirContents recursively copies files and directories from src to dst.
@@ -115,26 +116,37 @@ func RewriteConfLine(path, key, value string) error {
 }
 
 // GetBFETotalBytesBodyBuffer queries the BFE monitor endpoint for the current
-// total bytes_body buffer size.
+// total bytes_body buffer size. The monitor server may still be starting up
+// right after the BFE process launches (under -race on a loaded machine the
+// first query can hit connection refused), so it retries briefly.
 func GetBFETotalBytesBodyBuffer(monitorPort int) (int64, error) {
-
 	url := fmt.Sprintf("http://127.0.0.1:%d/monitor/server_stat", monitorPort)
-	resp, err := http.Get(url)
-	if err != nil {
-		return 0, err
+	var lastErr error
+	for attempt := 0; attempt < 50; attempt++ {
+		if attempt > 0 {
+			time.Sleep(100 * time.Millisecond)
+		}
+		resp, err := http.Get(url)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		data, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		var stat struct {
+			TotalBytesBodyBuffer int64 `json:"total_bytes_body_buffer"`
+		}
+		if err := json.Unmarshal(data, &stat); err != nil {
+			lastErr = err
+			continue
+		}
+		return stat.TotalBytesBodyBuffer, nil
 	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return 0, err
-	}
-	var stat struct {
-		TotalBytesBodyBuffer int64 `json:"total_bytes_body_buffer"`
-	}
-	if err := json.Unmarshal(data, &stat); err != nil {
-		return 0, err
-	}
-	return stat.TotalBytesBodyBuffer, nil
+	return 0, fmt.Errorf("query %s failed after retries: %w", url, lastErr)
 }
 
 // ClusterSubName returns the sub-cluster name used in cluster_table.data and
