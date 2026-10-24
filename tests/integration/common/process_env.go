@@ -190,18 +190,11 @@ func (p *ProcessEnv) StartBFE(confDir, logDir string) (int, int, func()) {
 // rejection scenarios that assert the process refuses to start). On error
 // the returned teardown function is nil and the process is already reaped.
 func (p *ProcessEnv) StartBFERaw(confDir, logDir string) (int, int, func(), error) {
-	httpPort, err := FindFreePort()
+	ports, err := FindFreePorts(3)
 	if err != nil {
-		return 0, 0, nil, fmt.Errorf("find free port for bfe http failed: %v", err)
+		return 0, 0, nil, fmt.Errorf("find free ports for bfe failed: %v", err)
 	}
-	httpsPort, err := FindFreePort()
-	if err != nil {
-		return 0, 0, nil, fmt.Errorf("find free port for bfe https failed: %v", err)
-	}
-	monitorPort, err := FindFreePort()
-	if err != nil {
-		return 0, 0, nil, fmt.Errorf("find free port for bfe monitor failed: %v", err)
-	}
+	httpPort, httpsPort, monitorPort := ports[0], ports[1], ports[2]
 
 	if err := RewriteBFEPorts(filepath.Join(confDir, "bfe.conf"), httpPort, httpsPort, monitorPort); err != nil {
 		return 0, 0, nil, fmt.Errorf("rewrite bfe ports failed: %v", err)
@@ -242,6 +235,32 @@ func FindFreePort() (int, error) {
 	}
 	defer ln.Close()
 	return ln.Addr().(*net.TCPAddr).Port, nil
+}
+
+// FindFreePorts reserves n distinct free TCP ports on localhost by holding
+// all probe listeners open at once, then closing them. Reserving
+// simultaneously guarantees distinctness: back-to-back FindFreePort calls
+// can receive the same port again from the OS right after the previous
+// probe socket is closed (observed on loaded CI: bfe http and https were
+// assigned the same port and startup died with EADDRINUSE).
+func FindFreePorts(n int) ([]int, error) {
+	listeners := make([]net.Listener, 0, n)
+	ports := make([]int, 0, n)
+	for len(ports) < n {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			for _, l := range listeners {
+				l.Close()
+			}
+			return nil, err
+		}
+		ports = append(ports, ln.Addr().(*net.TCPAddr).Port)
+		listeners = append(listeners, ln)
+	}
+	for _, l := range listeners {
+		l.Close()
+	}
+	return ports, nil
 }
 
 // WaitForTCP waits until the given TCP address is reachable.
