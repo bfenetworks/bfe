@@ -597,6 +597,13 @@ const (
 	CodeCostBudgetExhausted    = "COST_BUDGET_EXHAUSTED"
 	CodeGeoRestricted          = "GEO_RESTRICTED"
 	CodeTimeWindowRestricted   = "TIME_WINDOW_RESTRICTED"
+
+	// Gateway-side content audit rejection (SC35 TC-02): a request-phase
+	// body-process REJECT is a deterministic policy rejection, not a backend
+	// fault, so it keeps the HTTP 500 business contract with its own code
+	// instead of collapsing into BACKEND_UNAVAILABLE (502) — the same
+	// treatment shape as BK_NO_BACKEND (issue #1453).
+	CodeContentRejected = "CONTENT_REJECTED"
 )
 
 const (
@@ -639,6 +646,7 @@ var ErrorCodeToStatusCode = map[string]int{
 	CodeConfigLoadError:    500,
 	CodeBackendUnavailable: 502,
 	CodeNoBackend:          500,
+	CodeContentRejected:    500,
 	CodeInvalidRequestBody: 400,
 	CodeModelParamMissing:  400,
 
@@ -695,6 +703,7 @@ var ErrorCodeToErrorType = map[string]string{
 	CodeConfigLoadError:    TypeInternalError,
 	CodeBackendUnavailable: TypeInternalError,
 	CodeNoBackend:          TypeInternalError,
+	CodeContentRejected:    TypeInvalidRequestError,
 	CodeInvalidRequestBody: TypeInvalidRequestError,
 	CodeModelParamMissing:  TypeInvalidRequestError,
 

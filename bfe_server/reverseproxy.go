@@ -1975,6 +1975,22 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 			return res, action, cluster, nil, newBodyModel
 		}
 
+		// Request-phase body-process rejection (content audit REJECT, SC35
+		// TC-02): a deterministic policy rejection, not a transient backend
+		// failure. Mirror the non-AI path (clusterInvoke WriteRequestError/
+		// BPError branch): no used/dead marking, no session-affinity
+		// penalty, no key-level retry. ErrBkBodyProcess keeps the business
+		// 500 contract via aiGatewayFailureResponse instead of the 502
+		// BACKEND_UNAVAILABLE backend contract.
+		var bpErr *mod_body_process.BPError
+		if errors.As(err, &bpErr) {
+			basicReq.ErrCode = bfe_basic.ErrBkBodyProcess
+			basicReq.ErrMsg = err.Error()
+			p.proxyState.ErrBkBodyProcess.Inc(1)
+			log.Logger.Info("aiClusterInvoke: request rejected by body process [%s], no key retry", err)
+			return res, action, cluster, err, newBodyModel
+		}
+
 		// classify failure
 		switch {
 		case statusCode == 429:
@@ -2062,6 +2078,14 @@ func aiGatewayFailureResponse(basicReq *bfe_basic.Request) *bfe_http.Response {
 	if basicReq.ErrCode == bfe_basic.ErrBkNoBackend {
 		return bfe_basic.NewAiError(bfe_basic.CodeNoBackend, bfe_basic.TypeInternalError,
 			"no available backend for this request").CreateErrorResponse(basicReq)
+	}
+	if basicReq.ErrCode == bfe_basic.ErrBkBodyProcess {
+		// Request-phase body-process rejection (content audit REJECT,
+		// SC35 TC-02): a policy rejection rather than a backend fault, so
+		// it keeps the HTTP 500 business contract with a dedicated code
+		// (same treatment shape as BK_NO_BACKEND above).
+		return bfe_basic.NewAiError(bfe_basic.CodeContentRejected, bfe_basic.TypeInvalidRequestError,
+			"request rejected by content audit").CreateErrorResponse(basicReq)
 	}
 	return bfe_basic.NewAiError(bfe_basic.CodeBackendUnavailable, bfe_basic.TypeInternalError,
 		"upstream backend unavailable for this request").CreateErrorResponse(basicReq)

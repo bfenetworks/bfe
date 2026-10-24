@@ -57,6 +57,7 @@ BFE 相关实现参考了 AI 网关错误返回码方案的整体思路，并依
 | 提供商协议不匹配 | 400 | `PROVIDER_PROTOCOL_MISMATCH` | `invalid_request_error` | "request protocol anthropic not supported by cluster provider (model_protocols=[openai])." | 请求的 `AuthStyle` 不在目标集群 `AIConf.ModelProtocols` 支持范围内 |
 | 目标集群无可用 Key（issue #1441） | 429 | `NO_AVAILABLE_KEY` | `rate_limit_error` | "no available upstream api key for this cluster" | 一次选 Key 均未成功：全部 Key 被惩罚（熔断，issue #1439）/ `Weight=0` / dead；响应携带 `Retry-After` 头与 `error.details.retry_after_seconds`（= 429 惩罚 TTL，60s），并带 `X-Bfe-Gw-Error` 网关标记（归一化器跳过） |
 | 无可用后端（issue #1453） | 500 | `BK_NO_BACKEND` | `internal_error` | "no available backend for this request" | 选后端层返回 `BK_NO_BACKEND`（如实例池有效内容为空、所有后端不可用）；响应 `error.code` 与访问日志 `err_code` 同口径，便于区分“容量耗尽”与“后端故障”，不带 `Retry-After` |
+| 请求体内容审查拒绝（SC35 TC-02） | 500 | `CONTENT_REJECTED` | `invalid_request_error` | "request rejected by content audit" | 请求阶段 `mod_body_process` 内容审查 REJECT（`BPError` 包装，数据面与非 AI 路径 `clusterInvoke` 同口径）：确定性策略拒绝，不做 Key 级重试、不标记 used/dead、不施加会话亲和惩罚；按 `ErrBkBodyProcess` 走 500 业务契约而非 `BACKEND_UNAVAILABLE`（502） |
 | 网关侧后端不可用（issue #1441） | 502 | `BACKEND_UNAVAILABLE` | `internal_error` | "upstream backend unavailable for this request" | 目标集群不存在 / 后端连接或传输失败（`ServeHTTPForAI` 的 `err != nil \|\| res == nil` 出口，`BK_NO_BACKEND` 除外）；客户端中断（`CLIENT_WRITE/CLOSE/RESET`）路径保持既有空体记录，不构造响应体 |
 
 ### 2.5 上游归一错误层（上游错误体归一）
