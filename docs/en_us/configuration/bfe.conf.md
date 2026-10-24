@@ -29,7 +29,8 @@ bfe.conf is the core configuration file of BFE.
 | Server.AcceptNum               | Integer | Number of accept goroutines per listener             | N         | Default 1; automatically set to 1 when 0                                                                       | >= 0                                                                 |
 | Server.MaxProxyHeaderBytes     | Integer | Max length of PROXY protocol header, in bytes        | N         | Default 0                                                                                                      | >= 0                                                                 |
 | Server.EnableAiGateway         | Boolean | Whether AI Gateway mode is enabled                   | N         | Default `False`                                                                                                | -                                                                    |
-| Server.EstimateToken           | Boolean | Whether to estimate token usage based on request Content-Length when the upstream response carries no usage. Estimation only applies to responses that completed normally: requests aborted by the client (RST/close) or failed to be written to the client without a final usage are never billed by estimation (issue #1352) | N | Default `False`                                                                                                | -                                                                    |
+| Server.EstimateToken           | Boolean | Whether to estimate token usage based on request Content-Length when the upstream response carries no usage. Estimation only applies to responses that completed normally: requests aborted by the client (RST/close) or failed to be written to the client without a final usage are never billed by estimation (issue #1352). Estimating missing usage is the approved fallback (issue #1398). The estimate applies only when the upstream returned **no usage at all** (decided by the presence of the usage object, issue #1414): a response whose usage is present but counts 0 is billed at 0 instead of being estimated, and is reported as `ai_total_tokens=0` with `ai_usage_source=parsed`, distinguishable from unrecognized usage (`unrecognized`) | N | Default `True` (program default since issue #1401, applied when the conf omits it; an explicit conf value overrides. Was `False` before issue #1398) | -                                                                    |
+| Server.InjectStreamUsage       | Boolean | For OpenAI-protocol streaming chat completion requests, inject `stream_options.include_usage=true` when the client did not set it, so the upstream returns the real final usage chunk (issue #1398). On injection failure (non-JSON body etc.) the request passes through unchanged | N | Default `True` (program default since issue #1401; an explicit conf value overrides)                      | -                                                                    |
 | Server.AccessibleBodySize      | Integer | Max size of request body that can be buffered, in bytes | N      | Default 2097152; used for request body rewriting and AI Gateway fallback retry; request bodies larger than this cannot be fully cached and retransmitted | > 0 and <= 8388608                                                   |
 | Server.TotalBodyBufferSize     | Integer | Upper limit of total memory used by all active bytes_body buffers, in bytes | N      | Default 0 (unlimited); when reached, AI Gateway fallback will not wrap the request body for caching, i.e., no retry | >= 0                                                                 |
 | Server.HostRuleConf            | String  | Path of [host config](server_data_conf/host_rule.data.md) file | N     | Default `server_data_conf/host_rule.data`; see [FilePath](00-common.md#3-filepath) type definition            | Type is [FilePath](00-common.md#3-filepath)                          |
@@ -70,6 +71,37 @@ bfe.conf is the core configuration file of BFE.
 | SessionTicket.SessionTicketsDisabled | Boolean   | Whether to disable TLS session ticket                                           | N          | Default `True`; when `True`, other SessionTicket related validations are skipped                               | -                                                                                   |
 | SessionTicket.SessionTicketKeyFile   | String    | Path of [session ticket key config](tls_conf/session_ticket_key.data.md) file   | N          | Default `tls_conf/session_ticket_key.data`; see [FilePath](00-common.md#3-filepath) type definition           | Type is [FilePath](00-common.md#3-filepath)                                         |
 
+### AI Key session affinity config
+
+AI key session affinity (`AIConf.KeyPolicy.SessionAffinity`) binds requests of the same session (ClientKeyId) to the same provider API key. Session bindings and key penalty state are stored in Redis; the connection is owned by the bfe_server core via this section (no longer borrowed from the `mod_ai_rate_limit` module), so affinity availability depends only on this section. When this section is absent or `Disabled=true`, affinity silently does not apply (fail-open).
+
+| Configuration Item             | Type    | Meaning                                              | Required  | Supplementary Description                                                                                      | Validity Condition                                                   |
+| ------------------------------ | ------- | ---------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| AIKeyAffinity.Disabled         | Boolean | Whether to disable AI key session affinity           | N         | Default `True`; when `True`, other AIKeyAffinity related validations are skipped                               | -                                                                    |
+| AIKeyAffinity.ServiceConf      | String  | BNS name (or weighted BNS list) of the Redis service, resolved via `Server.NameConf` | Conditional | Required when `Disabled=false`                                                        | Cannot be empty when `Disabled=false`; format see [mod_ai_rate_limit Redis config](mod_ai_rate_limit/mod_ai_rate_limit.conf.md) |
+| AIKeyAffinity.ConnectTimeoutMs | Integer | Connect timeout to Redis, in milliseconds            | N         | Default 1000                                                                                                   | Must be > 0 when `Disabled=false`                                    |
+| AIKeyAffinity.ReadTimeoutMs    | Integer | Read timeout from Redis, in milliseconds             | N         | Default 1000                                                                                                   | Must be > 0 when `Disabled=false`                                    |
+| AIKeyAffinity.WriteTimeoutMs   | Integer | Write timeout to Redis, in milliseconds              | N         | Default 1000                                                                                                   | Must be > 0 when `Disabled=false`                                    |
+| AIKeyAffinity.MaxIdle          | Integer | Max idle long connections to Redis                   | N         | Default 10                                                                                                     | Must be > 0 when `Disabled=false`                                    |
+| AIKeyAffinity.MaxActive        | Integer | Max active connections to Redis                      | N         | Default 20; 0 means no connection number limit                                                                 | >= 0                                                                 |
+| AIKeyAffinity.Password         | String  | Redis access password                                | N         | Default empty (no password)                                                                                    | -                                                                    |
+
+### Security config
+
+Key-related sensitive fields in control-plane distributed config files (Tokens outer keys of `mod_ai_token_auth/token_rule.data`, `AIConf.Keys[].Key` of `server_data_conf/cluster_conf.data`) support field-level ciphertext with the `enc$v1$` prefix. When loading such files, BFE decrypts these fields into memory with the keyring configured here, so no plaintext is persisted on disk. Fields without the `enc$v1$` prefix pass through as plaintext, which keeps old/new configs and canary rollback naturally compatible. The keyring file supports multiple coexisting keyIDs (old and new keys coexist during rotation); its content is re-read on every data-file load (hot reload), while this configuration item (the path) is loaded only at startup.
+
+| Configuration Item | Type   | Meaning                                                                            | Required | Supplementary Description                                                                                                                                                                                                                     | Validity Condition                          |
+| ------------------ | ------ | ---------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Security.KeyFile   | String | Path of the keyring file for decrypting sensitive fields (multiple keyIDs coexist) | N        | Default empty (no decryption; if a loaded file contains an `enc$v1$` ciphertext field, the load fails and the previously effective config is kept); the key file must be 0600 and stored outside the conf directory; see [FilePath](00-common.md#3-filepath) type definition | Type is [FilePath](00-common.md#3-filepath) |
+
+Example:
+
+```ini
+[Security]
+# keyring file for decrypting enc$v1$ ciphertext fields in distributed config files
+KeyFile = /etc/ai-gateway/keys/export.keys
+```
+
 ## Example
 
 ```ini
@@ -103,6 +135,17 @@ ClientWriteTimeout = 60
 
 # if false, client connection is shutdown disregard of http headers
 KeepAliveEnabled = true
+
+# if true, support ai gateway mode (default false)
+EnableAiGateway = false
+# if true, will estimate token usage if usage is not available in response
+# (default true; approved fallback when the response carries no usage, see issue #1398)
+EstimateToken = true
+
+# if true, inject stream_options.include_usage=true into OpenAI streaming
+# chat completion requests (when the client did not set it), so the upstream
+# returns the real final usage chunk (issue #1398)
+InjectStreamUsage = true
 
 # timeout for graceful shutdown (maximum 300 sec)
 GracefulShutdownTimeout = 10
@@ -232,4 +275,36 @@ SessionExpire = 3600
 SessionTicketsDisabled = true
 # session ticket key
 SessionTicketKeyFile = tls_conf/session_ticket_key.data
+
+[AIKeyAffinity]
+# AI key session affinity: server-owned Redis for session->key binding and
+# key penalty state. Disabled by default; when disabled, affinity silently
+# does not apply (fail-open) even if a cluster sets SessionAffinity=true.
+Disabled = true
+
+# bns name (or weighted bns list) of redis servers, resolved via NameConf
+#ServiceConf = "redis_bns"
+
+# connection params (ms)
+#ConnectTimeoutMs = 1000
+#ReadTimeoutMs = 1000
+#WriteTimeoutMs = 1000
+
+# max idle connections in connection pool
+#MaxIdle = 10
+
+# max active connections in pool (0 means no connection num limit)
+#MaxActive = 20
+
+# redis password, ignore if not set
+#Password = ""
+
+[Security]
+# keyring file for decrypting enc$v1$ ciphertext fields in distributed
+# config files (token_rule.data Tokens outer keys / cluster_conf.data
+# AIConf.Keys[].Key). Empty by default: if a loaded file contains enc$v1$
+# ciphertext fields, the load fails and the previously effective config
+# is kept. The key material file must be 0600 and stored outside the
+# conf directory. Keyring content is re-read on every data-file load.
+#KeyFile = /etc/ai-gateway/keys/export.keys
 ```

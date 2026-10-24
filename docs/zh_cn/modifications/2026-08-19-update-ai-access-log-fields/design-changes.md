@@ -452,3 +452,15 @@ go test ./bfe_modules/mod_access_pb3/...
 ---
 
 *文档生成日期：2026-08-19*
+---
+
+## 10. 后续变更：非 2xx 响应的 token 字段语义（issue #1409，2026-10-11）
+
+本节为字段语义的补充约定，已随 issue #1409 落地（详见 `docs/zh_cn/modifications/2026-10-11-issue-1409-non2xx-estimate-token-residue-fix/design-changes.md`）：
+
+- `ai_input_tokens`（706）/ `ai_output_tokens`（707）/ `ai_total_tokens`（708）只在**成功调用上游**（2xx）的请求上输出：其值来自响应中的真实 usage，或 `EstimateToken` 的估算值；
+- **非 2xx 响应**（未成功调用上游，例如无 AI 路由的 404、上游 404 直通、被归一化为 404 的上游错误）不存在模型用量：`mod_ai_token_auth` 在请求结束阶段把这类请求标记为"无可用 usage"并清除鉴权阶段播种的估算残留，`mod_access_pb3` 据此**不写**上述三个字段（字段缺席，与"用量为 0"区分）；`ai_cost_value`（761）同样缺席（未扣费）。下游按 `SUM(COALESCE(ai_*, 0))` 聚合的报表不受影响；
+- 报告 token 用量的行必须自洽：`ai_total_tokens = ai_input_tokens + ai_output_tokens`（图片/视频按次计费的行例外，其 `ai_total_tokens` 记张数）。`mod_access_pb3` 对违反该不变量的行计数 `AiUsageInconsistent` 并在 BFE 日志中告警；
+- 字段缺席计数 `AiUsageSuppressed` 与估算残留清除计数 `Non2xxEstimateDropped` 可在 BFE monitor 端点观测。
+
+> 说明：2xx 但未拿到最终 usage 的请求（客户端中断、流式截断）仍按 issue #1398 的观测契约输出观测/估算值（`total` 可能为 0），此为设计内的观测视图，不属于本约定收窄的范围。AI 缓存命中（`mod_ai_cache`，未调用上游）目前同样按 2xx 观测口径输出播种估算值，如需一并收窄见方案文档「边界与残余风险」。

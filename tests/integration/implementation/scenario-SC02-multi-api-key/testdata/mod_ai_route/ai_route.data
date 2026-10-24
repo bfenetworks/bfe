@@ -21,6 +21,39 @@
                             "Model": ""
                         }
                     ]
+                },
+                {
+                    "name": "user_a-multikey-nofallback",
+                    "Cond": "req_host_in(\"multikey-nofallback.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_multi_key",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ]
+                },
+                {
+                    "name": "user_a-deadbackend",
+                    "Cond": "req_host_in(\"deadbackend.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_dead_backend",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ]
+                },
+                {
+                    "name": "user_a-emptybackend",
+                    "Cond": "req_host_in(\"emptybackend.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_empty_backend",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ]
                 }
             ]
         }

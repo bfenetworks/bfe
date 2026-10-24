@@ -101,7 +101,61 @@ func TestEppBreakerHalfOpenRecovery(t *testing.T) {
 	// probe succeeds -> CLOSED, window cleared
 	b.record(true)
 	assert.True(t, b.allow())
-	assert.True(t, b.allow())
+}
+
+func TestEppBreaker_UpdateConfUnchanged(t *testing.T) {
+	b := newEppBreaker("c", testBreakerConf(nil))
+
+	// fill the window with failures: 2/2 >= 50% -> OPEN
+	b.record(false)
+	b.record(false)
+	require.False(t, b.allow())
+	require.Equal(t, eppBreakerOpen, b.state)
+
+	results := append([]bool(nil), b.results...)
+	count, idx := b.count, b.idx
+
+	// identical (already normalized) conf: nothing may be reset
+	b.updateConf(testBreakerConf(nil))
+	assert.Equal(t, results, b.results, "window contents preserved")
+	assert.Equal(t, count, b.count, "window counter preserved")
+	assert.Equal(t, idx, b.idx, "window index preserved")
+	assert.Equal(t, eppBreakerOpen, b.state, "breaker state preserved")
+	assert.False(t, b.allow())
+
+	// a conf that only differs in fields covered by defaults would change
+	// the normalized value, so it must rebuild: guard against silently
+	// treating "empty" as "unchanged"
+	b.updateConf(eppBreakerConf{})
+	assert.NotEqual(t, results, b.results)
+	assert.Equal(t, 0, b.count) // rebuild resets window, keeps state
+}
+
+func TestEppBreaker_UpdateConfChanged(t *testing.T) {
+	b := newEppBreaker("c", testBreakerConf(nil))
+
+	// open the breaker so we can assert state survives a real config change
+	b.record(false)
+	b.record(false)
+	require.Equal(t, eppBreakerOpen, b.state)
+
+	// window size change: window rebuilt with new size, counters reset
+	b.updateConf(testBreakerConf(func(c *eppBreakerConf) { c.windowSize = 8 }))
+	assert.Equal(t, 8, len(b.results))
+	assert.Equal(t, 0, b.count)
+	assert.Equal(t, 0, b.idx)
+	assert.Equal(t, eppBreakerOpen, b.state, "state kept on config change")
+
+	// only errorRatePercent changes: same-size window rebuilt, state kept
+	b.updateConf(testBreakerConf(func(c *eppBreakerConf) {
+		c.windowSize = 8
+		c.errorRatePercent = 80
+	}))
+	assert.Equal(t, 8, len(b.results))
+	assert.Equal(t, 0, b.count)
+	assert.Equal(t, 0, b.idx)
+	assert.Equal(t, 80, b.conf.errorRatePercent)
+	assert.Equal(t, eppBreakerOpen, b.state, "state kept on config change")
 }
 
 func TestEppBreakerHalfOpenFailureReopens(t *testing.T) {

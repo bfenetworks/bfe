@@ -29,6 +29,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_route_conf/route_rule_conf"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_route_conf/vip_rule_conf"
 	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
+	"github.com/bfenetworks/bfe/bfe_util/crypto"
 )
 
 type ServerDataConf struct {
@@ -46,8 +47,11 @@ func newServerDataConf() *ServerDataConf {
 	return c
 }
 
-// LoadServerDataConf loads ServerDataConf config.
-func LoadServerDataConf(hostFile, vipFile, routeFile, clusterConfFile string) (*ServerDataConf, error) {
+// LoadServerDataConf loads ServerDataConf config. kr is the file-encryption
+// keyring used to decrypt enc$v1$ AIConf.Keys[].Key entries; nil means
+// decryption disabled (marker-prefixed values then fail the load).
+func LoadServerDataConf(hostFile, vipFile, routeFile, clusterConfFile string,
+	kr *crypto.Keyring) (*ServerDataConf, error) {
 	s := newServerDataConf()
 
 	// load host table
@@ -56,7 +60,7 @@ func LoadServerDataConf(hostFile, vipFile, routeFile, clusterConfFile string) (*
 	}
 
 	// load cluster table
-	if err := s.clusterTableLoad(clusterConfFile); err != nil {
+	if err := s.clusterTableLoad(clusterConfFile, kr); err != nil {
 		return nil, fmt.Errorf("clusterTableLoad Error %s", err)
 	}
 
@@ -96,8 +100,8 @@ func (s *ServerDataConf) hostTableLoad(hostFile, vipFile, routeFile string) erro
 	return nil
 }
 
-func (s *ServerDataConf) clusterTableLoad(clusterConf string) error {
-	err := s.ClusterTable.Init(clusterConf)
+func (s *ServerDataConf) clusterTableLoad(clusterConf string, kr *crypto.Keyring) error {
+	err := s.ClusterTable.Init(clusterConf, kr)
 	if err != nil {
 		return err
 	}

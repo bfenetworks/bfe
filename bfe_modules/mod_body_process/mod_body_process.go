@@ -121,6 +121,12 @@ func (m *ModuleBodyProcess) afterLocationHandler(req *bfe_basic.Request) (int, *
 		return bfe_module.BfeHandlerGoOn, nil
 	}
 
+	// batch/file traffic (mod_ai_batch) streams potentially large bodies and
+	// must never be buffered or rewritten by the body processor chain
+	if aiInfo.Mode == bfe_basic.ModeFile || aiInfo.Mode == bfe_basic.ModeBatch {
+		return bfe_module.BfeHandlerGoOn, nil
+	}
+
 	// add body processor
 	if openDebug {
 		log.Logger.Debug("%s found matched rule: %v", m.name, matchedRule)
@@ -153,6 +159,13 @@ func (m *ModuleBodyProcess) readResponseHandler(req *bfe_basic.Request, res *bfe
 		if !ok {
 			log.Logger.Warn("%s: type assertion fail, %v", m.name, data)
 		}
+	}
+
+	// batch/file responses (jsonl result files, small JSON control payloads)
+	// stay byte-exact: the SSE/JSON usage machinery would misparse them, and
+	// mod_ai_batch does its own streaming usage scan
+	if aiInfo.Mode == bfe_basic.ModeFile || aiInfo.Mode == bfe_basic.ModeBatch {
+		return bfe_module.BfeHandlerGoOn
 	}
 
 	m.DoResponseProcess(req, res, conf)

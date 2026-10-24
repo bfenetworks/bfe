@@ -63,6 +63,10 @@ func (p *ProcessEnv) WorkDir() string { return p.workDir }
 // SourceRoot returns the absolute path to the bfe source root.
 func (p *ProcessEnv) SourceRoot() string { return p.sourceRoot }
 
+// BinaryPath returns the absolute path of the compiled BFE binary.
+// Build must be called first.
+func (p *ProcessEnv) BinaryPath() string { return p.bfeBinaryPath }
+
 // locateBFESourceRoot walks up from this file to find the directory whose
 // go.mod declares module "github.com/bfenetworks/bfe".
 func locateBFESourceRoot() (string, error) {
@@ -173,25 +177,31 @@ func (p *ProcessEnv) binaryNeedsRebuild(binPath string) bool {
 // StartBFE starts a real BFE process with the given conf root and log dir.
 // It returns the HTTP port, the monitor port and a teardown function.
 func (p *ProcessEnv) StartBFE(confDir, logDir string) (int, int, func()) {
-	httpPort, err := FindFreePort()
+	httpPort, monitorPort, stop, err := p.StartBFERaw(confDir, logDir)
 	if err != nil {
-		p.t.Fatalf("find free port for bfe http failed: %v", err)
+		p.t.Fatalf("start bfe failed: %v", err)
+		return 0, 0, nil
 	}
-	httpsPort, err := FindFreePort()
+	return httpPort, monitorPort, stop
+}
+
+// StartBFERaw behaves like StartBFE but returns an error instead of failing
+// the test when BFE never opens its HTTP port (e.g. fail-fast startup
+// rejection scenarios that assert the process refuses to start). On error
+// the returned teardown function is nil and the process is already reaped.
+func (p *ProcessEnv) StartBFERaw(confDir, logDir string) (int, int, func(), error) {
+	ports, err := FindFreePorts(3)
 	if err != nil {
-		p.t.Fatalf("find free port for bfe https failed: %v", err)
+		return 0, 0, nil, fmt.Errorf("find free ports for bfe failed: %v", err)
 	}
-	monitorPort, err := FindFreePort()
-	if err != nil {
-		p.t.Fatalf("find free port for bfe monitor failed: %v", err)
-	}
+	httpPort, httpsPort, monitorPort := ports[0], ports[1], ports[2]
 
 	if err := RewriteBFEPorts(filepath.Join(confDir, "bfe.conf"), httpPort, httpsPort, monitorPort); err != nil {
-		p.t.Fatalf("rewrite bfe ports failed: %v", err)
+		return 0, 0, nil, fmt.Errorf("rewrite bfe ports failed: %v", err)
 	}
 
 	if err := os.MkdirAll(logDir, 0755); err != nil {
-		p.t.Fatalf("create bfe log dir failed: %v", err)
+		return 0, 0, nil, fmt.Errorf("create bfe log dir failed: %v", err)
 	}
 
 	cmd := exec.Command(p.bfeBinaryPath, "-c", confDir, "-l", logDir, "-s")
@@ -199,14 +209,14 @@ func (p *ProcessEnv) StartBFE(confDir, logDir string) (int, int, func()) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
-		p.t.Fatalf("start bfe failed: %v", err)
+		return 0, 0, nil, fmt.Errorf("start bfe failed: %v", err)
 	}
 
 	addr := fmt.Sprintf("127.0.0.1:%d", httpPort)
-	if err := WaitForTCP(addr, 30*time.Second); err != nil {
+	if err := WaitForTCP(addr, 10*time.Second); err != nil {
 		_ = cmd.Process.Kill()
 		_, _ = cmd.Process.Wait()
-		p.t.Fatalf("bfe did not start in time: %v", err)
+		return 0, 0, nil, fmt.Errorf("bfe did not start in time: %v", err)
 	}
 
 	stop := func() {
@@ -214,7 +224,7 @@ func (p *ProcessEnv) StartBFE(confDir, logDir string) (int, int, func()) {
 		_, _ = cmd.Process.Wait()
 		time.Sleep(50 * time.Millisecond)
 	}
-	return httpPort, monitorPort, stop
+	return httpPort, monitorPort, stop, nil
 }
 
 // FindFreePort returns a free TCP port on localhost.
@@ -225,6 +235,32 @@ func FindFreePort() (int, error) {
 	}
 	defer ln.Close()
 	return ln.Addr().(*net.TCPAddr).Port, nil
+}
+
+// FindFreePorts reserves n distinct free TCP ports on localhost by holding
+// all probe listeners open at once, then closing them. Reserving
+// simultaneously guarantees distinctness: back-to-back FindFreePort calls
+// can receive the same port again from the OS right after the previous
+// probe socket is closed (observed on loaded CI: bfe http and https were
+// assigned the same port and startup died with EADDRINUSE).
+func FindFreePorts(n int) ([]int, error) {
+	listeners := make([]net.Listener, 0, n)
+	ports := make([]int, 0, n)
+	for len(ports) < n {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			for _, l := range listeners {
+				l.Close()
+			}
+			return nil, err
+		}
+		ports = append(ports, ln.Addr().(*net.TCPAddr).Port)
+		listeners = append(listeners, ln)
+	}
+	for _, l := range listeners {
+		l.Close()
+	}
+	return ports, nil
 }
 
 // WaitForTCP waits until the given TCP address is reachable.

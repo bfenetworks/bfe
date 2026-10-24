@@ -1,0 +1,16 @@
+{
+    "Version": "2026100201",
+    "MinConfidence": 0.6,
+    "Questions": [
+        {
+            "Name": "task_type",
+            "Type": "choice",
+            "Instructions": "这条请求属于哪类研发任务？",
+            "Criteria": {
+                "coding": "编写或修改代码、调试、重构、代码审查",
+                "test_writing": "编写测试用例、单元测试、集成测试、补充断言",
+                "doc_writing": "编写文档、README、注释、接口说明、使用示例"
+            }
+        }
+    ]
+}

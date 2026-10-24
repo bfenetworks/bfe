@@ -15,6 +15,8 @@
 package cluster_table_conf
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -33,5 +35,24 @@ func TestClusterTableLoad_1(t *testing.T) {
 	if *(*config.Config)["p1"]["light.p1.dx"][0].Name != "p1.example10.a" {
 		t.Error("invalid config")
 		return
+	}
+}
+
+func TestClusterTableLoadEmptySubCluster(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cluster_table.conf")
+	conf := `{
+		"Version": "1",
+		"Config": {
+			"cluster_empty_array": {"sub_cluster": []},
+			"cluster_empty_map": {}
+		}
+	}`
+	if err := os.WriteFile(path, []byte(conf), 0644); err != nil {
+		t.Fatalf("write test config error %s", err)
+	}
+
+	if _, err := ClusterTableLoad(path); err != nil {
+		t.Errorf("ClusterTableLoad should accept empty sub clusters: %s", err)
 	}
 }

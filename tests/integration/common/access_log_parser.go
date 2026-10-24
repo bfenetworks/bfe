@@ -27,10 +27,10 @@ import (
 	bfe_access_pb "github.com/bfenetworks/bfe-access-pb/bfe_access_pb"
 )
 
-// ParseAccessLog reads the b2log file written by mod_access_pb3 and returns
-// all decoded RequestLog records. It polls briefly if the file is not yet
-// populated.
-func ParseAccessLog(logDir string, timeout time.Duration) ([]*bfe_access_pb.RequestLog, error) {
+// ParseBfeLogs reads the b2log file written by mod_access_pb3 and returns the
+// decoded BfeLog records, keeping the log-level fields (e.g. logid) that the
+// per-request view drops. It polls briefly if the file is not yet populated.
+func ParseBfeLogs(logDir string, timeout time.Duration) ([]*bfe_access_pb.BfeLog, error) {
 	logPath := filepath.Join(logDir, "pb_access3.log")
 	deadline := time.Now().Add(timeout)
 
@@ -48,12 +48,29 @@ func ParseAccessLog(logDir string, timeout time.Duration) ([]*bfe_access_pb.Requ
 	}
 
 	records, _ := b2log.BuffParse(data)
-	var reqLogs []*bfe_access_pb.RequestLog
+	var bfeLogs []*bfe_access_pb.BfeLog
 	for _, rec := range records {
 		bfeLog := new(bfe_access_pb.BfeLog)
 		if err := proto.Unmarshal(rec, bfeLog); err != nil {
 			return nil, fmt.Errorf("unmarshal BfeLog failed: %w", err)
 		}
+		bfeLogs = append(bfeLogs, bfeLog)
+	}
+	return bfeLogs, nil
+}
+
+// ParseAccessLog reads the b2log file written by mod_access_pb3 and returns
+// all decoded RequestLog records. It polls briefly if the file is not yet
+// populated. The log-level fields are dropped; use ParseBfeLogs when they are
+// needed (e.g. logid).
+func ParseAccessLog(logDir string, timeout time.Duration) ([]*bfe_access_pb.RequestLog, error) {
+	bfeLogs, err := ParseBfeLogs(logDir, timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var reqLogs []*bfe_access_pb.RequestLog
+	for _, bfeLog := range bfeLogs {
 		if bfeLog.RequestLog != nil {
 			reqLogs = append(reqLogs, bfeLog.RequestLog)
 		}
@@ -65,6 +82,11 @@ func ParseAccessLog(logDir string, timeout time.Duration) ([]*bfe_access_pb.Requ
 // ensuring all buffered logs are flushed.
 func ParseAccessLogAfterStop(logDir string) ([]*bfe_access_pb.RequestLog, error) {
 	return ParseAccessLog(logDir, 2*time.Second)
+}
+
+// ParseBfeLogsAfterStop is ParseAccessLogAfterStop for the log-level records.
+func ParseBfeLogsAfterStop(logDir string) ([]*bfe_access_pb.BfeLog, error) {
+	return ParseBfeLogs(logDir, 2*time.Second)
 }
 
 // FormatAccessLogError returns a string with all request log fields for
@@ -131,6 +153,18 @@ func FormatAccessLogError(reqLog *bfe_access_pb.RequestLog) string {
 	}
 	if len(reqLog.AiAuthHitQuotaPlans) > 0 {
 		b.WriteString(fmt.Sprintf("ai_auth_hit_quota_plans=%v ", reqLog.AiAuthHitQuotaPlans))
+	}
+	if reqLog.AiContextCompressStatus != nil {
+		b.WriteString(fmt.Sprintf("ai_context_compress_status=%s ", *reqLog.AiContextCompressStatus))
+	}
+	if reqLog.AiContextTokensBefore != nil {
+		b.WriteString(fmt.Sprintf("ai_context_tokens_before=%d ", *reqLog.AiContextTokensBefore))
+	}
+	if reqLog.AiContextTokensAfter != nil {
+		b.WriteString(fmt.Sprintf("ai_context_tokens_after=%d ", *reqLog.AiContextTokensAfter))
+	}
+	if reqLog.AiContextCompressMode != nil {
+		b.WriteString(fmt.Sprintf("ai_context_compress_mode=%s ", *reqLog.AiContextCompressMode))
 	}
 	b.WriteString("}")
 	return b.String()

@@ -40,9 +40,33 @@ Time format: hhmmssZ，Z is time zone，detail information is shown in "Appendix
 bfe_periodic_time_range("203000H", "204500H", "")
 ```
 
+## time_weekday_in(weekday_list, zone)
+
+* Description: Judge if the weekday of the current time is in weekday_list
+
+* Parameters
+
+| Parameter    | Description                                                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------ |
+| weekday_list | String<br>weekday list, multiple values joined by `\|`, each in 0-6; 0=Sunday, 1=Monday, …, 6=Saturday |
+| zone         | String<br>time zone letter (optional, see Appendix B); **Z (UTC)** is used when omitted          |
+
+* Example
+
+```go
+time_weekday_in("0|6", "H")                 // weekend (Beijing Time)
+time_weekday_in("1|2|3|4|5", "H")           // workdays (Beijing Time)
+time_weekday_in("0|6", "H") && bfe_periodic_time_range("090000H", "180000H", "")
+```
+
+* Notes
+    * The weekday depends on the time zone. When `zone` is omitted it is judged in UTC; pass `"H"` (UTC+8) for Beijing Time. For example, Monday 00:00 Beijing Time is still Sunday in UTC
+    * Duplicated weekdays are allowed (the result is idempotent) and surrounding whitespace is tolerated; range notation (e.g. `"1-5"`) is not supported and raises an error
+    * Arguments are validated at config load time: an invalid weekday or an invalid time zone letter fails the rule load
+
 ## Appendix A: Condition Primitive Test
 
-- In order to test time condition primitive,  **X-Bfe-Debug-Time** can be added in header of request to mock system time
+- In order to test time condition primitive,  **X-Bfe-Debug-Time** can be added in header of request to mock system time (this header also affects `time_weekday_in`)
 
 ## Appendix B: Time Zone Detail
 

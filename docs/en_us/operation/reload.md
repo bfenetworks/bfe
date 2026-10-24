@@ -48,3 +48,9 @@ $ curl http://localhost:8421/reload/server_data_conf
 | mod_rewrite          | mod_rewrite/rewrite.data    | /reload/mod_rewrite |
 | mod_static         | mod_static/static_rule.data<br>mod_static/mime_type.data | /reload/mod_static<br>/reload/mod_static.mime_type |
 | mod_trust_clientip | mod_trust_clientip/trust_client_ip.data | /reload/mod_trust_clientip |
+
+## Startup configuration
+
+The following configurations are NOT hot-reloadable; a BFE process restart is required after modification:
+
+* `conf/bfe.conf` (including the `[AIKeyAffinity]` AI key session affinity Redis config): `[AIKeyAffinity]` configures the Redis connection owned by bfe_server for AI key session affinity; when absent or `Disabled=true`, affinity silently does not apply (fail-open). If this config is distributed by the control plane (conf-agent), the new section must be added to the distribution template; otherwise affinity will stop working after the upgrade.

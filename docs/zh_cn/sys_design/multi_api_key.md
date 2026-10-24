@@ -83,6 +83,8 @@ type AIConf struct {
 
 `AIConf` 由 ai-gateway-api 通过 InnerAPI `/configs/tls_conf/server_data_conf` 下发，对应 OpenAPI `/clusters` 中的 `llm_config` 字段。详细导出格式见 `ai-gateway-api/design-docs/api-define/InnerAPI接口定义/server-data-conf.md`。
 
+> 说明：`AIConf.Keys[].Key` 支持 `enc$v1$` 前缀的字段级密文落盘（控制面导出时加密，BFE 加载时经 `bfe.conf` `[Security]` keyring 解密进内存），无此前缀按明文直通。解密后内存形态与明文配置完全一致，本文所述 Key 选择/轮换/亲和逻辑不变。详见 [下发配置文件敏感字段加密落盘设计](config_file_field_encryption.md)。
+
 ---
 
 ## 3. 转发层设计
@@ -124,7 +126,8 @@ BFE 在 `doSingleAIForward()` 中根据请求特征识别协议/认证风格（`
 
 1. **协议匹配校验**：比较 `AuthStyle` 与 `cluster.AIConf.ModelProtocols`，不匹配时直接返回 400 `PROVIDER_PROTOCOL_MISMATCH`；
 2. **认证头注入**：`mod_ai_token_auth.SetApiKey()` 按 `AuthStyle` 注入 `Authorization: Bearer`（OpenAI）或 `x-api-key`（Anthropic）（2026-09 起内部委托协议适配层 `bfe/bfe_model_protocol/` 的适配器 `InjectAuth`，见 `sys_design/model_protocol_adapter.md`）；
-3. **版本头注入**：Anthropic 风格下自动补 `anthropic-version: 2023-06-01`。
+3. **版本头注入**：Anthropic 风格下自动补 `anthropic-version: 2023-06-01`；
+4. **残留凭证头清理（互斥注入，issue #1447）**：网关接管上游凭证时（`selectedKey.Key != ""`），出站请求**只保留本次注入的那一个凭证头**，客户端带来的其它凭证头（`Authorization` / `x-api-key` / `x-goog-api-key`）一律删除；删除发生在 `Header.Clone()` 之后的副本上，**入站请求的 header 不被改写**（客户端凭证在鉴权、计费、日志脱敏、Key 亲和性 `clientKeySessionID` 上仍完整可用）。原因：上游对这三个头的优先级是 **provider 私有且方向相反**的（实测 kimi 认 `x-api-key`、bailian 认 `Authorization`），残留头会让上游用**客户端的**凭证鉴权 → 上游 401 → 被误判为该 Key 鉴权失败并写入惩罚键（1 个客户端即可打死整个集群）；**无 `Keys` 配置的集群（透传模式）不清理、不注入**，客户端凭证原样转发。
 
 `AIConf.ModelProtocols` 为空时默认仅支持 `openai`，保证旧配置向后兼容。
 
@@ -266,8 +269,11 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 
         idx, key, ok := chooseNextAIKey(keys, state)
         if !ok {
-            log.Logger.Warn("aiClusterInvoke: all ai keys exhausted for cluster[%s]", attempt.ClusterName)
-            break
+            // issue #1440: key exhaustion must yield a decidable result —
+            // a synthetic 429 (unified AiError, no ErrCode), never (nil, nil)
+            log.Logger.Warn("aiClusterInvoke: all ai keys exhausted for cluster[%s], return synthetic 429", attempt.ClusterName)
+            res = newSynthetic429Resp(basicReq)
+            return res, action, cluster, nil
         }
 
         res, action, err = p.doSingleAIForward(..., key)
@@ -400,6 +406,8 @@ func calcBackoff(initial, max, attempt int) time.Duration {
 ### 3.5 会话级 Key 亲和性（可选）
 
 当 `AIKeyPolicy.SessionAffinity = true` 时，BFE 会基于 `ClientKeyId` 在 Redis 中维护会话到 API-Key 的绑定，使得同一客户的多次请求尽量命中同一个 Provider Key，从而提升跨账户多 Key 场景下的 prompt cache 命中率。
+
+亲和性使用的 Redis 连接由 `bfe.conf` 的 `[AIKeyAffinity]` 段配置并由 `bfe_server` 核心自持（不再借用 `mod_ai_rate_limit` 模块的 Redis）；该段未配置或 `Disabled=true` 时，即使开启 `SessionAffinity`，亲和也静默不生效（fail-open），请求按加权随机分发。
 
 #### 3.5.1 会话标识
 
@@ -552,6 +560,10 @@ if success && usedKey.Name != boundName {
 - 若 Key 级重试最终得到 5xx、连接错误或特定 4xx（400/401/402/403/422/429），`shouldTriggerFallback()` 返回 true，触发 cluster fallback；
 - 若得到其他 4xx（如 404/405 等请求级错误），不触发 cluster fallback，直接返回。
 
+**Key 耗尽契约（issue #1440）**：当一次选 Key 都未成功（全部 Key 被惩罚 / Weight=0 / dead）时，`aiClusterInvoke()` **必须返回可判定的最终结果**——构造一个合成 429 响应（统一 AiError 目录的 `UPSTREAM_RATE_LIMITED`/`rate_limit_error` 形态，带 `X-Bfe-Gw-Error` 网关标记，**不设 `ErrCode`**，尤其不得设 `ErrAiRateLimit`，以免触发 local-RL 的 fallback 禁止短路），不得返回 `(res=nil, err=nil)`。这样外层 `shouldTriggerFallback()` 能按白名单触发 cluster fallback；未配置 fallback 时客户端拿到可重试的 429，而不是网关合成的空 body 500。网关标记同时保证 `normalizeUpstreamError`（`AIConf.NormalizeUpstreamError`）跳过该响应，不做二次改写。
+
+**nil/nil 不变量（issue #1440 加固）**：`shouldTriggerFallback()` 将 `(res=nil, err=nil)` 一律视为可降级（返回 true），作为防御不变量——任何调用路径漏构造返回值时兜底生效，而不是静默吞掉降级机会。该判定位于 `ErrAiRateLimit` 短路之后，不改变本地限流拒绝的语义；no route / no cluster 等更早的失败路径在进入 fallback 循环前即退出，不受影响。
+
 ```go
 var aiFallbackStatusCodes = map[int]struct{}{
     400: {},
@@ -600,6 +612,7 @@ func shouldTriggerFallback(res *bfe_http.Response, err error) bool {
 aiClusterInvoke: select ai key [name=%s weight=%d] for cluster[%s]
 aiClusterInvoke: ai key [name=%s] failed with status[%d], rotate/dead/retry
 aiClusterInvoke: all ai keys exhausted for cluster[%s]
+aiClusterInvoke: all ai keys exhausted for cluster[%s], return synthetic 429  # issue #1440：耗尽时返回合成 429
 ```
 
 ---
@@ -671,6 +684,6 @@ aiClusterInvoke: all ai keys exhausted for cluster[%s]
 2. **SSE 流式响应**：所有 Key 尝试完成后才返回响应，不会出现已开始发送后切换 Key 的情况；
 3. **与 `ServeHTTP()` 隔离**：多 API-Key 逻辑仅作用于 `ServeHTTPForAI()` 路径；
 4. **旧字段清理**：`AIConf.Key` 不再保留，统一使用 `AIConf.Keys`；
-5. **会话级亲和性依赖 Redis**：`SessionAffinity` 默认关闭，开启后需确保 `mod_ai_rate_limit` 的 Redis 配置可用；Redis 故障时自动降级为加权随机；
+5. **会话级亲和性依赖 Redis**：`SessionAffinity` 默认关闭；开启后需在 `bfe.conf` 配置 `[AIKeyAffinity]` 段（bfe_server 自持 Redis 连接，不复用 `mod_ai_rate_limit` 的 Redis），未配置时亲和静默不生效（fail-open）；Redis 故障时自动降级为加权随机；
 6. **单 Key 短路**：当 `AIConf.Keys` 中只有一个有效 Key 时，无论是否开启亲和性，都不会访问 Redis；
 7. **ClientKeyId 稳定性**：会话绑定基于 `AiBasicInfo.ClientKeyId`，控制面更新 API-Key 值时应保持该 ID 不变，否则原有绑定会失效。

@@ -1,0 +1,133 @@
+{
+    "Version": "20260720150000",
+    "route_rules": {
+        "apikey_ak_123": {
+            "type": "apikey",
+            "owner": "ak-123",
+            "rules": [
+                {
+                    "name": "ak-123-rule",
+                    "Cond": "req_host_in(\"enc.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_enc",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        },
+        "apikey_ak_enc": {
+            "type": "apikey",
+            "owner": "ak-enc",
+            "rules": [
+                {
+                    "name": "ak-enc-rule",
+                    "Cond": "req_host_in(\"enc.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_enc",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        },
+        "apikey_ak_plain": {
+            "type": "apikey",
+            "owner": "ak-plain",
+            "rules": [
+                {
+                    "name": "ak-plain-rule",
+                    "Cond": "req_host_in(\"enc.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_enc",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        },
+        "apikey_ak_old": {
+            "type": "apikey",
+            "owner": "ak-old",
+            "rules": [
+                {
+                    "name": "ak-old-rule",
+                    "Cond": "req_host_in(\"enc.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_enc",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        },
+        "apikey_ak_new": {
+            "type": "apikey",
+            "owner": "ak-new",
+            "rules": [
+                {
+                    "name": "ak-new-rule",
+                    "Cond": "req_host_in(\"enc.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_enc",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        },
+        "apikey_ak_enc_v2": {
+            "type": "apikey",
+            "owner": "ak-enc-v2",
+            "rules": [
+                {
+                    "name": "ak-enc-v2-rule",
+                    "Cond": "req_host_in(\"enc.example.org\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_enc",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak-123": [
+            "apikey_ak_123"
+        ],
+        "ak-enc": [
+            "apikey_ak_enc"
+        ],
+        "ak-plain": [
+            "apikey_ak_plain"
+        ],
+        "ak-old": [
+            "apikey_ak_old"
+        ],
+        "ak-new": [
+            "apikey_ak_new"
+        ],
+        "ak-enc-v2": [
+            "apikey_ak_enc_v2"
+        ]
+    }
+}

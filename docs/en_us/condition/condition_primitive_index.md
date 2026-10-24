@@ -32,6 +32,10 @@
  * [req_header_value_suffix_in(header_name, value_suffix_list, case_insensitive)](./request/header.md#req_header_value_suffix_inheader_name-value_suffix_list-case_insensitive)
  * [req_ua_regmatch(reg_exp)](./request/header.md#req_ua_regmatchreg_exp)
 
+### intent
+
+ * [req_ai_intent_in(question_name, value_list, min_confidence)](./request/intent.md#req_ai_intent_inquestion_name-value_list-min_confidence)
+
 ### host
 
  * [req_host_in(host_list)](./request/uri.md#req_host_inhost_list)
@@ -129,3 +133,4 @@
 
  * [bfe_periodic_time_range(start_time, end_time, period)](./system/time.md#bfe_periodic_time_rangestart_time-end_time-period) (period currently only supports empty string)
  * [bfe_time_range(start_time, end_time)](./system/time.md#bfe_time_rangestart_time-end_time)
+ * [time_weekday_in(weekday_list, zone)](./system/time.md#time_weekday_inweekday_list-zone)

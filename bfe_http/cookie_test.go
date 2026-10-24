@@ -381,6 +381,7 @@ func TestCookieSanitizePath(t *testing.T) {
 
 func TestDisableSanitize(t *testing.T) {
 	SetDisableSanitize(true)
+	defer SetDisableSanitize(false) // 复位包级开关，避免影响后续测试
 	tests := []struct {
 		in, want string
 	}{

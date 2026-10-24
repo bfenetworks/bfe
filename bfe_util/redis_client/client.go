@@ -45,6 +45,7 @@ type Client interface {
 	GetInt64(key string) (int64, error)
 	GetInt64Batch(keys []string) ([]int64, error)
 	IncrBy(key string, delta int64) (int64, error)
+	HGetAll(key string) (map[string]string, error)
 	Delete(key string) error
 	NewScript(src string) RedisScript
 }

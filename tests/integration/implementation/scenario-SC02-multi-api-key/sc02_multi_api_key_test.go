@@ -18,9 +18,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,15 +32,20 @@ import (
 )
 
 const (
-	apiHost = "multikey.example.org"
-	apiPath = "/v1/chat/completions"
-	apiKey  = "ak_user_a"
-	keyA    = "sk-key-a"
-	keyB    = "sk-key-b"
-	keyC    = "sk-key-c"
+	apiHost             = "multikey.example.org"
+	apiHostNoFallback   = "multikey-nofallback.example.org"
+	apiHostDeadBackend  = "deadbackend.example.org"
+	apiHostEmptyBackend = "emptybackend.example.org"
+	apiPath             = "/v1/chat/completions"
+	apiKey              = "ak_user_a"
+	keyA                = "sk-key-a"
+	keyB                = "sk-key-b"
+	keyC                = "sk-key-c"
 
-	clusterMultiKey   = "cluster_multi_key"
-	clusterFallbackOK = "cluster_fallback_ok"
+	clusterMultiKey     = "cluster_multi_key"
+	clusterFallbackOK   = "cluster_fallback_ok"
+	clusterDeadBackend  = "cluster_dead_backend"
+	clusterEmptyBackend = "cluster_empty_backend"
 )
 
 var defaultBody = []byte(`{"model":"gpt-4"}`)
@@ -76,6 +84,15 @@ func newTestEnv(t *testing.T, aiConf *cluster_conf.AIConf) *testEnv {
 		TargetConfDir: confDir,
 		Backends:      e.backends,
 		AIConfs:       aiConfs,
+		// cluster_dead_backend (TC-10) and cluster_empty_backend (TC-11) are
+		// declared in the shared testdata gslb.data; every env must give them
+		// a cluster_table entry or BFE startup fails with "no backend conf".
+		// Only the owning testcase routes to each. An empty address keeps the
+		// cluster's sub-cluster with zero backends.
+		StaticBackends: map[string]string{
+			clusterDeadBackend:  "127.0.0.1:1",
+			clusterEmptyBackend: "",
+		},
 	}
 	if err := builder.Build(); err != nil {
 		t.Fatalf("build bfe config failed: %v", err)
@@ -102,14 +119,27 @@ func (e *testEnv) logBFEException() {
 }
 
 func (e *testEnv) sendRequest(body []byte) (*http.Response, string, error) {
+	return e.sendRequestToHost(apiHost, body)
+}
+
+func (e *testEnv) sendRequestToHost(host string, body []byte) (*http.Response, string, error) {
+	return e.sendRequestToHostWithHeaders(host, body, nil)
+}
+
+// sendRequestToHostWithHeaders is sendRequestToHost plus extra request
+// headers (used by the issue #1441 round-2 correlation-header assertions).
+func (e *testEnv) sendRequestToHostWithHeaders(host string, body []byte, headers map[string]string) (*http.Response, string, error) {
 	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, apiPath)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, "", err
 	}
-	req.Host = apiHost
+	req.Host = host
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -122,6 +152,23 @@ func (e *testEnv) sendRequest(body []byte) (*http.Response, string, error) {
 		return nil, "", err
 	}
 	return resp, string(respBody), nil
+}
+
+// isDecimalLogIdInRange mirrors the access-log logid contract
+// (bfenetworks/bfe#1417): pure decimal, non-zero, fits the signed BIGINT of
+// the report databases.
+func isDecimalLogIdInRange(s string) bool {
+	v, err := strconv.ParseUint(s, 10, 64)
+	return err == nil && v > 0 && v <= uint64(1)<<63-1
+}
+
+// bfeLogContains reports whether the BFE runtime log contains the substring.
+func (e *testEnv) bfeLogContains(substr string) bool {
+	data, err := os.ReadFile(filepath.Join(e.processEnv.WorkDir(), "log", "bfe.log"))
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(data), substr)
 }
 
 func defaultMultiKeyAIConf() *cluster_conf.AIConf {
@@ -539,4 +586,302 @@ func abs(x int) int {
 		return -x
 	}
 	return x
+}
+
+// TestTC09 verifies issue #1440: when the very first key selection fails
+// (all keys Weight=0, zero upstream interaction), aiClusterInvoke must
+// return a decidable synthetic 429 instead of (nil, nil).
+//   - Arm A: with a fallback configured, the outer loop degrades to the
+//     fallback cluster and the client gets 200.
+//   - Arm B: without a fallback, the client gets a retryable 429 with a
+//     JSON error body instead of a 500.
+func TestTC09_FirstSelectionFailureSynthetic429(t *testing.T) {
+	aiConf := defaultMultiKeyAIConf()
+	aiConf.Keys = []cluster_conf.AIKey{
+		{Name: "key-a", Key: keyA, Weight: 0},
+		{Name: "key-b", Key: keyB, Weight: 0},
+	}
+	aiConf.KeyPolicy.MaxRetries = 1
+
+	t.Run("armA_with_fallback", func(t *testing.T) {
+		e := newTestEnv(t, aiConf)
+		defer e.Close()
+
+		resp, body, err := e.sendRequest(defaultBody)
+		if err != nil {
+			t.Fatalf("send request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			e.logBFEException()
+			t.Fatalf("expected status 200 from fallback cluster, got %d, body: %s", resp.StatusCode, body)
+		}
+		// Boundary (issue #1441 round 2): arm A's final response comes from
+		// the fallback upstream, not the gateway, so it must NOT carry the
+		// §3.3 correlation headers written by AiError.CreateErrorResponse.
+		if h := resp.Header.Get("X-Bfe-Log-Id"); h != "" {
+			t.Errorf("upstream 200 response must not carry X-Bfe-Log-Id, got %q", h)
+		}
+
+		// The exhausted cluster must see zero upstream interaction.
+		if hits := e.backends[clusterMultiKey].Hits(); hits != 0 {
+			t.Fatalf("expected 0 upstream hits on exhausted cluster, got %d", hits)
+		}
+		if hits := e.backends[clusterFallbackOK].Hits(); hits != 1 {
+			t.Fatalf("expected fallback cluster hit once, got %d", hits)
+		}
+		if !e.bfeLogContains("all ai keys exhausted for cluster[cluster_multi_key], return synthetic 429") {
+			t.Error("expected 'all ai keys exhausted ... return synthetic 429' in bfe.log")
+		}
+		if !e.bfeLogContains("fallback triggered, cluster[cluster_multi_key]") {
+			t.Error("expected 'fallback triggered' in bfe.log")
+		}
+	})
+
+	t.Run("armB_without_fallback", func(t *testing.T) {
+		e := newTestEnv(t, aiConf)
+		defer e.Close()
+
+		resp, body, err := e.sendRequestToHostWithHeaders(apiHostNoFallback, defaultBody,
+			map[string]string{"X-Request-ID": "tc09-req-id"})
+		if err != nil {
+			t.Fatalf("send request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusTooManyRequests {
+			e.logBFEException()
+			t.Fatalf("expected status 429, got %d, body: %s", resp.StatusCode, body)
+		}
+		if !strings.Contains(body, `"type":"rate_limit_error"`) {
+			t.Errorf("expected JSON error body with rate_limit_error, got: %s", body)
+		}
+		// issue #1441: unified error body must carry error.code (§3.2 必填).
+		if !strings.Contains(body, `"code":"NO_AVAILABLE_KEY"`) {
+			t.Errorf("expected JSON error body with code NO_AVAILABLE_KEY, got: %s", body)
+		}
+		// issue #1441: backoff signal - Retry-After header and
+		// details.retry_after_seconds (429 penalty TTL, 60s).
+		if ra := resp.Header.Get("Retry-After"); ra != "60" {
+			t.Errorf("expected Retry-After 60, got %q", ra)
+		}
+		if !strings.Contains(body, `"retry_after_seconds":60`) {
+			t.Errorf("expected details.retry_after_seconds=60 in body, got: %s", body)
+		}
+		if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "application/json") {
+			t.Errorf("expected application/json content type, got %q", ct)
+		}
+		// issue #1441 round 2: correlation headers (ai_error_codes.md §3.3).
+		// This scenario does not load mod_logid, so the gateway generates the
+		// id (fallback chain) and back-fills req.LogId.
+		if logId := resp.Header.Get("X-Bfe-Log-Id"); !isDecimalLogIdInRange(logId) {
+			t.Errorf("expected non-empty decimal X-Bfe-Log-Id, got %q", logId)
+		}
+		if rid := resp.Header.Get("X-Request-ID"); rid != "tc09-req-id" {
+			t.Errorf("expected echoed X-Request-ID %q, got %q", "tc09-req-id", rid)
+		}
+		if hits := e.backends[clusterMultiKey].Hits(); hits != 0 {
+			t.Fatalf("expected 0 upstream hits on exhausted cluster, got %d", hits)
+		}
+	})
+}
+
+// TestTC10 verifies issue #1441 step 3 + round 2 on the gateway-side
+// synthesized 502: when the target cluster's backend is unreachable (dial
+// fails), ServeHTTPForAI returns the unified BACKEND_UNAVAILABLE body (not a
+// bare 500) and, like the synthetic 429, carries the §3.3 correlation
+// headers - the "upstream unavailable" representative proving the headers
+// are not a 429-only patch.
+func TestTC10_GatewaySideFailureSynthesized502(t *testing.T) {
+	e := newDeadBackendEnv(t)
+	defer e.Close()
+
+	resp, body, err := e.sendRequestToHostWithHeaders(apiHostDeadBackend, defaultBody,
+		map[string]string{"X-Request-ID": "tc10-req-id"})
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadGateway {
+		e.logBFEException()
+		t.Fatalf("expected status 502, got %d, body: %s", resp.StatusCode, body)
+	}
+	if !strings.Contains(body, `"code":"BACKEND_UNAVAILABLE"`) {
+		t.Errorf("expected JSON error body with code BACKEND_UNAVAILABLE, got: %s", body)
+	}
+	if !strings.Contains(body, `"type":"internal_error"`) {
+		t.Errorf("expected JSON error body with type internal_error, got: %s", body)
+	}
+	if resp.Header.Get("X-Bfe-Gw-Error") != "1" {
+		t.Errorf("expected X-Bfe-Gw-Error: 1 on gateway-generated 502")
+	}
+	// regression guard: only the key-exhaustion 429 sets Retry-After.
+	if ra := resp.Header.Get("Retry-After"); ra != "" {
+		t.Errorf("BACKEND_UNAVAILABLE must not carry Retry-After, got %q", ra)
+	}
+	// issue #1441 round 2: §3.3 correlation headers (mod_logid not loaded in
+	// this scenario, so the id is gateway-generated and back-filled).
+	if logId := resp.Header.Get("X-Bfe-Log-Id"); !isDecimalLogIdInRange(logId) {
+		t.Errorf("expected non-empty decimal X-Bfe-Log-Id, got %q", logId)
+	}
+	if rid := resp.Header.Get("X-Request-ID"); rid != "tc10-req-id" {
+		t.Errorf("expected echoed X-Request-ID %q, got %q", "tc10-req-id", rid)
+	}
+	// zero upstream bytes: the dead backend has no listener at all, and the
+	// live mocks must not be hit either.
+	if hits := e.backends[clusterMultiKey].Hits(); hits != 0 {
+		t.Errorf("expected 0 hits on cluster_multi_key, got %d", hits)
+	}
+	if hits := e.backends[clusterFallbackOK].Hits(); hits != 0 {
+		t.Errorf("expected 0 hits on cluster_fallback_ok, got %d", hits)
+	}
+	if !e.bfeLogContains("refused") {
+		t.Error("expected backend dial failure (refused) recorded in bfe.log")
+	}
+}
+
+// TestTC11 verifies issue #1453: a cluster whose instance pool is validly
+// empty (sub-cluster present, zero backends) makes the balance layer report
+// BK_NO_BACKEND. The gateway failure exit must keep that business contract
+// (HTTP 500, error.code=BK_NO_BACKEND) instead of rewriting it into the
+// #1441 BACKEND_UNAVAILABLE/502 contract, so "capacity exhausted" stays
+// distinguishable from "backend failure". No backend identity headers are
+// set and no upstream receives the request.
+func TestTC11_EmptyInstancePoolReturnsBKNoBackend(t *testing.T) {
+	e := newEmptyBackendEnv(t)
+	defer e.Close()
+
+	resp, body, err := e.sendRequestToHostWithHeaders(apiHostEmptyBackend, defaultBody,
+		map[string]string{"X-Request-ID": "tc11-req-id"})
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusInternalServerError {
+		e.logBFEException()
+		t.Fatalf("expected status 500, got %d, body: %s", resp.StatusCode, body)
+	}
+	if !strings.Contains(body, `"code":"BK_NO_BACKEND"`) {
+		t.Errorf("expected JSON error body with code BK_NO_BACKEND, got: %s", body)
+	}
+	if !strings.Contains(body, `"type":"internal_error"`) {
+		t.Errorf("expected JSON error body with type internal_error, got: %s", body)
+	}
+	if got := resp.Header.Get("X-Bfe-Gw-Error"); got != "1" {
+		t.Errorf("expected X-Bfe-Gw-Error: 1 on gateway-generated response, got %q", got)
+	}
+	if got := resp.Header.Get("X-Backend-ID"); got != "" {
+		t.Errorf("BK_NO_BACKEND must not carry X-Backend-ID, got %q", got)
+	}
+	if got := resp.Header.Get("X-Rule-Name"); got != "" {
+		t.Errorf("BK_NO_BACKEND must not carry X-Rule-Name, got %q", got)
+	}
+	if ra := resp.Header.Get("Retry-After"); ra != "" {
+		t.Errorf("BK_NO_BACKEND must not carry Retry-After, got %q", ra)
+	}
+	if logId := resp.Header.Get("X-Bfe-Log-Id"); !isDecimalLogIdInRange(logId) {
+		t.Errorf("expected non-empty decimal X-Bfe-Log-Id, got %q", logId)
+	}
+	if rid := resp.Header.Get("X-Request-ID"); rid != "tc11-req-id" {
+		t.Errorf("expected echoed X-Request-ID %q, got %q", "tc11-req-id", rid)
+	}
+	if hits := e.backends[clusterMultiKey].Hits(); hits != 0 {
+		t.Errorf("expected 0 hits on cluster_multi_key, got %d", hits)
+	}
+	if !e.bfeLogContains("BK_NO_BACKEND") {
+		t.Error("expected BK_NO_BACKEND recorded in bfe.log")
+	}
+}
+
+// newDeadBackendEnv builds an env whose route host deadbackend.example.org
+// targets cluster_dead_backend, a cluster whose single backend address has
+// no listener (connection refused on dial).
+func newDeadBackendEnv(t *testing.T) *testEnv {
+	e := &testEnv{
+		t:        t,
+		backends: make(map[string]*common.MockBackend),
+	}
+
+	e.backends[clusterMultiKey] = common.NewMockBackend(clusterMultiKey, http.StatusOK, `{"ok":true}`)
+	e.backends[clusterFallbackOK] = common.NewMockBackend(clusterFallbackOK, http.StatusOK, `{"ok":true}`)
+
+	// grab a free port and release it: nothing will listen there, so the
+	// BFE dial gets ECONNREFUSED immediately (fast, no retry backoff).
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("reserve closed port failed: %v", err)
+	}
+	deadAddr := l.Addr().String()
+	l.Close()
+
+	e.processEnv = common.NewProcessEnv(t)
+	e.processEnv.Build()
+
+	confDir := filepath.Join(e.processEnv.WorkDir(), "conf")
+	logDir := filepath.Join(e.processEnv.WorkDir(), "log")
+
+	deadAIConf := &cluster_conf.AIConf{
+		Type: 0,
+		Keys: []cluster_conf.AIKey{
+			{Name: "key-dead", Key: "sk-key-dead", Weight: 100},
+		},
+		// fail fast on dial errors (no backoff sleep in the test)
+		KeyPolicy: &cluster_conf.AIKeyPolicy{MaxRetries: 0},
+	}
+
+	builder := &common.BFEConfigBuilder{
+		TemplateDir:   "testdata",
+		TargetConfDir: confDir,
+		Backends:      e.backends,
+		AIConfs:       map[string]*cluster_conf.AIConf{clusterDeadBackend: deadAIConf},
+		StaticBackends: map[string]string{
+			clusterDeadBackend:  deadAddr,
+			clusterEmptyBackend: "",
+		},
+	}
+	if err := builder.Build(); err != nil {
+		t.Fatalf("build bfe config failed: %v", err)
+	}
+
+	e.bfePort, _, e.stopBFE = e.processEnv.StartBFE(confDir, logDir)
+	return e
+}
+
+// newEmptyBackendEnv builds an env whose route host emptybackend.example.org
+// targets cluster_empty_backend, a cluster whose sub-cluster exists but has
+// zero backends (the validly-empty instance pool of issue #1453).
+func newEmptyBackendEnv(t *testing.T) *testEnv {
+	e := &testEnv{
+		t:        t,
+		backends: make(map[string]*common.MockBackend),
+	}
+
+	e.backends[clusterMultiKey] = common.NewMockBackend(clusterMultiKey, http.StatusOK, `{"ok":true}`)
+	e.backends[clusterFallbackOK] = common.NewMockBackend(clusterFallbackOK, http.StatusOK, `{"ok":true}`)
+
+	e.processEnv = common.NewProcessEnv(t)
+	e.processEnv.Build()
+
+	confDir := filepath.Join(e.processEnv.WorkDir(), "conf")
+	logDir := filepath.Join(e.processEnv.WorkDir(), "log")
+
+	emptyAIConf := &cluster_conf.AIConf{
+		Type: 0,
+		Keys: []cluster_conf.AIKey{
+			{Name: "key-empty", Key: "sk-key-empty", Weight: 100},
+		},
+		KeyPolicy: &cluster_conf.AIKeyPolicy{MaxRetries: 0},
+	}
+
+	builder := &common.BFEConfigBuilder{
+		TemplateDir:   "testdata",
+		TargetConfDir: confDir,
+		Backends:      e.backends,
+		AIConfs:       map[string]*cluster_conf.AIConf{clusterEmptyBackend: emptyAIConf},
+		StaticBackends: map[string]string{
+			clusterDeadBackend:  "127.0.0.1:1",
+			clusterEmptyBackend: "",
+		},
+	}
+	if err := builder.Build(); err != nil {
+		t.Fatalf("build bfe config failed: %v", err)
+	}
+
+	e.bfePort, _, e.stopBFE = e.processEnv.StartBFE(confDir, logDir)
+	return e
 }

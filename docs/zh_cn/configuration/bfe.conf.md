@@ -29,7 +29,8 @@ bfe.conf是BFE的核心配置
 | Server.MonitorAddr             | String  | Monitor监听地址                                    | N    | 参见 [ListenAddr](00-common.md#2-监听地址listenaddr) 类型定义            | 类型为 [ListenAddr](00-common.md#2-监听地址listenaddr)                     |
 | Server.AcceptNum               | Integer | 每个监听地址的Accept协程数                         | N    | 默认值1；为0时自动设为1                                                  | >= 0                                            |
 | Server.EnableAiGateway         | Boolean | 是否启用AI Gateway模式                             | N    | 默认值`False`                                                            | -                                               |
-| Server.EstimateToken           | Boolean | 当上游响应未返回usage时，是否基于请求Content-Length估算token使用量。估算仅在响应正常完成时生效：客户端中断（RST/断开）或写客户端失败且未收到最终usage的请求不按估算扣费（issue #1352） | N    | 默认值`False`                                                            | -                                               |
+| Server.EstimateToken           | Boolean | 当上游响应未返回usage时，是否基于请求Content-Length估算token使用量。估算仅在响应正常完成时生效：客户端中断（RST/断开）或写客户端失败且未收到最终usage的请求不按估算扣费（issue #1352）。缺usage按估算兜底是既定设计口径（issue #1398）。估算的适用条件进一步明确为**上游未返回 usage**（按 usage 对象的存在性判定，issue #1414）：usage 存在但各项计数为 0 的响应按真实 0 计费，不再走估算；相应地，`ai_total_tokens` 记 0 而 `ai_usage_source=parsed`，与"usage 未识别"（`unrecognized`）可区分 | N    | 默认值`True`（issue #1401 起为程序默认值，conf未配置时生效，显式配置可覆盖；issue #1398 前为`False`） | -                                               |
+| Server.InjectStreamUsage       | Boolean | 对OpenAI协议流式chat completion请求，当客户端未显式设置`stream_options.include_usage`时，自动注入`stream_options.include_usage=true`，使上游回发真实final usage chunk（issue #1398）。注入失败（非JSON请求体等）时静默透传 | N    | 默认值`True`（issue #1401 起为程序默认值，conf显式配置可覆盖）          | -                                               |
 | Server.AccessibleBodySize      | Integer | 请求体可缓冲的最大长度，单位为Byte                 | N    | 默认值2097152；用于请求体改写及AI Gateway fallback重试；超过此大小的请求体无法被完整缓存并重传 | > 0 且 <= 8388608                             |
 | Server.TotalBodyBufferSize     | Integer | 所有活跃bytes_body buffer占用内存之和的上限，单位为Byte | N    | 默认值0（表示无限制）；达到上限时，AI Gateway fallback不再对请求体做缓存封装，即不重传 | >= 0                                          |
 | Server.HostRuleConf            | String  | [租户域名表配置](server_data_conf/host_rule.data.md)文件路径 | N    | 默认值`server_data_conf/host_rule.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
@@ -70,6 +71,37 @@ bfe.conf是BFE的核心配置
 | SessionTicket.SessionTicketsDisabled | Boolean   | 是否禁用TLS Session Ticket                                                       | N    | 默认值`True`；为`True`时跳过其他SessionTicket相关校验                    | -                                                                          |
 | SessionTicket.SessionTicketKeyFile   | String    | [Session Ticket Key配置](tls_conf/session_ticket_key.data.md)文件路径            | N    | 默认值`tls_conf/session_ticket_key.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
 
+### AI Key会话保持配置
+
+AI Key会话保持（`AIConf.KeyPolicy.SessionAffinity`）用于将同一会话（ClientKeyId）的请求绑定到同一个 Provider API Key。会话绑定与Key惩罚状态存储在Redis中，连接由bfe_server核心自持（不再复用`mod_ai_rate_limit`模块的Redis），可用性仅由本节配置决定。本节未配置或`Disabled=true`时，会话保持静默不生效（fail-open）。
+
+| 配置项                          | 类型    | 参数含义                                                     | 必填 | 补充描述                                                     | 合法性条件                                |
+| ------------------------------- | ------- | ------------------------------------------------------------ | ---- | ------------------------------------------------------------ | ----------------------------------------- |
+| AIKeyAffinity.Disabled          | Boolean | 是否禁用AI Key会话保持                                       | N    | 默认值`True`；为`True`时跳过其他AIKeyAffinity相关校验        | -                                         |
+| AIKeyAffinity.ServiceConf       | String  | Redis服务的BNS名字（或带权重的BNS列表），经`Server.NameConf`名字表解析 | 条件 | `Disabled=false` 时必填                                      | `Disabled=false` 时不能为空，格式参见 [mod_ai_rate_limit Redis配置](mod_ai_rate_limit/mod_ai_rate_limit.conf.md) |
+| AIKeyAffinity.ConnectTimeoutMs  | Integer | 连接Redis的超时时间，单位毫秒                                | N    | 默认值1000                                                   | `Disabled=false` 时必须 > 0               |
+| AIKeyAffinity.ReadTimeoutMs     | Integer | 读取Redis的超时时间，单位毫秒                                | N    | 默认值1000                                                   | `Disabled=false` 时必须 > 0               |
+| AIKeyAffinity.WriteTimeoutMs    | Integer | 写入Redis的超时时间，单位毫秒                                | N    | 默认值1000                                                   | `Disabled=false` 时必须 > 0               |
+| AIKeyAffinity.MaxIdle           | Integer | 与Redis的最大空闲长连接数                                    | N    | 默认值10                                                     | `Disabled=false` 时必须 > 0               |
+| AIKeyAffinity.MaxActive         | Integer | 与Redis的最大活跃连接数                                      | N    | 默认值20；0表示不限制连接数                                  | >= 0                                      |
+| AIKeyAffinity.Password          | String  | Redis访问密码                                                | N    | 默认值空（表示无密码）                                       | -                                         |
+
+### 安全配置
+
+控制面下发的配置文件中，密钥类敏感字段（`mod_ai_token_auth/token_rule.data` 的 Tokens 外层键、`server_data_conf/cluster_conf.data` 的 `AIConf.Keys[].Key`）支持 `enc$v1$` 前缀的字段级密文落盘。BFE 加载这类文件时用本节配置的 keyring 文件解密后进内存，磁盘上无明文；无 `enc$v1$` 前缀的字段按明文直通，新旧配置与灰度回滚天然兼容。keyring 文件支持多 keyID 并存（轮换期新旧钥同挂），文件内容在每次加载 data 文件时重读（热加载）；本配置项（路径）仅在启动时加载。
+
+| 配置项           | 类型   | 参数含义                                         | 必填 | 补充描述                                                     | 合法性条件                                        |
+| ---------------- | ------ | ------------------------------------------------ | ---- | ------------------------------------------------------------ | ------------------------------------------------- |
+| Security.KeyFile | String | 敏感字段解密的 keyring 文件路径（多 keyID 并存） | N    | 默认值空（不解密；文件中若存在 `enc$v1$` 密文字段则加载失败，旧生效配置保留）；密钥文件须 0600、与 conf 目录分目录存放；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath) |
+
+示例：
+
+```ini
+[Security]
+# 下发配置文件敏感字段（enc$v1$ 密文）解密用的 keyring 文件
+KeyFile = /etc/ai-gateway/keys/export.keys
+```
+
 ## 配置示例
 
 ```ini
@@ -103,6 +135,17 @@ ClientWriteTimeout = 60
 
 # if false, client connection is shutdown disregard of http headers
 KeepAliveEnabled = true
+
+# if true, support ai gateway mode (default false)
+EnableAiGateway = false
+# if true, will estimate token usage if usage is not available in response
+# (default true; approved fallback when the response carries no usage, see issue #1398)
+EstimateToken = true
+
+# if true, inject stream_options.include_usage=true into OpenAI streaming
+# chat completion requests (when the client did not set it), so the upstream
+# returns the real final usage chunk (issue #1398)
+InjectStreamUsage = true
 
 # timeout for graceful shutdown (maximum 300 sec)
 GracefulShutdownTimeout = 10
@@ -234,4 +277,36 @@ SessionExpire = 3600
 SessionTicketsDisabled = true
 # session ticket key
 SessionTicketKeyFile = tls_conf/session_ticket_key.data
+
+[AIKeyAffinity]
+# AI key session affinity: server-owned Redis for session->key binding and
+# key penalty state. Disabled by default; when disabled, affinity silently
+# does not apply (fail-open) even if a cluster sets SessionAffinity=true.
+Disabled = true
+
+# bns name (or weighted bns list) of redis servers, resolved via NameConf
+#ServiceConf = "redis_bns"
+
+# connection params (ms)
+#ConnectTimeoutMs = 1000
+#ReadTimeoutMs = 1000
+#WriteTimeoutMs = 1000
+
+# max idle connections in connection pool
+#MaxIdle = 10
+
+# max active connections in pool (0 means no connection num limit)
+#MaxActive = 20
+
+# redis password, ignore if not set
+#Password = ""
+
+[Security]
+# keyring file for decrypting enc$v1$ ciphertext fields in distributed
+# config files (token_rule.data Tokens outer keys / cluster_conf.data
+# AIConf.Keys[].Key). Empty by default: if a loaded file contains enc$v1$
+# ciphertext fields, the load fails and the previously effective config
+# is kept. The key material file must be 0600 and stored outside the
+# conf directory. Keyring content is re-read on every data-file load.
+#KeyFile = /etc/ai-gateway/keys/export.keys
 ```

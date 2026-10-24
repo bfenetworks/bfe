@@ -53,6 +53,10 @@ type ConfigBasic struct {
 
 	EnableAiGateway bool // enable ai gateway
 	EstimateToken   bool // whether estimate token usage from content length
+	// InjectStreamUsage injects stream_options.include_usage=true into OpenAI
+	// streaming chat completion requests (when the client did not set it), so
+	// the upstream returns the real final usage chunk (issue #1398).
+	InjectStreamUsage bool
 
 	AccessibleBodySize  int64 // max size in bytes to buffer request body for rewriting/fallback
 	TotalBodyBufferSize int64 // max total bytes of all active bytes_body buffers (0 means unlimited)
@@ -107,6 +111,14 @@ func (cfg *ConfigBasic) SetDefaultConf() {
 	cfg.NameConf = "server_data_conf/name_conf.data"
 
 	cfg.MonitorInterval = 20
+
+	// AI gateway billing/statistics defaults (issues #1398, #1401): with no
+	// program default these fall back to the Go zero value false, and a
+	// binary upgrade that does not ship the new conf keys silently loses
+	// the estimate/include_usage fixes. Defaults run before gcfg loads the
+	// conf file, so an explicit conf value still overrides them.
+	cfg.EstimateToken = true
+	cfg.InjectStreamUsage = true
 }
 
 func (cfg *ConfigBasic) Check(confRoot string) error {

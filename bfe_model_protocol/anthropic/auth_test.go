@@ -51,3 +51,9 @@ func TestExtraHeaders(t *testing.T) {
 		t.Errorf("unexpected ExtraHeaders: %v", h)
 	}
 }
+
+func TestCredentialHeader(t *testing.T) {
+	if got := New().CredentialHeader(); got != "X-Api-Key" {
+		t.Errorf("unexpected CredentialHeader: %s", got)
+	}
+}

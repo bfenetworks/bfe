@@ -23,7 +23,14 @@
                 "rpm": [
                     {"name":"rpmabc1", "window_minutes": 1, "max_requests": 100, "burst":1, "redis_key": "RL_RPM_rlp-0001_0"}
                 ],
-                "max_concurrency": 50
+                "max_concurrency": 50,
+                "batch": {
+                    "max_create_rpm": 10,
+                    "max_active_batches": 5,
+                    "max_file_bytes": 104857600,
+                    "max_file_lines": 50000,
+                    "redis_key": "RL_BATCH_rlp-0001_rpm"
+                }
             }
         },
         "rlp-0002": {

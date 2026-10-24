@@ -1,0 +1,13 @@
+{
+    "Version": "1.0",
+
+    "MaxFileBytes": 1073741824,
+    "MaxFileLines": 100000,
+
+    "ReserveInputTokens": 8192,
+    "ReserveOutputTokens": 4096,
+    "ReservePerLineMicros": 200000,
+
+    "MaxLineParseBytes": 1048576,
+    "OwnerCheckMissPolicy": "allow_log"
+}

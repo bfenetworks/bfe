@@ -1,0 +1,14 @@
+{
+    "Version": "20261014150000",
+    "Hosts": {
+        "ai_product": [
+            "weekday.example.org",
+            "weekday-utc.example.org"
+        ]
+    },
+    "HostTags": {
+        "ai_product": [
+            "ai_product"
+        ]
+    }
+}

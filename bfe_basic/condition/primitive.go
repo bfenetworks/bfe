@@ -1091,6 +1091,55 @@ func (t *PeriodicTimeMatcher) Match(v interface{}) bool {
 	return seconds >= t.startTime && seconds <= t.endTime
 }
 
+// WeekdayMatcher matches whether the weekday of a time value is in a weekday set.
+// Weekday numbers follow Go's time.Weekday convention: 0=Sunday, 1=Monday, ...,
+// 6=Saturday, the same convention as the cluster_conf TimeRange.Weekdays field.
+type WeekdayMatcher struct {
+	weekdayMask uint8          // bit i set means weekday i matches
+	loc         *time.Location // time zone used to derive the weekday
+}
+
+// NewWeekdayMatcher follows weekdayStr format: dd[|dd]*, dd in [0, 6], 0=Sunday.
+// zoneStr is one letter defined in bfe_util.TimeZoneMap (e.g. "H" for UTC+8);
+// an empty string means "Z" (UTC).
+func NewWeekdayMatcher(weekdayStr, zoneStr string) (*WeekdayMatcher, error) {
+	if strings.TrimSpace(zoneStr) == "" {
+		zoneStr = "Z"
+	}
+	offset, ok := bfe_util.TimeZoneMap[strings.ToUpper(strings.TrimSpace(zoneStr))]
+	if !ok {
+		return nil, fmt.Errorf("invalid zone:%s", zoneStr)
+	}
+
+	if strings.TrimSpace(weekdayStr) == "" {
+		return nil, fmt.Errorf("weekday list is empty")
+	}
+	var mask uint8
+	for _, item := range strings.Split(weekdayStr, "|") {
+		wd, err := strconv.Atoi(strings.TrimSpace(item))
+		if err != nil || wd < 0 || wd > 6 {
+			return nil, fmt.Errorf("invalid weekday:%s, should be an integer in [0, 6]",
+				strings.TrimSpace(item))
+		}
+		mask |= 1 << uint(wd)
+	}
+
+	return &WeekdayMatcher{
+		weekdayMask: mask,
+		loc:         time.FixedZone("zone", offset),
+	}, nil
+}
+
+func (m *WeekdayMatcher) Match(v interface{}) bool {
+	tm, ok := v.(time.Time)
+	if !ok {
+		return false
+	}
+	// tm is in UTC, convert it to the configured time zone
+	tm = tm.In(m.loc)
+	return m.weekdayMask&(1<<uint(tm.Weekday())) != 0
+}
+
 type ReqBodyJsonFetcher struct {
 	path string
 }
@@ -1243,4 +1292,47 @@ func ReqBodyJsonSet(req *bfe_basic.Request, path string, value string) error {
 	bodyAccessor.SetBytes(newBody, false)
 
 	return nil
+}
+
+// PrimitiveAiIntentIn implements the req_ai_intent_in primitive. It matches
+// when the intent answer of the given question is available (not unknown
+// under the current confidence gate) and its choice is one of options
+// ("|" separated, the BFE *_in convention).
+//
+// minConf is the rule-level confidence threshold: negative means omitted,
+// in which case the per-question gate (current MinConfidence) applied in
+// AiIntent.Match is the effective threshold; an explicit value (0 allowed)
+// is an additional, stricter gate.
+func PrimitiveAiIntentIn(req *bfe_basic.Request, question string, options string, minConf float64) bool {
+	if req == nil {
+		return false
+	}
+
+	intent := bfe_basic.GetAiIntent(req)
+	if intent == nil {
+		return false
+	}
+
+	if !intent.Match(question, strings.Split(options, "|")...) {
+		return false
+	}
+
+	if minConf < 0 {
+		// threshold omitted: the per-question gate already applied in Match
+		return true
+	}
+
+	answer := intent.Answers[question]
+	return answer != nil && answer.AnswerConfidence >= minConf
+}
+
+// AiIntentCond is the compiled condition of req_ai_intent_in.
+type AiIntentCond struct {
+	question string
+	options  string
+	minConf  float64
+}
+
+func (c *AiIntentCond) Match(req *bfe_basic.Request) bool {
+	return PrimitiveAiIntentIn(req, c.question, c.options, c.minConf)
 }

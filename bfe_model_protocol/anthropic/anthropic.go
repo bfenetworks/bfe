@@ -41,7 +41,9 @@ func (a *Adapter) ExtraHeaders() map[string]string {
 }
 
 // ErrorNormalizer returns the phase-1 default normalizer (never recognizes
-// errors, callers keep their status-code whitelist).
+// errors, callers keep their status-code whitelist). The client-facing
+// parser for normalization (AIConf.NormalizeUpstreamError) lives in
+// ErrorParser in errors.go; the two seams stay decoupled on purpose.
 func (a *Adapter) ErrorNormalizer() utils.ErrorNormalizer {
 	return utils.DefaultErrorNormalizer{}
 }

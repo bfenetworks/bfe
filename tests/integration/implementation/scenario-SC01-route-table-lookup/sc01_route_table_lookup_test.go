@@ -15,12 +15,15 @@
 package sc01
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
+	"net"
 	"net/http"
+	"net/http/httptrace"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -419,7 +422,7 @@ func TestTC08_FallbackWithPartialBody(t *testing.T) {
 	})
 	defer e.Close()
 
-	e.backends["cluster_primary_a"].ReadBeforeClose = 1024
+	e.backends["cluster_primary_a"].SetReadBeforeClose(1024)
 
 	body := generateBody(1024 * 1024)
 	resp, respBody, err := e.sendRequestWithContentType(largeHost, apiKeyUserA, body, "application/octet-stream")
@@ -535,6 +538,188 @@ func TestTC11_InternalResp404WithModHeaderLoaded(t *testing.T) {
 	}
 	if v := resp.Header.Get("X-Proxied-By"); v != "bfe" {
 		t.Fatalf("X-Proxied-By = %q, want bfe", v)
+	}
+}
+
+// tracedClient wraps an http.Client and records httptrace GotConn info for
+// every request, so tests can assert connection identity (keep-alive reuse)
+// instead of mere request success. Comparing the net.Conn object defeats Go
+// Transport's transparent reconnect masking: when BFE silently closes a
+// pooled connection (issue #1416), a retried request lands on a NEW
+// connection and the identity comparison fails.
+type tracedClient struct {
+	client *http.Client
+	infos  []httptrace.GotConnInfo
+}
+
+func newTracedClient() *tracedClient {
+	return &tracedClient{client: &http.Client{Timeout: 30 * time.Second}}
+}
+
+func (c *tracedClient) post(url, host, apiKey string, body []byte, mutate func(*http.Request)) (*http.Response, string, error) {
+	var bodyReader io.Reader
+	if body != nil {
+		bodyReader = bytes.NewReader(body)
+	}
+	req, err := http.NewRequest(http.MethodPost, url, bodyReader)
+	if err != nil {
+		return nil, "", err
+	}
+	req.Host = host
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if mutate != nil {
+		mutate(req)
+	}
+	trace := &httptrace.ClientTrace{
+		GotConn: func(info httptrace.GotConnInfo) {
+			c.infos = append(c.infos, info)
+		},
+	}
+	resp, err := c.client.Do(req.WithContext(httptrace.WithClientTrace(req.Context(), trace)))
+	if err != nil {
+		return nil, "", err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return resp, "", err
+	}
+	return resp, string(data), nil
+}
+
+// TestTC12_NoRoute404ConnectionReuse is a regression test for
+// bfenetworks/bfe#1416: after the internally-constructed 404 (AI route not
+// found) is sent, the client connection must remain keep-alive reusable — a
+// second no-route request on the same pooled connection must get a readable
+// 404 instead of EOF. Protocol-level close shapes (HTTP/1.0, request
+// "Connection: close", undrainable request body) must still close, but with
+// an advertised "Connection: close".
+func TestTC12_NoRoute404ConnectionReuse(t *testing.T) {
+	e := newTestEnv(t, nil)
+	defer e.Close()
+
+	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, apiPath)
+	tc := newTracedClient()
+
+	// Steps 1-2: two consecutive no-route requests on the same client.
+	for i := 0; i < 2; i++ {
+		resp, body, err := tc.post(url, apiHost, apiKeyNoBinding, emptyJSONBody, nil)
+		if err != nil {
+			e.logBFEException()
+			t.Fatalf("step 1: request %d failed: %v", i+1, err)
+		}
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("step 1: request %d: status = %d, want 404", i+1, resp.StatusCode)
+		}
+		if !strings.Contains(body, "AI route not found") {
+			t.Fatalf("step 1: request %d: body = %q, want contain 'AI route not found'", i+1, body)
+		}
+		// resp.Close is the client-visible form of the wire "Connection: close"
+		// advertisement: Go's client strips the hop-by-hop header from
+		// resp.Header and reflects it in resp.Close.
+		if resp.Close {
+			t.Fatalf("step 1: request %d: response unexpectedly advertises close (resp.Close=true)", i+1)
+		}
+		if got := resp.Header.Get("X-Proxied-By"); got != "bfe" {
+			t.Fatalf("step 1: request %d: X-Proxied-By = %q, want bfe", i+1, got)
+		}
+	}
+	if tc.infos[0].Reused {
+		t.Fatalf("step 1: first request should dial a new connection")
+	}
+	if !tc.infos[1].Reused || tc.infos[1].Conn != tc.infos[0].Conn {
+		t.Fatalf("step 2: second no-route request must reuse the first connection (reused=%v, sameConn=%v)",
+			tc.infos[1].Reused, tc.infos[1].Conn == tc.infos[0].Conn)
+	}
+
+	// Step 3 (control arm): routed requests keep the connection alive too.
+	for i := 0; i < 3; i++ {
+		resp, _, err := tc.post(url, apiHost, apiKeyUserA, emptyJSONBody, nil)
+		if err != nil {
+			e.logBFEException()
+			t.Fatalf("step 3: request %d failed: %v", i+1, err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("step 3: request %d: status = %d, want 200", i+1, resp.StatusCode)
+		}
+	}
+	for i := 1; i <= 3; i++ {
+		if !tc.infos[1+i].Reused || tc.infos[1+i].Conn != tc.infos[0].Conn {
+			t.Fatalf("step 3: request %d must reuse the same connection (reused=%v, sameConn=%v)",
+				i, tc.infos[1+i].Reused, tc.infos[1+i].Conn == tc.infos[0].Conn)
+		}
+	}
+
+	// Step 4: a no-route request whose body exceeds the drain budget
+	// (accessibleBodySize 4MB eager buffer + 256KB chunk_writer drain) must
+	// close the connection WITH advertisement (RFC 2616: the body cannot be
+	// consumed before replying).
+	resp, body, err := tc.post(url, apiHost, apiKeyNoBinding, generateBody(5*1024*1024), nil)
+	if err != nil {
+		e.logBFEException()
+		t.Fatalf("step 4: request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound || !strings.Contains(body, "AI route not found") {
+		t.Fatalf("step 4: status = %d, body = %q, want 404 AI route not found", resp.StatusCode, body)
+	}
+	if !resp.Close {
+		t.Fatalf("step 4: undrainable body must close with advertisement, got resp.Close=false")
+	}
+
+	// Step 5: HTTP/1.0 must not reuse the connection. Go's Transport always
+	// sends HTTP/1.1 on the wire (verified empirically: setting req.Proto is
+	// ignored), so this step drives a raw TCP connection.
+	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", e.bfePort))
+	if err != nil {
+		t.Fatalf("step 5: dial failed: %v", err)
+	}
+	defer conn.Close()
+	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	fmt.Fprintf(conn, "POST %s HTTP/1.0\r\nHost: %s\r\nAuthorization: Bearer %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s",
+		apiPath, apiHost, apiKeyNoBinding, len(emptyJSONBody), emptyJSONBody)
+	br := bufio.NewReader(conn)
+	rawResp, err := http.ReadResponse(br, &http.Request{Method: http.MethodPost})
+	if err != nil {
+		e.logBFEException()
+		t.Fatalf("step 5: read response failed: %v", err)
+	}
+	rawBody, err := io.ReadAll(rawResp.Body)
+	rawResp.Body.Close()
+	if err != nil || rawResp.StatusCode != http.StatusNotFound ||
+		!strings.Contains(string(rawBody), "AI route not found") {
+		t.Fatalf("step 5: status = %d, body = %q, err = %v, want 404 AI route not found",
+			rawResp.StatusCode, rawBody, err)
+	}
+	// HTTP/1.0 without keep-alive: the server must close the connection after
+	// the response (the next read gets EOF).
+	if _, err := br.ReadByte(); err != io.EOF {
+		t.Fatalf("step 5: server must close the HTTP/1.0 connection after response, got err = %v", err)
+	}
+
+	// Step 6: an explicit "Connection: close" request header must be honored
+	// with an advertised close response.
+	resp, _, err = tc.post(url, apiHost, apiKeyNoBinding, emptyJSONBody, func(req *http.Request) {
+		req.Header.Set("Connection", "close")
+	})
+	if err != nil {
+		e.logBFEException()
+		t.Fatalf("step 6: request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound || !resp.Close {
+		t.Fatalf("step 6: status = %d, resp.Close = %v, want 404 with advertised close",
+			resp.StatusCode, resp.Close)
+	}
+
+	// Only the three routed requests (step 3) may reach mock backends.
+	total := 0
+	for _, b := range e.backends {
+		total += b.Hits()
+	}
+	if total != 3 {
+		t.Fatalf("mock backend total hits = %d, want 3 (only the routed control arm)", total)
 	}
 }
 

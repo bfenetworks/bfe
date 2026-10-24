@@ -167,8 +167,12 @@ func (q *QuotaPlan) HasBalance(client redis_client.Client) (bool, int64, error) 
 	return current > 0, current, nil
 }
 
-func tokenCheck(conf *TokenFile) error {
-	if conf.Key == "" {
+func tokenCheck(conf *TokenFile, requireKey bool) error {
+	// requireKey is false when the outer Tokens map key is an enc$v1$
+	// ciphertext (control-plane export form): the inner Key field may be
+	// omitted there and is filled back with the decrypted plaintext during
+	// tokenMapConvert.
+	if requireKey && conf.Key == "" {
 		return errors.New("no Key")
 	}
 	if conf.KeyId == "" {

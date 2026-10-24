@@ -2,6 +2,7 @@
 
 - [mod_access](mod_access/mod_access.md)
 - [mod_access_pb3](mod_access_pb3/mod_access_pb3.md)
+- [mod_ai_cache](mod_ai_cache/mod_ai_cache.md)
 - [mod_ai_rate_limit](mod_ai_rate_limit/mod_ai_rate_limit.md)
 - [mod_ai_route](mod_ai_route/mod_ai_route.md)
 - [mod_ai_token_auth](mod_ai_token_auth/mod_ai_token_auth.md)

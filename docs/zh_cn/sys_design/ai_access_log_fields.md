@@ -19,7 +19,7 @@ BFE 作为 AI 网关，需要把请求在认证、路由、转发、计费等各
 
 ## 2. 字段总览
 
-AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前已定义 29 个字段：
+AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前已定义 47 个字段：
 
 | 编号 | 字段名 | 类型 | 说明 | 采集模块 |
 |------|--------|------|------|----------|
@@ -42,6 +42,9 @@ AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前
 | 717 | `ai_protocol` | `string` | AI 协议/认证风格，如 `openai`、`anthropic` | `bfe_basic.GetApiKey` / `bfe_server/reverseproxy.go` |
 | 761 | `ai_cost_value` | `int64` | 估算成本（定点整数，精度由币种决定） | `mod_ai_token_auth` |
 | 762 | `ai_cost_currency` | `string` | 成本币种，如 `RMB` / `USD` | `bfe_server/reverseproxy.go` |
+| 763 | `ai_price_miss` | `bool` | 价格缺失标记：`(model, mode)` 价格条目缺失、成本按 chat 价回退或按 0 计费时置真，用于区分「未定价的低价/0 计费」与合法 0 成本行（issue #1408） | `mod_ai_token_auth` |
+| 764 | `ai_usage_source` | `string` | usage 来源标记：`parsed` / `estimated` / `aborted` / `unrecognized`；非 2xx 行缺席（issue #1410、#1414） | `mod_ai_token_auth` |
+| 765 | `ai_zero_cost_reason` | `string` | 零成本原因标记：绑定 RMB 计划的**可计费** 2xx 请求计费为 0 时的成因（`unrecognized` / `aborted` / `cache_hit` / `batch_release` / `price_miss` / `price_zero` / `model_table_missing` / `config_missing` / `no_usage_tokens` / `cost_zero`）；已计费、未绑定 RMB 计划或非 2xx 时缺席；**批量与 files 管理端点（`mode` 为 `file`/`batch`）与未解析出 `target_model` 的请求不写该字段**（从未成为可计费模型调用，零成本属设计）；配合计数器 `BillingZeroCost` 使用（issue #1414） | `mod_ai_token_auth` |
 | 781 | `ai_cache_read_tokens` | `int64` | 从 cache 读取的 Token 数（已包含在 `ai_input_tokens` 中） | `mod_ai_token_auth` / `mod_body_process` |
 | 782 | `ai_cache_write_tokens` | `int64` | 写入 cache 的 Token 数（独立附加项） | `mod_ai_token_auth` / `mod_body_process` |
 | 783 | `ai_audio_input_tokens` | `int64` | 音频输入 Token 数（已包含在 `ai_input_tokens` 中） | `mod_ai_token_auth` / `mod_body_process` |
@@ -50,8 +53,25 @@ AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前
 | 786 | `ai_image_input_tokens` | `int64` | 图片输入 Token 数（已包含在 `ai_input_tokens` 中） | `mod_ai_token_auth` / `mod_body_process` |
 | 787 | `ai_video_count` | `int64` | 生成视频数量（video_generation 模式） | `mod_ai_token_auth` / `mod_body_process` |
 | 788 | `ai_cache_write_1h_tokens` | `int64` | 1h TTL 缓存写入 Token 数（已包含在 `ai_cache_write_tokens` 中） | `mod_ai_token_auth` / `mod_body_process` |
+| 789 | `ai_cache_status` | `string` | `mod_ai_cache` 缓存状态：`hit` / `hit_semantic` / `miss` / `skip`；未启用缓存时为空 | `mod_access_pb3` 读取 `AiBasicInfo`（`mod_ai_cache` 设置） |
+| 790 | `ai_cache_key` | `string` | `mod_ai_cache` 缓存键，仅 debug 开启时记录，默认为空，避免日志膨胀 | 同上 |
+| 791 | `ai_cache_semantic` | `bool` | `mod_ai_cache` 语义缓存命中标志：命中来自语义缓存（`hit_semantic`）时写 true | 同上 |
+| 792 | `ai_cache_similarity` | `double` | `mod_ai_cache` 语义命中归一化相似度 [0,1]，越大越相似，阈值调优依据；未做语义检索不写 | 同上 |
 | 801 | `ai_route_rule_hits` | `repeated AIRouteRuleHit` | 命中的 AI 路由规则列表 | `mod_ai_route` |
 | 802 | `ai_cluster_key_names` | `repeated ClusterKeyName` | 请求处理过程中尝试过的 (cluster, key) 列表 | `bfe_server/reverseproxy.go` |
+| 803 | `ai_intent_question` | `string` | 路由实际消费的首个意图问题名（`mod_ai_intent`） | `mod_access_pb3` 读取 `CtxAiIntent` |
+| 804 | `ai_intent_answer` | `string` | 该问题答案选项；低于门限时为 `unknown` | 同上 |
+| 805 | `ai_intent_confidence` | `float64` | 门控后的答案置信度（供 MinConfidence 标定） | 同上 |
+| 806 | `ai_intent_source` | `string` | 答案来源：`explicit_header` / `classifier` / `cache` | 同上 |
+| 807 | `ai_intent_latency_us` | `int64` | 分类耗时（微秒），仅 >0 时写 | 同上 |
+| 808 | `ai_intent_cache_hit` | `bool` | 意图命中进程内缓存，仅 cache 源写 true | 同上 |
+| 809 | `ai_intent_questions_version` | `string` | 意图问题配置 Version（配置回滚追溯） | 同上 |
+| 810 | `ai_upstream_status` | `int32` | 上游原始 HTTP 状态码（上游错误体归一生效时存在，见 `ai_error_codes.md` §2.5） | `bfe_server/reverseproxy.go` 归一拦截点 |
+| 811 | `ai_upstream_err_code` | `string` | 上游原始错误码（OpenAI `error.code` / Anthropic `error.type` / Gemini `error.status`，脱敏后内容） | 同上 |
+| 812 | `ai_err_normalized` | `bool` | 上游归一是否生效：`true` 重写 / `false` 透传（含未识别、开关关闭） | 同上 |
+| 813 | `ai_err_normalize_miss` | `bool` | 归一未识别标记（parser 返回 nil 的样本，用于补映射表） | 同上 |
+| 814 | `ai_stream_error_rewritten` | `bool` | 本流至少一个 SSE 错误事件被归一改写（`StreamEnabled` 时） | 同上 |
+| 815 | `ai_stream_truncated` | `bool` | 流截断：EOF 时缺失协议终止事件（`StreamEnabled` 时；Gemini 流以 EOF 正常结束，恒不标记） | 同上 |
 | 841 | `ai_auth_hit_quota_plans` | `repeated string` | 正常请求时命中的 Quota Plan ID 列表 | `mod_ai_token_auth` |
 
 ### 2.1 编号区间规划
@@ -65,7 +85,27 @@ AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前
 | 841 - 880 | 安全、合规与隐私 |
 | 881 - 900 | 厂商扩展与预留 |
 
-> 说明：编号 781-790 已用于 `cache_read` / `cache_write` / `cache_write_1h` / `audio_input` / `audio_output` / `image_count` / `image_input_tokens` / `video_count` 等子项字段，后续新增子项可继续向 789-790 扩展。
+> 说明：编号 781-792 已用于 cache/audio/image 子项与网关级缓存状态字段——781-788 为 token 计量子项（`cache_read` / `cache_write` / `audio_input` / `audio_output` / `image_count` / `image_input_tokens` / `video_count` / `cache_write_1h`），789-792 为 `mod_ai_cache` 状态字段（`ai_cache_status` / `ai_cache_key` / `ai_cache_semantic` / `ai_cache_similarity`）。后续新增子项可向 793-800 扩展。
+
+**缓存命中的策略语义（issue #1433）**：`ai_cache_status` 为 `hit` / `hit_semantic`
+的行表示响应由缓存直接产出、请求在 `HandleFoundProduct` 短路。这类行必然同时满足：
+`ai_rate_limit_hits` 为空（限流未检查也未计量）、`ai_zero_cost_reason=cache_hit`
+（`mod_ai_token_auth.go:395` 的唯一零成本形状标记，计入 `cache_hit` 而不计
+`BillingZeroCost`）、token usage 与成本为 0（配额未扣减）、`ai_route_rule_hits` 为空
+（路由未求值）。
+
+模型访问控制（allow/block）"未执行"这件事**没有独立日志字段**，也不需要：它是命中
+短路的结构性后果（命中不路由 ⇒ target model 未解析 ⇒ `ValidateTargetModel` 无从执行），
+判别依据就是 `ai_cache_status` 本身。另设 `ai_policy_skipped` 之类的字段只会把同一个
+事实写两遍、形成双事实来源，因此不引入（详见
+`docs/zh_cn/modifications/2026-10-20-issue-1433-cache-hit-policy-matrix/design-changes.md`
+§4.1）。报表与审计按上述映射判定即可；`skip`（跳过头）与 `miss` 不适用该规则——它们
+走完整链路，策略正常执行。
+
+命中行的 `ai_target_model`（704）仍为**客户端请求的模型**：`InitAiBasicInfo` 在请求入口
+把它置为 `ClientModel`（`bfe_server/http_conn.go:567`），而覆盖真实 target model 的
+`computeTargetModel` 发生在 `doSingleAIForward`（`bfe_server/reverseproxy.go:1660`），
+命中请求到不了那里。需要"这条答案由哪个模型产出"时，请看该条目写入缓存时的请求行。
 
 ---
 
@@ -140,6 +180,11 @@ type AiBasicInfo struct {
     TokenTimeInfo   TokenTimeInfo     // 709/710 ai_ttft_us / ai_tpot_us
     AiAuthInfo      AiAuthInfo        // 712/713/841
     ClusterKeyNames []ClusterKeyName  // 802 ai_cluster_key_names
+    AiCacheHit        bool            // 789 ai_cache_status 为 hit / hit_semantic 时置 true（计费跳过扣减依据）
+    AiCacheStatus     string          // 789 ai_cache_status：hit / hit_semantic / miss / skip
+    AiCacheKey        string          // 790 ai_cache_key，仅 debug 开启时填充
+    AiCacheSemantic   bool            // 791 ai_cache_semantic，语义命中时置 true
+    AiCacheSimilarity float64         // 792 ai_cache_similarity，语义命中归一化相似度
 
     allowEstimateToken bool
     // 请求完成状态（issue #1352，不参与访问日志输出，详见 rmb_quota.md 6.4）：
@@ -214,7 +259,7 @@ message AIRouteRuleHit {
 
 ### 5.2 `mod_ai_token_auth`
 
-- 在 `ValidateUserTokenByReq()` 中找到 Token 后，立即把 `Token.KeyId` 写入 `AiBasicInfo.ClientKeyId`，确保即使后续拒绝也能在日志中识别 key；
+- 在 `ValidateUserTokenByReq()` 中找到 Token 后，立即把 `Token.KeyId` 与 `Token.Tags` 写入 `AiBasicInfo.ClientKeyId` / `ApikeyTags`，确保即使后续拒绝也能在日志中识别 key 并保留 Entity 归属（issue #1418）；
 - 通过 `SetTokenAuthContext()` 写入 `ApikeyTags` 和初始 `PromptTokens`；
 - 在响应阶段解析 `usage`（含 `prompt_tokens`、`completion_tokens`、`cache_read_tokens`、`cache_write_tokens`、`cache_creation.ephemeral_1h_input_tokens`、`audio_input_tokens`、`audio_output_tokens`、`image_count`、`image_input_tokens`、`video_count`）并估算 token，填充 `TokenUsage`；
 - 对 `image_generation` 模式，在认证阶段预读请求体 `n` 字段作为 `ImageCount` 兜底；
@@ -222,7 +267,9 @@ message AIRouteRuleHit {
 - 对 RMB 配额调用 `calcCostUnits()` 计算 `UsedCost`，支持 input/output、cache read/write（5m 与 1h TTL 两段拆分）、audio input/output/image input 多价格子项拆分；input/output 单价支持按上下文长度分档（`above_Nk_tokens` 档位键）；
 - 对 `/count_tokens` 等 token 计数端点跳过扣费，避免误收；
 - 通过 `TokenAuthContext.deducted` 标记保证同一请求生命周期内仅扣费一次，防止 `HandleRequestFinish` 重复触发导致重复扣费；
-- 在认证成功时记录 `HitQuotaPlans`，拒绝时记录 `RejectReason` 和 `RejectQuotaPlans`。
+- 在认证成功时记录 `HitQuotaPlans`，拒绝时记录 `RejectReason` 和 `RejectQuotaPlans`；
+- 请求结束时标记 usage 来源 `ai_usage_source`（764）：`parsed` / `estimated` / `aborted` / `unrecognized`，与计费判定同点设置，使计费旁路在对账中可直接查询（issue #1410、#1414）；
+- 绑定 RMB 配额计划且计费为 0 的**可计费** 2xx 请求，标记零成本原因 `ai_zero_cost_reason`（765）并计数 `BillingZeroCost`，同时对已观测行的 `ai_cost_value` 显式写 0，使"零成本"与"字段缺席"可区分；批量与 files 管理端点、未解析出 `target_model` 的请求、以及 AI 缓存命中不计入计数器（缓存命中仅写 `cache_hit` 标记），因为它们的零成本属设计而非异常（issue #1414）。
 
 ### 5.3 `mod_ai_route`
 
@@ -244,6 +291,7 @@ message AIRouteRuleHit {
 - 从 `cluster.AIConf.Provider` 写入 `AiBasicInfo.Provider`；
 - 从 `cluster.AIConf.ModelTable.Currency` 写入 `AiBasicInfo.CostCurrency`；
 - 调用 `AiBasicInfo.AppendClusterKeyName(cluster.Name, selectedKey.Name)` 记录尝试；
+- 删除客户端带来的残留凭证头（`Authorization` / `x-api-key` / `x-goog-api-key` 中本次不注入的那些，在 `Header.Clone()` 后的副本上删除），保证出站请求只携带一个凭证头（issue #1447）；
 - 按 `AuthStyle` 调用 `mod_ai_token_auth.SetApiKey()` 注入 `Authorization: Bearer` 或 `x-api-key`；
 - Anthropic 风格下自动补 `anthropic-version: 2023-06-01`；
 - 在 `ModelMapping`、路由 target/fallback model override、provider prefix strip 后更新 `TargetModel`。
@@ -263,7 +311,11 @@ message AIRouteRuleHit {
 `reqAiInfoGen()` 负责把上述所有字段从 `AiBasicInfo`、`AiRateLimitHitInfo`、`AiRouteResult` 映射到 `RequestLog`：
 
 - 字段重命名：`AiApikey`→`AiApikeyId`、`AiMappedModel`→`AiTargetModel`、`AiPromptTokens`→`AiInputTokens`；
-- 新增字段：`AiMode`、`AiProtocol`、`AiProvider`、`AiRetryCount`、`AiCostValue`、`AiCostCurrency`、`AiCacheReadTokens`、`AiCacheWriteTokens`、`AiCacheWrite_1HTokens`、`AiAudioInputTokens`、`AiAudioOutputTokens`、`AiImageCount`、`AiImageInputTokens`、`AiVideoCount`、`AiRouteRuleHits`、`AiClusterKeyNames`、`AiAuthHitQuotaPlans`。
+- 新增字段：`AiMode`、`AiProtocol`、`AiProvider`、`AiRetryCount`、`AiCostValue`、`AiCostCurrency`、`AiCacheReadTokens`、`AiCacheWriteTokens`、`AiCacheWrite_1HTokens`、`AiAudioInputTokens`、`AiAudioOutputTokens`、`AiImageCount`、`AiImageInputTokens`、`AiVideoCount`、`AiRouteRuleHits`、`AiClusterKeyNames`、`AiAuthHitQuotaPlans`；
+- 意图字段（803-809）：读取请求上下文中已解析的 `*bfe_basic.AiIntent`（仅读缓存结果，不触发懒解析），按 `ConsumedQuestion` 回填，详见 `docs/zh_cn/sys_design/mod_ai_intent.md` 5.4；
+- 缓存字段（789-792）：`AiCacheStatus` / `AiCacheKey`（debug 时）直接映射，语义命中时同时写 `AiCacheSemantic`（=true）与 `AiCacheSimilarity`，详见 `docs/zh_cn/sys_design/ai_cache.md`；
+- 计费观测标记（763-765）：`AiPriceMiss`（763）、`AiUsageSource`（764）、`AiZeroCostReason`（765）在 usage 观测块内写出；`AiCostValue` 对已观测行显式写 0（原仅在 > 0 时写出），非 2xx 行整组 usage 与标记字段缺席（issue #1408 / #1410 / #1414）。
+- **logid / session_id（bfenetworks/bfe#1417）**：`BfeLog.logid` 与 `RequestLog.session_id` 由 `logIdToUint64()` 从字符串无损转换（十进制串，取值 `[1, 2^63-1]`——`genLogId()` 已改产十进制并被掩到 63 位）；转换失败（mod_logid 未加载、异形串、滚动升级期旧版 32-hex 头）时由 `randUint64NonZero()` 本地重生非 0 值，并计入 `LogidRegenerated` / `SessionIdRegenerated`，不再静默写 0——写 0 会使报表库同秒同 Key 同模型的并发行互相覆盖。详见 `docs/zh_cn/modifications/2026-10-13-issue-1417-logid-dedup-fix/design-changes.md`。
 
 ---
 
@@ -277,8 +329,8 @@ message AIRouteRuleHit {
 
 ## 7. 测试与验证
 
-1. **单元测试**：`bfe_modules/mod_access_pb3/request_log_test.go` 覆盖所有字段的赋值逻辑；
-2. **集成测试**：`tests/integration/implementation/scenario-SC05-access-log-ai-fields/` 启动真实 BFE 进程，发送 AI 请求后解码 b2log，校验全部 30 个字段（包括 `ai_mode`、`ai_protocol`、`ai_image_count`、`ai_image_input_tokens`、`ai_video_count`、`ai_cache_write_1h_tokens` 等图像/视频生成与缓存 TTL 场景字段）；`scenario-SC11-ai-token-auth-billing-fix/` 覆盖 Anthropic 高 cache 命中、`/count_tokens` 不计费、重复扣费防护等计费修复场景。
+1. **单元测试**：`bfe_modules/mod_access_pb3/request_log_test.go` 覆盖所有字段的赋值逻辑；`bfe_basic/request_ai_intent_test.go` 覆盖路由消费意图（ConsumedQuestion/ConsumedUnknown）的记录；
+2. **集成测试**：`tests/integration/implementation/scenario-SC05-access-log-ai-fields/` 启动真实 BFE 进程，发送 AI 请求后解码 b2log，校验全部 30 个字段（包括 `ai_mode`、`ai_protocol`、`ai_image_count`、`ai_image_input_tokens`、`ai_video_count`、`ai_cache_write_1h_tokens` 等图像/视频生成与缓存 TTL 场景字段）；`scenario-SC11-ai-token-auth-billing-fix/` 覆盖 Anthropic 高 cache 命中、`/count_tokens` 不计费、重复扣费防护等计费修复场景；`scenario-SC22-ai-intent-routing/` TC-13 校验 `ai_intent_*` 字段四种形态（正常分类、unknown 兜底、cache 命中、意图未求值整组为空）。
 
 ---
 
@@ -294,3 +346,5 @@ message AIRouteRuleHit {
 - `bfe/docs/zh_cn/modifications/2026-08-31-ai-token-auth-billing-fix/design-changes.md`
 - `bfe/docs/zh_cn/modifications/2026-09-09-length-tier-and-cache-1h-billing/design-changes.md`
 - `bfe/tests/integration/测试设计文档/scenario-SC05-AI访问日志字段校验/场景说明.md`
+- `bfe/docs/zh_cn/sys_design/ai_cache.md`
+- `bfe/docs/zh_cn/modifications/2026-09-30-ai-cache-semantic-cache/design-changes.md`

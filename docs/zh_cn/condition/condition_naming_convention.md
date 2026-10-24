@@ -16,6 +16,10 @@
 - 针对系统原语，会以"**bfe_**" 开头
     - 如：bfe_time_range()
 
+- 针对基于系统时间的原语，会以"**time_**" 开头
+    - 如：time_weekday_in()
+    - 注：`bfe_time_range()`、`bfe_periodic_time_range()` 为历史命名（沿用 `bfe_` 前缀），保持不变
+
 ## 条件原语中比较的动作名称
 
 - **match**：精确匹配

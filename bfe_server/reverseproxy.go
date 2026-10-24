@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"mime"
 	"net"
 	"reflect"
 	"strconv"
@@ -38,6 +39,8 @@ import (
 	"golang.org/x/net/http2"
 
 	"github.com/bfenetworks/go-lib/log"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 
 	bfe_cluster_backend "github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/bfe/bfe_balance/bal_gslb"
@@ -50,7 +53,6 @@ import (
 	"github.com/bfenetworks/bfe/bfe_http2"
 	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_module"
-	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_rate_limit"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_body_process"
 	"github.com/bfenetworks/bfe/bfe_route"
 	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
@@ -1184,9 +1186,14 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		log.Logger.Info("FindProduct error[%s] host[%s] vip[%s] clientip[%s]", err.Error(),
 			basicReq.HttpRequest.Host, basicReq.Session.Vip, basicReq.ClientAddr)
 
-		// close connection
-		res = bfe_basic.CreateInternalSrvErrResp(basicReq)
-		action = closeAfterReply
+		// issue #1416: keep the connection reusable (same rationale as the
+		// no-route 404 branch below).
+		// issue #1441: gateway-synthesized failures carry the unified AiError
+		// body (and the X-Bfe-Gw-Error gateway marker, so normalizeUpstreamError
+		// skips them) instead of a bare empty-body 500.
+		res = bfe_basic.NewAiError(bfe_basic.CodeBackendUnavailable, bfe_basic.TypeInternalError,
+			"gateway could not determine a product/cluster for this request").CreateErrorResponse(basicReq)
+		basicReq.BfeStatusCode = res.StatusCode
 		goto response_got
 	}
 
@@ -1225,7 +1232,11 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		p.proxyState.ErrBkFindLocation.Inc(1)
 		res = bfe_basic.CreateSpecifiedContentResp(basicReq, bfe_http.StatusNotFound,
 			"text/plain", "AI route not found")
-		action = closeAfterReply
+		// issue #1416: keep the client connection reusable. The response is
+		// self-delimited (Content-Length set) and chunk_writer drains the
+		// request body before writing response headers; closing here without
+		// advertising "Connection: close" poisoned keep-alive reuse — the
+		// second request on the pooled connection failed with EOF.
 		goto response_got
 	}
 
@@ -1284,7 +1295,12 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 
 	// ensure request body is rewindable before attempting fallbacks
 	if len(attempts) > 1 && basicReq.HttpRequest.Body != nil {
-		if !prepareRequestBodyForRetry(basicReq.HttpRequest) {
+		if isBatchPassthroughMode(aiMeta) {
+			// batch/file traffic streams potentially large file bodies that
+			// must never be buffered for retry: forward exactly once
+			log.Logger.Debug("ServeHTTPForAI: batch/file mode, disable fallback")
+			attempts = attempts[:1]
+		} else if !prepareRequestBodyForRetry(basicReq.HttpRequest) {
 			log.Logger.Warn("ServeHTTPForAI: request body is not rewindable, disable fallback")
 			attempts = attempts[:1]
 		}
@@ -1343,6 +1359,14 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		}
 	}
 
+	// Upstream error normalization (AIConf.NormalizeUpstreamError): rewrite
+	// the final upstream error into the unified error catalog. Runs after
+	// the fallback loop settles (never affects retry/fallback decisions)
+	// and before any byte is written or the EPP filter wraps res.Body.
+	if res != nil && aiMeta != nil {
+		normalizeUpstreamError(res, lastCluster, aiMeta, p.proxyState)
+	}
+
 	basicReq.HttpResponse = res
 
 	// Note: The runtime will not GC the objects referenced by basicReq.SvrDataConf until the request
@@ -1358,8 +1382,20 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		}
 
 		basicReq.Stat.ResponseStart = time.Now()
-		basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
-		res = bfe_basic.CreateInternalSrvErrResp(basicReq)
+		if isAIClientAbort(basicReq.ErrCode) {
+			// The client is gone / the response could not be written: no body
+			// can be delivered, so keep the legacy bare-500 record (issue
+			// #1441 boundary: client-abort paths are out of scope).
+			basicReq.BfeStatusCode = bfe_http.StatusInternalServerError
+			res = bfe_basic.CreateInternalSrvErrResp(basicReq)
+			goto response_got
+		}
+
+		// Gateway-side failure with a live client (no cluster found, backend
+		// connect/transport error, ...): return the unified AiError body
+		// instead of an empty-body 500 (issue #1441).
+		res = aiGatewayFailureResponse(basicReq)
+		basicReq.BfeStatusCode = res.StatusCode
 		goto response_got
 	}
 
@@ -1458,9 +1494,33 @@ send_response:
 			basicReq.ErrMsg = err.Error()
 
 			p.proxyState.ErrClientWrite.Inc(1)
+		} else if shouldMarkAIStreamCompleted(res, aiMeta, err) {
+			// issue #1415: the full SSE body was delivered and the upstream
+			// closed cleanly. Streams whose upstream omits the protocol
+			// termination event never reach MarkResponseCompleted via the
+			// event path; clean EOF is the completion signal.
+			aiMeta.MarkResponseCompleted()
 		}
 	}
 	return
+}
+
+// shouldMarkAIStreamCompleted reports whether a fully delivered streaming
+// (SSE) response completes the AI request for the billing gate. A nil copy
+// error is the transport-level completion fact: chunked responses only EOF
+// at the terminating chunk and fixed-length responses only EOF after
+// Content-Length bytes, so copyResponse success means the upstream delivered
+// everything. Protocol termination events ([DONE]/message_stop) mark
+// completion earlier on the event path (issue #1352); this catches streams
+// that end at a clean HTTP EOF without one (issue #1415) — the same
+// "ends at EOF" yardstick the gemini adapter declares via StreamEndsAtEOF,
+// applied to the billing completion gate for every protocol. Client aborts
+// and mid-stream upstream drops surface as a copy error and never reach
+// here, so the issue #1352 no-estimation-on-abort semantics are untouched.
+func shouldMarkAIStreamCompleted(res *bfe_http.Response, aiMeta *bfe_basic.AiBasicInfo, copyErr error) bool {
+	return copyErr == nil && res != nil && res.StatusCode == bfe_http.StatusOK &&
+		res.IsSse && aiMeta != nil &&
+		aiMeta.Mode != bfe_basic.ModeFile && aiMeta.Mode != bfe_basic.ModeBatch
 }
 
 // stripProviderPrefix strips the configured provider/model prefix from model.
@@ -1485,9 +1545,9 @@ func stripProviderPrefix(model string, matchPrefix string) (string, bool) {
 // attempt. It always starts from clientModel so that fallback clusters recompute
 // from the original client value instead of inheriting the previous cluster's
 // target model. The calculation order is:
-//   1. attempt.Model override (if non-empty)
-//   2. strip provider/model prefix according to aiConf
-//   3. apply cluster model mapping according to aiConf
+//  1. attempt.Model override (if non-empty)
+//  2. strip provider/model prefix according to aiConf
+//  3. apply cluster model mapping according to aiConf
 func computeTargetModel(clientModel string, attemptModel string, aiConf *cluster_conf.AIConf) string {
 	targetModel := clientModel
 
@@ -1511,6 +1571,66 @@ func computeTargetModel(clientModel string, attemptModel string, aiConf *cluster
 	}
 
 	return targetModel
+}
+
+// maybeInjectStreamUsage injects stream_options.include_usage=true into an
+// OpenAI-protocol streaming request body when the client did not set it, so
+// the upstream returns the real final usage chunk (issue #1398). It reports
+// whether the body was modified. Injection failures (body not bufferable,
+// non-JSON body) pass through unchanged.
+func maybeInjectStreamUsage(basicReq *bfe_basic.Request, aiMeta *bfe_basic.AiBasicInfo, enabled bool) bool {
+	if !enabled || basicReq == nil || basicReq.OutRequest == nil || aiMeta == nil {
+		return false
+	}
+	if aiMeta.AuthStyle != bfe_basic.AuthStyleOpenAI {
+		return false
+	}
+	// Chat/completions streaming only: the Responses API already reports its
+	// final usage in response.completed (issue #1381), and Anthropic streams
+	// carry their final usage in message_delta.
+	if aiMeta.Mode != bfe_basic.ModeChat && aiMeta.Mode != bfe_basic.ModeCompletion {
+		return false
+	}
+	bodyAccessor, err := basicReq.OutRequest.GetBodyAccessor()
+	if err != nil || bodyAccessor == nil {
+		return false
+	}
+	body, all := bodyAccessor.GetBytes()
+	if !all || len(body) == 0 {
+		return false
+	}
+	if !gjson.GetBytes(body, "stream").Bool() {
+		return false
+	}
+	// Never override an explicit client choice (including explicit false).
+	if gjson.GetBytes(body, "stream_options.include_usage").Exists() {
+		return false
+	}
+	newBody, err := sjson.SetBytes(body, "stream_options.include_usage", true)
+	if err != nil {
+		log.Logger.Warn("inject stream_options.include_usage failed: %v", err)
+		return false
+	}
+	bodyAccessor.SetBytes(newBody, false)
+	return true
+}
+
+// sanitizeOutboundCredentials enforces issue #1447: an outbound request that
+// carries a gateway-injected credential must carry exactly that one. The
+// outbound header map aliases the inbound one (see the shallow copy in
+// doSingleAIForward), so the map is detached before deleting anything — the
+// client credential must stay intact on the inbound request (auth, billing,
+// access-log masking and the key-affinity session id all read it). It returns
+// the dropped header names so the caller can log them (names only, never
+// values).
+func sanitizeOutboundCredentials(outreq *bfe_http.Request, keep string) []string {
+	foreign := modelprotocol.ForeignCredentialHeaders(outreq.Header, keep)
+	if len(foreign) == 0 {
+		return nil
+	}
+	outreq.Header = outreq.Header.Clone()
+	modelprotocol.RemoveForeignCredentialHeaders(outreq.Header, keep)
+	return foreign
 }
 
 // doSingleAIForward performs a single AI forward attempt with the given key.
@@ -1539,7 +1659,7 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 			fmt.Sprintf("request protocol %s not supported by cluster provider (model_protocols=%v)",
 				aiMeta.AuthStyle, cluster.AIConf.ModelProtocols),
 		)
-		return err.CreateErrorResponse(basicReq), closeAfterReply, nil, bodyModel
+		return err.CreateErrorResponse(basicReq), keepAlive, nil, bodyModel
 	}
 
 	// prepare out request to downstream RS backend
@@ -1586,15 +1706,22 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 		switch retVal {
 		case bfe_module.BfeHandlerClose:
 			return cbRes, closeDirectly, nil, bodyModel
-		case bfe_module.BfeHandlerFinish, bfe_module.BfeHandlerResponse:
+		case bfe_module.BfeHandlerFinish:
+			// module contract: close the connection after response
 			return cbRes, closeAfterReply, nil, bodyModel
+		case bfe_module.BfeHandlerResponse:
+			// issue #1416: use the response and keep the connection reusable
+			// (self-delimited response; chunk_writer drains the request body).
+			return cbRes, keepAlive, nil, bodyModel
 		}
 	}
 
 	// bodyModel is cached by the caller and updated here only when we actually
 	// change the body, so we avoid parsing the request body on every attempt.
+	// issue #1426: batch/file passthrough and non-JSON bodies are never
+	// rewritten; aiMeta.TargetModel was already recorded above for logging.
 	newBodyModel = bodyModel
-	if targetModel != bodyModel {
+	if shouldRewriteBodyModel(aiMeta, outreq.Header, targetModel, bodyModel) {
 		if err := condition.ReqBodyJsonSet(basicReq, "model", targetModel); err != nil {
 			log.Logger.Warn("Failed to set model in request body: %s", err)
 		} else {
@@ -1613,6 +1740,22 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 		}
 	}
 
+	// issue #1398: for OpenAI streaming chat completions without an explicit
+	// client-side stream_options.include_usage, inject it so the upstream
+	// returns the real final usage chunk. Without it such streams end at
+	// [DONE] with no usage at all and fall into the request-finish reset,
+	// silently zeroing both statistics and billing.
+	if maybeInjectStreamUsage(basicReq, aiMeta, srv.Config.Server.InjectStreamUsage) {
+		if outreq.ContentLength >= 0 {
+			outreq.ContentLength = -1
+			outreq.Header.Del("Content-Length")
+		}
+		if basicReq.HttpRequest != nil && basicReq.HttpRequest.ContentLength >= 0 {
+			basicReq.HttpRequest.ContentLength = -1
+			basicReq.HttpRequest.Header.Del("Content-Length")
+		}
+	}
+
 	// apply cluster.AIConf (api key, provider, cost currency)
 	if cluster.AIConf != nil {
 		if cluster.AIConf.Provider != "" {
@@ -1623,6 +1766,21 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 		}
 		aiMeta.AppendClusterKeyName(cluster.Name, selectedKey.Name)
 		if selectedKey.Key != "" {
+			// record the injected credential: pattern source for upstream
+			// error redaction; must never be logged
+			aiMeta.UpstreamKey = selectedKey.Key
+		}
+		if selectedKey.Key != "" {
+			// issue #1447: the gateway owns the upstream credential from here
+			// on, so the client's credential headers must not survive into the
+			// outbound request. Upstreams pick the credential by their own
+			// provider-private priority (kimi prefers x-api-key over
+			// Authorization), so a residual client header silently overrides
+			// the injected one and the resulting 401 is charged to this key.
+			if dropped := sanitizeOutboundCredentials(outreq, adapter.CredentialHeader()); len(dropped) > 0 {
+				log.Logger.Info("doSingleAIForward: drop client credential headers %v for cluster[%s], injected credential is %s",
+					dropped, cluster.Name, adapter.CredentialHeader())
+			}
 			if err := adapter.InjectAuth(outreq, selectedKey.Key); err != nil {
 				log.Logger.Warn("doSingleAIForward: inject auth failed: %v", err)
 			}
@@ -1662,7 +1820,10 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 		basicReq.ErrCode = bfe_basic.ErrBkNoCluster
 		basicReq.ErrMsg = err.Error()
 		p.proxyState.ErrBkNoCluster.Inc(1)
-		return nil, closeAfterReply, nil, err, newBodyModel
+		// issue #1416: keepAlive — the caller turns nil res into an internal
+		// 500 response; closing here would poison keep-alive reuse (see the
+		// no-route 404 branch in ServeHTTPForAI).
+		return nil, keepAlive, nil, err, newBodyModel
 	}
 
 	// set deadline to finish read client request body
@@ -1689,6 +1850,13 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 
 	// ensure request body is rewindable when key-level retry is possible
 	keyRetryEnabled := policy.MaxRetries > 0
+	if keyRetryEnabled && isBatchPassthroughMode(aiMeta) {
+		// batch/file traffic streams potentially large file bodies: no key-level retry
+		log.Logger.Debug("aiClusterInvoke: batch/file mode, disable key-level retry for cluster[%s]",
+			attempt.ClusterName)
+		keyRetryEnabled = false
+		policy.MaxRetries = 0
+	}
 	if keyRetryEnabled {
 		if !prepareRequestBodyForRetry(basicReq.HttpRequest) {
 			log.Logger.Warn("aiClusterInvoke: request body is not rewindable, disable key-level retry for cluster[%s]",
@@ -1700,16 +1868,31 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 
 	state := newAIKeyAttemptState()
 
-	// session-level key affinity
-	var redisClient redis_client.Client
-	if policy.SessionAffinity && srv.Modules != nil {
-		if module := srv.Modules.GetModule(mod_ai_rate_limit.ModAiRateLimit); module != nil {
-			if m, ok := module.(*mod_ai_rate_limit.ModuleAiRateLimit); ok {
-				redisClient = m.RedisClient()
+	// Session affinity state (binding/penalty) is core forwarding logic; the
+	// Redis handle is owned by the server (see initAIKeyAffinityRedis), not
+	// borrowed from any module. Unconfigured (nil) means affinity is disabled.
+	redisClient := srv.AIKeyAffinityRedis
+	sessionID := clientKeySessionID(basicReq)
+	// batch/file operations chain to the upstream key recorded by
+	// mod_ai_batch (batch-level affinity, independent of client affinity).
+	// Key selection happens before the HandleAfterAITargetModel callbacks
+	// (where mod_ai_batch classifies the operation), so derive the hint here
+	// when the module has not run yet.
+	batchHint := basicReq.GetAiBatchRouteHint()
+	if batchHint == nil && isBatchPassthroughMode(aiMeta) {
+		if op := bfe_basic.ClassifyBatchOp(basicReq.HttpRequest.Method, basicReq.HttpRequest.URL.Path); op != "" {
+			batchHint = &bfe_basic.AiBatchRouteHint{
+				BatchId: bfe_basic.BatchPathBatchId(basicReq.HttpRequest.URL.Path),
+				FileId:  bfe_basic.BatchPathFileId(basicReq.HttpRequest.URL.Path),
 			}
+			// the create path carries no file id; the referenced input file
+			// is in the (buffered) request body and chains upload -> create
+			if op == bfe_basic.BatchOpCreate {
+				batchHint.FileId = bfe_basic.ExtractBatchInputFileId(basicReq)
+			}
+			basicReq.SetAiBatchRouteHint(batchHint)
 		}
 	}
-	sessionID := clientKeySessionID(basicReq)
 	boundName := ""
 
 	var lastErr error
@@ -1733,10 +1916,30 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 		}
 
 		if !keepKey {
-			idx, key, boundName, ok = chooseAIKeyWithAffinity(cluster.Name, keys, policy, state, redisClient, sessionID, p.proxyState)
+			idx, key, boundName, ok = chooseAIKeyWithAffinity(cluster.Name, keys, policy, state, redisClient, sessionID, p.proxyState, batchHint)
 			if !ok {
-				log.Logger.Warn("aiClusterInvoke: all ai keys exhausted for cluster[%s]", attempt.ClusterName)
-				break
+				// Issue #1440: no usable key could be selected (all penalized /
+				// weight 0 / dead). Return a synthetic 429 so the outer fallback
+				// decision can act on a decidable result: a configured fallback
+				// cluster is tried, and without one the client gets a retryable
+				// 429 instead of an opaque 500. The unified AiError form marks
+				// the response as gateway-generated (X-Bfe-Gw-Error), so
+				// normalizeUpstreamError leaves it alone.
+				// Issue #1441: the unified body carries error.code
+				// (NO_AVAILABLE_KEY, 429/rate_limit_error), a Retry-After hint
+				// and err_code attribution. The ErrCode sentinel is deliberately
+				// NOT ErrAiRateLimit: that would suppress cluster fallback (the
+				// local-RL short-circuit in ServeHTTPForAI).
+				log.Logger.Warn("aiClusterInvoke: all ai keys exhausted for cluster[%s], return synthetic 429", attempt.ClusterName)
+				retryAfter := aiKeyPenaltyTTL429
+				res = bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeNoAvailableKey, bfe_basic.TypeRateLimitError,
+					"no available upstream api key for this cluster",
+					&bfe_basic.AiErrorDetail{Model: attempt.Model, RetryAfterSeconds: retryAfter},
+				).CreateErrorResponse(basicReq)
+				res.Header.Set("Retry-After", strconv.Itoa(retryAfter))
+				basicReq.ErrCode = bfe_basic.ErrAiNoAvailableKey
+				basicReq.ErrMsg = "no available upstream api key"
+				return res, action, cluster, nil, newBodyModel
 			}
 
 			log.Logger.Info("aiClusterInvoke: select ai key [name=%s weight=%d] for cluster[%s]",
@@ -1772,13 +1975,29 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 			return res, action, cluster, nil, newBodyModel
 		}
 
+		// Request-phase body-process rejection (content audit REJECT, SC35
+		// TC-02): a deterministic policy rejection, not a transient backend
+		// failure. Mirror the non-AI path (clusterInvoke WriteRequestError/
+		// BPError branch): no used/dead marking, no session-affinity
+		// penalty, no key-level retry. ErrBkBodyProcess keeps the business
+		// 500 contract via aiGatewayFailureResponse instead of the 502
+		// BACKEND_UNAVAILABLE backend contract.
+		var bpErr *mod_body_process.BPError
+		if errors.As(err, &bpErr) {
+			basicReq.ErrCode = bfe_basic.ErrBkBodyProcess
+			basicReq.ErrMsg = err.Error()
+			p.proxyState.ErrBkBodyProcess.Inc(1)
+			log.Logger.Info("aiClusterInvoke: request rejected by body process [%s], no key retry", err)
+			return res, action, cluster, err, newBodyModel
+		}
+
 		// classify failure
 		switch {
 		case statusCode == 429:
 			// rate limit: mark key as used and rotate to another key
 			state.usedSet[idx] = struct{}{}
 			if policy.SessionAffinity && policy.SessionAffinityPenaltyEnable && redisClient != nil {
-				setKeyPenalty(cluster.Name, key.Name, "429", 60, policy, redisClient)
+				setKeyPenalty(cluster.Name, key.Name, "429", aiKeyPenaltyTTL429, policy, redisClient)
 				if sessionID != "" {
 					redisDeleteBinding(cluster.Name, sessionID, policy, redisClient)
 				}
@@ -1801,7 +2020,22 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 			log.Logger.Info("aiClusterInvoke: ai key [name=%s] transient failure [status=%d err=%v], retry same key",
 				key.Name, statusCode, err)
 		default:
-			// other 4xx client errors (e.g. 400, 404): stop key-level retry
+			// batch/file 404: for channel-type providers the resource lives
+			// on another upstream key. Delete the stale batch bindings and
+			// penalize the key briefly so subsequent operations rebind; the
+			// client sees this 404 and may retry (GET is idempotent, cancel
+			// is provider-idempotent).
+			if statusCode == 404 && isBatchPassthroughMode(aiMeta) {
+				if redisClient != nil && batchHint != nil {
+					redisDeleteBatchBindings(cluster.Name, batchHint, redisClient)
+					if policy.SessionAffinityPenaltyEnable {
+						setKeyPenalty(cluster.Name, key.Name, "404-batch", 60, policy, redisClient)
+					}
+				}
+				log.Logger.Info("aiClusterInvoke: batch resource 404 on key [name=%s], batch bindings cleared", key.Name)
+				return res, action, cluster, nil, newBodyModel
+			}
+			// other 4xx client errors (e.g. 400): stop key-level retry
 			return res, action, cluster, nil, newBodyModel
 		}
 	}
@@ -1822,8 +2056,64 @@ var aiFallbackStatusCodes = map[int]struct{}{
 	429: {},
 }
 
+// aiKeyPenaltyTTL429 is the penalty TTL (seconds) written for a key that the
+// upstream rate limited (429). It is also used as the Retry-After hint of the
+// gateway-generated NO_AVAILABLE_KEY response (issue #1441), so the write side
+// and the retry hint share a single source.
+const aiKeyPenaltyTTL429 = 60
+
+// aiGatewayFailureResponse builds the unified AiError response for a
+// gateway-side failure with a live client (issue #1441). A request that the
+// balance layer rejected with ErrBkNoBackend keeps the BK_NO_BACKEND business
+// contract (HTTP 500, providers.md "effective pool" clause, issue #1453):
+// an empty instance pool is capacity exhaustion, not a backend fault, and
+// clients/alerts must be able to tell them apart. Every other failure keeps
+// the BACKEND_UNAVAILABLE / 502 contract.
+//
+// AiError.CreateErrorResponse marks the response as gateway-generated
+// (X-Bfe-Gw-Error), so normalizeUpstreamError skips it. The messages are
+// generic on purpose - internal topology (host/port) must not leak to
+// clients; the detail stays in bfe.log and in err_code/err_msg.
+func aiGatewayFailureResponse(basicReq *bfe_basic.Request) *bfe_http.Response {
+	if basicReq.ErrCode == bfe_basic.ErrBkNoBackend {
+		return bfe_basic.NewAiError(bfe_basic.CodeNoBackend, bfe_basic.TypeInternalError,
+			"no available backend for this request").CreateErrorResponse(basicReq)
+	}
+	if basicReq.ErrCode == bfe_basic.ErrBkBodyProcess {
+		// Request-phase body-process rejection (content audit REJECT,
+		// SC35 TC-02): a policy rejection rather than a backend fault, so
+		// it keeps the HTTP 500 business contract with a dedicated code
+		// (same treatment shape as BK_NO_BACKEND above).
+		return bfe_basic.NewAiError(bfe_basic.CodeContentRejected, bfe_basic.TypeInvalidRequestError,
+			"request rejected by content audit").CreateErrorResponse(basicReq)
+	}
+	return bfe_basic.NewAiError(bfe_basic.CodeBackendUnavailable, bfe_basic.TypeInternalError,
+		"upstream backend unavailable for this request").CreateErrorResponse(basicReq)
+}
+
+// isAIClientAbort reports whether the request failed because the client went
+// away or the response could not be written (issue #1441). For such requests
+// a synthetic body cannot be delivered, so the legacy bare-500 record is
+// kept instead of the unified AiError body.
+func isAIClientAbort(errCode error) bool {
+	switch errCode {
+	case bfe_basic.ErrClientWrite, bfe_basic.ErrClientClose, bfe_basic.ErrClientReset:
+		return true
+	}
+	return false
+}
+
 func shouldTriggerFallback(res *bfe_http.Response, err error, authStyle string) bool {
 	if err != nil {
+		return true
+	}
+	if res == nil {
+		// Issue #1440 (step 3): (nil, nil) is not a decidable result; treat
+		// it as fallback-eligible as a hard invariant. aiClusterInvoke no
+		// longer returns this shape after the synthetic-429 change, so this
+		// branch is defense-in-depth for any future call path. The
+		// ErrAiRateLimit short-circuit in ServeHTTPForAI runs before this
+		// function and keeps its local-RL semantics.
 		return true
 	}
 	code := getResponseStatus(res)
@@ -1874,6 +2164,56 @@ func (p *ReverseProxy) resetRequestForRetry(basicReq *bfe_basic.Request) bool {
 	basicReq.ErrCode = nil
 	basicReq.ErrMsg = ""
 	return true
+}
+
+// shouldRewriteBodyModel reports whether the resolved target model may be
+// written into the request body on this attempt (issue #1426). The rewrite is
+// skipped for provider-native batch/file passthrough traffic, whose body
+// (multipart upload, batch create JSON) must reach the backend byte-for-byte,
+// and for any request whose Content-Type explicitly says the body is not
+// JSON (defense in depth for future passthrough-like modes).
+func shouldRewriteBodyModel(aiMeta *bfe_basic.AiBasicInfo, h bfe_http.Header, targetModel, bodyModel string) bool {
+	if targetModel == "" || targetModel == bodyModel {
+		return false
+	}
+	if isBatchPassthroughMode(aiMeta) {
+		return false
+	}
+	if isNonJsonContentType(h) {
+		return false
+	}
+	return true
+}
+
+// isNonJsonContentType reports whether the request Content-Type explicitly
+// declares a non-JSON body. A missing or malformed header is treated as
+// JSON-allowed: some clients send a JSON body without a Content-Type and the
+// model rewrite must keep working for them.
+func isNonJsonContentType(h bfe_http.Header) bool {
+	ct := h.Get("Content-Type")
+	if ct == "" {
+		return false
+	}
+	mediaType, _, err := mime.ParseMediaType(ct)
+	if err != nil {
+		return false
+	}
+	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
+	if mediaType == "application/json" || strings.HasSuffix(mediaType, "+json") {
+		return false
+	}
+	return true
+}
+
+// isBatchPassthroughMode reports whether the request is a files/batches
+// (OpenAI Batch API) operation. Batch traffic streams potentially large
+// file bodies that must never be buffered for retry: the proxy forwards it
+// exactly once, without cluster fallback or key-level retry, and without
+// rewriting the request body (shouldRewriteBodyModel). Upload counting
+// and download usage parsing are handled by mod_ai_batch on the stream.
+func isBatchPassthroughMode(aiMeta *bfe_basic.AiBasicInfo) bool {
+	return aiMeta != nil &&
+		(aiMeta.Mode == bfe_basic.ModeFile || aiMeta.Mode == bfe_basic.ModeBatch)
 }
 
 // prepareRequestBodyForRetry makes the request body rewindable for fallback.
@@ -2050,6 +2390,70 @@ func clientKeySessionID(basicReq *bfe_basic.Request) string {
 	return hex.EncodeToString(h[:])
 }
 
+// batchAffinityTTLSec is the TTL of batch-level key affinity bindings
+// (bfe_basic.BatchAffinityKey). It covers the 24h provider completion window
+// plus a 24h download grace; bindings refresh sliding on every hit. Fixed
+// value by design: batch bindings are independent of the (configurable)
+// client-session affinity prefix/TTL.
+const batchAffinityTTLSec = 172800
+
+// redisGetBatchBinding resolves the bound upstream key for a batch/file
+// operation from the batch affinity namespace (written by mod_ai_batch).
+// BatchId is preferred over FileId. Returns "" on miss/error (fail-open).
+func redisGetBatchBinding(clusterName string, hint *bfe_basic.AiBatchRouteHint,
+	client redis_client.Client, proxyState *ProxyState) string {
+	if hint == nil || client == nil {
+		return ""
+	}
+	for _, id := range []string{hint.BatchId, hint.FileId} {
+		if id == "" {
+			continue
+		}
+		key := bfe_basic.BatchAffinityKey(clusterName, id)
+		val, err := client.Get(key)
+		if err != nil {
+			log.Logger.Warn("aiKeyAffinity: batch binding get error[%v]", err)
+			if proxyState != nil {
+				proxyState.ReqAiKeyAffinityRedisErr.Inc(1)
+			}
+			continue
+		}
+		if val == nil {
+			continue
+		}
+		b, ok := val.([]byte)
+		if !ok || len(b) == 0 {
+			continue
+		}
+		// sliding renewal on hit
+		if err := client.Expire(key, batchAffinityTTLSec); err != nil {
+			log.Logger.Warn("aiKeyAffinity: batch binding refresh error[%v]", err)
+			if proxyState != nil {
+				proxyState.ReqAiKeyAffinityRedisErr.Inc(1)
+			}
+		}
+		return string(b)
+	}
+	return ""
+}
+
+// redisDeleteBatchBindings removes the batch/file bindings of the current
+// operation; used when the upstream answers 404 (resource lives on another
+// key for channel-type providers).
+func redisDeleteBatchBindings(clusterName string, hint *bfe_basic.AiBatchRouteHint, client redis_client.Client) {
+	if hint == nil || client == nil {
+		return
+	}
+	for _, id := range []string{hint.BatchId, hint.FileId} {
+		if id == "" {
+			continue
+		}
+		if err := client.Delete(bfe_basic.BatchAffinityKey(clusterName, id)); err != nil {
+			log.Logger.Warn("aiKeyAffinity: batch binding delete error[%v]", err)
+		}
+	}
+}
+
 // aiKeyAffinityRedisKey returns the Redis key for session->key binding.
 func aiKeyAffinityRedisKey(clusterName, sessionID, prefix string) string {
 	return fmt.Sprintf("%s:%s:%s", prefix, clusterName, sessionID)
@@ -2106,6 +2510,11 @@ func filterPenaltyKeys(clusterName string, keys []cluster_conf.AIKey, policy clu
 	var filtered []cluster_conf.AIKey
 	skipped := 0
 	for _, k := range keys {
+		if k.Weight == 0 {
+			// Weight=0 keys are never eligible for selection; they must not
+			// count as candidates (issue #1439).
+			continue
+		}
 		if !isKeyPenalized(clusterName, k.Name, policy, client) {
 			filtered = append(filtered, k)
 		} else {
@@ -2113,8 +2522,13 @@ func filterPenaltyKeys(clusterName string, keys []cluster_conf.AIKey, policy clu
 		}
 	}
 	if len(filtered) == 0 {
-		// all keys are penalized; fallback to original list to avoid no key
-		return keys, skipped
+		// All usable keys are penalized (circuit breaker, issue #1439):
+		// return no candidates so chooseNextAIKey fails and aiClusterInvoke
+		// surfaces a synthetic 429 (issue #1440) for cluster fallback. The
+		// old "fallback to original list" branch was removed on purpose:
+		// penalized keys must stay excluded until the penalty TTL expires.
+		log.Logger.Info("aiKeyAffinity: all usable keys penalized for cluster[%s], circuit break", clusterName)
+		return nil, skipped
 	}
 	return filtered, skipped
 }
@@ -2153,9 +2567,11 @@ func chooseAIKeyWithAffinity(
 	client redis_client.Client,
 	sessionID string,
 	proxyState *ProxyState,
+	batchHint *bfe_basic.AiBatchRouteHint,
 ) (int, cluster_conf.AIKey, string, bool) {
 
-	if !policy.SessionAffinity || client == nil || sessionID == "" {
+	if client == nil || (sessionID == "" && batchHint == nil) ||
+		(!policy.SessionAffinity && batchHint == nil) {
 		idx, key, ok := chooseNextAIKey(keys, state)
 		return idx, key, "", ok
 	}
@@ -2170,6 +2586,27 @@ func chooseAIKeyWithAffinity(
 	penaltySkipCount := 0
 	if policy.SessionAffinityPenaltyEnable {
 		candidateKeys, penaltySkipCount = filterPenaltyKeys(clusterName, keys, policy, client)
+	}
+
+	// batch-level binding takes precedence: it chains all lifecycle
+	// operations (upload -> create -> poll -> download) to one upstream key
+	if batchHint != nil {
+		if bound := redisGetBatchBinding(clusterName, batchHint, client, proxyState); bound != "" {
+			idx := findKeyIndexByName(bound, keys)
+			if idx >= 0 && isKeyAlive(idx, keys, state) && !isKeyPenalized(clusterName, bound, policy, client) {
+				if proxyState != nil {
+					proxyState.ReqAiKeyAffinityHit.Inc(1)
+				}
+				return idx, keys[idx], bound, true
+			}
+			// stale batch binding (key dead/penalized): fall through to a
+			// fresh selection, the success path will rebind
+		}
+	}
+
+	if !policy.SessionAffinity || sessionID == "" {
+		idx, key, ok := chooseNextAIKey(candidateKeys, state)
+		return idx, key, "", ok
 	}
 
 	boundName, err := redisGetBinding(clusterName, sessionID, policy, client)

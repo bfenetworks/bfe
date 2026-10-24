@@ -1,0 +1,40 @@
+{
+    "Version": "2026100201",
+    "route_rules": {
+        "apikey_ak_front": {
+            "type": "apikey",
+            "owner": "ak_front",
+            "rules": [
+                {
+                    "name": "intent-flash",
+                    "Cond": "req_ai_intent_in(\"task_type\", \"test_writing\", 0.9)",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_flash",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                },
+                {
+                    "name": "intent-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_kimi",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_front": [
+            "apikey_ak_front"
+        ]
+    }
+}

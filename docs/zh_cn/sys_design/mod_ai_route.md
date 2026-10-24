@@ -1035,6 +1035,8 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 | 条件表达式编译失败 | 配置校验错误 | 启动/热加载时拒绝。 |
 | target 转发失败 | 复用现有 `ErrBk*` 错误码 | 进入 fallback 流程。 |
 
+**连接语义**（issue #1416）：上述内部构造响应（未命中 404、转发失败后的内部 500 等）均为自界定响应（显式 `Content-Length`），客户端连接**保持 keep-alive 可复用**——响应写出前由 HTTP 层（`chunk_writer`）按 RFC 2616 排空请求体，仅在 HTTP/1.0、`Connection: close`、body 超过 256KB 排不空等场景才带 `Connection: close` 宣告式关闭。`ServeHTTPForAI` 不在这些路径上设置服务端级 `closeAfterReply`：早期版本曾设置，导致响应未宣告而连接被静默关闭，客户端复用池化连接时第二笔请求读到 EOF（连接毒化）。模块回调显式返回 `BfeHandlerFinish`/`BfeHandlerClose` 要求关闭连接的契约路径不受此约束。
+
 ### 8.2 监控指标
 
 在 `ModuleAiRouteState` 中定义：

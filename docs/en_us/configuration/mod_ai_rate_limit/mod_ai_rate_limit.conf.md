@@ -4,7 +4,7 @@
 
 `mod_ai_rate_limit.conf` is the basic configuration file of the `mod_ai_rate_limit` module, used to specify the rate limit rule file path, Redis connection parameters, etc.
 
-> Note: Since BFE introduced session-level API-Key affinity, the `Redis` configuration in this file is also reused as the storage backend for `AIConf.KeyPolicy.SessionAffinity`. If a cluster enables `SessionAffinity` but no usable Redis is configured, the affinity capability automatically degrades to weighted random selection.
+> Note: The `Redis` configuration in this file is only used for rate limit counters. The storage backend of session-level API-Key affinity (`AIConf.KeyPolicy.SessionAffinity`) is configured independently via the `[AIKeyAffinity]` section in `bfe.conf` (connection owned by bfe_server); when that section is absent, affinity is silently disabled (fail-open), regardless of this module's loading and Redis configuration.
 
 ## Configuration Description
 

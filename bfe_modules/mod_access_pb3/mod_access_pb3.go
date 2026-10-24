@@ -17,14 +17,14 @@ package mod_access_pb3
 import (
 	"fmt"
 
-	"github.com/bfenetworks/go-lib/log"
-	"github.com/bfenetworks/go-lib/log/log4go"
-	"github.com/bfenetworks/go-lib/web-monitor/metrics"
-	"github.com/bfenetworks/go-lib/web-monitor/web_monitor"
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_util/access_log"
+	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/go-lib/log/log4go"
+	"github.com/bfenetworks/go-lib/web-monitor/metrics"
+	"github.com/bfenetworks/go-lib/web-monitor/web_monitor"
 )
 
 const (
@@ -38,6 +38,28 @@ var (
 type ModuleAccessLogState struct {
 	AllReqLogCount *metrics.Counter
 	AllSesLogCount *metrics.Counter
+	// AiUsageSuppressed counts ACCESS-LOG rows whose AI token fields were
+	// withheld because the request never successfully called the upstream
+	// (non-2xx): no model usage exists, so reporting the EstimateToken
+	// residue would pollute token-based reports (issue #1409).
+	AiUsageSuppressed *metrics.Counter
+	// AiUsageInconsistent counts rows whose token triple breaks the billing
+	// yardstick invariant ai_total_tokens == ai_input_tokens +
+	// ai_output_tokens (image/video count rows excepted). It must stay 0;
+	// a non-zero value means a new code path writes partial usage.
+	AiUsageInconsistent *metrics.Counter
+	// LogidRegenerated counts request logs whose logid could not be converted
+	// from req.LogId (empty when mod_logid is not loaded, malformed value, or a
+	// legacy 32-char hex logid seen while an uplevel BFE is still on the old
+	// version) and was therefore regenerated locally. The row still carries a
+	// unique non-zero logid, so it is safe to dedup; only the correlation with
+	// the string logid is lost. It must stay 0 in steady state
+	// (bfenetworks/bfe#1417).
+	LogidRegenerated *metrics.Counter
+	// SessionIdRegenerated counts the same fallback for the session id column
+	// (shared by RequestLog.session_id and the session log's logid)
+	// (bfenetworks/bfe#1417).
+	SessionIdRegenerated *metrics.Counter
 }
 
 type ModuleAccessPb3 struct {
@@ -129,7 +151,7 @@ func (m *ModuleAccessPb3) requestFinishHandler(req *bfe_basic.Request, res *bfe_
 }
 
 func (m *ModuleAccessPb3) sessionFinishHandler(session *bfe_basic.Session) int {
-	bfeLog := sessionLogGen(session)
+	bfeLog := m.sessionLogGen(session)
 
 	if openDebug {
 		log.Logger.Debug("%s.sessionFinishHandler:%s", m.name, bfeLog.String())

@@ -24,6 +24,8 @@ func TestExtractUsageFieldsAllFields(t *testing.T) {
 	data := []byte(`{"candidates":[{"content":{"parts":[{"text":"hi"}]}}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5,"cachedContentTokenCount":3,"totalTokenCount":15}}`)
 	f := New().ExtractUsageFields(data)
 	want := utils.UsageFields{
+		UsagePresent:     true,
+		PromptPresent:    true,
 		UsedQuota:        15,
 		PromptTokens:     10,
 		CompletionTokens: 5,
@@ -48,8 +50,11 @@ func TestExtractUsageFieldsMissingTotalTokenCount(t *testing.T) {
 
 func TestExtractUsageFieldsAllZero(t *testing.T) {
 	f := New().ExtractUsageFields([]byte(`{"usageMetadata":{}}`))
-	if f != (utils.UsageFields{}) {
-		t.Errorf("expected all-zero fields, got %+v", f)
+	// issue #1414: usageMetadata is present even when empty, and presence (not
+	// the values) is what the callers classify and bill on.
+	want := utils.UsageFields{UsagePresent: true}
+	if f != want {
+		t.Errorf("expected present-but-empty UsageFields, got %+v", f)
 	}
 }
 

@@ -37,7 +37,7 @@ func makeRequestLogTest(t *testing.T) (*ModuleAccessPb3, *bfe_basic.Request, *bf
 	session.Vip = net.ParseIP("10.0.0.1")
 	session.StartTime = time.Now().Add(-time.Second)
 	session.SetTrustSource(true)
-	session.SessionId = "100"
+	session.SessionId = "123456789012345"
 	session.Proto = "http"
 
 	req, err := bfe_http.NewRequest("GET", "http://www.example.org/path?key=value", nil)
@@ -152,9 +152,9 @@ func TestReqLogTagGen(t *testing.T) {
 }
 
 func TestReqBasicInfoGen(t *testing.T) {
-	_, req, _ := makeRequestLogTest(t)
+	m, req, _ := makeRequestLogTest(t)
 	reqLog := &bfe_access_pb3.RequestLog{}
-	reqBasicInfoGen(reqLog, req)
+	m.reqBasicInfoGen(reqLog, req)
 
 	if reqLog.ErrCode == nil || *reqLog.ErrCode != "err001" {
 		t.Error("ErrCode error")
@@ -168,7 +168,7 @@ func TestReqBasicInfoGen(t *testing.T) {
 	if reqLog.ReqBodyLen == nil || *reqLog.ReqBodyLen != 200 {
 		t.Error("ReqBodyLen error")
 	}
-	if reqLog.SessionId == nil || *reqLog.SessionId != 100 {
+	if reqLog.SessionId == nil || *reqLog.SessionId != 123456789012345 {
 		t.Error("SessionId error")
 	}
 	if reqLog.AddrInfo == nil {
@@ -429,6 +429,40 @@ func TestIsStreamResponse(t *testing.T) {
 	}
 }
 
+func TestReqAiInfoGenPriceMiss(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+
+	aiInfo := &bfe_basic.AiBasicInfo{}
+	aiInfo.GetTokenUsage().UsedQuota = 30
+	aiInfo.MarkPriceMiss()
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiPriceMiss == nil || !*reqLog.AiPriceMiss {
+		t.Error("AiPriceMiss should be true when PriceMiss is marked")
+	}
+	// issue #1414: the cost is reported for every observed row, 0 included, so
+	// "charged nothing" is distinguishable from "field absent" (non-2xx or
+	// never billed). Before this the field was absent whenever UsedCost was 0.
+	if reqLog.AiCostValue == nil || *reqLog.AiCostValue != 0 {
+		t.Errorf("AiCostValue should be written as 0 for an observed row, got %v", reqLog.AiCostValue)
+	}
+
+	// Without the marker the field stays unset (distinguishes marked rows
+	// from ordinary traffic in reconciliation).
+	_, req2, res2 := makeRequestLogTest(t)
+	plain := &bfe_basic.AiBasicInfo{}
+	plain.GetTokenUsage().UsedQuota = 30
+	req2.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, plain)
+	reqLog2 := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog2, req2, res2)
+	if reqLog2.AiPriceMiss != nil {
+		t.Error("AiPriceMiss should be unset without the marker")
+	}
+}
+
 func TestReqAiInfoGen(t *testing.T) {
 	_, req, res := makeRequestLogTest(t)
 
@@ -563,6 +597,198 @@ func TestReqAiInfoGenNil(t *testing.T) {
 	}
 }
 
+// TestReqAiInfoGenNegativeCompletionTokensClamped verifies that the
+// COMPLETION_TOKENS_UNKNOWN sentinel (-1) preset at auth time is clamped to
+// 0 at the log boundary, instead of being logged as a negative output token
+// count (issue #1401, EstimateToken=false with no usage in the response).
+func TestReqAiInfoGenNegativeCompletionTokensClamped(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+
+	aiInfo := &bfe_basic.AiBasicInfo{ClientKeyId: "key-id-123"}
+	usage := aiInfo.GetTokenUsage()
+	usage.PromptTokens = 0
+	usage.CompletionTokens = -1 // bfe_basic.COMPLETION_TOKENS_UNKNOWN
+	usage.UsedQuota = 0
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiOutputTokens == nil || *reqLog.AiOutputTokens != 0 {
+		t.Errorf("AiOutputTokens = %v, want 0 (negative sentinel clamped)", reqLog.AiOutputTokens)
+	}
+
+	// non-negative values pass through unchanged
+	usage.CompletionTokens = 20
+	reqAiInfoGen(reqLog, req, res)
+	if reqLog.AiOutputTokens == nil || *reqLog.AiOutputTokens != 20 {
+		t.Errorf("AiOutputTokens = %v, want 20", reqLog.AiOutputTokens)
+	}
+}
+
+// setIntentContext installs a minimal AiBasicInfo and the given intent on the
+// request, mimicking a request whose route conditions already resolved it.
+func setIntentContext(req *bfe_basic.Request, intent *bfe_basic.AiIntent) {
+	aiInfo := &bfe_basic.AiBasicInfo{ClientKeyId: "key-id-123"}
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+	req.SetAiIntent(intent)
+}
+
+func TestReqAiInfoGenIntent(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+	setIntentContext(req, &bfe_basic.AiIntent{
+		QuestionsVersion: "2026092601",
+		Source:           bfe_basic.IntentSourceModel,
+		LatencyMs:        12,
+		Resolved:         true,
+		ConsumedQuestion: "task_type",
+		Answers: map[string]*bfe_basic.IntentAnswer{
+			"task_type": {QType: bfe_basic.IntentQTypeChoice, Choice: "test_writing", AnswerConfidence: 0.93},
+		},
+	})
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiIntentQuestion == nil || *reqLog.AiIntentQuestion != "task_type" {
+		t.Errorf("AiIntentQuestion error, got: %v", reqLog.AiIntentQuestion)
+	}
+	if reqLog.AiIntentAnswer == nil || *reqLog.AiIntentAnswer != "test_writing" {
+		t.Errorf("AiIntentAnswer error, got: %v", reqLog.AiIntentAnswer)
+	}
+	if reqLog.AiIntentConfidence == nil || *reqLog.AiIntentConfidence != 0.93 {
+		t.Errorf("AiIntentConfidence error, got: %v", reqLog.AiIntentConfidence)
+	}
+	if reqLog.AiIntentSource == nil || *reqLog.AiIntentSource != "classifier" {
+		t.Errorf("AiIntentSource error, got: %v", reqLog.AiIntentSource)
+	}
+	if reqLog.AiIntentLatencyUs == nil || *reqLog.AiIntentLatencyUs != 12000 {
+		t.Errorf("AiIntentLatencyUs error, got: %v", reqLog.AiIntentLatencyUs)
+	}
+	if reqLog.AiIntentCacheHit != nil {
+		t.Errorf("AiIntentCacheHit should be nil for model source, got: %v", reqLog.AiIntentCacheHit)
+	}
+	if reqLog.AiIntentQuestionsVersion == nil || *reqLog.AiIntentQuestionsVersion != "2026092601" {
+		t.Errorf("AiIntentQuestionsVersion error, got: %v", reqLog.AiIntentQuestionsVersion)
+	}
+}
+
+func TestReqAiInfoGenIntentUnknown(t *testing.T) {
+	// a consumed answer below the threshold is logged as "unknown", keeping
+	// the raw confidence for MinConfidence calibration
+	_, req, res := makeRequestLogTest(t)
+	setIntentContext(req, &bfe_basic.AiIntent{
+		QuestionsVersion: "2026092601",
+		Source:           bfe_basic.IntentSourceModel,
+		LatencyMs:        8,
+		Resolved:         true,
+		ConsumedQuestion: "task_type",
+		ConsumedUnknown:  true,
+		Answers: map[string]*bfe_basic.IntentAnswer{
+			"task_type": {QType: bfe_basic.IntentQTypeChoice, Choice: "test_writing", AnswerConfidence: 0.45},
+		},
+	})
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiIntentAnswer == nil || *reqLog.AiIntentAnswer != "unknown" {
+		t.Errorf("AiIntentAnswer error, got: %v", reqLog.AiIntentAnswer)
+	}
+	if reqLog.AiIntentConfidence == nil || *reqLog.AiIntentConfidence != 0.45 {
+		t.Errorf("AiIntentConfidence error, got: %v", reqLog.AiIntentConfidence)
+	}
+	if reqLog.AiIntentSource == nil || *reqLog.AiIntentSource != "classifier" {
+		t.Errorf("AiIntentSource error, got: %v", reqLog.AiIntentSource)
+	}
+}
+
+func TestReqAiInfoGenIntentCache(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+	setIntentContext(req, &bfe_basic.AiIntent{
+		QuestionsVersion: "2026092601",
+		Source:           bfe_basic.IntentSourceCache,
+		Resolved:         true,
+		ConsumedQuestion: "task_type",
+		Answers: map[string]*bfe_basic.IntentAnswer{
+			"task_type": {QType: bfe_basic.IntentQTypeChoice, Choice: "test_writing", AnswerConfidence: 0.93},
+		},
+	})
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiIntentSource == nil || *reqLog.AiIntentSource != "cache" {
+		t.Errorf("AiIntentSource error, got: %v", reqLog.AiIntentSource)
+	}
+	if reqLog.AiIntentCacheHit == nil || !*reqLog.AiIntentCacheHit {
+		t.Errorf("AiIntentCacheHit error, got: %v", reqLog.AiIntentCacheHit)
+	}
+	if reqLog.AiIntentLatencyUs != nil {
+		t.Errorf("AiIntentLatencyUs should be nil when latency is 0, got: %v", reqLog.AiIntentLatencyUs)
+	}
+}
+
+func TestReqAiInfoGenIntentExplicitHeader(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+	setIntentContext(req, &bfe_basic.AiIntent{
+		QuestionsVersion: "2026092601",
+		Source:           bfe_basic.IntentSourceHeader,
+		Resolved:         true,
+		ConsumedQuestion: "task_type",
+		Answers: map[string]*bfe_basic.IntentAnswer{
+			"task_type": {QType: bfe_basic.IntentQTypeChoice, Choice: "test_writing", AnswerConfidence: 1},
+		},
+	})
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiIntentSource == nil || *reqLog.AiIntentSource != "explicit_header" {
+		t.Errorf("AiIntentSource error, got: %v", reqLog.AiIntentSource)
+	}
+	if reqLog.AiIntentCacheHit != nil {
+		t.Errorf("AiIntentCacheHit should be nil for header source, got: %v", reqLog.AiIntentCacheHit)
+	}
+}
+
+func TestReqAiInfoGenIntentNotEvaluated(t *testing.T) {
+	// intent resolved but no route condition evaluated it: the whole group
+	// stays empty
+	_, req, res := makeRequestLogTest(t)
+	setIntentContext(req, &bfe_basic.AiIntent{
+		QuestionsVersion: "2026092601",
+		Source:           bfe_basic.IntentSourceModel,
+		LatencyMs:        12,
+		Resolved:         true,
+		Answers: map[string]*bfe_basic.IntentAnswer{
+			"task_type": {QType: bfe_basic.IntentQTypeChoice, Choice: "test_writing", AnswerConfidence: 0.93},
+		},
+	})
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiIntentQuestion != nil || reqLog.AiIntentAnswer != nil ||
+		reqLog.AiIntentConfidence != nil || reqLog.AiIntentSource != nil ||
+		reqLog.AiIntentLatencyUs != nil || reqLog.AiIntentCacheHit != nil ||
+		reqLog.AiIntentQuestionsVersion != nil {
+		t.Errorf("no ai_intent_* field should be written when intent was not evaluated: %v",
+			reqLog)
+	}
+}
+
+func TestReqAiInfoGenIntentNoAiInfo(t *testing.T) {
+	// no AiBasicInfo at all: reqAiInfoGen returns before touching intent
+	_, req, res := makeRequestLogTest(t)
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiIntentQuestion != nil {
+		t.Errorf("AiIntentQuestion should be nil when no ai info, got: %v", reqLog.AiIntentQuestion)
+	}
+}
+
 // assertNoRawKeyInLog serializes the log and asserts the raw key bytes are absent.
 func assertNoRawKeyInLog(t *testing.T, reqLog *bfe_access_pb3.RequestLog, rawKey string) {
 	t.Helper()
@@ -668,5 +894,260 @@ func TestMaskSensitiveCredentialsNoAiInfo(t *testing.T) {
 
 	if reqLog.GetUserAgent() != "test-agent" {
 		t.Error("fields must be untouched when request has no AiBasicInfo")
+	}
+}
+
+func TestReqAiInfoGenAiCacheSemantic(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+
+	// semantic hit: status hit_semantic + semantic flag + similarity
+	aiInfo := &bfe_basic.AiBasicInfo{
+		ClientKeyId:       "key-id-123",
+		AiCacheStatus:     "hit_semantic",
+		AiCacheHit:        true,
+		AiCacheSemantic:   true,
+		AiCacheSimilarity: 0.93,
+	}
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiCacheStatus == nil || *reqLog.AiCacheStatus != "hit_semantic" {
+		t.Errorf("AiCacheStatus error, got: %v", reqLog.AiCacheStatus)
+	}
+	if reqLog.AiCacheSemantic == nil || !*reqLog.AiCacheSemantic {
+		t.Errorf("AiCacheSemantic should be true on a semantic hit, got: %v", reqLog.AiCacheSemantic)
+	}
+	if reqLog.AiCacheSimilarity == nil || *reqLog.AiCacheSimilarity != 0.93 {
+		t.Errorf("AiCacheSimilarity error, got: %v", reqLog.AiCacheSimilarity)
+	}
+}
+
+func TestReqAiInfoGenAiCacheExactHitNoSemantic(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+
+	// exact hit / miss: semantic fields must stay unset
+	aiInfo := &bfe_basic.AiBasicInfo{
+		ClientKeyId:   "key-id-123",
+		AiCacheStatus: "hit",
+		AiCacheHit:    true,
+	}
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiCacheSemantic != nil {
+		t.Errorf("AiCacheSemantic should be nil on an exact hit, got: %v", *reqLog.AiCacheSemantic)
+	}
+	if reqLog.AiCacheSimilarity != nil {
+		t.Errorf("AiCacheSimilarity should be nil on an exact hit, got: %v", *reqLog.AiCacheSimilarity)
+	}
+}
+
+// Issue #1409: a request whose upstream call never succeeded (non-2xx) has no
+// model usage, so the access log must not report the EstimateToken residue as
+// ai_input_tokens / ai_output_tokens / ai_total_tokens. The fields stay absent
+// (proto optional), which keeps "no usage" distinguishable from "usage = 0".
+func TestReqAiInfoGenSuppressesUsageOnNon2xx(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+	res.StatusCode = bfe_http.StatusNotFound
+
+	aiInfo := &bfe_basic.AiBasicInfo{ClientKeyId: "key-id-123"}
+	aiInfo.SetUsageDisposition(bfe_basic.UsageDispositionNone)
+	usage := aiInfo.GetTokenUsage()
+	usage.PromptTokens = 100   // seeded at auth time (request bytes / 4)
+	usage.CompletionTokens = 4 // residue estimated from the 404 body
+	usage.UsedQuota = 0
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	suppressed, inconsistent := reqAiInfoGen(reqLog, req, res)
+
+	if !suppressed {
+		t.Error("usageSuppressed must be true for a non-2xx response")
+	}
+	if inconsistent {
+		t.Error("a suppressed row must not report an inconsistent triple")
+	}
+	if reqLog.AiInputTokens != nil {
+		t.Errorf("ai_input_tokens = %v, want absent", reqLog.AiInputTokens)
+	}
+	if reqLog.AiOutputTokens != nil {
+		t.Errorf("ai_output_tokens = %v, want absent", reqLog.AiOutputTokens)
+	}
+	if reqLog.AiTotalTokens != nil {
+		t.Errorf("ai_total_tokens = %v, want absent", reqLog.AiTotalTokens)
+	}
+	if reqLog.AiCostValue != nil {
+		t.Errorf("ai_cost_value = %v, want absent", reqLog.AiCostValue)
+	}
+	// non-usage AI fields are still logged
+	if reqLog.AiApikeyId == nil || *reqLog.AiApikeyId != "key-id-123" {
+		t.Errorf("ai_apikey_id = %v, want key-id-123", reqLog.AiApikeyId)
+	}
+}
+
+// Issue #1409 (assertion A-02): when a row reports a positive
+// ai_total_tokens it must obey the billing yardstick,
+// ai_total_tokens == ai_input_tokens + ai_output_tokens. A broken
+// decomposition is reported (fields are not rewritten) and counted.
+//
+// Note: total = 0 with non-zero input/output is NOT flagged here. That shape
+// is the deliberate observation view of issue #1398 for 2xx requests whose
+// final usage never arrived (e.g. a client abort, covered by SC29 TC-03); the
+// issue #1409 residue of a failed request is instead suppressed entirely via
+// UsageDispositionNone, which is what AiUsageSuppressed counts.
+func TestReqAiInfoGenDetectsInconsistentUsageTriple(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+	res.StatusCode = bfe_http.StatusOK
+
+	aiInfo := &bfe_basic.AiBasicInfo{ClientKeyId: "key-id-123"}
+	aiInfo.SetUsageDisposition(bfe_basic.UsageDispositionObserved)
+	usage := aiInfo.GetTokenUsage()
+	usage.PromptTokens = 100
+	usage.CompletionTokens = 4
+	usage.UsedQuota = 104
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	suppressed, inconsistent := reqAiInfoGen(reqLog, req, res)
+	if suppressed {
+		t.Error("an observed row must not be suppressed")
+	}
+	if inconsistent {
+		t.Error("a consistent triple must not be flagged")
+	}
+	if reqLog.AiTotalTokens == nil || *reqLog.AiTotalTokens != 104 {
+		t.Errorf("ai_total_tokens = %v, want 104", reqLog.AiTotalTokens)
+	}
+
+	// A total that the decomposition cannot explain is flagged.
+	usage.UsedQuota = 200
+	reqLog = &bfe_access_pb3.RequestLog{}
+	if _, inconsistent := reqAiInfoGen(reqLog, req, res); !inconsistent {
+		t.Error("total=200 with input+output=104 must be reported as an inconsistent triple")
+	}
+
+	// per-image / per-video rows carry a count in ai_total_tokens and are
+	// therefore exempt from the token-triple invariant.
+	usage.UsedQuota = 1
+	usage.ImageCount = 1
+	reqLog = &bfe_access_pb3.RequestLog{}
+	if _, inconsistent := reqAiInfoGen(reqLog, req, res); inconsistent {
+		t.Error("per-image billed rows must be exempt from the token-triple invariant")
+	}
+}
+
+// Issue #1410: ai_usage_source reports where the logged usage came from
+// (parsed / estimated / unrecognized) so billing bypasses and estimate-billed
+// rows are directly queryable in reconciliation. The field stays absent when
+// no source was judged, and absent together with the whole usage block when
+// the upstream call never succeeded (UsageDispositionNone, issue #1409).
+func TestReqAiInfoGenUsageSource(t *testing.T) {
+	cases := []struct {
+		name        string
+		disposition string
+		source      string
+		want        *string // nil means the field must stay absent
+	}{
+		{"parsed", bfe_basic.UsageDispositionObserved, bfe_basic.UsageSourceParsed, strPtr("parsed")},
+		{"estimated", bfe_basic.UsageDispositionObserved, bfe_basic.UsageSourceEstimated, strPtr("estimated")},
+		{"unrecognized", bfe_basic.UsageDispositionObserved, bfe_basic.UsageSourceUnrecognized, strPtr("unrecognized")},
+		{"unset source stays absent", bfe_basic.UsageDispositionObserved, "", nil},
+		{"non-2xx suppresses the source too", bfe_basic.UsageDispositionNone, bfe_basic.UsageSourceUnrecognized, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, req, res := makeRequestLogTest(t)
+			aiInfo := &bfe_basic.AiBasicInfo{ClientKeyId: "key-id-123"}
+			aiInfo.SetUsageDisposition(tc.disposition)
+			aiInfo.GetTokenUsage().UsedQuota = 30
+			if tc.source != "" {
+				aiInfo.SetUsageSource(tc.source)
+			}
+			req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+			reqLog := &bfe_access_pb3.RequestLog{}
+			reqAiInfoGen(reqLog, req, res)
+
+			if tc.want == nil {
+				if reqLog.AiUsageSource != nil {
+					t.Errorf("ai_usage_source = %v, want absent", *reqLog.AiUsageSource)
+				}
+				return
+			}
+			if reqLog.AiUsageSource == nil || *reqLog.AiUsageSource != *tc.want {
+				t.Errorf("ai_usage_source = %v, want %q", reqLog.AiUsageSource, *tc.want)
+			}
+		})
+	}
+}
+
+func strPtr(s string) *string { return &s }
+
+// Issue #1414: the zero-cost reason is the per-request counterpart of the
+// BillingZeroCost counter, so zero-cost rows become attributable.
+func TestReqAiInfoGenZeroCostReason(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+	res.StatusCode = bfe_http.StatusOK
+
+	aiInfo := &bfe_basic.AiBasicInfo{ClientKeyId: "key-id-123"}
+	aiInfo.SetUsageDisposition(bfe_basic.UsageDispositionObserved)
+	aiInfo.GetTokenUsage().UsedQuota = 0
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+	if reqLog.AiZeroCostReason != nil {
+		t.Errorf("ai_zero_cost_reason must stay absent when nothing was judged, got %v", *reqLog.AiZeroCostReason)
+	}
+
+	aiInfo.SetZeroCostReason(bfe_basic.ZeroCostReasonPriceZero)
+	reqLog = &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+	if reqLog.AiZeroCostReason == nil || *reqLog.AiZeroCostReason != bfe_basic.ZeroCostReasonPriceZero {
+		t.Errorf("ai_zero_cost_reason = %v, want %q", reqLog.AiZeroCostReason, bfe_basic.ZeroCostReasonPriceZero)
+	}
+}
+
+// Issue #1414: the triple check used to be disabled exactly when total == 0,
+// which is the "input > 0 while total == 0" shape it exists to catch. Rows
+// whose usage was reported as non-usage-based residue stay exempt, since their
+// own counter and ai_usage_source value cover them.
+func TestReqAiInfoGenDetectsInconsistentTripleWithoutTotal(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+	res.StatusCode = bfe_http.StatusOK
+
+	aiInfo := &bfe_basic.AiBasicInfo{ClientKeyId: "key-id-123"}
+	aiInfo.SetUsageDisposition(bfe_basic.UsageDispositionObserved)
+	usage := aiInfo.GetTokenUsage()
+	usage.PromptTokens = 100
+	usage.CompletionTokens = 0
+	usage.UsedQuota = 0
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	if _, inconsistent := reqAiInfoGen(reqLog, req, res); !inconsistent {
+		t.Error("input=100 with total=0 must be reported as an inconsistent triple")
+	}
+
+	// unrecognized / aborted rows report auth-time residue by design and are
+	// exempt from the invariant.
+	for _, source := range []string{bfe_basic.UsageSourceUnrecognized, bfe_basic.UsageSourceAborted} {
+		aiInfo.SetUsageSource(source)
+		reqLog = &bfe_access_pb3.RequestLog{}
+		if _, inconsistent := reqAiInfoGen(reqLog, req, res); inconsistent {
+			t.Errorf("source=%s rows must be exempt from the token-triple invariant", source)
+		}
+	}
+
+	// A parsed all-zero row is consistent (total == input + output).
+	aiInfo.SetUsageSource(bfe_basic.UsageSourceParsed)
+	usage.PromptTokens = 0
+	reqLog = &bfe_access_pb3.RequestLog{}
+	if _, inconsistent := reqAiInfoGen(reqLog, req, res); inconsistent {
+		t.Error("a parsed all-zero row satisfies the triple and must not be flagged")
 	}
 }

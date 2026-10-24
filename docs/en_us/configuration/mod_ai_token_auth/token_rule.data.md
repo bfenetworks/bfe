@@ -25,9 +25,9 @@
 | Tokens | Object | API-key declarations for all product lines | Y | Key is product line name | - |
 | Tokens{k} | String | Product line name | Y | - | - |
 | Tokens{v} | Object | All API-keys under a product line | Y | - | - |
-| Tokens{v}{k} | String | An API-key | Y | - | - |
+| Tokens{v}{k} | String | An API-key (plaintext, or `enc$v1$` field-level ciphertext; decrypted at load via the `Security.KeyFile` keyring in bfe.conf) | Y | Plaintext passes through when there is no `enc$v1$` prefix | - |
 | Tokens{v}{v} | Object | An API-key declaration | Y | - | - |
-| Tokens{v}{v}.key | String | API-key | Y | Must be consistent with the outer key | - |
+| Tokens{v}{v}.key | String | API-key | Y | Must be consistent with the outer key (i.e. the plaintext key after decryption, when the outer key is ciphertext) | - |
 | Tokens{v}{v}.key_id | String | API-key ID | Y | Used to uniquely identify the API-key | Non-empty string |
 | Tokens{v}{v}.enabled | Integer | Whether enabled | N | - | - |
 | Tokens{v}{v}.status | Integer | API-key status | Y | `1` - Enabled; `2` - Disabled; `3` - Expired; `4` - Exhausted | Value must be `1`, `2`, `3`, or `4` |

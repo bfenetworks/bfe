@@ -130,6 +130,13 @@ type ProxyState struct {
 	ReqAiKeyAffinityRebind      *metrics.Counter
 	ReqAiKeyAffinityPenaltySkip *metrics.Counter
 	ReqAiKeyAffinityRedisErr    *metrics.Counter
+
+	// upstream error normalization (AIConf.NormalizeUpstreamError)
+	ErrNormalizeHit         *metrics.Counter // upstream error recognized and rewritten
+	ErrNormalizeMiss        *metrics.Counter // upstream error not recognized (passthrough)
+	ErrNormalizeRedact      *metrics.Counter // credential redaction applied
+	ErrStreamErrorRewritten *metrics.Counter // stream with at least one SSE error event rewritten
+	ErrStreamTruncated      *metrics.Counter // stream ended without the protocol's terminal event
 }
 
 func (s *ProxyState) ClientConnServedInc(proto string, value uint) {

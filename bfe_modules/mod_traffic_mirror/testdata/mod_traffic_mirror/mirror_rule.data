@@ -1,0 +1,29 @@
+{
+    "Version": "1.0",
+    "Config": {
+        "default": [
+            {
+                "cond": "req_path_prefix_in(\"/v1/chat/completions\", true) && req_body_json_in(\"model\", \"gpt-4o\", false)",
+                "mirrorCluster": "cluster_shadow_v2",
+                "percentage": 100,
+                "removeHeaders": ["Authorization", "Cookie"],
+                "setHeaders": {"X-Env": "shadow"},
+                "bodyRewrites": [
+                    {"path": "model", "value": "deepseek-v3"}
+                ]
+            },
+            {
+                "cond": "",
+                "mirrorCluster": "cluster_shadow_all",
+                "percentage": 0
+            }
+        ],
+        "other_product": [
+            {
+                "cond": "",
+                "mirrorCluster": "cluster_shadow_other",
+                "percentage": 50
+            }
+        ]
+    }
+}

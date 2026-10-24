@@ -47,9 +47,17 @@ type QuotaUsage struct {
 	ImageCount         int64 // number of generated images for image generation models
 	UsedQuota          int64 // used quota for this request
 
+	// Usage presence (issue #1414): whether this event carried a usage object
+	// at all, and whether that object carried the prompt/input token field.
+	// Classification and billing decisions key on these instead of "some
+	// value is > 0", so an upstream that explicitly reports all-zero usage is
+	// told apart from one that reports no usage.
+	UsagePresent  bool
+	PromptPresent bool
+
 	//estimate for current response
 	CurrentTokens int64 //effect when IsGuess is true
-	IsGuess       bool  //true = is estimate
+	IsGuess       bool  //true = is estimate: this event carries no usage object
 
 	//response completion status (issue #1352)
 	IsFinalUsage  bool //true = this event carries the final usage of the response
@@ -136,11 +144,13 @@ func (e *SSEEvent) GetQuotaUsage(authStyle string) QuotaUsage {
 	data := e.GetData()
 	fields := utils.ParseUsageFieldsCrossProtocol(data)
 
+	// issue #1414: "this event carries no usage" is decided by the presence of
+	// the usage object, not by its values. Previously an upstream that
+	// explicitly reported all-zero usage was treated as usage-less, so it was
+	// either over-billed by EstimateToken or misfiled as unrecognized.
 	curtoken := int64(0)
-	isguess := true
-	if fields.UsedQuota > 0 || fields.ImageCount > 0 || fields.VideoCount > 0 {
-		isguess = false
-	} else {
+	isguess := !fields.UsagePresent
+	if isguess {
 		curtoken = EstimateContentToken(string(data))
 	}
 
@@ -157,10 +167,13 @@ func (e *SSEEvent) GetQuotaUsage(authStyle string) QuotaUsage {
 	streamEv := utils.StreamEvent{Type: evType, Data: string(data)}
 	adapter := modelprotocol.Get(authStyle)
 	isTermination := adapter.IsStreamTerminal(streamEv)
-	isFinalUsage := false
-	if !isguess && fields.CompletionTokens > 0 {
-		isFinalUsage = adapter.IsFinalUsageEvent(streamEv)
-	}
+	// isFinalUsage only requires a non-guess usage: the adapter's event-type
+	// whitelist (message_delta/message/response.completed/"") already
+	// excludes message_start and usage-less content chunks. Requiring
+	// CompletionTokens > 0 here dropped legitimate final usages whose
+	// output is 0 (input-only requests, pure cache-hit responses) into the
+	// reset/estimate path (issue #1398).
+	isFinalUsage := !isguess && adapter.IsFinalUsageEvent(streamEv)
 
 	return QuotaUsage{
 		PromptTokens:       fields.PromptTokens,
@@ -174,6 +187,8 @@ func (e *SSEEvent) GetQuotaUsage(authStyle string) QuotaUsage {
 		VideoCount:         fields.VideoCount,
 		ImageCount:         fields.ImageCount,
 		UsedQuota:          fields.UsedQuota,
+		UsagePresent:       fields.UsagePresent,
+		PromptPresent:      fields.PromptPresent,
 		CurrentTokens:      curtoken,
 		IsGuess:            isguess,
 		IsFinalUsage:       isFinalUsage,

@@ -1,0 +1,30 @@
+{
+    "Version": "20260720150000",
+    "route_rules": {
+        "apikey_ak_batch": {
+            "type": "apikey",
+            "owner": "ak_mirror",
+            "rules": [
+                {
+                    "name": "batch-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_batch",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_batch": [
+            "apikey_ak_batch"
+        ],
+        "ak_evil": [
+            "apikey_ak_batch"
+        ]
+    }
+}

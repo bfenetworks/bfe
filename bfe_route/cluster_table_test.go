@@ -22,12 +22,12 @@ func TestClusterTable(t *testing.T) {
 	tb := newClusterTable()
 	clusterConfFile := "testdata/cluster_table/cluster_conf.data"
 
-	if err := tb.Init(""); err == nil {
+	if err := tb.Init("", nil); err == nil {
 		t.Error("Init: case 0 should return err")
 		return
 	}
 
-	if err := tb.Init(clusterConfFile); err != nil {
+	if err := tb.Init(clusterConfFile, nil); err != nil {
 		t.Errorf("Init: case 1 should return nil. but err [%s]", err)
 		return
 	}

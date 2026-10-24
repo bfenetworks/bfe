@@ -78,6 +78,11 @@ func newTestEnv(t *testing.T, eppCount int, eppConf *common.EPPClusterConf) *tes
 		addrs[i] = m.Addr()
 	}
 	eppConf.Addrs = addrs
+	if eppConf.EPPTLS == nil {
+		// The product default for an absent EPPTLS is now plaintext dialing,
+		// while this scenario's MockEPP speaks TLS only: pin the TLS form.
+		eppConf.EPPTLS = map[string]interface{}{"Insecure": true}
+	}
 
 	e.processEnv = common.NewProcessEnv(t)
 	e.processEnv.Build()

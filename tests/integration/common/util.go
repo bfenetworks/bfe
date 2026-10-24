@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 )
 
 // copyDirContents recursively copies files and directories from src to dst.
@@ -69,26 +71,89 @@ func copyFile(src, dst string) error {
 	return err
 }
 
+// WriteJSONFile writes data as indented JSON to path, creating parent
+// directories. It is exported for scenarios that generate module rule data
+// (e.g. mod_traffic_mirror/mirror_rule.data) at runtime.
+func WriteJSONFile(path string, data interface{}) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	bytes, err := json.MarshalIndent(data, "", "    ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, bytes, 0644)
+}
+
+// RewriteConfLine replaces the value of key in an ini-style config file,
+// preserving every other line. It matches `key = value` case-insensitively on
+// the key and returns an error when the key is absent, so templates stay
+// honest about the knobs scenarios depend on.
+func RewriteConfLine(path, key, value string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	found := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		idx := strings.Index(trimmed, "=")
+		if idx < 0 {
+			continue
+		}
+		if !strings.EqualFold(strings.TrimSpace(trimmed[:idx]), key) {
+			continue
+		}
+		lines[i] = key + " = " + value
+		found = true
+	}
+	if !found {
+		return fmt.Errorf("%s not found in %s", key, path)
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
+}
+
 // GetBFETotalBytesBodyBuffer queries the BFE monitor endpoint for the current
-// total bytes_body buffer size.
+// total bytes_body buffer size. The monitor server may still be starting up
+// right after the BFE process launches (under -race on a loaded machine the
+// first query can hit connection refused), so it retries briefly.
 func GetBFETotalBytesBodyBuffer(monitorPort int) (int64, error) {
 	url := fmt.Sprintf("http://127.0.0.1:%d/monitor/server_stat", monitorPort)
-	resp, err := http.Get(url)
-	if err != nil {
-		return 0, err
+	var lastErr error
+	for attempt := 0; attempt < 50; attempt++ {
+		if attempt > 0 {
+			time.Sleep(100 * time.Millisecond)
+		}
+		resp, err := http.Get(url)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		data, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		var stat struct {
+			TotalBytesBodyBuffer int64 `json:"total_bytes_body_buffer"`
+		}
+		if err := json.Unmarshal(data, &stat); err != nil {
+			lastErr = err
+			continue
+		}
+		return stat.TotalBytesBodyBuffer, nil
 	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return 0, err
-	}
-	var stat struct {
-		TotalBytesBodyBuffer int64 `json:"total_bytes_body_buffer"`
-	}
-	if err := json.Unmarshal(data, &stat); err != nil {
-		return 0, err
-	}
-	return stat.TotalBytesBodyBuffer, nil
+	return 0, fmt.Errorf("query %s failed after retries: %w", url, lastErr)
+}
+
+// ClusterSubName returns the sub-cluster name used in cluster_table.data and
+// gslb.data for the given cluster. It is exported for scenarios that
+// regenerate gslb.data at runtime.
+func ClusterSubName(clusterName string) string {
+	return clusterSubName(clusterName)
 }
 
 // clusterSubName maps a cluster name to the sub-cluster name used in gslb.data.
@@ -132,6 +197,12 @@ func clusterSubName(clusterName string) string {
 		return "billing_fix"
 	case "cluster_client_abort":
 		return "client_abort"
+	case "cluster_usage_snapshot":
+		return "usage_snapshot"
+	case "cluster_nested_usage":
+		return "nested_usage"
+	case "cluster_dead_backend":
+		return "dead"
 	}
 	return "sub"
 }

@@ -15,6 +15,8 @@
 package mod_access_pb3
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"net"
 	"strconv"
 	"strings"
@@ -37,6 +39,55 @@ var (
 		proto.Int32(int32(bfe_access_pb3.BfeLogType_Session)))
 )
 
+// maxLogid is the upper bound of the uint64 logid written to the access log
+// (bfenetworks/bfe#1417): a value in [0, 2^63-1]. logid is stored as a signed
+// BIGINT on MySQL / Doris / StarRocks; an out-of-range value would be
+// truncated to the boundary value by Doris (non-strict) — making every
+// high-bit row share one logid and overwrite each other under the report
+// table's unique key — or reject the whole batch on MySQL (Error 1264).
+const maxLogid = uint64(1)<<63 - 1
+
+// logIdToUint64 converts the BFE log id string into the uint64 logid carried
+// by the pb access log.
+//
+// genLogId has emitted a decimal string since bfenetworks/bfe#1417, so the
+// conversion is complete and lossless:
+//
+//	logid_str == strconv.FormatUint(logid, 10)
+//
+// ok is false when the string is empty, not decimal, or above maxLogid. The
+// caller then regenerates a local id and counts it: writing 0 — what
+// `strconv.ParseUint(req.LogId, 10, 64)` with a discarded error did for every
+// request — makes the row indistinguishable from any other same-second row of
+// the same API key and model, which is exactly the data loss this exists to
+// prevent.
+func logIdToUint64(logId string) (uint64, bool) {
+	if logId == "" {
+		return 0, false
+	}
+	v, err := strconv.ParseUint(logId, 10, 64)
+	if err != nil || v > maxLogid {
+		return 0, false
+	}
+	return v, true
+}
+
+// randUint64NonZero returns a cryptographically random value in [1, maxLogid],
+// used as the log id when the request carries no usable one. It loops on
+// rand.Read failure on purpose: a broken system random source is no reason to
+// fall back to a silently colliding 0.
+func randUint64NonZero() uint64 {
+	for {
+		b := make([]byte, 8)
+		if _, err := rand.Read(b); err != nil {
+			continue
+		}
+		if v := binary.LittleEndian.Uint64(b) & maxLogid; v != 0 {
+			return v
+		}
+	}
+}
+
 // prepare pb log for request
 func (m *ModuleAccessPb3) requestLogGen(req *bfe_basic.Request, res *bfe_http.Response) *bfe_access_pb3.BfeLog {
 	// create request log
@@ -47,8 +98,13 @@ func (m *ModuleAccessPb3) requestLogGen(req *bfe_basic.Request, res *bfe_http.Re
 	// fill log tag
 	bfeLog.LogTag = proto.String(reqLogTagGen(req))
 
-	// log id
-	logId, _ := strconv.ParseUint(req.LogId, 10, 64)
+	// log id: reuse the id assigned by mod_logid; when it cannot be converted,
+	// regenerate a unique non-zero id instead of writing 0 (bfenetworks/bfe#1417)
+	logId, ok := logIdToUint64(req.LogId)
+	if !ok || logId == 0 {
+		logId = randUint64NonZero()
+		m.state.LogidRegenerated.Inc(1)
+	}
 	bfeLog.Logid = proto.Uint64(logId)
 
 	// timestamp
@@ -59,7 +115,7 @@ func (m *ModuleAccessPb3) requestLogGen(req *bfe_basic.Request, res *bfe_http.Re
 	bfeLog.RequestLog = requestLog
 
 	// basic info
-	reqBasicInfoGen(requestLog, req)
+	m.reqBasicInfoGen(requestLog, req)
 
 	// request header info
 	reqReqHeaderInfoGen(requestLog, req)
@@ -74,7 +130,13 @@ func (m *ModuleAccessPb3) requestLogGen(req *bfe_basic.Request, res *bfe_http.Re
 	reqTimeInfoGen(requestLog, req)
 
 	// AI info
-	reqAiInfoGen(requestLog, req, res)
+	usageSuppressed, usageInconsistent := reqAiInfoGen(requestLog, req, res)
+	if usageSuppressed {
+		m.state.AiUsageSuppressed.Inc(1)
+	}
+	if usageInconsistent {
+		m.state.AiUsageInconsistent.Inc(1)
+	}
 
 	// credential masking gate: the last line of defense before log output,
 	// ensure raw API Key never lands in any field (see bfenetworks/bfe#1357)
@@ -116,7 +178,7 @@ func reqLogTagGen(req *bfe_basic.Request) string {
 }
 
 // basic info
-func reqBasicInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request) {
+func (m *ModuleAccessPb3) reqBasicInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request) {
 	// err coder, err msg
 	if req.ErrCode != nil {
 		reqLog.ErrCode = proto.String(req.ErrCode.Error())
@@ -129,8 +191,14 @@ func reqBasicInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request) 
 	reqLog.ReqHeaderLen = proto.Uint32(uint32(req.Stat.HeaderLenIn))
 	reqLog.ReqBodyLen = proto.Uint32(uint32(req.Stat.BodyLenIn))
 
-	// session id
-	sessionId, _ := strconv.ParseUint(req.Session.SessionId, 10, 64)
+	// session id: same conversion and fallback as the session log's logid, with
+	// its own counter so the two write paths stay distinguishable
+	// (bfenetworks/bfe#1417)
+	sessionId, ok := logIdToUint64(req.Session.SessionId)
+	if !ok || sessionId == 0 {
+		sessionId = randUint64NonZero()
+		m.state.SessionIdRegenerated.Inc(1)
+	}
 	reqLog.SessionId = proto.Uint64(sessionId)
 
 	// connection addr info
@@ -379,10 +447,15 @@ func isStreamResponse(req *bfe_basic.Request, res *bfe_http.Response) bool {
 }
 
 // AI observability info
-func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res *bfe_http.Response) {
+// reqAiInfoGen fills the AI observability fields of the request log. It
+// returns whether the token-usage fields were withheld (usageSuppressed: no
+// successful upstream call, issue #1409) and whether the reported triple
+// broke the billing yardstick invariant (usageInconsistent), so the caller
+// can count both conditions.
+func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res *bfe_http.Response) (usageSuppressed bool, usageInconsistent bool) {
 	aiInfo := req.GetAiBasicInfo()
 	if aiInfo == nil {
-		return
+		return false, false
 	}
 
 	// API Key ID (not the raw API Key value)
@@ -429,9 +502,17 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 
 	// Token usage
 	usage := aiInfo.GetTokenUsage()
-	if usage != nil {
+	if usage != nil && aiInfo.UsageDisposition() != bfe_basic.UsageDispositionNone {
 		reqLog.AiInputTokens = proto.Int64(usage.PromptTokens)
-		reqLog.AiOutputTokens = proto.Int64(usage.CompletionTokens)
+		// CompletionTokens is preset to the COMPLETION_TOKENS_UNKNOWN
+		// sentinel (-1) at auth time; when no usage ever arrives and
+		// EstimateToken is off it would be logged as a negative output
+		// token count. Clamp at the log boundary (issue #1401).
+		outputTokens := usage.CompletionTokens
+		if outputTokens < 0 {
+			outputTokens = 0
+		}
+		reqLog.AiOutputTokens = proto.Int64(outputTokens)
 		reqLog.AiTotalTokens = proto.Int64(usage.UsedQuota)
 		if usage.CacheReadTokens > 0 {
 			reqLog.AiCacheReadTokens = proto.Int64(usage.CacheReadTokens)
@@ -457,9 +538,44 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		if usage.VideoCount > 0 {
 			reqLog.AiVideoCount = proto.Int64(usage.VideoCount)
 		}
-		if usage.UsedCost > 0 {
-			reqLog.AiCostValue = proto.Int64(usage.UsedCost)
+		// issue #1414: report the cost for every observed 2xx row, 0 included, so
+		// "charged nothing" is distinguishable from "field absent" (non-2xx or
+		// never billed). Before this, a zero-cost row and a row whose cost was
+		// never computed were byte-identical.
+		reqLog.AiCostValue = proto.Int64(usage.UsedCost)
+		if aiInfo.IsPriceMiss() {
+			// The (model, mode) price entry was absent: the cost was computed
+			// by falling back to the model's chat price, or billed 0 with no
+			// fallback (issue #1408). Distinguishes under-priced rows from
+			// legitimate zero-cost rows in reconciliation.
+			reqLog.AiPriceMiss = proto.Bool(true)
 		}
+		if source := aiInfo.UsageSource(); source != "" {
+			// Where the reported usage came from: parsed (final usage from the
+			// upstream response, including an explicit all-zero usage object),
+			// estimated (EstimateToken estimate approved for billing), aborted
+			// (client disconnected before the final usage) or unrecognized
+			// (billing skipped, the token fields are auth-time seeding
+			// residue). Makes billing bypasses directly queryable in
+			// reconciliation (issue #1410, #1414).
+			reqLog.AiUsageSource = proto.String(source)
+		}
+		if reason := aiInfo.ZeroCostReason(); reason != "" {
+			// Why a 2xx request that holds an RMB quota plan was charged 0
+			// (issue #1414): the per-request counterpart of the
+			// BillingZeroCost module counter, so zero-cost rows are
+			// attributable instead of relying on cross-field heuristics.
+			reqLog.AiZeroCostReason = proto.String(reason)
+		}
+		usageInconsistent = usageTripleInconsistent(usage, outputTokens, aiInfo.UsageSource())
+	} else if usage != nil {
+		// The upstream was never successfully called (mod_ai_token_auth sets
+		// UsageDispositionNone for non-2xx responses, issue #1409): no model
+		// usage exists, so the EstimateToken residue must not be reported as
+		// usage. The fields stay absent (proto optional) so "no usage" is
+		// distinguishable from "usage = 0"; aggregations that use
+		// SUM(COALESCE(ai_*, 0)) are unaffected.
+		usageSuppressed = true
 	}
 
 	// Cost currency
@@ -500,12 +616,127 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		})
 	}
 
+	// AI intent (mod_ai_intent): the first question route conditions actually
+	// evaluated, for routing audit and MinConfidence calibration. Only an
+	// intent already resolved and cached on the request is read here; calling
+	// the lazy resolver at log time would classify requests whose route never
+	// consumed intent, breaking the zero-overhead guarantee.
+	if cached, ok := req.GetContext(bfe_basic.CtxAiIntent).(*bfe_basic.AiIntent); ok &&
+		cached != nil && cached.Resolved && cached.ConsumedQuestion != "" {
+		if answer := cached.Answers[cached.ConsumedQuestion]; answer != nil {
+			reqLog.AiIntentQuestion = proto.String(cached.ConsumedQuestion)
+
+			answerValue := answer.Choice
+			if cached.ConsumedUnknown {
+				answerValue = "unknown"
+			}
+			reqLog.AiIntentAnswer = proto.String(answerValue)
+			reqLog.AiIntentConfidence = proto.Float64(answer.AnswerConfidence)
+		}
+
+		// answer source: header / model / cache
+		switch cached.Source {
+		case bfe_basic.IntentSourceHeader:
+			reqLog.AiIntentSource = proto.String("explicit_header")
+		case bfe_basic.IntentSourceModel:
+			reqLog.AiIntentSource = proto.String("classifier")
+		case bfe_basic.IntentSourceCache:
+			reqLog.AiIntentSource = proto.String("cache")
+			reqLog.AiIntentCacheHit = proto.Bool(true)
+		}
+
+		if cached.LatencyMs > 0 {
+			reqLog.AiIntentLatencyUs = proto.Int64(cached.LatencyMs * 1000)
+		}
+		if cached.QuestionsVersion != "" {
+			reqLog.AiIntentQuestionsVersion = proto.String(cached.QuestionsVersion)
+		}
+	}
+
 	// Cluster / key attempts
 	for _, ckn := range aiInfo.ClusterKeyNames {
 		reqLog.AiClusterKeyNames = append(reqLog.AiClusterKeyNames, &bfe_access_pb3.ClusterKeyName{
 			ClusterName: proto.String(ckn.ClusterName),
 			KeyName:     proto.String(ckn.KeyName),
 		})
+	}
+
+	// AI cache (mod_ai_cache) status
+	if aiInfo.AiCacheStatus != "" {
+		reqLog.AiCacheStatus = proto.String(aiInfo.AiCacheStatus)
+	}
+	if aiInfo.AiCacheKey != "" {
+		reqLog.AiCacheKey = proto.String(aiInfo.AiCacheKey)
+	}
+	if aiInfo.AiCacheSemantic {
+		reqLog.AiCacheSemantic = proto.Bool(true)
+		reqLog.AiCacheSimilarity = proto.Float64(aiInfo.AiCacheSimilarity)
+	}
+
+	// AI context compress (mod_ai_context) result
+	if aiInfo.ContextCompressStatus != "" {
+		reqLog.AiContextCompressStatus = proto.String(aiInfo.ContextCompressStatus)
+	}
+	if aiInfo.ContextTokensBefore > 0 {
+		reqLog.AiContextTokensBefore = proto.Int64(aiInfo.ContextTokensBefore)
+	}
+	if aiInfo.ContextTokensAfter > 0 {
+		reqLog.AiContextTokensAfter = proto.Int64(aiInfo.ContextTokensAfter)
+	}
+	if aiInfo.ContextCompressMode != "" {
+		reqLog.AiContextCompressMode = proto.String(aiInfo.ContextCompressMode)
+	}
+
+	// Traffic mirroring (mod_traffic_mirror) result: only synchronous fields
+	// are logged; async mirror results go to module Prometheus metrics
+	if aiInfo.MirrorHit {
+		reqLog.MirrorHit = proto.Bool(true)
+		if aiInfo.MirrorCluster != "" {
+			reqLog.MirrorCluster = proto.String(aiInfo.MirrorCluster)
+		}
+	}
+
+	// Upstream error normalization (AIConf.NormalizeUpstreamError) result
+	if aiInfo.UpstreamStatus > 0 {
+		reqLog.AiUpstreamStatus = proto.Int32(aiInfo.UpstreamStatus)
+	}
+	if aiInfo.UpstreamErrCode != "" {
+		reqLog.AiUpstreamErrCode = proto.String(aiInfo.UpstreamErrCode)
+	}
+	if aiInfo.ErrNormalized {
+		reqLog.AiErrNormalized = proto.Bool(true)
+	}
+	if aiInfo.ErrNormalizeMiss {
+		reqLog.AiErrNormalizeMiss = proto.Bool(true)
+	}
+	if aiInfo.StreamErrorRewritten {
+		reqLog.AiStreamErrorRewritten = proto.Bool(true)
+	}
+	if aiInfo.StreamTruncated {
+		reqLog.AiStreamTruncated = proto.Bool(true)
+	}
+
+	// Batch task (mod_ai_batch) context: files/batches operations only
+	if aiInfo.BatchId != "" {
+		reqLog.AiBatchId = proto.String(aiInfo.BatchId)
+	}
+	if aiInfo.BatchFileId != "" {
+		reqLog.AiFileId = proto.String(aiInfo.BatchFileId)
+	}
+	if aiInfo.BatchOp != "" {
+		reqLog.AiBatchOp = proto.String(aiInfo.BatchOp)
+	}
+	if aiInfo.BatchLines > 0 {
+		reqLog.AiFileLines = proto.Int64(aiInfo.BatchLines)
+	}
+	if aiInfo.BatchBytes > 0 {
+		reqLog.AiFileBytes = proto.Int64(aiInfo.BatchBytes)
+	}
+	if aiInfo.BatchStatus != "" {
+		reqLog.AiBatchStatus = proto.String(aiInfo.BatchStatus)
+	}
+	if aiInfo.BatchSettle != "" && aiInfo.BatchSettle != bfe_basic.BatchSettleNone {
+		reqLog.AiBatchSettle = proto.String(aiInfo.BatchSettle)
 	}
 
 	// Rate limit hit info
@@ -546,4 +777,27 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 			}
 		}
 	}
+
+	return usageSuppressed, usageInconsistent
+}
+
+// usageTripleInconsistent reports whether the logged token triple breaks the
+// billing yardstick invariant ai_total_tokens == ai_input_tokens +
+// ai_output_tokens (issue #1409, assertion A-02). Rows billed per image or
+// per video carry a count instead of tokens in ai_total_tokens and are
+// therefore excepted.
+//
+// issue #1414: rows whose usage was deliberately reported as non-usage-based
+// residue (unrecognized / aborted) are skipped — their own counter and
+// ai_usage_source value cover them — but the check no longer returns early on
+// "total == 0", which used to disable it for exactly the shape it exists to
+// catch (input > 0 while total == 0).
+func usageTripleInconsistent(usage *bfe_basic.TokenUsage, outputTokens int64, source string) bool {
+	if source == bfe_basic.UsageSourceUnrecognized || source == bfe_basic.UsageSourceAborted {
+		return false
+	}
+	if usage.ImageCount > 0 || usage.VideoCount > 0 {
+		return false
+	}
+	return usage.UsedQuota != usage.PromptTokens+outputTokens
 }

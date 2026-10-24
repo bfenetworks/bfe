@@ -56,4 +56,9 @@ var (
 	// server core can distinguish a local policy rejection from an upstream
 	// 429 without importing the module package.
 	ErrAiRateLimit = errors.New("AI_RATE_LIMIT") // deny by mod_ai_rate_limit
+
+	// AI key exhaustion at the gateway (issue #1441): no usable upstream API
+	// key could be selected for the target cluster. Deliberately NOT
+	// ErrAiRateLimit: cluster fallback must still be allowed.
+	ErrAiNoAvailableKey = errors.New("NO_AVAILABLE_KEY") // no usable ai key
 )

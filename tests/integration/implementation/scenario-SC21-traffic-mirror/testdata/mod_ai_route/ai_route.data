@@ -1,0 +1,33 @@
+{
+    "Version": "20260720150000",
+    "route_rules": {
+        "apikey_ak_mirror": {
+            "type": "apikey",
+            "owner": "ak_mirror",
+            "rules": [
+                {
+                    "name": "mirror-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_primary",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": [
+                        {
+                            "ClusterName": "cluster_fallback",
+                            "Model": ""
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_mirror": [
+            "apikey_ak_mirror"
+        ]
+    }
+}

@@ -550,6 +550,23 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			matcher: matcher,
 		}, nil
 
+	case "time_weekday_in":
+		// optional second arg (STRING): military time zone letter, "Z" (UTC) if omitted
+		zone := "Z"
+		if len(node.Args) == 2 {
+			zone = node.Args[1].Value
+		}
+		matcher, err := NewWeekdayMatcher(node.Args[0].Value, zone)
+		if err != nil {
+			return nil, fmt.Errorf("time_weekday_in \"%s\": %s", node.Args[0].Value, err.Error())
+		}
+		return &PrimitiveCond{
+			name:    node.Fun.Name,
+			node:    node,
+			fetcher: &BfeTimeFetcher{},
+			matcher: matcher,
+		}, nil
+
 	case "req_body_json_in":
 		return &PrimitiveCond{
 			name:    node.Fun.Name,
@@ -595,6 +612,24 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 			node:    node,
 			fetcher: &ContentLengthFetcher{},
 			matcher: &LtInt64Matcher{threshold: size},
+		}, nil
+
+	case "req_ai_intent_in":
+		// optional third arg (FLOAT): rule-level confidence threshold.
+		// -1 is the sentinel for "omitted": the current per-question
+		// MinConfidence of the question applies.
+		minConf := -1.0
+		if len(node.Args) == 3 {
+			v, err := strconv.ParseFloat(node.Args[2].Value, 64)
+			if err != nil {
+				return nil, fmt.Errorf("req_ai_intent_in: invalid min confidence %s", node.Args[2].Value)
+			}
+			minConf = v
+		}
+		return &AiIntentCond{
+			question: node.Args[0].Value,
+			options:  node.Args[1].Value,
+			minConf:  minConf,
 		}, nil
 
 	default:

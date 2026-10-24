@@ -1,0 +1,12 @@
+{
+    "Version": "20261014150000",
+    "BasicRule": {
+        "ai_product": [
+            {
+                "Hostname": ["*"],
+                "Path": ["*"],
+                "ClusterName": "cluster_weekday_default"
+            }
+        ]
+    }
+}

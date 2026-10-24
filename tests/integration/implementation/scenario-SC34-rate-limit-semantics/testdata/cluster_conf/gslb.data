@@ -1,0 +1,14 @@
+{
+    "clusters": {
+        "cluster_rl_main": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        },
+        "cluster_rl_fallback": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20260720150000"
+}

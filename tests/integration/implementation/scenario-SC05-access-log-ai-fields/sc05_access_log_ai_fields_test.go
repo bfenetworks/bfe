@@ -40,6 +40,11 @@ const (
 	apiKey   = "ak_user_a"
 	apiKeyId = "user_a_key_id"
 
+	// noRouteHost is mapped to the ai_product (host_rule.data) but has no
+	// ai_route rule, so BFE answers 404 "AI route not found" without calling
+	// any backend (issue #1409 arm A: token auth matched first).
+	noRouteHost = "noroute.example.org"
+
 	clusterRMB         = "cluster_rmb"
 	clusterNoTable     = "cluster_no_table"
 	clusterFallbackRMB = "cluster_fallback_rmb"
@@ -59,6 +64,12 @@ var videoGenerationBody = []byte(`{"model":"kling-1","n":3}`)
 var responsesBody = []byte(`{"model":"o3-deep-research"}`)
 
 var usageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`
+
+// zeroUsageResponse is an upstream that explicitly reports an all-zero usage
+// object: since issue #1414 the usage object's presence (not its values)
+// decides recognition, so this is a real observation billed at 0, never an
+// estimation gap.
+var zeroUsageResponse = `{"usage":{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}}`
 var imageGenerationUsageResponse = `{"usage":{"image_count":2}}`
 var imageGenerationWithImageInputUsageResponse = `{"usage":{"image_count":1,"input_token_details":{"image_tokens":200}}}`
 var cacheUsageResponse = `{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150,"cache_read_tokens":30,"cache_write_tokens":20}}`
@@ -118,7 +129,7 @@ func newTestEnv(t *testing.T, aiConfs map[string]*cluster_conf.AIConf, quotaPlan
 					UnlimitedQuota: false,
 					QuotaPlans:     planIDs(quotaPlans),
 					Tags: []bfe_basic.ApikeyTag{
-						{TagName: "department", TagValue: "ai-team"},
+						{TagName: "department", TagValue: "ai-team", TagLevel: 3},
 					},
 				},
 			},
@@ -524,7 +535,7 @@ func TestTC01_SuccessfulRequestAIFields(t *testing.T) {
 
 	reqLog := e.mustFindSingleLog(e.accessLogs())
 	assertStringField(t, reqLog.AiApikeyId, "ai_apikey_id", apiKeyId)
-	assertApikeyTags(t, reqLog.AiApikeytags, []bfe_basic.ApikeyTag{{TagName: "department", TagValue: "ai-team"}})
+	assertApikeyTags(t, reqLog.AiApikeytags, []bfe_basic.ApikeyTag{{TagName: "department", TagValue: "ai-team", TagLevel: 3}})
 	assertStringField(t, reqLog.AiRequestedModel, "ai_requested_model", "deepseek-chat")
 	assertStringField(t, reqLog.AiTargetModel, "ai_target_model", "deepseek-chat")
 	assertStringField(t, reqLog.AiProvider, "ai_provider", "mock-provider")
@@ -816,6 +827,10 @@ func assertApikeyTags(t *testing.T, got []*bfe_access_pb.ApikeyTag, want []bfe_b
 		if got[i].GetTagname() != w.TagName || got[i].GetTagvalue() != w.TagValue {
 			t.Errorf("ai_apikeytags[%d] = (%s,%s), want (%s,%s)", i,
 				got[i].GetTagname(), got[i].GetTagvalue(), w.TagName, w.TagValue)
+		}
+		if got[i].GetTaglevel() != int32(w.TagLevel) {
+			t.Errorf("ai_apikeytags[%d].taglevel = %d, want %d", i,
+				got[i].GetTaglevel(), w.TagLevel)
 		}
 	}
 }
@@ -1546,5 +1561,562 @@ func assertNoBackendTimeFields(t *testing.T, name string, reqLog *bfe_access_pb.
 	}
 	if len(reqLog.AiClusterKeyNames) != 0 {
 		t.Errorf("%s: expected no cluster_key_names on rejected request, got %d", name, len(reqLog.AiClusterKeyNames))
+	}
+}
+
+// assertNoUsageFields asserts that the AI token fields of a row whose request
+// never successfully called the upstream are absent (issue #1409). Absent is
+// deliberately different from 0: it tells "no model usage" apart from
+// "usage = 0", while aggregations using SUM(COALESCE(ai_*, 0)) are unaffected.
+func assertNoUsageFields(t *testing.T, name string, reqLog *bfe_access_pb.RequestLog) {
+	t.Helper()
+	if reqLog.AiInputTokens != nil {
+		t.Errorf("%s: ai_input_tokens = %d, want absent (no model usage on a failed request)",
+			name, *reqLog.AiInputTokens)
+	}
+	if reqLog.AiOutputTokens != nil {
+		t.Errorf("%s: ai_output_tokens = %d, want absent (no model usage on a failed request)",
+			name, *reqLog.AiOutputTokens)
+	}
+	if reqLog.AiTotalTokens != nil {
+		t.Errorf("%s: ai_total_tokens = %d, want absent (no model usage on a failed request)",
+			name, *reqLog.AiTotalTokens)
+	}
+	if reqLog.AiCostValue != nil {
+		t.Errorf("%s: ai_cost_value = %d, want absent (nothing is billed for a failed request)",
+			name, *reqLog.AiCostValue)
+	}
+}
+
+// sendRequestNoKeepAlive sends a request on a dedicated connection. Arm A of
+// TC-19 is answered with closeAfterReply ("AI route not found"), which closes
+// the connection; a dedicated transport keeps the arms independent so a stale
+// pooled connection cannot surface as a spurious request error.
+func (e *testEnv) sendRequestNoKeepAlive(host string, body []byte) (*http.Response, string, error) {
+	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, apiPath)
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, "", err
+	}
+	req.Host = host
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.Close = true
+
+	client := &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: &http.Transport{DisableKeepAlives: true},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, "", err
+	}
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", err
+	}
+	return resp, string(respBody), nil
+}
+
+// TestTC19_Non2xxNoUsageFields verifies issue #1409: a request whose upstream
+// call never succeeded (non-2xx) must report no model usage in the access log,
+// and a billable row must keep the token triple consistent.
+//
+// Arm A: no ai_route rule for the host -> BFE generated 404, no backend call.
+//
+//	The product/token rule still matched first, so the auth-time prompt
+//	estimate was seeded: this is the production shape that polluted the
+//	pb3 log with ai_input_tokens > 0 while ai_total_tokens stayed 0.
+//
+// Arm B: the upstream itself returns 404 -> straight through (404 is not in
+//
+//	the fallback status-code set), again with no model usage.
+//
+// Arm C: control arm, a 200 response without usage: EstimateToken bills and
+//
+//	logs the approved estimate, and the logged triple must satisfy
+//	ai_total_tokens = ai_input_tokens + ai_output_tokens.
+func TestTC19_Non2xxNoUsageFields(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	// Arm A: BFE generated 404 "AI route not found".
+	respA, bodyA, err := e.sendRequestNoKeepAlive(noRouteHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm A: send request failed: %v", err)
+	}
+	if respA.StatusCode != http.StatusNotFound {
+		e.logBFEException()
+		t.Fatalf("arm A: expected status 404, got %d, body: %s", respA.StatusCode, bodyA)
+	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 0 {
+		t.Fatalf("arm A: expected no backend hit, got %d", hits)
+	}
+
+	// Arm B: upstream 404 straight through.
+	e.backends[clusterRMB].Response = http.StatusNotFound
+	e.backends[clusterRMB].Body = `{"error":{"message":"model not found","type":"invalid_request_error"}}`
+	respB, bodyB, err := e.sendRequestNoKeepAlive(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm B: send request failed: %v", err)
+	}
+	if respB.StatusCode != http.StatusNotFound {
+		e.logBFEException()
+		t.Fatalf("arm B: expected status 404, got %d, body: %s", respB.StatusCode, bodyB)
+	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 1 {
+		t.Fatalf("arm B: expected 1 backend hit, got %d", hits)
+	}
+
+	// Arm C: 200 without usage -> approved estimate (control arm, unchanged
+	// behaviour: the estimate口径 must still be logged consistently).
+	e.backends[clusterRMB].Response = http.StatusOK
+	e.backends[clusterRMB].Body = `{"choices":[{"message":{"role":"assistant","content":"hi"}}]}`
+	respC, bodyC, err := e.sendRequestNoKeepAlive(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm C: send request failed: %v", err)
+	}
+	if respC.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("arm C: expected status 200, got %d, body: %s", respC.StatusCode, bodyC)
+	}
+
+	// Wait for access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLogs := e.accessLogs()
+	if len(reqLogs) != 3 {
+		t.Fatalf("expected 3 access logs, got %d", len(reqLogs))
+	}
+
+	var logNoRoute, logUpstream404, logOK *bfe_access_pb.RequestLog
+	for _, reqLog := range reqLogs {
+		assertNoSensitiveCredential(t, reqLog)
+		switch {
+		case reqLog.GetResStatusCode() == http.StatusOK:
+			logOK = reqLog
+		case len(reqLog.GetAiRouteRuleHits()) == 0:
+			logNoRoute = reqLog
+		default:
+			logUpstream404 = reqLog
+		}
+	}
+	if logNoRoute == nil || logUpstream404 == nil || logOK == nil {
+		t.Fatalf("expected one log per arm (no-route / upstream 404 / 200), got %d logs", len(reqLogs))
+	}
+
+	// Arm A: no upstream call at all, yet the AI context fields are logged.
+	if logNoRoute.GetResStatusCode() != http.StatusNotFound {
+		t.Errorf("arm A: res_status_code = %d, want 404", logNoRoute.GetResStatusCode())
+	}
+	assertNoUsageFields(t, "arm A (no ai route)", logNoRoute)
+	assertStringField(t, logNoRoute.AiApikeyId, "arm A: ai_apikey_id", apiKeyId)
+	if len(logNoRoute.GetAiClusterKeyNames()) != 0 {
+		t.Errorf("arm A: expected no cluster_key_names, got %d", len(logNoRoute.GetAiClusterKeyNames()))
+	}
+
+	// Arm B: upstream 404, the response body must not be turned into an
+	// estimated output token count.
+	if logUpstream404.GetResStatusCode() != http.StatusNotFound {
+		t.Errorf("arm B: res_status_code = %d, want 404", logUpstream404.GetResStatusCode())
+	}
+	assertNoUsageFields(t, "arm B (upstream 404)", logUpstream404)
+	if len(logUpstream404.GetAiClusterKeyNames()) == 0 {
+		t.Error("arm B: expected cluster_key_names of the tried cluster/key")
+	}
+
+	// Arm C: billable row keeps ai_total_tokens = ai_input_tokens + ai_output_tokens.
+	if logOK.AiInputTokens == nil || *logOK.AiInputTokens <= 0 {
+		t.Errorf("arm C: ai_input_tokens = %v, want > 0 (auth estimate is reported for a 2xx row)",
+			logOK.AiInputTokens)
+	}
+	if logOK.AiOutputTokens == nil || *logOK.AiOutputTokens <= 0 {
+		t.Errorf("arm C: ai_output_tokens = %v, want > 0 (approved estimate)", logOK.AiOutputTokens)
+	}
+	if logOK.AiTotalTokens == nil {
+		t.Fatal("arm C: ai_total_tokens is nil, want the approved estimate")
+	}
+	if got, want := *logOK.AiTotalTokens, *logOK.AiInputTokens+*logOK.AiOutputTokens; got != want {
+		t.Errorf("arm C: ai_total_tokens = %d, want %d (ai_input_tokens + ai_output_tokens)", got, want)
+	}
+}
+
+// TestTC20 verifies that a request rejected by the quota pre-check (429
+// QUOTA_EXHAUSTED) keeps the same identity block (ai_apikey_id +
+// ai_apikeytags, with TagLevel) as a successful request of the same key, so
+// rejected requests remain attributable to their Entity in the access log
+// (issue #1418).
+func TestTC20_QuotaRejectKeepsApikeyTags(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	wantTags := []bfe_basic.ApikeyTag{{TagName: "department", TagValue: "ai-team", TagLevel: 3}}
+
+	// Arm A: quota exhausted -> 429 QUOTA_EXHAUSTED, rejected before routing.
+	e.redis.SetQuota(redisKeyRMB, 0)
+	respA, bodyA, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm A: send request failed: %v", err)
+	}
+	if respA.StatusCode != http.StatusTooManyRequests {
+		e.logBFEException()
+		t.Fatalf("arm A: expected status 429, got %d, body: %s", respA.StatusCode, bodyA)
+	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 0 {
+		t.Fatalf("arm A: expected no backend hit, got %d", hits)
+	}
+
+	// Arm B: same key with quota restored -> 200 control arm. The 200 record
+	// is the tag baseline the rejected record must match.
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+	respB, bodyB, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm B: send request failed: %v", err)
+	}
+	if respB.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("arm B: expected status 200, got %d, body: %s", respB.StatusCode, bodyB)
+	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 1 {
+		t.Fatalf("arm B: expected 1 backend hit, got %d", hits)
+	}
+
+	// Wait for access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	reqLogs := e.accessLogs()
+	if len(reqLogs) != 2 {
+		t.Fatalf("expected 2 access logs, got %d", len(reqLogs))
+	}
+	var logRejected, logOK *bfe_access_pb.RequestLog
+	for _, reqLog := range reqLogs {
+		assertNoSensitiveCredential(t, reqLog)
+		switch reqLog.GetResStatusCode() {
+		case http.StatusTooManyRequests:
+			logRejected = reqLog
+		case http.StatusOK:
+			logOK = reqLog
+		}
+	}
+	if logRejected == nil || logOK == nil {
+		t.Fatalf("expected one 429 log and one 200 log, got %d logs", len(reqLogs))
+	}
+
+	// Arm A: the rejected request keeps the full identity/audit block.
+	if logRejected.GetResStatusCode() != http.StatusTooManyRequests {
+		t.Errorf("arm A: res_status_code = %d, want 429", logRejected.GetResStatusCode())
+	}
+	assertStringField(t, logRejected.AiApikeyId, "arm A: ai_apikey_id", apiKeyId)
+	assertApikeyTags(t, logRejected.AiApikeytags, wantTags)
+	assertStringField(t, logRejected.AiAuthRejectReason, "arm A: ai_auth_reject_reason", "QUOTA_EXHAUSTED")
+	assertStringSliceField(t, logRejected.AiAuthRejectQuotaPlans, "arm A: ai_auth_reject_quota_plans", []string{planRMB})
+
+	// Arm B (control): the successful request of the same key logs the same
+	// key id and the same Entity tags.
+	assertStringField(t, logOK.AiApikeyId, "arm B: ai_apikey_id", apiKeyId)
+	assertApikeyTags(t, logOK.AiApikeytags, wantTags)
+}
+
+// waitForQuota polls the RMB balance until it reaches want and reports the
+// last observed value. The deduction runs in HandleRequestFinish, after the
+// response was flushed to the client.
+func (e *testEnv) waitForQuota(t *testing.T, want int64) int64 {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		got := e.redis.GetQuota(redisKeyRMB)
+		if got == want || !time.Now().Before(deadline) {
+			return got
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// TestTC21_ZeroCostRowsExplicitCostAndReason verifies issue #1414 in the access
+// log: every observed 2xx row reports ai_cost_value (0 included, so "charged
+// nothing" is distinguishable from "field absent"), a zero-cost row that holds
+// an RMB plan is attributed by ai_zero_cost_reason, and a non-2xx row keeps
+// both fields absent.
+//
+// Arm 1: a normally billed request -> ai_cost_value > 0, no reason.
+//
+// Arm 2: the upstream explicitly reports an all-zero usage object. Because
+// recognition is presence-driven since #1414, the row is parsed (never
+// estimated), billed 0, and attributed to no_usage_tokens (no billing
+// dimension is > 0 although no usage problem was detected).
+//
+// Arm 3: BFE-generated 404 (no ai_route rule) -> usage, cost and reason all
+// stay absent, the issue #1409 convention.
+func TestTC21_ZeroCostRowsExplicitCostAndReason(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	const initialQuota = int64(10000000000)
+	// Arm 1 bills 100 * 100 + 50 * 200 = 20000 units.
+	const billedCost = int64(100*100 + 50*200)
+	e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+	// Arm 1: normal usage, normally billed.
+	resp1, body1, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm 1: send request failed: %v", err)
+	}
+	if resp1.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("arm 1: expected status 200, got %d, body: %s", resp1.StatusCode, body1)
+	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 1 {
+		t.Fatalf("arm 1: expected 1 backend hit, got %d", hits)
+	}
+
+	// The deduction of arm 1 is the baseline for the zero-cost arms.
+	afterArm1 := e.waitForQuota(t, initialQuota-billedCost)
+	if afterArm1 != initialQuota-billedCost {
+		t.Fatalf("arm 1: quota = %d, want %d (normal usage must be billed)", afterArm1, initialQuota-billedCost)
+	}
+
+	// Arm 2: the upstream explicitly reports all-zero usage. EstimateToken is
+	// on by default in this scenario, so being billed 0 is only possible if
+	// the all-zero object was recognized as an observation.
+	e.backends[clusterRMB].Body = zeroUsageResponse
+	resp2, body2, err := e.sendRequest(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm 2: send request failed: %v", err)
+	}
+	if resp2.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("arm 2: expected status 200, got %d, body: %s", resp2.StatusCode, body2)
+	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 2 {
+		t.Fatalf("arm 2: expected 2 backend hits, got %d", hits)
+	}
+
+	// Arm 3: BFE-generated 404 "AI route not found", the upstream is never
+	// called (dedicated connection: the 404 reply closes it).
+	resp3, body3, err := e.sendRequestNoKeepAlive(noRouteHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm 3: send request failed: %v", err)
+	}
+	if resp3.StatusCode != http.StatusNotFound {
+		e.logBFEException()
+		t.Fatalf("arm 3: expected status 404, got %d, body: %s", resp3.StatusCode, body3)
+	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 2 {
+		t.Fatalf("arm 3: expected no additional backend hit, got %d", hits)
+	}
+
+	// Wait for the access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+
+	// Arm 2 must not have been billed by the estimate either: no deduction on
+	// top of arm 1's (arm 3 bills nothing).
+	if got := e.redis.GetQuota(redisKeyRMB); got != afterArm1 {
+		t.Errorf("arm 2/3: quota = %d, want %d (an explicit all-zero usage is billed at 0, never estimated)",
+			got, afterArm1)
+	}
+
+	reqLogs := e.accessLogs()
+	if len(reqLogs) != 3 {
+		t.Fatalf("expected 3 access logs, got %d", len(reqLogs))
+	}
+
+	var logBilled, logZeroCost, logNon2xx *bfe_access_pb.RequestLog
+	for _, reqLog := range reqLogs {
+		assertNoSensitiveCredential(t, reqLog)
+		switch {
+		case reqLog.GetResStatusCode() != http.StatusOK:
+			logNon2xx = reqLog
+		case reqLog.GetAiTotalTokens() == 0:
+			logZeroCost = reqLog
+		default:
+			logBilled = reqLog
+		}
+	}
+	if logBilled == nil || logZeroCost == nil || logNon2xx == nil {
+		for _, reqLog := range reqLogs {
+			t.Logf("access log record: %s", common.FormatAccessLogError(reqLog))
+		}
+		t.Fatalf("expected one record per arm (billed 200 / all-zero-usage 200 / non-2xx), got %d records", len(reqLogs))
+	}
+
+	// Arm 1: billed normally, no zero-cost reason.
+	assertInt64Field(t, logBilled.AiCostValue, "arm 1: ai_cost_value", billedCost)
+	if logBilled.AiZeroCostReason != nil {
+		t.Errorf("arm 1: ai_zero_cost_reason = %q, want absent (the request was billed)",
+			*logBilled.AiZeroCostReason)
+	}
+	assertStringField(t, logBilled.AiUsageSource, "arm 1: ai_usage_source", bfe_basic.UsageSourceParsed)
+	assertInt64Field(t, logBilled.AiTotalTokens, "arm 1: ai_total_tokens", 150)
+
+	// Arm 2: explicit 0 cost, parsed (not estimated), attributed.
+	assertInt64Field(t, logZeroCost.AiCostValue, "arm 2: ai_cost_value", 0)
+	assertStringField(t, logZeroCost.AiUsageSource, "arm 2: ai_usage_source", bfe_basic.UsageSourceParsed)
+	assertStringField(t, logZeroCost.AiZeroCostReason, "arm 2: ai_zero_cost_reason",
+		bfe_basic.ZeroCostReasonNoUsageTokens)
+	assertInt64Field(t, logZeroCost.AiInputTokens, "arm 2: ai_input_tokens", 0)
+	assertInt64Field(t, logZeroCost.AiOutputTokens, "arm 2: ai_output_tokens", 0)
+	assertInt64Field(t, logZeroCost.AiTotalTokens, "arm 2: ai_total_tokens", 0)
+
+	// Arm 3: no upstream call, nothing to report (issue #1409 convention).
+	assertNoUsageFields(t, "arm 3 (no ai route)", logNon2xx)
+	if logNon2xx.AiZeroCostReason != nil {
+		t.Errorf("arm 3: ai_zero_cost_reason = %q, want absent (the upstream was never called)",
+			*logNon2xx.AiZeroCostReason)
+	}
+
+	t.Logf("arm 1 (billed): ai_cost_value = %d, ai_usage_source = %q, ai_zero_cost_reason = %q, ai_total_tokens = %d",
+		logBilled.GetAiCostValue(), logBilled.GetAiUsageSource(), logBilled.GetAiZeroCostReason(),
+		logBilled.GetAiTotalTokens())
+	t.Logf("arm 2 (all-zero usage): ai_cost_value = %d (set=%v), ai_usage_source = %q, ai_zero_cost_reason = %q, ai_total_tokens = %d",
+		logZeroCost.GetAiCostValue(), logZeroCost.AiCostValue != nil, logZeroCost.GetAiUsageSource(),
+		logZeroCost.GetAiZeroCostReason(), logZeroCost.GetAiTotalTokens())
+	t.Logf("arm 3 (non-2xx): ai_cost_value set = %v, ai_zero_cost_reason set = %v, res_status_code = %d",
+		logNon2xx.AiCostValue != nil, logNon2xx.AiZeroCostReason != nil, logNon2xx.GetResStatusCode())
+}
+
+// TestTC22 verifies the log-level field `logid` is a real per-request unique
+// identifier (bfenetworks/bfe#1417).
+//
+// Before the fix `strconv.ParseUint(req.LogId, 10, 64)` parsed the 32-char hex
+// log id as decimal and discarded the error, so `logid` was written as 0 for
+// every request. The report table `bfe_ai_request_log` dedups on
+// (hostid, log_time, ai_apikey_id, ai_requested_model, logid) with a
+// second-granularity log_time and a full-row ON DUPLICATE KEY UPDATE, so n
+// concurrent requests of one API key and model inside one second kept only 1
+// row — measured loss was exactly (n-1)/n.
+//
+// Two arms, both firing 3 requests in the same second from one API key and
+// model (the collision precondition of that key):
+//
+//	arm 1: default testdata — mod_logid is NOT loaded, so the id comes from the
+//	       local regeneration fallback. This is the stricter arm: the fix must
+//	       not depend on mod_logid being enabled.
+//	arm 2: mod_logid enabled and BFE restarted — the normal production shape,
+//	       where the access log reuses the id assigned by mod_logid.
+//
+// The downstream half of the defect (the report table actually keeping all n
+// rows under its unique key) is asserted by log-reader's LR03 scenario.
+func TestTC22_LogidNonZeroAndUnique(t *testing.T) {
+	aiConfs := map[string]*cluster_conf.AIConf{
+		clusterRMB: defaultRMBAIConf(),
+	}
+	e := newTestEnv(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, false)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, 10000000000)
+
+	confDir := filepath.Join(e.processEnv.WorkDir(), "conf")
+	logFile := filepath.Join(e.logDir, "pb_access3.log")
+
+	// Arm 1: mod_logid absent.
+	sendThreeRequestsSameSecond(t, e)
+	assertLogidArm(t, e, "arm 1 (mod_logid absent)")
+
+	// Arm 2: enable mod_logid, drop arm 1's log file and restart BFE so the
+	// file holds arm 2's rows only.
+	if err := os.Remove(logFile); err != nil && !os.IsNotExist(err) {
+		t.Fatalf("remove access log before arm 2 failed: %v", err)
+	}
+	if err := e.enableModuleInBFEConf(confDir, "mod_logid"); err != nil {
+		t.Fatalf("enable mod_logid in bfe.conf failed: %v", err)
+	}
+	e.bfePort, _, e.stopBFE = e.processEnv.StartBFE(confDir, e.logDir)
+
+	sendThreeRequestsSameSecond(t, e)
+	assertLogidArm(t, e, "arm 2 (mod_logid enabled)")
+}
+
+// sendThreeRequestsSameSecond fires 3 successful requests back to back and
+// stops BFE so the access log is flushed.
+func sendThreeRequestsSameSecond(t *testing.T, e *testEnv) {
+	t.Helper()
+
+	const requests = 3
+	for i := 0; i < requests; i++ {
+		resp, body, err := e.sendRequest(apiHost, defaultBody)
+		if err != nil {
+			t.Fatalf("send request %d failed: %v", i, err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			e.logBFEException()
+			t.Fatalf("request %d: expected status 200, got %d, body: %s", i, resp.StatusCode, body)
+		}
+	}
+
+	// Wait for access log to be flushed before stopping BFE.
+	time.Sleep(500 * time.Millisecond)
+
+	e.stopBFE()
+	e.stopBFE = nil
+}
+
+// assertLogidArm asserts the logid contract of one arm: every request carries a
+// non-zero id, the ids differ across requests (otherwise the report table's
+// unique key would collapse them again), and the value fits the signed BIGINT
+// of the report databases.
+func assertLogidArm(t *testing.T, e *testEnv, arm string) {
+	t.Helper()
+
+	const requests = 3
+	bfeLogs, err := common.ParseBfeLogsAfterStop(e.logDir)
+	if err != nil {
+		t.Fatalf("%s: parse access log failed: %v", arm, err)
+	}
+
+	// The file also carries session logs (LOG_TYPE_SESSION), which have their
+	// own logid; keep the request logs only.
+	var reqLogs []*bfe_access_pb.BfeLog
+	for _, bfeLog := range bfeLogs {
+		if bfeLog.GetLogType() == bfe_access_pb.BfeLogType_Request && bfeLog.RequestLog != nil {
+			reqLogs = append(reqLogs, bfeLog)
+		}
+	}
+	if len(reqLogs) != requests {
+		t.Fatalf("%s: request log records = %d, want %d", arm, len(reqLogs), requests)
+	}
+
+	seen := make(map[uint64]bool, requests)
+	for i, bfeLog := range reqLogs {
+		id := bfeLog.GetLogid()
+		switch {
+		case id == 0:
+			t.Errorf("%s: record %d: logid = 0, want non-zero (bfenetworks/bfe#1417)", arm, i)
+			continue
+		case id > math.MaxInt64:
+			t.Errorf("%s: record %d: logid = %d, above 2^63-1 (signed BIGINT of the report DBs)", arm, i, id)
+		}
+		if seen[id] {
+			t.Errorf("%s: record %d: duplicate logid %d — same-second rows of one API key/model would overwrite each other", arm, i, id)
+		}
+		seen[id] = true
+
+		reqLog := bfeLog.GetRequestLog()
+		if reqLog == nil {
+			t.Errorf("%s: record %d: RequestLog is nil", arm, i)
+			continue
+		}
+		t.Logf("%s: record %d: logid = %d, timestamp = %d, ai_apikey_id = %q, ai_requested_model = %q",
+			arm, i, id, bfeLog.GetTimestamp(), reqLog.GetAiApikeyId(), reqLog.GetAiRequestedModel())
 	}
 }

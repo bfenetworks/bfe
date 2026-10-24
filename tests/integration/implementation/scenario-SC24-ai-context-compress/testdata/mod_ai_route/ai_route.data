@@ -1,0 +1,54 @@
+{
+    "Version": "20260720150000",
+    "route_rules": {
+        "apikey_ak_ctx": {
+            "type": "apikey",
+            "owner": "ak_ctx",
+            "rules": [
+                {
+                    "name": "ctx-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_ctx_primary",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": [
+                        {
+                            "ClusterName": "cluster_ctx_fallback",
+                            "Model": ""
+                        }
+                    ]
+                }
+            ]
+        },
+        "apikey_ak_cache": {
+            "type": "apikey",
+            "owner": "ak_cache",
+            "rules": [
+                {
+                    "name": "cache-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_cache",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_ctx": [
+            "apikey_ak_ctx"
+        ],
+        "ak_cache": [
+            "apikey_ak_cache"
+        ]
+    }
+}

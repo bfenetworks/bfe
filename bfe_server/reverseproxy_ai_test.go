@@ -15,7 +15,14 @@
 package bfe_server
 
 import (
+	"encoding/json"
 	"errors"
+	"io/ioutil"
+	"net"
+	"net/url"
+	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,6 +31,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_http"
+	"github.com/bfenetworks/bfe/bfe_route"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 )
 
@@ -75,6 +83,12 @@ func TestSelectTargetZeroWeightNotSelected(t *testing.T) {
 func TestShouldTriggerFallback(t *testing.T) {
 	if !shouldTriggerFallback(nil, bfe_http.ConnectError{}, "") {
 		t.Error("expected fallback on connect error")
+	}
+
+	// Issue #1440 (step 3): (nil, nil) is not a decidable result and must
+	// be treated as fallback-eligible (hard invariant).
+	if !shouldTriggerFallback(nil, nil, "") {
+		t.Error("expected fallback on (nil, nil)")
 	}
 
 	// 5xx always triggers fallback
@@ -468,6 +482,10 @@ func (m *mockRedisClient) Delete(key string) error {
 	return nil
 }
 
+func (m *mockRedisClient) HGetAll(key string) (map[string]string, error) {
+	return nil, nil
+}
+
 func (m *mockRedisClient) NewScript(src string) redis_client.RedisScript {
 	panic("not implemented")
 }
@@ -502,7 +520,7 @@ func TestChooseAIKeyWithAffinity_SingleKey(t *testing.T) {
 	state := newAIKeyAttemptState()
 	client := newMockRedisClient()
 
-	idx, key, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", nil)
+	idx, key, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", nil, nil)
 	if !ok {
 		t.Fatal("expected to select key")
 	}
@@ -538,7 +556,7 @@ func TestChooseAIKeyWithAffinity_Hit(t *testing.T) {
 		ReqAiKeyAffinityHit: new(metrics.Counter),
 	}
 
-	_, key, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState)
+	_, key, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState, nil)
 	if !ok {
 		t.Fatal("expected to select key")
 	}
@@ -572,7 +590,7 @@ func TestChooseAIKeyWithAffinity_Miss(t *testing.T) {
 		ReqAiKeyAffinityMiss: new(metrics.Counter),
 	}
 
-	idx, _, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState)
+	idx, _, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState, nil)
 	if !ok {
 		t.Fatal("expected to select key")
 	}
@@ -611,7 +629,7 @@ func TestChooseAIKeyWithAffinity_RedisErrFallback(t *testing.T) {
 		ReqAiKeyAffinityRedisErr: new(metrics.Counter),
 	}
 
-	idx, _, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState)
+	idx, _, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState, nil)
 	if !ok {
 		t.Fatal("expected fallback to random")
 	}
@@ -644,7 +662,7 @@ func TestChooseAIKeyWithAffinity_PenaltySkip(t *testing.T) {
 	}
 
 	// force deterministic selection: only key-b is eligible
-	_, key, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState)
+	_, key, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState, nil)
 	if !ok {
 		t.Fatal("expected to select key")
 	}
@@ -671,7 +689,7 @@ func TestChooseAIKeyWithAffinity_Disabled(t *testing.T) {
 	state := newAIKeyAttemptState()
 	client := newMockRedisClient()
 
-	idx, _, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", nil)
+	idx, _, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", nil, nil)
 	if !ok {
 		t.Fatal("expected to select key")
 	}
@@ -683,5 +701,478 @@ func TestChooseAIKeyWithAffinity_Disabled(t *testing.T) {
 	}
 	if len(client.data) != 0 {
 		t.Errorf("expected no redis access when disabled, got %d entries", len(client.data))
+	}
+}
+
+// isBatchPassthroughMode + shouldRewriteBodyModel guard the request-body
+// model rewrite for provider-native passthrough traffic (issue #1426):
+// /v1/files multipart uploads and /v1/batches create JSON must reach the
+// backend byte-for-byte even when the AI route carries a non-empty target
+// model.
+func TestShouldRewriteBodyModel(t *testing.T) {
+	jsonHeader := func(ct string) bfe_http.Header {
+		h := make(bfe_http.Header)
+		if ct != "" {
+			h.Set("Content-Type", ct)
+		}
+		return h
+	}
+	chatMeta := &bfe_basic.AiBasicInfo{Mode: bfe_basic.ModeChat}
+	fileMeta := &bfe_basic.AiBasicInfo{Mode: bfe_basic.ModeFile}
+	batchMeta := &bfe_basic.AiBasicInfo{Mode: bfe_basic.ModeBatch}
+
+	cases := []struct {
+		name        string
+		meta        *bfe_basic.AiBasicInfo
+		contentType string
+		target      string
+		body        string
+		want        bool
+	}{
+		{"chat json body rewritten", chatMeta, "application/json", "m-a", "m-b", true},
+		{"chat json with charset rewritten", chatMeta, "application/json; charset=utf-8", "m-a", "m-b", true},
+		{"chat +json suffix rewritten", chatMeta, "application/problem+json", "m-a", "m-b", true},
+		// clients that send a JSON body without Content-Type keep working
+		{"chat missing content-type rewritten", chatMeta, "", "m-a", "m-b", true},
+		{"chat malformed content-type rewritten", chatMeta, "not a media type;==", "m-a", "m-b", true},
+		{"equal model not rewritten", chatMeta, "application/json", "m-a", "m-a", false},
+		{"empty target not rewritten", chatMeta, "application/json", "", "m-b", false},
+		// issue #1426: passthrough modes never rewrite, whatever the Content-Type
+		{"file multipart not rewritten", fileMeta, "multipart/form-data; boundary=x", "m-a", "", false},
+		{"batch json not rewritten", batchMeta, "application/json", "m-a", "", false},
+		// defense in depth: explicit non-JSON Content-Type wins over the mode
+		{"chat multipart not rewritten", chatMeta, "multipart/form-data; boundary=x", "m-a", "", false},
+		{"chat text not rewritten", chatMeta, "text/plain", "m-a", "", false},
+		{"chat octet-stream not rewritten", chatMeta, "application/octet-stream", "m-a", "", false},
+	}
+	for _, c := range cases {
+		if got := shouldRewriteBodyModel(c.meta, jsonHeader(c.contentType), c.target, c.body); got != c.want {
+			t.Errorf("%s: shouldRewriteBodyModel = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+// TestAiClusterInvokeExhaustionReturnsSynthetic429 verifies issue #1440:
+// when no AI key can be selected (here: the only configured key has
+// Weight=0), aiClusterInvoke must return a decidable synthetic 429 response
+// instead of (nil, nil), so the outer ServeHTTPForAI fallback decision can
+// trigger cluster fallback or hand the client a retryable 429.
+func TestAiClusterInvokeExhaustionReturnsSynthetic429(t *testing.T) {
+	intPtr := func(v int) *int { return &v }
+	boolPtr := func(v bool) *bool { return &v }
+	strPtr := func(v string) *string { return &v }
+
+	clusterName := "exhausted-cluster"
+	clusterConfs := cluster_conf.BfeClusterConf{
+		Version: strPtr("test"),
+		Config: &cluster_conf.ClusterToConf{
+			clusterName: {
+				ClusterBasic: &cluster_conf.ClusterBasicConf{
+					TimeoutReadClient:      intPtr(1000),
+					TimeoutWriteClient:     intPtr(1000),
+					TimeoutReadClientAgain: intPtr(1000),
+					ReqWriteBufferSize:     intPtr(4096),
+					ReqFlushInterval:       intPtr(0),
+					ResFlushInterval:       intPtr(0),
+					CancelOnClientClose:    boolPtr(false),
+					DisableHostHeader:      boolPtr(false),
+					DisableHealthCheck:     boolPtr(true),
+				},
+				AIConf: &cluster_conf.AIConf{
+					Keys: []cluster_conf.AIKey{
+						{Name: "key-zero", Key: "ak-zero", Weight: 0},
+					},
+					// KeyPolicy nil -> defaultAIKeyPolicy(): MaxRetries=0,
+					// SessionAffinity=false, no redis needed.
+				},
+			},
+		},
+	}
+	clusterTable := new(bfe_route.ClusterTable)
+	clusterTable.BasicInit(clusterConfs)
+	serverConf := &bfe_route.ServerDataConf{ClusterTable: clusterTable}
+
+	conn, _ := net.Pipe()
+	defer conn.Close()
+	httpReq := &bfe_http.Request{
+		Method: "POST",
+		URL:    &url.URL{Path: "/v1/chat/completions"},
+		Header: bfe_http.Header{},
+		Body:   ioutil.NopCloser(strings.NewReader(`{"model":"m"}`)),
+	}
+	httpReq.Header.Set(bfe_basic.HeaderXRequestId, "tc09-req-id")
+	basicReq := &bfe_basic.Request{HttpRequest: httpReq, Connection: conn}
+
+	rp := NewReverseProxy(nil, new(ProxyState))
+	// dev branch dereferences srv (AIKeyAffinityRedis) unconditionally
+	srv := &BfeServer{}
+	attempt := aiForwardAttempt{ClusterName: clusterName, Model: "m"}
+
+	res, _, cluster, err, _ := rp.aiClusterInvoke(srv, serverConf, basicReq, nil, attempt, nil, "m")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if cluster == nil || cluster.Name != clusterName {
+		t.Fatalf("expected cluster %s, got %v", clusterName, cluster)
+	}
+	if res == nil {
+		t.Fatal("expected synthetic 429 response, got nil (issue #1440)")
+	}
+	if res.StatusCode != 429 {
+		t.Fatalf("expected status 429, got %d", res.StatusCode)
+	}
+	// issue #1441: the ErrCode sentinel carries the error code for access-log
+	// attribution; it must NOT be ErrAiRateLimit (that would suppress
+	// cluster fallback and stop key rotation).
+	if basicReq.ErrCode != bfe_basic.ErrAiNoAvailableKey {
+		t.Errorf("expected ErrCode %v, got %v", bfe_basic.ErrAiNoAvailableKey, basicReq.ErrCode)
+	}
+	if basicReq.ErrCode == bfe_basic.ErrAiRateLimit {
+		t.Error("ErrCode must not be ErrAiRateLimit (would suppress fallback)")
+	}
+	if ct := res.Header.Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Errorf("expected JSON content type, got %q", ct)
+	}
+	// The unified AiError form marks the response as gateway-generated so
+	// normalizeUpstreamError (AIConf.NormalizeUpstreamError) leaves it alone.
+	if res.Header.Get(bfe_basic.HeaderBfeGwError) != "1" {
+		t.Errorf("expected %s header on gateway-generated synthetic 429", bfe_basic.HeaderBfeGwError)
+	}
+	// issue #1441 (round 2): correlation headers (ai_error_codes.md §3.3) so
+	// the client can trace this error back to the access log (logid) and the
+	// key selection/penalty trail.
+	if got := res.Header.Get(bfe_basic.HeaderBfeLogId); got == "" || got != basicReq.LogId {
+		t.Errorf("expected non-empty %s back-filled into basicReq.LogId, got header %q logid %q",
+			bfe_basic.HeaderBfeLogId, got, basicReq.LogId)
+	}
+	if got := res.Header.Get(bfe_basic.HeaderXRequestId); got != "tc09-req-id" {
+		t.Errorf("expected echoed X-Request-ID %q, got %q", "tc09-req-id", got)
+	}
+	// issue #1441: unified AiError body with error.code (§3.2 必填),
+	// retry_after_seconds detail and a Retry-After header.
+	if res.Header.Get("Retry-After") != strconv.Itoa(aiKeyPenaltyTTL429) {
+		t.Errorf("expected Retry-After %d, got %q", aiKeyPenaltyTTL429, res.Header.Get("Retry-After"))
+	}
+	body, readErr := ioutil.ReadAll(res.Body)
+	if readErr != nil {
+		t.Fatalf("read body failed: %v", readErr)
+	}
+	var aiErrBody bfe_basic.AiErrorBody
+	if jsonErr := json.Unmarshal(body, &aiErrBody); jsonErr != nil {
+		t.Fatalf("body is not a unified AiError JSON: %v, body: %s", jsonErr, body)
+	}
+	if aiErrBody.Error.Code != bfe_basic.CodeNoAvailableKey {
+		t.Errorf("expected error.code %q, got %q", bfe_basic.CodeNoAvailableKey, aiErrBody.Error.Code)
+	}
+	if aiErrBody.Error.Type != bfe_basic.TypeRateLimitError {
+		t.Errorf("expected error.type %q, got %q", bfe_basic.TypeRateLimitError, aiErrBody.Error.Type)
+	}
+	if aiErrBody.Error.Details == nil || aiErrBody.Error.Details.RetryAfterSeconds != aiKeyPenaltyTTL429 {
+		t.Errorf("expected error.details.retry_after_seconds=%d, got %+v", aiKeyPenaltyTTL429, aiErrBody.Error.Details)
+	}
+}
+
+// TestFilterPenaltyKeys_ExcludesZeroWeight verifies issue #1439: a Weight=0
+// key never counts as a penalty-filter candidate, so a penalized usable key
+// with only Weight=0 companions yields no candidates (circuit break).
+func TestFilterPenaltyKeys_ExcludesZeroWeight(t *testing.T) {
+	policy := cluster_conf.AIKeyPolicy{SessionAffinityRedisPrefix: "bfe:ai:key_affinity"}
+	client := newMockRedisClient()
+	client.Setex("bfe:ai:key_affinity:penalty:cluster:key-a", []byte("429"), 60)
+
+	keys := []cluster_conf.AIKey{
+		{Name: "key-a", Key: "ak-a", Weight: 100},
+		{Name: "key-z", Key: "ak-z", Weight: 0},
+	}
+	filtered, skipped := filterPenaltyKeys("cluster", keys, policy, client)
+	if len(filtered) != 0 {
+		t.Fatalf("expected no candidates (circuit break), got %v", filtered)
+	}
+	if skipped != 1 {
+		t.Errorf("expected skipped=1 (only the penalized usable key), got %d", skipped)
+	}
+}
+
+// TestFilterPenaltyKeys_CircuitBreakWhenAllPenalized verifies the issue
+// #1439 ruling (方案乙): when every usable key is penalized the filter
+// returns no candidates, instead of falling back to the penalized list.
+func TestFilterPenaltyKeys_CircuitBreakWhenAllPenalized(t *testing.T) {
+	policy := cluster_conf.AIKeyPolicy{SessionAffinityRedisPrefix: "bfe:ai:key_affinity"}
+	client := newMockRedisClient()
+	client.Setex("bfe:ai:key_affinity:penalty:cluster:key-a", []byte("429"), 60)
+	client.Setex("bfe:ai:key_affinity:penalty:cluster:key-b", []byte("429"), 60)
+
+	keys := []cluster_conf.AIKey{
+		{Name: "key-a", Key: "ak-a", Weight: 50},
+		{Name: "key-b", Key: "ak-b", Weight: 50},
+	}
+	filtered, skipped := filterPenaltyKeys("cluster", keys, policy, client)
+	if len(filtered) != 0 {
+		t.Fatalf("expected no candidates when all usable keys penalized, got %v", filtered)
+	}
+	if skipped != 2 {
+		t.Errorf("expected skipped=2, got %d", skipped)
+	}
+}
+
+// TestFilterPenaltyKeys_ZeroWeightNotCandidate verifies a Weight=0 key alone
+// cannot keep the filter non-empty (it is excluded before penalty checks).
+func TestFilterPenaltyKeys_ZeroWeightNotCandidate(t *testing.T) {
+	policy := cluster_conf.AIKeyPolicy{SessionAffinityRedisPrefix: "bfe:ai:key_affinity"}
+	client := newMockRedisClient()
+
+	keys := []cluster_conf.AIKey{
+		{Name: "key-z", Key: "ak-z", Weight: 0},
+		{Name: "key-a", Key: "ak-a", Weight: 100},
+	}
+	filtered, skipped := filterPenaltyKeys("cluster", keys, policy, client)
+	if len(filtered) != 1 || filtered[0].Name != "key-a" {
+		t.Fatalf("expected [key-a], got %v", filtered)
+	}
+	if skipped != 0 {
+		t.Errorf("expected skipped=0 (Weight=0 exclusion is not a penalty skip), got %d", skipped)
+	}
+}
+
+// TestChooseAIKeyWithAffinity_CircuitBreak verifies the end-to-end selection
+// path: the only usable key penalized (with only Weight=0 companions) means
+// no key can be selected, and the caller (aiClusterInvoke, issue #1440)
+// turns ok=false into a synthetic 429 for cluster fallback.
+func TestChooseAIKeyWithAffinity_CircuitBreak(t *testing.T) {
+	keys := []cluster_conf.AIKey{
+		{Name: "key-a", Key: "ak-a", Weight: 100},
+		{Name: "key-z", Key: "ak-z", Weight: 0},
+	}
+	policy := cluster_conf.AIKeyPolicy{
+		Strategy:                     "weighted_random",
+		SessionAffinity:              true,
+		SessionAffinityTTL:           300,
+		SessionAffinityRedisPrefix:   "bfe:ai:key_affinity",
+		SessionAffinityPenaltyEnable: true,
+	}
+	state := newAIKeyAttemptState()
+	client := newMockRedisClient()
+	client.Setex("bfe:ai:key_affinity:penalty:cluster:key-a", []byte("429"), 60)
+
+	proxyState := &ProxyState{
+		ReqAiKeyAffinityPenaltySkip: new(metrics.Counter),
+	}
+
+	_, _, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState, nil)
+	if ok {
+		t.Fatal("expected circuit break (no key selected), but a key was selected")
+	}
+	if proxyState.ReqAiKeyAffinityPenaltySkip.Get() != 1 {
+		t.Errorf("expected penalty skip counter 1, got %d", proxyState.ReqAiKeyAffinityPenaltySkip.Get())
+	}
+}
+
+// TestBackendUnavailableErrorResponseContract verifies issue #1441 step 3:
+// the gateway-side synthesized failures (no cluster, backend
+// connect/transport error, ...) now return the unified AiError body
+// (BACKEND_UNAVAILABLE / 502 / application/json) instead of a bare empty-body
+// 500.
+func TestBackendUnavailableErrorResponseContract(t *testing.T) {
+	basicReq := &bfe_basic.Request{HttpRequest: &bfe_http.Request{Header: bfe_http.Header{}}}
+	basicReq.HttpRequest.Header.Set(bfe_basic.HeaderXRequestId, "be-req-id")
+	res := bfe_basic.NewAiError(bfe_basic.CodeBackendUnavailable, bfe_basic.TypeInternalError,
+		"upstream backend unavailable for this request").CreateErrorResponse(basicReq)
+
+	if res.StatusCode != 502 {
+		t.Fatalf("expected status 502, got %d", res.StatusCode)
+	}
+	if ct := res.Header.Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected application/json, got %q", ct)
+	}
+	// issue #1441 regression guard: other error codes must NOT get a
+	// Retry-After header (only the key-exhaustion call site sets it).
+	if res.Header.Get("Retry-After") != "" {
+		t.Errorf("BACKEND_UNAVAILABLE must not carry Retry-After, got %q", res.Header.Get("Retry-After"))
+	}
+	// issue #1441 (round 2): the same correlation headers as every other
+	// gateway-generated error (proof this is not a 429-only patch).
+	if got := res.Header.Get(bfe_basic.HeaderBfeLogId); got == "" || got != basicReq.LogId {
+		t.Errorf("expected non-empty %s back-filled into basicReq.LogId, got header %q logid %q",
+			bfe_basic.HeaderBfeLogId, got, basicReq.LogId)
+	}
+	if got := res.Header.Get(bfe_basic.HeaderXRequestId); got != "be-req-id" {
+		t.Errorf("expected echoed X-Request-ID %q, got %q", "be-req-id", got)
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatalf("read body failed: %v", err)
+	}
+	var aiErrBody bfe_basic.AiErrorBody
+	if jsonErr := json.Unmarshal(body, &aiErrBody); jsonErr != nil {
+		t.Fatalf("body is not a unified AiError JSON: %v, body: %s", jsonErr, body)
+	}
+	if aiErrBody.Error.Code != bfe_basic.CodeBackendUnavailable {
+		t.Errorf("expected error.code %q, got %q", bfe_basic.CodeBackendUnavailable, aiErrBody.Error.Code)
+	}
+	if aiErrBody.Error.Type != bfe_basic.TypeInternalError {
+		t.Errorf("expected error.type %q, got %q", bfe_basic.TypeInternalError, aiErrBody.Error.Type)
+	}
+	if aiErrBody.Error.Message == "" {
+		t.Error("expected non-empty error.message")
+	}
+}
+
+// TestAIGatewayFailureResponseNoBackend verifies issue #1453: a gateway-side
+// failure whose balance layer reported ErrBkNoBackend keeps the
+// BK_NO_BACKEND business contract (500) instead of being rewritten into the
+// #1441 BACKEND_UNAVAILABLE / 502 contract, so "empty pool" stays
+// distinguishable from "backend failure". Every other error code keeps the
+// #1441 contract.
+func TestAIGatewayFailureResponseNoBackend(t *testing.T) {
+	if bfe_basic.CodeNoBackend != bfe_basic.ErrBkNoBackend.Error() {
+		t.Fatalf("CodeNoBackend %q must match the balance-layer sentinel %q",
+			bfe_basic.CodeNoBackend, bfe_basic.ErrBkNoBackend.Error())
+	}
+
+	decode := func(t *testing.T, res *bfe_http.Response) bfe_basic.AiErrorBody {
+		t.Helper()
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			t.Fatalf("read body failed: %v", err)
+		}
+		var aiErrBody bfe_basic.AiErrorBody
+		if jsonErr := json.Unmarshal(body, &aiErrBody); jsonErr != nil {
+			t.Fatalf("body is not a unified AiError JSON: %v, body: %s", jsonErr, body)
+		}
+		return aiErrBody
+	}
+
+	t.Run("no backend", func(t *testing.T) {
+		basicReq := &bfe_basic.Request{
+			HttpRequest: &bfe_http.Request{Header: bfe_http.Header{}},
+			ErrCode:     bfe_basic.ErrBkNoBackend,
+		}
+		basicReq.HttpRequest.Header.Set(bfe_basic.HeaderXRequestId, "no-backend-req-id")
+		res := aiGatewayFailureResponse(basicReq)
+
+		if res.StatusCode != 500 {
+			t.Fatalf("expected status 500, got %d", res.StatusCode)
+		}
+		if got := res.Header.Get(bfe_basic.HeaderBfeGwError); got != "1" {
+			t.Errorf("expected gateway-generated marker, got %q", got)
+		}
+		if got := res.Header.Get(bfe_basic.HeaderXRequestId); got != "no-backend-req-id" {
+			t.Errorf("expected echoed X-Request-ID, got %q", got)
+		}
+		if got := res.Header.Get("Retry-After"); got != "" {
+			t.Errorf("BK_NO_BACKEND must not carry Retry-After, got %q", got)
+		}
+		aiErrBody := decode(t, res)
+		if aiErrBody.Error.Code != bfe_basic.CodeNoBackend {
+			t.Errorf("expected error.code %q, got %q", bfe_basic.CodeNoBackend, aiErrBody.Error.Code)
+		}
+		if aiErrBody.Error.Type != bfe_basic.TypeInternalError {
+			t.Errorf("expected error.type %q, got %q", bfe_basic.TypeInternalError, aiErrBody.Error.Type)
+		}
+	})
+
+	t.Run("backend failure keeps unified contract", func(t *testing.T) {
+		basicReq := &bfe_basic.Request{
+			HttpRequest: &bfe_http.Request{Header: bfe_http.Header{}},
+			ErrCode:     bfe_basic.ErrBkConnectBackend,
+		}
+		res := aiGatewayFailureResponse(basicReq)
+
+		if res.StatusCode != 502 {
+			t.Fatalf("expected status 502, got %d", res.StatusCode)
+		}
+		aiErrBody := decode(t, res)
+		if aiErrBody.Error.Code != bfe_basic.CodeBackendUnavailable {
+			t.Errorf("expected error.code %q, got %q", bfe_basic.CodeBackendUnavailable, aiErrBody.Error.Code)
+		}
+	})
+
+	t.Run("no error code keeps unified contract", func(t *testing.T) {
+		basicReq := &bfe_basic.Request{HttpRequest: &bfe_http.Request{Header: bfe_http.Header{}}}
+		res := aiGatewayFailureResponse(basicReq)
+
+		if res.StatusCode != 502 {
+			t.Fatalf("expected status 502, got %d", res.StatusCode)
+		}
+	})
+}
+
+// TestIsAIClientAbort verifies the issue #1441 boundary predicate: only
+// client-write/close/reset sentinels keep the legacy bare-500 record; other
+// error codes (backend failures, exhaustion) get the unified AiError body.
+func TestIsAIClientAbort(t *testing.T) {
+	for _, code := range []error{bfe_basic.ErrClientWrite, bfe_basic.ErrClientClose, bfe_basic.ErrClientReset} {
+		if !isAIClientAbort(code) {
+			t.Errorf("expected %v to be treated as client abort", code)
+		}
+	}
+	for _, code := range []error{nil, bfe_basic.ErrBkNoCluster, bfe_basic.ErrBkConnectBackend, bfe_basic.ErrAiRateLimit, bfe_basic.ErrAiNoAvailableKey} {
+		if isAIClientAbort(code) {
+			t.Errorf("expected %v NOT to be treated as client abort", code)
+		}
+	}
+}
+
+// TestSanitizeOutboundCredentials verifies issue #1447 at the forwarding
+// layer: the outbound request keeps exactly the credential header the adapter
+// is about to inject, the inbound request is left untouched (the aliased
+// header map is detached instead of mutated, like hopByHopHeaderRemove does),
+// and the dropped names are reported for logging.
+func TestSanitizeOutboundCredentials(t *testing.T) {
+	// Case 1: the outbound header map aliases the inbound one, exactly as
+	// after the shallow copy in doSingleAIForward.
+	inbound := &bfe_http.Request{Header: bfe_http.Header{}}
+	inbound.Header.Set("Authorization", "Bearer client-key")
+	inbound.Header.Set("x-api-key", "client-key")
+	inbound.Header.Set("Content-Type", "application/json")
+	outreq := new(bfe_http.Request)
+	*outreq = *inbound
+
+	dropped := sanitizeOutboundCredentials(outreq, "Authorization")
+	if want := []string{"X-Api-Key"}; !reflect.DeepEqual(dropped, want) {
+		t.Fatalf("expected %v dropped, got %v", want, dropped)
+	}
+	if got := outreq.Header.Get("x-api-key"); got != "" {
+		t.Errorf("expected x-api-key dropped from the outbound request, got %q", got)
+	}
+	if got := inbound.Header.Get("x-api-key"); got != "client-key" {
+		t.Errorf("the inbound client credential must stay intact, got %q", got)
+	}
+	if got := outreq.Header.Get("Authorization"); got != "Bearer client-key" {
+		t.Errorf("expected the keep header to survive, got %q", got)
+	}
+	if got := outreq.Header.Get("Content-Type"); got != "application/json" {
+		t.Errorf("expected unrelated headers to survive, got %q", got)
+	}
+
+	// Case 2: nothing to drop -> no detachment (no allocation) and nothing
+	// reported. The header map must still be the aliased one, which is
+	// observable by writing through the outbound map.
+	inbound2 := &bfe_http.Request{Header: bfe_http.Header{}}
+	inbound2.Header.Set("Authorization", "Bearer client-key")
+	outreq2 := new(bfe_http.Request)
+	*outreq2 = *inbound2
+
+	if dropped := sanitizeOutboundCredentials(outreq2, "Authorization"); dropped != nil {
+		t.Errorf("expected no dropped headers, got %v", dropped)
+	}
+	if got := outreq2.Header.Get("Authorization"); got != "Bearer client-key" {
+		t.Errorf("expected Authorization untouched, got %q", got)
+	}
+	outreq2.Header.Set("X-Same-Map", "1")
+	if got := inbound2.Header.Get("X-Same-Map"); got != "1" {
+		t.Error("expected the header map to stay aliased when nothing is dropped")
+	}
+
+	// Case 3: the anthropic and gemini adapters drop the other two headers.
+	outreq3 := new(bfe_http.Request)
+	outreq3.Header = bfe_http.Header{}
+	outreq3.Header.Set("Authorization", "Bearer client-key")
+	outreq3.Header.Set("x-goog-api-key", "client-key")
+	if dropped := sanitizeOutboundCredentials(outreq3, "X-Api-Key"); !reflect.DeepEqual(dropped, []string{"Authorization", "X-Goog-Api-Key"}) {
+		t.Errorf("expected [Authorization X-Goog-Api-Key] dropped, got %v", dropped)
+	}
+	if outreq3.Header.Get("Authorization") != "" || outreq3.Header.Get("x-goog-api-key") != "" {
+		t.Errorf("expected both foreign credentials dropped, got %v", outreq3.Header)
 	}
 }

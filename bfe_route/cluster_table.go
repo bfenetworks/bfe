@@ -25,6 +25,7 @@ import (
 import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
+	"github.com/bfenetworks/bfe/bfe_util/crypto"
 )
 
 // ClusterMap holds mappings from clusterName to cluster.
@@ -44,10 +45,10 @@ func newClusterTable() *ClusterTable {
 	return ct
 }
 
-func (t *ClusterTable) Init(clusterConfFilename string) error {
+func (t *ClusterTable) Init(clusterConfFilename string, kr *crypto.Keyring) error {
 	// init cluster basic
 	t.clusterTable = make(ClusterMap)
-	clusterConf, err := cluster_conf.ClusterConfLoad(clusterConfFilename)
+	clusterConf, err := cluster_conf.ClusterConfLoad(clusterConfFilename, kr)
 	if err != nil {
 		return err
 	}

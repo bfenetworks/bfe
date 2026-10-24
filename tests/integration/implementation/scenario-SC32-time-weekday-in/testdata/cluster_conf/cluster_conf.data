@@ -1,0 +1,161 @@
+{
+    "Version": "20261014150000",
+    "Config": {
+        "cluster_weekday_work": {
+            "BackendConf": {
+                "TimeoutConnSrv": 1000,
+                "TimeoutWriteSrv": 2000,
+                "TimeoutReadSrv": 2000,
+                "TimeoutResponseHeader": 1000,
+                "SlowStartTime": 0
+            },
+            "CheckConf": {
+                "Uri": "/health",
+                "FailNum": 3,
+                "CheckInterval": 1000,
+                "Response": "200 OK"
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 0
+            },
+            "ClusterBasic": {
+                "RetryMax": 0,
+                "TimeoutReadClient": 5000,
+                "TimeoutWriteClient": 5000,
+                "TimeoutReadClientAgain": 5000,
+                "DisableHealthCheck": true
+            }
+        },
+        "cluster_weekday_sat": {
+            "BackendConf": {
+                "TimeoutConnSrv": 1000,
+                "TimeoutWriteSrv": 2000,
+                "TimeoutReadSrv": 2000,
+                "TimeoutResponseHeader": 1000,
+                "SlowStartTime": 0
+            },
+            "CheckConf": {
+                "Uri": "/health",
+                "FailNum": 3,
+                "CheckInterval": 1000,
+                "Response": "200 OK"
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 0
+            },
+            "ClusterBasic": {
+                "RetryMax": 0,
+                "TimeoutReadClient": 5000,
+                "TimeoutWriteClient": 5000,
+                "TimeoutReadClientAgain": 5000,
+                "DisableHealthCheck": true
+            }
+        },
+        "cluster_weekday_sun": {
+            "BackendConf": {
+                "TimeoutConnSrv": 1000,
+                "TimeoutWriteSrv": 2000,
+                "TimeoutReadSrv": 2000,
+                "TimeoutResponseHeader": 1000,
+                "SlowStartTime": 0
+            },
+            "CheckConf": {
+                "Uri": "/health",
+                "FailNum": 3,
+                "CheckInterval": 1000,
+                "Response": "200 OK"
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 0
+            },
+            "ClusterBasic": {
+                "RetryMax": 0,
+                "TimeoutReadClient": 5000,
+                "TimeoutWriteClient": 5000,
+                "TimeoutReadClientAgain": 5000,
+                "DisableHealthCheck": true
+            }
+        },
+        "cluster_weekday_utc_work": {
+            "BackendConf": {
+                "TimeoutConnSrv": 1000,
+                "TimeoutWriteSrv": 2000,
+                "TimeoutReadSrv": 2000,
+                "TimeoutResponseHeader": 1000,
+                "SlowStartTime": 0
+            },
+            "CheckConf": {
+                "Uri": "/health",
+                "FailNum": 3,
+                "CheckInterval": 1000,
+                "Response": "200 OK"
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 0
+            },
+            "ClusterBasic": {
+                "RetryMax": 0,
+                "TimeoutReadClient": 5000,
+                "TimeoutWriteClient": 5000,
+                "TimeoutReadClientAgain": 5000,
+                "DisableHealthCheck": true
+            }
+        },
+        "cluster_weekday_utc_default": {
+            "BackendConf": {
+                "TimeoutConnSrv": 1000,
+                "TimeoutWriteSrv": 2000,
+                "TimeoutReadSrv": 2000,
+                "TimeoutResponseHeader": 1000,
+                "SlowStartTime": 0
+            },
+            "CheckConf": {
+                "Uri": "/health",
+                "FailNum": 3,
+                "CheckInterval": 1000,
+                "Response": "200 OK"
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 0
+            },
+            "ClusterBasic": {
+                "RetryMax": 0,
+                "TimeoutReadClient": 5000,
+                "TimeoutWriteClient": 5000,
+                "TimeoutReadClientAgain": 5000,
+                "DisableHealthCheck": true
+            }
+        },
+        "cluster_weekday_default": {
+            "BackendConf": {
+                "TimeoutConnSrv": 1000,
+                "TimeoutWriteSrv": 2000,
+                "TimeoutReadSrv": 2000,
+                "TimeoutResponseHeader": 1000,
+                "SlowStartTime": 0
+            },
+            "CheckConf": {
+                "Uri": "/health",
+                "FailNum": 3,
+                "CheckInterval": 1000,
+                "Response": "200 OK"
+            },
+            "GslbBasic": {
+                "CrossRetry": 0,
+                "RetryMax": 0
+            },
+            "ClusterBasic": {
+                "RetryMax": 0,
+                "TimeoutReadClient": 5000,
+                "TimeoutWriteClient": 5000,
+                "TimeoutReadClientAgain": 5000,
+                "DisableHealthCheck": true
+            }
+        }
+    }
+}

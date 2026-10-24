@@ -32,6 +32,7 @@ import (
 	"github.com/bfenetworks/go-lib/quota"
 
 	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util/crypto"
 	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
@@ -247,7 +248,80 @@ type AIConf struct {
 	// Keys must be openai or anthropic; empty/nil means disabled (requests are
 	// forwarded with their original path).
 	ProtocolPaths map[string]string
+
+	// NormalizeUpstreamError configures upstream error normalization
+	// (unified error codes). Nil or Enabled/StreamEnabled=false keeps the
+	// historical pass-through behavior.
+	NormalizeUpstreamError *UpstreamErrorNormalizeConf
 }
+
+// Actions for UpstreamErrorNormalizeConf.UnrecognizedAction.
+const (
+	// NormalizeActionPassthrough forwards unrecognized upstream error
+	// bodies unchanged (after credential redaction when enabled).
+	NormalizeActionPassthrough = "passthrough"
+	// NormalizeActionRewriteGeneric rewrites unrecognized upstream error
+	// bodies into the generic UPSTREAM_UNKNOWN error.
+	NormalizeActionRewriteGeneric = "rewrite_generic"
+)
+
+// UpstreamErrorNormalizeConf is the per-cluster configuration of upstream
+// error normalization. JSON keys use PascalCase, consistent with AIConf.
+type UpstreamErrorNormalizeConf struct {
+	// Enabled turns on non-streaming normalization: upstream 4xx/5xx
+	// responses are rewritten into the unified AiError body and the status
+	// code is remapped per ErrorCodeToStatusCode.
+	Enabled bool
+	// StreamEnabled turns on streaming (SSE) normalization, independent of
+	// Enabled for gray release: in-stream error events get their data
+	// payload rewritten with the unified error JSON (the response status
+	// stays 200), and stream truncation is marked in the access log.
+	StreamEnabled bool
+	// UnrecognizedAction decides how unrecognized upstream error bodies are
+	// handled: "passthrough" (default) or "rewrite_generic". Streaming
+	// unrecognized events are always passed through.
+	UnrecognizedAction string
+	// MaxBodyBytes bounds the error body read; exceeding bodies are treated
+	// as unrecognized. Values <= 0 fall back to the default (64 KiB).
+	MaxBodyBytes int64
+	// RedactSecrets enables credential redaction of outgoing upstream error
+	// content. Default true; set to false explicitly to disable. Pointer so
+	// that "absent" (nil) is distinguishable from an explicit false.
+	RedactSecrets *bool
+}
+
+// Effective returns the configuration with defaults applied: empty
+// UnrecognizedAction becomes passthrough, non-positive MaxBodyBytes
+// becomes the default, and nil RedactSecrets becomes true.
+func (c *UpstreamErrorNormalizeConf) Effective() UpstreamErrorNormalizeConf {
+	def := UpstreamErrorNormalizeConf{
+		UnrecognizedAction: NormalizeActionPassthrough,
+		MaxBodyBytes:       64 * 1024,
+		RedactSecrets:      boolPtr(true),
+	}
+	if c == nil {
+		return def
+	}
+	if c.UnrecognizedAction != "" {
+		def.UnrecognizedAction = c.UnrecognizedAction
+	}
+	if c.MaxBodyBytes > 0 {
+		def.MaxBodyBytes = c.MaxBodyBytes
+	}
+	if c.RedactSecrets != nil {
+		def.RedactSecrets = c.RedactSecrets
+	}
+	def.Enabled = c.Enabled
+	def.StreamEnabled = c.StreamEnabled
+	return def
+}
+
+// RedactSecretsEnabled reports whether credential redaction is on.
+func (c UpstreamErrorNormalizeConf) RedactSecretsEnabled() bool {
+	return c.RedactSecrets == nil || *c.RedactSecrets
+}
+
+func boolPtr(b bool) *bool { return &b }
 
 const (
 	PriceInputCostPerToken             = "input_cost_per_token"
@@ -438,7 +512,7 @@ func (c *EPPTimeoutConf) CallDuration() time.Duration {
 type EPPTLSConf struct {
 	Insecure  bool   // true = skip certificate verification (testing only)
 	CAFile    string // CA certificate file for verifying EPP server, required if Insecure is false
-	Plaintext bool   // dial EPP without TLS (EPP serves plaintext gRPC; mutually exclusive with Insecure/CAFile)
+	Plaintext bool   // dial EPP without TLS (EPP serves plaintext gRPC; mutually exclusive with Insecure/CAFile; defaults to true when EPPTLS is absent)
 }
 
 // EPPBreakerConf is circuit breaker conf of the EPP path, only effective
@@ -860,10 +934,11 @@ func GslbBasicConfCheck(conf *GslbBasicConf) error {
 			return err
 		}
 		if conf.EPPTLS == nil {
-			// Formalize the legacy default: a missing EPPTLS means TLS with
-			// skipped certificate verification, same as {Insecure: true}.
-			conf.EPPTLS = &EPPTLSConf{Insecure: true}
-			log.Logger.Warn("EPPTLS not configured, default to Insecure=true (skip certificate verification), please configure EPPTLS explicitly")
+			// Default: a missing EPPTLS means dialing EPP without TLS
+			// (plaintext), i.e. {Plaintext: true}. Configure EPPTLS
+			// explicitly ({Insecure: true} or {CAFile: ...}) to use TLS.
+			conf.EPPTLS = &EPPTLSConf{Plaintext: true}
+			log.Logger.Warn("EPPTLS not configured, default to Plaintext=true (dial EPP without TLS); set {Insecure:true} or {CAFile:...} explicitly to use TLS")
 		}
 		if err := EPPTLSConfCheck(conf.EPPTLS); err != nil {
 			return err
@@ -1019,7 +1094,7 @@ func EPPBreakerConfCheck(conf *EPPBreakerConf) error {
 }
 
 // EPPTLSConfCheck checks EPPTLSConf. A nil conf is valid here:
-// GslbBasicConfCheck fills the default (Insecure=true) before calling it.
+// GslbBasicConfCheck fills the default (Plaintext=true) before calling it.
 func EPPTLSConfCheck(conf *EPPTLSConf) error {
 	if conf == nil {
 		return nil
@@ -1175,6 +1250,17 @@ func ClusterConfCheck(conf *ClusterConf) error {
 
 // AIConfCheck checks AIConf config.
 func AIConfCheck(conf *AIConf) error {
+	if conf.NormalizeUpstreamError != nil {
+		nuc := conf.NormalizeUpstreamError
+		switch nuc.UnrecognizedAction {
+		case "", NormalizeActionPassthrough, NormalizeActionRewriteGeneric:
+		default:
+			return fmt.Errorf("NormalizeUpstreamError.UnrecognizedAction: invalid value %q", nuc.UnrecognizedAction)
+		}
+		if nuc.MaxBodyBytes < 0 || nuc.MaxBodyBytes > 4*1024*1024 {
+			return fmt.Errorf("NormalizeUpstreamError.MaxBodyBytes: %d out of range [0, 4194304]", nuc.MaxBodyBytes)
+		}
+	}
 	if conf.ModelTable != nil {
 		if err := ModelTableCheck(conf.ModelTable); err != nil {
 			return fmt.Errorf("ModelTable:%s", err.Error())
@@ -1517,6 +1603,16 @@ func (p *ModelPrice) lookupPrice(tier, key string) (float64, bool) {
 	return v, ok
 }
 
+// HasPrice reports whether the given price key is configured for the tier
+// (tier price map or default Prices), regardless of its value. It is the
+// billing-method discriminator between per-unit and token pricing
+// (issue #1420): a configured per-image/per-video key means unit billing,
+// its absence means the entry is token-priced and bills by the token formula.
+func (p *ModelPrice) HasPrice(tier, key string) bool {
+	_, ok := p.lookupPrice(tier, key)
+	return ok
+}
+
 // GetLengthTierPrice returns the length-tier input/output unit prices
 // (yuan per token) selected by the total input token count (promptTokens,
 // including cache read/write). The selected tier is the highest tier whose
@@ -1633,7 +1729,7 @@ func GetCookieKey(header string) (string, bool) {
 	return strings.TrimSpace(header[i+1:]), true
 }
 
-func (conf *BfeClusterConf) LoadAndCheck(filename string) (string, error) {
+func (conf *BfeClusterConf) LoadAndCheck(filename string, kr *crypto.Keyring) (string, error) {
 	/* open the file    */
 	file, err := os.Open(filename)
 
@@ -1649,6 +1745,14 @@ func (conf *BfeClusterConf) LoadAndCheck(filename string) (string, error) {
 		return "", err
 	}
 
+	// decrypt enc$v1$ AIConf.Keys[].Key before AIConfCheck: key material
+	// may be stored as field-level ciphertext on disk (control plane
+	// encrypts at export); after decryption the in-memory structure is
+	// identical to a plaintext config
+	if err := decryptAIConfKeys(conf, kr); err != nil {
+		return "", err
+	}
+
 	/* check conf */
 	if err := BfeClusterConfCheck(conf); err != nil {
 		return "", err
@@ -1661,10 +1765,38 @@ func (conf *BfeClusterConf) LoadAndCheck(filename string) (string, error) {
 	return *(conf.Version), nil
 }
 
+// decryptAIConfKeys decrypts enc$v1$ ciphertext entries of
+// AIConf.Keys[].Key in place. Values without the marker pass through as
+// legacy plaintext. Any decrypt failure aborts the whole load: a partially
+// decrypted table would silently drop auth/upstream-key coverage.
+func decryptAIConfKeys(conf *BfeClusterConf, kr *crypto.Keyring) error {
+	if conf == nil || conf.Config == nil {
+		return nil
+	}
+	for clusterName, clusterConf := range *conf.Config {
+		if clusterConf.AIConf == nil {
+			continue
+		}
+		for i := range clusterConf.AIConf.Keys {
+			key := &clusterConf.AIConf.Keys[i]
+			if !crypto.HasMarker(key.Key) {
+				continue
+			}
+			plain, err := crypto.Decrypt(key.Key, kr)
+			if err != nil {
+				return fmt.Errorf("cluster %s: decrypt AIConf.Keys[%d]: %s",
+					clusterName, i, err)
+			}
+			key.Key = plain
+		}
+	}
+	return nil
+}
+
 // ClusterConfLoad load config of cluster conf from file
-func ClusterConfLoad(filename string) (BfeClusterConf, error) {
+func ClusterConfLoad(filename string, kr *crypto.Keyring) (BfeClusterConf, error) {
 	var config BfeClusterConf
-	if _, err := config.LoadAndCheck(filename); err != nil {
+	if _, err := config.LoadAndCheck(filename, kr); err != nil {
 		return config, fmt.Errorf("%s", err)
 	}
 

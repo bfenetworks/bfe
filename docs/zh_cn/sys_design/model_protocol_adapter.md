@@ -89,8 +89,13 @@ const (
 type ProtocolAdapter interface {
     Key() string
 
-    // InjectAuth 向出站请求注入上游凭证（key 为 AIKey.Key 字符串）
+    // InjectAuth 向出站请求注入上游凭证（key 为 AIKey.Key 字符串；空 key 不动作）
     InjectAuth(outreq *bfe_http.Request, key string) error
+
+    // CredentialHeader 返回 InjectAuth 写入的凭证头名（如 "Authorization"）。
+    // 它与其他适配器的 CredentialHeader 一起构成"出站请求最多只能携带一个"的
+    // 凭证头集合，供转发层做互斥清理（issue #1447）
+    CredentialHeader() string
 
     // ExtraHeaders 协议级补充 header（如 anthropic-version），无则返回 nil
     ExtraHeaders() map[string]string
@@ -182,6 +187,7 @@ http_conn.serveRequest()
   → GetApiKey / DetectAuthStyle（bfe_basic，内部委托 detect.go）     ← 协议识别
   → reverseproxy.doSingleAIForward
       → Supports(ModelProtocols, AuthStyle)                          ← 协议校验（PROVIDER_PROTOCOL_MISMATCH）
+      → 残留凭证头清理（sanitizeOutboundCredentials，先与入站 header 分离） ← 出站只保留一个凭证头（issue #1447）
       → adapter.InjectAuth + ExtraHeaders                            ← 认证头/版本头注入
   → mod_body_process QuotaUsageProcessor
       → SSEEvent/RawEvent.GetQuotaUsage（经 extractUsageFields）      ← 流式 usage
@@ -195,6 +201,7 @@ http_conn.serveRequest()
 |---|---|---|
 | 协议识别 | `bfe_basic` 硬编码 | `detect.go`，`bfe_basic` 保留签名委托 |
 | 认证头注入 | `mod_ai_token_auth.SetApiKey` 写死两种 | 适配器 `InjectAuth`；`SetApiKey` 保留签名委托 |
+| 出站凭证头互斥 | 无（只覆盖、不删除：客户端残留的 `x-api-key` / `x-goog-api-key` 会透传到上游，上游按自己的优先级挑头 → 用客户端凭证鉴权 → 401，issue #1447） | `doSingleAIForward` 在注入前调用 `sanitizeOutboundCredentials()`：先 `Header.Clone()` 与入站 header 分离，再删除本次注入头以外的凭证头；集合由注册表内各适配器 `CredentialHeader()` 并集推导（新增协议自动纳入） |
 | 版本头注入 | `reverseproxy.go` 硬编码 `anthropic-version` | 适配器 `ExtraHeaders`，显式携带优先（TC-07） |
 | 协议校验 | `clusterSupportsAuthStyle` | `modelprotocol.Supports`（语义不变） |
 | 流式 usage | `SSEEvent/RawEvent.GetQuotaUsage` 各一份全链 | 适配器字段链 + 调用方累加语义保留 |
@@ -216,7 +223,7 @@ http_conn.serveRequest()
 
 拆分后：
 
-- **openai 适配器**：OpenAI 主链 + DeepSeek + Responses 链（无 Claude 链）。Responses 链（issue #1381，2026-09-22）：主链全零时回落——流式取 `response.completed` 事件内 `response.usage.*`，非流式取顶层 `usage.*`（字段名均为 `input/output_tokens`），且以 Responses 特有的 `input_token(s)_details` 字段存在为门控，防止把 Anthropic body 误判进来、短路跨协议兜底链；OpenAI subset 语义，`input_tokens` 已含 `cached_tokens`，**不做** Anthropic 式 prompt 归一（issue #1389 更正，#1381 误加的 additive 归一已删除）；
+- **openai 适配器**：OpenAI 主链 + DeepSeek + Responses 链（无 Claude 链）。Responses 链（issue #1381，2026-09-22）：主链全零时回落——流式取 `response.completed` 事件内 `response.usage.*`，非流式取顶层 `usage.*`（字段名均为 `input/output_tokens`），且以 Responses 特有的 `input_token(s)_details` 字段存在为门控，防止把 Anthropic body 误判进来、短路跨协议兜底链；OpenAI subset 语义，`input_tokens` 已含 `cached_tokens`，**不做** Anthropic 式 prompt 归一（issue #1389 更正，#1381 误加的 additive 归一已删除）；Kimi 嵌套回退（issue #1401，2026-10-09）：主链与 Responses 链均全零时，回落扫描 `choices[i].usage`（kimi-for-coding 等上游在 include_usage 缺省/被忽略时把最终 usage 嵌在 finish chunk 的 choice 内；仅 finish chunk 携带，中间 content chunk 天然不误判；cache 字段名 `cached_tokens` / `prompt_tokens_details.cached_tokens` 映射为 CacheReadTokens）；
 - **anthropic 适配器**：Claude 链（含 prompt 归一）。2026-09-04 起增加真实流式报文结构解析（issue #1352）：Anthropic 流式 `message_start` 的初始 usage 位于 `message.usage.*`（此前只解析顶层 `usage.*`），`message_delta` 的最终 usage 位于顶层 `usage.*`，两条路径均支持。
 - **gemini 适配器**：`usageMetadata` 链（camelCase：`promptTokenCount` / `candidatesTokenCount` / `cachedContentTokenCount` → 中性字段；`totalTokenCount` 独立字段直接取，缺失时回退 `prompt + candidates` 求和）。gemini 流式每个 chunk 均带**累积** `usageMetadata`，与 openai/anthropic"最终事件携带"的语义不同，由 `IsFinalUsageEvent` 保证仅最后一个含 usage 的 chunk 计入最终 usage（取中间 chunk 会少计）。
 
@@ -235,14 +242,14 @@ http_conn.serveRequest()
 接入一种新协议（步骤已按 2026-09-09 gemini 实际落地修订）：
 
 1. `utils/protocol.go` 增加协议常量（如 `ProtocolGemini`），根包 `protocol.go` re-export；
-2. 新建 `<protocol>/` 适配器目录实现 `ProtocolAdapter`：认证注入（如 `x-goog-api-key`）、usage 提取与归一（如 `usageMetadata` 的 camelCase 字段）；**若该协议流式终止语义与 openai/anthropic 不同**（如 gemini 无 SSE 终止事件、每 chunk 带累积 usage），实现 `IsStreamTerminal` / `IsFinalUsageEvent`；
+2. 新建 `<protocol>/` 适配器目录实现 `ProtocolAdapter`：认证注入（如 `x-goog-api-key`）、**用 `CredentialHeader()` 声明本协议的凭证头**（出站互斥清理据此把它纳入"最多保留一个"的集合，issue #1447）、usage 提取与归一（如 `usageMetadata` 的 camelCase 字段）；**若该协议流式终止语义与 openai/anthropic 不同**（如 gemini 无 SSE 终止事件、每 chunk 带累积 usage），实现 `IsStreamTerminal` / `IsFinalUsageEvent`；
 3. `detect.go` 增加识别规则（header / 路径），新规则不得改变既有协议的识别优先级（gemini 的 `x-goog-api-key` 放在探测链尾、路径规则放在 openai 默认分支之前）；
 4. `registry.go` 的 `init()` 增加 `Register(<protocol>.New())`；
 5. `bfe_basic/request_ai_basic.go` 同步 AuthStyle 常量——该处存在**第二份** AuthStyle 常量（:53-57），勿漏；
 6. `shouldTriggerFallback` 的 seam 处按已识别 AuthStyle 取 `ErrorNormalizer`；
 7. 控制面（ai-gateway-api）放开 `model_protocols` 枚举约束；**BFE 必须先于控制面发布**——加载期 `ValidateProtocols` 会拒绝未知协议名，控制面先放开会导致 BFE 拒载配置。
 
-框架代码（reverseproxy / mod_body_process / mod_ai_token_auth）**零修改**。唯一例外：新协议流式终止语义不同时，需把终止/最终 usage 判定从 `mod_body_process` 硬编码下沉为适配器方法（gemini 即如此，见 §3.2 / §4），下沉对既有协议为逐行搬迁、零行为变化。配置侧仅需 cluster 的 `AIConf.ModelProtocols` 包含新协议名。
+框架代码（reverseproxy / mod_body_process / mod_ai_token_auth）**零修改**。唯一例外：新协议流式终止语义不同时，需把终止/最终 usage 判定从 `mod_body_process` 硬编码下沉为适配器方法（gemini 即如此，见 §3.2 / §4），下沉对既有协议为逐行搬迁、零行为变化。配置侧仅需 cluster 的 `AIConf.ModelProtocols` 包含新协议名。新协议的凭证头（`CredentialHeader()`）会自动纳入 `sanitizeOutboundCredentials` 的出站清理集，无需再改框架代码。
 
 > gemini 是首个按本指南落地的新协议，实施记录见 `modifications/2026-09-09-gemini-protocol-support/design-changes.md`。
 
@@ -254,10 +261,11 @@ http_conn.serveRequest()
 |---|---|
 | `claude_protocol_support.md` | anthropic 适配器的业务语义来源（识别规则、版本头、usage 归一）；实现已收敛到本层，行为不变 |
 | `rmb_quota.md` | 计费依赖 usage 提取；字段链现由本层提供，累加/扣费语义不变 |
-| `multi_api_key.md` | key 池选择与认证头注入；`SetApiKey` 现委托 `InjectAuth` |
+| `multi_api_key.md` | key 池选择与认证头注入；`SetApiKey` 现委托 `InjectAuth`；出站凭证头互斥清理（issue #1447） |
 | `provider_model_prefix_routing.md` | 模型名改写，协议无关，不受本层影响 |
 | `modifications/2026-09-03-model-protocol-adapter/design-changes.md` | 本次收敛的修改方案与实施记录 |
 | `modifications/2026-09-09-gemini-protocol-support/design-changes.md` | gemini 接入的修改方案（首个按 §6 指南落地的新协议；流式终止/最终 usage 判定随本次下沉适配器） |
+| `modifications/2026-10-22-issue-1447-credential-header-mutual-exclusion/design-changes.md` | 客户端残留凭证头的互斥注入（新增 `CredentialHeader()` 与出站凭证头清理，issue #1447） |
 
 ---
 
@@ -267,7 +275,8 @@ http_conn.serveRequest()
 - **兜底一致性**：`Get` 对未知协议回落 openai、`Supports` 空列表默认 openai，与历史行为一致；未知协议名在配置加载期报错（暴露既有配置错误）；
 - **病态响应体**：同一 usage 同时混含 DeepSeek 与 Claude 字段且缺 `prompt_tokens` 时，事件侧两阶段合并与旧全链可能有差异——真实 provider 不会混合两套字段，未做特殊处理；
 - **AuthStyle 与响应体格式错配**（issue #1364）：鉴权协议由请求头/路径识别，响应体格式由后端实际返回决定，两者可能不一致（如 DeepSeek 官方 Key 走 Anthropic 兼容端点但识别为 openai）。此时单适配器解析全零，依赖 `UpdateCtxByUsage` 的全零回退组合链兜底；`mod_body_process` 事件侧本就走组合链，不受影响；
-- **per-cluster 认证变体**（如 Azure OpenAI 的 `api-key` header）：当前 `InjectAuth` 未承载 per-cluster 参数，需要时另起评审扩展接口；
+- **per-cluster 认证变体**（如 Azure OpenAI 的 `api-key` header）：当前 `InjectAuth` 未承载 per-cluster 参数，需要时另起评审扩展接口；一旦出现注入 `api-key` 的适配器，其凭证头会自动被出站清理集纳入（见下一条）；
+- **客户端残留凭证头**（issue #1447）：客户端可同时携带 `Authorization` / `x-api-key` / `x-goog-api-key`，而上游对这三个头的优先级是 **provider 私有且方向相反**的（实测 kimi 认 `x-api-key`、bailian 认 `Authorization`）。因此适配层只"覆盖自己那一个头"是不够的：残留头会让上游用**客户端的**凭证鉴权 → 401 → 被误判为该 Key 鉴权失败并写惩罚键（kimi 集群 2 Key 全灭 → 静默降级）。现由转发层在注入前做互斥清理来保证"出站请求只携带一个凭证头"（§4），清理集 = 注册表内各适配器 `CredentialHeader()` 的并集；**网关不识别但上游可能认**的头（如 `api-key`）不在其中，属已知残余风险；无 `Keys` 配置的集群（透传模式）不清理、不注入，客户端凭证原样转发；
 - **无终止事件协议的流式语义**（gemini）：gemini 流式无 SSE 终止事件，`IsStreamTerminal` 恒 false，流结束依赖 HTTP EOF 兜底路径，`MarkFinalUsageSeen` / `MarkResponseCompleted`（SC12 客户端中断计费依赖）的正确性以"最后一个含 `usageMetadata` 的 chunk"为前提——若上游异常截断流，usage 语义与 openai/anthropic 截断场景保持一致（按已收到部分结算）；
 - **错误格式**（gemini）：网关自身产生的错误恒为 OpenAI 风格 `AiErrorBody`，gemini 客户端收到的错误体非 gemini 原生 `{error: {code, status}}` 格式——与 anthropic 客户端现状一致的已知 gap，如需按 AuthStyle 适配错误响应另起评审；
 - **识别规则演进**：gemini 接入在 `DetectProtocolAndKey` 探测链尾与 `DetectProtocol` 默认分支前插入了新规则，既有 openai/anthropic 请求的识别优先级不变（SC06 双头并存用例兜底）。

@@ -54,6 +54,13 @@ type ProtocolAdapter interface {
 	// An empty key is a no-op.
 	InjectAuth(outreq *bfe_http.Request, key string) error
 
+	// CredentialHeader returns the header InjectAuth writes the upstream
+	// credential into, in canonical form (e.g. "Authorization"). Together
+	// with the other adapters' credential headers it forms the set of client
+	// credential headers that must not survive into an outbound request
+	// carrying a gateway-injected credential (issue #1447).
+	CredentialHeader() string
+
 	// ExtraHeaders returns protocol-level supplementary headers (e.g.
 	// anthropic-version). It returns nil when there are none.
 	ExtraHeaders() map[string]string
@@ -66,6 +73,18 @@ type ProtocolAdapter interface {
 	// protocol. The phase-1 default never recognizes errors, so callers
 	// keep their existing status-code whitelist.
 	ErrorNormalizer() ErrorNormalizer
+
+	// ErrorParser returns the client-facing upstream error parser used by
+	// normalization (AIConf.NormalizeUpstreamError). Unlike
+	// ErrorNormalizer (the fault-tolerance seam), this parser serves the
+	// caller-facing rewrite path only and never affects fallback
+	// decisions.
+	ErrorParser() ErrorParser
+
+	// StreamErrorParser returns the per-event SSE error parser: non-nil
+	// result means the event is an error event whose data payload the
+	// caller rewrites with the unified error body.
+	StreamErrorParser() StreamErrorParser
 
 	// IsStreamTerminal reports whether the given event terminates the
 	// response stream (e.g. Anthropic message_stop, OpenAI [DONE]).

@@ -30,6 +30,8 @@ func TestExtractUsageFieldsChatUsage(t *testing.T) {
 	f := New().ExtractUsageFields(data)
 
 	want := utils.UsageFields{
+		UsagePresent:      true,
+		PromptPresent:     true,
 		UsedQuota:         12,
 		PromptTokens:      8,
 		CompletionTokens:  4,
@@ -102,8 +104,11 @@ func TestExtractUsageFieldsResponsesCachedTokens(t *testing.T) {
 func TestExtractUsageFieldsAllZero(t *testing.T) {
 	data := []byte(`{"usage":{}}`)
 	f := New().ExtractUsageFields(data)
-	if f != (utils.UsageFields{}) {
-		t.Errorf("expected all-zero UsageFields, got %+v", f)
+	// issue #1414: the usage object is present even when empty, and presence
+	// (not the values) is what the callers classify and bill on.
+	want := utils.UsageFields{UsagePresent: true}
+	if f != want {
+		t.Errorf("expected present-but-empty UsageFields, got %+v", f)
 	}
 }
 

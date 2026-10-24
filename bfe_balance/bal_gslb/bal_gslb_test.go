@@ -94,6 +94,45 @@ func TestInit(t *testing.T) {
 	}
 }
 
+func TestBackendReloadEmptySubCluster(t *testing.T) {
+	var c cluster_table_conf.ClusterBackend
+	var g gslb_conf.GslbClusterConf
+
+	if err := loadJson("testdata/cluster1", &c); err != nil {
+		t.Fatalf("load cluster1 error %s", err)
+	}
+	if err := loadJson("testdata/g1", &g); err != nil {
+		t.Fatalf("load g1 error %s", err)
+	}
+
+	bal := NewBalanceGslb("cluster_demo")
+	if err := bal.Init(g); err != nil {
+		t.Fatalf("init error %s", err)
+	}
+	if err := bal.BackendReload(c); err != nil {
+		t.Fatalf("backend reload error %s", err)
+	}
+
+	total := 0
+	for _, sub := range bal.subClusters {
+		total += sub.Len()
+	}
+	if total == 0 {
+		t.Fatal("test requires non-empty backends before reload")
+	}
+
+	if err := bal.BackendReload(cluster_table_conf.ClusterBackend{}); err != nil {
+		t.Fatalf("backend reload with empty cluster backend error %s", err)
+	}
+
+	for _, sub := range bal.subClusters {
+		if sub.Len() != 0 {
+			t.Errorf("sub cluster %s still has %d backends after empty reload",
+				sub.Name, sub.Len())
+		}
+	}
+}
+
 func prepareBalanceGslb(backendConf, gslbBasicConf, gslbClusterConf, clusterName string) *BalanceGslb {
 	var c cluster_table_conf.ClusterBackend
 	var gb cluster_conf.GslbBasicConf

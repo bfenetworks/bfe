@@ -290,7 +290,7 @@ BFE 会根据每个请求的 `AuthStyle` 自动选择认证头注入方式，不
 |------|------|
 | Anthropic 风格请求命中只支持 OpenAI 的集群 | 返回 400 `PROVIDER_PROTOCOL_MISMATCH` |
 | OpenAI 风格请求命中只支持 Anthropic 的集群 | 返回 400 `PROVIDER_PROTOCOL_MISMATCH` |
-| 同时存在 `Authorization` 和 `x-api-key` | 优先按 OpenAI 风格处理，保证现有客户端行为不变 |
+| 同时存在 `Authorization` 和 `x-api-key` | 优先按 OpenAI 风格处理，保证现有客户端行为不变；**出站方向删除客户端 `x-api-key`，只保留注入的 `Authorization`**（issue #1447，见 `model_protocol_adapter.md` §4） |
 | Anthropic 响应无 `total_tokens` | `UsedQuota` 由 `input_tokens + output_tokens` 推导 |
 
 ---
@@ -341,7 +341,7 @@ BFE 会根据每个请求的 `AuthStyle` 自动选择认证头注入方式，不
 
 | 风险 | 缓解措施 |
 |---|---|
-| 认证头冲突 | 明确优先级：`Authorization` > `x-api-key`，兼容现有 OpenAI 客户端 |
+| 认证头冲突 | 明确优先级：`Authorization` > `x-api-key`，兼容现有 OpenAI 客户端；出站方向删除客户端残留的其它凭证头（issue #1447），避免上游按自己的优先级取用客户端凭证 |
 | `anthropic-version` 默认值过期 | 选择长期支持版本 `2023-06-01`；阶段一不引入额外配置字段 |
 | 聚合平台模型名含 `anthropic/` 或 `claude` 但走 OpenAI 路径 | 不依赖 model 名判断，依赖路径/头/集群配置 |
 | Claude 无 `total_tokens` | `UsedQuota` 由 `input + output` 推导 |

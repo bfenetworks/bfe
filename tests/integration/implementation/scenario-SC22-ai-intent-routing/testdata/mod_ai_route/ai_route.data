@@ -1,0 +1,85 @@
+{
+    "Version": "2026092601",
+    "route_rules": {
+        "apikey_ak_intent": {
+            "type": "apikey",
+            "owner": "ak_intent",
+            "rules": [
+                {
+                    "name": "intent-flash",
+                    "Cond": "req_ai_intent_in(\"task_type\", \"test_writing\", 0.9)",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_flash",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                },
+                {
+                    "name": "intent-kimi",
+                    "Cond": "req_ai_intent_in(\"task_type\", \"test_writing\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_kimi",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                },
+                {
+                    "name": "intent-doc",
+                    "Cond": "req_ai_intent_in(\"task_type\", \"doc_writing\") && req_ai_intent_in(\"complexity\", \"simple|medium\")",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_flash",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                },
+                {
+                    "name": "intent-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_kimi",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        },
+        "apikey_ak_plain": {
+            "type": "apikey",
+            "owner": "ak_plain",
+            "rules": [
+                {
+                    "name": "plain-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_kimi",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_intent": [
+            "apikey_ak_intent"
+        ],
+        "ak_plain": [
+            "apikey_ak_plain"
+        ]
+    }
+}

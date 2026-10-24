@@ -17,12 +17,8 @@
 package mod_logid
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
-)
 
-import (
 	"github.com/bfenetworks/go-lib/web-monitor/metrics"
 	"github.com/bfenetworks/go-lib/web-monitor/web_monitor"
 )
@@ -82,7 +78,7 @@ func (m *ModuleLogId) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHan
 }
 
 func (m *ModuleLogId) sessionIdHandler(session *bfe_basic.Session) int {
-	session.SessionId = genLogId()
+	session.SessionId = bfe_basic.GenLogId()
 
 	return bfe_module.BfeHandlerGoOn
 }
@@ -100,7 +96,7 @@ func (m *ModuleLogId) requestIdHandler(req *bfe_basic.Request) (int, *bfe_http.R
 	}
 
 	// generate a new log id
-	req.LogId = genLogId()
+	req.LogId = bfe_basic.GenLogId()
 	req.HttpRequest.Header.Set(bfe_basic.HeaderBfeLogId, req.LogId)
 	return bfe_module.BfeHandlerGoOn, nil
 }
@@ -108,13 +104,4 @@ func (m *ModuleLogId) requestIdHandler(req *bfe_basic.Request) (int, *bfe_http.R
 func (m *ModuleLogId) getState(params map[string][]string) ([]byte, error) {
 	s := m.metrics.GetAll()
 	return s.Format(params)
-}
-
-func genLogId() string {
-	b := make([]byte, 16)
-	_, err := rand.Read(b)
-	if err != nil {
-		return ""
-	}
-	return hex.EncodeToString(b)
 }

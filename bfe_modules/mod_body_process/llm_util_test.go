@@ -363,6 +363,16 @@ func TestSSEEventGetQuotaUsage_CompletionFlags(t *testing.T) {
 			wantFinalUsage:  true,
 		},
 		{
+			// issue #1398: a final usage chunk with completion_tokens = 0
+			// (input-only / cache-hit response) is still the final usage;
+			// without it the request fell into the reset/estimate path.
+			name:            "openai final usage chunk zero completion",
+			authStyle:       bfe_basic.AuthStyleOpenAI,
+			data:            `{"id":"chatcmpl-1","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":0,"total_tokens":10}}`,
+			wantTermination: false,
+			wantFinalUsage:  true,
+		},
+		{
 			// Anthropic non-streaming top-level type: the whole-body JSON is
 			// the final usage (issue #1364)
 			name:            "anthropic non-stream message",
@@ -411,5 +421,63 @@ func TestSSEEventGetQuotaUsage_CacheWrite1h(t *testing.T) {
 	q2 := ev2.GetQuotaUsage("")
 	if q2.CacheWriteTokens1h != 800 {
 		t.Errorf("expected CacheWriteTokens1h 800 (fallback field), got %d", q2.CacheWriteTokens1h)
+	}
+}
+
+// Issue #1414: an upstream that explicitly reports all-zero usage carries a
+// usage object, so it is not a guess — it is an observation that must be
+// classified as usage (and billed at 0), not estimated or misfiled.
+func TestSSEEventGetQuotaUsageAllZeroUsageIsPresent(t *testing.T) {
+	ev := &SSEEvent{DataLines: [][]byte{[]byte(
+		`{"id":"1","choices":[{"delta":{"content":"hi"}}],"usage":{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}}`)}}
+	q := ev.GetQuotaUsage("openai")
+
+	if !q.UsagePresent {
+		t.Error("expected UsagePresent true for an explicit all-zero usage object")
+	}
+	if q.IsGuess {
+		t.Error("an explicit all-zero usage must not be treated as a guess")
+	}
+	if !q.IsFinalUsage {
+		t.Error("expected IsFinalUsage true for a usage-bearing final chunk")
+	}
+	if q.CurrentTokens != 0 {
+		t.Errorf("expected no estimate accumulation, got CurrentTokens %d", q.CurrentTokens)
+	}
+}
+
+// Issue #1414: an Anthropic streaming final usage (message_delta) omits the
+// prompt field entirely. "Absent" must stay distinguishable from "reported as
+// 0" so the earlier message_start prompt can be carried over.
+func TestSSEEventGetQuotaUsagePromptAbsentIsNotZero(t *testing.T) {
+	ev := &SSEEvent{DataLines: [][]byte{[]byte(
+		`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":150}}`)}}
+	q := ev.GetQuotaUsage("anthropic")
+
+	if !q.UsagePresent {
+		t.Error("expected UsagePresent true")
+	}
+	if q.PromptPresent {
+		t.Error("expected PromptPresent false: message_delta reports no input tokens")
+	}
+	if !q.IsFinalUsage {
+		t.Error("expected IsFinalUsage true for message_delta")
+	}
+}
+
+// Issue #1414: absence of the usage object is still a guess, so the estimate
+// path keeps working for upstreams that report no usage at all.
+func TestSSEEventGetQuotaUsageMissingUsageIsStillGuess(t *testing.T) {
+	ev := &SSEEvent{DataLines: [][]byte{[]byte(`{"choices":[{"delta":{"content":"hello world"}}]}`)}}
+	q := ev.GetQuotaUsage("openai")
+
+	if q.UsagePresent {
+		t.Error("expected UsagePresent false when no usage object is present")
+	}
+	if !q.IsGuess {
+		t.Error("expected IsGuess true when no usage object is present")
+	}
+	if q.CurrentTokens <= 0 {
+		t.Errorf("expected a positive estimate, got %d", q.CurrentTokens)
 	}
 }

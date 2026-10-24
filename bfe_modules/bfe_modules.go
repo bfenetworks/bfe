@@ -20,6 +20,10 @@ import (
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_access_pb3"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_cache"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_batch"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_context"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_intent"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_rate_limit"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_route"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_token_auth"
@@ -47,6 +51,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_modules/mod_tag"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_tcp_keepalive"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trace"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_traffic_mirror"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_trust_clientip"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_unified_waf"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_userid"
@@ -149,15 +154,62 @@ var moduleList = []bfe_module.BfeModule{
 	// mod_ai_token_auth
 	mod_ai_token_auth.NewModuleAITokenAuth(),
 
+	// mod_ai_cache
+	// Requirement: after mod_ai_token_auth (never serve cached content to an
+	// unauthenticated request); BEFORE mod_ai_route — a cache hit short-circuits
+	// at HandleFoundProduct so route rule evaluation (and the lazy intent resolve
+	// triggered by req_ai_intent_in) is skipped entirely. req.Route.Product is
+	// resolved before HandleFoundProduct fires, so the cache rule table
+	// Search(product) is unaffected. Init order moves with registration: no Init
+	// dependency on mod_ai_route/mod_ai_intent (own conf/redis/rule table).
+	// Still before mod_body_process and mod_access_pb3.
+	mod_ai_cache.NewModuleAiCache(),
+
 	// mod_ai_route
-	// Requirement: after mod_ai_token_auth (needs ClientApiKey)
+	// Requirement: after mod_ai_token_auth (needs ClientApiKey); after
+	// mod_ai_cache (a cache hit has already finished the request)
 	mod_ai_route.NewModuleAiRoute(),
+
+	// mod_ai_intent
+	// Requirement: none for ordering. Classification is lazy: the module only
+	// injects a resolver + confidence gate into bfe_basic at Init; the actual
+	// classification is triggered by the req_ai_intent_in condition primitive
+	// when mod_ai_route evaluates routing rules.
+	mod_ai_intent.NewModuleAiIntent(),
+
+	// mod_traffic_mirror
+	// Requirement: after mod_ai_route / mod_ai_token_auth (mirror rules match
+	// on resolved AI context like model/apikey at HandleForward, which fires
+	// after all HandleFoundProduct / HandleAfterLocation callbacks); before
+	// mod_access_pb3 (AiBasicInfo mirror fields must be set before access
+	// logging). Only registers HandleForward.
+	mod_traffic_mirror.NewModuleTrafficMirror(),
 
 	// mod_body_process
 	mod_body_process.NewModuleBodyProcess(),
 
 	//depends on token calc
 	mod_ai_rate_limit.NewModuleAiRateLimit(),
+
+	// mod_ai_batch
+	// Requirement: after mod_ai_rate_limit — its HandleAfterAITargetModel
+	// handler runs after batch limits are resolved into AiBasicInfo and after
+	// local limit rejections; after mod_body_process — file/batch responses
+	// are excluded from the body processor, so this module's response wrapper
+	// sees the exact bytes. Its HandleRequestFinish only does Redis
+	// bookkeeping: the settle/release contract is consumed by
+	// mod_ai_token_auth (registered before it) at request finish.
+	mod_ai_batch.NewModuleAiBatch(),
+
+	// mod_ai_context
+	// Requirement: after mod_ai_route (needs resolved TargetModel for token
+	// budget; callback is HandleAfterAITargetModel which fires after model
+	// resolution); after mod_ai_cache (a cache hit short-circuits at
+	// HandleFoundProduct, so compression never runs on the hit path and cache
+	// keys are unaffected); after mod_ai_rate_limit (rate limiting is decided
+	// on the uncompressed request context); before mod_access_pb3 (log fields
+	// must be set before access logging).
+	mod_ai_context.NewModuleAiContext(),
 
 	// mod_access_pb3
 	mod_access_pb3.NewModuleAccessPb3(),

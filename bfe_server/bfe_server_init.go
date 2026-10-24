@@ -54,6 +54,10 @@ func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string, dryRun boo
 	}
 	log.Logger.Info("StartUp(): bfeServer.InitDataLoad() OK")
 
+	// initialize AI key affinity redis (nil when disabled, fail-open);
+	// after InitDataLoad so bns names in ServiceConf resolve via name conf
+	bfeServer.initAIKeyAffinityRedis()
+
 	// setup signal table
 	bfeServer.InitSignalTable()
 	log.Logger.Info("StartUp():bfeServer.InitSignalTable() OK")

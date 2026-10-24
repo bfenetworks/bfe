@@ -35,14 +35,34 @@ import (
 	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_route"
 	"github.com/bfenetworks/bfe/bfe_util/bns"
+	"github.com/bfenetworks/bfe/bfe_util/crypto"
 )
+
+// loadExportKeyring re-reads the file-encryption keyring on every call, so
+// key rotation takes effect on the next config reload without a restart
+// (BFE side first, then the control plane switches the active export key).
+// It returns nil when [Security].KeyFile is not configured.
+func (srv *BfeServer) loadExportKeyring() (*crypto.Keyring, error) {
+	keyFile := srv.Config.Security.KeyFile
+	if keyFile == "" {
+		return nil, nil
+	}
+	return crypto.LoadKeyringFile(keyFile)
+}
 
 // InitDataLoad load data when bfe start.
 func (srv *BfeServer) InitDataLoad() error {
+	// load file-encryption keyring; a configured-but-unreadable keyring
+	// aborts startup (fail-fast, same discipline as module init)
+	kr, err := srv.loadExportKeyring()
+	if err != nil {
+		return fmt.Errorf("InitDataLoad():loadExportKeyring Error %s", err)
+	}
+
 	// load ServerDataConf
 	serverConf, err := bfe_route.LoadServerDataConf(srv.Config.Server.HostRuleConf,
 		srv.Config.Server.VipRuleConf, srv.Config.Server.RouteRuleConf,
-		srv.Config.Server.ClusterConf)
+		srv.Config.Server.ClusterConf, kr)
 	if err != nil {
 		return fmt.Errorf("InitDataLoad():bfe_route.LoadServerDataConf Error %s", err)
 	}
@@ -124,7 +144,15 @@ func (srv *BfeServer) ServerDataConfReload(query url.Values) error {
 }
 
 func (srv *BfeServer) serverDataConfReload(hostFile, vipFile, routeFile, clusterConfFile string) error {
-	newServerConf, err := bfe_route.LoadServerDataConf(hostFile, vipFile, routeFile, clusterConfFile)
+	// re-read the keyring on every reload so rotation takes effect without
+	// a restart; failure keeps the previously effective config
+	kr, err := srv.loadExportKeyring()
+	if err != nil {
+		log.Logger.Error("ServerDataConfReload():loadExportKeyring: %s", err)
+		return err
+	}
+
+	newServerConf, err := bfe_route.LoadServerDataConf(hostFile, vipFile, routeFile, clusterConfFile, kr)
 	if err != nil {
 		log.Logger.Error("ServerDataConfReload():bfe_route.LoadServerDataConf: %s", err)
 		return err

@@ -37,7 +37,8 @@ const (
 	apiKey2   = "ak_session_affinity_2"
 	apiKeyId2 = "session_affinity_key_id_2"
 
-	clusterSessionAffinity = "cluster_session_affinity"
+	clusterSessionAffinity         = "cluster_session_affinity"
+	clusterSessionAffinityFallback = "cluster_session_affinity_fallback"
 
 	keyA = "sk-key-a"
 	keyB = "sk-key-b"
@@ -48,16 +49,19 @@ var defaultBody = []byte(`{"model":"gpt-4"}`)
 
 // testEnv holds all resources for a single SC10 integration test.
 type testEnv struct {
-	t            *testing.T
-	processEnv   *common.ProcessEnv
-	backend      *common.MockBackend
-	redis        *common.RedisServer
-	confDir      string
-	logDir       string
-	bfePort      int
-	stopBFE      func()
-	aiKeys       []cluster_conf.AIKey
-	clientTokens map[string]string // apiKey -> keyId
+	t               *testing.T
+	processEnv      *common.ProcessEnv
+	backend         *common.MockBackend
+	fallbackBackend *common.MockBackend
+	redis           *common.RedisServer
+	confDir         string
+	logDir          string
+	bfePort         int
+	stopBFE         func()
+	aiKeys          []cluster_conf.AIKey
+	clientTokens    map[string]string // apiKey -> keyId
+	// affinityRedisDisabled disables the [AIKeyAffinity] section in bfe.conf
+	affinityRedisDisabled bool
 }
 
 // testEnvOption customizes a test environment before BFE is started.
@@ -75,6 +79,16 @@ func withAIKeys(keys []cluster_conf.AIKey) testEnvOption {
 func withClientTokens(tokens map[string]string) testEnvOption {
 	return func(e *testEnv) {
 		e.clientTokens = tokens
+	}
+}
+
+// withoutAffinityRedis disables the [AIKeyAffinity] section in bfe.conf
+// (equivalent to leaving the section unconfigured: Disabled=true by default).
+// Requests still succeed, but no session binding or penalty is ever written
+// (fail-open).
+func withoutAffinityRedis() testEnvOption {
+	return func(e *testEnv) {
+		e.affinityRedisDisabled = true
 	}
 }
 
@@ -99,6 +113,7 @@ func newTestEnv(t *testing.T, enableAffinity bool, opts ...testEnvOption) *testE
 	}
 
 	e.backend = common.NewMockBackend(clusterSessionAffinity, http.StatusOK, `{"ok":true}`)
+	e.fallbackBackend = common.NewMockBackend(clusterSessionAffinityFallback, http.StatusOK, `{"ok":true}`)
 	e.redis = common.NewRedisServer(t)
 
 	e.processEnv = common.NewProcessEnv(t)
@@ -137,9 +152,10 @@ func (e *testEnv) startBFE(enableAffinity bool) {
 				Name:    "rlp-pass",
 				Enabled: true,
 				Rules: struct {
-					TPM            []common.RateLimitRule `json:"tpm,omitempty"`
-					RPM            []common.RateLimitRule `json:"rpm,omitempty"`
-					MaxConcurrency *int64                 `json:"max_concurrency,omitempty"`
+					TPM            []common.RateLimitRule       `json:"tpm,omitempty"`
+					RPM            []common.RateLimitRule       `json:"rpm,omitempty"`
+					MaxConcurrency *int64                       `json:"max_concurrency,omitempty"`
+					Batch          *common.RateLimitBatchLimits `json:"batch,omitempty"`
 				}{
 					RPM: []common.RateLimitRule{
 						{
@@ -172,7 +188,8 @@ func (e *testEnv) startBFE(enableAffinity bool) {
 	}
 
 	backends := map[string]*common.MockBackend{
-		clusterSessionAffinity: e.backend,
+		clusterSessionAffinity:         e.backend,
+		clusterSessionAffinityFallback: e.fallbackBackend,
 	}
 
 	builder := &common.BFEConfigBuilder{
@@ -190,7 +207,36 @@ func (e *testEnv) startBFE(enableAffinity bool) {
 		e.t.Fatalf("build bfe config failed: %v", err)
 	}
 
+	if e.affinityRedisDisabled {
+		if err := disableAIKeyAffinitySection(filepath.Join(e.confDir, "bfe.conf")); err != nil {
+			e.t.Fatalf("disable [AIKeyAffinity] section failed: %v", err)
+		}
+	}
+
 	e.bfePort, _, e.stopBFE = e.processEnv.StartBFE(e.confDir, e.logDir)
+}
+
+// disableAIKeyAffinitySection sets Disabled=true in the [AIKeyAffinity]
+// section of bfe.conf, making it equivalent to an unconfigured section
+// (Disabled=true is the default).
+func disableAIKeyAffinitySection(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(data), "\n")
+	inSection := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") {
+			inSection = trimmed == "[AIKeyAffinity]"
+			continue
+		}
+		if inSection && strings.HasPrefix(trimmed, "Disabled") {
+			lines[i] = "Disabled = true"
+		}
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
 }
 
 func (e *testEnv) buildTokenRule() *common.TokenRuleData {
@@ -241,6 +287,9 @@ func (e *testEnv) Close() {
 	}
 	if e.backend != nil {
 		e.backend.Close()
+	}
+	if e.fallbackBackend != nil {
+		e.fallbackBackend.Close()
 	}
 	if e.redis != nil {
 		e.redis.Close()
@@ -573,5 +622,116 @@ func TestTC06_BindingPersistsAcrossBFERestart(t *testing.T) {
 		if h != boundKey {
 			t.Fatalf("request %d after restart used provider key %s, expected %s", i, h, boundKey)
 		}
+	}
+}
+
+// TestTC07 verifies the fail-open path: with the [AIKeyAffinity] section
+// disabled in bfe.conf, requests with SessionAffinity=true still succeed,
+// no binding is written to Redis, and keys are chosen by weighted random.
+func TestTC07_AffinityRedisDisabledFailsOpen(t *testing.T) {
+	e := newTestEnv(t, true, withoutAffinityRedis())
+	defer e.Close()
+
+	for i := 0; i < 50; i++ {
+		resp, body, err := e.sendRequest()
+		if err != nil {
+			t.Fatalf("send request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			e.logBFEException()
+			t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+		}
+	}
+
+	if e.backend.Hits() != 50 {
+		t.Fatalf("expected 50 backend hits, got %d", e.backend.Hits())
+	}
+
+	// fail-open: no binding key was ever written
+	if e.redis.Exists(redisBindingKey(apiKeyId)) {
+		t.Fatal("expected no Redis binding when [AIKeyAffinity] is disabled")
+	}
+
+	// without affinity, requests distribute across multiple keys
+	nonZero := 0
+	for _, c := range countAuthHeaders(e.backend.AuthHeaders()) {
+		if c > 0 {
+			nonZero++
+		}
+	}
+	if nonZero < 2 {
+		t.Fatalf("expected multiple keys to be used without affinity redis, got %d", nonZero)
+	}
+}
+
+// bfeLogContains reports whether the BFE runtime log contains the substring.
+func (e *testEnv) bfeLogContains(substr string) bool {
+	data, err := os.ReadFile(filepath.Join(e.logDir, "bfe.log"))
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(data), substr)
+}
+
+// TestTC08 verifies issue #1439 (方案乙, circuit breaker): when every usable
+// key is inside the penalty window, new requests make zero upstream
+// interaction with the target cluster — key selection fails, aiClusterInvoke
+// returns a synthetic 429 (issue #1440), and the outer loop degrades to the
+// fallback cluster.
+func TestTC08_AllKeysPenalizedCircuitBreaksToFallback(t *testing.T) {
+	e := newTestEnv(t, true, withAIKeys([]cluster_conf.AIKey{
+		{Name: "key-a", Key: keyA, Weight: 100},
+		{Name: "key-b", Key: keyB, Weight: 100},
+	}))
+	defer e.Close()
+
+	// Every upstream attempt on the target cluster is rate limited, so both
+	// keys get penalized during request 1.
+	e.backend.ResponseFunc = func(r *http.Request, count int) (int, string) {
+		return http.StatusTooManyRequests, `{"error":"rate limited"}`
+	}
+
+	// Request 1: no penalties yet, so key-level rotation runs on the target
+	// cluster; every attempt is 429. aiClusterInvoke returns the last real
+	// 429, which hits the fallback whitelist and degrades to the fallback
+	// cluster. Both keys are now inside the 60s penalty window.
+	resp1, body1, err := e.sendRequest()
+	if err != nil {
+		t.Fatalf("request 1 failed: %v", err)
+	}
+	if resp1.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected 200 from fallback cluster, got %d, body: %s", resp1.StatusCode, body1)
+	}
+	hitsAfterReq1 := e.backend.Hits()
+	if hitsAfterReq1 < 2 {
+		t.Fatalf("expected at least 2 target-cluster attempts (key rotation), got %d", hitsAfterReq1)
+	}
+	if h := e.fallbackBackend.Hits(); h != 1 {
+		t.Fatalf("expected fallback cluster hit once on request 1, got %d", h)
+	}
+
+	// Request 2, well within the 60s penalty window: circuit break — no
+	// upstream interaction with the target cluster; synthetic 429 triggers
+	// cluster fallback and the client gets the fallback cluster's 200.
+	resp2, body2, err := e.sendRequest()
+	if err != nil {
+		t.Fatalf("request 2 failed: %v", err)
+	}
+	if resp2.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected 200 from fallback cluster, got %d, body: %s", resp2.StatusCode, body2)
+	}
+	if h := e.backend.Hits(); h != hitsAfterReq1 {
+		t.Fatalf("expected zero new target-cluster hits during penalty window (circuit break), got %d -> %d", hitsAfterReq1, h)
+	}
+	if h := e.fallbackBackend.Hits(); h != 2 {
+		t.Fatalf("expected fallback cluster hit twice (req1 degradation + req2 circuit break), got %d", h)
+	}
+	if !e.bfeLogContains("all usable keys penalized for cluster[cluster_session_affinity], circuit break") {
+		t.Error("expected circuit-break log in bfe.log")
+	}
+	if !e.bfeLogContains("fallback triggered, cluster[cluster_session_affinity]") {
+		t.Error("expected 'fallback triggered' in bfe.log")
 	}
 }

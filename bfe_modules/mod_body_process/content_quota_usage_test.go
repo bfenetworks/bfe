@@ -15,6 +15,8 @@
 package mod_body_process
 
 import (
+	"bytes"
+	"io"
 	"testing"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
@@ -22,10 +24,57 @@ import (
 )
 
 func TestNewQuotaUsageProcessorNonOK(t *testing.T) {
+	// issue #1409: only a 2xx response can carry model usage. A non-2xx body
+	// (404 etc.) must never feed the completion-token estimator, otherwise a
+	// failed request is reported as "response bytes / 4" output tokens.
+	for _, code := range []int{
+		bfe_http.StatusBadRequest,
+		bfe_http.StatusNotFound,
+		bfe_http.StatusInternalServerError,
+	} {
+		req := newTestRequest("AI_product")
+		req.InitAiBasicInfo()
+		res := &bfe_http.Response{StatusCode: code}
+		if p := NewQuotaUsageProcessor(req, res); p != nil {
+			t.Errorf("status %d: expected nil processor for non-2xx response", code)
+		}
+	}
+}
+
+// TestDoResponseProcessNon2xxNoCompletionEstimate drives the response body of
+// a non-2xx response through the body processor with EstimateToken on and
+// asserts that neither the completion estimate nor UsedQuota is written
+// (issue #1409: "ai_output_tokens = response bytes / 4" is only reachable on
+// a 2xx response).
+func TestDoResponseProcessNon2xxNoCompletionEstimate(t *testing.T) {
+	m := NewModuleBodyProcess()
 	req := newTestRequest("AI_product")
-	res := &bfe_http.Response{StatusCode: bfe_http.StatusBadRequest}
-	if p := NewQuotaUsageProcessor(req, res); p != nil {
-		t.Error("expected nil processor for non-OK response")
+	ai := req.InitAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+
+	body := `{"error":{"message":"model not found","type":"invalid_request_error"}}`
+	res := &bfe_http.Response{
+		StatusCode: bfe_http.StatusNotFound,
+		Body:       io.NopCloser(bytes.NewBufferString(body)),
+		Header:     make(bfe_http.Header),
+	}
+	res.Header.Set("Content-Type", "application/json")
+
+	bp := m.DoResponseProcess(req, res, &BodyProcessConfig{Dec: "json"})
+	if bp == nil {
+		t.Fatal("expected BodyProcessor with an explicit response config")
+	}
+	if _, err := io.ReadAll(bp); err != nil {
+		t.Fatalf("read processed body failed: %s", err)
+	}
+
+	usage := ai.GetTokenUsage()
+	if usage.CompletionTokens != bfe_basic.COMPLETION_TOKENS_UNKNOWN {
+		t.Errorf("CompletionTokens = %d, want the unknown sentinel: non-2xx bodies must not be estimated",
+			usage.CompletionTokens)
+	}
+	if usage.UsedQuota != 0 {
+		t.Errorf("UsedQuota = %d, want 0 for a non-2xx response", usage.UsedQuota)
 	}
 }
 
@@ -381,5 +430,56 @@ func TestQuotaUsageProcessorProcessResponsesAPIIncomplete(t *testing.T) {
 	}
 	if ai.IsResponseCompleted() {
 		t.Error("response.incomplete must not mark the response completed")
+	}
+}
+
+// Issue #1414: an event that carries an explicit all-zero usage object is an
+// observation. It must mark the final usage and write the zeros through, so the
+// request is billed at 0 instead of being topped up by the estimator.
+func TestQuotaUsageProcessorProcessAllZeroUsage(t *testing.T) {
+	req := newTestRequest("AI_product")
+	ai := req.InitAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	p := NewQuotaUsageProcessor(req, res)
+
+	events := []Event{newRawEvent(`{"usage":{"total_tokens":0,"prompt_tokens":0,"completion_tokens":0}}`)}
+	if _, err := p.Process(events); err != nil {
+		t.Fatalf("Process failed: %s", err)
+	}
+
+	if !ai.IsFinalUsageSeen() {
+		t.Error("an explicit all-zero usage must mark the final usage")
+	}
+	usage := ai.GetTokenUsage()
+	if usage.UsedQuota != 0 || usage.PromptTokens != 0 || usage.CompletionTokens != 0 {
+		t.Errorf("expected the reported zeros to be written through, got %+v", *usage)
+	}
+}
+
+// Issue #1414 regression guard: an Anthropic final event carries only output
+// tokens (the prompt field is absent, not 0), so a zero-output message_delta
+// must still keep the prompt parsed from message_start. "Absent" and "reported
+// as 0" must not be conflated.
+func TestQuotaUsageProcessorProcessAnthropicPromptCarriedOver(t *testing.T) {
+	req := newTestRequest("AI_product")
+	ai := req.InitAiBasicInfo()
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	p := NewQuotaUsageProcessor(req, res)
+
+	events := []Event{
+		newRawEvent(`{"type":"message_start","message":{"id":"msg_1","usage":{"input_tokens":100,"output_tokens":0}}}`),
+		newRawEvent(`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":0}}`),
+	}
+	if _, err := p.Process(events); err != nil {
+		t.Fatalf("Process failed: %s", err)
+	}
+
+	usage := ai.GetTokenUsage()
+	if usage.PromptTokens != 100 {
+		t.Errorf("PromptTokens = %d, want 100: message_delta omits the prompt field", usage.PromptTokens)
+	}
+	if usage.UsedQuota != 100 {
+		t.Errorf("UsedQuota = %d, want 100", usage.UsedQuota)
 	}
 }
