@@ -275,8 +275,12 @@ func TestTransportBrokenConnection(t *testing.T) {
 		t.Fatal("RoundTrip should fail when the upstream closes early")
 	}
 	var readErr ReadRespHeaderError
-	if !errors.As(err, &readErr) {
-		t.Fatalf("error type = %T, want ReadRespHeaderError: %v", err, err)
+	var writeErr WriteRequestError
+	// 对端立即关闭时，write 与 read 的报错先后取决于调度时序：写成功后再读
+	// 读到 EOF → ReadRespHeaderError；FIN 先于 write 到达 → WriteRequestError。
+	// 两者都是"上游回包前断开"的可判定表现，都接受。
+	if !errors.As(err, &readErr) && !errors.As(err, &writeErr) {
+		t.Fatalf("error type = %T, want ReadRespHeaderError or WriteRequestError: %v", err, err)
 	}
 }
 
