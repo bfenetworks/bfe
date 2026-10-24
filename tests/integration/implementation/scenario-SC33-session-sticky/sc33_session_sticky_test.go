@@ -139,10 +139,29 @@ func (e *stickyEnv) writeData(data map[string]interface{}) {
 	}
 }
 
+// getWithRetry polls url until the monitor web server responds. The monitor
+// listener starts right after the HTTP listener (which is all StartBFE waits
+// for), so on a slow/loaded machine the first reload request can hit
+// connection refused (observed on WSL for TC07).
+func getWithRetry(url string) (*http.Response, error) {
+	var lastErr error
+	for attempt := 0; attempt < 50; attempt++ {
+		if attempt > 0 {
+			time.Sleep(100 * time.Millisecond)
+		}
+		resp, err := http.Get(url)
+		if err == nil {
+			return resp, nil
+		}
+		lastErr = err
+	}
+	return nil, lastErr
+}
+
 func (e *stickyEnv) reloadModule() {
 	e.t.Helper()
 	url := fmt.Sprintf("http://127.0.0.1:%d/reload/mod_session_sticky", e.monitorPort)
-	resp, err := http.Get(url)
+	resp, err := getWithRetry(url)
 	if err != nil {
 		e.t.Fatalf("reload mod_session_sticky failed: %v", err)
 	}
@@ -156,7 +175,7 @@ func (e *stickyEnv) reloadModule() {
 func (e *stickyEnv) reloadGslbData() {
 	e.t.Helper()
 	url := fmt.Sprintf("http://127.0.0.1:%d/reload/gslb_data_conf", e.monitorPort)
-	resp, err := http.Get(url)
+	resp, err := getWithRetry(url)
 	if err != nil {
 		e.t.Fatalf("reload gslb_data_conf failed: %v", err)
 	}
