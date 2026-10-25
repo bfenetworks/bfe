@@ -15,17 +15,23 @@
 package bfe_http
 
 import (
+	"crypto/tls"
 	"errors"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
+	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 // dialRecorder 是可注入的 Dial：真实连接到 upstream，同时记录拨号次数与目标地址，
@@ -460,6 +466,69 @@ func TestTransportRegisterProtocol(t *testing.T) {
 	}
 	if resp == nil || resp.StatusCode != 200 {
 		t.Errorf("unexpected response: %+v", resp)
+	}
+}
+
+// HTTPS 后端配置了 RSCAList 但未配置 RSInsecureSkipVerify 时，按 RSCAList 校验证书，
+// 而不是解引用空指针导致进程 panic。
+func TestTransportHTTPSWithRSCAListAndNilInsecureSkipVerify(t *testing.T) {
+	cert, err := tls.X509KeyPair(bfe_tls.I_CN_FOOBAR_ORG_CRT.Bytes(), bfe_tls.I_CN_FOOBAR_ORG_PRV.Bytes())
+	if err != nil {
+		t.Fatalf("load server cert failed: %v", err)
+	}
+	upstream := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "ok")
+	}))
+	upstream.TLS = &tls.Config{Certificates: []tls.Certificate{cert}}
+	upstream.StartTLS()
+	defer upstream.Close()
+
+	tests := []struct {
+		name    string
+		rsHost  string
+		ca      bfe_tls.TestPemNameEnmu
+		wantErr string
+	}{
+		{name: "trusted ca", rsHost: "foobar.org", ca: bfe_tls.BFE_I_CA_CRT},
+		{name: "untrusted ca", rsHost: "foobar.org", ca: bfe_tls.R_SAN_EXAMPLE_ORG_CRT, wantErr: "unknown authority"},
+		{name: "host mismatch", rsHost: "example.org", ca: bfe_tls.BFE_I_CA_CRT, wantErr: "example.org"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			caFile := filepath.Join(t.TempDir(), "ca.crt")
+			if err := os.WriteFile(caFile, tt.ca.Bytes(), 0644); err != nil {
+				t.Fatalf("write ca file failed: %v", err)
+			}
+			protocol := "https"
+			httpsConf := &cluster_conf.BackendHTTPS{
+				RSHost:   &tt.rsHost,
+				RSCAList: &[]string{caFile},
+			}
+			if err := cluster_conf.BackendHTTPSCheck(&protocol, httpsConf); err != nil {
+				t.Fatalf("BackendHTTPSCheck failed: %v", err)
+			}
+
+			tr := &Transport{HttpsConf: httpsConf}
+			defer tr.CloseIdleConnections()
+
+			resp, err := tr.RoundTrip(newTransportRequest(t, "http://"+upstream.Listener.Addr().String()+"/"))
+			if tt.wantErr != "" {
+				if err == nil {
+					drainBody(t, resp)
+					t.Fatalf("RoundTrip succeeded, want error containing %q", tt.wantErr)
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Errorf("error = %q, want it to contain %q", err.Error(), tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("RoundTrip failed: %v", err)
+			}
+			if body := drainBody(t, resp); body != "ok" {
+				t.Errorf("body = %q, want ok", body)
+			}
+		})
 	}
 }
 
