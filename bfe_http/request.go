@@ -589,6 +589,15 @@ func parseRequestLine(line string) (method, requestURI, proto string, ok bool) {
 	return line[:s1], line[s1+1 : s2], line[s2+1:], true
 }
 
+// validMethod reports whether method is a valid HTTP method.
+//
+// See RFC 7230, Section 3.1.1:
+//
+//	method = token
+func validMethod(method string) bool {
+	return len(method) > 0 && strings.IndexFunc(method, isNotToken) == -1
+}
+
 var textprotoReaderCache sync.Pool
 
 func newTextprotoReader(br *bfe_bufio.Reader) *textproto.Reader {
@@ -635,6 +644,9 @@ func ReadRequest(b *bfe_bufio.Reader, maxUriBytes int) (req *Request, err error)
 	req.Method, req.RequestURI, req.Proto, ok = parseRequestLine(s)
 	if !ok {
 		return nil, &badStringError{"malformed HTTP request", s}
+	}
+	if !validMethod(req.Method) {
+		return nil, &badStringError{"invalid method", req.Method}
 	}
 	rawurl := req.RequestURI
 
