@@ -644,12 +644,13 @@ func (t *Transport) dialConn(cm *connectMethod) (*persistConn, error) {
 						}
 					} else {
 						// use custom cas only, keep unchanged.
+						// RSInsecureSkipVerify is nil or false here, so always verify.
 						cfg = &bfe_tls.Config{
 							Certificates:          certs,
 							InsecureSkipVerify:    true,
 							ServerName:            host,
 							RootCAs:               rootCAs,
-							VerifyPeerCertificate: bfe_tls.NewVerifyPeerCertHooks(*httpsConf.RSInsecureSkipVerify, host, rootCAs).Ready(),
+							VerifyPeerCertificate: bfe_tls.NewVerifyPeerCertHooks(false, host, rootCAs).Ready(),
 						}
 					}
 				}

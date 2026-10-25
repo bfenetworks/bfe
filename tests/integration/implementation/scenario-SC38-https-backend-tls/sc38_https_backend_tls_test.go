@@ -102,18 +102,6 @@ func newTLSEnv(t *testing.T, opts envOptions) *tlsEnv {
 		backendConf[k] = v
 	}
 
-	httpsConf := make(map[string]interface{}, len(opts.httpsConf)+1)
-	for k, v := range opts.httpsConf {
-		httpsConf[k] = v
-	}
-	// BFE dereferences RSInsecureSkipVerify unconditionally when a custom
-	// RSCAList is used (bfe_http/transport.go:652); an omitted field panics the
-	// process. Write the explicit default so the fixtures describe a valid
-	// production config and the tests stay focused on the TLS semantics.
-	if _, ok := httpsConf["RSInsecureSkipVerify"]; !ok {
-		httpsConf["RSInsecureSkipVerify"] = false
-	}
-
 	builder := &common.BFEConfigBuilder{
 		TemplateDir:   "testdata",
 		TargetConfDir: e.confDir,
@@ -123,7 +111,7 @@ func newTLSEnv(t *testing.T, opts envOptions) *tlsEnv {
 		ClusterOverrides: map[string]*common.ClusterOverride{
 			clusterTLS: {
 				BackendConf: backendConf,
-				HTTPSConf:   httpsConf,
+				HTTPSConf:   opts.httpsConf,
 			},
 		},
 	}
