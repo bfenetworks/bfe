@@ -18,6 +18,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"runtime"
@@ -170,9 +171,9 @@ func NewWasmPlugin(wasmConfig WasmPluginConfig) (WasmPlugin, error) {
 	}
 
 	// create wasm module
-	module := vm.NewModule(wasmBytes)
-	if module == nil {
-		return nil, ErrModuleCreate
+	module, err := newWasmModule(vm, wasmBytes)
+	if err != nil {
+		return nil, err
 	}
 
 	plugin := &wasmPluginImpl{
@@ -191,6 +192,25 @@ func NewWasmPlugin(wasmConfig WasmPluginConfig) (WasmPlugin, error) {
 	}
 
 	return plugin, nil
+}
+
+// newWasmModule creates wasm module from wasm bytes.
+// The wasm engine panics on malformed wasm bytes, so the panic is recovered
+// and returned as error to prevent a bad plugin from crashing the process.
+func newWasmModule(vm common.WasmVM, wasmBytes []byte) (module common.WasmModule, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Logger.Error("[wasm][plugin] newWasmModule fail to create module, err: %v", r)
+			module, err = nil, fmt.Errorf("%w: %v", ErrModuleCreate, r)
+		}
+	}()
+
+	module = vm.NewModule(wasmBytes)
+	if module == nil {
+		return nil, ErrModuleCreate
+	}
+
+	return module, nil
 }
 
 // reduce to n instances and return the cut-offs
@@ -245,14 +265,20 @@ func (w *wasmPluginImpl) EnsureInstanceNum(num int) int {
 				log.Logger.Error("[wasm][plugin] EnsureInstanceNum fail to get abilist, i: %v", i)
 				break
 			}
+			var err error
 			for _, abi := range abilist {
 				//abi.OnInstanceCreate(instance)
-				if err := instance.RegisterImports(abi.Name()); err != nil {
-					panic(err)
+				if err = instance.RegisterImports(abi.Name()); err != nil {
+					break
 				}
 			}
+			if err != nil {
+				log.Logger.Error("[wasm][plugin] EnsureInstanceNum fail to register imports, i: %v, err: %v", i, err)
+				instance.Stop()
+				break
+			}
 
-			err := instance.Start()
+			err = instance.Start()
 			if err != nil {
 				log.Logger.Error("[wasm][plugin] EnsureInstanceNum fail to start instance, i: %v, err: %v", i, err)
 				continue
