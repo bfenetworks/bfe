@@ -46,6 +46,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
 	"github.com/bfenetworks/bfe/bfe_debug"
 	"github.com/bfenetworks/bfe/bfe_fcgi"
 	"github.com/bfenetworks/bfe/bfe_http"
@@ -1584,6 +1585,14 @@ func maybeInjectStreamUsage(basicReq *bfe_basic.Request, aiMeta *bfe_basic.AiBas
 	}
 	body, all := bodyAccessor.GetBytes()
 	if !all || len(body) == 0 {
+		if !all {
+			// The body exceeded Server.AccessibleBodySize, so it cannot be
+			// rewritten whole and the upstream may return no usage at all: make
+			// the skipped injection visible instead of silently degrading the
+			// billing (issue #1468 amplifier).
+			log.Logger.Warn("inject stream_options.include_usage skipped: request body "+
+				"exceeds AccessibleBodySize (%d bytes buffered)", len(body))
+		}
 		return false
 	}
 	if !gjson.GetBytes(body, "stream").Bool() {
@@ -1600,6 +1609,124 @@ func maybeInjectStreamUsage(basicReq *bfe_basic.Request, aiMeta *bfe_basic.AiBas
 	}
 	bodyAccessor.SetBytes(newBody, false)
 	return true
+}
+
+// applyAIUpstreamAcceptEncoding rewrites the Accept-Encoding of an AI upstream
+// request so that content negotiation stays inside the coding set the gateway
+// can decode (issue #1468).
+//
+// Why: a compressed SSE body is forwarded verbatim, and its usage is parsed from
+// a decompressed copy. A coding the gateway cannot decode therefore leaves
+// cache_read_tokens at 0 and bills the whole prompt at the input price. Narrowing
+// the negotiation closes that path instead of adding decoders for every coding
+// an upstream may pick.
+//
+// The outbound header map aliases the inbound one (see the shallow copy in
+// doSingleAIForward), so it is cloned before any mutation: the client request,
+// the access log, the cache and mod_compress keep seeing the original value.
+func applyAIUpstreamAcceptEncoding(outreq *bfe_http.Request, mode string) {
+	if outreq == nil {
+		return
+	}
+
+	switch bfe_conf.NormalizeAIUpstreamAcceptEncoding(mode) {
+	case bfe_conf.AIUpstreamAcceptEncodingOff:
+		return
+	case bfe_conf.AIUpstreamAcceptEncodingIdentity:
+		// No compression at all: the plaintext SSE path parses usage directly
+		// (diagnostics / escape hatch).
+		setOutboundAcceptEncoding(outreq, "identity")
+		return
+	}
+
+	value, changed := narrowAcceptEncoding(outreq.Header.Get("Accept-Encoding"))
+	if !changed {
+		return
+	}
+	setOutboundAcceptEncoding(outreq, value)
+}
+
+// setOutboundAcceptEncoding writes the header on a detached copy of the map.
+func setOutboundAcceptEncoding(outreq *bfe_http.Request, value string) {
+	if outreq.Header.Get("Accept-Encoding") == value {
+		return
+	}
+	outreq.Header = outreq.Header.Clone()
+	outreq.Header.Set("Accept-Encoding", value)
+}
+
+// narrowAcceptEncoding intersects a client Accept-Encoding value with the codings
+// the gateway can decode, preserving q values. It reports whether anything was
+// dropped: an empty intersection also reports false, because a gateway must never
+// answer with a coding the client did not accept — such a request is forwarded
+// unchanged and simply falls back to the usage estimate.
+func narrowAcceptEncoding(clientValue string) (string, bool) {
+	if clientValue == "" {
+		return "", false
+	}
+
+	kept := make([]string, 0, 4)
+	dropped := false
+	for _, item := range strings.Split(clientValue, ",") {
+		coding, params := splitAcceptEncodingItem(item)
+		if coding == "" {
+			dropped = true
+			continue
+		}
+		if q, ok := acceptEncodingQ(params); ok && q <= 0 {
+			// q=0 refuses the coding, so dropping it is equivalent.
+			dropped = true
+			continue
+		}
+		if coding == "*" {
+			// A wildcard accepts anything, so it is replaced by the explicit
+			// decodable set (keeping its q value).
+			for _, c := range bfe_util.SupportedContentEncodings() {
+				kept = append(kept, c+params)
+			}
+			dropped = true
+			continue
+		}
+		if !bfe_util.CanDecodeContentEncoding(coding) {
+			dropped = true
+			continue
+		}
+		kept = append(kept, coding+params)
+	}
+
+	if !dropped || len(kept) == 0 {
+		return "", false
+	}
+	return strings.Join(kept, ", "), true
+}
+
+// splitAcceptEncodingItem splits one Accept-Encoding list item into its
+// lower-cased coding and its parameters (with the leading ';'), e.g.
+// "gzip;q=0.5" -> ("gzip", ";q=0.5").
+func splitAcceptEncodingItem(item string) (coding, params string) {
+	item = strings.TrimSpace(item)
+	if item == "" {
+		return "", ""
+	}
+	if i := strings.IndexByte(item, ';'); i >= 0 {
+		return strings.ToLower(strings.TrimSpace(item[:i])), item[i:]
+	}
+	return strings.ToLower(item), ""
+}
+
+// acceptEncodingQ extracts the q value from an Accept-Encoding item's
+// parameters.
+func acceptEncodingQ(params string) (float64, bool) {
+	for _, param := range strings.Split(params, ";") {
+		param = strings.TrimSpace(param)
+		if len(param) < 3 || (param[0] != 'q' && param[0] != 'Q') || param[1] != '=' {
+			continue
+		}
+		if q, err := strconv.ParseFloat(strings.TrimSpace(param[2:]), 64); err == nil {
+			return q, true
+		}
+	}
+	return 0, false
 }
 
 // sanitizeOutboundCredentials enforces issue #1447: an outbound request that
@@ -1665,6 +1792,12 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 	httpProtoSet(outreq)
 	// remove hop-by-hop headers
 	hopByHopHeaderRemove(outreq, req)
+
+	// issue #1468: keep the upstream content negotiation inside the coding set
+	// the gateway can decode, so a compressed streaming response still yields a
+	// parseable usage. Runs after the hop-by-hop removal so a coding advertised
+	// through the Connection header is already gone.
+	applyAIUpstreamAcceptEncoding(outreq, srv.Config.Server.AIUpstreamAcceptEncoding)
 
 	if cluster.DisableHostHeader {
 		// if cluster.DisableHostHeader is true, del outreq.Host

@@ -31,6 +31,7 @@ bfe.conf是BFE的核心配置
 | Server.EnableAiGateway         | Boolean | 是否启用AI Gateway模式                             | N    | 默认值`False`                                                            | -                                               |
 | Server.EstimateToken           | Boolean | 当上游响应未返回usage时，是否基于请求Content-Length估算token使用量。估算仅在响应正常完成时生效：客户端中断（RST/断开）或写客户端失败且未收到最终usage的请求不按估算扣费（issue #1352）。缺usage按估算兜底是既定设计口径（issue #1398） | N    | 默认值`True`（issue #1401 起为程序默认值，conf未配置时生效，显式配置可覆盖；issue #1398 前为`False`） | -                                               |
 | Server.InjectStreamUsage       | Boolean | 对OpenAI协议流式chat completion请求，当客户端未显式设置`stream_options.include_usage`时，自动注入`stream_options.include_usage=true`，使上游回发真实final usage chunk（issue #1398）。注入失败（非JSON请求体等）时静默透传 | N    | 默认值`True`（issue #1401 起为程序默认值，conf显式配置可覆盖）          | -                                               |
+| Server.AIUpstreamAcceptEncoding | String  | 回源时如何改写AI请求的`Accept-Encoding`，用于把握手结果限制在网关能解压的编码集合内，从而保证压缩流式响应的usage可被解析（issue #1468）。`auto`：与客户端声明求交后仅保留网关可解码的编码（`gzip`、`deflate`），求交为空则不改写；`identity`：剥离压缩，让上游回明文（排障用）；`off`：按客户端原值透传（保持旧行为）。仅作用于AI转发请求的出站头，入站请求头不受影响 | N    | 默认值`auto`；取值`auto`/`identity`/`off`，非法值按`auto`处理 | 取值见补充描述 |
 | Server.AccessibleBodySize      | Integer | 请求体可缓冲的最大长度，单位为Byte                 | N    | 默认值2097152；用于请求体改写及AI Gateway fallback重试；超过此大小的请求体无法被完整缓存并重传 | > 0 且 <= 8388608                             |
 | Server.TotalBodyBufferSize     | Integer | 所有活跃bytes_body buffer占用内存之和的上限，单位为Byte | N    | 默认值0（表示无限制）；达到上限时，AI Gateway fallback不再对请求体做缓存封装，即不重传 | >= 0                                          |
 | Server.HostRuleConf            | String  | [租户域名表配置](server_data_conf/host_rule.data.md)文件路径 | N    | 默认值`server_data_conf/host_rule.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
@@ -115,6 +116,12 @@ EstimateToken = true
 # chat completion requests (when the client did not set it), so the upstream
 # returns the real final usage chunk (issue #1398)
 InjectStreamUsage = true
+
+# how Accept-Encoding is forwarded to an AI upstream (issue #1468):
+#   auto     - keep only the codings the gateway can decode (default)
+#   identity - strip compression (diagnostics / troubleshooting)
+#   off      - forward the client value unchanged
+AIUpstreamAcceptEncoding = auto
 
 # timeout for graceful shutdown (maximum 300 sec)
 GracefulShutdownTimeout = 10

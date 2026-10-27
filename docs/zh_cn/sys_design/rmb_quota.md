@@ -429,7 +429,7 @@ mode 用于后续定价匹配（`(model, mode)` 二维索引）和访问日志�
 
 响应阶段负责从响应体中提取 `usage`，或在未返回 `usage` 时按响应体长度估算 Token 数。对于图像生成响应，优先读取 `usage.image_count`，未返回时统计响应 `data` 数组长度，仍无则兜底请求体 `n` 字段（默认 1）。对于视频生成响应，优先读取 `usage.video_count`，未返回时兜底请求体 `n` 字段（默认 1）。
 
-对于非流式响应，BFE 会在读取完整响应体后解析 usage。判定见 `isCompleteNonStreamBody`：定长响应（`ContentLength >= 0`）始终整体读取；chunked 响应（`ContentLength == -1`）在既非 SSE、内容类型又是 JSON 时也整体读取（issue #1406）。响应体若带 `Content-Encoding: gzip`，只对**解析副本**解压（`bfe_util.DecodeContentEncoding`），转发给客户端的字节与 `Content-Encoding` 响应头保持上游原样：
+对于非流式响应，BFE 会在读取完整响应体后解析 usage。判定见 `isCompleteNonStreamBody`：定长响应（`ContentLength >= 0`）始终整体读取；chunked 响应（`ContentLength == -1`）在既非 SSE、内容类型又是 JSON 时也整体读取（issue #1406）。响应体若带 `Content-Encoding`（`gzip`/`x-gzip`/`deflate`），只对**解析副本**解压（`bfe_util.DecodeContentEncoding`），转发给客户端的字节与 `Content-Encoding` 响应头保持上游原样：
 
 ```go
 func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
@@ -475,11 +475,43 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 
 对于 `stream: true` 的 SSE 流式响应，`mod_body_process` 会注册 `QuotaUsageProcessor`（仅当响应状态为 200 时才创建，见 `content_quota_usage.go` 的 `NewQuotaUsageProcessor`；非 2xx 响应不产生任何用量口径）：
 
-- `mod_body_process.DoResponseProcess` 根据响应 `Content-Type` 选择 SSE 解码器；
+- `mod_body_process.DoResponseProcess` 根据响应 `Content-Type` 选择 SSE 解码器（响应带 `Content-Encoding` 时改由 tap 解码器承接，见下节「压缩流式响应的 usage 采集」）；
 - 每个 SSE 事件经过 `QuotaUsageProcessor.Process` 时，会从事件数据中提取 `usage.*_tokens`；
 - 当遇到包含 `usage` 的最后一个事件时，将 `PromptTokens` / `CompletionTokens` / `UsedQuota` 写入 `AiBasicInfo.TokenUsage`。
 
 因此，到请求结束阶段，`tokenUsage.PromptTokens` 和 `tokenUsage.CompletionTokens` 已经就绪，无论流式还是非流式都可以统一计算 RMB 成本。
+
+#### 压缩流式响应的 usage 采集（issue #1468）
+
+上游按 `Accept-Encoding` 压缩 SSE 时（现场为 `Content-Encoding: zstd` 或 `gzip` + `Transfer-Encoding: chunked`），转发链路必须保持字节不变，但 usage 又只能从**明文**里读。此前 `DoResponseProcess` 遇到 `Content-Encoding` 直接旁路为 `LineDecoder`（#1406 为防截断所加），压缩流因此完全不解析：`cache_read_tokens` 恒为 0、`prompt_tokens` 退化成请求体长度估算、`completion_tokens` 按**压缩后**字节估算，RMB 全量按 input 单价扣减。
+
+修复分两侧：
+
+**① 解析侧：tap 解码器（`bfe_modules/mod_body_process/compressed_stream_decoder.go`）**
+
+- 结构：`io.TeeReader(src, rawBuf)` 把源字节同时交给解压器；解压后的明文喂既有 `SSEEventDecoder`，事件类型为 `tapEvent{raw, plain}`；
+- 转发：`tapEvent.ToBytes()` 返回**原始压缩字节**，`GeneralEncoder` 原样写出 → 客户端收到的字节序列与上游逐字节一致，`Content-Encoding` 头不变；
+- 解析：`tapEvent.GetQuotaUsage()` 委托明文事件的 `GetQuotaUsage`，即完全复用 7.4 的协议适配链（含 cache 字段兜底、final usage 判定）；
+- fail-open：解压/解码出错时切换为 raw-only 透传（按 `LineDecoder` 语义直读源），转发不截断，usage 走估算并计数；
+- 生效条件：仅在存在 `QuotaUsageProcessor`（AI 计费）且 `res.IsSse` 且 `CanDecodeContentEncoding(Content-Encoding)` 时启用；只有内容审计规则时不建 tap，避免无谓解压；
+- 支持编码：`gzip`/`x-gzip`、`deflate`（zlib 头嗅探，不合规时按裸 DEFLATE）。`zstd`/`br` 刻意不支持（zstd 无带宽收益但每流约 5 MB 解码内存，br 窗口无法外部限幅），由下面的协商收窄排除。
+
+**② 协商侧：`Server.AIUpstreamAcceptEncoding`（`bfe_server/reverseproxy.go`）**
+
+- 在 `doSingleAIForward` 中 `hopByHopHeaderRemove` 之后调用 `applyAIUpstreamAcceptEncoding(outreq, mode)`；
+- `outreq.Header` 与入站请求共用同一 map（`*outreq = *req`），改动前必须 `Clone()`，**只改出站头**，入站请求头、访问日志、`mod_compress`、`mod_ai_cache` 均不受影响；
+- `auto`（默认）：与客户端声明求交后仅保留 `gzip`、`deflate`；求交为空（客户端只声明了网关解不了的编码）则不改写——不得回一个客户端没接受的编码；`identity;q=0` 时也不得强制 identity；
+- `identity`：剥离压缩供排障；`off`：保持 #1468 之前的行为。
+
+**③ 可观测性**
+
+`mod_body_process` 新增计数 `ResStreamCompressed`（压缩响应数）、`ResStreamDecoded`（tap 生效数）、`ResStreamDecodeSkipped`（编码不可解码或 tap 构造失败）、`ResStreamRawOnly`（解压中途失败降级）。后两者持续增长即代表「有请求在按估算计费」，是上游不遵守协商的唯一信号，必须接告警。
+
+**④ 估算口径**
+
+tap 生效但上游确实没给 usage 时，估算按**解明文字节**累加（`tapEvent` 委托明文事件的 `CurrentTokens`），不再是压缩后字节/4。
+
+> 边界：转发切分粒度由「压缩字节行边界」变为「SSE 事件边界」（字节序列不变）；解明文设单事件与每响应预算以防 zip bomb；内容审计（`textfilter`）在压缩响应上仍只能看到压缩字节，与修复前一致。
 
 #### 流式响应的完成状态与最终 usage（issue #1352）
 
@@ -1348,6 +1380,7 @@ return {yuan, frac}
    - 测试 AuthStyle 与响应体格式错配场景（issue #1364）：Bearer 鉴权（识别为 OpenAI 协议）+ Anthropic 格式 body，验证 `UpdateCtxByUsage` 回退组合链后按实际 usage 全额计费；
    - 测试分时段计费场景：`ModelTable` 配置 `Tiers` 与 `TierPrices`；分别在北京时间高峰时段（如周一 10:00）与非高峰时段（如周一 13:00 或周六 10:00）发起请求，验证 Redis 扣减金额分别按 `TierPrices.peak` 与默认 `Prices` 计算。
    - 测试分时段 + cache 命中组合场景：高峰时段且后端返回 `usage.cache_read_tokens`（或 DeepSeek 的 `usage.prompt_cache_hit_tokens` / `usage.prompt_tokens_details.cached_tokens`），验证缓存命中部分按 `TierPrices.peak.cache_read_input_token_cost` 计费，未命中部分按 `TierPrices.peak.input_cost_per_token` 计费。
+   - 测试压缩流式响应计费场景（issue #1468）：后端以 `Content-Encoding: gzip` + chunked 逐事件 flush 返回 SSE（末帧含 `usage.prompt_tokens_details.cached_tokens`），验证 ① 客户端收到的 `Content-Encoding` 与解压后字节与上游一致；② `ai_cache_read_tokens` 等于 `cached_tokens`、`ai_usage_source=parsed`；③ RMB 扣减按逐项公式定点等值。另验证协商收窄臂（客户端声明 `gzip, deflate, br, zstd`，断言上游实际收到 `gzip, deflate`）与 fail-open 臂（上游无视协商返回未支持编码 → 转发不变、`ai_usage_source=estimated`、`ResStreamDecodeSkipped` 计数增长）。
 
 ## 11. 兼容性与注意事项
 
@@ -1372,3 +1405,9 @@ return {yuan, frac}
 12. **长度分档与 1h 缓存写向后兼容**：未配置 `above_*_tokens` 档位键的模型走基础价，未配置 `cache_creation_input_token_cost_1h` 时全部 cache write 按基础 5m 价计，两者均与旧行为逐分一致；配置档位键但不配置 1h 价（或反之）互不干扰。`EstimateToken` 估算路径不区分长度档位与缓存 TTL，统一按基础价计（估算本身已保守）。访问日志新增 `ai_cache_write_1h_tokens`（field 788）依赖 `bfe-access-pb >= v0.3.6`。
 13. **mode 未定价回退计费影响**（issue #1408）：此前 `(model, mode)` 无价格条目时请求按 `0` 计费且访问日志无任何标记（如生产 /responses 入口 13 次请求全部漏计）。修复后该场景按 `chat` 价计费，金额会 **上升**；同时访问日志新增 `ai_price_miss`（field 763，依赖 `bfe-access-pb >= v0.3.14`），对账时可直接筛出「回退/未定价」行并反推应补齐的价格表条目。
 14. **未识别 usage 可观测信号**（issue #1410）：「usage 未识别且不可估算 → 守卫清零跳过计费」分支的计费金额**不变**（仍零扣费），新增信号使其可被产品自身发现：`UsageUnrecognized` 模块计数器 + Warn，以及访问日志 `ai_usage_source`（field 764，依赖 `bfe-access-pb >= v0.3.15`，取值 `parsed` / `estimated` / `unrecognized`）。客户端中止零扣费分支（issue #1352）同模式新增计数。已识别流量（含 `completion_tokens=0` 的零输出 final 事件，issue #1398 口径）归 `parsed`、不会污染计费跳过计数；usage 全 0 对象因识别层值-based 判定（`isguess` 要求 `UsedQuota > 0`）暂归入 `unrecognized`，presence 检测为独立后续改造。对账侧原依赖带外脚本扫描 `total=0 且 in/out>0` 的检测方式可由 `ai_usage_source='unrecognized'` 查询替代。
+15. **压缩流式响应 usage 采集 + 回源协商收窄**（issue #1468）：
+   - **计费口径变化（双向）**：压缩 SSE 此前完全不解析 usage，`prompt` 取请求体长度/4、`completion` 取压缩后字节/4、`cache_read/write` 恒 0。修复后按上游真实 usage 逐项计费：缓存命中占比高的流量金额会 **显著下降**（input 1.0 元/M vs cache_read 0.02 元/M 量级），而此前被低估 prompt/completion 的流量会 **上升**，需在灰度期同时核对「下降量」与「上升量」，并预备配额提前耗尽/429 上升的运营预案。
+   - **配置语义变化**：`Server.AIUpstreamAcceptEncoding` 默认 `auto`，会把握手结果收窄到 `gzip`/`deflate`，即**客户端可见响应编码可能由 `zstd` 变为 `gzip`**（仍在其 `Accept-Encoding` 内，体积差 <1%）。该行为变更需运维/产品签核；回退方式为显式配置 `off`（恢复旧行为，此时压缩 SSE 仍按估算计费）。
+   - **可解码编码集合**：`gzip`/`x-gzip`、`deflate`。`zstd`/`br` 不在集合内——若上游不遵守协商强行返回，则转发不变、计费落估算并计入 `ResStreamDecodeSkipped` / `ResStreamRawOnly`，**这两个计数器必须接告警**（阈值建议 > 1%），否则会以「部分流量仍在估算」的方式静默失效。
+   - **估算口径修正**：tap 生效但上游确实未给 usage 时，估算改按解明文长度累加（不再是压缩后字节/4），同一请求的估算值会 **上升**，但仍标记 `ai_usage_source=estimated`。
+   - **转发不变性**：客户端收到的字节序列与上游逐字节一致、`Content-Encoding` 头不变；唯一可观测差异是写窗口粒度由「压缩字节行边界」变为「SSE 事件边界」，对 SSE 客户端无语义影响。

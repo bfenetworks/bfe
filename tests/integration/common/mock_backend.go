@@ -15,6 +15,7 @@
 package common
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -72,7 +73,14 @@ type MockBackend struct {
 	SSEHold <-chan struct{}
 	// SSETrailing, if non-nil, is written (and flushed) after SSEHold is
 	// released, simulating backend data arriving after a client abort.
-	SSETrailing        []string
+	SSETrailing []string
+	// SSECompress, when "gzip", compresses the SSE body: every frame is written
+	// through one streaming gzip writer and flushed, the Content-Encoding: gzip
+	// header is set and the response is chunked. It exists for issue #1468: an
+	// upstream that compresses a server-sent event stream must still yield a
+	// parseable usage, which only a per-frame flush can exercise (a single
+	// compressed block does not cross frames).
+	SSECompress        string
 	hits               int
 	mu                 sync.Mutex
 	models             []string
@@ -147,11 +155,34 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 
 		if b.SSEEvents != nil {
 			w.Header().Set("Content-Type", "text/event-stream")
+			if b.SSECompress != "" {
+				if b.SSECompress != "gzip" {
+					http.Error(w, "unsupported SSECompress "+b.SSECompress, http.StatusInternalServerError)
+					return
+				}
+				// Declared before WriteHeader so the header reaches the client;
+				// BFE forwards it verbatim (issue #1468).
+				w.Header().Set("Content-Encoding", "gzip")
+			}
 			w.WriteHeader(status)
+
 			flusher, _ := w.(http.Flusher)
+			var gzw *gzip.Writer
+			if b.SSECompress == "gzip" {
+				gzw = gzip.NewWriter(w)
+			}
+			// writeSSE emits one SSE frame, flushing the compressor per frame so
+			// the response exercises incremental decompression on the way back
+			// (a single compressed block would not cross frames).
 			writeSSE := func(events []string) {
 				for _, event := range events {
-					fmt.Fprintf(w, "data: %s\n\n", event)
+					chunk := "data: " + event + "\n\n"
+					if gzw != nil {
+						_, _ = io.WriteString(gzw, chunk)
+						_ = gzw.Flush()
+					} else {
+						_, _ = io.WriteString(w, chunk)
+					}
 					if flusher != nil {
 						flusher.Flush()
 					}
@@ -162,6 +193,11 @@ func NewMockBackend(clusterName string, response int, body string) *MockBackend 
 				<-b.SSEHold
 			}
 			writeSSE(b.SSETrailing)
+			if gzw != nil {
+				// Close writes the gzip trailer; the client (and BFE's tap) needs
+				// it to see a clean end of stream.
+				_ = gzw.Close()
+			}
 			return
 		}
 

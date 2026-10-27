@@ -10,6 +10,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Add `Server.AIUpstreamAcceptEncoding` (`auto`/`identity`/`off`, default `auto`): how `Accept-Encoding` is rewritten on an AI upstream request, so content negotiation stays inside the coding set the gateway can decode (`gzip`, `deflate`). `auto` keeps only the decodable codings of the client's list (q values preserved, an empty intersection is left untouched, `identity;q=0` is honoured), `identity` strips compression for diagnostics, `off` keeps the previous behaviour. The rewrite only touches the outbound header: the inbound request, the access log, `mod_ai_cache` and `mod_compress` still see the client value (issue #1468)
+- Add `bfe_util.NewContentDecoder` / `CanDecodeContentEncoding` / `SupportedContentEncodings`, a streaming `Content-Encoding` decoder covering `gzip`/`x-gzip` and `deflate` (zlib header sniffed, raw DEFLATE accepted). `DecodeContentEncoding` now delegates to it, so the non-streaming parse-only copy also understands `deflate` (issue #1468)
+- Add the `ResStreamCompressed` / `ResStreamDecoded` / `ResStreamDecodeSkipped` / `ResStreamRawOnly` `mod_body_process` counters: how many responses carried a `Content-Encoding`, how many got the decompress-for-parsing tap, how many could not be decoded and how many degraded mid-stream. The last two mean "this request is billed by estimation", i.e. the only signal that an upstream ignored the narrowed `Accept-Encoding` (issue #1468)
+
+### Changed
+- An AI upstream request whose client `Accept-Encoding` contains codings the gateway cannot decode no longer receives them (`Server.AIUpstreamAcceptEncoding = auto`, the default): the upstream is offered `gzip`/`deflate` only, so a client that asked for `zstd` may now receive `gzip` instead (still inside its own `Accept-Encoding`, <1% size difference). Set `Server.AIUpstreamAcceptEncoding = off` to keep the previous negotiation (issue #1468)
+
+### Fixed
+- Parse the usage of a compressed streaming (SSE) response instead of estimating it: `mod_body_process` bypassed any `Content-Encoding` body to a byte-wise pass-through, so `cache_read_tokens` stayed 0, `prompt_tokens` fell back to the request-body estimate and `completion_tokens` to the compressed-bytes estimate, and the whole prompt was billed at the input price — measured on the field at a 96% cache-hit rate that overcharges by roughly 46x and writes `ai_usage_source=estimated`. Compressed SSE now goes through `CompressedStreamDecoder`, which tees the source into a decompressor used only for parsing while the original compressed bytes are forwarded verbatim together with the `Content-Encoding` header; a decompression failure or an unsupported coding degrades to a byte-exact pass-through plus the estimate, visibly (issue #1468)
+- Report a skipped `stream_options.include_usage` injection when the request body exceeds `Server.AccessibleBodySize`: the injection used to fail silently, which raised the probability of an upstream returning no usage at all (issue #1468)
+
 ## [v1.8.8.6] - 2026-10-22
 
 ### Fixed
