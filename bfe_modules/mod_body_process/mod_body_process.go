@@ -42,6 +42,16 @@ type ModuleBodyProcessState struct {
 	ReqProcess *metrics.Counter
 	ResProcess *metrics.Counter
 	InFlight   *metrics.Gauge
+
+	// Compressed streaming responses (issue #1468): how many carried a
+	// Content-Encoding, how many got the decompress-for-parsing tap, how many
+	// could not be decoded at all, and how many degraded mid-stream. The last
+	// two mean "this request is billed by estimation", i.e. the only signal
+	// that an upstream ignored the narrowed Accept-Encoding.
+	ResStreamCompressed    *metrics.Counter
+	ResStreamDecoded       *metrics.Counter
+	ResStreamDecodeSkipped *metrics.Counter
+	ResStreamRawOnly       *metrics.Counter
 }
 
 type ModuleBodyProcess struct {
