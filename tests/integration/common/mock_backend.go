@@ -15,6 +15,7 @@
 package common
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -83,6 +84,13 @@ type MockBackend struct {
 	// (default "text/event-stream"). It exists to exercise the response-side
 	// SSE detection for vendor media types.
 	SSEContentType string
+	// SSECompress, when "gzip", compresses the SSE body: every frame is written
+	// through one streaming gzip writer and flushed, the Content-Encoding: gzip
+	// header is set and the response is chunked. It exists for issue #1468: an
+	// upstream that compresses a server-sent event stream must still yield a
+	// parseable usage, which only a per-frame flush can exercise (a single
+	// compressed block does not cross frames).
+	SSECompress string
 	// SNIRecorder, if non-nil, is called with the TLS ClientHello server name
 	// on every TLS handshake (TLS mock backend only).
 	SNIRecorder func(serverName string)
@@ -203,36 +211,59 @@ func (b *MockBackend) handler() http.HandlerFunc {
 			status, body = b.ResponseFunc(r, count)
 		}
 
-		if b.SSERaw != nil {
+		if b.SSERaw != nil || b.SSEEvents != nil {
 			w.Header().Set("Content-Type", b.sseContentType())
+			if b.SSECompress != "" {
+				if b.SSECompress != "gzip" {
+					http.Error(w, "unsupported SSECompress "+b.SSECompress, http.StatusInternalServerError)
+					return
+				}
+				// Declared before WriteHeader so the header reaches the client;
+				// BFE forwards it verbatim (issue #1468).
+				w.Header().Set("Content-Encoding", "gzip")
+			}
 			w.WriteHeader(status)
+
 			flusher, _ := w.(http.Flusher)
-			for _, chunk := range b.SSERaw {
-				fmt.Fprint(w, chunk)
+			var gzw *gzip.Writer
+			if b.SSECompress == "gzip" {
+				gzw = gzip.NewWriter(w)
+			}
+			// writeFrame emits one SSE frame, flushing the compressor per frame
+			// so the response exercises incremental decompression on the way
+			// back (a single compressed block would not cross frames).
+			writeFrame := func(chunk string) {
+				if gzw != nil {
+					_, _ = io.WriteString(gzw, chunk)
+					_ = gzw.Flush()
+				} else {
+					_, _ = io.WriteString(w, chunk)
+				}
 				if flusher != nil {
 					flusher.Flush()
 				}
 			}
-			return
-		}
 
-		if b.SSEEvents != nil {
-			w.Header().Set("Content-Type", b.sseContentType())
-			w.WriteHeader(status)
-			flusher, _ := w.(http.Flusher)
-			writeSSE := func(events []string) {
-				for _, event := range events {
-					fmt.Fprintf(w, "data: %s\n\n", event)
-					if flusher != nil {
-						flusher.Flush()
-					}
+			if b.SSERaw != nil {
+				for _, chunk := range b.SSERaw {
+					writeFrame(chunk)
+				}
+			} else {
+				for _, event := range b.SSEEvents {
+					writeFrame("data: " + event + "\n\n")
+				}
+				if b.SSEHold != nil {
+					<-b.SSEHold
+				}
+				for _, event := range b.SSETrailing {
+					writeFrame("data: " + event + "\n\n")
 				}
 			}
-			writeSSE(b.SSEEvents)
-			if b.SSEHold != nil {
-				<-b.SSEHold
+			if gzw != nil {
+				// Close writes the gzip trailer; the client (and BFE's tap) needs
+				// it to see a clean end of stream.
+				_ = gzw.Close()
 			}
-			writeSSE(b.SSETrailing)
 			return
 		}
 
