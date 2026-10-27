@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v1.8.8.7] - 2026-10-27
 
 ### Added
 - Add `Server.AIUpstreamAcceptEncoding` (`auto`/`identity`/`off`, default `auto`): how `Accept-Encoding` is rewritten on an AI upstream request, so content negotiation stays inside the coding set the gateway can decode (`gzip`, `deflate`). `auto` keeps only the decodable codings of the client's list (q values preserved, an empty intersection is left untouched, `identity;q=0` is honoured), `identity` strips compression for diagnostics, `off` keeps the previous behaviour. The rewrite only touches the outbound header: the inbound request, the access log, `mod_ai_cache` and `mod_compress` still see the client value (issue #1468)
@@ -596,6 +596,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flexible plugin framework to extend functionality. Based on the framework, developer can add new features rapidly
 - Detailed built-in metrics available for service status monitor
 
+[v1.8.8.7]: https://github.com/bfenetworks/bfe/compare/v1.8.8.6...v1.8.8.7
 [v1.8.8]: https://github.com/bfenetworks/bfe/compare/v1.8.7...v1.8.8
 [v1.8.7]: https://github.com/bfenetworks/bfe/compare/v1.8.6...v1.8.7
 [v1.8.6]: https://github.com/bfenetworks/bfe/compare/v1.8.5...v1.8.6
