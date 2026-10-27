@@ -16,6 +16,7 @@ package bfe_conf
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_util"
@@ -25,6 +26,19 @@ import (
 const (
 	BalancerProxy = "PROXY" // layer4 balancer working in PROXY mode (eg. F5, Ctrix, ELB etc)
 	BalancerNone  = "NONE"  // layer4 balancer not used
+)
+
+// Modes of Server.AIUpstreamAcceptEncoding (issue #1468).
+const (
+	// AIUpstreamAcceptEncodingAuto keeps only the codings the gateway can
+	// decode after intersecting with the client's Accept-Encoding.
+	AIUpstreamAcceptEncodingAuto = "auto"
+	// AIUpstreamAcceptEncodingIdentity strips compression so the upstream
+	// answers in plaintext (diagnostics).
+	AIUpstreamAcceptEncodingIdentity = "identity"
+	// AIUpstreamAcceptEncodingOff forwards the client value unchanged, i.e.
+	// the behaviour before issue #1468.
+	AIUpstreamAcceptEncodingOff = "off"
 )
 
 type ConfigBasic struct {
@@ -57,6 +71,13 @@ type ConfigBasic struct {
 	// streaming chat completion requests (when the client did not set it), so
 	// the upstream returns the real final usage chunk (issue #1398).
 	InjectStreamUsage bool
+	// AIUpstreamAcceptEncoding controls how Accept-Encoding is rewritten on an
+	// AI upstream request: "auto" keeps only the codings the gateway can decode
+	// ("gzip", "deflate") after intersecting with the client value, "identity"
+	// strips compression, "off" forwards the client value unchanged (issue
+	// #1468: a compressed SSE body cannot be parsed for usage unless the coding
+	// stays inside the decodable set).
+	AIUpstreamAcceptEncoding string
 
 	AccessibleBodySize  int64 // max size in bytes to buffer request body for rewriting/fallback
 	TotalBodyBufferSize int64 // max total bytes of all active bytes_body buffers (0 means unlimited)
@@ -119,10 +140,25 @@ func (cfg *ConfigBasic) SetDefaultConf() {
 	// conf file, so an explicit conf value still overrides them.
 	cfg.EstimateToken = true
 	cfg.InjectStreamUsage = true
+	cfg.AIUpstreamAcceptEncoding = AIUpstreamAcceptEncodingAuto
 }
 
 func (cfg *ConfigBasic) Check(confRoot string) error {
 	return ConfBasicCheck(cfg, confRoot)
+}
+
+// NormalizeAIUpstreamAcceptEncoding maps a configured
+// Server.AIUpstreamAcceptEncoding value onto a known mode: an unrecognised or
+// empty value falls back to "auto" (issue #1468).
+func NormalizeAIUpstreamAcceptEncoding(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case AIUpstreamAcceptEncodingIdentity:
+		return AIUpstreamAcceptEncodingIdentity
+	case AIUpstreamAcceptEncodingOff:
+		return AIUpstreamAcceptEncodingOff
+	default:
+		return AIUpstreamAcceptEncodingAuto
+	}
 }
 
 func ConfBasicCheck(cfg *ConfigBasic, confRoot string) error {

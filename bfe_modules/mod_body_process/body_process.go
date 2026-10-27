@@ -24,10 +24,13 @@ import (
 
 	"github.com/tidwall/gjson"
 
+	"github.com/bfenetworks/go-lib/log"
+
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_model_protocol/utils"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 // BodyProcessor 扩展中断支持
@@ -131,6 +134,14 @@ func (bp *BodyProcessor) CreateEventDecoder(fac EventDecoderFac) {
 		bp.err = &BPError{fmt.Errorf("create event decoder: %w", err)}
 		return
 	}
+	bp.decoder = dec
+}
+
+// SetEventDecoder installs an already built decoder. Unlike CreateEventDecoder
+// it cannot fail, which lets a caller that built the decoder elsewhere (e.g. the
+// compressed stream tap of issue #1468) choose a different fallback instead of
+// poisoning bp.err.
+func (bp *BodyProcessor) SetEventDecoder(dec EventDecoder) {
 	bp.decoder = dec
 }
 
@@ -247,6 +258,12 @@ func (bp *BodyProcessor) Close() error {
 	// bp.mu.Lock()
 	// defer bp.mu.Unlock()
 
+	// Release the decoder as well: the compressed stream tap owns a
+	// decompressor that must be closed (issue #1468).
+	if closer, ok := bp.decoder.(io.Closer); ok {
+		_ = closer.Close()
+	}
+
 	return bp.source.Close()
 }
 
@@ -335,12 +352,18 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 	case "json":
 		bp.CreateEventDecoder(NewJsonDecoder)
 	default:
-		if hasContentEncoding(res.Header.Get("Content-Encoding")) {
+		if encoding := res.Header.Get("Content-Encoding"); hasContentEncoding(encoding) {
 			// The body is compressed, so it is not the declared media type: a
 			// JSON/SSE decoder would fail on the compressed bytes and truncate
-			// the forwarded body. Pass the bytes through untouched
-			// (LineDecoder preserves them verbatim); for non-stream responses
-			// mod_ai_token_auth parses the decoded copy instead (issue #1406).
+			// the forwarded body. A compressed SSE stream gets the tap decoder,
+			// which forwards the compressed bytes verbatim while parsing usage
+			// from a decompressed copy (issue #1468); everything else passes the
+			// bytes through untouched and, when non-streaming, is parsed from the
+			// decoded copy in mod_ai_token_auth instead (issue #1406).
+			if tp := m.newCompressedStreamTap(res, encoding, ccq != nil); tp != nil {
+				bp.SetEventDecoder(tp)
+				break
+			}
 			bp.CreateEventDecoder(NewLineDecoder)
 			break
 		}
@@ -374,6 +397,44 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 	res.ContentLength = -1 // 设置为-1表示不确定长度
 	res.Header.Del("Content-Length")
 	return bp
+}
+
+// newCompressedStreamTap builds the streaming usage tap for a compressed SSE
+// response (issue #1468). It returns nil when the tap cannot be used, so the
+// caller keeps the byte-exact pass-through of issue #1406 and the request falls
+// back to the token estimate.
+func (m *ModuleBodyProcess) newCompressedStreamTap(res *bfe_http.Response,
+	encoding string, hasQuotaUsage bool) EventDecoder {
+	m.state.ResStreamCompressed.Inc(1)
+
+	if !hasQuotaUsage {
+		// No QuotaUsageProcessor: nothing reads usage (only content-audit rules
+		// are configured), and the audit cannot use the plaintext either, so the
+		// decompression would be pure overhead.
+		return nil
+	}
+	if !res.IsSse {
+		// A compressed non-streaming body is parsed from the decoded copy in
+		// mod_ai_token_auth instead (issue #1406).
+		return nil
+	}
+	if !bfe_util.CanDecodeContentEncoding(encoding) {
+		m.state.ResStreamDecodeSkipped.Inc(1)
+		log.Logger.Warn("%s: unsupported content-encoding %q, stream usage falls back to estimation",
+			m.name, encoding)
+		return nil
+	}
+
+	tap, err := NewCompressedStreamDecoder(res.Body, encoding, NewSSEEventDecoder)
+	if err != nil {
+		m.state.ResStreamDecodeSkipped.Inc(1)
+		log.Logger.Warn("%s: build stream usage decoder failed, content-encoding %q: %v",
+			m.name, encoding, err)
+		return nil
+	}
+	tap.SetRawOnlyCallback(func() { m.state.ResStreamRawOnly.Inc(1) })
+	m.state.ResStreamDecoded.Inc(1)
+	return tap
 }
 
 /*
