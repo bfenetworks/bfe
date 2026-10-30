@@ -501,9 +501,12 @@ func TestTC02_ExplicitIncludeUsageFalseFallsBackToEstimate(t *testing.T) {
 	}
 }
 
-// TestTC03 verifies issue #1398: a client abort without final usage is not
-// billed (issue #1352 semantics) while the access log keeps the auth-seeded
-// prompt estimate — the reset guard must never wipe the log view.
+// TestTC03 verifies issue #1478 (billed abort arm, pb3 log view): with
+// EstimateToken=true a client abort without a final usage is billed by the
+// forwarded-content estimate, and the access log reports the estimate
+// (in + out) with ai_usage_source=aborted instead of the issue #1398-era
+// "keep the seeding residue, total=0" shape. The estimation-disabled
+// zero-deduction arm is covered by SC12 TC-04.
 func TestTC03_ClientAbortKeepsLogViewZeroDeduction(t *testing.T) {
 	e := newTestEnv(t)
 	defer e.Close()
@@ -520,23 +523,35 @@ func TestTC03_ClientAbortKeepsLogViewZeroDeduction(t *testing.T) {
 	readUntilMarker(t, conn, reader, "chatcmpl-1")
 	abortRST(t, conn)
 
+	// prompt = auth-time seeding (request body / 4); completion = every frame
+	// the estimator saw / 4 — the forwarded content chunk plus the error frame
+	// issue #1474's injector emits when the abort closes the upstream body
+	// (same accounting as TC-07/08).
+	promptEst := int64(len(openAIStreamBody)) / 4
+	completionEst := int64(len(openAIContentChunk))/4 + int64(len(openAIInjectedErrorData))/4
+	wantRemaining := initialQuota - (promptEst*300 + completionEst*900)
+
 	remaining := e.quotaRemaining(t)
-	if remaining != initialQuota {
-		t.Fatalf("client abort without final usage must not be deducted: remaining = %d, want %d",
-			remaining, initialQuota)
+	if remaining != wantRemaining {
+		t.Fatalf("client abort must be billed by the forwarded-content estimate: remaining = %d, want %d (promptEst=%d completionEst=%d)",
+			remaining, wantRemaining, promptEst, completionEst)
 	}
 	_ = resp.Body.Close()
 
-	// Log view: the auth-seeded prompt estimate survives; total stays 0
-	// (nothing billed, no final usage).
-	promptEst := int64(len(openAIStreamBody)) / 4
 	reqLogs := e.stopAndParseLogs()
 	reqLog := reqLogs[len(reqLogs)-1]
 	if reqLog.AiInputTokens == nil || *reqLog.AiInputTokens != promptEst {
-		t.Errorf("ai_input_tokens = %v, want %d (log view must keep the auth estimate)", reqLog.AiInputTokens, promptEst)
+		t.Errorf("ai_input_tokens = %v, want %d (auth estimate)", reqLog.AiInputTokens, promptEst)
 	}
-	if reqLog.AiTotalTokens == nil || *reqLog.AiTotalTokens != 0 {
-		t.Errorf("ai_total_tokens = %v, want 0 (aborted, nothing billed)", reqLog.AiTotalTokens)
+	if reqLog.AiOutputTokens == nil || *reqLog.AiOutputTokens != completionEst {
+		t.Errorf("ai_output_tokens = %v, want %d (forwarded-content estimate)", reqLog.AiOutputTokens, completionEst)
+	}
+	if reqLog.AiTotalTokens == nil || *reqLog.AiTotalTokens != promptEst+completionEst {
+		t.Errorf("ai_total_tokens = %v, want %d (mirrored estimate, issue #1398 semantics)",
+			reqLog.AiTotalTokens, promptEst+completionEst)
+	}
+	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceAborted {
+		t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceAborted)
 	}
 }
 

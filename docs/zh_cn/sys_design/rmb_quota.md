@@ -352,7 +352,7 @@ type AiBasicInfo struct {
 - **流式 clean-EOF 兜底**（issue #1415）：`ServeHTTPForAI` 在 SSE 响应体完整交付（`copyResponse` 成功，chunked 读到终止 chunk / 定长凑齐 `Content-Length`）且状态 200 时置位 `MarkResponseCompleted()`。上游不发终止事件也不发 usage、以干净 HTTP EOF 收尾的流（如部分 anthropic-compat 端点的 omit-usage 响应）由此满足估算计费门控——与 gemini 适配器 `StreamEndsAtEOF` 的「流结束于 EOF」口径对齐，且对全部协议一致适用。客户端中断与上游中途断流表现为拷贝错误，不会误置位，#1352 中断语义不变。
 - **非流式 Anthropic JSON 视同最终 usage**（issue #1364）：顶层 `type:"message"` 且解析出非 guess usage（`output_tokens > 0`）的整体响应，与 SSE `message_delta` 等价，置位 `finalUsageSeen`；整条 body 作为单个事件处理完成时同时置位 `responseCompleted`。否则 Anthropic 非流式响应（尤其是 chunked、`ContentLength = -1`）两个标记都打不上，会落入"未完成"守卫。
 - **上游异常断流 → 估算计费 + 客户端错误事件**（issue #1474）：`ServeHTTPForAI` 按拷贝错误归因——读侧错误且 CloseWatcher 未触发（客户端仍在）时，`err_code` 记 `BK_READ_RESP_BODY`（不再是 `CLIENT_WRITE`）、置 `MarkUpstreamDropped()`，通过 `streamTruncationInjector` 向客户端流内补发协议错误事件（默认开启，`NormalizeUpstreamError.StreamTruncatedError=false` 可关）；收尾时 `upstreamDropped` 与 `responseCompleted` 同为估算计费门控，按已转发内容估算扣费（`ai_usage_source=upstream_dropped`，计数 `UpstreamDropBilled`）。客户端中断仍在写侧/CloseWatcher 路径判定，零扣费语义不变。
-- 计费语义：EstimateToken 的估算值仅在 `responseCompleted` 或 `upstreamDropped` 为 true 时可计费；客户端中断（`ErrClientWrite` / `ErrClientClose` / `ErrClientReset`）且未拿到最终 usage 的请求零扣费，已拿到最终 usage 的按实际 usage 扣费，见 7.5。
+- 计费语义：EstimateToken 的估算值仅在 `responseCompleted`、`upstreamDropped` 或"客户端中断且未拿到最终 usage"（issue #1478）为真时可计费，且中断/断流场景只按**已转发内容**估算；EstimateToken 关闭时客户端中断（`ErrClientWrite` / `ErrClientClose` / `ErrClientReset`）一律零扣费，已拿到最终 usage 的按实际 usage 扣费，见 7.5。
 - **计费与统计视图隔离**（issue #1398）：请求结束阶段的"不可计费"清零守卫只作用于计费副本（`billingUsage := *tokenUsage`），不回写共享 `TokenUsage`——访问日志（mod_access_pb3）与下游统计读共享对象，保留真实解析值/批准口径的估算值，不再静默记 0；仅计费结果 `UsedCost` 写回共享对象。
 
 ## 7. 请求运行时改动
@@ -597,10 +597,14 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
         return bfe_module.BfeHandlerGoOn
     }
 
-    // 客户端中断（RST/断开/写客户端失败）且未拿到最终 usage：零扣费（issue #1352）。
+    // 客户端中断（RST/断开/写客户端失败）且未拿到最终 usage（issue #1352 口径）：
+    // EstimateToken 开启时按已转发内容估算计费（issue #1478：下沉到通用计费路径，
+    // prompt 取鉴权期播种、completion 取逐 chunk 已转发累加，未交付内容不计费）；
+    // EstimateToken 关闭时保持零扣费并保留信号。
     // 注意 SSE 场景下响应头已以 200 刷出，res.StatusCode 无区分度，必须看 req.ErrCode。
     aborted := isClientAbortErr(req.ErrCode) // ErrClientWrite / ErrClientClose / ErrClientReset
-    if aborted && !ctx.aiBasicInfo.IsFinalUsageSeen() {
+    abortedNoFinalUsage := aborted && !ctx.aiBasicInfo.IsFinalUsageSeen()
+    if abortedNoFinalUsage && !ctx.aiBasicInfo.IsAllowEstimateToken() {
         ctx.deducted = true
         return bfe_module.BfeHandlerGoOn
     }
@@ -617,7 +621,8 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
     // 日志（mod_access_pb3）与统计读共享对象，保留观测值/估算值，
     // 不再静默记 0；仅计费结果 UsedCost 写回。
     billingUsage := *tokenUsage
-    estimateBillable := ctx.aiBasicInfo.IsAllowEstimateToken() && ctx.aiBasicInfo.IsResponseCompleted()
+    estimateBillable := ctx.aiBasicInfo.IsAllowEstimateToken() &&
+        (ctx.aiBasicInfo.IsResponseCompleted() || ctx.aiBasicInfo.IsUpstreamDropped() || abortedNoFinalUsage)
     if !ctx.aiBasicInfo.IsFinalUsageSeen() && !estimateBillable {
         billingUsage.PromptTokens = 0
         billingUsage.CompletionTokens = 0
@@ -683,7 +688,8 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 | 正常完成，usage 存在但各项计数为 0 | true（issue #1414 起按 usage 对象存在性判定） | 按真实 0 计费（不估算；修复前该形态被值判定误判为"无 usage"而按估算计费） |
 | 正常完成，无 usage + EstimateToken | false（responseCompleted=true） | 按估算计费 |
 | 正常完成，无 usage + `EstimateToken=false` | false | 零扣费（issue #1398 起出厂默认 EstimateToken=true，该行为仅显式关闭时出现） |
-| 客户端中断/写失败，未拿到最终 usage | false | 零扣费（无论此前是否已解析出初始 usage，如 Anthropic `message_start`） |
+| 客户端中断/写失败，未拿到最终 usage + EstimateToken | false（issue #1478 起按中断维度计入估算门控） | 按已转发内容估算计费（`ai_usage_source=aborted`，计 `AbortBillingEstimated`；未转发内容不计费） |
+| 客户端中断/写失败，未拿到最终 usage + `EstimateToken=false` | false | 零扣费（无论此前是否已解析出初始 usage，如 Anthropic `message_start`；计 `AbortBillingSkipped` + `ai_zero_cost_reason=aborted`） |
 | 上游流中途异常断流（如后端进程被 kill），未拿到最终 usage + EstimateToken | false（issue #1474 起 `upstreamDropped=true`） | 按已转发内容估算计费（`ai_usage_source=upstream_dropped`，计 `UpstreamDropBilled`；客户端同时收到注入的协议错误事件） |
 | 上游流中途异常断流，未拿到最终 usage + `EstimateToken=false` | false（`upstreamDropped=true`） | 零扣费，`ai_usage_source=unrecognized` + `ai_zero_cost_reason=upstream_dropped`（不静默） |
 | 客户端中断/写失败，已拿到最终 usage | true | 按实际 usage |
@@ -698,8 +704,8 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 
 > 说明（issue #1410）："usage 未识别且不可估算"守卫分支（上表"零扣费"且 2xx 的两行）本身**计费口径不变**，但必须可观测，绝不静默跳过。修复后该分支在判定成立处产生两类同源信号：
 >
-> 1. **模块计数器 + 告警日志**：`mod_ai_token_auth.UsageUnrecognized` 自增（经 `monitorHandlers` 及 `.diff` 导出，可直接配阈值告警），并输出 Warn（携带 cluster / key_id / model / response_completed / allow_estimate，免回源码即可初判成因）。客户端中止跳过计费分支（issue #1352 既定口径）当时同模式计数；**issue #1414 起该分支改由独立计数器 `AbortBillingSkipped` 承载**，`UsageUnrecognized` 语义随之收窄为"仅上游 usage 未识别"。
-> 2. **访问日志 usage 来源标记**：请求结束时按同一判定设置 `ai_usage_source`（`bfe-access-pb >= v0.3.15` 字段 764）——`parsed`（上游响应解析出 final usage）、`estimated`（`EstimateToken` 估算且已获准计费）、`unrecognized`（本分支：计费被跳过，日志 token 字段为鉴权期播种残留）；非 2xx 行维持 usage 字段整体缺席、本字段亦缺席。`unrecognized` 行照常输出数值字段（issue #1398 口径：missing usage 可见），对账查询 `ai_usage_source='unrecognized'` 即漏计费候选集，不再依赖 `total=0 且 in/out>0` 的跨字段矛盾签名或外部先验。**issue #1414 起新增第 4 个取值 `aborted`**（客户端中止且未拿到 final usage）；**issue #1474 起新增第 5 个取值 `upstream_dropped`**（上游流中途异常断流且按已转发内容估算计费）。
+> 1. **模块计数器 + 告警日志**：`mod_ai_token_auth.UsageUnrecognized` 自增（经 `monitorHandlers` 及 `.diff` 导出，可直接配阈值告警），并输出 Warn（携带 cluster / key_id / model / response_completed / allow_estimate，免回源码即可初判成因）。客户端中止跳过计费分支（issue #1352 既定口径）当时同模式计数；**issue #1414 起该分支改由独立计数器 `AbortBillingSkipped` 承载**，`UsageUnrecognized` 语义随之收窄为"仅上游 usage 未识别"；**issue #1478 起 `AbortBillingSkipped` 进一步收窄为"中断且 EstimateToken 关闭、确实零扣费"**，估算计费的中断请求改计新增的 `AbortBillingEstimated`。
+> 2. **访问日志 usage 来源标记**：请求结束时按同一判定设置 `ai_usage_source`（`bfe-access-pb >= v0.3.15` 字段 764）——`parsed`（上游响应解析出 final usage）、`estimated`（`EstimateToken` 估算且已获准计费）、`unrecognized`（本分支：计费被跳过，日志 token 字段为鉴权期播种残留）；非 2xx 行维持 usage 字段整体缺席、本字段亦缺席。`unrecognized` 行照常输出数值字段（issue #1398 口径：missing usage 可见），对账查询 `ai_usage_source='unrecognized'` 即漏计费候选集，不再依赖 `total=0 且 in/out>0` 的跨字段矛盾签名或外部先验。**issue #1414 起新增第 4 个取值 `aborted`**（客户端中止且未拿到 final usage；**issue #1478 起该值不再等同"计费被跳过"**——它是断开原因标记，计费结果看 `ai_cost_value`，零扣费候选集以 `ai_zero_cost_reason=aborted` 判定）；**issue #1474 起新增第 5 个取值 `upstream_dropped`**（上游流中途异常断流且按已转发内容估算计费）。
 >
 > 修复前该分支全链零信号：守卫体内既无计数器也无日志，`ai_total_tokens=0` 与真实零用量同形，估算镜像生效（`tokenUsage.UsedQuota` 被回写估算值）后"漏计费"行与"估算计费"行亦同形——生产实测单日 95.5% 的收入缺口（736 行）只能靠带外人工对账脚本发现。
 >
@@ -712,7 +718,7 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 > 3. **零计费收口信号**：新增计数器 `mod_ai_token_auth.BillingZeroCost` 与访问日志字段 `ai_zero_cost_reason`（`bfe-access-pb >= v0.3.16`，field 765），在每个"绑定 RMB 计划且计费为 0"的**可计费** 2xx 请求的收口点计数并归因（`unrecognized` / `aborted` / `cache_hit` / `batch_release` / `price_miss` / `price_zero` / `model_table_missing` / `config_missing` / `no_usage_tokens`，未分类时兜底 `cost_zero`）；同时 `ai_cost_value` 对已观测行显式写 0，使"零成本"与"字段缺席"可区分。
 >    - **两类形态被有意排除（计数器与原因码两侧一致，都不产生）**：① AI 缓存命中——上游从未调用，零成本属设计，仅写 `ai_zero_cost_reason=cache_hit` 供行级查询，不计入计数器；② 从未成为可计费模型调用的请求——`mode` 为 `file`/`batch` 的批量与 files 管理端点（upload/create/get/list/cancel/download）以及未解析出 `target_model` 的请求（绑定 API Key 与 RMB 计划但无模型用量，计入会抬高每个批量生命周期的告警基数）。批量**结算**有独立收口点，不受此排除影响。
 >    - `no_usage_tokens` 承接"观测本身解释了零成本"的形态（上游明确报零用量、image/video 模式生成数为 0），`cost_zero` 为兜底；已在自身位置告警的形态（未识别守卫、中止分支、价格查找、model table 查找）不在收口点重复告警。
-> 4. **中止分支拆分**：客户端中止且未拿到 final usage 的分支（issue #1352 既定口径，无论此前是否已解析出初始 usage，如 Anthropic `message_start`）改计 `AbortBillingSkipped` 并置 `ai_usage_source=aborted`，在监控与日志两侧都与"上游未识别"可区分；不追加 Warn（客户端中断率会放大日志量）。
+> 4. **中止分支拆分**：客户端中止且未拿到 final usage 的分支（issue #1352 口径，无论此前是否已解析出初始 usage，如 Anthropic `message_start`）在监控与日志两侧都与"上游未识别"可区分。**issue #1478 起按 EstimateToken 再分两路**：估算开启时按已转发内容估算计费（计 `AbortBillingEstimated`，`ai_usage_source=aborted`、不置 `ai_zero_cost_reason`）；估算关闭时零扣费（计 `AbortBillingSkipped`、`ai_zero_cost_reason=aborted`）。两路均不追加 Warn（客户端中断率会放大日志量）。
 > 5. **扣减失败可计数**：新增 `DeductFailed` 计数器，Redis 扣减失败不再只有一行日志。
 >
 > 已知边界：`BillingZeroCost` 会把"上游合法返回 0 用量且未被判为 `parsed`"的形态（如 image 模式 `image_count=0`）归入 `no_usage_tokens`，需在运营初期据此校准告警阈值；缓存维度拆分漏计与余额封顶欠额属计费口径缺陷，另案处理。
@@ -1377,7 +1383,7 @@ return {yuan, frac}
      - 覆盖 Anthropic 高 cache 命中场景（`cache_read_tokens > prompt_tokens`）不再被截断，cache 按实际值计费；
      - 覆盖 `tokenRequestFinishHandler` 对 `/count_tokens` 端点跳过扣费；
      - 覆盖 `HandleRequestFinish` 多次触发时仅扣费一次（`deducted` 幂等标记）；
-     - 覆盖客户端中断场景（issue #1352）：`ErrClientWrite` 且未拿到最终 usage 时零扣费（`EstimateToken` 开/关一致）、已拿到最终 usage 后中断按实际 usage 扣费、响应未完成时估算不生效（`TestTokenRequestFinishHandler_ClientAbort*` 系列）；
+     - 覆盖客户端中断场景：**issue #1352 语义保留在"已拿到最终 usage 按实际扣费、EstimateToken 关闭时零扣费"**；**issue #1478 起估算开启时未拿到最终 usage 的中断按已转发内容估算扣费（`AbortBillingEstimated`）**，关闭时零扣费（`AbortBillingSkipped` + `ai_zero_cost_reason=aborted`），响应未完成（`responseCompleted=false`）本身不再阻止估算兜底（`TestTokenRequestFinishHandler_ClientAbort*` / `*UpstreamDrop*` 系列）；
      - 覆盖守卫清零完整性（issue #1364）：构造 `{PromptTokens:0, CompletionTokens:0, CacheReadTokens:N, UsedQuota:0}` 且 `IsFinalUsageSeen()==false`、`IsResponseCompleted()==false` 的上下文，断言 `tokenRequestFinishHandler` 后 `UsedCost == 0`（残存子字段不得流向扣费）；
      - 覆盖跨协议兜底（issue #1364）：`UpdateCtxByUsage` 传入 `AuthStyle=openai` + Anthropic 格式 body（`usage.input_tokens`/`cache_read_input_tokens`/`output_tokens`），断言回退组合链后 `UsedQuota > 0` 且 prompt/completion/cache 子字段正确。
    - `ActiveTierName`：验证北京时区周一 10:00 命中 `peak`、周一 13:00 未命中、周六 10:00 未命中、周一 18:00 不命中（左闭右开）。

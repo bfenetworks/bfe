@@ -87,21 +87,29 @@ type ModuleAITokenAuthState struct {
 	// zero-usage request parses successfully and never lands here.
 	UsageUnrecognized *metrics.Counter
 	// AbortBillingSkipped counts client aborts (RST/close/write failure)
-	// detected before the final usage was seen: billing is skipped entirely
-	// per the issue #1352 yardstick, whether or not an initial usage (e.g.
-	// Anthropic message_start) was already parsed. It was counted by
-	// UsageUnrecognized until issue #1414 split the two causes, so that an
-	// upstream/parsing problem and a client-side disconnect stay separable:
-	// only the former should be alerted on, while the latter tracks the
-	// client-abort rate.
+	// detected before the final usage was seen AND charged 0 because the
+	// forwarded-content estimate is disabled (EstimateToken=false). Since
+	// issue #1478 an abort is billable by the estimate when EstimateToken
+	// allows (the issue #1352 intent is preserved: only content delivered
+	// to the client is billed); those requests are counted by
+	// AbortBillingEstimated instead. It was counted by UsageUnrecognized
+	// until issue #1414 split the two causes, so that an upstream/parsing
+	// problem and a client-side disconnect stay separable.
 	AbortBillingSkipped *metrics.Counter
+	// AbortBillingEstimated counts client aborts billed by the
+	// forwarded-content estimate (issue #1478): prompt tokens seeded at
+	// auth time plus the per-chunk accumulation of content actually
+	// forwarded to the client before the disconnect. Together with
+	// AbortBillingSkipped it keeps the billable and the zero-billed abort
+	// shapes separable.
+	AbortBillingEstimated *metrics.Counter
 	// UpstreamDropBilled counts 2xx requests whose upstream connection
 	// broke mid-response (issue #1474) and which were billed by the
-	// forwarded-content estimate. Unlike a client abort, content already
-	// delivered to the client is real consumption and must be charged;
-	// this counter keeps the two zero-billing-adjacent shapes separable
-	// from AbortBillingSkipped (client aborts stay zero-billed per
-	// issue #1352) and from the issue #1415 clean-EOF estimate billing.
+	// forwarded-content estimate. Like a billable client abort (#1478),
+	// content already delivered to the client is real consumption and
+	// must be charged; this counter keeps the upstream-drop shape
+	// separable from the client-abort counters and from the issue #1415
+	// clean-EOF estimate billing.
 	UpstreamDropBilled *metrics.Counter
 	// BillingZeroCost counts 2xx requests that hold an RMB quota plan and were
 	// charged 0, excluding AI cache hits (which never call the upstream, so
@@ -419,15 +427,23 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	}
 
 	// Client aborted (RST/close/write-fail) before the final usage was
-	// seen: never bill by full-request estimation (issue #1352).
+	// seen. Since issue #1478 the abort is billable by the
+	// forwarded-content estimate when EstimateToken allows — the same
+	// yardstick as a completed response: prompt tokens seeded at auth time
+	// plus the per-chunk accumulation of content actually forwarded to the
+	// client. The issue #1352 intent is preserved (content never delivered
+	// to the client is not billed); the historical zero-deduction stays
+	// only when the estimate is disabled.
 	aborted := isClientAbortErr(req.ErrCode)
-	if aborted && !ctx.aiBasicInfo.IsFinalUsageSeen() {
-		// The abort zero-deduction is a billing bypass too. issue #1414 split
-		// it out of UsageUnrecognized (a client-side disconnect is not an
-		// upstream/parsing problem and must not pollute that alert), gave it a
-		// per-request marker and counted it in BillingZeroCost. Counter-only on
-		// purpose: a warn per aborted request would just track the client-abort
-		// rate, so this branch is also excluded from the checkpoint's warn set.
+	abortedNoFinalUsage := aborted && !ctx.aiBasicInfo.IsFinalUsageSeen()
+	if abortedNoFinalUsage && !ctx.aiBasicInfo.IsAllowEstimateToken() {
+		// Estimate disabled: zero deduction. This is a billing bypass too.
+		// issue #1414 split it out of UsageUnrecognized (a client-side
+		// disconnect is not an upstream/parsing problem and must not
+		// pollute that alert), gave it a per-request marker and counted it
+		// in BillingZeroCost. Counter-only on purpose: a warn per aborted
+		// request would just track the client-abort rate, so this branch is
+		// also excluded from the checkpoint's warn set.
 		m.state.AbortBillingSkipped.Inc(1)
 		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceAborted)
 		if hasRMBPlan(ctx.Token.QuotaPlans) {
@@ -458,11 +474,12 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	// issue #1474: an upstream that dropped the connection mid-response
 	// (marked upstreamDropped in the send path) is billable by the
 	// forwarded-content estimate just like a completed response: content
-	// delivered to the client is real consumption. A client abort never
-	// reaches this gate (the issue #1352 abort branch above returns
-	// first).
+	// delivered to the client is real consumption. issue #1478: the same
+	// holds for a client abort before the final usage was seen — only the
+	// forwarded content is accumulated, so undelivered content is never
+	// billed.
 	estimateBillable := ctx.aiBasicInfo.IsAllowEstimateToken() &&
-		(ctx.aiBasicInfo.IsResponseCompleted() || ctx.aiBasicInfo.IsUpstreamDropped())
+		(ctx.aiBasicInfo.IsResponseCompleted() || ctx.aiBasicInfo.IsUpstreamDropped() || abortedNoFinalUsage)
 	unrecognized := !ctx.aiBasicInfo.IsFinalUsageSeen() && !estimateBillable
 	if unrecognized {
 		billingUsage.PromptTokens = 0
@@ -512,6 +529,14 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 		// clean-EOF estimate and a client abort.
 		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceUpstreamDropped)
 		m.state.UpstreamDropBilled.Inc(1)
+	case abortedNoFinalUsage:
+		// issue #1478: billed by the forwarded-content estimate after the
+		// client disconnected mid-stream. ai_usage_source=aborted keeps
+		// describing the cause; the billing outcome is read from
+		// ai_cost_value (the zero-cost candidate set is
+		// ai_zero_cost_reason=aborted, set only on the unbilled arm).
+		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceAborted)
+		m.state.AbortBillingEstimated.Inc(1)
 	default:
 		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceEstimated)
 	}

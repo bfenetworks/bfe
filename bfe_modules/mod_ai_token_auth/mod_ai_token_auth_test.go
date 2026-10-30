@@ -2133,8 +2133,10 @@ func TestCalcCostUnits_Tier(t *testing.T) {
 	}
 }
 
-// Issue #1352: a client abort (RST/close/write-fail) before the final usage
-// must not be billed by full-request estimation.
+// Issue #1352 / #1478: a client abort without a final usage is billed by the
+// forwarded-content estimate when EstimateToken is enabled (only delivered
+// content is charged), and keeps the historical zero deduction when the
+// estimate is disabled.
 func TestTokenRequestFinishHandler_ClientAbortNoFinalUsage(t *testing.T) {
 	m := NewModuleAITokenAuth()
 	client := newMockRedisClient()
@@ -2157,6 +2159,8 @@ func TestTokenRequestFinishHandler_ClientAbortNoFinalUsage(t *testing.T) {
 	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan}}, 100, nil)
 	ai := req.GetAiBasicInfo()
 	ai.SetAllowEstimateToken(true)
+	// Content forwarded to the client before the disconnect.
+	ai.GetTokenUsage().CompletionTokens = 20
 
 	// Client aborts right after message_start: ErrClientWrite, no final usage.
 	req.ErrCode = bfe_basic.ErrClientWrite
@@ -2166,14 +2170,26 @@ func TestTokenRequestFinishHandler_ClientAbortNoFinalUsage(t *testing.T) {
 		t.Fatalf("expected goon, got %d", ret)
 	}
 
-	if _, ok := client.data[rmbPlan.RedisKey]; ok {
-		t.Errorf("client abort without final usage must not be deducted")
+	// issue #1478: billed by the forwarded-content estimate (100 prompt +
+	// 20 completion), not zero.
+	expectedCost := quota.RmbToFixedPoint(100*0.000003 + 20*0.000009)
+	if remaining := client.data[rmbPlan.RedisKey]; remaining != rmbPlan.Quota-expectedCost {
+		t.Errorf("client abort with estimation enabled: remaining = %d, want %d", remaining, rmbPlan.Quota-expectedCost)
+	}
+	if got := ai.UsageSource(); got != bfe_basic.UsageSourceAborted {
+		t.Errorf("UsageSource = %q, want %q", got, bfe_basic.UsageSourceAborted)
+	}
+	if got := m.state.AbortBillingEstimated.Get(); got != 1 {
+		t.Errorf("AbortBillingEstimated = %d, want 1", got)
+	}
+	if got := m.state.AbortBillingSkipped.Get(); got != 0 {
+		t.Errorf("AbortBillingSkipped = %d, want 0 when the abort is billed", got)
 	}
 	if !GetTokenAuthContext(req).deducted {
 		t.Errorf("expected request context to be marked deducted")
 	}
 
-	// EstimateToken=false behaves the same.
+	// EstimateToken=false keeps the historical zero deduction.
 	req2 := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
 	req2.SvrDataConf = req.SvrDataConf
 	rmbPlan2 := &QuotaPlan{
@@ -2189,6 +2205,9 @@ func TestTokenRequestFinishHandler_ClientAbortNoFinalUsage(t *testing.T) {
 	}
 	if _, ok := client.data[rmbPlan2.RedisKey]; ok {
 		t.Errorf("client abort without final usage must not be deducted (EstimateToken=false)")
+	}
+	if got := req2.GetAiBasicInfo().ZeroCostReason(); got != bfe_basic.ZeroCostReasonAborted {
+		t.Errorf("ZeroCostReason = %q, want %q", got, bfe_basic.ZeroCostReasonAborted)
 	}
 }
 
@@ -2996,7 +3015,10 @@ func TestTokenRequestFinishHandler_ObservedDispositionKeepsLogView(t *testing.T)
 		QuotaPlans: []*QuotaPlan{rmbPlan}}, 100, nil)
 
 	ai := req.GetAiBasicInfo()
-	ai.SetAllowEstimateToken(true)
+	// Estimation disabled: the abort keeps the historical zero-deduction
+	// shape this test pins (issue #1478 moved the billable shape to
+	// AbortBillingEstimated, see ClientAbortNoFinalUsage).
+	ai.SetAllowEstimateToken(false)
 	req.ErrCode = bfe_basic.ErrClientWrite // aborted before the final usage
 
 	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK, ContentLength: -1}
@@ -3139,7 +3161,9 @@ func TestTokenRequestFinishHandler_ClientAbortCounted(t *testing.T) {
 		QuotaPlans: []*QuotaPlan{rmbPlan}}, 100, nil)
 
 	ai := req.GetAiBasicInfo()
-	ai.SetAllowEstimateToken(true)
+	// issue #1478: the zero-billed abort arm is the estimation-disabled one
+	// (the billable arm is covered by ClientAbortNoFinalUsage).
+	ai.SetAllowEstimateToken(false)
 	req.ErrCode = bfe_basic.ErrClientReset
 
 	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK, ContentLength: -1}

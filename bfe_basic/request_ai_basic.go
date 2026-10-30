@@ -354,10 +354,12 @@ const (
 	// (issue #1398).
 	UsageSourceEstimated = "estimated"
 	// UsageSourceAborted means the client disconnected (RST/close/write
-	// failure) before the final usage was seen: billing is skipped per the
-	// issue #1352 yardstick, and the reported token fields are either
-	// auth-time seeding residue or the initial usage of the stream
-	// (issue #1414).
+	// failure) before the final usage was seen. Since issue #1478 the
+	// marker describes the cause, not the billing outcome: with
+	// EstimateToken enabled the request is billed by the forwarded-content
+	// estimate, with it disabled billing is skipped per the issue #1352
+	// yardstick and the reported token fields stay auth-time seeding
+	// residue.
 	UsageSourceAborted = "aborted"
 	// UsageSourceUnrecognized means no final usage was parsed and the
 	// request is not estimatable: billing was skipped and the reported
@@ -383,7 +385,10 @@ const (
 	// mid-response and EstimateToken is off, so the forwarded content could
 	// not be billed (issue #1474).
 	ZeroCostReasonUpstreamDropped = "upstream_dropped"
-	// ZeroCostReasonAborted: the client disconnected before the final usage.
+	// ZeroCostReasonAborted: the client disconnected before the final usage
+	// and the forwarded-content estimate is disabled, so nothing was
+	// billed (issue #1478; a billable abort is charged and carries no
+	// zero-cost reason).
 	ZeroCostReasonAborted = "aborted"
 	// ZeroCostReasonCacheHit: AI cache hit, the upstream was never called.
 	ZeroCostReasonCacheHit = "cache_hit"
