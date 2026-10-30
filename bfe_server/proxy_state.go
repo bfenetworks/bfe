@@ -52,6 +52,7 @@ type ProxyState struct {
 	ErrBkReadRespHeader    *metrics.Counter
 	ErrBkRespHeaderTimeout *metrics.Counter
 	ErrBkTransportBroken   *metrics.Counter
+	ErrBkReadRespBody      *metrics.Counter // upstream dropped the response mid-stream (issue #1474)
 
 	// tls handshake
 	TlsHandshakeAll  *metrics.Counter
@@ -132,11 +133,12 @@ type ProxyState struct {
 	ReqAiKeyAffinityRedisErr    *metrics.Counter
 
 	// upstream error normalization (AIConf.NormalizeUpstreamError)
-	ErrNormalizeHit         *metrics.Counter // upstream error recognized and rewritten
-	ErrNormalizeMiss        *metrics.Counter // upstream error not recognized (passthrough)
-	ErrNormalizeRedact      *metrics.Counter // credential redaction applied
-	ErrStreamErrorRewritten *metrics.Counter // stream with at least one SSE error event rewritten
-	ErrStreamTruncated      *metrics.Counter // stream ended without the protocol's terminal event
+	ErrNormalizeHit             *metrics.Counter // upstream error recognized and rewritten
+	ErrNormalizeMiss            *metrics.Counter // upstream error not recognized (passthrough)
+	ErrNormalizeRedact          *metrics.Counter // credential redaction applied
+	ErrStreamErrorRewritten     *metrics.Counter // stream with at least one SSE error event rewritten
+	ErrStreamTruncated          *metrics.Counter // stream ended without the protocol's terminal event
+	ErrStreamTruncationInjected *metrics.Counter // error event injected after a mid-stream upstream drop (issue #1474)
 }
 
 func (s *ProxyState) ClientConnServedInc(proto string, value uint) {

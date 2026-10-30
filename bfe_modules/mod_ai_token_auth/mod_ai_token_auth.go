@@ -95,6 +95,14 @@ type ModuleAITokenAuthState struct {
 	// only the former should be alerted on, while the latter tracks the
 	// client-abort rate.
 	AbortBillingSkipped *metrics.Counter
+	// UpstreamDropBilled counts 2xx requests whose upstream connection
+	// broke mid-response (issue #1474) and which were billed by the
+	// forwarded-content estimate. Unlike a client abort, content already
+	// delivered to the client is real consumption and must be charged;
+	// this counter keeps the two zero-billing-adjacent shapes separable
+	// from AbortBillingSkipped (client aborts stay zero-billed per
+	// issue #1352) and from the issue #1415 clean-EOF estimate billing.
+	UpstreamDropBilled *metrics.Counter
 	// BillingZeroCost counts 2xx requests that hold an RMB quota plan and were
 	// charged 0, excluding AI cache hits (which never call the upstream, so
 	// their zero cost is by design). It is the structural counterpart of
@@ -108,6 +116,14 @@ type ModuleAITokenAuthState struct {
 	// Such requests were billed in the log but not charged; the failure used
 	// to produce only a log line (issue #1414).
 	DeductFailed *metrics.Counter
+	// QuotaOverage counts quota deductions that drove the balance negative
+	// (issue #1476): the plan is in arrears and the overrun is fully
+	// recorded in the balance. Since the fix, balances are never truncated
+	// at zero, so a negative balance means cumulative consumption has
+	// exceeded the plan quota — normal right after a large request exhausts
+	// a small plan, but a sustained growth under PassNoQuota signals the
+	// pass-through mode is accumulating unpaid usage.
+	QuotaOverage *metrics.Counter
 }
 
 type ModuleAITokenAuth struct {
@@ -439,7 +455,14 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	// (42.7% of 200 responses landed total_tokens=0 with TTFT > 0). Only the
 	// billing result UsedCost is written back.
 	billingUsage := *tokenUsage
-	estimateBillable := ctx.aiBasicInfo.IsAllowEstimateToken() && ctx.aiBasicInfo.IsResponseCompleted()
+	// issue #1474: an upstream that dropped the connection mid-response
+	// (marked upstreamDropped in the send path) is billable by the
+	// forwarded-content estimate just like a completed response: content
+	// delivered to the client is real consumption. A client abort never
+	// reaches this gate (the issue #1352 abort branch above returns
+	// first).
+	estimateBillable := ctx.aiBasicInfo.IsAllowEstimateToken() &&
+		(ctx.aiBasicInfo.IsResponseCompleted() || ctx.aiBasicInfo.IsUpstreamDropped())
 	unrecognized := !ctx.aiBasicInfo.IsFinalUsageSeen() && !estimateBillable
 	if unrecognized {
 		billingUsage.PromptTokens = 0
@@ -464,8 +487,14 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 			m.name, req.Route.ClusterName, ctx.aiBasicInfo.ClientKeyId, ctx.aiBasicInfo.TargetModel,
 			ctx.aiBasicInfo.IsResponseCompleted(), ctx.aiBasicInfo.IsAllowEstimateToken())
 		// issue #1414: the cause is consumed by the billing checkpoint below,
-		// which counts BillingZeroCost for this request.
-		ctx.aiBasicInfo.SetZeroCostReason(bfe_basic.ZeroCostReasonUnrecognized)
+		// which counts BillingZeroCost for this request. issue #1474: keep
+		// an upstream drop (estimate disabled) distinguishable from a
+		// generic unrecognized shape.
+		if ctx.aiBasicInfo.IsUpstreamDropped() {
+			ctx.aiBasicInfo.SetZeroCostReason(bfe_basic.ZeroCostReasonUpstreamDropped)
+		} else {
+			ctx.aiBasicInfo.SetZeroCostReason(bfe_basic.ZeroCostReasonUnrecognized)
+		}
 	}
 	// issue #1410 / #1414: record where the reported token usage came from at
 	// the same decision point, so the ai_usage_source log marker can never
@@ -477,6 +506,12 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceParsed)
 	case unrecognized:
 		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceUnrecognized)
+	case ctx.aiBasicInfo.IsUpstreamDropped():
+		// issue #1474: billed (or billable) by the forwarded-content
+		// estimate after an upstream mid-stream drop, distinct from both a
+		// clean-EOF estimate and a client abort.
+		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceUpstreamDropped)
+		m.state.UpstreamDropBilled.Inc(1)
 	default:
 		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceEstimated)
 	}
@@ -521,6 +556,12 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	if costUnits == 0 && hasRMBPlan(ctx.Token.QuotaPlans) &&
 		ctx.aiBasicInfo.TargetModel != "" && !isBatchManagementMode(ctx.aiBasicInfo.Mode) {
 		reason := ctx.aiBasicInfo.ZeroCostReason()
+		// issue #1474: an upstream drop with estimation disabled zeroed every
+		// billing field before pricing ran, so a pricing-config gap recorded
+		// by calcCostUnits must not mask the actual cause of the zero cost.
+		if unrecognized && ctx.aiBasicInfo.IsUpstreamDropped() {
+			reason = bfe_basic.ZeroCostReasonUpstreamDropped
+		}
 		if reason == "" {
 			if noBillableTokens(&billingUsage) {
 				reason = bfe_basic.ZeroCostReasonNoUsageTokens

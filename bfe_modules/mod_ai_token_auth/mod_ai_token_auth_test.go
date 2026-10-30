@@ -1831,18 +1831,10 @@ func (s *mockRedisScript) Run(key string, args ...interface{}) (interface{}, err
 			current = initial
 		}
 	}
-	deduct := current
-	if amount < current {
-		deduct = amount
-	}
-	if deduct > 0 {
-		s.client.data[key] = current - deduct
-	}
+	// issue #1476: the scripts deduct the full amount, the balance may go
+	// negative and the returned remaining is not clamped at zero.
+	s.client.data[key] = current - amount
 	remaining := s.client.data[key]
-	if remaining < 0 {
-		remaining = 0
-		s.client.data[key] = 0
-	}
 	return remaining, nil
 }
 
@@ -1878,7 +1870,9 @@ func TestQuotaPlanDeduct(t *testing.T) {
 		}
 	})
 
-	t.Run("rmb deduct insufficient", func(t *testing.T) {
+	t.Run("rmb deduct overage", func(t *testing.T) {
+		// issue #1476: the balance goes negative so the overrun stays
+		// recorded (used = quota - remaining) instead of being dropped.
 		client := newMockRedisClient()
 		client.data["rmb-key"] = 100
 		plan := &QuotaPlan{Id: "p1", RedisKey: "rmb-key", Unit: "RMB", Quota: 100}
@@ -1886,11 +1880,60 @@ func TestQuotaPlanDeduct(t *testing.T) {
 		if err != nil {
 			t.Fatalf("deduct failed: %v", err)
 		}
-		if remaining != 0 {
-			t.Errorf("remaining = %d, want 0", remaining)
+		if remaining != -100 {
+			t.Errorf("remaining = %d, want -100", remaining)
 		}
-		if client.data["rmb-key"] != 0 {
-			t.Errorf("stored value = %d, want 0", client.data["rmb-key"])
+		if client.data["rmb-key"] != -100 {
+			t.Errorf("stored value = %d, want -100", client.data["rmb-key"])
+		}
+	})
+
+	t.Run("token deduct overage", func(t *testing.T) {
+		client := newMockRedisClient()
+		client.data["token-key"] = 50
+		plan := &QuotaPlan{Id: "p1", RedisKey: "token-key", Unit: "total_token", Quota: 100}
+		remaining, err := plan.Deduct(client, 80)
+		if err != nil {
+			t.Fatalf("deduct failed: %v", err)
+		}
+		if remaining != -30 {
+			t.Errorf("remaining = %d, want -30", remaining)
+		}
+		if client.data["token-key"] != -30 {
+			t.Errorf("stored value = %d, want -30", client.data["token-key"])
+		}
+	})
+
+	t.Run("rmb first access overage", func(t *testing.T) {
+		// First request already exceeds the quota: the initial SET seeds the
+		// quota and the full deduction drives the balance negative at once.
+		client := newMockRedisClient()
+		plan := &QuotaPlan{Id: "p1", RedisKey: "rmb-key", Unit: "RMB", Quota: 100}
+		remaining, err := plan.Deduct(client, 200)
+		if err != nil {
+			t.Fatalf("deduct failed: %v", err)
+		}
+		if remaining != -100 {
+			t.Errorf("remaining = %d, want -100", remaining)
+		}
+		if client.data["rmb-key"] != -100 {
+			t.Errorf("stored value = %d, want -100", client.data["rmb-key"])
+		}
+	})
+
+	t.Run("rmb re-deduct while in arrears", func(t *testing.T) {
+		client := newMockRedisClient()
+		client.data["rmb-key"] = -50
+		plan := &QuotaPlan{Id: "p1", RedisKey: "rmb-key", Unit: "RMB", Quota: 100}
+		remaining, err := plan.Deduct(client, 30)
+		if err != nil {
+			t.Fatalf("deduct failed: %v", err)
+		}
+		if remaining != -80 {
+			t.Errorf("remaining = %d, want -80", remaining)
+		}
+		if client.data["rmb-key"] != -80 {
+			t.Errorf("stored value = %d, want -80", client.data["rmb-key"])
 		}
 	})
 
@@ -1949,6 +1992,24 @@ func TestQuotaPlanHasBalance(t *testing.T) {
 		}
 		if remaining != 50 {
 			t.Errorf("remaining = %d, want 50", remaining)
+		}
+	})
+
+	t.Run("negative balance means no balance", func(t *testing.T) {
+		// issue #1476: a negative balance is an arrears record (overage was
+		// fully deducted); it must not authorize new requests.
+		client := newMockRedisClient()
+		client.data["neg-key"] = -20
+		plan := &QuotaPlan{Id: "p1", RedisKey: "neg-key", Unit: "total_token", Quota: 100}
+		has, remaining, err := plan.HasBalance(client)
+		if err != nil {
+			t.Fatalf("HasBalance failed: %v", err)
+		}
+		if has {
+			t.Error("expected no balance for negative value")
+		}
+		if remaining != -20 {
+			t.Errorf("remaining = %d, want -20", remaining)
 		}
 	})
 }

@@ -41,11 +41,83 @@ import (
 // chunks not yet consumed by EPP.
 const DefaultRespBodyBufBudget = 1 << 20 // 1MB
 
+// eppCloseTimeout bounds how long Close waits for the response forwarding
+// goroutine and the response drainer to finish. Teardown normally completes
+// in milliseconds; the deadline only covers a stuck EPP peer and guarantees
+// the request finish handler (billing point) always runs (issue #1475).
+const eppCloseTimeout = 30 * time.Second
+
+// byteQueue is the FIFO of response body chunks pending for EPP (issue
+// #1475). It is bounded by the byte budget in ProcRespBody alone: entries
+// capacity is not an overflow criterion, so tiny frames cannot trigger a
+// false overflow while the forwarding goroutine is still starting up or
+// briefly lags (the old fixed-capacity channel overflowed after cap entries
+// regardless of their size).
+type byteQueue struct {
+	mu     sync.Mutex
+	chunks [][]byte
+	wake   chan struct{} // capacity 1; closed by close
+	closed bool
+}
+
+func newByteQueue() *byteQueue {
+	return &byteQueue{wake: make(chan struct{}, 1)}
+}
+
+// push appends a chunk after Close; it never blocks. Chunks pushed after
+// close are dropped (the stream is being torn down anyway).
+func (q *byteQueue) push(d []byte) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.closed {
+		return
+	}
+	q.chunks = append(q.chunks, d)
+	select {
+	case q.wake <- struct{}{}:
+	default:
+	}
+}
+
+// pop blocks until a chunk is available or the queue is closed.
+func (q *byteQueue) pop() ([]byte, bool) {
+	for {
+		q.mu.Lock()
+		if len(q.chunks) > 0 {
+			d := q.chunks[0]
+			q.chunks[0] = nil
+			q.chunks = q.chunks[1:]
+			q.mu.Unlock()
+			return d, true
+		}
+		if q.closed {
+			q.mu.Unlock()
+			return nil, false
+		}
+		q.mu.Unlock()
+		<-q.wake
+	}
+}
+
+func (q *byteQueue) close() {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if !q.closed {
+		q.closed = true
+		close(q.wake)
+	}
+}
+
 // EppState is monitor state of EPP client.
 type EppState struct {
 	// RespBodyOverflow counts streams whose response body overflowed the
 	// bounded buffer and was skipped (see ProcRespBody).
 	RespBodyOverflow *metrics.Counter
+	// EppCloseTimeout counts Close calls that hit eppCloseTimeout waiting
+	// for the forwarding goroutine / response drainer and force-tore down
+	// the stream (issue #1475). A non-zero value means the EPP peer is
+	// stuck; the request still finishes and is billed.
+	EppCloseTimeout *metrics.Counter
 }
 
 var eppState = new(EppState)
@@ -108,15 +180,21 @@ type EppClient struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	stream extprocv3.ExternalProcessor_ProcessClient
-	datach chan []byte
+	datach *byteQueue
 	donech chan struct{}
+	// respDone is closed when the response drainer exits, i.e. every
+	// response the EPP peer will send has been consumed and the stream is
+	// settled from its side (issue #1475).
+	respDone chan struct{}
+	respOnce sync.Once
 
 	closeOnce sync.Once // Close/CloseRespBody may be called twice (e.g. body Close in copyResponse plus deferred Close)
 
-	callTimeout time.Duration
-	bufBudget   int   // byte budget for chunks buffered in datach
-	bufPending  int64 // bytes currently buffered in datach (atomic)
-	aborted     int32 // response body skipped due to buffer overflow (atomic)
+	callTimeout  time.Duration
+	closeTimeout time.Duration // bound for Close's teardown wait (default eppCloseTimeout)
+	bufBudget    int           // byte budget for chunks buffered in datach
+	bufPending   int64         // bytes currently buffered in datach (atomic)
+	aborted      int32         // response body skipped due to buffer overflow (atomic)
 }
 
 // EppClientOption customizes EppClient.
@@ -131,13 +209,28 @@ func WithRespBodyBufBudget(budget int) EppClientOption {
 	}
 }
 
+// WithCloseTimeout bounds how long Close waits for the forwarding goroutine
+// and the response drainer before force-tearing down the stream (see
+// eppCloseTimeout). Values <= 0 keep the default. Intended for tests.
+func WithCloseTimeout(d time.Duration) EppClientOption {
+	return func(c *EppClient) {
+		if d > 0 {
+			c.closeTimeout = d
+		}
+	}
+}
+
 // NewEppClient creates an EPP stream client on given connection.
 // callTimeout limits the first message (RequestHeaders Send+Recv) round trip.
 // The conn is NOT owned by EppClient: Close only tears down this stream and
 // its goroutines, so a conn shared by many streams (one per request) is never
 // closed by an individual stream teardown.
 func NewEppClient(conn *grpc.ClientConn, callTimeout time.Duration, opts ...EppClientOption) (*EppClient, error) {
-	eppClient := &EppClient{callTimeout: callTimeout, bufBudget: DefaultRespBodyBufBudget}
+	eppClient := &EppClient{
+		callTimeout:  callTimeout,
+		closeTimeout: eppCloseTimeout,
+		bufBudget:    DefaultRespBodyBufBudget,
+	}
 	for _, opt := range opts {
 		opt(eppClient)
 	}
@@ -157,13 +250,60 @@ func NewEppClient(conn *grpc.ClientConn, callTimeout time.Duration, opts ...EppC
 
 // Close tears down this stream (response forwarding goroutines included) and
 // releases stream resources. It never closes the shared *grpc.ClientConn.
+//
+// Close waits for both the forwarding goroutine (donech) and the response
+// drainer (respDone), bounded by eppCloseTimeout: the request finish handler
+// (billing point) only runs after Close returns, so the wait must never be
+// unbounded even when the EPP peer is stuck (issue #1475).
 func (c *EppClient) Close() {
 	c.CloseRespBody()
 
-	if c.donech != nil {
-		<-c.donech
+	deadline := time.NewTimer(c.closeTimeout)
+	defer deadline.Stop()
+	for _, ch := range []chan struct{}{c.donech, c.respDone} {
+		if ch == nil {
+			continue // scheduling-only client (ProcRespHeader never called)
+		}
+		select {
+		case <-ch:
+		case <-deadline.C:
+			eppState.EppCloseTimeout.Inc(1)
+			log.Logger.Warn("EppClient close timeout after %v, force teardown stream", c.closeTimeout)
+			c.cancel()
+			return
+		}
 	}
 	c.cancel()
+}
+
+// markRespDone closes respDone exactly once. The drainer closes it when the
+// stream settles; the forwarding goroutine closes it on early failures that
+// happen before the drainer started.
+func (c *EppClient) markRespDone() {
+	c.respOnce.Do(func() {
+		if c.respDone != nil {
+			close(c.respDone)
+		}
+	})
+}
+
+// drainResponses consumes every ProcessingResponse the EPP peer sends and
+// discards it (bfe does not apply response mutations). This is required by
+// the envoy ext-proc FULL_DUPLEX_STREAMING contract: the peer (llm-d
+// StreamingServer) answers every response-body chunk with a response, and
+// its send blocks once the HTTP/2 windows fill if the client stops reading.
+// An undrained stream therefore deadlocked both sides on long streams: the
+// forwarding goroutine blocked in Send, donech never closed, Close blocked
+// forever and the request was never billed (issue #1475). Draining keeps the
+// peer's send path open so the whole exchange completes.
+func (c *EppClient) drainResponses() {
+	defer c.markRespDone()
+	for {
+		if _, err := c.stream.Recv(); err != nil {
+			// io.EOF (peer finished), stream error, or ctx cancel: settled.
+			return
+		}
+	}
 }
 
 func (c *EppClient) Send(req *extprocv3.ProcessingRequest) error {
@@ -207,8 +347,9 @@ func (c *EppClient) ProcRespHeader(header http.Header, endofstream bool) {
 			ResponseHeaders: BuildEnvoyGRPCHeaders(header, false, endofstream),
 		},
 	}
-	c.datach = make(chan []byte, 10)
+	c.datach = newByteQueue()
 	c.donech = make(chan struct{})
+	c.respDone = make(chan struct{})
 
 	go func() {
 		// defer c.Close()
@@ -217,16 +358,27 @@ func (c *EppClient) ProcRespHeader(header http.Header, endofstream bool) {
 		// send request
 		if err := c.Send(req); err != nil {
 			log.Logger.Warn("EppClient ProcRespHeader send error: %v", err)
+			c.markRespDone()
 			return
 		}
 		// receive response
 		_, err := c.Recv()
 		if err != nil {
 			log.Logger.Warn("EppClient ProcRespHeader recv error: %v", err)
+			c.markRespDone()
 			return
 		}
 
-		for d := range c.datach {
+		// From here on, stream.Recv is owned by the drainer: the peer sends
+		// a response per body chunk (ext-proc FULL_DUPLEX_STREAMING) and
+		// must never be left undrained (issue #1475).
+		go c.drainResponses()
+
+		for {
+			d, ok := c.datach.pop()
+			if !ok {
+				break
+			}
 			atomic.AddInt64(&c.bufPending, -int64(len(d)))
 			// send data to EPP server
 			req := &extprocv3.ProcessingRequest{
@@ -260,20 +412,16 @@ func (c *EppClient) ProcRespHeader(header http.Header, endofstream bool) {
 			log.Logger.Warn("EppResponseBodyFilter send end of stream error: %v", err)
 			return
 		}
-		// receive response from EPP server
-		_, err = c.Recv()
-		if err != nil {
-			// log error
-			log.Logger.Warn("EppResponseBodyFilter recv end of stream response error: %v", err)
-			return
-		}
+		// No final Recv here: the drainer owns the stream's Recv side and
+		// consumes the peer's trailing response (issue #1475).
 	}()
 }
 
 // ProcRespBody buffers a response body chunk for EPP. Buffering is bounded by
 // a byte budget: on overflow the whole remaining body of this stream is
 // skipped (with counter and one log line), instead of silently dropping
-// individual chunks. Never blocks the response forwarding path.
+// individual chunks. Never blocks the response forwarding path; the byte
+// budget is the only overflow gate (see byteQueue).
 func (c *EppClient) ProcRespBody(d []byte) {
 	if atomic.LoadInt32(&c.aborted) != 0 {
 		return
@@ -291,13 +439,7 @@ func (c *EppClient) ProcRespBody(d []byte) {
 		}
 	}
 
-	select {
-	case c.datach <- d:
-	default:
-		// should not happen if budget accounting is correct; treat as overflow
-		atomic.AddInt64(&c.bufPending, -n)
-		c.abortRespBody()
-	}
+	c.datach.push(d)
 }
 
 func (c *EppClient) abortRespBody() {
@@ -315,7 +457,7 @@ func (c *EppClient) RespBodyAborted() bool {
 func (c *EppClient) CloseRespBody() {
 	c.closeOnce.Do(func() {
 		if c.datach != nil {
-			close(c.datach)
+			c.datach.close()
 		}
 	})
 }

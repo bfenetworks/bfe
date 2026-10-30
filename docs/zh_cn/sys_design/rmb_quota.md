@@ -341,6 +341,9 @@ type AiBasicInfo struct {
     // finalUsageSeen：是否已解析到最终 usage。
     // Anthropic message_start 的初始 usage（output_tokens = 0）不算。
     finalUsageSeen bool
+    // upstreamDropped：上游响应体未完整交付时连接异常断开（issue #1474），
+    // 与客户端中断（写侧错误/CloseWatcher 触发）严格区分。
+    upstreamDropped bool
 }
 ```
 
@@ -348,7 +351,8 @@ type AiBasicInfo struct {
 - `mod_ai_token_auth`（非流式）在 `tokenReadResponseHandler` 完整读取响应体后置位，见 7.4。
 - **流式 clean-EOF 兜底**（issue #1415）：`ServeHTTPForAI` 在 SSE 响应体完整交付（`copyResponse` 成功，chunked 读到终止 chunk / 定长凑齐 `Content-Length`）且状态 200 时置位 `MarkResponseCompleted()`。上游不发终止事件也不发 usage、以干净 HTTP EOF 收尾的流（如部分 anthropic-compat 端点的 omit-usage 响应）由此满足估算计费门控——与 gemini 适配器 `StreamEndsAtEOF` 的「流结束于 EOF」口径对齐，且对全部协议一致适用。客户端中断与上游中途断流表现为拷贝错误，不会误置位，#1352 中断语义不变。
 - **非流式 Anthropic JSON 视同最终 usage**（issue #1364）：顶层 `type:"message"` 且解析出非 guess usage（`output_tokens > 0`）的整体响应，与 SSE `message_delta` 等价，置位 `finalUsageSeen`；整条 body 作为单个事件处理完成时同时置位 `responseCompleted`。否则 Anthropic 非流式响应（尤其是 chunked、`ContentLength = -1`）两个标记都打不上，会落入"未完成"守卫。
-- 计费语义：EstimateToken 的估算值仅在 `responseCompleted` 为 true 时可计费；客户端中断（`ErrClientWrite` / `ErrClientClose` / `ErrClientReset`）且未拿到最终 usage 的请求零扣费，已拿到最终 usage 的按实际 usage 扣费，见 7.5。
+- **上游异常断流 → 估算计费 + 客户端错误事件**（issue #1474）：`ServeHTTPForAI` 按拷贝错误归因——读侧错误且 CloseWatcher 未触发（客户端仍在）时，`err_code` 记 `BK_READ_RESP_BODY`（不再是 `CLIENT_WRITE`）、置 `MarkUpstreamDropped()`，通过 `streamTruncationInjector` 向客户端流内补发协议错误事件（默认开启，`NormalizeUpstreamError.StreamTruncatedError=false` 可关）；收尾时 `upstreamDropped` 与 `responseCompleted` 同为估算计费门控，按已转发内容估算扣费（`ai_usage_source=upstream_dropped`，计数 `UpstreamDropBilled`）。客户端中断仍在写侧/CloseWatcher 路径判定，零扣费语义不变。
+- 计费语义：EstimateToken 的估算值仅在 `responseCompleted` 或 `upstreamDropped` 为 true 时可计费；客户端中断（`ErrClientWrite` / `ErrClientClose` / `ErrClientReset`）且未拿到最终 usage 的请求零扣费，已拿到最终 usage 的按实际 usage 扣费，见 7.5。
 - **计费与统计视图隔离**（issue #1398）：请求结束阶段的"不可计费"清零守卫只作用于计费副本（`billingUsage := *tokenUsage`），不回写共享 `TokenUsage`——访问日志（mod_access_pb3）与下游统计读共享对象，保留真实解析值/批准口径的估算值，不再静默记 0；仅计费结果 `UsedCost` 写回共享对象。
 
 ## 7. 请求运行时改动
@@ -680,6 +684,8 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 | 正常完成，无 usage + EstimateToken | false（responseCompleted=true） | 按估算计费 |
 | 正常完成，无 usage + `EstimateToken=false` | false | 零扣费（issue #1398 起出厂默认 EstimateToken=true，该行为仅显式关闭时出现） |
 | 客户端中断/写失败，未拿到最终 usage | false | 零扣费（无论此前是否已解析出初始 usage，如 Anthropic `message_start`） |
+| 上游流中途异常断流（如后端进程被 kill），未拿到最终 usage + EstimateToken | false（issue #1474 起 `upstreamDropped=true`） | 按已转发内容估算计费（`ai_usage_source=upstream_dropped`，计 `UpstreamDropBilled`；客户端同时收到注入的协议错误事件） |
+| 上游流中途异常断流，未拿到最终 usage + `EstimateToken=false` | false（`upstreamDropped=true`） | 零扣费，`ai_usage_source=unrecognized` + `ai_zero_cost_reason=upstream_dropped`（不静默） |
 | 客户端中断/写失败，已拿到最终 usage | true | 按实际 usage |
 | 非流式 Anthropic（chunked）完整响应，有 usage | true（#1364 起，`type:"message"` 视同最终 usage） | 按实际 usage（未命中输入 + cache read/write + 输出全额） |
 | 非 2xx（未成功调用上游，如 AI 路由未命中的 404、上游 404 直通、归一化后的 404） | false | 零扣费；访问日志不输出 token 字段（issue #1409）
@@ -693,7 +699,7 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 > 说明（issue #1410）："usage 未识别且不可估算"守卫分支（上表"零扣费"且 2xx 的两行）本身**计费口径不变**，但必须可观测，绝不静默跳过。修复后该分支在判定成立处产生两类同源信号：
 >
 > 1. **模块计数器 + 告警日志**：`mod_ai_token_auth.UsageUnrecognized` 自增（经 `monitorHandlers` 及 `.diff` 导出，可直接配阈值告警），并输出 Warn（携带 cluster / key_id / model / response_completed / allow_estimate，免回源码即可初判成因）。客户端中止跳过计费分支（issue #1352 既定口径）当时同模式计数；**issue #1414 起该分支改由独立计数器 `AbortBillingSkipped` 承载**，`UsageUnrecognized` 语义随之收窄为"仅上游 usage 未识别"。
-> 2. **访问日志 usage 来源标记**：请求结束时按同一判定设置 `ai_usage_source`（`bfe-access-pb >= v0.3.15` 字段 764）——`parsed`（上游响应解析出 final usage）、`estimated`（`EstimateToken` 估算且已获准计费）、`unrecognized`（本分支：计费被跳过，日志 token 字段为鉴权期播种残留）；非 2xx 行维持 usage 字段整体缺席、本字段亦缺席。`unrecognized` 行照常输出数值字段（issue #1398 口径：missing usage 可见），对账查询 `ai_usage_source='unrecognized'` 即漏计费候选集，不再依赖 `total=0 且 in/out>0` 的跨字段矛盾签名或外部先验。**issue #1414 起新增第 4 个取值 `aborted`**（客户端中止且未拿到 final usage）。
+> 2. **访问日志 usage 来源标记**：请求结束时按同一判定设置 `ai_usage_source`（`bfe-access-pb >= v0.3.15` 字段 764）——`parsed`（上游响应解析出 final usage）、`estimated`（`EstimateToken` 估算且已获准计费）、`unrecognized`（本分支：计费被跳过，日志 token 字段为鉴权期播种残留）；非 2xx 行维持 usage 字段整体缺席、本字段亦缺席。`unrecognized` 行照常输出数值字段（issue #1398 口径：missing usage 可见），对账查询 `ai_usage_source='unrecognized'` 即漏计费候选集，不再依赖 `total=0 且 in/out>0` 的跨字段矛盾签名或外部先验。**issue #1414 起新增第 4 个取值 `aborted`**（客户端中止且未拿到 final usage）；**issue #1474 起新增第 5 个取值 `upstream_dropped`**（上游流中途异常断流且按已转发内容估算计费）。
 >
 > 修复前该分支全链零信号：守卫体内既无计数器也无日志，`ai_total_tokens=0` 与真实零用量同形，估算镜像生效（`tokenUsage.UsedQuota` 被回写估算值）后"漏计费"行与"估算计费"行亦同形——生产实测单日 95.5% 的收入缺口（736 行）只能靠带外人工对账脚本发现。
 >
@@ -1100,17 +1106,16 @@ func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe
 
 ## 8. Redis Lua 脚本改造
 
-当前 Token 配额 Lua：
+当前 Token 配额 Lua（issue #1476 起为**全额扣减**语义）：
 
 ```lua
-local current = tonumber(redis.call('GET', KEYS[1]) or ARGV[2])
+local current = tonumber(redis.call('GET', KEYS[1]) or '0')
 local amount = tonumber(ARGV[1])
-local deduct = math.min(current, amount)
-if deduct > 0 then
-    redis.call('DECRBY', KEYS[1], deduct)
-end
-return math.max(0, current - deduct)
+redis.call('DECRBY', KEYS[1], amount)
+return current - amount
 ```
+
+> **语义说明（issue #1476）**：此前脚本用 `deduct = math.min(current, amount)` 把扣减量截断到当前余额、返回值钳制在 0，越过配额边界的部分被静默丢弃，Redis 只剩 remaining、没有用量累计，"额度不足时放行"（`PassNoQuota`）模式下已用额度因此永远停在配额上限。修复后**全额扣减、余额可为负**：超额保留在余额中（下游 `used = quota − remaining` 如实反映实际消耗），鉴权期 `HasBalance` 的 `current > 0` 对负余额天然判"无余额"（拒绝 429），`PassNoQuota` 只跳过鉴权检查、收尾扣减仍全额记账。余额值域从 `[0, quota]` 扩为 `(-∞, quota]`。详见修改记录 `docs/zh_cn/modifications/2026-10-30-issue-1476-quota-overage-full-deduction/`。
 
 RMB 配额有两种可选实现。
 
@@ -1127,16 +1132,14 @@ if raw == false then
 else
     current = tonumber(raw)
 end
-local amount = tonumber(ARGV[1])
-local deduct = math.min(current, amount)
-if deduct > 0 then
-    redis.call('DECRBY', KEYS[1], deduct)
-end
-return math.max(0, current - deduct)
+local cost = tonumber(ARGV[1])
+redis.call('DECRBY', KEYS[1], cost)
+return current - cost
 ```
 
 - `ARGV[1]`：本次扣减金额（固定点整数）。
 - `ARGV[2]`：初始配额（固定点整数），仅在 Key 不存在时使用。
+- 与 Token 脚本同构为全额扣减，余额可为负（issue #1476）。
 
 > ⚠️ Lua number 为 IEEE 754 double，整数精确表示上限约为 `2^53`（9e15）。按 1e-8 元换算，理论余额上限约为 9007.20 万元；业务上统一限定 RMB 配额余额上限为 **9000 万元（90,000,000.00 元）**。若业务需要更大余额，请使用方案二。
 
@@ -1381,7 +1384,7 @@ return {yuan, frac}
    - `GetPrice`：验证命中 `peak` 时取 `TierPrices.peak`、未命中时 fallback 到 `Prices`、tier 中未配置某键时 fallback 到默认价格；验证超过 8 位小数的价格（如 `7.6234102728e-08`）加载后不被截断。
 
 2. **Lua 脚本测试**
-   - 单 Key 定点数方案：验证扣减、余额归零、负数不溢出。
+   - 单 Key 定点数方案：验证扣减、余额归零、余额可为负（issue #1476 超额全额记录，欠费后再扣继续变负）、负数不溢出。
    - Hash 拆分方案：验证借位、余额归零、大数（接近 100 亿元）正确性。
 
 3. **集成测试**

@@ -91,6 +91,11 @@ type MockBackend struct {
 	// parseable usage, which only a per-frame flush can exercise (a single
 	// compressed block does not cross frames).
 	SSECompress string
+	// SSEAbortAfter, if greater than 0, aborts the connection abruptly (no
+	// terminating chunk, no gzip trailer) right after this many SSE frames
+	// have been written and flushed, simulating an upstream process that dies
+	// mid-stream (issue #1474, the kill -9 shape).
+	SSEAbortAfter int
 	// SNIRecorder, if non-nil, is called with the TLS ClientHello server name
 	// on every TLS handshake (TLS mock backend only).
 	SNIRecorder func(serverName string)
@@ -232,7 +237,9 @@ func (b *MockBackend) handler() http.HandlerFunc {
 			// writeFrame emits one SSE frame, flushing the compressor per frame
 			// so the response exercises incremental decompression on the way
 			// back (a single compressed block would not cross frames).
+			written := 0
 			writeFrame := func(chunk string) {
+				written++
 				if gzw != nil {
 					_, _ = io.WriteString(gzw, chunk)
 					_ = gzw.Flush()
@@ -243,20 +250,32 @@ func (b *MockBackend) handler() http.HandlerFunc {
 					flusher.Flush()
 				}
 			}
+			// abortIfDue kills the connection without a terminating chunk once
+			// SSEAbortAfter frames went out (issue #1474): net/http recovers
+			// ErrAbortHandler by closing the TCP connection, exactly like an
+			// upstream process killed mid-stream.
+			abortIfDue := func() {
+				if b.SSEAbortAfter > 0 && written >= b.SSEAbortAfter {
+					panic(http.ErrAbortHandler)
+				}
+			}
 
 			if b.SSERaw != nil {
 				for _, chunk := range b.SSERaw {
 					writeFrame(chunk)
+					abortIfDue()
 				}
 			} else {
 				for _, event := range b.SSEEvents {
 					writeFrame("data: " + event + "\n\n")
+					abortIfDue()
 				}
 				if b.SSEHold != nil {
 					<-b.SSEHold
 				}
 				for _, event := range b.SSETrailing {
 					writeFrame("data: " + event + "\n\n")
+					abortIfDue()
 				}
 			}
 			if gzw != nil {

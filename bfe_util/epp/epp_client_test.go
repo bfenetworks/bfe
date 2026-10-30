@@ -36,7 +36,7 @@ import (
 func newTestEppClient(bufBudget int) *EppClient {
 	c := &EppClient{
 		bufBudget: bufBudget,
-		datach:    make(chan []byte, 10),
+		datach:    newByteQueue(),
 		ctx:       context.Background(),
 	}
 	return c
@@ -67,7 +67,7 @@ func TestProcRespBodyBudgetFreedOnConsume(t *testing.T) {
 	assert.False(t, c.RespBodyAborted())
 
 	// simulate consumer draining buffer (as ProcRespHeader goroutine does)
-	d := <-c.datach
+	d, _ := c.datach.pop()
 	c.bufPending -= int64(len(d))
 
 	// budget freed, next chunk accepted
@@ -95,11 +95,15 @@ func TestProcRespBodyNeverBlocks(t *testing.T) {
 }
 
 // fakeProcessClient implements extprocv3.ExternalProcessor_ProcessClient.
+// Recv returns recvResp on the first call and io.EOF afterwards: the first
+// response is the header response consumed synchronously by ProcRespHeader,
+// and the stream then settles (the response drainer sees the EOF).
 type fakeProcessClient struct {
 	grpc.ClientStream
-	sent     []*extprocv3.ProcessingRequest
-	recvResp *extprocv3.ProcessingResponse
-	recvErr  error
+	sent      []*extprocv3.ProcessingRequest
+	recvResp  *extprocv3.ProcessingResponse
+	recvErr   error
+	recvCalls int
 }
 
 func (f *fakeProcessClient) Header() (metadata.MD, error) { return nil, nil }
@@ -115,7 +119,11 @@ func (f *fakeProcessClient) Send(req *extprocv3.ProcessingRequest) error {
 }
 
 func (f *fakeProcessClient) Recv() (*extprocv3.ProcessingResponse, error) {
-	return f.recvResp, f.recvErr
+	f.recvCalls++
+	if f.recvCalls == 1 {
+		return f.recvResp, f.recvErr
+	}
+	return nil, io.EOF
 }
 
 func newFakeStreamClient(t *testing.T, budget int) (*EppClient, *fakeProcessClient) {
