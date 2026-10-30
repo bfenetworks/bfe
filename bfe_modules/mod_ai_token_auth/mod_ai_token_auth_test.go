@@ -2915,7 +2915,7 @@ func TestUpdateCtxByUsage_Gemini(t *testing.T) {
 // completion tokens accumulated from response bytes) must be dropped from the
 // shared TokenUsage and the request must be marked as "no usable usage" so the
 // access log reports no token field at all.
-func TestTokenRequestFinishHandler_Non2xxDropsEstimateResidue(t *testing.T) {
+func TestTokenRequestFinishHandler_Non2xxKeepsEstimateResidue(t *testing.T) {
 	m := NewModuleAITokenAuth()
 	client := newMockRedisClient()
 	m.redisClient = client
@@ -2948,11 +2948,22 @@ func TestTokenRequestFinishHandler_Non2xxDropsEstimateResidue(t *testing.T) {
 	if _, ok := client.data[rmbPlan.RedisKey]; ok {
 		t.Error("non-2xx response must not deduct quota")
 	}
-	if got := ai.UsageDisposition(); got != bfe_basic.UsageDispositionNone {
-		t.Errorf("UsageDisposition = %q, want %q", got, bfe_basic.UsageDispositionNone)
+	if got := ai.UsageDisposition(); got != bfe_basic.UsageDispositionObserved {
+		t.Errorf("UsageDisposition = %q, want %q (non-2xx rows report usage since issue #1480)",
+			got, bfe_basic.UsageDispositionObserved)
 	}
-	if u := ai.GetTokenUsage(); u.PromptTokens != 0 || u.CompletionTokens != 0 || u.UsedQuota != 0 {
-		t.Errorf("estimate residue must be dropped, got %+v", *u)
+	if got := ai.UsageSource(); got != bfe_basic.UsageSourceFailed {
+		t.Errorf("UsageSource = %q, want %q", got, bfe_basic.UsageSourceFailed)
+	}
+	// The residue is kept for the access log; UsedQuota stays 0 (never billed).
+	if u := ai.GetTokenUsage(); u.CompletionTokens != 75 || u.UsedQuota != 0 {
+		t.Errorf("estimate residue must be kept with UsedQuota=0, got %+v", *u)
+	}
+	if got := m.state.Non2xxUsageReported.Get(); got != 1 {
+		t.Errorf("Non2xxUsageReported = %d, want 1", got)
+	}
+	if got := m.state.Non2xxRealUsageKept.Get(); got != 0 {
+		t.Errorf("Non2xxRealUsageKept = %d, want 0", got)
 	}
 }
 
@@ -2979,11 +2990,54 @@ func TestTokenRequestFinishHandler_Non2xxKeepsRealUsageObservation(t *testing.T)
 		t.Fatalf("expected goon, got %d", ret)
 	}
 
-	if got := ai.UsageDisposition(); got != bfe_basic.UsageDispositionNone {
-		t.Errorf("UsageDisposition = %q, want %q", got, bfe_basic.UsageDispositionNone)
+	if got := ai.UsageDisposition(); got != bfe_basic.UsageDispositionObserved {
+		t.Errorf("UsageDisposition = %q, want %q", got, bfe_basic.UsageDispositionObserved)
+	}
+	if got := ai.UsageSource(); got != bfe_basic.UsageSourceParsed {
+		t.Errorf("UsageSource = %q, want %q (an upstream usage on an error response is an observation)",
+			got, bfe_basic.UsageSourceParsed)
 	}
 	if u := ai.GetTokenUsage(); u.PromptTokens != 10 || u.CompletionTokens != 20 || u.UsedQuota != 30 {
 		t.Errorf("real usage observation must be kept, got %+v", *u)
+	}
+	if got := m.state.Non2xxRealUsageKept.Get(); got != 1 {
+		t.Errorf("Non2xxRealUsageKept = %d, want 1", got)
+	}
+	if got := m.state.Non2xxUsageReported.Get(); got != 0 {
+		t.Errorf("Non2xxUsageReported = %d, want 0 (real usage is not an estimate)", got)
+	}
+	if len(client.data) != 0 {
+		t.Error("non-2xx response must not deduct quota")
+	}
+}
+
+// Issue #1480: a non-2xx row with no residue at all (never reached model auth,
+// nothing accumulated) is left untouched — no source marker, no counter — so
+// the access log keeps the token fields absent.
+func TestTokenRequestFinishHandler_Non2xxNoResidueNoCounter(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	req := newTestRequestWithCluster("ak-123", "AI_product", "deepseek-backup", "deepseek-v4-flash")
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 0, nil)
+
+	ai := req.GetAiBasicInfo()
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 0
+	usage.CompletionTokens = 0
+	usage.UsedQuota = 0
+
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusUnauthorized}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := ai.UsageSource(); got != "" {
+		t.Errorf("UsageSource = %q, want empty (nothing to report)", got)
+	}
+	if got := m.state.Non2xxUsageReported.Get(); got != 0 {
+		t.Errorf("Non2xxUsageReported = %d, want 0", got)
 	}
 	if len(client.data) != 0 {
 		t.Error("non-2xx response must not deduct quota")

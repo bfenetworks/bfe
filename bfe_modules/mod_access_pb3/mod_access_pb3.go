@@ -39,9 +39,9 @@ type ModuleAccessLogState struct {
 	AllReqLogCount *metrics.Counter
 	AllSesLogCount *metrics.Counter
 	// AiUsageSuppressed counts ACCESS-LOG rows whose AI token fields were
-	// withheld because the request never successfully called the upstream
-	// (non-2xx): no model usage exists, so reporting the EstimateToken
-	// residue would pollute token-based reports (issue #1409).
+	// withheld because the request has no reportable usage: no model call
+	// reached model auth and nothing was accumulated (issue #1409; since issue
+	// #1480 a non-2xx row that does carry usage is reported instead).
 	AiUsageSuppressed *metrics.Counter
 	// AiUsageInconsistent counts rows whose token triple breaks the billing
 	// yardstick invariant ai_total_tokens == ai_input_tokens +

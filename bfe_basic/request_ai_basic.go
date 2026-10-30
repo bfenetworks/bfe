@@ -426,6 +426,13 @@ const (
 	// consumption: the request is billed by the forwarded-content estimate
 	// when EstimateToken allows, or reported unrecognized otherwise.
 	UsageSourceUpstreamDropped = "upstream_dropped"
+	// UsageSourceFailed means the upstream call never succeeded (non-2xx,
+	// including BFE-generated rejections): the reported tokens are the
+	// auth-time prompt seeding plus the accumulated forwarded content — an
+	// estimate kept for reporting but never billed (issue #1480). A non-2xx
+	// response that does carry a real usage object is reported as parsed
+	// instead.
+	UsageSourceFailed = "failed"
 )
 
 // Zero-cost reasons for the access log (issue #1414): why a 2xx request that

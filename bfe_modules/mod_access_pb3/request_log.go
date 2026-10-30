@@ -130,6 +130,10 @@ func (m *ModuleAccessPb3) requestLogGen(req *bfe_basic.Request, res *bfe_http.Re
 	reqTimeInfoGen(requestLog, req)
 
 	// AI info
+	// usageSuppressed counts rows without reportable usage (non-2xx that never
+	// reached model auth and accumulated nothing, issue #1409) — those rows
+	// keep the token fields absent so "no model call" stays distinguishable
+	// from "reported as 0" (issue #1480).
 	usageSuppressed, usageInconsistent := reqAiInfoGen(requestLog, req, res)
 	if usageSuppressed {
 		m.state.AiUsageSuppressed.Inc(1)
@@ -448,10 +452,10 @@ func isStreamResponse(req *bfe_basic.Request, res *bfe_http.Response) bool {
 
 // AI observability info
 // reqAiInfoGen fills the AI observability fields of the request log. It
-// returns whether the token-usage fields were withheld (usageSuppressed: no
-// successful upstream call, issue #1409) and whether the reported triple
-// broke the billing yardstick invariant (usageInconsistent), so the caller
-// can count both conditions.
+// returns whether the token-usage fields were withheld (usageSuppressed: the
+// request has no reportable usage, issue #1409/#1480) and whether the
+// reported triple broke the billing yardstick invariant
+// (usageInconsistent), so the caller can count both conditions.
 func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res *bfe_http.Response) (usageSuppressed bool, usageInconsistent bool) {
 	aiInfo := req.GetAiBasicInfo()
 	if aiInfo == nil {
@@ -518,6 +522,11 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 
 	// Token usage
 	usage := aiInfo.GetTokenUsage()
+	// UsageDispositionNone marks a request with no reportable usage (issue
+	// #1409): since issue #1480 that is only the non-2xx shape with nothing to
+	// report — no model auth reached, nothing accumulated. Non-2xx rows that
+	// do carry usage (estimate residue or a real upstream usage object) are
+	// disposition Observed and reported with ai_usage_source=failed/parsed.
 	if usage != nil && aiInfo.UsageDisposition() != bfe_basic.UsageDispositionNone {
 		reqLog.AiInputTokens = proto.Int64(usage.PromptTokens)
 		// CompletionTokens is preset to the COMPLETION_TOKENS_UNKNOWN
@@ -529,7 +538,18 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 			outputTokens = 0
 		}
 		reqLog.AiOutputTokens = proto.Int64(outputTokens)
-		reqLog.AiTotalTokens = proto.Int64(usage.UsedQuota)
+		// issue #1480: ai_total_tokens is in+out unless UsedQuota carries a
+		// different meaning. UsedQuota is the per-image / per-video count in
+		// image_generation / video_generation mode and is settled separately
+		// for batch tasks, so those rows keep it; every other shape with
+		// UsedQuota == 0 but non-zero parts (an unrecognized estimate, or the
+		// residue of a non-2xx response) falls back to the sum instead of
+		// leaving ai_total_tokens at 0 while in/out carry values.
+		totalTokens := usage.UsedQuota
+		if totalTokens == 0 {
+			totalTokens = usage.PromptTokens + outputTokens
+		}
+		reqLog.AiTotalTokens = proto.Int64(totalTokens)
 		if usage.CacheReadTokens > 0 {
 			reqLog.AiCacheReadTokens = proto.Int64(usage.CacheReadTokens)
 		}
@@ -555,10 +575,12 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 			reqLog.AiVideoCount = proto.Int64(usage.VideoCount)
 		}
 		// issue #1414: report the cost for every observed 2xx row, 0 included, so
-		// "charged nothing" is distinguishable from "field absent" (non-2xx or
-		// never billed). Before this, a zero-cost row and a row whose cost was
-		// never computed were byte-identical.
-		reqLog.AiCostValue = proto.Int64(usage.UsedCost)
+		// "charged nothing" is distinguishable from "field absent" (never billed).
+		// issue #1480: a failed (non-2xx) request is never billed, so its cost
+		// stays absent even though the token fields are now reported.
+		if res == nil || (res.StatusCode >= 200 && res.StatusCode < 300) {
+			reqLog.AiCostValue = proto.Int64(usage.UsedCost)
+		}
 		if source := aiInfo.UsageSource(); source != "" {
 			// Where the reported usage came from: parsed (final usage from the
 			// upstream response, including an explicit all-zero usage object),
@@ -576,14 +598,13 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 			// attributable instead of relying on cross-field heuristics.
 			reqLog.AiZeroCostReason = proto.String(reason)
 		}
-		usageInconsistent = usageTripleInconsistent(usage, outputTokens, aiInfo.UsageSource())
+		usageInconsistent = usageTripleInconsistent(usage, totalTokens, outputTokens, aiInfo.UsageSource())
 	} else if usage != nil {
-		// The upstream was never successfully called (mod_ai_token_auth sets
-		// UsageDispositionNone for non-2xx responses, issue #1409): no model
-		// usage exists, so the EstimateToken residue must not be reported as
-		// usage. The fields stay absent (proto optional) so "no usage" is
-		// distinguishable from "usage = 0"; aggregations that use
-		// SUM(COALESCE(ai_*, 0)) are unaffected.
+		// No reportable usage (issue #1409, narrowed by issue #1480): the
+		// request never successfully called the upstream and carries no
+		// observed usage at all. The fields stay absent (proto optional) so
+		// "no usage" is distinguishable from "usage = 0"; aggregations that
+		// use SUM(COALESCE(ai_*, 0)) are unaffected.
 		usageSuppressed = true
 	}
 
@@ -798,15 +819,20 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 //
 // issue #1414: rows whose usage was deliberately reported as non-usage-based
 // residue (unrecognized / aborted) are skipped — their own counter and
-// ai_usage_source value cover them — but the check no longer returns early on
-// "total == 0", which used to disable it for exactly the shape it exists to
-// catch (input > 0 while total == 0).
-func usageTripleInconsistent(usage *bfe_basic.TokenUsage, outputTokens int64, source string) bool {
+// ai_usage_source value cover them.
+//
+// issue #1480: the comparison uses the logged totalTokens (after the
+// in+out fallback applied at the write site) instead of usage.UsedQuota,
+// because a row whose UsedQuota is 0 now legitimately reports in+out. The
+// invariant therefore guards the real break shapes (a non-zero UsedQuota that
+// the decomposition cannot explain) rather than the "in > 0 while total == 0"
+// shape, which issue #1480 removed by construction.
+func usageTripleInconsistent(usage *bfe_basic.TokenUsage, totalTokens, outputTokens int64, source string) bool {
 	if source == bfe_basic.UsageSourceUnrecognized || source == bfe_basic.UsageSourceAborted {
 		return false
 	}
 	if usage.ImageCount > 0 || usage.VideoCount > 0 {
 		return false
 	}
-	return usage.UsedQuota != usage.PromptTokens+outputTokens
+	return totalTokens != usage.PromptTokens+outputTokens
 }

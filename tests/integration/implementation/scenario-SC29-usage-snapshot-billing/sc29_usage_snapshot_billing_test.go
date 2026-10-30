@@ -680,8 +680,23 @@ func TestTC06_CleanEofEstimateTokenOffStaysZeroWithSignal(t *testing.T) {
 
 	reqLogs := e.stopAndParseLogs()
 	reqLog := reqLogs[len(reqLogs)-1]
-	if reqLog.AiTotalTokens == nil || *reqLog.AiTotalTokens != 0 {
-		t.Errorf("ai_total_tokens = %v, want 0 (nothing billed)", reqLog.AiTotalTokens)
+	// Issue #1480: the unbillable residue is still reported, so the token
+	// triple stays complete even though nothing was charged.
+	if reqLog.AiTotalTokens == nil {
+		t.Fatalf("ai_total_tokens is nil, want input+output (issue #1480)")
+	}
+	var in, out int64
+	if reqLog.AiInputTokens != nil {
+		in = *reqLog.AiInputTokens
+	}
+	if reqLog.AiOutputTokens != nil {
+		out = *reqLog.AiOutputTokens
+	}
+	// EstimateToken=false seeds nothing, so the triple is 0/0/0 — but it must
+	// still be internally consistent (issue #1480 keeps total = in + out for
+	// every shape it reports).
+	if got := *reqLog.AiTotalTokens; got != in+out {
+		t.Errorf("ai_total_tokens = %d, want %d (ai_input_tokens + ai_output_tokens)", got, in+out)
 	}
 	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceUnrecognized {
 		t.Errorf("ai_usage_source = %q, want %q (unbillable shape must keep its signal)",

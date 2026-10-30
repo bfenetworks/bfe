@@ -193,6 +193,20 @@ func TestTC09_UpstreamDropEstimateOffKeepsSignal(t *testing.T) {
 
 	reqLogs := e.stopAndParseLogs()
 	reqLog := reqLogs[len(reqLogs)-1]
+	// Issue #1480: the unbillable drop still reports a complete triple.
+	if reqLog.AiTotalTokens == nil {
+		t.Fatalf("ai_total_tokens is nil, want input+output (issue #1480)")
+	}
+	var in, out int64
+	if reqLog.AiInputTokens != nil {
+		in = *reqLog.AiInputTokens
+	}
+	if reqLog.AiOutputTokens != nil {
+		out = *reqLog.AiOutputTokens
+	}
+	if got := *reqLog.AiTotalTokens; got != in+out {
+		t.Errorf("ai_total_tokens = %d, want %d (ai_input_tokens + ai_output_tokens)", got, in+out)
+	}
 	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceUnrecognized {
 		t.Errorf("ai_usage_source = %q, want %q (unbillable drop must keep its signal)",
 			got, bfe_basic.UsageSourceUnrecognized)
