@@ -116,6 +116,14 @@ type ModuleAITokenAuthState struct {
 	// Such requests were billed in the log but not charged; the failure used
 	// to produce only a log line (issue #1414).
 	DeductFailed *metrics.Counter
+	// QuotaOverage counts quota deductions that drove the balance negative
+	// (issue #1476): the plan is in arrears and the overrun is fully
+	// recorded in the balance. Since the fix, balances are never truncated
+	// at zero, so a negative balance means cumulative consumption has
+	// exceeded the plan quota — normal right after a large request exhausts
+	// a small plan, but a sustained growth under PassNoQuota signals the
+	// pass-through mode is accumulating unpaid usage.
+	QuotaOverage *metrics.Counter
 }
 
 type ModuleAITokenAuth struct {

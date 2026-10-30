@@ -1106,17 +1106,16 @@ func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe
 
 ## 8. Redis Lua 脚本改造
 
-当前 Token 配额 Lua：
+当前 Token 配额 Lua（issue #1476 起为**全额扣减**语义）：
 
 ```lua
-local current = tonumber(redis.call('GET', KEYS[1]) or ARGV[2])
+local current = tonumber(redis.call('GET', KEYS[1]) or '0')
 local amount = tonumber(ARGV[1])
-local deduct = math.min(current, amount)
-if deduct > 0 then
-    redis.call('DECRBY', KEYS[1], deduct)
-end
-return math.max(0, current - deduct)
+redis.call('DECRBY', KEYS[1], amount)
+return current - amount
 ```
+
+> **语义说明（issue #1476）**：此前脚本用 `deduct = math.min(current, amount)` 把扣减量截断到当前余额、返回值钳制在 0，越过配额边界的部分被静默丢弃，Redis 只剩 remaining、没有用量累计，"额度不足时放行"（`PassNoQuota`）模式下已用额度因此永远停在配额上限。修复后**全额扣减、余额可为负**：超额保留在余额中（下游 `used = quota − remaining` 如实反映实际消耗），鉴权期 `HasBalance` 的 `current > 0` 对负余额天然判"无余额"（拒绝 429），`PassNoQuota` 只跳过鉴权检查、收尾扣减仍全额记账。余额值域从 `[0, quota]` 扩为 `(-∞, quota]`。详见修改记录 `docs/zh_cn/modifications/2026-10-30-issue-1476-quota-overage-full-deduction/`。
 
 RMB 配额有两种可选实现。
 
@@ -1133,16 +1132,14 @@ if raw == false then
 else
     current = tonumber(raw)
 end
-local amount = tonumber(ARGV[1])
-local deduct = math.min(current, amount)
-if deduct > 0 then
-    redis.call('DECRBY', KEYS[1], deduct)
-end
-return math.max(0, current - deduct)
+local cost = tonumber(ARGV[1])
+redis.call('DECRBY', KEYS[1], cost)
+return current - cost
 ```
 
 - `ARGV[1]`：本次扣减金额（固定点整数）。
 - `ARGV[2]`：初始配额（固定点整数），仅在 Key 不存在时使用。
+- 与 Token 脚本同构为全额扣减，余额可为负（issue #1476）。
 
 > ⚠️ Lua number 为 IEEE 754 double，整数精确表示上限约为 `2^53`（9e15）。按 1e-8 元换算，理论余额上限约为 9007.20 万元；业务上统一限定 RMB 配额余额上限为 **9000 万元（90,000,000.00 元）**。若业务需要更大余额，请使用方案二。
 
@@ -1387,7 +1384,7 @@ return {yuan, frac}
    - `GetPrice`：验证命中 `peak` 时取 `TierPrices.peak`、未命中时 fallback 到 `Prices`、tier 中未配置某键时 fallback 到默认价格；验证超过 8 位小数的价格（如 `7.6234102728e-08`）加载后不被截断。
 
 2. **Lua 脚本测试**
-   - 单 Key 定点数方案：验证扣减、余额归零、负数不溢出。
+   - 单 Key 定点数方案：验证扣减、余额归零、余额可为负（issue #1476 超额全额记录，欠费后再扣继续变负）、负数不溢出。
    - Hash 拆分方案：验证借位、余额归零、大数（接近 100 亿元）正确性。
 
 3. **集成测试**
