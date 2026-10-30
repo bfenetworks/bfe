@@ -55,12 +55,24 @@ type ModuleAITokenAuthState struct {
 	ReqTotal    *metrics.Counter
 	ReqAuth     *metrics.Counter
 	ReqAuthFail *metrics.Counter
-	// PriceLookupMiss counts billing attempts whose model price lookup
-	// missed with no fallback available (unknown cluster/model, or the model
-	// has no chat-mode baseline entry to fall back to). Such misses bill 0;
-	// non-chat misses with a chat baseline fall back instead (issue #1408).
-	// The counter is the monitoring signal for misconfigured price tables.
-	PriceLookupMiss *metrics.Counter
+	// PriceMissZeroBilled counts billing attempts that ended up billing 0
+	// because the (model, mode) price entry was absent and no fallback was
+	// taken (bill_zero action, or fallback_chat with no chat-mode baseline;
+	// also incremented by the batch settle path for an unpriced batch mode).
+	// Renamed from PriceLookupMiss by issue #1479 (the old name suggested a
+	// lookup failure rather than a zero-billed outcome; the metric is not
+	// consumed by any production dashboard yet, so the rename is one-shot).
+	PriceMissZeroBilled *metrics.Counter
+	// PriceRejected counts requests rejected before forwarding because the
+	// cluster's PriceMissAction is "reject" and the requested (model, mode)
+	// has no price entry (issue #1479). Such requests never call the upstream
+	// and are never billed.
+	PriceRejected *metrics.Counter
+	// PriceFallbackSubItemMiss counts fallback-billed requests whose chat
+	// entry lacks sub-item price keys (cache read/write) that the request
+	// actually used, so those dimensions were billed 0 (issue #1479). The
+	// accepted residual, made observable; see missingSubitemKeys.
+	PriceFallbackSubItemMiss *metrics.Counter
 	// PriceFallbackUsed counts billing attempts whose (model, mode) price
 	// entry was missing but the cost was recovered by falling back to the
 	// model's chat-mode price (issue #1408 product decision: an unpriced mode
@@ -736,6 +748,71 @@ func (m *ModuleAITokenAuth) tokenFoundProductHandler(req *bfe_basic.Request) (in
 	return bfe_module.BfeHandlerGoOn, nil
 }
 
+// rejectIfPriceMissing implements the PriceMissAction "reject" (issue #1479).
+// It runs at HandleAfterAITargetModel — after the route picked the cluster and
+// the target model was resolved, still before the request is forwarded — so a
+// rejected request never calls the upstream and is never billed. HandleFoundProduct
+// is too early: Route.ClusterName is only set in aiClusterInvoke. It is a
+// no-op unless the request's cluster sets the action to "reject"; every other
+// shape keeps the historical billing behavior.
+func (m *ModuleAITokenAuth) rejectIfPriceMissing(req *bfe_basic.Request) (bool, *bfe_http.Response) {
+	aiMeta := req.GetAiBasicInfo()
+	if aiMeta == nil {
+		return false, nil
+	}
+	var serverConf bfe_basic.ServerDataConfInterface
+	if ctx := GetTokenAuthContext(req); ctx != nil {
+		serverConf = ctx.serverConf
+	}
+	if serverConf == nil {
+		serverConf = req.SvrDataConf
+	}
+	if serverConf == nil {
+		return false, nil
+	}
+
+	// Same exclusions as calcCostUnits: these shapes never become a priced
+	// model call.
+	if aiMeta.AiCacheHit || aiMeta.Mode == bfe_basic.ModeFile || aiMeta.Mode == bfe_basic.ModeBatch {
+		return false, nil
+	}
+	if strings.Contains(req.HttpRequest.RequestURI, "/count_tokens") || aiMeta.TargetModel == "" {
+		return false, nil
+	}
+
+	clusterName := req.Route.ClusterName
+	if clusterName == "" {
+		return false, nil
+	}
+	cluster, err := serverConf.ClusterTableLookup(clusterName)
+	if err != nil || cluster == nil || cluster.AIConf == nil {
+		// A cluster lookup failure is a routing anomaly, not a price gap:
+		// fail open instead of introducing a new rejection path.
+		return false, nil
+	}
+	if priceMissActionOf(cluster.AIConf) != cluster_conf.PriceMissActionReject {
+		return false, nil
+	}
+	// A missing ModelTable counts as unpriced under "reject"; otherwise the
+	// (model, mode) entry must exist.
+	if cluster.AIConf.ModelTable != nil {
+		if entry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, aiMeta.TargetModel, aiMeta.Mode); entry != nil {
+			return false, nil
+		}
+	}
+
+	m.state.PriceRejected.Inc(1)
+	aiMeta.MarkPriceMiss()
+	aiMeta.MarkPriceWarn(bfe_basic.PriceWarnReject)
+	m.logPriceMiss(clusterName, aiMeta.TargetModel, aiMeta.Mode, bfe_basic.PriceWarnReject,
+		cluster_conf.PriceMissActionReject, "")
+
+	aiErr := bfe_basic.NewAiErrorWithDetails(bfe_basic.CodePriceNotConfigured, bfe_basic.TypeInternalError,
+		fmt.Sprintf("model price not configured for mode %q.", aiMeta.Mode),
+		&bfe_basic.AiErrorDetail{Model: aiMeta.ClientModel})
+	return true, aiErr.CreateErrorResponse(req)
+}
+
 func (m *ModuleAITokenAuth) getState(params map[string][]string) ([]byte, error) {
 	s := m.metrics.GetAll()
 	return s.Format(params)
@@ -1015,43 +1092,71 @@ func (m *ModuleAITokenAuth) calcCostUnits(req *bfe_basic.Request, serverConf bfe
 	}
 	cluster, err := serverConf.ClusterTableLookup(clusterName)
 	if err != nil || cluster == nil || cluster.AIConf == nil || cluster.AIConf.ModelTable == nil {
+		action := priceMissActionOf(nil)
+		if cluster != nil {
+			action = priceMissActionOf(cluster.AIConf)
+		}
+		aiMeta.MarkPriceMiss()
+		aiMeta.MarkPriceWarn(bfe_basic.PriceWarnNoModelTable)
 		aiMeta.SetZeroCostReason(bfe_basic.ZeroCostReasonModelTableMissing)
-		log.Logger.Warn("model table not found for cluster %s", clusterName)
+		m.logPriceMiss(clusterName, targetModel, mode, bfe_basic.PriceWarnNoModelTable, action, "")
 		return 0
 	}
+
+	tierName := cluster.AIConf.ModelTable.ActiveTierName(time.Now())
+	action := priceMissActionOf(cluster.AIConf)
 
 	entry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, targetModel, mode)
 	priceMissed := false
 	if entry == nil {
-		// Semantic fallback (issue #1408, product decision): when the
-		// (model, mode) entry is absent, bill at the model's chat-mode price
-		// (an unpriced mode is billed the same as chat). The chat mode itself
-		// never falls back: a missing chat baseline stays fail-loud (bill 0).
-		// The miss is never silent: the request is marked ai_price_miss and
-		// counted, so the price-table gap stays visible in reconciliation.
-		if mode != bfe_basic.ModeChat {
-			if chatEntry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, targetModel, bfe_basic.ModeChat); chatEntry != nil {
-				entry = chatEntry
-				priceMissed = true
-			}
-		}
-		if entry == nil {
-			m.state.PriceLookupMiss.Inc(1)
+		// Missing-price handling (issue #1479): the cluster's PriceMissAction
+		// decides between the issue #1408 semantic fallback (default), the
+		// issue #1382 zero billing and pre-forward rejection.
+		switch action {
+		case cluster_conf.PriceMissActionBillZero, cluster_conf.PriceMissActionReject:
+			// Reject normally happens before forwarding (tokenFoundProductHandler);
+			// reaching here means the request is already in flight, so bill 0 and
+			// keep the miss visible.
+			m.state.PriceMissZeroBilled.Inc(1)
 			aiMeta.MarkPriceMiss()
+			aiMeta.MarkPriceWarn(bfe_basic.PriceWarnNoEntry)
 			aiMeta.SetZeroCostReason(bfe_basic.ZeroCostReasonPriceMiss)
-			log.Logger.Warn("model price not found for cluster %s model %s mode %s", clusterName, targetModel, mode)
+			m.logPriceMiss(clusterName, targetModel, mode, bfe_basic.PriceWarnNoEntry, action, "")
 			return 0
+		default: // fallback_chat
+			// When the (model, mode) entry is absent, bill at the model's
+			// chat-mode price (an unpriced mode is billed the same as chat).
+			// The chat mode itself never falls back: a missing chat baseline
+			// stays fail-loud (bill 0).
+			if mode != bfe_basic.ModeChat {
+				if chatEntry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, targetModel, bfe_basic.ModeChat); chatEntry != nil {
+					entry = chatEntry
+					priceMissed = true
+				}
+			}
+			if entry == nil {
+				m.state.PriceMissZeroBilled.Inc(1)
+				aiMeta.MarkPriceMiss()
+				aiMeta.MarkPriceWarn(bfe_basic.PriceWarnNoBaseline)
+				aiMeta.SetZeroCostReason(bfe_basic.ZeroCostReasonPriceMiss)
+				m.logPriceMiss(clusterName, targetModel, mode, bfe_basic.PriceWarnNoBaseline, action, "")
+				return 0
+			}
 		}
 	}
 	if priceMissed {
 		m.state.PriceFallbackUsed.Inc(1)
 		aiMeta.MarkPriceMiss()
-		log.Logger.Warn("model price fell back to chat price: cluster=%s model=%s mode=%s", clusterName, targetModel, mode)
-	}
-
-	tierName := ""
-	if cluster.AIConf.ModelTable != nil {
-		tierName = cluster.AIConf.ModelTable.ActiveTierName(time.Now())
+		aiMeta.MarkPriceWarn(bfe_basic.PriceWarnFallback)
+		// Sub-item keys the fallback entry lacks but this request used: the
+		// accepted residual (billed 0 on those dimensions), made observable.
+		if missingKeys := missingSubitemKeys(entry, usage, tierName); missingKeys != "" {
+			m.state.PriceFallbackSubItemMiss.Inc(1)
+			aiMeta.MarkPriceWarn(bfe_basic.PriceWarnSubitemMissing)
+			m.logPriceMiss(clusterName, targetModel, mode, bfe_basic.PriceWarnSubitemMissing, action, missingKeys)
+		} else {
+			m.logPriceMiss(clusterName, targetModel, mode, bfe_basic.PriceWarnFallback, action, "")
+		}
 	}
 
 	var cost int64

@@ -1,0 +1,16 @@
+{
+    "Version": "20261030150000",
+    "Hosts": {
+        "ai_product": [
+            "price-fallback.example.org",
+            "price-billzero.example.org",
+            "price-reject.example.org",
+            "price-subitem.example.org"
+        ]
+    },
+    "HostTags": {
+        "ai_product": [
+            "ai_product"
+        ]
+    }
+}

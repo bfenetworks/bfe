@@ -1420,7 +1420,14 @@ return {yuan, frac}
    - 记录告警日志；
    - 本次请求不对该 RMB 配额进行扣减（相当于按 `0` 成本处理）；
    - 具体是否拒绝请求，需产品进一步确认。
-   - **mode 维度缺失的语义回退**（issue #1408，产品决策）：`(model, mode)` 无价格条目、但同 model 存在 `chat` 条目时，按 `chat` 价计费（未单独定价的 mode 与 chat 同价）；请求被标记 `ai_price_miss`（`bfe-access-pb >= v0.3.14` 字段 763）并计入 `PriceFallbackUsed`，保证缺口可见。`chat` 自身缺失不回退，维持按 `0` 计费 + `PriceLookupMiss` 告警（基准价缺失属配置事故）。该行为显式反转了 #1382 的「miss 即按 0、不回退」验收决定。
+   - **缺价动作与信号**（issue #1479）：三动作计费矩阵（`fallback_chat`/`bill_zero`/`reject`）、`reject` 前置拒绝（503、上游零调用、`ModelTable` 缺失同拒、`ClusterTableLookup` 失败 fail-open）、子项缺失计数（键缺失 vs 显式 0、仅实际用量维度）、`PRICE_MISS` 日志格式与限流、`ai_price_warn` 六取值与优先级合并、计数器改名（`PriceMissZeroBilled`）；
+   - **mode 维度缺失的语义回退**（issue #1408，产品决策）：`(model, mode)` 无价格条目、但同 model 存在 `chat` 条目时，按 `chat` 价计费（未单独定价的 mode 与 chat 同价）；请求被标记 `ai_price_miss`（`bfe-access-pb >= v0.3.14` 字段 763）并计入 `PriceFallbackUsed`，保证缺口可见。`chat` 自身缺失不回退，维持按 `0` 计费 + `PriceMissZeroBilled` 告警（基准价缺失属配置事故）。该行为显式反转了 #1382 的「miss 即按 0、不回退」验收决定。
+   - **缺价动作可配 + 形态化信号（issue #1479）**：`AIConf.PriceMissAction` 三态——`fallback_chat`（缺省，上述 #1408 回退）、`bill_zero`（按 0，计 `PriceMissZeroBilled`）、`reject`（**转发前**拒绝：503 + `error.code=PRICE_NOT_CONFIGURED`，不调用上游、不计费，计 `PriceRejected`；`ModelTable` 整体缺失视同"未定价"同样拒绝；`ClusterTableLookup` 失败属路由异常，fail-open 放行）。缺价信号四层：
+     1. **结构化日志** `PRICE_MISS type=<no_entry|no_baseline|fallback|subitem_missing|no_model_table|reject> cluster=<c> model=<m> mode=<mode> action=<a> missing_keys=<k1,k2>`（WARN，每 `(cluster, model, mode, type)` 60s 一条，首条即时）；
+     2. **计数器**：`PriceMissZeroBilled`（原 `PriceLookupMiss` 改名，含 batch settle 缺价）、`PriceFallbackUsed`、`PriceRejected`、`PriceFallbackSubItemMiss`；
+     3. **pb 字段**：`ai_price_miss`（bool，field 763——**写出时机已移出 usage 块**，非 2xx 的 reject 行同样写出）与 `ai_price_warn`（string，field 766，`bfe-access-pb >= v0.3.17`，取值与日志 type 一致，多因取最具体：`subitem_missing` > `fallback` > 条目级形态，`reject` 互斥）；
+     4. **对账模板**：回退 `ai_price_miss=true AND ai_cost_value>0`；按 0 `ai_price_miss=true AND ai_zero_cost_reason='price_miss'`；拒绝 `ai_price_miss=true AND err_code='PRICE_NOT_CONFIGURED'`；按 `(cluster, model, ai_mode, ai_price_warn)` 分组即"回退/按 0/拒绝/子项缺失"四类。
+   - **回退子项价格缺失（接受残余，issue #1479）**：回退借 chat 条目计价时，若该条目缺本请求**实际用到**的子项价格键（`cache_read_input_token_cost` / `cache_creation_input_token_cost` / `cache_creation_input_token_cost_1h`），该维度按 0 计（少收残余），计 `PriceFallbackSubItemMiss` 并在 `PRICE_MISS` 日志带 `missing_keys`。判定用 `ModelPrice.HasPrice`（键存在即"已定价"，**显式 0 不算缺失**，与 #1420 约定同源），仅检查有量的维度；**不与 `reject` 耦合**（子项用量只有响应后可知，转发前无法精确拒绝）。运维闭环：`PriceFallbackSubItemMiss>0` → grep `PRICE_MISS` → 补价 → 计数回落。
 4. **与多 Key 改造的关系**：`AIConf.Keys` 与 `ModelTable` 相互独立，可并行下发、独立解析。
 5. **流式响应计费**：RMB 成本在请求结束阶段计算，依赖 `mod_body_process`（或其他响应处理模块）在流式传输过程中填充 `PromptTokens` / `CompletionTokens` / `CacheReadTokens` / `CacheWriteTokens` / `AudioInputTokens` / `AudioOutputTokens` / `ImageInputTokens` / `ImageCount` / `VideoCount`。生产环境若启用流式计费，需确保 `mod_body_process` 已加载。
 6. **模块顺序建议**：`mod_ai_token_auth` 的 `HandleReadResponse` 不再负责 RMB 成本计算，因此对模块加载顺序的敏感度降低；但仍建议保持 `mod_ai_token_auth` 在 `mod_body_process` 之前注册，以便非流式场景下 token 用量解析逻辑保持一致。

@@ -326,6 +326,7 @@
         "ModelProtocols": ["openai"],
         "ProtocolPaths": {},
         "NormalizeUpstreamError": { /* AIConf.NormalizeUpstreamError 元素 */ },
+        "PriceMissAction": "fallback_chat",
         "Keys": [ /* AIConf.Keys 元素 */ ],
         "KeyPolicy": { /* AIConf.KeyPolicy 元素 */ },
         "ModelMapping": {},
@@ -347,6 +348,7 @@
 | ProtocolPaths | map[string]string | N | 按协议改写上游路径：协议 -> 上游 base path（该协议 SDK base_url 的 path 部分），详见下文说明 | 键取值须为 `openai` 或 `anthropic`；值须以 `/` 开头、不以 `/` 结尾、不含 `..`/`?`/`#`、长度 ≤ 128 |
 | NormalizeUpstreamError | object | N | 上游错误体归一（统一错误码）配置；未配置本字段或 `Enabled=false` 时，上游错误（HTTP 状态码与响应体）原样透传，与历史版本行为一致 | 元素见 [9.4 AIConf.NormalizeUpstreamError 元素](#94-aiconfnormalizeupstreamerror-元素) |
 | ModelTable | object | N | 该集群的模型定价表；当前货币固定为 `RMB` | 元素见 [9.3 AIConf.ModelTable 元素](#93-aiconfmodeltable-元素) |
+| PriceMissAction | string | N | `(model, mode)` 价格条目缺失时的处理动作（issue #1479）：`fallback_chat`（缺省，按同模型 chat 价回退计费，issue #1408 行为）、`bill_zero`（按 0 计费，issue #1382 行为）、`reject`（转发前拒绝，返回 503 `PRICE_NOT_CONFIGURED`，不调用上游、不计费）。空值在加载期归一为 `fallback_chat` | 取值须为 `fallback_chat`、`bill_zero` 或 `reject`；`reject` 下 `ModelTable` 整体缺失视同"未定价"同样拒绝 |
 
 `ProtocolPaths` 的语义与改写规则：
 

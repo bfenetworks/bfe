@@ -463,6 +463,43 @@ func TestReqAiInfoGenPriceMiss(t *testing.T) {
 	}
 }
 
+// Issue #1479 (plan A + ai_price_warn): both missing-price fields are written
+// at request level, so a rejected request (non-2xx, UsageDispositionNone)
+// carries them too, and ai_price_warn reports the precise shape.
+func TestReqAiInfoGenPriceMissVisibility(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+
+	aiInfo := &bfe_basic.AiBasicInfo{}
+	aiInfo.MarkPriceMiss()
+	aiInfo.MarkPriceWarn(bfe_basic.PriceWarnReject)
+	// A rejected request never reports usage.
+	aiInfo.SetUsageDisposition(bfe_basic.UsageDispositionNone)
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog, req, res)
+
+	if reqLog.AiPriceMiss == nil || !*reqLog.AiPriceMiss {
+		t.Error("AiPriceMiss must be written for a rejected request (issue #1479 plan A)")
+	}
+	if reqLog.AiPriceWarn == nil || *reqLog.AiPriceWarn != bfe_basic.PriceWarnReject {
+		t.Errorf("AiPriceWarn = %v, want %q", reqLog.AiPriceWarn, bfe_basic.PriceWarnReject)
+	}
+	// The usage block stays suppressed for a rejected request.
+	if reqLog.AiInputTokens != nil || reqLog.AiCostValue != nil {
+		t.Error("usage fields must stay absent for a non-2xx rejected request")
+	}
+
+	// Without any marker neither price field is written.
+	_, req2, res2 := makeRequestLogTest(t)
+	req2.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, &bfe_basic.AiBasicInfo{})
+	reqLog2 := &bfe_access_pb3.RequestLog{}
+	reqAiInfoGen(reqLog2, req2, res2)
+	if reqLog2.AiPriceMiss != nil || reqLog2.AiPriceWarn != nil {
+		t.Error("price fields must stay unset without a marker")
+	}
+}
+
 func TestReqAiInfoGen(t *testing.T) {
 	_, req, res := makeRequestLogTest(t)
 

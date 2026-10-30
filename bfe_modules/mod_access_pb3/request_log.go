@@ -500,6 +500,22 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 	// Stream
 	reqLog.AiStream = proto.Bool(isStreamResponse(req, res))
 
+	// Missing price (issues #1408 / #1479). Written at request level rather
+	// than inside the usage block: "the (model, mode) price entry was absent"
+	// is a fact about the request independent of whether usage is reportable,
+	// so rejected requests (non-2xx, UsageDispositionNone) carry it too and
+	// stay discoverable in reconciliation.
+	if aiInfo.IsPriceMiss() {
+		reqLog.AiPriceMiss = proto.Bool(true)
+	}
+	if shape := aiInfo.PriceWarn(); shape != "" {
+		// The precise missing-price shape, mirroring the PRICE_MISS log type:
+		// no_entry / no_baseline / fallback / subitem_missing /
+		// no_model_table / reject. Reports group by this column instead of
+		// inferring the shape from ai_cost_value / ai_zero_cost_reason.
+		reqLog.AiPriceWarn = proto.String(shape)
+	}
+
 	// Token usage
 	usage := aiInfo.GetTokenUsage()
 	if usage != nil && aiInfo.UsageDisposition() != bfe_basic.UsageDispositionNone {
@@ -543,13 +559,6 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		// never billed). Before this, a zero-cost row and a row whose cost was
 		// never computed were byte-identical.
 		reqLog.AiCostValue = proto.Int64(usage.UsedCost)
-		if aiInfo.IsPriceMiss() {
-			// The (model, mode) price entry was absent: the cost was computed
-			// by falling back to the model's chat price, or billed 0 with no
-			// fallback (issue #1408). Distinguishes under-priced rows from
-			// legitimate zero-cost rows in reconciliation.
-			reqLog.AiPriceMiss = proto.Bool(true)
-		}
 		if source := aiInfo.UsageSource(); source != "" {
 			// Where the reported usage came from: parsed (final usage from the
 			// upstream response, including an explicit all-zero usage object),

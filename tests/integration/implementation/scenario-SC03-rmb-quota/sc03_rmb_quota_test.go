@@ -1424,7 +1424,7 @@ func TestTC23_RMBQuotaDeduction_ModePriceFallback(t *testing.T) {
 	}
 
 	// no-baseline arm: the model is absent from the price table entirely; the
-	// chat mode never falls back, so this bills 0 (PriceLookupMiss).
+	// chat mode never falls back, so this bills 0 (PriceMissZeroBilled).
 	resp3, body3, err := e.sendRequest(apiHost, []byte(`{"model":"no-such-model"}`))
 	if err != nil {
 		t.Fatalf("send no-baseline request failed: %v", err)
@@ -1921,8 +1921,8 @@ func TestTC26_RMBQuotaDeduction_BillingZeroCostSignal(t *testing.T) {
 	if !e.waitForTokenAuthMetric("BillingZeroCost", 5*time.Second, func(v float64) bool { return v == 2 }) {
 		t.Fatalf("BillingZeroCost = %v, want 2 after the price-miss arm", e.tokenAuthMetric("BillingZeroCost"))
 	}
-	if !e.waitForTokenAuthMetric("PriceLookupMiss", 5*time.Second, func(v float64) bool { return v == 1 }) {
-		t.Fatalf("PriceLookupMiss = %v, want 1 (issue #1408 signal must not regress)", e.tokenAuthMetric("PriceLookupMiss"))
+	if !e.waitForTokenAuthMetric("PriceMissZeroBilled", 5*time.Second, func(v float64) bool { return v == 1 }) {
+		t.Fatalf("PriceMissZeroBilled = %v, want 1 (issue #1408 signal must not regress)", e.tokenAuthMetric("PriceMissZeroBilled"))
 	}
 
 	// Both zero-cost arms have recognized usage: zero cost is not

@@ -224,6 +224,12 @@ type AiBasicInfo struct {
 	// visible in reconciliation (issue #1408).
 	priceMiss bool
 
+	// priceWarn carries the precise missing-price shape of this request
+	// (PriceWarn* constants), reported as ai_price_warn and mirrored by the
+	// PRICE_MISS log type (issue #1479). The zero value means "no price
+	// miss"; when several shapes apply the most specific one is kept.
+	priceWarn string
+
 	// usageDisposition tells the access log whether the token figures of
 	// this request may be reported (issue #1409). It is decided at request
 	// finish by mod_ai_token_auth; the zero value means "not judged"
@@ -304,6 +310,55 @@ func (aiinfo *AiBasicInfo) MarkPriceMiss() {
 // IsPriceMiss reports whether MarkPriceMiss was recorded for this request.
 func (aiinfo *AiBasicInfo) IsPriceMiss() bool {
 	return aiinfo.priceMiss
+}
+
+// Missing-price shapes (issue #1479). They are shared by the ai_price_warn
+// access-log field and the structured PRICE_MISS log line (the log uses them
+// as its "type" token), so reconciliation queries and log greps use one
+// vocabulary.
+const (
+	// PriceWarnNoEntry: the (model, mode) entry is absent and the cluster
+	// action bills 0 ("bill_zero").
+	PriceWarnNoEntry = "no_entry"
+	// PriceWarnNoBaseline: the entry is absent and there is no chat-mode
+	// baseline to fall back to (bill 0 under the default action).
+	PriceWarnNoBaseline = "no_baseline"
+	// PriceWarnFallback: a non-chat mode was billed at the model's
+	// chat-mode price ("fallback_chat").
+	PriceWarnFallback = "fallback"
+	// PriceWarnSubitemMissing: the billed entry lacks sub-item price keys
+	// (e.g. cache read/write) that this request actually used, so those
+	// dimensions were billed 0 ("accepted residual").
+	PriceWarnSubitemMissing = "subitem_missing"
+	// PriceWarnNoModelTable: the cluster model table is missing.
+	PriceWarnNoModelTable = "no_model_table"
+	// PriceWarnReject: the requested interface has no price configured and
+	// the request was rejected before forwarding ("reject" action).
+	PriceWarnReject = "reject"
+)
+
+// priceWarnRank orders the shapes by specificity; when several apply the
+// highest rank wins (subitem_missing > fallback > entry-level shapes,
+// reject is exclusive by construction).
+var priceWarnRank = map[string]int{
+	PriceWarnNoEntry:        1,
+	PriceWarnNoBaseline:     1,
+	PriceWarnNoModelTable:   1,
+	PriceWarnFallback:       3,
+	PriceWarnSubitemMissing: 4,
+	PriceWarnReject:         5,
+}
+
+// MarkPriceWarn records a missing-price shape, keeping the most specific one.
+func (aiinfo *AiBasicInfo) MarkPriceWarn(shape string) {
+	if priceWarnRank[shape] > priceWarnRank[aiinfo.priceWarn] {
+		aiinfo.priceWarn = shape
+	}
+}
+
+// PriceWarn returns the recorded missing-price shape ("" when none applied).
+func (aiinfo *AiBasicInfo) PriceWarn() string {
+	return aiinfo.priceWarn
 }
 
 // Token-usage dispositions for the access log (issue #1409).
@@ -602,6 +657,12 @@ const (
 	// RPM/TPM (client quota).
 	CodeNoAvailableKey = "NO_AVAILABLE_KEY"
 
+	// CodePriceNotConfigured (issue #1479): the requested (model, mode) has no
+	// price entry and the cluster's AIConf.PriceMissAction is "reject", so the
+	// request is rejected before forwarding. A gateway configuration gap, not
+	// a caller error: mapped to 503 and to TypeInternalError.
+	CodePriceNotConfigured = "PRICE_NOT_CONFIGURED"
+
 	// Upstream error normalization catalog (AIConf.NormalizeUpstreamError).
 	// Values are single-sourced in bfe_model_protocol/utils and shared with
 	// the protocol adapters' mapping tables.
@@ -691,6 +752,7 @@ var ErrorCodeToStatusCode = map[string]int{
 	CodeTimeWindowRestricted:   403,
 
 	CodeProviderProtocolMismatch: 400,
+	CodePriceNotConfigured:       503,
 
 	CodeUpstreamInvalidRequest: 400,
 	CodeUpstreamRateLimited:    429,
@@ -748,6 +810,7 @@ var ErrorCodeToErrorType = map[string]string{
 	CodeTimeWindowRestricted:   TypeAuthenticationError,
 
 	CodeProviderProtocolMismatch: TypeInvalidRequestError,
+	CodePriceNotConfigured:       TypeInternalError,
 
 	CodeNoAvailableKey: TypeRateLimitError,
 

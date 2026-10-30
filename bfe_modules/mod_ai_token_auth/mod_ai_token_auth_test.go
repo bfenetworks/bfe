@@ -1280,7 +1280,7 @@ func TestCalcCostUnits_CacheFallback(t *testing.T) {
 	}
 }
 
-func TestCalcCostUnits_PriceLookupMissCounter(t *testing.T) {
+func TestCalcCostUnits_PriceMissZeroBilledCounter(t *testing.T) {
 	m := NewModuleAITokenAuth()
 	clusterName := "responses-backup"
 	model := "gpt-5-codex"
@@ -1289,7 +1289,7 @@ func TestCalcCostUnits_PriceLookupMissCounter(t *testing.T) {
 	// request is billed as mode "responses". Since issue #1408 the miss
 	// falls back to the model's chat-mode price (product decision: an
 	// unpriced mode is billed the same as chat), marks the request
-	// ai_price_miss and counts PriceFallbackUsed instead of PriceLookupMiss.
+	// ai_price_miss and counts PriceFallbackUsed instead of PriceMissZeroBilled.
 	cluster := buildTestClusterConf(model, 0.000003, 0.000009)
 	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
 	req.GetAiBasicInfo().Mode = bfe_basic.ModeResponses
@@ -1299,8 +1299,8 @@ func TestCalcCostUnits_PriceLookupMissCounter(t *testing.T) {
 	if got := m.calcCostUnits(req, req.SvrDataConf, usage); got != want {
 		t.Errorf("expected fallback cost %d, got %d", want, got)
 	}
-	if v := m.state.PriceLookupMiss.Get(); v != 0 {
-		t.Errorf("expected PriceLookupMiss 0 on fallback, got %d", v)
+	if v := m.state.PriceMissZeroBilled.Get(); v != 0 {
+		t.Errorf("expected PriceMissZeroBilled 0 on fallback, got %d", v)
 	}
 	if v := m.state.PriceFallbackUsed.Get(); v != 1 {
 		t.Errorf("expected PriceFallbackUsed 1, got %d", v)
@@ -1314,23 +1314,23 @@ func TestCalcCostUnits_PriceLookupMissCounter(t *testing.T) {
 	if got := m.calcCostUnits(req, req.SvrDataConf, usage); got != want {
 		t.Errorf("expected cost %d, got %d", want, got)
 	}
-	if v := m.state.PriceLookupMiss.Get(); v != 0 {
-		t.Errorf("expected PriceLookupMiss still 0 after a hit, got %d", v)
+	if v := m.state.PriceMissZeroBilled.Get(); v != 0 {
+		t.Errorf("expected PriceMissZeroBilled still 0 after a hit, got %d", v)
 	}
 	if v := m.state.PriceFallbackUsed.Get(); v != 1 {
 		t.Errorf("expected PriceFallbackUsed still 1 after a hit, got %d", v)
 	}
 
 	// A model absent from the table entirely has no chat baseline: the chat
-	// mode itself never falls back, so it bills 0 and counts PriceLookupMiss.
+	// mode itself never falls back, so it bills 0 and counts PriceMissZeroBilled.
 	noModelReq := newTestRequestWithCluster("ak-123", "AI_product", clusterName, "no-such-model")
 	noModelReq.SvrDataConf = req.SvrDataConf
 	noModelReq.GetAiBasicInfo().Mode = bfe_basic.ModeChat
 	if got := m.calcCostUnits(noModelReq, noModelReq.SvrDataConf, usage); got != 0 {
 		t.Errorf("expected 0 cost on price lookup miss, got %d", got)
 	}
-	if v := m.state.PriceLookupMiss.Get(); v != 1 {
-		t.Errorf("expected PriceLookupMiss 1, got %d", v)
+	if v := m.state.PriceMissZeroBilled.Get(); v != 1 {
+		t.Errorf("expected PriceMissZeroBilled 1, got %d", v)
 	}
 	if !noModelReq.GetAiBasicInfo().IsPriceMiss() {
 		t.Error("expected PriceMiss to be marked on unrecoverable miss")
