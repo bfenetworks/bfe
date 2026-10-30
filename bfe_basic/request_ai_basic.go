@@ -224,6 +224,12 @@ type AiBasicInfo struct {
 	// visible in reconciliation (issue #1408).
 	priceMiss bool
 
+	// priceWarn carries the precise missing-price shape of this request
+	// (PriceWarn* constants), reported as ai_price_warn and mirrored by the
+	// PRICE_MISS log type (issue #1479). The zero value means "no price
+	// miss"; when several shapes apply the most specific one is kept.
+	priceWarn string
+
 	// usageDisposition tells the access log whether the token figures of
 	// this request may be reported (issue #1409). It is decided at request
 	// finish by mod_ai_token_auth; the zero value means "not judged"
@@ -306,6 +312,55 @@ func (aiinfo *AiBasicInfo) IsPriceMiss() bool {
 	return aiinfo.priceMiss
 }
 
+// Missing-price shapes (issue #1479). They are shared by the ai_price_warn
+// access-log field and the structured PRICE_MISS log line (the log uses them
+// as its "type" token), so reconciliation queries and log greps use one
+// vocabulary.
+const (
+	// PriceWarnNoEntry: the (model, mode) entry is absent and the cluster
+	// action bills 0 ("bill_zero").
+	PriceWarnNoEntry = "no_entry"
+	// PriceWarnNoBaseline: the entry is absent and there is no chat-mode
+	// baseline to fall back to (bill 0 under the default action).
+	PriceWarnNoBaseline = "no_baseline"
+	// PriceWarnFallback: a non-chat mode was billed at the model's
+	// chat-mode price ("fallback_chat").
+	PriceWarnFallback = "fallback"
+	// PriceWarnSubitemMissing: the billed entry lacks sub-item price keys
+	// (e.g. cache read/write) that this request actually used, so those
+	// dimensions were billed 0 ("accepted residual").
+	PriceWarnSubitemMissing = "subitem_missing"
+	// PriceWarnNoModelTable: the cluster model table is missing.
+	PriceWarnNoModelTable = "no_model_table"
+	// PriceWarnReject: the requested interface has no price configured and
+	// the request was rejected before forwarding ("reject" action).
+	PriceWarnReject = "reject"
+)
+
+// priceWarnRank orders the shapes by specificity; when several apply the
+// highest rank wins (subitem_missing > fallback > entry-level shapes,
+// reject is exclusive by construction).
+var priceWarnRank = map[string]int{
+	PriceWarnNoEntry:        1,
+	PriceWarnNoBaseline:     1,
+	PriceWarnNoModelTable:   1,
+	PriceWarnFallback:       3,
+	PriceWarnSubitemMissing: 4,
+	PriceWarnReject:         5,
+}
+
+// MarkPriceWarn records a missing-price shape, keeping the most specific one.
+func (aiinfo *AiBasicInfo) MarkPriceWarn(shape string) {
+	if priceWarnRank[shape] > priceWarnRank[aiinfo.priceWarn] {
+		aiinfo.priceWarn = shape
+	}
+}
+
+// PriceWarn returns the recorded missing-price shape ("" when none applied).
+func (aiinfo *AiBasicInfo) PriceWarn() string {
+	return aiinfo.priceWarn
+}
+
 // Token-usage dispositions for the access log (issue #1409).
 const (
 	// UsageDispositionUnset is the zero value: no disposition was judged
@@ -354,10 +409,12 @@ const (
 	// (issue #1398).
 	UsageSourceEstimated = "estimated"
 	// UsageSourceAborted means the client disconnected (RST/close/write
-	// failure) before the final usage was seen: billing is skipped per the
-	// issue #1352 yardstick, and the reported token fields are either
-	// auth-time seeding residue or the initial usage of the stream
-	// (issue #1414).
+	// failure) before the final usage was seen. Since issue #1478 the
+	// marker describes the cause, not the billing outcome: with
+	// EstimateToken enabled the request is billed by the forwarded-content
+	// estimate, with it disabled billing is skipped per the issue #1352
+	// yardstick and the reported token fields stay auth-time seeding
+	// residue.
 	UsageSourceAborted = "aborted"
 	// UsageSourceUnrecognized means no final usage was parsed and the
 	// request is not estimatable: billing was skipped and the reported
@@ -369,6 +426,13 @@ const (
 	// consumption: the request is billed by the forwarded-content estimate
 	// when EstimateToken allows, or reported unrecognized otherwise.
 	UsageSourceUpstreamDropped = "upstream_dropped"
+	// UsageSourceFailed means the upstream call never succeeded (non-2xx,
+	// including BFE-generated rejections): the reported tokens are the
+	// auth-time prompt seeding plus the accumulated forwarded content — an
+	// estimate kept for reporting but never billed (issue #1480). A non-2xx
+	// response that does carry a real usage object is reported as parsed
+	// instead.
+	UsageSourceFailed = "failed"
 )
 
 // Zero-cost reasons for the access log (issue #1414): why a 2xx request that
@@ -383,7 +447,10 @@ const (
 	// mid-response and EstimateToken is off, so the forwarded content could
 	// not be billed (issue #1474).
 	ZeroCostReasonUpstreamDropped = "upstream_dropped"
-	// ZeroCostReasonAborted: the client disconnected before the final usage.
+	// ZeroCostReasonAborted: the client disconnected before the final usage
+	// and the forwarded-content estimate is disabled, so nothing was
+	// billed (issue #1478; a billable abort is charged and carries no
+	// zero-cost reason).
 	ZeroCostReasonAborted = "aborted"
 	// ZeroCostReasonCacheHit: AI cache hit, the upstream was never called.
 	ZeroCostReasonCacheHit = "cache_hit"
@@ -597,6 +664,12 @@ const (
 	// RPM/TPM (client quota).
 	CodeNoAvailableKey = "NO_AVAILABLE_KEY"
 
+	// CodePriceNotConfigured (issue #1479): the requested (model, mode) has no
+	// price entry and the cluster's AIConf.PriceMissAction is "reject", so the
+	// request is rejected before forwarding. A gateway configuration gap, not
+	// a caller error: mapped to 503 and to TypeInternalError.
+	CodePriceNotConfigured = "PRICE_NOT_CONFIGURED"
+
 	// Upstream error normalization catalog (AIConf.NormalizeUpstreamError).
 	// Values are single-sourced in bfe_model_protocol/utils and shared with
 	// the protocol adapters' mapping tables.
@@ -686,6 +759,7 @@ var ErrorCodeToStatusCode = map[string]int{
 	CodeTimeWindowRestricted:   403,
 
 	CodeProviderProtocolMismatch: 400,
+	CodePriceNotConfigured:       503,
 
 	CodeUpstreamInvalidRequest: 400,
 	CodeUpstreamRateLimited:    429,
@@ -743,6 +817,7 @@ var ErrorCodeToErrorType = map[string]string{
 	CodeTimeWindowRestricted:   TypeAuthenticationError,
 
 	CodeProviderProtocolMismatch: TypeInvalidRequestError,
+	CodePriceNotConfigured:       TypeInternalError,
 
 	CodeNoAvailableKey: TypeRateLimitError,
 

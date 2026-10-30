@@ -65,6 +65,14 @@ var (
 	anthropicLargeBlock = fmt.Sprintf(`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":%q}}`,
 		strings.Repeat("x", 1<<20))
 
+	// injectedErrorFrame is the OpenAI-native error event issue #1474's
+	// streamTruncationInjector emits when it observes the upstream body being
+	// closed mid-stream (the abort path closes it via CloseWatcher). It is an
+	// observation of the read path, not model output, but the
+	// forwarded-content estimator counts every frame it sees — TC-01 budgets
+	// for it explicitly so the expected amount stays exact.
+	injectedErrorFrame = `{"error":{"message":"upstream stream terminated abnormally.","type":"server_error","param":null,"code":"upstream_stream_truncated"}}`
+
 	// Expected deduction for the full stream:
 	// prompt 320 * 452 + completion 150 * 2262 = 483940 units.
 	expectedStreamCost = int64(320*452 + 150*2262)
@@ -81,6 +89,14 @@ type testEnv struct {
 }
 
 func newTestEnv(t *testing.T) *testEnv {
+	return newTestEnvWithEstimateToken(t, true)
+}
+
+// newTestEnvWithEstimateToken builds the SC12 environment; estimateToken
+// rewrites the generated bfe.conf after Build (the template ships
+// EstimateToken = true), so the billed arm (issue #1478, TC-01~03) and the
+// zero-billed arm (EstimateToken=false, TC-04) share one static template.
+func newTestEnvWithEstimateToken(t *testing.T, estimateToken bool) *testEnv {
 	e := &testEnv{t: t}
 
 	e.backend = common.NewMockBackend(clusterClientAbort, http.StatusOK, "")
@@ -144,9 +160,29 @@ func newTestEnv(t *testing.T) *testEnv {
 	if err := builder.Build(); err != nil {
 		t.Fatalf("build bfe config failed: %v", err)
 	}
+	if !estimateToken {
+		rewriteEstimateToken(t, filepath.Join(confDir, "bfe.conf"))
+	}
 
 	e.bfePort, e.bfeMonitorPort, e.stopBFE = e.processEnv.StartBFE(confDir, logDir)
 	return e
+}
+
+// rewriteEstimateToken flips the generated bfe.conf to EstimateToken = false
+// for the issue #1478 zero-billed abort arm (TC-04).
+func rewriteEstimateToken(t *testing.T, path string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read bfe.conf failed: %v", err)
+	}
+	replaced := strings.Replace(string(data), "EstimateToken = true", "EstimateToken = false", 1)
+	if replaced == string(data) {
+		t.Fatalf("EstimateToken = true not found in %s", path)
+	}
+	if err := os.WriteFile(path, []byte(replaced), 0644); err != nil {
+		t.Fatalf("write bfe.conf failed: %v", err)
+	}
 }
 
 func (e *testEnv) Close() {
@@ -335,10 +371,12 @@ func (e *testEnv) assertAbortSignals(t *testing.T, arm string, wantAbort, wantZe
 	}
 }
 
-// TestTC01 verifies issue #1352: EstimateToken=true, the client aborts
-// (TCP RST) right after message_start, before any final usage. BFE must not
-// bill the request by full-request estimation.
-func TestTC01_ClientAbortAfterMessageStartNoDeduction(t *testing.T) {
+// TestTC01 verifies issue #1478: EstimateToken=true, the client aborts (TCP
+// RST) mid-stream without any final usage. BFE bills the request by the
+// forwarded-content estimate — the auth-time prompt seeding plus the
+// per-chunk accumulation of the frames actually forwarded to the client —
+// instead of dropping it to zero as the issue #1352-era behavior did.
+func TestTC01_ClientAbortBilledByForwardedContent(t *testing.T) {
 	e := newTestEnv(t)
 	defer e.Close()
 
@@ -346,20 +384,48 @@ func TestTC01_ClientAbortAfterMessageStartNoDeduction(t *testing.T) {
 
 	hold := make(chan struct{})
 	defer close(hold)
-	e.backend.SSEEvents = []string{anthropicMessageStart}
+	// Usage-free frames only: billing runs entirely through the
+	// forwarded-content estimate (issue #1478).
+	e.backend.SSEEvents = []string{anthropicPing, anthropicContentDelta}
 	e.backend.SSEHold = hold
-	// After the abort, push a large frame so BFE's next write to the dead
-	// connection fails with ECONNRESET (ErrClientWrite).
-	e.backend.SSETrailing = []string{anthropicLargeBlock}
 
 	_, reader, conn := e.startSSERequest(t, "/anthropic/v1/messages", claudeStreamBody)
-	readUntilSSEMarker(t, conn, reader, "message_start")
+	readUntilSSEMarker(t, conn, reader, "hello") // content frame forwarded
 	abortRST(t, conn)
 
+	// prompt = request body bytes / 4 (auth-time seeding); completion = the
+	// data length of every frame the estimator sees / 4 (QuotaUsageProcessor,
+	// per-event integer division). Besides the two forwarded frames, the abort
+	// closes the upstream body (CloseWatcher), which issue #1474's truncation
+	// injector reports as a mid-stream drop and answers with one protocol
+	// error event; that frame enters the same read path and is counted — the
+	// same accounting as bfe SC29 TC-07/08 and documented there.
+	promptEst := int64(len(claudeStreamBody)) / 4
+	completionEst := int64(len(anthropicPing))/4 +
+		int64(len(anthropicContentDelta))/4 +
+		int64(len(injectedErrorFrame))/4
+	want := initialQuota - (promptEst*452 + completionEst*2262)
+
 	remaining := e.quotaRemaining(t)
-	if remaining != initialQuota {
-		t.Fatalf("client abort after message_start must not be deducted: remaining = %d, want %d",
-			remaining, initialQuota)
+	if remaining != want {
+		t.Fatalf("client abort must be billed by the forwarded-content estimate: remaining = %d, want %d (promptEst=%d completionEst=%d)",
+			remaining, want, promptEst, completionEst)
+	}
+
+	// issue #1478 signal split: the billed arm counts AbortBillingEstimated
+	// and leaves the zero-billed shape untouched.
+	billed := e.waitTokenAuthMetric(t, "AbortBillingEstimated", 1)
+	if billed != 1 {
+		t.Errorf("AbortBillingEstimated = %v, want 1", billed)
+	}
+	if got := e.tokenAuthMetric(t, "AbortBillingSkipped"); got != 0 {
+		t.Errorf("AbortBillingSkipped = %v, want 0 (the abort was billed)", got)
+	}
+	if got := e.tokenAuthMetric(t, "BillingZeroCost"); got != 0 {
+		t.Errorf("BillingZeroCost = %v, want 0 (the abort was billed)", got)
+	}
+	if got := e.tokenAuthMetric(t, "UsageUnrecognized"); got != 0 {
+		t.Errorf("UsageUnrecognized = %v, want 0", got)
 	}
 }
 
@@ -418,8 +484,8 @@ func TestTC03_CompleteStreamBillsActualUsage(t *testing.T) {
 	}
 }
 
-// TestTC04_AbortBillingSkippedSignals verifies issue #1414 (step 5, plan A+B):
-// the client-abort zero-deduction (issue #1352 yardstick) is observable and
+// TestTC04_AbortBillingSkippedSignals verifies issue #1414 + #1478: with
+// EstimateToken=false the client-abort zero-deduction is observable and
 // separable from "upstream usage unrecognized". Two arms cover the two shapes
 // the abort branch absorbs:
 //
@@ -427,12 +493,11 @@ func TestTC03_CompleteStreamBillsActualUsage(t *testing.T) {
 //	A2: message_start (initial usage, UsedQuota > 0, not a final event) was
 //	    already parsed when the client aborts.
 //
-// Both must stay at zero deduction (the #1352 yardstick this case does not
-// claim should be billed), be counted by AbortBillingSkipped, counted by
-// BillingZeroCost (an RMB plan is bound), and must NOT touch
-// UsageUnrecognized.
+// Both must stay at zero deduction (the #1478 billed arm is TC-01), be counted
+// by AbortBillingSkipped, counted by BillingZeroCost (an RMB plan is bound),
+// must NOT touch UsageUnrecognized, and must NOT advance AbortBillingEstimated.
 func TestTC04_AbortBillingSkippedSignals(t *testing.T) {
-	e := newTestEnv(t)
+	e := newTestEnvWithEstimateToken(t, false)
 	defer e.Close()
 
 	e.redis.SetQuota(redisKeyRMB, initialQuota)
@@ -473,4 +538,10 @@ func TestTC04_AbortBillingSkippedSignals(t *testing.T) {
 			remaining, initialQuota)
 	}
 	e.assertAbortSignals(t, "arm A2 (initial usage before abort)", 2, 2)
+
+	// issue #1478: the billed-abort counter must stay untouched on the
+	// estimation-disabled arm.
+	if got := e.tokenAuthMetric(t, "AbortBillingEstimated"); got != 0 {
+		t.Errorf("AbortBillingEstimated = %v, want 0 (no abort was billed)", got)
+	}
 }

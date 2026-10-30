@@ -35,3 +35,9 @@ Authorization: Bearer <api-key>
 | REQ_TOTAL | Counter | 总请求数 |
 | REQ_AUTH | Counter | 触发鉴权的请求数 |
 | REQ_AUTH_FAIL | Counter | 鉴权失败的请求数 |
+| PRICE_FALLBACK_USED | Counter | 缺价回退计费次数（`(model, mode)` 条目缺失、按同模型 chat 价计费，issue #1408） |
+| PRICE_MISS_ZERO_BILLED | Counter | 缺价按 0 计费次数（`bill_zero` 动作、或无 chat 基线的回退；含 batch settle 的 batch mode 缺价，按模型组逐次递增）。原指标名 `PRICE_LOOKUP_MISS`，issue #1479 改名，未设过渡期（生产未接入该指标） |
+| PRICE_REJECTED | Counter | 缺价转发前拒绝次数（`PriceMissAction=reject`，issue #1479；被拒请求不调用上游、不计费） |
+| PRICE_FALLBACK_SUBITEM_MISS | Counter | 回退计费时 chat 条目缺本请求实际用到的子项价格键（cache 读/写）的次数（issue #1479，接受残余的可观测信号） |
+
+> 缺价的逐请求形态同时写入访问日志：`ai_price_miss`（bool，field 763）与 `ai_price_warn`（string，field 766，`bfe-access-pb >= v0.3.17`）；定位用结构化日志 `PRICE_MISS type=... cluster=... model=... mode=... action=... missing_keys=...`（每 `(cluster, model, mode, type)` 60s 一条）。
