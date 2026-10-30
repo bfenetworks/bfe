@@ -249,9 +249,10 @@ type AIConf struct {
 	// forwarded with their original path).
 	ProtocolPaths map[string]string
 
-	// NormalizeUpstreamError configures upstream error normalization
-	// (unified error codes). Nil or Enabled/StreamEnabled=false keeps the
-	// historical pass-through behavior.
+	// upstream error normalization (AIConf.NormalizeUpstreamError)
+	// (unified error codes). Nil or Enabled/StreamEnabled=false and
+	// StreamTruncatedError unset keeps the historical pass-through
+	// behavior.
 	NormalizeUpstreamError *UpstreamErrorNormalizeConf
 }
 
@@ -277,6 +278,15 @@ type UpstreamErrorNormalizeConf struct {
 	// payload rewritten with the unified error JSON (the response status
 	// stays 200), and stream truncation is marked in the access log.
 	StreamEnabled bool
+	// StreamTruncatedError injects a protocol error event into the client
+	// stream when the upstream connection drops mid-stream without the
+	// protocol's terminal event (issue #1474), so clients can tell the
+	// response is incomplete. Default true (nil); set to false explicitly
+	// to disable. Pointer so that "absent" is distinguishable from an
+	// explicit false. Independent of StreamEnabled: it never rewrites
+	// upstream error events, it only appends a gateway-side error event on
+	// an abnormal upstream disconnect.
+	StreamTruncatedError *bool
 	// UnrecognizedAction decides how unrecognized upstream error bodies are
 	// handled: "passthrough" (default) or "rewrite_generic". Streaming
 	// unrecognized events are always passed through.
@@ -319,6 +329,13 @@ func (c *UpstreamErrorNormalizeConf) Effective() UpstreamErrorNormalizeConf {
 // RedactSecretsEnabled reports whether credential redaction is on.
 func (c UpstreamErrorNormalizeConf) RedactSecretsEnabled() bool {
 	return c.RedactSecrets == nil || *c.RedactSecrets
+}
+
+// StreamTruncatedErrorEnabled reports whether the mid-stream upstream-drop
+// error event injection is on (issue #1474). Nil config or nil field means
+// the default (enabled).
+func (c *UpstreamErrorNormalizeConf) StreamTruncatedErrorEnabled() bool {
+	return c == nil || c.StreamTruncatedError == nil || *c.StreamTruncatedError
 }
 
 func boolPtr(b bool) *bool { return &b }

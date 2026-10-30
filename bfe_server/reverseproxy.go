@@ -34,6 +34,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/net/http2"
@@ -1002,9 +1003,15 @@ func (p *ReverseProxy) copyResponse(dst io.Writer, src io.ReadCloser,
 	// if the client has disconnected, cancel the block operation immediately.
 	//
 	// Note: cancelOnClientClose feature must be enabled for AVS client (over http2)
+	//
+	// Note: clientClosed is also the attribution guard for copy errors
+	// (issue #1474): when the watcher fired, a subsequent src read error is
+	// a client-abort consequence, not an upstream drop.
+	var clientClosed int32
 	if cancelOnClientClose {
 		if cn, ok := dst.(bfe_http.CloseNotifier); ok {
 			cw := bfe_http.NewCloseWatcher(cn, func() {
+				atomic.StoreInt32(&clientClosed, 1)
 				// Note: src is type of bfe_http.bodyEofSignal. Close() on src will
 				// close the underlying connection if response not ready.
 				// Duplicated Close() will be ignore.
@@ -1015,31 +1022,104 @@ func (p *ReverseProxy) copyResponse(dst io.Writer, src io.ReadCloser,
 		}
 	}
 
+	// Track write-side errors so a copy failure can be attributed to the
+	// failing side instead of labeling everything a client write error
+	// (issue #1474).
+	var writeErr error
+	tracked := &writeErrorTracker{w: dst, err: &writeErr}
+
 	if flushInterval < 0 {
-		if wf, ok := dst.(bfe_http.WriteFlusher); ok {
+		if _, ok := dst.(bfe_http.WriteFlusher); ok {
 			// Note: Flush response header immediately
-			if err := wf.Flush(); err != nil {
-				return err
+			if err := tracked.Flush(); err != nil {
+				return newResponseCopyError(err, false, &clientClosed)
 			}
-			_, err := bfe_util.CopyWithoutBuffer(wf, src)
-			return err
+			_, err := bfe_util.CopyWithoutBuffer(tracked, src)
+			return newResponseCopyError(err, writeErr == nil, &clientClosed)
 		}
 	}
 
+	copyDst := io.Writer(tracked)
 	if flushInterval > 0 {
-		if wf, ok := dst.(bfe_http.WriteFlusher); ok {
-			mlw := bfe_http.NewMaxLatencyWriter(wf, flushInterval, nil)
+		if _, ok := dst.(bfe_http.WriteFlusher); ok {
+			mlw := bfe_http.NewMaxLatencyWriter(tracked, flushInterval, nil)
 			go mlw.FlushLoop()
 			defer mlw.Stop()
-			dst = mlw
+			copyDst = mlw
 		}
 	}
 
 	buf := p.bufferPool.GetBlock()
 	defer p.bufferPool.PutBlock(buf)
 
-	_, err := io.CopyBuffer(dst, src, buf)
+	_, err := io.CopyBuffer(copyDst, src, buf)
+	return newResponseCopyError(err, writeErr == nil, &clientClosed)
+}
+
+// writeErrorTracker records the first error of the wrapped writer so that
+// copyResponse can tell a client write failure apart from an upstream read
+// failure (issue #1474). Flush passes through to the wrapped writer when it
+// is a WriteFlusher.
+type writeErrorTracker struct {
+	w   io.Writer
+	err *error
+}
+
+func (t *writeErrorTracker) Write(p []byte) (int, error) {
+	n, err := t.w.Write(p)
+	if err != nil && *t.err == nil {
+		*t.err = err
+	}
+	return n, err
+}
+
+func (t *writeErrorTracker) Flush() error {
+	wf, ok := t.w.(bfe_http.WriteFlusher)
+	if !ok {
+		return nil
+	}
+	err := wf.Flush()
+	if err != nil && *t.err == nil {
+		*t.err = err
+	}
 	return err
+}
+
+// responseCopyError carries which side of the copy failed so the caller
+// does not have to label every copy error as a client write error
+// (issue #1474).
+type responseCopyError struct {
+	err      error // original copy error
+	readSide bool  // true: src (upstream) read failed; false: dst (client) write failed
+	// clientClosed is set when the cancelOnClientClose watcher fired: the
+	// client went away and closed src, so a read error is a client-abort
+	// consequence and must keep the client-abort semantics (issue #1352).
+	clientClosed bool
+}
+
+func (e *responseCopyError) Error() string { return e.err.Error() }
+func (e *responseCopyError) Unwrap() error { return e.err }
+
+func newResponseCopyError(err error, readSide bool, clientClosed *int32) error {
+	if err == nil {
+		return nil
+	}
+	return &responseCopyError{
+		err:          err,
+		readSide:     readSide,
+		clientClosed: atomic.LoadInt32(clientClosed) == 1,
+	}
+}
+
+// isUpstreamDropErr reports whether a sendResponse error is an upstream
+// read failure with the client still attached: the backend broke the
+// response mid-stream (issue #1474), as opposed to a client abort.
+func isUpstreamDropErr(err error) bool {
+	var ce *responseCopyError
+	if !errors.As(err, &ce) {
+		return false
+	}
+	return ce.readSide && !ce.clientClosed
 }
 
 func checkAllowRetry(retryLevel int, outreq *bfe_http.Request) bool {
@@ -1491,10 +1571,23 @@ send_response:
 			if !CheckSupportMultiplex(basicReq.Session.Proto) {
 				action = closeAfterReply
 			}
-			basicReq.ErrCode = bfe_basic.ErrClientWrite
+			if isUpstreamDropErr(err) {
+				// issue #1474: the upstream connection broke mid-response
+				// (e.g. backend killed) while the client is still attached.
+				// Not a client abort: mark the drop so the finish handler
+				// bills the forwarded content, count it separately from
+				// client write errors, and let the stream filter tell the
+				// client via an injected protocol error event.
+				basicReq.ErrCode = bfe_basic.ErrBkReadRespBody
+				p.proxyState.ErrBkReadRespBody.Inc(1)
+				if shouldMarkUpstreamDropped(res, aiMeta) {
+					aiMeta.MarkUpstreamDropped()
+				}
+			} else {
+				basicReq.ErrCode = bfe_basic.ErrClientWrite
+				p.proxyState.ErrClientWrite.Inc(1)
+			}
 			basicReq.ErrMsg = err.Error()
-
-			p.proxyState.ErrClientWrite.Inc(1)
 		} else if shouldMarkAIStreamCompleted(res, aiMeta, err) {
 			// issue #1415: the full SSE body was delivered and the upstream
 			// closed cleanly. Streams whose upstream omits the protocol
@@ -1521,6 +1614,17 @@ send_response:
 func shouldMarkAIStreamCompleted(res *bfe_http.Response, aiMeta *bfe_basic.AiBasicInfo, copyErr error) bool {
 	return copyErr == nil && res != nil && res.StatusCode == bfe_http.StatusOK &&
 		res.IsSse && aiMeta != nil &&
+		aiMeta.Mode != bfe_basic.ModeFile && aiMeta.Mode != bfe_basic.ModeBatch
+}
+
+// shouldMarkUpstreamDropped reports whether a copy-time upstream read error
+// should mark the AI request as upstream-dropped (issue #1474): the status
+// is a successful model call, the request is a billable AI mode, and the
+// response had not already completed (a fully delivered stream keeps its
+// issue #1415 clean-EOF semantics).
+func shouldMarkUpstreamDropped(res *bfe_http.Response, aiMeta *bfe_basic.AiBasicInfo) bool {
+	return res != nil && res.StatusCode == bfe_http.StatusOK && aiMeta != nil &&
+		!aiMeta.IsResponseCompleted() &&
 		aiMeta.Mode != bfe_basic.ModeFile && aiMeta.Mode != bfe_basic.ModeBatch
 }
 

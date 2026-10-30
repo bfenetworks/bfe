@@ -43,6 +43,7 @@ var (
 	ErrBkWriteRequest      = errors.New("BK_WRITE_REQUEST")        // write request error (caused by bk or client)
 	ErrBkReadRespHeader    = errors.New("BK_READ_RESP_HEADER")     // read response error
 	ErrBkRespHeaderTimeout = errors.New("BK_RESP_HEADER_TIMEOUT")  // read response timeout
+	ErrBkReadRespBody      = errors.New("BK_READ_RESP_BODY")       // read response body error (upstream dropped mid-stream)
 	ErrBkTransportBroken   = errors.New("BK_TRANSPORT_BROKEN")     // conn broken
 	ErrBkRetryTooMany      = errors.New("BK_RETRY_TOOMANY")        // reach retry max
 	ErrBkNoSubClusterCross = errors.New("BK_NO_SUB_CLUSTER_CROSS") // no sub-cluster found

@@ -32,6 +32,7 @@
 | ERR_BK_NO_CLUSTER               | 无集群配置的请求数        |
 | ERR_BK_BODY_PROCESS             | 请求/响应体处理错误数     |
 | ERR_BK_READ_RESP_HEADER         | 读响应头失败的错误数      |
+| ERR_BK_READ_RESP_BODY           | 读响应体失败（上游流中途异常断流）的错误数（issue #1474） |
 | ERR_BK_REQUEST_BACKEND          | 转发请求到后端失败的错误数 |
 | ERR_BK_RESP_HEADER_TIMEOUT      | 读后端响应头超时的错误数   |
 | ERR_BK_TRANSPORT_BROKEN         | 与后端连接异常的错误数     |

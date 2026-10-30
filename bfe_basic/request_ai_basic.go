@@ -205,6 +205,13 @@ type AiBasicInfo struct {
 	// (e.g. Anthropic message_stop, OpenAI [DONE]) or the full body was
 	// read for non-streaming responses.
 	responseCompleted bool
+	// upstreamDropped marks that the upstream connection broke before the
+	// response body was fully delivered (issue #1474): a mid-stream read
+	// error, as opposed to a client abort (write side) or a clean EOF.
+	// Billing treats the forwarded-content estimate as billable on this
+	// mark, and the stream filter injects a protocol error event into the
+	// client stream.
+	upstreamDropped bool
 	// finalUsageSeen marks whether the final usage was parsed from the
 	// response. An initial usage such as Anthropic message_start
 	// (output_tokens = 0) does not count.
@@ -266,6 +273,17 @@ func (aiinfo *AiBasicInfo) MarkResponseCompleted() {
 
 func (aiinfo *AiBasicInfo) IsResponseCompleted() bool {
 	return aiinfo.responseCompleted
+}
+
+// MarkUpstreamDropped records that the upstream connection broke before
+// the response body was fully delivered (issue #1474).
+func (aiinfo *AiBasicInfo) MarkUpstreamDropped() {
+	aiinfo.upstreamDropped = true
+}
+
+// IsUpstreamDropped reports whether MarkUpstreamDropped was recorded.
+func (aiinfo *AiBasicInfo) IsUpstreamDropped() bool {
+	return aiinfo.upstreamDropped
 }
 
 func (aiinfo *AiBasicInfo) MarkFinalUsageSeen() {
@@ -345,6 +363,12 @@ const (
 	// request is not estimatable: billing was skipped and the reported
 	// token fields are auth-time seeding residue.
 	UsageSourceUnrecognized = "unrecognized"
+	// UsageSourceUpstreamDropped means the upstream connection broke
+	// mid-response before the final usage was seen (issue #1474). Unlike a
+	// client abort, content already forwarded to the client is real
+	// consumption: the request is billed by the forwarded-content estimate
+	// when EstimateToken allows, or reported unrecognized otherwise.
+	UsageSourceUpstreamDropped = "upstream_dropped"
 )
 
 // Zero-cost reasons for the access log (issue #1414): why a 2xx request that
@@ -355,6 +379,10 @@ const (
 	// ZeroCostReasonUnrecognized: upstream usage was neither recognized nor
 	// estimatable.
 	ZeroCostReasonUnrecognized = "unrecognized"
+	// ZeroCostReasonUpstreamDropped: the upstream connection broke
+	// mid-response and EstimateToken is off, so the forwarded content could
+	// not be billed (issue #1474).
+	ZeroCostReasonUpstreamDropped = "upstream_dropped"
 	// ZeroCostReasonAborted: the client disconnected before the final usage.
 	ZeroCostReasonAborted = "aborted"
 	// ZeroCostReasonCacheHit: AI cache hit, the upstream was never called.
