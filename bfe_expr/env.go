@@ -38,6 +38,10 @@ type Env struct {
 	TimeEnv   // Now / InTimeRange / InPeriodicRange
 	HashEnv   // Hash / IpIn / IpRange / Rand / RandInt / Srand
 	VarEnv    // ReqContext / UsrVarXxx / UsrVarSetXxx（请求级）
+	RedisEnv  // GetRedisClient* / RedisClient.Get|GetInt|HGetAll，见 redis_env.go
+	HttpEnv   // http 访问（本期 stub），见 http_env.go
+	GlbEnv    // 进程级变量（本期 stub），见 glb_env.go
+	ConfEnv   // 配置表访问（本期 stub），见 conf_env.go
 	InnerEnv  // 旧 %var 内置变量函数（BfeClientIp 等），见 inner_env.go
 	LegacyEnv // 旧原语方法（ReqMethodIn 等），配合 legacyPatcher 兼容旧条件串
 }
@@ -56,6 +60,7 @@ func NewEnv(req *bfe_basic.Request) *Env {
 			rng: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15)),
 		},
 		VarEnv:   VarEnv{req: req},
+		RedisEnv: RedisEnv{},
 		InnerEnv: InnerEnv{req: req},
 	}
 	e.LegacyEnv = LegacyEnv{env: e}

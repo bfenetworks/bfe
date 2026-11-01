@@ -493,3 +493,77 @@ func TestReqDelCookieNotExist(t *testing.T) {
 		t.Error("reqDelCookie should not add missing cookie")
 	}
 }
+
+// 值参数以 "=" 开头：加载期编译为表达式，Params 只保留 header key
+func TestActionConvertExprValue(t *testing.T) {
+	cmd := "REQ_HEADER_SET"
+	action, err := actionConvert(ActionFile{Cmd: &cmd, Params: []string{"X-Exp", "=ReqMethod()"}})
+	if err != nil {
+		t.Fatalf("actionConvert: %v", err)
+	}
+	if action.exprValue == nil || !action.exprValue.IsExpr() {
+		t.Fatal("exprValue should be compiled expr")
+	}
+	if len(action.Params) != 1 || action.Params[0] != "X-Exp" {
+		t.Errorf("Params = %v, want [X-Exp]", action.Params)
+	}
+
+	req := makeBasicRequest("http://www.example.org")
+	if got := getHeaderValue(req, action); got != "GET" {
+		t.Errorf("getHeaderValue = %q, want GET", got)
+	}
+
+	HeaderActionsDo(req, ReqHeader, []Action{action})
+	if got := req.HttpRequest.Header.Get("X-Exp"); got != "GET" {
+		t.Errorf("header X-Exp = %q, want GET", got)
+	}
+}
+
+// "==" 开头转义为字面量（不再做 %var 切分）
+func TestActionConvertExprValueEscaped(t *testing.T) {
+	cmd := "REQ_HEADER_ADD"
+	action, err := actionConvert(ActionFile{Cmd: &cmd, Params: []string{"X-Lit", "==value"}})
+	if err != nil {
+		t.Fatalf("actionConvert: %v", err)
+	}
+	if action.exprValue == nil || action.exprValue.IsExpr() {
+		t.Fatal("escaped value should be literal param")
+	}
+
+	req := makeBasicRequest("http://www.example.org")
+	if got := getHeaderValue(req, action); got != "=value" {
+		t.Errorf("getHeaderValue = %q, want =value", got)
+	}
+}
+
+// 非法表达式：加载期报错
+func TestActionConvertExprValueInvalid(t *testing.T) {
+	cases := []struct {
+		cmd string
+		val string
+	}{
+		{"REQ_HEADER_SET", "=1+1"},
+		{"RSP_HEADER_ADD", "="},
+		{"REQ_HEADER_SET", "=NoSuchFunc()"},
+	}
+
+	for _, c := range cases {
+		cmd := c.cmd
+		if _, err := actionConvert(ActionFile{Cmd: &cmd, Params: []string{"X-Key", c.val}}); err == nil {
+			t.Errorf("actionConvert(%s, %s) should fail", c.cmd, c.val)
+		}
+	}
+}
+
+// 运行期求值失败：值置空
+func TestGetHeaderValueExprError(t *testing.T) {
+	cmd := "REQ_HEADER_SET"
+	action, err := actionConvert(ActionFile{Cmd: &cmd, Params: []string{"X-Key", "=ReqMethod()"}})
+	if err != nil {
+		t.Fatalf("actionConvert: %v", err)
+	}
+
+	if got := getHeaderValue(nil, action); got != "" {
+		t.Errorf("getHeaderValue(nil) = %q, want empty", got)
+	}
+}
