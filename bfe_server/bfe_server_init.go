@@ -21,12 +21,30 @@ import (
 )
 
 import (
+	"github.com/bfenetworks/bfe/bfe_basic/condition"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
 	"github.com/bfenetworks/bfe/bfe_modules"
 )
 
+// SetCondEngineMode maps ConfigBasic.ConditionEngineMode to condition engine mode.
+// 配置值经 ConfBasicCheck 校验/补默认值，此处仅做映射（未知值按 LegacyFirst 处理）。
+func SetCondEngineMode(mode string) {
+	switch mode {
+	case bfe_conf.ConditionEngineModeExprCompatible:
+		condition.SetEngineMode(condition.EngineExprCompatible)
+	case bfe_conf.ConditionEngineModeExprOnly:
+		condition.SetEngineMode(condition.EngineExprOnly)
+	default:
+		condition.SetEngineMode(condition.EngineLegacyFirst)
+	}
+	log.Logger.Info("condition engine mode: %s", condition.EngineModeString())
+}
+
 func StartUp(cfg bfe_conf.BfeConfig, version string, confRoot string, dryRun bool) error {
 	var err error
+
+	// set condition engine mode (must precede any condition.Build, e.g. route table load)
+	SetCondEngineMode(cfg.Server.ConditionEngineMode)
 
 	// set all available modules
 	bfe_modules.SetModules()

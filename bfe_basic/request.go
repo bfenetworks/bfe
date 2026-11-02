@@ -25,6 +25,10 @@ import (
 	"github.com/bfenetworks/bfe/bfe_http"
 )
 
+const (
+	UsrVaraibleNamePrifix = "__usr_variable_name_"
+)
+
 type BackendInfo struct {
 	ClusterName    string // name of cluster
 	SubclusterName string // name of sub-cluster
@@ -182,6 +186,25 @@ func (req *Request) AddTags(name string, ntags []string) {
 
 func (req *Request) GetTags(name string) []string {
 	return req.Tags.TagTable[name]
+}
+
+// Set user variable by varName and val.
+func (r *Request) SetUsrVariable(varName string, val string) {
+	r.Context[UsrVaraibleNamePrifix+varName] = val
+}
+
+// Get user variable by key.
+func (r *Request) GetUsrVariable(varName string) string {
+	val, ok := r.Context[UsrVaraibleNamePrifix+varName]
+	if !ok {
+		return ""
+	}
+
+	s, ok := val.(string)
+	if !ok {
+		return ""
+	}
+	return s
 }
 
 func (req *Request) SetContext(key, val interface{}) {

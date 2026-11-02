@@ -32,6 +32,7 @@ bfe.conf是BFE的核心配置
 | Server.EstimateToken           | Boolean | 当上游响应未返回usage时，是否基于请求Content-Length估算token使用量。估算在响应正常完成、上游中途异常断流（issue #1474）以及客户端中断（RST/断开/写失败）且未收到最终usage（issue #1478）三种情形下均可生效——后两者按**已转发内容**估算（请求体种子 + 逐 chunk 已转发内容累加），未生成/未交付给客户端的内容不计费，与 issue #1352 的实质一致；本开关关闭时上述缺 usage 的请求一律零扣费，并以 `ai_usage_source` / `ai_zero_cost_reason` 信号标记（`unrecognized` / `upstream_dropped` / `aborted`）。缺usage按估算兜底是既定设计口径（issue #1398）。估算的适用条件进一步明确为**上游未返回 usage**（按 usage 对象的存在性判定，issue #1414）：usage 存在但各项计数为 0 的响应按真实 0 计费，不再走估算；相应地，`ai_total_tokens` 记 0 而 `ai_usage_source=parsed`，与"usage 未识别"（`unrecognized`）可区分 | N    | 默认值`True`（issue #1401 起为程序默认值，conf未配置时生效，显式配置可覆盖；issue #1398 前为`False`） | -                                               |
 | Server.InjectStreamUsage       | Boolean | 对OpenAI协议流式chat completion请求，当客户端未显式设置`stream_options.include_usage`时，自动注入`stream_options.include_usage=true`，使上游回发真实final usage chunk（issue #1398）。注入失败（非JSON请求体等）时静默透传 | N    | 默认值`True`（issue #1401 起为程序默认值，conf显式配置可覆盖）          | -                                               |
 | Server.AIUpstreamAcceptEncoding | String  | 回源时如何改写AI请求的`Accept-Encoding`，用于把握手结果限制在网关能解压的编码集合内，从而保证压缩流式响应的usage可被解析（issue #1468）。`auto`：与客户端声明求交后仅保留网关可解码的编码（`gzip`、`deflate`），求交为空则不改写；`identity`：剥离压缩，让上游回明文（排障用）；`off`：按客户端原值透传（保持旧行为）。仅作用于AI转发请求的出站头，入站请求头不受影响 | N    | 默认值`auto`；取值`auto`/`identity`/`off`，非法值按`auto`处理 | 取值见补充描述 |
+| Server.ConditionEngineMode     | String  | 条件表达式引擎模式                                 | N    | 默认值`LegacyFirst`；取值`LegacyFirst`（旧引擎优先，旧引擎解析失败回退expr引擎，存量配置行为不变）/`ExprCompatible`（expr引擎+旧原语兼容，可新旧混写，编译失败直接报错）/`ExprOnly`（纯expr表达式，不支持旧原语）；兼容数字写法`0`/`1`/`2`，非法值启动报错 | 取值`LegacyFirst`/`ExprCompatible`/`ExprOnly`/`0`/`1`/`2` |
 | Server.AccessibleBodySize      | Integer | 请求体可缓冲的最大长度，单位为Byte                 | N    | 默认值2097152；用于请求体改写及AI Gateway fallback重试；超过此大小的请求体无法被完整缓存并重传 | > 0 且 <= 8388608                             |
 | Server.TotalBodyBufferSize     | Integer | 所有活跃bytes_body buffer占用内存之和的上限，单位为Byte | N    | 默认值0（表示无限制）；达到上限时，AI Gateway fallback不再对请求体做缓存封装，即不重传 | >= 0                                          |
 | Server.HostRuleConf            | String  | [租户域名表配置](server_data_conf/host_rule.data.md)文件路径 | N    | 默认值`server_data_conf/host_rule.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
@@ -168,6 +169,9 @@ AccessibleBodySize = 2097152
 
 # max total bytes of all active bytes_body buffers (0 means unlimited)
 TotalBodyBufferSize = 0
+
+# condition expression engine mode: LegacyFirst(default) / ExprCompatible / ExprOnly
+# ConditionEngineMode = LegacyFirst
 
 # routing related conf
 HostRuleConf = server_data_conf/host_rule.data

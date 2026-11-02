@@ -41,6 +41,16 @@ const (
 	AIUpstreamAcceptEncodingOff = "off"
 )
 
+// Modes of Server.ConditionEngineMode.
+const (
+	// ConditionEngineModeLegacyFirst 旧条件引擎优先（默认）：旧引擎编译失败回退 expr 引擎
+	ConditionEngineModeLegacyFirst = "LegacyFirst"
+	// ConditionEngineModeExprCompatible expr 引擎 + 旧原语兼容（可新旧混写，编译失败直接报错）
+	ConditionEngineModeExprCompatible = "ExprCompatible"
+	// ConditionEngineModeExprOnly 纯 expr 表达式，不支持旧原语，编译失败直接报错
+	ConditionEngineModeExprOnly = "ExprOnly"
+)
+
 type ConfigBasic struct {
 	HttpPort       int    // listen port for http
 	HttpsPort      int    // listen port for https
@@ -78,6 +88,9 @@ type ConfigBasic struct {
 	// #1468: a compressed SSE body cannot be parsed for usage unless the coding
 	// stays inside the decodable set).
 	AIUpstreamAcceptEncoding string
+
+	// ConditionEngineMode 条件表达式引擎模式：LegacyFirst（默认）/ExprCompatible/ExprOnly
+	ConditionEngineMode string
 
 	AccessibleBodySize  int64 // max size in bytes to buffer request body for rewriting/fallback
 	TotalBodyBufferSize int64 // max total bytes of all active bytes_body buffers (0 means unlimited)
@@ -141,6 +154,7 @@ func (cfg *ConfigBasic) SetDefaultConf() {
 	cfg.EstimateToken = true
 	cfg.InjectStreamUsage = true
 	cfg.AIUpstreamAcceptEncoding = AIUpstreamAcceptEncodingAuto
+	cfg.ConditionEngineMode = ConditionEngineModeLegacyFirst
 }
 
 func (cfg *ConfigBasic) Check(confRoot string) error {
@@ -280,6 +294,28 @@ func basicConfCheck(cfg *ConfigBasic) error {
 		return fmt.Errorf("TotalBodyBufferSize[%d] should >= 0", cfg.TotalBodyBufferSize)
 	}
 
+	// check ConditionEngineMode
+	if err := checkConditionEngineMode(cfg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// checkConditionEngineMode 校验并归一化 ConditionEngineMode：兼容数字写法 0/1/2，
+// 非法值启动报错
+func checkConditionEngineMode(cfg *ConfigBasic) error {
+	switch strings.ToLower(strings.TrimSpace(cfg.ConditionEngineMode)) {
+	case "", "0", strings.ToLower(ConditionEngineModeLegacyFirst):
+		cfg.ConditionEngineMode = ConditionEngineModeLegacyFirst
+	case "1", strings.ToLower(ConditionEngineModeExprCompatible):
+		cfg.ConditionEngineMode = ConditionEngineModeExprCompatible
+	case "2", strings.ToLower(ConditionEngineModeExprOnly):
+		cfg.ConditionEngineMode = ConditionEngineModeExprOnly
+	default:
+		return fmt.Errorf("ConditionEngineMode[%s] should be LegacyFirst/ExprCompatible/ExprOnly(或 0/1/2)",
+			cfg.ConditionEngineMode)
+	}
 	return nil
 }
 

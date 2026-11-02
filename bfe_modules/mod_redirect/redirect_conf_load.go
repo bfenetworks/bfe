@@ -135,7 +135,11 @@ func ruleConvert(ruleFile RedirectRuleFile) (RedirectRule, error) {
 	}
 	rule.Cond = cond
 
-	rule.Actions = actionsConvert(*ruleFile.Actions)
+	actions, err := actionsConvert(*ruleFile.Actions)
+	if err != nil {
+		return rule, err
+	}
+	rule.Actions = actions
 	rule.Status = *ruleFile.Status
 	return rule, nil
 }

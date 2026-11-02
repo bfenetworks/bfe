@@ -45,6 +45,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.34.0
 	github.com/bfenetworks/proxy-wasm-go-host v0.0.1
 	github.com/envoyproxy/go-control-plane/envoy v1.32.3
+	github.com/expr-lang/expr v1.17.8
 	github.com/go-jose/go-jose/v4 v4.0.5
 	github.com/google/uuid v1.6.0
 	github.com/tidwall/gjson v1.18.0
