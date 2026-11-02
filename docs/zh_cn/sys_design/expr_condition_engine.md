@@ -215,7 +215,7 @@ Redis 等），差别仅在于**结果类型必须是 string**。
 
 | 消费点 | 动作 / 参数位 |
 | ------ | ------------- |
-| `bfe_basic/action`（`mod_rewrite`、`mod_prison`） | `HOST_SET`、`PATH_SET`、`PATH_PREFIX_ADD`、`PATH_PREFIX_TRIM` 的 `Params[0]`；`REQ_HEADER_ADD/SET`、`QUERY_ADD` 的 `Params[1]` |
+| `bfe_basic/action`（`mod_rewrite`、`mod_prison`） | 除 `REQ_HEADER_ADD/SET` 的 header 名 `Params[0]` 外，**全部参数位默认支持**（`HOST_SET`、`HOST_SUFFIX_REPLACE`、`PATH_SET`、`PATH_PREFIX_ADD/TRIM`、`QUERY_ADD/DEL/RENAME/DEL_ALL_EXCEPT`、`REQ_HEADER_DEL` 等） |
 | `mod_redirect` | `URL_SET`、`URL_PREFIX_ADD` 的 `Params[0]`；`SCHEME_SET`、`URL_FROM_QUERY` 保持字面量 |
 | `mod_header` | `REQ/RSP_HEADER_SET/ADD` 的值参数 `Params[1]`（cookie 类动作不在此列） |
 
@@ -223,8 +223,9 @@ Redis 等），差别仅在于**结果类型必须是 string**。
 
 - `mod_rewrite` 的 `allowActions` 只含 host/path/query 类动作，`REQ_HEADER_*`
   由 `mod_header` 承载；
-- `bfe_basic/action` 的 `REQ_HEADER_ADD/SET` 仍要求 header 名以 `X-Bfe-`
-  开头（与是否使用表达式无关）；
+- `bfe_basic/action` 的 `REQ_HEADER_ADD/SET` 的 header 名 `Params[0]` 保持
+  字面量（登记在 `exprLiteralOnly` 中），仍要求以 `X-Bfe-` 开头；
+- 其余参数位默认都允许 `=expr`，未加前缀时行为与旧版本完全一致；
 - 语法与示例见各模块配置文档及
   [configuration/00-common.md 第 10 节](../configuration/00-common.md#10-动作参数表达式actionparam)。
 
@@ -253,7 +254,73 @@ Redis 等），差别仅在于**结果类型必须是 string**。
 - `mod_redirect`/`mod_header` 是自有 action 类型，直接调用
   `bfe_expr.CompileParam`，不经过钩子。
 
-### 8.6 兼容性
+### 8.6 新增动作参数接入指南
+
+后续把表达式能力扩展到更多动作参数时，先判断目标参数属于哪类消费点：
+
+| 消费点类型 | 典型模块 | 接入方式 |
+|---|---|---|
+| 共享动作 `bfe_basic/action` | `mod_rewrite`、`mod_prison` | 默认已全部支持；仅需排除的参数位登记到 `exprLiteralOnly` |
+| 模块自有 `Action` | `mod_redirect`、`mod_header` | 结构体 + 加载期编译 + 运行期求值 |
+
+#### 8.6.1 共享动作：默认全部参数位已支持
+
+共享动作的编译（加载期）、求值（运行期）与失败容错已由
+`compileExprParams()` 和 `Do()` 统一实现，且**默认对该 cmd 的全部参数位
+开放** `=expr`（未加前缀的参数仍按字面量处理，零开销）。只有需要保持
+字面量的参数位才登记到 `bfe_basic/action/action.go` 的 `exprLiteralOnly`：
+
+```go
+var exprLiteralOnly = map[string]map[int]bool{
+    ActionReqHeaderAdd: {0: true}, // header 名必须字面量
+    ActionReqHeaderSet: {0: true},
+}
+```
+
+登记前确认三点：
+
+1. `Do()` 中该 cmd 的分支使用局部变量 `params`，而不是 `ac.Params`；
+2. 该参数位若受加载期格式校验（枚举/前缀等），则只能保持字面量；
+3. 同一 cmd 需要排除多个下标时，在 map 中写多个（如 `{0: true, 2: true}`）。
+
+#### 8.6.2 模块自有 Action：四步改造
+
+以 `mod_redirect` 为模板：
+
+1. **结构体**：新增 `*bfe_expr.Param` 字段保存编译产物，按参数位命名
+   （如 `param0`）；
+2. **加载期编译**：在 `actionConvert()` 中对目标参数调用
+   `bfe_expr.CompileParam()`，并把 `actionConvert`/`actionsConvert`/
+   `ruleConvert` 的签名改为返回 `error` 并逐层上抛，保证非法表达式使配置
+   加载失败；
+3. **运行期求值**：新增 helper（如 `actionParam0`），字段为 nil 时返回
+   `Params[i]`，否则调用 `Eval(req)`；失败打印 warn（带 `logid`）并返回
+   空串。注意 `==lit` 的转义结果保存在 `Param.literal` 中，字段非 nil 时
+   必须走 `Eval`，不能直接读 `Params[i]`；
+4. **只替换值参数消费点**，枚举/选择类参数（如 `SCHEME_SET`、
+   `URL_FROM_QUERY`）保持字面量。
+
+#### 8.6.3 通用约束
+
+- 三态语义统一由 `CompileParam` 实现（`=expr` / `==lit` / 字面量），不要在
+  模块内重复判定；
+- 加载期严格（编译失败即配置加载失败）、运行期宽松（失败置空 + warn
+  继续）；
+- 与既有 `%变量` 互斥：目标模块若已有格式串替换，`=` 前缀走表达式路径后
+  不再切分 `%变量`；
+- 不要把 `Param` 缓存在请求级结构中：它属于配置数据，随热更新整体替换；
+  请求级上下文由 `GetEnv(req)` 提供；
+- 不要接入结构性参数：动作 cmd 本身、header/cookie 名、枚举字段、配置
+  表名。
+
+#### 8.6.4 验收清单
+
+1. 单测覆盖：`=` 正常求值、`==` 转义、非法表达式加载报错、运行期失败置空；
+2. `go build ./...`、`go vet ./...` 与相关模块 `go test` 通过；
+3. 文档同步：`configuration/00-common.md`（中英文）的表达式支持说明、对应
+   模块配置文档的「支持表达式的动作/参数位」，以及本文 §8.3 消费点表格。
+
+### 8.7 兼容性
 
 - 存量参数无 `=` 前缀，行为 100% 不变（不进入编译路径）；
 - 若存量参数值本身以 `=` 开头，第二期起会被判为表达式并在加载期编译，

@@ -128,3 +128,30 @@ func TestActionExprParamCompileError(t *testing.T) {
 		t.Error("UnmarshalJSON should fail on invalid expr")
 	}
 }
+
+// 默认放开：参数未登记白名单的动作（QUERY_DEL_ALL_EXCEPT）也支持表达式
+func TestActionExprParamDefaultAll(t *testing.T) {
+	var a action.Action
+	data := []byte(`{"Cmd":"QUERY_DEL_ALL_EXCEPT","Params":["=ReqMethod()"]}`)
+	if err := a.UnmarshalJSON(data); err != nil {
+		t.Fatalf("UnmarshalJSON: %v", err)
+	}
+
+	// 请求方法 GET 不在 query key 中，因此所有 query 都被删除
+	req := newTestRequest()
+	if err := a.Do(req); err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	if got := req.HttpRequest.URL.RawQuery; got != "" {
+		t.Errorf("RawQuery = %q, want empty", got)
+	}
+}
+
+// header 名保持字面量：REQ_HEADER_SET 的 Params[0] 写表达式应报错
+func TestActionExprParamHeaderNameLiteralOnly(t *testing.T) {
+	var a action.Action
+	data := []byte(`{"Cmd":"REQ_HEADER_SET","Params":["=ReqMethod()","v"]}`)
+	if err := a.UnmarshalJSON(data); err == nil {
+		t.Error("UnmarshalJSON should reject expr header name")
+	}
+}

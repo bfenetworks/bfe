@@ -125,3 +125,74 @@ func TestExprParamCompilerSkipped(t *testing.T) {
 		t.Error("exprEval should be nil for CLOSE")
 	}
 }
+
+// 除 header 名外的参数默认都允许写 "=expr"
+func TestExprParamIndexesDefaultAll(t *testing.T) {
+	cases := []struct {
+		cmd    string
+		params int
+		want   []int
+	}{
+		{ActionReqHeaderAdd, 2, []int{1}},
+		{ActionReqHeaderSet, 2, []int{1}},
+		{ActionReqHeaderDel, 1, []int{0}},
+		{ActionHostSet, 1, []int{0}},
+		{ActionHostSuffixReplace, 2, []int{0, 1}},
+		{ActionPathSet, 1, []int{0}},
+		{ActionPathPrefixAdd, 1, []int{0}},
+		{ActionPathPrefixTrim, 1, []int{0}},
+		{ActionQueryAdd, 2, []int{0, 1}},
+		{ActionQueryRename, 2, []int{0, 1}},
+		{ActionQueryDel, 3, []int{0, 1, 2}},
+		{ActionQueryDelAllExcept, 2, []int{0, 1}},
+		{ActionClose, 0, []int{}},
+	}
+
+	for _, c := range cases {
+		if got := exprParamIndexes(c.cmd, c.params); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%s: indexes = %v, want %v", c.cmd, got, c.want)
+		}
+	}
+}
+
+// 新放开的参数位（QUERY_RENAME 的两个参数）加载期编译、运行期生效
+func TestExprParamCompilerDefaultAllEnabledCmd(t *testing.T) {
+	SetExprParamCompiler(func(params []string, indexes []int) (func(*bfe_basic.Request) []string, error) {
+		return func(req *bfe_basic.Request) []string {
+			out := make([]string, len(params))
+			copy(out, params)
+			for _, i := range indexes {
+				switch params[i] {
+				case "=old":
+					out[i] = "key"
+				case "=new":
+					out[i] = "value"
+				}
+			}
+			return out
+		}, nil
+	})
+	defer SetExprParamCompiler(nil)
+
+	var ac Action
+	if err := ac.UnmarshalJSON([]byte(`{"Cmd":"QUERY_RENAME","Params":["=old","=new"]}`)); err != nil {
+		t.Fatalf("UnmarshalJSON: %v", err)
+	}
+
+	req := buildTestReq("http://example.org/?key=1")
+	if err := ac.Do(req); err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	if got := req.HttpRequest.URL.RawQuery; got != "value=1" {
+		t.Errorf("RawQuery = %q, want value=1", got)
+	}
+}
+
+// header 名（REQ_HEADER_ADD/SET 的 Params[0]）保持字面量，不允许写成表达式
+func TestExprParamHeaderNameLiteralOnly(t *testing.T) {
+	var ac Action
+	err := ac.UnmarshalJSON([]byte(`{"Cmd":"REQ_HEADER_SET","Params":["=ReqMethod()","v"]}`))
+	if err == nil {
+		t.Error("header name should stay literal")
+	}
+}
