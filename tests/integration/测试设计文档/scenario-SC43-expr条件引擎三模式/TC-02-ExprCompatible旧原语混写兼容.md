@@ -6,7 +6,7 @@ TC-02 ExprCompatible 旧原语混写兼容
 
 ## 所属场景
 
-SC42 expr 条件引擎三模式
+SC43 expr 条件引擎三模式
 
 ## 版本声明
 

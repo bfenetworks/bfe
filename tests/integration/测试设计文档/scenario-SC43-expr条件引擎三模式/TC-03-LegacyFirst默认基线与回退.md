@@ -6,7 +6,7 @@ TC-03 LegacyFirst 默认基线与回退
 
 ## 所属场景
 
-SC42 expr 条件引擎三模式
+SC43 expr 条件引擎三模式
 
 ## 版本声明
 

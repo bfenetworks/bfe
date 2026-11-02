@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package sc42 implements scenario SC42: expr condition engine three modes
+// Package sc43 implements scenario SC43: expr condition engine three modes
 // (LegacyFirst / ExprCompatible / ExprOnly) selected by bfe.conf
 // Server.ConditionEngineMode, consumed via route_rule.data ProductRule Cond.
-package sc42
+package sc43
 
 import (
 	"fmt"
