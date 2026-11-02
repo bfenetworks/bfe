@@ -1178,16 +1178,15 @@ type BufferFiller interface {
 	FillBuffer() error
 }
 
-// aiTargetRand is used for weighted random target selection in AI gateway mode.
-var aiTargetRand = rand.New(rand.NewSource(time.Now().UnixNano()))
-
 // SelectTarget selects a target based on weight.
+// The package level math/rand functions are safe for concurrent use, which
+// matters here: selection runs on the per request goroutines.
 func SelectTarget(targets []bfe_basic.AiRouteTarget) bfe_basic.AiRouteTarget {
 	if len(targets) == 1 {
 		return targets[0]
 	}
 
-	r := aiTargetRand.Intn(100)
+	r := rand.Intn(100)
 	sum := 0
 	for _, target := range targets {
 		sum += target.Weight
@@ -2533,9 +2532,6 @@ func newAIKeyAttemptState() *aiKeyAttemptState {
 	}
 }
 
-// aiKeyRand is used for weighted random AI key selection.
-var aiKeyRand = rand.New(rand.NewSource(time.Now().UnixNano()))
-
 // selectAIKey selects one key by weighted random.
 // keys should have weight > 0 and total weight > 0.
 func selectAIKey(keys []cluster_conf.AIKey) (cluster_conf.AIKey, int) {
@@ -2551,7 +2547,7 @@ func selectAIKey(keys []cluster_conf.AIKey) (cluster_conf.AIKey, int) {
 		return cluster_conf.AIKey{}, -1
 	}
 
-	r := aiKeyRand.Intn(total)
+	r := rand.Intn(total)
 	sum := 0
 	for i, k := range keys {
 		sum += k.Weight
@@ -2623,7 +2619,7 @@ func calcBackoff(initial, max, attempt int) time.Duration {
 	// add jitter (±20%)
 	jitter := backoff / 5
 	if jitter > 0 {
-		backoff = backoff - jitter/2 + aiKeyRand.Intn(jitter)
+		backoff = backoff - jitter/2 + rand.Intn(jitter)
 	}
 	return time.Duration(backoff) * time.Millisecond
 }

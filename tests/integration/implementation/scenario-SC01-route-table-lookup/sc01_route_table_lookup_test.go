@@ -289,14 +289,17 @@ func TestTC04_MultiTargetsWeightedSelection(t *testing.T) {
 		t.Fatalf("expected total hits %d, got %d", total, hitsA+hitsB+hitsC)
 	}
 
-	// weights: 60 / 30 / 10, allow +/-50 tolerance.
-	if hitsA < 550 || hitsA > 650 {
+	// weights: 60 / 30 / 10. The selection is weighted random, so each hit
+	// count is binomial; for n=1000 the standard deviation is ~15.5 / ~14.5 /
+	// ~9.5. The bounds below are ~5 sigma, which still catches a wrong weight
+	// table while keeping a correct RNG from failing on a noisy CI runner.
+	if hitsA < 523 || hitsA > 677 {
 		t.Fatalf("expected hitsA around 600, got %d", hitsA)
 	}
-	if hitsB < 250 || hitsB > 350 {
+	if hitsB < 228 || hitsB > 372 {
 		t.Fatalf("expected hitsB around 300, got %d", hitsB)
 	}
-	if hitsC < 50 || hitsC > 150 {
+	if hitsC < 53 || hitsC > 147 {
 		t.Fatalf("expected hitsC around 100, got %d", hitsC)
 	}
 }
