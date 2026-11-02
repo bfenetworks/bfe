@@ -100,6 +100,10 @@ bfe_server / reverseproxy.go
 | `Internal / missing inference-pool metadata` | 本侧未注入 metadata | 视为 BFE 缺陷，不重试 |
 | `Internal / unknown inference pool` | EPP 无此 cluster 的 Cell | 不在本实例重试；按 4.2 在同 cluster 下一 EPP 地址上重试该请求 |
 | `Unavailable / cell is not serving` | Cell 处于备/未就绪（draining） | 可在同 cluster 的下一 EPP 地址（备实例）上重试该请求 |
+| ext-proc `ImmediateResponse` 429 | 准入拒绝：流控背压（池饱和 / 队列 TTL 到期，issue #1482） | **不重试、不降级本地**；按 `EPP_OVERLOAD` 返回客户端，透传 EPP 的 `Retry-After` |
+| ext-proc `ImmediateResponse` 503 | 准入拒绝：池无可用容量（缩容到零等） | **不重试、不降级本地**；按 `EPP_NO_CAPACITY` 返回客户端 |
+
+> `ImmediateResponse` 可能出现在首个往返（RequestHeaders 的答复）或读取请求体之后的往返，两处都会识别；只有 429/503 视为准入决策，其它状态码仍按传输错误处理（保留原有重试/降级语义）。EPP 返回的 body 不回传客户端（可能含池/地址信息），仅截断入日志。
 
 ### 4.2 有序地址表与滞回 failover
 
@@ -131,6 +135,7 @@ bfe_server / reverseproxy.go
 3. `BalanceEpp` 内：`RetryTime > RetryMax` 截断（`RetryMax` 在 EPP 模式同样生效）；熔断短路检查；`chooseBackendFromEPP` 选地址、建 stream、发送 RequestHeaders（含 pool metadata）、等待首响应取 `x-gateway-destination-endpoint`；
 4. 拿到地址后在本地 subcluster 后端表 `LookUpBackend`：找到则复用既有 `BfeBackend`（含健康检查、连接池），未找到则以地址构造临时 backend（`EPP_temp`）并记日志；
 5. 选中的 `EppClient` 存入请求上下文 `REQ_CTX_EPP`，随请求贯穿转发与响应阶段。
+6. **准入拒绝（issue #1482）**：`callEPP` 在两处 `RecvTimeout` 后检查 `resp.GetImmediateResponse()`；命中 429/503 时：`isEPPRetryable` 返回 false（不试下一 EPP 地址）→ 熔断器**不记录**该结果 → 置 `req.ErrCode = ErrEppRejected` 并把决策存入 `REQ_CTX_EPP_REJECT` → `reverseproxy` 见到该错误**直接 `break`，不再回退本地均衡**（回退会把请求塞回已饱和的池）。最终由 `aiGatewayFailureResponse` 输出 `EPP_OVERLOAD`(429) / `EPP_NO_CAPACITY`(503)。
 
 ### 4.5 响应回传路径
 
@@ -165,14 +170,15 @@ bfe_server / reverseproxy.go
 
 | 指标 | 类型 | labels | 含义 |
 |------|------|--------|------|
-| `epp_calls_total` | Counter | cluster, result | EPP 调用数；result ∈ ok / no_pool / unknown_pool / draining / transport |
+| `epp_calls_total` | Counter | cluster, result | EPP 调用数；result ∈ ok / no_pool / unknown_pool / draining / transport / **rejected**（准入拒绝，issue #1482） |
+| `epp_rejected_total` | Counter | cluster, status | EPP 准入拒绝次数（status ∈ 429 / 503，issue #1482） |
 | `epp_failover_total` | Counter | cluster | failover 次数 |
 | `epp_failback_total` | Counter | cluster | failback 次数 |
 | `epp_fallback_local_total` | Counter | cluster | 降级本地均衡次数 |
 | `epp_breaker_transitions_total` | Counter | cluster, state | 熔断状态变化（open/half_open/closed） |
 | `epp_active_addr_index` | Gauge | cluster | 当前活跃地址索引 |
 
-**扁平 counter**（既有状态页反射机制，`BalErrState` 扩展）：`ErrEppFailover` / `ErrEppFailback` / `ErrEppFallbackLocal` / `ErrEppBreakerOpen/HalfOpen/Closed`，经 `/monitor/bal_state` 输出，无 label 能力，仅作状态页兜底。
+**扁平 counter**（既有状态页反射机制，`BalErrState` 扩展）：`ErrEppFailover` / `ErrEppFailback` / `ErrEppFallbackLocal` / `ErrEppRejected` / `ErrEppBreakerOpen/HalfOpen/Closed`，经 `/monitor/bal_state` 输出，无 label 能力，仅作状态页兜底。
 
 ## 5. 降级与兼容性
 
@@ -184,6 +190,8 @@ bfe_server / reverseproxy.go
 | 非 EPP cluster | 行为完全不变 |
 | 旧 `cluster_conf.data`（无 EPP 字段） | 全部新字段可选带缺省，无需修改即可加载 |
 | 响应 body 回传溢出 | 整流放弃该流 body 并打点，响应转发本身不受影响 |
+| EPP 准入拒绝（429/503） | **不算故障、不降级**：直接返回 `EPP_OVERLOAD`/`EPP_NO_CAPACITY`，不重试、不回退本地、不推高熔断；应急可回滚 bfe 版本（旧版本忽略该响应，恢复"忽略 + 本地回退"） |
+| 旧版 EPP（不下发 `ImmediateResponse`） | 行为与改动前逐字节一致（解析分支不进入） |
 
 ## 6. 关键文件索引
 
@@ -196,6 +204,7 @@ bfe_server / reverseproxy.go
 | `bfe_config/bfe_cluster_conf/cluster_conf/cluster_conf_load.go` | `GslbBasic` EPP 配置字段与校验 |
 | `bfe_server/reverseproxy.go` | 请求侧接入（`BalanceEpp` + 失败回退）与响应侧回传 |
 | `bfe_balance/bal_gslb/epp_metrics.go` | cluster 维度 prometheus 指标 |
+| `bfe_balance/bal_gslb/epp_reject.go` | 准入拒绝（`ImmediateResponse` 429/503）的识别、`EPPRejected` 决策上下文（issue #1482） |
 | `bfe_server/web_server.go:74` | `/monitor/epp_metrics` 端点注册 |
 
 关联文档：[cluster_conf.data 配置说明](../configuration/server_data_conf/cluster_conf.data.md) §6.1。

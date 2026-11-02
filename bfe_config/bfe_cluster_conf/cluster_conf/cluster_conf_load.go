@@ -254,7 +254,28 @@ type AIConf struct {
 	// StreamTruncatedError unset keeps the historical pass-through
 	// behavior.
 	NormalizeUpstreamError *UpstreamErrorNormalizeConf
+
+	// PriceMissAction controls what happens when the (model, mode) price
+	// entry is absent (issue #1479): "fallback_chat" (default, bill at the
+	// model's chat-mode price — the issue #1408 behavior), "bill_zero" (bill
+	// 0 — the issue #1382 behavior) or "reject" (reject the request before
+	// forwarding because the requested interface has no price configured).
+	// Empty is normalized to "fallback_chat" by AIConfCheck.
+	PriceMissAction string
 }
+
+// PriceMissAction values (issue #1479).
+const (
+	// PriceMissActionFallbackChat bills a non-chat mode at the model's
+	// chat-mode price when the (model, mode) entry is absent (default).
+	PriceMissActionFallbackChat = "fallback_chat"
+	// PriceMissActionBillZero bills 0 when the entry is absent (the
+	// historical issue #1382 behavior).
+	PriceMissActionBillZero = "bill_zero"
+	// PriceMissActionReject rejects the request before forwarding when the
+	// (model, mode) entry is absent.
+	PriceMissActionReject = "reject"
+)
 
 // Actions for UpstreamErrorNormalizeConf.UnrecognizedAction.
 const (
@@ -1267,6 +1288,16 @@ func ClusterConfCheck(conf *ClusterConf) error {
 
 // AIConfCheck checks AIConf config.
 func AIConfCheck(conf *AIConf) error {
+	switch conf.PriceMissAction {
+	case "":
+		// Normalize the empty value so the billing path never has to treat
+		// "unset" as a fourth state (issue #1479).
+		conf.PriceMissAction = PriceMissActionFallbackChat
+	case PriceMissActionFallbackChat, PriceMissActionBillZero, PriceMissActionReject:
+	default:
+		return fmt.Errorf("PriceMissAction: invalid value %q", conf.PriceMissAction)
+	}
+
 	if conf.NormalizeUpstreamError != nil {
 		nuc := conf.NormalizeUpstreamError
 		switch nuc.UnrecognizedAction {

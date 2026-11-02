@@ -353,6 +353,12 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 				request.SetContext(bal_gslb.REQ_CTX_EPP, nil)
 			}
 			clusterBackend, err = bal.BalanceEpp(request)
+			if bal_gslb.IsEPPRejected(err) {
+				// EPP refused admission (flow control): a decision, not a
+				// failure. Never fall back to local balancing, which would
+				// push the request into the saturated pool anyway (issue #1482).
+				break
+			}
 		}
 		if clusterBackend == nil {
 			// get backend with cluster-name and request
@@ -1172,16 +1178,15 @@ type BufferFiller interface {
 	FillBuffer() error
 }
 
-// aiTargetRand is used for weighted random target selection in AI gateway mode.
-var aiTargetRand = rand.New(rand.NewSource(time.Now().UnixNano()))
-
 // SelectTarget selects a target based on weight.
+// The package level math/rand functions are safe for concurrent use, which
+// matters here: selection runs on the per request goroutines.
 func SelectTarget(targets []bfe_basic.AiRouteTarget) bfe_basic.AiRouteTarget {
 	if len(targets) == 1 {
 		return targets[0]
 	}
 
-	r := aiTargetRand.Intn(100)
+	r := rand.Intn(100)
 	sum := 0
 	for _, target := range targets {
 		sum += target.Weight
@@ -1425,6 +1430,12 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		// marker, distinct from an upstream 429) must not trigger
 		// cluster-level fallback.
 		if basicReq.ErrCode == bfe_basic.ErrAiRateLimit {
+			break
+		}
+		// issue #1482: an EPP admission refusal is a capacity decision about
+		// this pool, not a fault of that cluster — falling back would just
+		// queue the request elsewhere in the same saturated pool.
+		if basicReq.ErrCode == bfe_basic.ErrEppRejected {
 			break
 		}
 		if !shouldTriggerFallback(res, invokeErr, aiMeta.AuthStyle) {
@@ -2311,6 +2322,10 @@ const aiKeyPenaltyTTL429 = 60
 // (X-Bfe-Gw-Error), so normalizeUpstreamError skips it. The messages are
 // generic on purpose - internal topology (host/port) must not leak to
 // clients; the detail stays in bfe.log and in err_code/err_msg.
+//
+// issue #1482: an EPP admission refusal keeps the status the EPP decided
+// (429 EPP_OVERLOAD / 503 EPP_NO_CAPACITY) and forwards its Retry-After hint;
+// the EPP body is never echoed because it may carry pool topology.
 func aiGatewayFailureResponse(basicReq *bfe_basic.Request) *bfe_http.Response {
 	if basicReq.ErrCode == bfe_basic.ErrBkNoBackend {
 		return bfe_basic.NewAiError(bfe_basic.CodeNoBackend, bfe_basic.TypeInternalError,
@@ -2323,6 +2338,20 @@ func aiGatewayFailureResponse(basicReq *bfe_basic.Request) *bfe_http.Response {
 		// (same treatment shape as BK_NO_BACKEND above).
 		return bfe_basic.NewAiError(bfe_basic.CodeContentRejected, bfe_basic.TypeInvalidRequestError,
 			"request rejected by content audit").CreateErrorResponse(basicReq)
+	}
+	if basicReq.ErrCode == bfe_basic.ErrEppRejected {
+		code, errType, msg := bfe_basic.CodeEppOverload, bfe_basic.TypeRateLimitError,
+			"gateway capacity exhausted, retry later"
+		rej := bal_gslb.EPPRejectedDetail(basicReq)
+		if rej != nil && rej.StatusCode == bfe_http.StatusServiceUnavailable {
+			code, errType, msg = bfe_basic.CodeEppNoCapacity, bfe_basic.TypeInternalError,
+				"gateway has no capacity for this request"
+		}
+		res := bfe_basic.NewAiError(code, errType, msg).CreateErrorResponse(basicReq)
+		if rej != nil && rej.RetryAfter != "" {
+			res.Header.Set("Retry-After", rej.RetryAfter)
+		}
+		return res
 	}
 	return bfe_basic.NewAiError(bfe_basic.CodeBackendUnavailable, bfe_basic.TypeInternalError,
 		"upstream backend unavailable for this request").CreateErrorResponse(basicReq)
@@ -2503,9 +2532,6 @@ func newAIKeyAttemptState() *aiKeyAttemptState {
 	}
 }
 
-// aiKeyRand is used for weighted random AI key selection.
-var aiKeyRand = rand.New(rand.NewSource(time.Now().UnixNano()))
-
 // selectAIKey selects one key by weighted random.
 // keys should have weight > 0 and total weight > 0.
 func selectAIKey(keys []cluster_conf.AIKey) (cluster_conf.AIKey, int) {
@@ -2521,7 +2547,7 @@ func selectAIKey(keys []cluster_conf.AIKey) (cluster_conf.AIKey, int) {
 		return cluster_conf.AIKey{}, -1
 	}
 
-	r := aiKeyRand.Intn(total)
+	r := rand.Intn(total)
 	sum := 0
 	for i, k := range keys {
 		sum += k.Weight
@@ -2593,7 +2619,7 @@ func calcBackoff(initial, max, attempt int) time.Duration {
 	// add jitter (±20%)
 	jitter := backoff / 5
 	if jitter > 0 {
-		backoff = backoff - jitter/2 + aiKeyRand.Intn(jitter)
+		backoff = backoff - jitter/2 + rand.Intn(jitter)
 	}
 	return time.Duration(backoff) * time.Millisecond
 }
