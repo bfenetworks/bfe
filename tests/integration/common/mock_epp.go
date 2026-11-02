@@ -105,6 +105,11 @@ type MockEPP struct {
 	// perChunkResponse answers every response-body chunk with a
 	// ProcessingResponse (llm-d StreamingServer behavior, issue #1475).
 	perChunkResponse bool
+	// immediateResponse, when non-nil, is returned instead of a scheduling
+	// decision: the EPP admission refusal (issue #1482). onBody delays it to
+	// the request-body round trip.
+	immediateResponse *extprocv3.ImmediateResponse
+	immediateOnBody   bool
 
 	// acceptTLS / acceptPlaintext control whether the dual-mode dispatcher
 	// delivers a transport or closes it immediately.
@@ -301,6 +306,18 @@ func (m *MockEPP) SetDecisionDelay(d time.Duration) {
 	m.decisionDelay = d
 }
 
+// SetImmediateResponse makes the server refuse every stream with an ext_proc
+// ImmediateResponse (429 backpressure / 503 no capacity) instead of returning a
+// scheduling decision. onBody = true delays the refusal to the request-body
+// round trip (the EPP decided after reading the body). Pass nil to restore
+// normal behavior. Used by the issue #1482 overload-protection cases.
+func (m *MockEPP) SetImmediateResponse(ir *extprocv3.ImmediateResponse, onBody bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.immediateResponse = ir
+	m.immediateOnBody = onBody
+}
+
 // SetServing controls the gRPC health status reported to BFE's EPP health
 // checker.
 func (m *MockEPP) SetServing(serving bool) {
@@ -494,6 +511,8 @@ func (m *MockEPP) Process(stream extprocv3.ExternalProcessor_ProcessServer) erro
 	reqErr := m.requestError
 	decision := m.decisionEndpoint
 	delay := m.decisionDelay
+	ir := m.immediateResponse
+	irOnBody := m.immediateOnBody
 	m.mu.Unlock()
 
 	if reqErr != nil {
@@ -521,11 +540,25 @@ func (m *MockEPP) Process(stream extprocv3.ExternalProcessor_ProcessServer) erro
 		time.Sleep(delay)
 	}
 
+	// Admission refusal (issue #1482): answer with ImmediateResponse instead of
+	// a scheduling decision.
+	if ir != nil && !irOnBody {
+		return stream.Send(&extprocv3.ProcessingResponse{
+			Response: &extprocv3.ProcessingResponse_ImmediateResponse{ImmediateResponse: ir},
+		})
+	}
+
 	// reply to RequestHeaders with the scheduling decision
 	if err := stream.Send(decisionResponse(decision)); err != nil {
 		return err
 	}
 	if !rh.EndOfStream {
+		if ir != nil {
+			// The refusal arrives after the EPP read the request body.
+			return stream.Send(&extprocv3.ProcessingResponse{
+				Response: &extprocv3.ProcessingResponse_ImmediateResponse{ImmediateResponse: ir},
+			})
+		}
 		// reply to RequestBody
 		if err := stream.Send(&extprocv3.ProcessingResponse{
 			Response: &extprocv3.ProcessingResponse_RequestBody{

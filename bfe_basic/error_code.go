@@ -50,6 +50,13 @@ var (
 	ErrBkCrossRetryBalance = errors.New("BK_CROSS_RETRY_BALANCE")  // cross retry balance failed
 	ErrBkBodyProcess       = errors.New("BK_BODY_PROCESS")         // body process error
 
+	// EPP admission decision (ext_proc ImmediateResponse), not a transport or
+	// infra failure: the request must not be retried on another EPP address,
+	// must not fall back to local balancing, and must not count against the
+	// EPP circuit breaker (issue #1482). The concrete status code (429/503)
+	// travels through the bal_gslb request context.
+	ErrEppRejected = errors.New("EPP_REJECTED")
+
 	// GSLB error
 	ErrGslbBlackhole = errors.New("GSLB_BLACKHOLE") // deny by blackhole
 

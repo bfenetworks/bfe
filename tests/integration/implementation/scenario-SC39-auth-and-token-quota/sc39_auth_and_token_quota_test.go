@@ -534,8 +534,11 @@ func TestTC06_TokenQuotaDeduction(t *testing.T) {
 	}
 }
 
-// TestTC07_TokenQuotaExhausted verifies a zero balance rejects the next request
-// with QUOTA_EXHAUSTED and details.limit_type=api_key_quota.
+// TestTC07_TokenQuotaExhausted verifies a request whose usage exceeds the
+// remaining balance is deducted in full (issue #1476: the overrun is recorded
+// as a negative balance, so HasBalance reports no balance at auth time) and the
+// next request is rejected with QUOTA_EXHAUSTED and
+// details.limit_type=api_key_quota.
 func TestTC07_TokenQuotaExhausted(t *testing.T) {
 	e := newTestEnv(t, testOptions{
 		plans:        []common.QuotaPlan{tokenPlan(planToken, redisKeyToken, 50)},
@@ -551,10 +554,13 @@ func TestTC07_TokenQuotaExhausted(t *testing.T) {
 		e.logBFEException()
 		t.Fatalf("expected first request 200, got %d, body: %s", resp.StatusCode, body)
 	}
-	if got := e.waitForQuota(redisKeyToken, 0); got != 0 {
-		t.Fatalf("expected token quota to be drained to 0, got %d", got)
+	// usage 150 against a 50 balance: the full amount is deducted, so the
+	// balance goes to -100 instead of being truncated to 0
+	if got := e.waitForQuota(redisKeyToken, -100); got != -100 {
+		t.Fatalf("expected token quota to be overdrawn to -100, got %d", got)
 	}
 
+	// a negative balance means HasBalance=false, so the next request is rejected
 	resp, body, err = e.sendAuthenticated()
 	if err != nil {
 		t.Fatalf("send second request failed: %v", err)

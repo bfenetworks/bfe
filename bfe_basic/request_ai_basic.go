@@ -670,6 +670,19 @@ const (
 	// a caller error: mapped to 503 and to TypeInternalError.
 	CodePriceNotConfigured = "PRICE_NOT_CONFIGURED"
 
+	// EPP admission refusal (issue #1482): the EPP scheduler's flow control
+	// could not admit the request. EPP answers with an ext_proc
+	// ImmediateResponse, which bfe surfaces as-is instead of retrying or
+	// falling back to local balancing.
+	//
+	// CodeEppOverload: pool saturated / queue TTL expired (backpressure). A
+	// gateway capacity decision the caller may retry later: 429,
+	// TypeRateLimitError.
+	CodeEppOverload = "EPP_OVERLOAD"
+	// CodeEppNoCapacity: the pool has no capacity for this request (scaled to
+	// zero / no endpoint can serve it): 503, TypeInternalError.
+	CodeEppNoCapacity = "EPP_NO_CAPACITY"
+
 	// Upstream error normalization catalog (AIConf.NormalizeUpstreamError).
 	// Values are single-sourced in bfe_model_protocol/utils and shared with
 	// the protocol adapters' mapping tables.
@@ -761,6 +774,9 @@ var ErrorCodeToStatusCode = map[string]int{
 	CodeProviderProtocolMismatch: 400,
 	CodePriceNotConfigured:       503,
 
+	CodeEppOverload:   429,
+	CodeEppNoCapacity: 503,
+
 	CodeUpstreamInvalidRequest: 400,
 	CodeUpstreamRateLimited:    429,
 	CodeUpstreamQuotaExhausted: 429,
@@ -818,6 +834,9 @@ var ErrorCodeToErrorType = map[string]string{
 
 	CodeProviderProtocolMismatch: TypeInvalidRequestError,
 	CodePriceNotConfigured:       TypeInternalError,
+
+	CodeEppOverload:   TypeRateLimitError,
+	CodeEppNoCapacity: TypeInternalError,
 
 	CodeNoAvailableKey: TypeRateLimitError,
 
