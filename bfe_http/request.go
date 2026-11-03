@@ -464,7 +464,11 @@ func (req *Request) write(w io.Writer, usingProxy bool, extraHeaders Header) err
 	if err != nil {
 		return err
 	}
-	req.State.BodySize = uint32(n)
+	// This runs on the transport writeLoop goroutine while the serving
+	// goroutine may already hold the response and read the size
+	// (bfe_server/reverseproxy.go: request.Stat.BodyLenIn). Publish it
+	// atomically; -race flagged the plain store/load pair.
+	atomic.StoreUint32(&req.State.BodySize, uint32(n))
 
 	if bw != nil {
 		return bw.Flush()
