@@ -16,6 +16,7 @@ package bfe_http2
 
 import (
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
@@ -31,16 +32,12 @@ import (
 	"sync"
 	"testing"
 	"time"
-)
 
-import (
 	"github.com/bfenetworks/go-lib/gotrack"
-)
 
-import (
 	http "github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_http2/hpack"
-	tls "github.com/bfenetworks/bfe/bfe_tls"
+
 	util "github.com/bfenetworks/bfe/bfe_util"
 )
 
@@ -2145,33 +2142,30 @@ func TestServer_NoCrash_HandlerClose_Then_ClientClose(t *testing.T) {
 	})
 }
 
-func TestServer_Rejects_TLS10(t *testing.T) { testRejectTLS(t, tls.VersionTLS10) }
-func TestServer_Rejects_TLS11(t *testing.T) { testRejectTLS(t, tls.VersionTLS11) }
-
-func testRejectTLS(t *testing.T, max uint16) {
-	st := newServerTester(t, nil, func(c *tls.Config) {
-		c.MaxVersion = max
-	})
-	defer st.Close()
-	gf := st.wantGoAway()
-	if got, want := gf.ErrCode, ErrCodeInadequateSecurity; got != want {
-		t.Errorf("Got error code %v; want %v", got, want)
-	}
-}
+// TestServer_Rejects_TLS10/TLS11 were removed with the bfe_tls fork:
+// the standard library no longer supports TLS 1.0/1.1 handshakes at all
+// (tls.Dial fails with "no supported versions"), so the http2-layer
+// rejection path can no longer be exercised.
 
 func TestServer_Rejects_TLSBadCipher(t *testing.T) {
 	st := newServerTester(t, nil, func(c *tls.Config) {
+		// CipherSuites only constrains TLS <= 1.2; cap the version so the
+		// handshake cannot escape to TLS 1.3 (whose suites are never
+		// prohibited by the HTTP/2 spec).
+		c.MaxVersion = tls.VersionTLS12
 		// Only list bad ones:
+		// (RC4/3DES suite constants were removed from crypto/tls in Go
+		// 1.19; use their numeric IDs.)
 		c.CipherSuites = []uint16{
-			tls.TLS_RSA_WITH_RC4_128_SHA,
-			tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+			0x0005, // tls.TLS_RSA_WITH_RC4_128_SHA
+			0x000A, // tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA
 			tls.TLS_RSA_WITH_AES_128_CBC_SHA,
 			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+			0xC007, // tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA
 			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
 			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,
-			tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+			0xC011, // tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA
+			0xC012, // tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA
 			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
 		}
@@ -2603,7 +2597,9 @@ func TestConfigureServer(t *testing.T) {
 			name: "required after bad",
 			in: http.Server{
 				TLSConfig: &tls.Config{
-					CipherSuites: []uint16{tls.TLS_RSA_WITH_RC4_128_SHA, tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
+					// 0x0005: tls.TLS_RSA_WITH_RC4_128_SHA (constant
+					// removed from crypto/tls in Go 1.19)
+					CipherSuites: []uint16{0x0005, tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
 				},
 			},
 			wantErr: "contains an HTTP/2-approved cipher suite (0xc02f), but it comes after",
@@ -2612,7 +2608,9 @@ func TestConfigureServer(t *testing.T) {
 			name: "bad after required",
 			in: http.Server{
 				TLSConfig: &tls.Config{
-					CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, tls.TLS_RSA_WITH_RC4_128_SHA},
+					// 0x0005: tls.TLS_RSA_WITH_RC4_128_SHA (constant
+					// removed from crypto/tls in Go 1.19)
+					CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, 0x0005},
 				},
 			},
 		},

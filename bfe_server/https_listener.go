@@ -12,34 +12,57 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// wrapper of tls.listener
+// https listener based on standard crypto/tls
 
 package bfe_server
 
 import (
+	"crypto/tls"
 	"net"
 	"sync"
 )
 
-import (
-	"github.com/bfenetworks/bfe/bfe_tls"
-)
-
 type HttpsListener struct {
-	tlsListener net.Listener // listener for https
 	tcpListener net.Listener // underlying tcp listener
-
-	config *bfe_tls.Config // tls config for listener
-	lock   sync.Mutex
+	config      *tls.Config  // current tls config
+	lock        sync.RWMutex
 }
 
-func NewHttpsListener(listener net.Listener, config *bfe_tls.Config) *HttpsListener {
-	httpsListener := &HttpsListener{
+func NewHttpsListener(listener net.Listener, config *tls.Config) *HttpsListener {
+	return &HttpsListener{
 		tcpListener: listener,
 		config:      config,
-		tlsListener: bfe_tls.NewListener(listener, config),
 	}
-	return httpsListener
+}
+
+func (l *HttpsListener) Accept() (net.Conn, error) {
+	c, err := l.tcpListener.Accept()
+	if err != nil {
+		return nil, err
+	}
+
+	// get current tls config
+	l.lock.RLock()
+	config := l.config
+	l.lock.RUnlock()
+
+	return tls.Server(c, config), nil
+}
+
+func (l *HttpsListener) Close() error {
+	return l.tcpListener.Close()
+}
+
+func (l *HttpsListener) Addr() net.Addr {
+	return l.tcpListener.Addr()
+}
+
+// GetConfigClone returns a clone of the listener's current tls config.
+// It reflects in-place updates such as UpdateSessionTicketKey.
+func (l *HttpsListener) GetConfigClone() *tls.Config {
+	l.lock.RLock()
+	defer l.lock.RUnlock()
+	return l.config.Clone()
 }
 
 // UpdateSessionTicketKey updates session ticket key.
@@ -49,10 +72,8 @@ func (l *HttpsListener) UpdateSessionTicketKey(key []byte) {
 
 	// clone and modify config
 	config := l.config.Clone()
-	copy(config.SessionTicketKeyName[:], key[:16])
-	copy(config.SessionTicketKey[:], key[16:])
+	copy(config.SessionTicketKey[:], key)
 
 	// update config for listener
 	l.config = config
-	bfe_tls.UpdateListener(l.tlsListener, config)
 }

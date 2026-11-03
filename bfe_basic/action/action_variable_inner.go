@@ -18,6 +18,7 @@ action_variable_inner.go - built-in variable value fetchers (header/ssl/client i
 package action
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/hex"
@@ -27,10 +28,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
-	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util"
 )
 
@@ -68,8 +67,6 @@ var (
 		"bfe_ssl_resume":                        getBfeSslResume,
 		"bfe_ssl_cipher":                        getBfeSslCipher,
 		"bfe_ssl_version":                       getBfeSslVersion,
-		"bfe_ssl_ja3_raw":                       getBfeSslJa3Raw,
-		"bfe_ssl_ja3_hash":                      getBfeSslJa3Hash,
 		"bfe_protocol":                          getBfeProtocol,
 		"client_cert_serial_number":             getClientCertSerialNumber,
 		"client_cert_subject_title":             getClientCertSubjectTitle,
@@ -174,7 +171,7 @@ func getConnReused(req *bfe_basic.Request) string {
 	return "R"
 }
 
-func getConnResume(state *bfe_tls.ConnectionState) string {
+func getConnResume(state *tls.ConnectionState) string {
 	if !state.DidResume {
 		return "N"
 	} else {
@@ -195,14 +192,14 @@ func getBfeSslInfo(req *bfe_basic.Request) string {
 	}
 
 	state := req.Session.TlsState
-	qid := req.LogId                                             // same as request's logid
-	proto := getProto(state.NegotiatedProtocol)                  // tls application protocol
-	handshakeTime := int(state.HandshakeTime / time.Millisecond) // tls handshake time
-	connResume := getConnResume(state)                           // use tls session resume
-	connReused := getConnReused(req)                             // reuse conn
-	reqTime := getReqTime(req)                                   // request time
-	sslVer := uint16ToStr(state.Version)                         // tls version
-	cipherSuite := uint16ToStr(state.CipherSuite)                // tls ciphersuite
+	qid := req.LogId                              // same as request's logid
+	proto := getProto(state.NegotiatedProtocol)   // tls application protocol
+	handshakeTime := 0                            // not exposed by crypto/tls
+	connResume := getConnResume(state)            // use tls session resume
+	connReused := getConnReused(req)              // reuse conn
+	reqTime := getReqTime(req)                    // request time
+	sslVer := uint16ToStr(state.Version)          // tls version
+	cipherSuite := uint16ToStr(state.CipherSuite) // tls ciphersuite
 
 	return fmt.Sprintf("%s_%s_%d_%s_%s_%d_%s_%s_Y", qid, proto,
 		handshakeTime, connResume, connReused, reqTime, sslVer, cipherSuite)
@@ -224,7 +221,7 @@ func getBfeSslCipher(req *bfe_basic.Request) string {
 	}
 
 	state := req.Session.TlsState
-	return bfe_tls.CipherSuiteTextForOpenSSL(state.CipherSuite)
+	return bfe_util.CipherSuiteTextForOpenSSL(state.CipherSuite)
 }
 
 // get tls version
@@ -234,27 +231,7 @@ func getBfeSslVersion(req *bfe_basic.Request) string {
 	}
 
 	state := req.Session.TlsState
-	return bfe_tls.VersionTextForOpenSSL(state.Version)
-}
-
-// get tls ja3 string
-func getBfeSslJa3Raw(req *bfe_basic.Request) string {
-	if req.Session.TlsState == nil {
-		return ""
-	}
-
-	state := req.Session.TlsState
-	return state.JA3Raw
-}
-
-// get tls ja3 hash
-func getBfeSslJa3Hash(req *bfe_basic.Request) string {
-	if req.Session.TlsState == nil {
-		return ""
-	}
-
-	state := req.Session.TlsState
-	return state.JA3Hash
+	return bfe_util.VersionTextForOpenSSL(state.Version)
 }
 
 // get protocol for application level
@@ -484,8 +461,8 @@ func getBfeCluster(req *bfe_basic.Request) string {
 }
 
 func getAddressFetcher(conn net.Conn) bfe_util.AddressFetcher {
-	if c, ok := conn.(*bfe_tls.Conn); ok {
-		conn = c.GetNetConn()
+	if c, ok := conn.(*tls.Conn); ok {
+		conn = c.NetConn()
 	}
 	if f, ok := conn.(bfe_util.AddressFetcher); ok {
 		return f
