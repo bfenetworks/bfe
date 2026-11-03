@@ -2673,7 +2673,7 @@ func redisGetBatchBinding(clusterName string, hint *bfe_basic.AiBatchRouteHint,
 			continue
 		}
 		key := bfe_basic.BatchAffinityKey(clusterName, id)
-		val, err := client.Get(key)
+		b, found, err := redisGetOrMiss(client, key)
 		if err != nil {
 			log.Logger.Warn("aiKeyAffinity: batch binding get error[%v]", err)
 			if proxyState != nil {
@@ -2681,11 +2681,7 @@ func redisGetBatchBinding(clusterName string, hint *bfe_basic.AiBatchRouteHint,
 			}
 			continue
 		}
-		if val == nil {
-			continue
-		}
-		b, ok := val.([]byte)
-		if !ok || len(b) == 0 {
+		if !found || len(b) == 0 {
 			continue
 		}
 		// sliding renewal on hit
@@ -2727,18 +2723,37 @@ func aiKeyAffinityPenaltyRedisKey(clusterName, keyName, prefix string) string {
 	return fmt.Sprintf("%s:penalty:%s:%s", prefix, clusterName, keyName)
 }
 
-func redisGetBinding(clusterName, sessionID string, policy cluster_conf.AIKeyPolicy, client redis_client.Client) (string, error) {
-	key := aiKeyAffinityRedisKey(clusterName, sessionID, policy.SessionAffinityRedisPrefix)
+// redisGetOrMiss reads key and normalizes an absent key to a miss instead of
+// an error: RedisClient.Get reports a missing key as redis.ErrNil so that
+// callers can tell "not bound yet" (normal control flow for affinity) from a
+// real Redis failure (issue #1472). The (nil, nil) form is still handled for
+// clients that report a miss as an empty value.
+func redisGetOrMiss(client redis_client.Client, key string) ([]byte, bool, error) {
 	val, err := client.Get(key)
 	if err != nil {
-		return "", err
+		if redis_client.IsKeyNotFound(err) {
+			return nil, false, nil
+		}
+		return nil, false, err
 	}
 	if val == nil {
-		return "", nil
+		return nil, false, nil
 	}
 	b, ok := val.([]byte)
 	if !ok {
-		return "", fmt.Errorf("unexpected redis value type %T", val)
+		return nil, false, fmt.Errorf("unexpected redis value type %T", val)
+	}
+	return b, true, nil
+}
+
+func redisGetBinding(clusterName, sessionID string, policy cluster_conf.AIKeyPolicy, client redis_client.Client) (string, error) {
+	key := aiKeyAffinityRedisKey(clusterName, sessionID, policy.SessionAffinityRedisPrefix)
+	b, found, err := redisGetOrMiss(client, key)
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return "", nil
 	}
 	return string(b), nil
 }
