@@ -606,6 +606,8 @@ func shouldTriggerFallback(res *bfe_http.Response, err error) bool {
 | `ReqAiKeyAffinityPenaltySkip` | Counter | 因惩罚跳过 Key 次数 |
 | `ReqAiKeyAffinityRedisErr` | Counter | Redis 操作失败次数 |
 
+> 说明：`ReqAiKeyAffinityMiss` 统计未命中 Redis 绑定的次数，包含会话首触与绑定失效后重新选择；未命中是正常控制流，不计入 `ReqAiKeyAffinityRedisErr`（issue #1472）。
+
 关键日志：
 
 ```

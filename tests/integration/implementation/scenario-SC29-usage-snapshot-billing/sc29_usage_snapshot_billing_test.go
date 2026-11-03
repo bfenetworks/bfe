@@ -602,6 +602,16 @@ func TestTC04_CleanEofWithoutDoneBillsEstimate(t *testing.T) {
 	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceEstimated {
 		t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceEstimated)
 	}
+	// issue #1473: the clean-EOF shape is also a truncation, and with the
+	// default cluster configuration (no NormalizeUpstreamError) the injector is
+	// the only component watching the stream.
+	if reqLog.AiStreamTruncated == nil || !reqLog.GetAiStreamTruncated() {
+		t.Errorf("ai_stream_truncated must be set on a clean EOF without [DONE], got %v",
+			reqLog.AiStreamTruncated)
+	}
+	if reqLog.AiClientClosedAfterComplete != nil {
+		t.Error("ai_client_closed_after_complete must stay unset: the client read to EOF")
+	}
 }
 
 // TestTC05 verifies issue #1415 (Anthropic arm, the production bucket-A

@@ -156,6 +156,12 @@ type AiBasicInfo struct {
 	ErrNormalizeMiss     bool   // true when the parser did not recognize the upstream error body
 	StreamErrorRewritten bool   // true when at least one SSE error event of the stream was rewritten
 	StreamTruncated      bool   // true when the stream ended without the protocol's terminal event
+	// ClientClosedAfterComplete is true when the response was fully delivered
+	// (the protocol terminal event had been parsed) and the client then closed
+	// the connection without waiting for the HTTP EOF. Such a request is not a
+	// client abort and not a write failure: no err_code is set and
+	// ERR_CLIENT_WRITE is not counted (issue #1473).
+	ClientClosedAfterComplete bool
 	// UpstreamKey holds the last injected upstream credential; it is the
 	// pattern source for error-body credential redaction and must never be
 	// written to logs or responses.
