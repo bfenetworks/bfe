@@ -439,7 +439,10 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 			request.ErrMsg = ""
 
 			// record body size of request after forward
-			request.Stat.BodyLenIn = int(outreq.State.BodySize)
+			// BodySize is published by the transport writeLoop goroutine
+			// (bfe_http/request.go), which may still be running here: load it
+			// atomically to keep -race clean.
+			request.Stat.BodyLenIn = int(atomic.LoadUint32(&outreq.State.BodySize))
 
 			if bfe_debug.DebugServHTTP {
 				log.Logger.Debug("ReverseProxy.ServeHTTP(): get response from %s", backend.Name)
