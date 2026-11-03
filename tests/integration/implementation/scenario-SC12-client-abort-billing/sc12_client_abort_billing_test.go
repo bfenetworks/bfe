@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	bfe_access_pb "github.com/bfenetworks/bfe-access-pb/bfe_access_pb"
+	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/tests/integration/common"
 )
@@ -85,6 +87,7 @@ type testEnv struct {
 	redis          *common.RedisServer
 	bfePort        int
 	bfeMonitorPort int
+	logDir         string
 	stopBFE        func()
 }
 
@@ -165,6 +168,7 @@ func newTestEnvWithEstimateToken(t *testing.T, estimateToken bool) *testEnv {
 	}
 
 	e.bfePort, e.bfeMonitorPort, e.stopBFE = e.processEnv.StartBFE(confDir, logDir)
+	e.logDir = logDir
 	return e
 }
 
@@ -343,6 +347,46 @@ func (e *testEnv) waitTokenAuthMetric(t *testing.T, field string, want float64) 
 		t.Fatalf("read mod_ai_token_auth.%s failed: %v", field, err)
 	}
 	return got
+}
+
+// proxyStateMetric reads a proxy_state counter by its Go field name.
+func (e *testEnv) proxyStateMetric(t *testing.T, field string) float64 {
+	t.Helper()
+	v, err := common.ModuleMetric(e.bfeMonitorPort, "proxy_state", field)
+	if err != nil {
+		t.Fatalf("read proxy_state.%s failed: %v", field, err)
+	}
+	return v
+}
+
+// waitProxyStateMetric polls a proxy_state counter until cond holds; the copy
+// error is recorded after the response write, so a bare read can race it.
+func (e *testEnv) waitProxyStateMetric(t *testing.T, field string, cond func(float64) bool) float64 {
+	t.Helper()
+	got, err := common.WaitForModuleMetric(e.bfeMonitorPort, "proxy_state", field,
+		10*time.Second, cond)
+	if err != nil {
+		t.Fatalf("read proxy_state.%s failed: %v", field, err)
+	}
+	return got
+}
+
+// lastRequestLog stops BFE (flushing the pb3 access log) and returns the last
+// recorded request row.
+func (e *testEnv) lastRequestLog() *bfe_access_pb.RequestLog {
+	e.t.Helper()
+	if e.stopBFE != nil {
+		e.stopBFE()
+		e.stopBFE = nil
+	}
+	reqLogs, err := common.ParseAccessLogAfterStop(e.logDir)
+	if err != nil {
+		e.t.Fatalf("parse access log failed: %v", err)
+	}
+	if len(reqLogs) == 0 {
+		e.t.Fatal("expected at least 1 access log, got 0")
+	}
+	return reqLogs[len(reqLogs)-1]
 }
 
 // assertAbortSignals asserts the issue #1414 zero-deduction signals of one
@@ -543,5 +587,123 @@ func TestTC04_AbortBillingSkippedSignals(t *testing.T) {
 	// estimation-disabled arm.
 	if got := e.tokenAuthMetric(t, "AbortBillingEstimated"); got != 0 {
 		t.Errorf("AbortBillingEstimated = %v, want 0 (no abort was billed)", got)
+	}
+}
+
+// TestTC05_ClientCloseAfterCompleteIsNotAClientWrite verifies issue #1473: the
+// response was fully delivered (message_stop parsed, final usage billed) and
+// the client then closed the connection without waiting for the HTTP chunked
+// terminator. That is not a client abort and not a write failure:
+//
+//   - err_code stays empty and err_msg is not the misleading upstream-read text;
+//   - ERR_CLIENT_WRITE does not move;
+//   - the request is reported by ai_client_closed_after_complete (field 816)
+//     and by the REQ_AI_CLIENT_CLOSED_AFTER_COMPLETE counter;
+//   - the billing stays the parsed usage of the completed stream.
+//
+// The upstream keeps the connection open after the terminal event (SSEHold),
+// which is the production keep-alive shape: the client FIN is then the only
+// thing that can end the copy, so the CloseWatcher path is deterministic.
+func TestTC05_ClientCloseAfterCompleteIsNotAClientWrite(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+	hold := make(chan struct{})
+	defer close(hold)
+	e.backend.SSEEvents = []string{
+		anthropicMessageStart,
+		anthropicContentDelta,
+		anthropicMessageDelta,
+		anthropicMessageStop,
+	}
+	e.backend.SSEHold = hold
+
+	_, reader, conn := e.startSSERequest(t, "/anthropic/v1/messages", claudeStreamBody)
+	readUntilSSEMarker(t, conn, reader, "message_stop")
+	// The client got the terminal event and hangs up without draining EOF.
+	_ = conn.Close()
+
+	// proxy_state: the new counter moves, the client-write counter does not.
+	if got := e.waitProxyStateMetric(t, "ReqAiClientClosedAfterComplete",
+		func(v float64) bool { return v >= 1 }); got != 1 {
+		t.Errorf("ReqAiClientClosedAfterComplete = %v, want 1", got)
+	}
+	if got := e.proxyStateMetric(t, "ErrClientWrite"); got != 0 {
+		t.Errorf("ErrClientWrite = %v, want 0 (a completed response is not a client write)", got)
+	}
+
+	// Billing: parsed usage of the completed stream, exactly as TC-03.
+	if remaining := e.quotaRemaining(t); remaining != initialQuota-expectedStreamCost {
+		t.Fatalf("remaining = %d, want %d (actual usage of the completed stream)",
+			remaining, initialQuota-expectedStreamCost)
+	}
+
+	reqLog := e.lastRequestLog()
+	if got := reqLog.GetErrCode(); got != "" {
+		t.Errorf("err_code = %q, want empty (no abort, no write failure)", got)
+	}
+	if got := reqLog.GetErrMsg(); got != "" {
+		t.Errorf("err_msg = %q, want empty for a fully delivered response", got)
+	}
+	if !reqLog.GetAiClientClosedAfterComplete() {
+		t.Error("ai_client_closed_after_complete must be true")
+	}
+	if reqLog.AiStreamTruncated != nil {
+		t.Errorf("ai_stream_truncated must stay unset for a terminated stream, got %v",
+			reqLog.GetAiStreamTruncated())
+	}
+	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceParsed {
+		t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceParsed)
+	}
+}
+
+// TestTC06_ClientCloseBeforeTerminalEventStaysAClientWrite is the contrast arm
+// of issue #1473: the client closes before message_stop, so the abort semantics
+// must not regress. The two arms are told apart by err_code and field 816, not
+// by the err_msg text.
+func TestTC06_ClientCloseBeforeTerminalEventStaysAClientWrite(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+	hold := make(chan struct{})
+	defer close(hold)
+	e.backend.SSEEvents = []string{anthropicMessageStart, anthropicContentDelta, anthropicMessageDelta}
+	e.backend.SSEHold = hold
+	e.backend.SSETrailing = []string{anthropicMessageStop}
+
+	_, reader, conn := e.startSSERequest(t, "/anthropic/v1/messages", claudeStreamBody)
+	readUntilSSEMarker(t, conn, reader, "message_delta")
+	_ = conn.Close() // before message_stop: a real abort
+
+	if got := e.waitProxyStateMetric(t, "ErrClientWrite",
+		func(v float64) bool { return v >= 1 }); got < 1 {
+		t.Errorf("ErrClientWrite = %v, want >= 1 (the abort semantics must not regress)", got)
+	}
+	if got := e.proxyStateMetric(t, "ReqAiClientClosedAfterComplete"); got != 0 {
+		t.Errorf("ReqAiClientClosedAfterComplete = %v, want 0", got)
+	}
+
+	// The row is written by the request finish handler when BFE notices the
+	// write failure; give it a moment before stopping the process.
+	time.Sleep(500 * time.Millisecond)
+
+	reqLog := e.lastRequestLog()
+	if got := reqLog.GetErrCode(); got != bfe_basic.ErrClientWrite.Error() {
+		t.Errorf("err_code = %q, want %q", got, bfe_basic.ErrClientWrite)
+	}
+	if reqLog.GetAiClientClosedAfterComplete() {
+		t.Error("ai_client_closed_after_complete must stay unset on a real abort")
+	}
+	// Criterion 4: the message must not blame the upstream read side. Which of
+	// the two client-side texts shows up depends on whether the FIN was seen by
+	// the watcher or as a write failure.
+	switch msg := reqLog.GetErrMsg(); msg {
+	case "client closed connection", "client write failed":
+	default:
+		t.Errorf("err_msg = %q, want a client-side message (never the BodyProcessError upstream-read text)", msg)
 	}
 }

@@ -1128,6 +1128,111 @@ func isUpstreamDropErr(err error) bool {
 	return ce.readSide && !ce.clientClosed
 }
 
+// isClientAbortConsequence reports whether a sendResponse error is the
+// consequence of the client going away rather than a fault of its own: the
+// cancelOnClientClose watcher fired, or the write to the client failed
+// (issue #1473). A read-side error on src is collateral in both cases.
+func isClientAbortConsequence(err error) bool {
+	var ce *responseCopyError
+	if !errors.As(err, &ce) {
+		return false
+	}
+	return ce.clientClosed || !ce.readSide
+}
+
+// isClientCloseAfterComplete reports whether the client closed its side after
+// the response had been fully delivered (issue #1473): the close watcher fired
+// and the protocol terminal event had already been parsed. Only the watcher
+// case qualifies — a failed write means the bytes may never have reached the
+// client, which stays a client-write error.
+func isClientCloseAfterComplete(err error, aiMeta *bfe_basic.AiBasicInfo) bool {
+	var ce *responseCopyError
+	if !errors.As(err, &ce) {
+		return false
+	}
+	return ce.clientClosed && aiMeta != nil && aiMeta.IsResponseCompleted()
+}
+
+// Direction-correct access-log messages for copy errors caused by the client.
+// The wrapped body-process text ("BodyProcessError: read tcp ...") pointed
+// operators at the upstream side, which is exactly backwards (issue #1473).
+const (
+	errMsgClientClosed      = "client closed connection"
+	errMsgClientWriteFailed = "client write failed"
+)
+
+// clientAbortErrMsg returns the access-log message for a copy error. Client
+// side errors get a stable, direction-correct text; everything else keeps the
+// raw error. The transport detail always stays in the log (logCopyError).
+func clientAbortErrMsg(err error) string {
+	var ce *responseCopyError
+	if errors.As(err, &ce) {
+		switch {
+		case ce.clientClosed:
+			return errMsgClientClosed
+		case !ce.readSide:
+			return errMsgClientWriteFailed
+		}
+	}
+	return err.Error()
+}
+
+// logCopyError records which side of the response copy failed, so the raw
+// transport error is still available after the access log switched to the
+// direction-correct message (issue #1473).
+func logCopyError(req *bfe_basic.Request, err error) {
+	var ce *responseCopyError
+	if !errors.As(err, &ce) {
+		log.Logger.Info("sendResponse copy error, logid[%s], err[%v]", req.LogId, err)
+		return
+	}
+	log.Logger.Info("sendResponse copy error, logid[%s], readSide[%v], clientClosed[%v], err[%v]",
+		req.LogId, ce.readSide, ce.clientClosed, ce.err)
+}
+
+// recordCopyError attributes a failed response copy to the right side and
+// records the outcome: an upstream drop (issue #1474), a client that closed
+// after the response was fully delivered (issue #1473), or a client abort /
+// write failure that keeps the historical client-write semantics (issue
+// #1352).
+func (p *ReverseProxy) recordCopyError(basicReq *bfe_basic.Request, res *bfe_http.Response,
+	aiMeta *bfe_basic.AiBasicInfo, err error) {
+
+	switch {
+	case isUpstreamDropErr(err):
+		// issue #1474: the upstream connection broke mid-response (e.g.
+		// backend killed) while the client is still attached. Not a client
+		// abort: mark the drop so the finish handler bills the forwarded
+		// content, count it separately from client write errors, and let the
+		// stream filter tell the client via an injected protocol error event.
+		basicReq.ErrCode = bfe_basic.ErrBkReadRespBody
+		p.proxyState.ErrBkReadRespBody.Inc(1)
+		if shouldMarkUpstreamDropped(res, aiMeta) {
+			aiMeta.MarkUpstreamDropped()
+		}
+	case isClientCloseAfterComplete(err, aiMeta):
+		// issue #1473: the response was fully delivered (the protocol terminal
+		// event had already been parsed) and the client closed its side before
+		// the HTTP EOF. The read error is our own src.Close() consequence, not
+		// a client abort and not a write failure: no err_code, no
+		// ErrClientWrite, and the per-request marker the access log reports.
+		aiMeta.ClientClosedAfterComplete = true
+		p.proxyState.ReqAiClientClosedAfterComplete.Inc(1)
+	default:
+		// Client abort before the terminal event, a failed write, or any other
+		// copy error: keep the existing client-write semantics (issue #1352).
+		basicReq.ErrCode = bfe_basic.ErrClientWrite
+		p.proxyState.ErrClientWrite.Inc(1)
+	}
+
+	if basicReq.ErrCode != nil {
+		basicReq.ErrMsg = clientAbortErrMsg(err)
+	}
+	// Keep the raw transport detail (and which side failed) in the log: the
+	// access log now carries a direction-correct message instead.
+	logCopyError(basicReq, err)
+}
+
 func checkAllowRetry(retryLevel int, outreq *bfe_http.Request) bool {
 	if retryLevel == cluster_conf.RetryGet {
 		// if forward GET request error (eg. backend restart)
@@ -1582,23 +1687,7 @@ send_response:
 			if !CheckSupportMultiplex(basicReq.Session.Proto) {
 				action = closeAfterReply
 			}
-			if isUpstreamDropErr(err) {
-				// issue #1474: the upstream connection broke mid-response
-				// (e.g. backend killed) while the client is still attached.
-				// Not a client abort: mark the drop so the finish handler
-				// bills the forwarded content, count it separately from
-				// client write errors, and let the stream filter tell the
-				// client via an injected protocol error event.
-				basicReq.ErrCode = bfe_basic.ErrBkReadRespBody
-				p.proxyState.ErrBkReadRespBody.Inc(1)
-				if shouldMarkUpstreamDropped(res, aiMeta) {
-					aiMeta.MarkUpstreamDropped()
-				}
-			} else {
-				basicReq.ErrCode = bfe_basic.ErrClientWrite
-				p.proxyState.ErrClientWrite.Inc(1)
-			}
-			basicReq.ErrMsg = err.Error()
+			p.recordCopyError(basicReq, res, aiMeta, err)
 		} else if shouldMarkAIStreamCompleted(res, aiMeta, err) {
 			// issue #1415: the full SSE body was delivered and the upstream
 			// closed cleanly. Streams whose upstream omits the protocol
