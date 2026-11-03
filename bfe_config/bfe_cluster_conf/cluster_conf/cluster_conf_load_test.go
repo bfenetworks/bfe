@@ -274,6 +274,62 @@ func TestModelTableCheck(t *testing.T) {
 }
 
 func TestAIConfCheck(t *testing.T) {
+	t.Run("ensure reasoning content", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			conf    *AIConf
+			wantErr bool
+		}{
+			{
+				name: "empty means disabled",
+				conf: &AIConf{},
+			},
+			{
+				name: "openai with empty ModelProtocols (defaults to openai)",
+				conf: &AIConf{EnsureReasoningContent: []string{"openai"}},
+			},
+			{
+				name: "openai and anthropic both declared",
+				conf: &AIConf{
+					ModelProtocols:         []string{"openai", "anthropic"},
+					EnsureReasoningContent: []string{"openai", "anthropic"},
+				},
+			},
+			{
+				name:    "gemini is not applicable",
+				conf:    &AIConf{ModelProtocols: []string{"openai", "gemini"}, EnsureReasoningContent: []string{"gemini"}},
+				wantErr: true,
+			},
+			{
+				name:    "anthropic not declared by the cluster",
+				conf:    &AIConf{ModelProtocols: []string{"openai"}, EnsureReasoningContent: []string{"anthropic"}},
+				wantErr: true,
+			},
+			{
+				name:    "unknown protocol",
+				conf:    &AIConf{ModelProtocols: []string{"openai", "foo"}, EnsureReasoningContent: []string{"foo"}},
+				wantErr: true,
+			},
+			{
+				name:    "duplicate entry",
+				conf:    &AIConf{EnsureReasoningContent: []string{"openai", "openai"}},
+				wantErr: true,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				err := AIConfCheck(tt.conf)
+				if tt.wantErr && err == nil {
+					t.Fatal("expected an error")
+				}
+				if !tt.wantErr && err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			})
+		}
+	})
+
 	t.Run("strip prefix without match prefix", func(t *testing.T) {
 		conf := &AIConf{StripPrefix: true}
 		if err := AIConfCheck(conf); err == nil {

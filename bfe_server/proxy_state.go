@@ -142,6 +142,13 @@ type ProxyState struct {
 
 	// client close handling (issue #1473)
 	ReqAiClientClosedAfterComplete *metrics.Counter // response fully delivered, client closed before the HTTP EOF
+
+	// provider-level compensating request normalization
+	// (AIConf.EnsureReasoningContent)
+	ReasoningPatched  *metrics.Counter // at least one assistant message got an empty reasoning_content
+	ReasoningSkip     *metrics.Counter // skipped: compressed body, oversized body, non-JSON or batch/file mode
+	ReasoningFail     *metrics.Counter // parse/structure failure, body passed through unchanged
+	ReasoningStill400 *metrics.Counter // patched yet the upstream still answered 400 (contract changed)
 }
 
 func (s *ProxyState) ClientConnServedInc(proto string, value uint) {

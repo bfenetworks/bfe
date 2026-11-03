@@ -141,6 +141,11 @@ type AiBasicInfo struct {
 	ContextTokensAfter    int64  // estimated tokens after context compression, 0 if not compressed
 	ContextCompressMode   string // effective mode: conservative / balanced / aggressive
 
+	// Provider-level compensating normalization (AIConf.EnsureReasoningContent):
+	// true when this request had an empty reasoning_content injected on at least
+	// one assistant message inside the upstream validation window.
+	ReasoningPatched bool
+
 	// Traffic mirroring (mod_traffic_mirror) result: only synchronous fields
 	// are recorded here; async mirror results (status/usage/latency) are
 	// reported via module Prometheus metrics and are not written back

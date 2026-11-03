@@ -249,6 +249,18 @@ type AIConf struct {
 	// forwarded with their original path).
 	ProtocolPaths map[string]string
 
+	// EnsureReasoningContent lists the model access protocols for which the
+	// gateway fills an empty reasoning_content on assistant messages that sit
+	// after the last user message (the window the upstream validates). Some
+	// thinking-mode upstreams require that field to be echoed back, yet have
+	// turns that produce no reasoning text, so a client that faithfully
+	// mirrors the upstream response gets a 400 on the next turn.
+	// Only "openai" and "anthropic" are accepted: they are the protocols with
+	// an injection implementation. "gemini" has no reasoning_content in its
+	// contents/parts body, so there is nothing to inject. Empty/nil disables
+	// the behaviour and keeps the request byte-for-byte unchanged.
+	EnsureReasoningContent []string
+
 	// upstream error normalization (AIConf.NormalizeUpstreamError)
 	// (unified error codes). Nil or Enabled/StreamEnabled=false and
 	// StreamTruncatedError unset keeps the historical pass-through
@@ -1287,6 +1299,49 @@ func ClusterConfCheck(conf *ClusterConf) error {
 }
 
 // AIConfCheck checks AIConf config.
+// reasoningContentProtocols is the set of protocols with a reasoning_content
+// injection implementation. It is deliberately narrower than the protocol
+// registry: "gemini" has no reasoning_content in its contents/parts body, so
+// accepting it would produce a switch that silently does nothing.
+var reasoningContentProtocols = map[string]bool{
+	"openai":    true,
+	"anthropic": true,
+}
+
+// checkEnsureReasoningContent validates AIConf.EnsureReasoningContent: every
+// entry must have an injection implementation and must be declared by the
+// cluster's ModelProtocols (an empty ModelProtocols means ["openai"], which
+// mirrors modelprotocol.Supports semantics).
+func checkEnsureReasoningContent(conf *AIConf) error {
+	if len(conf.EnsureReasoningContent) == 0 {
+		return nil
+	}
+
+	declared := make(map[string]bool, len(conf.ModelProtocols))
+	for _, p := range conf.ModelProtocols {
+		declared[p] = true
+	}
+	if len(declared) == 0 {
+		declared["openai"] = true
+	}
+
+	seen := make(map[string]bool, len(conf.EnsureReasoningContent))
+	for _, p := range conf.EnsureReasoningContent {
+		if !reasoningContentProtocols[p] {
+			return fmt.Errorf("EnsureReasoningContent: protocol %q not supported (only openai, anthropic)", p)
+		}
+		if !declared[p] {
+			return fmt.Errorf("EnsureReasoningContent: protocol %q not in ModelProtocols", p)
+		}
+		if seen[p] {
+			return fmt.Errorf("EnsureReasoningContent: duplicate protocol %q", p)
+		}
+		seen[p] = true
+	}
+
+	return nil
+}
+
 func AIConfCheck(conf *AIConf) error {
 	switch conf.PriceMissAction {
 	case "":
@@ -1308,6 +1363,9 @@ func AIConfCheck(conf *AIConf) error {
 		if nuc.MaxBodyBytes < 0 || nuc.MaxBodyBytes > 4*1024*1024 {
 			return fmt.Errorf("NormalizeUpstreamError.MaxBodyBytes: %d out of range [0, 4194304]", nuc.MaxBodyBytes)
 		}
+	}
+	if err := checkEnsureReasoningContent(conf); err != nil {
+		return err
 	}
 	if conf.ModelTable != nil {
 		if err := ModelTableCheck(conf.ModelTable); err != nil {
