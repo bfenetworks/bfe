@@ -150,3 +150,43 @@ EPP 进程假死（极端兜底）：`Close()` deadline（30s）到 → `cancel(
 实施中发现并修正：`byteQueue` 落地前，TC08 以 7.9KB 假溢出失败（32 条 247B 帧填满定容 channel），印证了根因分析中"溢出是背压/启动时序症状"的判断，也把修复从"容量对齐"升级为"字节预算唯一判据"。
 
 部署后验收：按 issue 实测矩阵重跑（EPP 流式 500/1000/1500/3000 token），断言 ≥1500 token 的连接在 `[DONE]` 后秒级关闭且扣费与 usage 一致。
+
+## 八、追加修正（2026-11-03）：收尾判据改为"响应 EOS 已消费"
+
+### 8.1 问题
+
+第七节实施后，`respDone` 在 drainer 收到 `io.EOF`/stream 错误时才关闭，语义等价于"等待 EPP 主动关闭 gRPC stream"。但 envoy ext-proc 协议并不要求服务端在响应结束后关闭 stream：llm-d `StreamingServer.Process` 处理完 `ResponseBody.EndOfStream` 后会继续 `Recv`，等待客户端关闭。于是形成：
+
+```text
+bfe 等 EPP 关闭 stream
+EPP 等 bfe 关闭 stream
+```
+
+双方互等到 `eppCloseTimeout`（30s）。单请求表现为收尾慢 30s；同一共享 EPP 连接上的后续请求会被串行阻塞，集成测试 SC28/SC44 的连续多请求用例稳定失败（详见 `20261103-epp-extproc-stream-close-hang.md`）。
+
+### 8.2 修正
+
+- `drainResponses` 不再只依赖 `Recv` 返回 EOF：每收到一条响应，调用 `isResponseEnd` 判断是否到达响应阶段终点：
+  - `ProcessingResponse_ResponseTrailers` → 终止；
+  - `ResponseBody.Response.BodyMutation.StreamedResponse.EndOfStream == true` → 终止。
+- 到达终点后 drainer 直接返回，`respDone` 关闭；`Close` 等到 `donech + respDone` 后立即 `cancel()`，不再等待对端关流。
+- 对不回传 EOS 标记的 EPP 实现，仍由 30s deadline 兜底，保证 `Close` 必达、计费必执行，不会永久挂起。
+- `respDone`/`Close` 注释与 `docs/zh_cn/sys_design/epp_integration.md` 同步修正。
+
+### 8.3 测试
+
+`bfe_util/epp/epp_client_drain_test.go`：
+
+- fake EPP 的 per-chunk 响应改为携带 `StreamedBodyResponse{Body, EndOfStream}`，复刻 llm-d 真实响应结构；
+- 新增 `TestCloseReturnsWhenEppHangsAfterEndOfStream`：EPP 回 EOS 标记后保持 stream 打开，`Close` 必须在 1s 内返回，且不增加 `EppCloseTimeout`；
+- 新增 `TestCloseTimeoutWhenEppHangsAfterEndOfStreamWithoutEndMarker`：EPP 不回 EOS 标记时仍走 deadline 兜底；
+- 新增 `TestIsResponseEnd`：覆盖 body EOS、非 EOS、trailers、headers、空 body、nil 响应。
+
+### 8.4 行为对比
+
+| 场景 | 第七节实现 | 本次修正 |
+|---|---|---|
+| EPP 回 EOS 后主动关流 | 毫秒级 | 毫秒级 |
+| EPP 回 EOS 后保持 stream 打开（llm-d） | 30s 超时后强制 cancel | 毫秒级，不依赖对端关流 |
+| EPP 不回 EOS 标记且不关流 | 30s 超时兜底 | 30s 超时兜底（不变） |
+| EPP 进程卡死 | 30s 超时兜底 | 30s 超时兜底（不变） |

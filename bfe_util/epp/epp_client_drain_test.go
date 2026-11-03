@@ -41,11 +41,36 @@ type fakeExtProcServer struct {
 	// message, simulating an EPP peer that never consumes.
 	hangAfterHeaders bool
 	// hangAfterEndOfStream answers every message but never closes the
-	// stream after the body's EndOfStream, simulating a stuck peer.
+	// stream after the body's EndOfStream, simulating a peer that relies on
+	// the client to close the stream (llm-d behavior).
 	hangAfterEndOfStream bool
+	// omitResponseEnd leaves EndOfStream unset in per-chunk responses,
+	// covering EPP implementations that do not echo the EOS marker.
+	omitResponseEnd bool
 
 	bytesReceived  int64
 	sawEndOfStream int32
+}
+
+// perChunkResponse mirrors llm-d's streamed body response: it carries the
+// chunk back and marks EndOfStream on the response to the request EOS.
+func perChunkResponse(body []byte, eos bool) *extprocv3.ProcessingResponse {
+	return &extprocv3.ProcessingResponse{
+		Response: &extprocv3.ProcessingResponse_ResponseBody{
+			ResponseBody: &extprocv3.BodyResponse{
+				Response: &extprocv3.CommonResponse{
+					BodyMutation: &extprocv3.BodyMutation{
+						Mutation: &extprocv3.BodyMutation_StreamedResponse{
+							StreamedResponse: &extprocv3.StreamedBodyResponse{
+								Body:        body,
+								EndOfStream: eos,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 func (s *fakeExtProcServer) Process(stream extprocv3.ExternalProcessor_ProcessServer) error {
@@ -62,7 +87,7 @@ func (s *fakeExtProcServer) Process(stream extprocv3.ExternalProcessor_ProcessSe
 		return stream.Context().Err()
 	}
 	if s.respondPerChunk {
-		if err := stream.Send(&extprocv3.ProcessingResponse{}); err != nil {
+		if err := stream.Send(perChunkResponse(nil, false)); err != nil {
 			return err
 		}
 	}
@@ -76,7 +101,8 @@ func (s *fakeExtProcServer) Process(stream extprocv3.ExternalProcessor_ProcessSe
 			atomic.AddInt64(&s.bytesReceived, int64(len(body.GetBody())))
 		}
 		if s.respondPerChunk {
-			if err := stream.Send(&extprocv3.ProcessingResponse{}); err != nil {
+			eos := !s.omitResponseEnd && body.GetEndOfStream()
+			if err := stream.Send(perChunkResponse(body.GetBody(), eos)); err != nil {
 				return err
 			}
 		}
@@ -178,14 +204,44 @@ func TestCloseTimeoutWhenEppNeverResponds(t *testing.T) {
 	assert.Equal(t, before+1, eppState.EppCloseTimeout.Get())
 }
 
-// TestCloseTimeoutWhenEppHangsAfterEndOfStream verifies that EndOfStream is
-// still delivered (the EPP stream terminates from our side) and Close still
-// returns via the deadline when the peer answers chunks but hangs after the
-// body's EndOfStream instead of closing the stream.
-func TestCloseTimeoutWhenEppHangsAfterEndOfStream(t *testing.T) {
+// TestCloseReturnsWhenEppHangsAfterEndOfStream verifies that Close settles as
+// soon as the response EOS has been consumed, even when the peer keeps the
+// stream open afterwards (llm-d behavior). It must not depend on the peer
+// closing the stream, otherwise every long request would idle until the close
+// timeout and block later requests on the same connection.
+func TestCloseReturnsWhenEppHangsAfterEndOfStream(t *testing.T) {
 	eppState.EppCloseTimeout = new(metrics.Counter)
 	before := eppState.EppCloseTimeout.Get()
 	srv := &fakeExtProcServer{respondPerChunk: true, hangAfterEndOfStream: true}
+	conn := startFakeExtProc(t, srv)
+
+	c, err := NewEppClient(conn, 5*time.Second, WithCloseTimeout(2*time.Second))
+	require.NoError(t, err)
+
+	c.ProcRespHeader(make(http.Header), false)
+	c.ProcRespBody([]byte("chunk"))
+
+	start := time.Now()
+	c.Close()
+	elapsed := time.Since(start)
+	assert.Less(t, elapsed, time.Second, "Close must settle on response EOS, not peer EOF")
+	assert.Equal(t, before, eppState.EppCloseTimeout.Get())
+	assert.Equal(t, int32(1), atomic.LoadInt32(&srv.sawEndOfStream),
+		"EndOfStream must reach the peer even when it hangs afterwards")
+}
+
+// TestCloseTimeoutWhenEppHangsAfterEndOfStreamWithoutEndMarker verifies the
+// deadline fallback for EPP implementations that do not mark the EOS
+// response: Close still returns (so the request is billed), counting
+// EppCloseTimeout.
+func TestCloseTimeoutWhenEppHangsAfterEndOfStreamWithoutEndMarker(t *testing.T) {
+	eppState.EppCloseTimeout = new(metrics.Counter)
+	before := eppState.EppCloseTimeout.Get()
+	srv := &fakeExtProcServer{
+		respondPerChunk:      true,
+		hangAfterEndOfStream: true,
+		omitResponseEnd:      true,
+	}
 	conn := startFakeExtProc(t, srv)
 
 	c, err := NewEppClient(conn, 5*time.Second, WithCloseTimeout(300*time.Millisecond))
@@ -202,6 +258,62 @@ func TestCloseTimeoutWhenEppHangsAfterEndOfStream(t *testing.T) {
 	assert.Equal(t, before+1, eppState.EppCloseTimeout.Get())
 	assert.Equal(t, int32(1), atomic.LoadInt32(&srv.sawEndOfStream),
 		"EndOfStream must reach the peer even when it hangs afterwards")
+}
+
+func TestIsResponseEnd(t *testing.T) {
+	tests := []struct {
+		name string
+		resp *extprocv3.ProcessingResponse
+		want bool
+	}{
+		{
+			name: "response body EOS",
+			resp: perChunkResponse(nil, true),
+			want: true,
+		},
+		{
+			name: "response body not EOS",
+			resp: perChunkResponse([]byte("chunk"), false),
+			want: false,
+		},
+		{
+			name: "response trailers",
+			resp: &extprocv3.ProcessingResponse{
+				Response: &extprocv3.ProcessingResponse_ResponseTrailers{
+					ResponseTrailers: &extprocv3.TrailersResponse{},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "response headers",
+			resp: &extprocv3.ProcessingResponse{
+				Response: &extprocv3.ProcessingResponse_ResponseHeaders{
+					ResponseHeaders: &extprocv3.HeadersResponse{},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "empty body response",
+			resp: &extprocv3.ProcessingResponse{
+				Response: &extprocv3.ProcessingResponse_ResponseBody{
+					ResponseBody: &extprocv3.BodyResponse{},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "nil response",
+			resp: &extprocv3.ProcessingResponse{},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isResponseEnd(tt.resp))
+		})
+	}
 }
 
 // TestCloseSchedulingOnlyClient verifies Close on a client whose
