@@ -21,6 +21,7 @@
 package bfe_server
 
 import (
+	"crypto/tls"
 	"errors"
 	"io"
 	"net"
@@ -28,17 +29,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bfenetworks/go-lib/gotrack"
-	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_module"
-	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util"
 	"github.com/bfenetworks/bfe/bfe_websocket"
+	"github.com/bfenetworks/go-lib/gotrack"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 // This should be >= 512 bytes for DetectContentType,
@@ -164,9 +164,8 @@ func newConn(rwc net.Conn, srv *BfeServer) (c *conn, err error) {
 		log.Logger.Debug("newConn(): GetVip: %s", err.Error())
 	}
 
-	if sc, ok := rwc.(*bfe_tls.Conn); ok {
+	if _, ok := rwc.(*tls.Conn); ok {
 		c.session.IsSecure = true
-		sc.SetConnParam(c.session)
 	}
 
 	return c, nil
@@ -261,10 +260,9 @@ func (c *conn) finish() {
 	}
 }
 
-func (c *conn) getMandatoryProtocol(tlsConn *bfe_tls.Conn) (string, bool) {
-	tlsRule := c.server.TLSServerRule.Get(tlsConn)
-	protoConf := tlsRule.NextProtos.(*NextProtosConf)
-	return protoConf.Mandatory(tlsConn)
+func (c *conn) getMandatoryProtocol(tlsConn *tls.Conn) (string, bool) {
+	rule := c.server.TLSServerRule.Get(tlsConn)
+	return rule.NextProtosConf.Mandatory(tlsConn)
 }
 
 // Serve a new connection.
@@ -312,7 +310,7 @@ func (c *conn) serve() {
 		}
 	}
 
-	if tlsConn, ok := c.rwc.(*bfe_tls.Conn); ok {
+	if tlsConn, ok := c.rwc.(*tls.Conn); ok {
 		proxyState.TlsHandshakeAll.Inc(1)
 		var d time.Duration
 		// set tls handshake timeout
@@ -331,15 +329,24 @@ func (c *conn) serve() {
 		c.rwc.SetReadDeadline(time.Time{})
 		tlsState := tlsConn.ConnectionState()
 		c.session.TlsState = &tlsState
+		handshakeTime := time.Since(start)
 
 		log.Logger.Debug("conn.serve(): Handshake success (remote %s, vip %s, resume %v), elapse %d us",
-			c.remoteAddr, session.Vip, tlsState.DidResume, time.Since(start).Nanoseconds()/1000)
+			c.remoteAddr, session.Vip, tlsState.DidResume, handshakeTime.Nanoseconds()/1000)
 		proxyState.TlsHandshakeSucc.Inc(1)
-		serverStatus.ProxyHandshakeDelay.AddDuration(tlsState.HandshakeTime)
+		serverStatus.ProxyHandshakeDelay.AddDuration(handshakeTime)
 		if tlsState.DidResume {
-			serverStatus.ProxyHandshakeResumeDelay.AddDuration(tlsState.HandshakeTime)
+			serverStatus.ProxyHandshakeResumeDelay.AddDuration(handshakeTime)
 		} else {
-			serverStatus.ProxyHandshakeFullDelay.AddDuration(tlsState.HandshakeTime)
+			serverStatus.ProxyHandshakeFullDelay.AddDuration(handshakeTime)
+		}
+
+		// fill tls client auth info from matched tls rule
+		// (std tls.ConnectionState has no such fields; they were
+		// extensions of the removed bfe_tls fork)
+		if rule := c.server.TLSServerRule.Get(tlsConn); rule != nil {
+			c.session.TlsClientAuth = rule.ClientAuth != tls.NoClientCert
+			c.session.TlsClientCAName = rule.ClientCAName
 		}
 
 		// Callback for HANDLE_HANDSHAKE
@@ -377,7 +384,7 @@ func (c *conn) serve() {
 	}
 
 	// process requests from http/https protocol
-	if _, ok := c.rwc.(*bfe_tls.Conn); ok {
+	if _, ok := c.rwc.(*tls.Conn); ok {
 		c.session.Proto = "https"
 	} else {
 		c.session.Proto = "http"

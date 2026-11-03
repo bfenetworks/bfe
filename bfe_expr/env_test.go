@@ -17,6 +17,7 @@
 package bfe_expr
 
 import (
+	"crypto/tls"
 	"net"
 	"net/url"
 	"testing"
@@ -24,7 +25,6 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
-	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util"
 )
 
@@ -146,11 +146,11 @@ func TestBaseEnvNilSafety(t *testing.T) {
 func TestBaseEnvSessionTls(t *testing.T) {
 	req := newTestRequest()
 	req.Session.IsSecure = true
-	req.Session.TlsState = &bfe_tls.ConnectionState{
-		ServerName:   "example.com",
-		ClientAuth:   true,
-		ClientCAName: "ca1",
+	req.Session.TlsState = &tls.ConnectionState{
+		ServerName: "example.com",
 	}
+	req.Session.TlsClientAuth = true
+	req.Session.TlsClientCAName = "ca1"
 	env := NewEnv(req)
 
 	if env.SesSni() != "example.com" {

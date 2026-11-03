@@ -24,9 +24,10 @@ import (
 )
 
 import (
+	"crypto/tls"
+
 	"github.com/bfenetworks/bfe/bfe_balance/backend"
 	http "github.com/bfenetworks/bfe/bfe_http"
-	tls "github.com/bfenetworks/bfe/bfe_tls"
 	util "github.com/bfenetworks/bfe/bfe_util"
 )
 

@@ -347,10 +347,10 @@ func (e *BaseEnv) SesTlsClientCa() string {
 		return ""
 	}
 	ses := e.req.Session
-	if !ses.IsSecure || ses.TlsState == nil || !ses.TlsState.ClientAuth {
+	if !ses.IsSecure || ses.TlsState == nil || !ses.TlsClientAuth {
 		return ""
 	}
-	return ses.TlsState.ClientCAName
+	return ses.TlsClientCAName
 }
 
 // ---------- 通用 ----------

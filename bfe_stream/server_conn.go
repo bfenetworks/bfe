@@ -15,22 +15,18 @@
 package bfe_stream
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
 	"time"
-)
 
-import (
+	"github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/go-lib/gotrack"
 	"github.com/bfenetworks/go-lib/log"
-)
 
-import (
-	"github.com/bfenetworks/bfe/bfe_balance/backend"
 	http "github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_proxy"
-	tls "github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util"
 )
 
@@ -90,9 +86,11 @@ func (sc *serverConn) serve() {
 			if err != nil {
 				state.StreamErrTransfer.Inc(1)
 				duration := time.Since(start)
-				tlsConn := sc.conn.(*tls.Conn)
+				// note: bfe_tls.Conn.GetVip() is gone with the fork; the vip
+				// is the local address of the underlying connection.
+				vip, _, _ := bfe_util.ParseIpAndPort(sc.conn.LocalAddr().String())
 				log.Logger.Info("bfe_stream: stream conn finish: vip:[%s], sni:[%s], clientip:[%v], backend:[%s], "+
-					"duration:%fs, error:[%v]", tlsConn.GetVip().String(), sc.tlsState.ServerName, sc.conn.RemoteAddr(),
+					"duration:%fs, error:[%v]", vip.String(), sc.tlsState.ServerName, sc.conn.RemoteAddr(),
 					back.AddrInfo, duration.Seconds(), err)
 			}
 			sc.shutDownIn(250 * time.Millisecond)
@@ -118,7 +116,7 @@ func (sc *serverConn) processProxyProtocol(bc net.Conn) error {
 	var destinationPort, sourcePort int
 	var err error
 
-	netConn := sc.conn.(*tls.Conn).GetNetConn()
+	netConn := sc.conn.(*tls.Conn).NetConn()
 
 	if addressFetcher, ok := netConn.(bfe_util.AddressFetcher); ok {
 		virtualAddr = addressFetcher.VirtualAddr()

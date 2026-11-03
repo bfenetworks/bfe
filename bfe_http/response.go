@@ -21,6 +21,7 @@
 package bfe_http
 
 import (
+	"crypto/tls"
 	"errors"
 	"io"
 	"net/http"
@@ -30,7 +31,6 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_net/textproto"
-	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 var respExcludeHeader = map[string]bool{
@@ -105,7 +105,7 @@ type Response struct {
 	// response was received. It is nil for unencrypted responses.
 	// The pointer is shared between responses and should not be
 	// modified.
-	TLS *bfe_tls.ConnectionState
+	TLS *tls.ConnectionState
 
 	IsSse bool
 }
