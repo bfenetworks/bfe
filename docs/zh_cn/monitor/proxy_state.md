@@ -95,6 +95,12 @@
 | SSE_REQ_SERVED                  | 已处理的SSE请求数    |
 | SSE_REQ_ACTIVE                  | 活跃的SSE请求数      |
 
+### AI 客户端断连相关
+
+| 监控项                            | 描述 |
+| -------------------------------- | ---- |
+| REQ_AI_CLIENT_CLOSED_AFTER_COMPLETE | 响应已完整投递（协议终止事件已解析）后客户端才关闭连接的请求数。这类请求不是客户端中断、也不是写失败：`err_code` 为空、不计 `ERR_CLIENT_WRITE`，访问日志以 `ai_client_closed_after_complete` 标记（issue #1473）。终止事件前断开仍计入 `ERR_CLIENT_WRITE` |
+
 ### TLS协议相关
 
 | 监控项                           | 描述                       |

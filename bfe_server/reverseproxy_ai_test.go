@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/bfenetworks/go-lib/web-monitor/metrics"
+	"github.com/gomodule/redigo/redis"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
@@ -430,13 +431,16 @@ func (m *mockRedisClient) Setex(key string, value []byte, expire int) error {
 	return nil
 }
 
+// Get mirrors the production redis_bns semantics: a missing key is reported as
+// redis.ErrNil, not as (nil, nil) (issue #1472). Keeping the mock faithful is
+// what makes the affinity miss path testable at all.
 func (m *mockRedisClient) Get(key string) (interface{}, error) {
 	if m.failGet {
 		return nil, errors.New("redis get failed")
 	}
 	v, ok := m.data[key]
 	if !ok {
-		return nil, nil
+		return nil, redis.ErrNil
 	}
 	return v.value, nil
 }
@@ -638,6 +642,109 @@ func TestChooseAIKeyWithAffinity_RedisErrFallback(t *testing.T) {
 	}
 	if proxyState.ReqAiKeyAffinityRedisErr.Get() != 1 {
 		t.Errorf("expected redis err counter 1, got %d", proxyState.ReqAiKeyAffinityRedisErr.Get())
+	}
+}
+
+// TestRedisGetBinding_MissIsNotError pins the issue #1472 contract: an absent
+// binding is a miss (no error), while a real Redis failure is still an error.
+func TestRedisGetBinding_MissIsNotError(t *testing.T) {
+	policy := cluster_conf.AIKeyPolicy{
+		Strategy:                     "weighted_random",
+		SessionAffinity:              true,
+		SessionAffinityTTL:           300,
+		SessionAffinityRedisPrefix:   "bfe:ai:key_affinity",
+		SessionAffinityPenaltyEnable: true,
+	}
+
+	bound, err := redisGetBinding("cluster", "session-1", policy, newMockRedisClient())
+	if err != nil {
+		t.Fatalf("expected miss without error, got err=%v", err)
+	}
+	if bound != "" {
+		t.Errorf("expected empty binding on miss, got %s", bound)
+	}
+
+	client := newMockRedisClient()
+	client.failGet = true
+	if _, err := redisGetBinding("cluster", "session-1", policy, client); err == nil {
+		t.Error("expected real redis failure to be reported as an error")
+	}
+}
+
+// TestChooseAIKeyWithAffinity_MissNotRedisErr covers the first request of a
+// fresh session (issue #1472): the missing binding must count as a miss, must
+// not be counted as a Redis error, and must be written before the forward.
+func TestChooseAIKeyWithAffinity_MissNotRedisErr(t *testing.T) {
+	keys := []cluster_conf.AIKey{
+		{Name: "key-a", Key: "ak-a", Weight: 50},
+		{Name: "key-b", Key: "ak-b", Weight: 50},
+	}
+	policy := cluster_conf.AIKeyPolicy{
+		Strategy:                     "weighted_random",
+		SessionAffinity:              true,
+		SessionAffinityTTL:           300,
+		SessionAffinityRedisPrefix:   "bfe:ai:key_affinity",
+		SessionAffinityPenaltyEnable: true,
+	}
+	state := newAIKeyAttemptState()
+	client := newMockRedisClient()
+
+	proxyState := &ProxyState{
+		ReqAiKeyAffinityHit:      new(metrics.Counter),
+		ReqAiKeyAffinityMiss:     new(metrics.Counter),
+		ReqAiKeyAffinityRedisErr: new(metrics.Counter),
+	}
+
+	idx, key, boundName, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", proxyState, nil)
+	if !ok {
+		t.Fatal("expected to select key")
+	}
+	if idx < 0 || idx >= len(keys) || key.Name == "" {
+		t.Fatalf("expected a valid selected key, got idx=%d key=%+v", idx, key)
+	}
+	if boundName != "" {
+		t.Errorf("expected no previous binding, got %s", boundName)
+	}
+	if got := proxyState.ReqAiKeyAffinityMiss.Get(); got != 1 {
+		t.Errorf("expected affinity miss counter 1, got %d", got)
+	}
+	if got := proxyState.ReqAiKeyAffinityRedisErr.Get(); got != 0 {
+		t.Errorf("expected no affinity redis error on a plain miss, got %d", got)
+	}
+	if got := proxyState.ReqAiKeyAffinityHit.Get(); got != 0 {
+		t.Errorf("expected no affinity hit on a plain miss, got %d", got)
+	}
+	bound, exists := client.data["bfe:ai:key_affinity:cluster:session-1"]
+	if !exists {
+		t.Fatal("expected binding to be written to redis")
+	}
+	if string(bound.value) != key.Name {
+		t.Errorf("expected binding %s, got %s", key.Name, bound.value)
+	}
+}
+
+// TestRedisGetBatchBinding_MissNotRedisErr is the batch-namespace counterpart
+// of the miss normalization: the first operation of a batch has no binding and
+// must not be counted as a Redis error.
+func TestRedisGetBatchBinding_MissNotRedisErr(t *testing.T) {
+	hint := &bfe_basic.AiBatchRouteHint{BatchId: "batch-1"}
+	client := newMockRedisClient()
+	proxyState := &ProxyState{ReqAiKeyAffinityRedisErr: new(metrics.Counter)}
+
+	if bound := redisGetBatchBinding("cluster", hint, client, proxyState); bound != "" {
+		t.Errorf("expected empty batch binding, got %s", bound)
+	}
+	if got := proxyState.ReqAiKeyAffinityRedisErr.Get(); got != 0 {
+		t.Errorf("expected no affinity redis error on a plain miss, got %d", got)
+	}
+
+	client.failGet = true
+	proxyState = &ProxyState{ReqAiKeyAffinityRedisErr: new(metrics.Counter)}
+	if bound := redisGetBatchBinding("cluster", hint, client, proxyState); bound != "" {
+		t.Errorf("expected empty batch binding on redis failure, got %s", bound)
+	}
+	if got := proxyState.ReqAiKeyAffinityRedisErr.Get(); got != 1 {
+		t.Errorf("expected redis err counter 1 on a real failure, got %d", got)
 	}
 }
 

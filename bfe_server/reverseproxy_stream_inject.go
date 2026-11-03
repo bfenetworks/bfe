@@ -49,6 +49,7 @@ type streamTruncationInjector struct {
 	saved   error  // source error, returned after pending is drained
 	injDone bool   // the injection decision has been made
 	marked  bool   // a terminal marker was seen in the passed-through bytes
+	tail    []byte // overlap of the previous read, for split markers (issue #1473)
 }
 
 func newStreamTruncationInjector(src io.ReadCloser, adapter bfe_model_protocol.ProtocolAdapter,
@@ -100,7 +101,27 @@ func (f *streamTruncationInjector) Read(p []byte) (int, error) {
 	if n > 0 {
 		f.scanTerminal(p[:n])
 	}
-	if err == nil || err == io.EOF {
+	if err == io.EOF {
+		// issue #1473: a clean EOF without the protocol's terminal event is a
+		// truncated stream — the definition of the ai_stream_truncated field.
+		// Judged only when the terminal markers are known: an unknown adapter
+		// would otherwise mark every stream as truncated. Gemini reaches here
+		// with empty markers (StreamEndsAtEOF) and stays unmarked. No event is
+		// injected on a clean EOF: the client already received every byte.
+		//
+		// The event parser is authoritative over the byte-level markers: an
+		// anthropic-compatible upstream may send only "data:" lines (no
+		// "event: message_stop"), and body_process has already recorded the
+		// completion in that case — a parsed terminal event is never a
+		// truncation.
+		if len(f.markers) > 0 && !f.terminated() && f.aiMeta != nil &&
+			!f.aiMeta.StreamTruncated {
+			f.aiMeta.StreamTruncated = true
+			incStateCounter(f.state.ErrStreamTruncated)
+		}
+		return n, err
+	}
+	if err == nil {
 		return n, err
 	}
 
@@ -109,7 +130,7 @@ func (f *streamTruncationInjector) Read(p []byte) (int, error) {
 	// deliver the error only after every queued byte went out.
 	f.injDone = true
 	f.saved = err
-	if len(f.markers) > 0 && !f.sawTerminal() {
+	if len(f.markers) > 0 && !f.terminated() {
 		f.pending = f.buildEvent()
 		if f.aiMeta != nil && !f.aiMeta.StreamTruncated {
 			f.aiMeta.StreamTruncated = true
@@ -138,27 +159,66 @@ func (f *streamTruncationInjector) takeSaved() error {
 	return err
 }
 
-// scanTerminal records whether a terminal marker appears in the passed
-// bytes. Markers spanning two reads are missed; the window is the marker
-// length and the consequence is only an injected event after an already
-// terminated stream, which clients ignore after their terminal event.
+// scanTerminal records whether a terminal marker appears in the passed bytes.
+// The tail of the previous read is prepended so a marker split across two
+// reads is still recognized: with issue #1473 a missed marker would also make
+// a normally terminated stream look truncated at clean EOF.
 func (f *streamTruncationInjector) scanTerminal(b []byte) {
-	if f.sawTerminal() {
+	if f.sawTerminal() || len(f.markers) == 0 {
 		return
 	}
+
+	buf := b
+	if len(f.tail) > 0 {
+		buf = make([]byte, 0, len(f.tail)+len(b))
+		buf = append(buf, f.tail...)
+		buf = append(buf, b...)
+	}
+
 	for _, m := range f.markers {
 		if len(m) == 0 {
 			continue
 		}
-		if strings.Contains(string(b), string(m)) {
+		if strings.Contains(string(buf), string(m)) {
 			f.marked = true
+			f.tail = nil
 			return
 		}
 	}
+
+	maxLen := 0
+	for _, m := range f.markers {
+		if len(m) > maxLen {
+			maxLen = len(m)
+		}
+	}
+	keep := maxLen - 1
+	if keep <= 0 {
+		return
+	}
+	if len(buf) > keep {
+		buf = buf[len(buf)-keep:]
+	}
+	// Copy: buf may alias the caller's read buffer.
+	f.tail = append(f.tail[:0], buf...)
 }
 
 func (f *streamTruncationInjector) sawTerminal() bool {
 	return f.marked
+}
+
+// terminated reports whether the stream had already ended normally: either the
+// byte-level terminal marker was seen in the passed-through bytes, or the
+// event parser recorded the protocol's terminal event. The second source
+// matters for anthropic-compatible upstreams that send only "data:" lines —
+// their "event: message_stop" marker never appears, yet the stream did
+// terminate, so it must not be reported (nor answered with an injected error
+// event) as truncated (issue #1473).
+func (f *streamTruncationInjector) terminated() bool {
+	if f.marked {
+		return true
+	}
+	return f.aiMeta != nil && f.aiMeta.IsResponseCompleted()
 }
 
 // buildEvent builds the protocol error event for the client. When unified

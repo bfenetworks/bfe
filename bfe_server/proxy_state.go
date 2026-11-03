@@ -139,6 +139,9 @@ type ProxyState struct {
 	ErrStreamErrorRewritten     *metrics.Counter // stream with at least one SSE error event rewritten
 	ErrStreamTruncated          *metrics.Counter // stream ended without the protocol's terminal event
 	ErrStreamTruncationInjected *metrics.Counter // error event injected after a mid-stream upstream drop (issue #1474)
+
+	// client close handling (issue #1473)
+	ReqAiClientClosedAfterComplete *metrics.Counter // response fully delivered, client closed before the HTTP EOF
 }
 
 func (s *ProxyState) ClientConnServedInc(proto string, value uint) {

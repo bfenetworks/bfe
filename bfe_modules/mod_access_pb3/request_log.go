@@ -745,6 +745,9 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 	if aiInfo.StreamTruncated {
 		reqLog.AiStreamTruncated = proto.Bool(true)
 	}
+	if aiInfo.ClientClosedAfterComplete {
+		reqLog.AiClientClosedAfterComplete = proto.Bool(true)
+	}
 
 	// Batch task (mod_ai_batch) context: files/batches operations only
 	if aiInfo.BatchId != "" {
