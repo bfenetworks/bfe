@@ -144,8 +144,8 @@ bfe_server / reverseproxy.go
 1. `ProcRespHeader(res.Header, false)` 回传响应头；
 2. `NewEppResponseBodyFilter(res.Body, eppClient)` 包装响应 body，转发路径 `Read` 的同时把数据块经 `ProcRespBody` 流式回传 EPP；
 3. **完整性保证**：`ProcRespBody` 有界缓冲（可配字节预算 `WithRespBodyBufBudget`，`datach` 容量 32 与 32KB 拷贝缓冲对齐使字节预算成为唯一溢出判据）满时不丢块——溢出采取"整流放弃"策略（`abortRespBody` 跳过该流剩余 body 并打点），**宁可整流放弃，不静默部分丢失**；EndOfStream 消息在流收尾时无条件从 bfe 侧送出。
-4. **响应排水（issue #1475）**：EPP 侧（llm-d `StreamingServer`）按 envoy ext-proc FULL_DUPLEX_STREAMING 协议对**每个** response-body chunk 回一个 `ProcessingResponse`，bfe 虽然不应用响应改写，但必须消费这些响应——头响应由 `ProcRespHeader` 同步收取后，后续响应由 drainer goroutine 独占 `Recv` 并丢弃。若无人排水，响应体超过 gRPC 流控窗口后双端互相阻塞（EPP 的 Send 阻塞 → 停止读 → bfe 的 Send 阻塞 → 收尾挂死），表现为长流式连接不关闭且不计费。
-5. **收尾兜底（issue #1475）**：`EppClient.Close()` 等待转发 goroutine（`donech`）与 drainer（`respDone`）双通道，超时（`eppCloseTimeout`，默认 30s，`WithCloseTimeout` 可调）后 `cancel()` 强制拆除并照常返回、计 `EppCloseTimeout`——保证请求收尾（含计费点 `HandleRequestFinish`）必然执行；EPP 真死时字节预算溢出保护仍生效（客户端 body 不受影响，`RespBodyOverflow` 为真实背压信号）。
+4. **响应排水（issue #1475）**：EPP 侧（llm-d `StreamingServer`）按 envoy ext-proc FULL_DUPLEX_STREAMING 协议对**每个** response-body chunk 回一个 `ProcessingResponse`，bfe 虽然不应用响应改写，但必须消费这些响应——头响应由 `ProcRespHeader` 同步收取后，后续响应由 drainer goroutine 独占 `Recv` 并丢弃；drainer 消费到响应阶段的 `EndOfStream`/trailers（`BodyMutation.StreamedResponse.EndOfStream`）后即退出，**不等待对端关闭 gRPC stream**。若无人排水，响应体超过 gRPC 流控窗口后双端互相阻塞（EPP 的 Send 阻塞 → 停止读 → bfe 的 Send 阻塞 → 收尾挂死），表现为长流式连接不关闭且不计费。
+5. **收尾兜底（issue #1475）**：`EppClient.Close()` 等待转发 goroutine（`donech`）与 drainer（`respDone`）双通道；`respDone` 表示"响应阶段 EOS 已被消费"，而不是"对端已关闭 stream"，因此 llm-d 在响应 EOS 后继续等待客户端关闭时，bfe 仍能在毫秒级完成收尾。超时（`eppCloseTimeout`，默认 30s，`WithCloseTimeout` 可调）后 `cancel()` 强制拆除并照常返回、计 `EppCloseTimeout`——保证请求收尾（含计费点 `HandleRequestFinish`）必然执行；EPP 真死时字节预算溢出保护仍生效（客户端 body 不受影响，`RespBodyOverflow` 为真实背压信号）。对于不回传 EOS 标记的 EPP 实现，退化为 30s 超时兜底，不会永久挂起。
 
 ### 4.6 配置
 

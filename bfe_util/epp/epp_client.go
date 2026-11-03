@@ -182,9 +182,11 @@ type EppClient struct {
 	stream extprocv3.ExternalProcessor_ProcessClient
 	datach *byteQueue
 	donech chan struct{}
-	// respDone is closed when the response drainer exits, i.e. every
-	// response the EPP peer will send has been consumed and the stream is
-	// settled from its side (issue #1475).
+	// respDone is closed when the response drainer has consumed the
+	// response-phase EndOfStream/trailers (or the stream failed). Close must
+	// not wait for the peer to close the gRPC stream: ext-proc does not
+	// require it and llm-d keeps the stream open after response EOS
+	// (issue #1475).
 	respDone chan struct{}
 	respOnce sync.Once
 
@@ -254,7 +256,9 @@ func NewEppClient(conn *grpc.ClientConn, callTimeout time.Duration, opts ...EppC
 // Close waits for both the forwarding goroutine (donech) and the response
 // drainer (respDone), bounded by eppCloseTimeout: the request finish handler
 // (billing point) only runs after Close returns, so the wait must never be
-// unbounded even when the EPP peer is stuck (issue #1475).
+// unbounded even when the EPP peer is stuck (issue #1475). respDone means the
+// response EOS has been consumed, not that the peer closed the stream, so a
+// peer that keeps the stream open after EOS does not delay teardown.
 func (c *EppClient) Close() {
 	c.CloseRespBody()
 
@@ -299,11 +303,35 @@ func (c *EppClient) markRespDone() {
 func (c *EppClient) drainResponses() {
 	defer c.markRespDone()
 	for {
-		if _, err := c.stream.Recv(); err != nil {
+		resp, err := c.stream.Recv()
+		if err != nil {
 			// io.EOF (peer finished), stream error, or ctx cancel: settled.
 			return
 		}
+		if isResponseEnd(resp) {
+			// The peer has finished the response phase. ext-proc does not
+			// require it to close the stream afterwards, so do not wait for
+			// EOF; Close cancels the stream once both goroutines are done.
+			return
+		}
 	}
+}
+
+// isResponseEnd reports whether resp terminates the response phase. llm-d
+// marks the response to ResponseBody.EndOfStream with
+// BodyMutation.StreamedResponse.EndOfStream; response trailers are terminal as
+// well. EPP implementations that omit the marker are covered by Close's
+// deadline.
+func isResponseEnd(resp *extprocv3.ProcessingResponse) bool {
+	if resp.GetResponseTrailers() != nil {
+		return true
+	}
+	body := resp.GetResponseBody()
+	if body == nil {
+		return false
+	}
+	streamed := body.GetResponse().GetBodyMutation().GetStreamedResponse()
+	return streamed != nil && streamed.GetEndOfStream()
 }
 
 func (c *EppClient) Send(req *extprocv3.ProcessingRequest) error {
