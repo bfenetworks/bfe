@@ -85,6 +85,18 @@ type fakeExtProc struct {
 	first   *extprocv3.ProcessingRequest
 	calls   int
 	procErr error // if set, Process fails with this error
+	// ir, when set, is sent as an ImmediateResponse instead of a scheduling
+	// decision; irOnBody delays it to the request-body round trip
+	// (issue #1482).
+	ir       *extprocv3.ImmediateResponse
+	irOnBody bool
+}
+
+func (s *fakeExtProc) setImmediateResponse(ir *extprocv3.ImmediateResponse, onBody bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ir = ir
+	s.irOnBody = onBody
 }
 
 func (s *fakeExtProc) capturedFirst() *extprocv3.ProcessingRequest {
@@ -116,6 +128,8 @@ func (s *fakeExtProc) Process(stream extprocv3.ExternalProcessor_ProcessServer) 
 	s.calls++
 	procErr := s.procErr
 	onFirst := s.onFirst
+	ir := s.ir
+	irOnBody := s.irOnBody
 	s.mu.Unlock()
 
 	if procErr != nil {
@@ -125,6 +139,12 @@ func (s *fakeExtProc) Process(stream extprocv3.ExternalProcessor_ProcessServer) 
 		if err := onFirst(req); err != nil {
 			return err
 		}
+	}
+
+	if ir != nil && !irOnBody {
+		return stream.Send(&extprocv3.ProcessingResponse{
+			Response: &extprocv3.ProcessingResponse_ImmediateResponse{ImmediateResponse: ir},
+		})
 	}
 
 	resp := &extprocv3.ProcessingResponse{
@@ -147,6 +167,11 @@ func (s *fakeExtProc) Process(stream extprocv3.ExternalProcessor_ProcessServer) 
 			if b := r.GetRequestBody(); b != nil && b.GetEndOfStream() {
 				break
 			}
+		}
+		if ir != nil {
+			return stream.Send(&extprocv3.ProcessingResponse{
+				Response: &extprocv3.ProcessingResponse_ImmediateResponse{ImmediateResponse: ir},
+			})
 		}
 		if err := stream.Send(&extprocv3.ProcessingResponse{
 			Response: &extprocv3.ProcessingResponse_RequestBody{

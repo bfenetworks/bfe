@@ -1280,7 +1280,7 @@ func TestCalcCostUnits_CacheFallback(t *testing.T) {
 	}
 }
 
-func TestCalcCostUnits_PriceLookupMissCounter(t *testing.T) {
+func TestCalcCostUnits_PriceMissZeroBilledCounter(t *testing.T) {
 	m := NewModuleAITokenAuth()
 	clusterName := "responses-backup"
 	model := "gpt-5-codex"
@@ -1289,7 +1289,7 @@ func TestCalcCostUnits_PriceLookupMissCounter(t *testing.T) {
 	// request is billed as mode "responses". Since issue #1408 the miss
 	// falls back to the model's chat-mode price (product decision: an
 	// unpriced mode is billed the same as chat), marks the request
-	// ai_price_miss and counts PriceFallbackUsed instead of PriceLookupMiss.
+	// ai_price_miss and counts PriceFallbackUsed instead of PriceMissZeroBilled.
 	cluster := buildTestClusterConf(model, 0.000003, 0.000009)
 	req.SvrDataConf = &mockServerDataConf{clusters: map[string]*bfe_cluster.BfeCluster{clusterName: cluster}}
 	req.GetAiBasicInfo().Mode = bfe_basic.ModeResponses
@@ -1299,8 +1299,8 @@ func TestCalcCostUnits_PriceLookupMissCounter(t *testing.T) {
 	if got := m.calcCostUnits(req, req.SvrDataConf, usage); got != want {
 		t.Errorf("expected fallback cost %d, got %d", want, got)
 	}
-	if v := m.state.PriceLookupMiss.Get(); v != 0 {
-		t.Errorf("expected PriceLookupMiss 0 on fallback, got %d", v)
+	if v := m.state.PriceMissZeroBilled.Get(); v != 0 {
+		t.Errorf("expected PriceMissZeroBilled 0 on fallback, got %d", v)
 	}
 	if v := m.state.PriceFallbackUsed.Get(); v != 1 {
 		t.Errorf("expected PriceFallbackUsed 1, got %d", v)
@@ -1314,23 +1314,23 @@ func TestCalcCostUnits_PriceLookupMissCounter(t *testing.T) {
 	if got := m.calcCostUnits(req, req.SvrDataConf, usage); got != want {
 		t.Errorf("expected cost %d, got %d", want, got)
 	}
-	if v := m.state.PriceLookupMiss.Get(); v != 0 {
-		t.Errorf("expected PriceLookupMiss still 0 after a hit, got %d", v)
+	if v := m.state.PriceMissZeroBilled.Get(); v != 0 {
+		t.Errorf("expected PriceMissZeroBilled still 0 after a hit, got %d", v)
 	}
 	if v := m.state.PriceFallbackUsed.Get(); v != 1 {
 		t.Errorf("expected PriceFallbackUsed still 1 after a hit, got %d", v)
 	}
 
 	// A model absent from the table entirely has no chat baseline: the chat
-	// mode itself never falls back, so it bills 0 and counts PriceLookupMiss.
+	// mode itself never falls back, so it bills 0 and counts PriceMissZeroBilled.
 	noModelReq := newTestRequestWithCluster("ak-123", "AI_product", clusterName, "no-such-model")
 	noModelReq.SvrDataConf = req.SvrDataConf
 	noModelReq.GetAiBasicInfo().Mode = bfe_basic.ModeChat
 	if got := m.calcCostUnits(noModelReq, noModelReq.SvrDataConf, usage); got != 0 {
 		t.Errorf("expected 0 cost on price lookup miss, got %d", got)
 	}
-	if v := m.state.PriceLookupMiss.Get(); v != 1 {
-		t.Errorf("expected PriceLookupMiss 1, got %d", v)
+	if v := m.state.PriceMissZeroBilled.Get(); v != 1 {
+		t.Errorf("expected PriceMissZeroBilled 1, got %d", v)
 	}
 	if !noModelReq.GetAiBasicInfo().IsPriceMiss() {
 		t.Error("expected PriceMiss to be marked on unrecoverable miss")
@@ -1831,18 +1831,10 @@ func (s *mockRedisScript) Run(key string, args ...interface{}) (interface{}, err
 			current = initial
 		}
 	}
-	deduct := current
-	if amount < current {
-		deduct = amount
-	}
-	if deduct > 0 {
-		s.client.data[key] = current - deduct
-	}
+	// issue #1476: the scripts deduct the full amount, the balance may go
+	// negative and the returned remaining is not clamped at zero.
+	s.client.data[key] = current - amount
 	remaining := s.client.data[key]
-	if remaining < 0 {
-		remaining = 0
-		s.client.data[key] = 0
-	}
 	return remaining, nil
 }
 
@@ -1878,7 +1870,9 @@ func TestQuotaPlanDeduct(t *testing.T) {
 		}
 	})
 
-	t.Run("rmb deduct insufficient", func(t *testing.T) {
+	t.Run("rmb deduct overage", func(t *testing.T) {
+		// issue #1476: the balance goes negative so the overrun stays
+		// recorded (used = quota - remaining) instead of being dropped.
 		client := newMockRedisClient()
 		client.data["rmb-key"] = 100
 		plan := &QuotaPlan{Id: "p1", RedisKey: "rmb-key", Unit: "RMB", Quota: 100}
@@ -1886,11 +1880,60 @@ func TestQuotaPlanDeduct(t *testing.T) {
 		if err != nil {
 			t.Fatalf("deduct failed: %v", err)
 		}
-		if remaining != 0 {
-			t.Errorf("remaining = %d, want 0", remaining)
+		if remaining != -100 {
+			t.Errorf("remaining = %d, want -100", remaining)
 		}
-		if client.data["rmb-key"] != 0 {
-			t.Errorf("stored value = %d, want 0", client.data["rmb-key"])
+		if client.data["rmb-key"] != -100 {
+			t.Errorf("stored value = %d, want -100", client.data["rmb-key"])
+		}
+	})
+
+	t.Run("token deduct overage", func(t *testing.T) {
+		client := newMockRedisClient()
+		client.data["token-key"] = 50
+		plan := &QuotaPlan{Id: "p1", RedisKey: "token-key", Unit: "total_token", Quota: 100}
+		remaining, err := plan.Deduct(client, 80)
+		if err != nil {
+			t.Fatalf("deduct failed: %v", err)
+		}
+		if remaining != -30 {
+			t.Errorf("remaining = %d, want -30", remaining)
+		}
+		if client.data["token-key"] != -30 {
+			t.Errorf("stored value = %d, want -30", client.data["token-key"])
+		}
+	})
+
+	t.Run("rmb first access overage", func(t *testing.T) {
+		// First request already exceeds the quota: the initial SET seeds the
+		// quota and the full deduction drives the balance negative at once.
+		client := newMockRedisClient()
+		plan := &QuotaPlan{Id: "p1", RedisKey: "rmb-key", Unit: "RMB", Quota: 100}
+		remaining, err := plan.Deduct(client, 200)
+		if err != nil {
+			t.Fatalf("deduct failed: %v", err)
+		}
+		if remaining != -100 {
+			t.Errorf("remaining = %d, want -100", remaining)
+		}
+		if client.data["rmb-key"] != -100 {
+			t.Errorf("stored value = %d, want -100", client.data["rmb-key"])
+		}
+	})
+
+	t.Run("rmb re-deduct while in arrears", func(t *testing.T) {
+		client := newMockRedisClient()
+		client.data["rmb-key"] = -50
+		plan := &QuotaPlan{Id: "p1", RedisKey: "rmb-key", Unit: "RMB", Quota: 100}
+		remaining, err := plan.Deduct(client, 30)
+		if err != nil {
+			t.Fatalf("deduct failed: %v", err)
+		}
+		if remaining != -80 {
+			t.Errorf("remaining = %d, want -80", remaining)
+		}
+		if client.data["rmb-key"] != -80 {
+			t.Errorf("stored value = %d, want -80", client.data["rmb-key"])
 		}
 	})
 
@@ -1949,6 +1992,24 @@ func TestQuotaPlanHasBalance(t *testing.T) {
 		}
 		if remaining != 50 {
 			t.Errorf("remaining = %d, want 50", remaining)
+		}
+	})
+
+	t.Run("negative balance means no balance", func(t *testing.T) {
+		// issue #1476: a negative balance is an arrears record (overage was
+		// fully deducted); it must not authorize new requests.
+		client := newMockRedisClient()
+		client.data["neg-key"] = -20
+		plan := &QuotaPlan{Id: "p1", RedisKey: "neg-key", Unit: "total_token", Quota: 100}
+		has, remaining, err := plan.HasBalance(client)
+		if err != nil {
+			t.Fatalf("HasBalance failed: %v", err)
+		}
+		if has {
+			t.Error("expected no balance for negative value")
+		}
+		if remaining != -20 {
+			t.Errorf("remaining = %d, want -20", remaining)
 		}
 	})
 }
@@ -2072,8 +2133,10 @@ func TestCalcCostUnits_Tier(t *testing.T) {
 	}
 }
 
-// Issue #1352: a client abort (RST/close/write-fail) before the final usage
-// must not be billed by full-request estimation.
+// Issue #1352 / #1478: a client abort without a final usage is billed by the
+// forwarded-content estimate when EstimateToken is enabled (only delivered
+// content is charged), and keeps the historical zero deduction when the
+// estimate is disabled.
 func TestTokenRequestFinishHandler_ClientAbortNoFinalUsage(t *testing.T) {
 	m := NewModuleAITokenAuth()
 	client := newMockRedisClient()
@@ -2096,6 +2159,8 @@ func TestTokenRequestFinishHandler_ClientAbortNoFinalUsage(t *testing.T) {
 	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id", QuotaPlans: []*QuotaPlan{rmbPlan}}, 100, nil)
 	ai := req.GetAiBasicInfo()
 	ai.SetAllowEstimateToken(true)
+	// Content forwarded to the client before the disconnect.
+	ai.GetTokenUsage().CompletionTokens = 20
 
 	// Client aborts right after message_start: ErrClientWrite, no final usage.
 	req.ErrCode = bfe_basic.ErrClientWrite
@@ -2105,14 +2170,26 @@ func TestTokenRequestFinishHandler_ClientAbortNoFinalUsage(t *testing.T) {
 		t.Fatalf("expected goon, got %d", ret)
 	}
 
-	if _, ok := client.data[rmbPlan.RedisKey]; ok {
-		t.Errorf("client abort without final usage must not be deducted")
+	// issue #1478: billed by the forwarded-content estimate (100 prompt +
+	// 20 completion), not zero.
+	expectedCost := quota.RmbToFixedPoint(100*0.000003 + 20*0.000009)
+	if remaining := client.data[rmbPlan.RedisKey]; remaining != rmbPlan.Quota-expectedCost {
+		t.Errorf("client abort with estimation enabled: remaining = %d, want %d", remaining, rmbPlan.Quota-expectedCost)
+	}
+	if got := ai.UsageSource(); got != bfe_basic.UsageSourceAborted {
+		t.Errorf("UsageSource = %q, want %q", got, bfe_basic.UsageSourceAborted)
+	}
+	if got := m.state.AbortBillingEstimated.Get(); got != 1 {
+		t.Errorf("AbortBillingEstimated = %d, want 1", got)
+	}
+	if got := m.state.AbortBillingSkipped.Get(); got != 0 {
+		t.Errorf("AbortBillingSkipped = %d, want 0 when the abort is billed", got)
 	}
 	if !GetTokenAuthContext(req).deducted {
 		t.Errorf("expected request context to be marked deducted")
 	}
 
-	// EstimateToken=false behaves the same.
+	// EstimateToken=false keeps the historical zero deduction.
 	req2 := newTestRequestWithCluster("ak-123", "AI_product", clusterName, model)
 	req2.SvrDataConf = req.SvrDataConf
 	rmbPlan2 := &QuotaPlan{
@@ -2128,6 +2205,9 @@ func TestTokenRequestFinishHandler_ClientAbortNoFinalUsage(t *testing.T) {
 	}
 	if _, ok := client.data[rmbPlan2.RedisKey]; ok {
 		t.Errorf("client abort without final usage must not be deducted (EstimateToken=false)")
+	}
+	if got := req2.GetAiBasicInfo().ZeroCostReason(); got != bfe_basic.ZeroCostReasonAborted {
+		t.Errorf("ZeroCostReason = %q, want %q", got, bfe_basic.ZeroCostReasonAborted)
 	}
 }
 
@@ -2835,7 +2915,7 @@ func TestUpdateCtxByUsage_Gemini(t *testing.T) {
 // completion tokens accumulated from response bytes) must be dropped from the
 // shared TokenUsage and the request must be marked as "no usable usage" so the
 // access log reports no token field at all.
-func TestTokenRequestFinishHandler_Non2xxDropsEstimateResidue(t *testing.T) {
+func TestTokenRequestFinishHandler_Non2xxKeepsEstimateResidue(t *testing.T) {
 	m := NewModuleAITokenAuth()
 	client := newMockRedisClient()
 	m.redisClient = client
@@ -2868,11 +2948,22 @@ func TestTokenRequestFinishHandler_Non2xxDropsEstimateResidue(t *testing.T) {
 	if _, ok := client.data[rmbPlan.RedisKey]; ok {
 		t.Error("non-2xx response must not deduct quota")
 	}
-	if got := ai.UsageDisposition(); got != bfe_basic.UsageDispositionNone {
-		t.Errorf("UsageDisposition = %q, want %q", got, bfe_basic.UsageDispositionNone)
+	if got := ai.UsageDisposition(); got != bfe_basic.UsageDispositionObserved {
+		t.Errorf("UsageDisposition = %q, want %q (non-2xx rows report usage since issue #1480)",
+			got, bfe_basic.UsageDispositionObserved)
 	}
-	if u := ai.GetTokenUsage(); u.PromptTokens != 0 || u.CompletionTokens != 0 || u.UsedQuota != 0 {
-		t.Errorf("estimate residue must be dropped, got %+v", *u)
+	if got := ai.UsageSource(); got != bfe_basic.UsageSourceFailed {
+		t.Errorf("UsageSource = %q, want %q", got, bfe_basic.UsageSourceFailed)
+	}
+	// The residue is kept for the access log; UsedQuota stays 0 (never billed).
+	if u := ai.GetTokenUsage(); u.CompletionTokens != 75 || u.UsedQuota != 0 {
+		t.Errorf("estimate residue must be kept with UsedQuota=0, got %+v", *u)
+	}
+	if got := m.state.Non2xxUsageReported.Get(); got != 1 {
+		t.Errorf("Non2xxUsageReported = %d, want 1", got)
+	}
+	if got := m.state.Non2xxRealUsageKept.Get(); got != 0 {
+		t.Errorf("Non2xxRealUsageKept = %d, want 0", got)
 	}
 }
 
@@ -2899,11 +2990,54 @@ func TestTokenRequestFinishHandler_Non2xxKeepsRealUsageObservation(t *testing.T)
 		t.Fatalf("expected goon, got %d", ret)
 	}
 
-	if got := ai.UsageDisposition(); got != bfe_basic.UsageDispositionNone {
-		t.Errorf("UsageDisposition = %q, want %q", got, bfe_basic.UsageDispositionNone)
+	if got := ai.UsageDisposition(); got != bfe_basic.UsageDispositionObserved {
+		t.Errorf("UsageDisposition = %q, want %q", got, bfe_basic.UsageDispositionObserved)
+	}
+	if got := ai.UsageSource(); got != bfe_basic.UsageSourceParsed {
+		t.Errorf("UsageSource = %q, want %q (an upstream usage on an error response is an observation)",
+			got, bfe_basic.UsageSourceParsed)
 	}
 	if u := ai.GetTokenUsage(); u.PromptTokens != 10 || u.CompletionTokens != 20 || u.UsedQuota != 30 {
 		t.Errorf("real usage observation must be kept, got %+v", *u)
+	}
+	if got := m.state.Non2xxRealUsageKept.Get(); got != 1 {
+		t.Errorf("Non2xxRealUsageKept = %d, want 1", got)
+	}
+	if got := m.state.Non2xxUsageReported.Get(); got != 0 {
+		t.Errorf("Non2xxUsageReported = %d, want 0 (real usage is not an estimate)", got)
+	}
+	if len(client.data) != 0 {
+		t.Error("non-2xx response must not deduct quota")
+	}
+}
+
+// Issue #1480: a non-2xx row with no residue at all (never reached model auth,
+// nothing accumulated) is left untouched — no source marker, no counter — so
+// the access log keeps the token fields absent.
+func TestTokenRequestFinishHandler_Non2xxNoResidueNoCounter(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	req := newTestRequestWithCluster("ak-123", "AI_product", "deepseek-backup", "deepseek-v4-flash")
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 0, nil)
+
+	ai := req.GetAiBasicInfo()
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 0
+	usage.CompletionTokens = 0
+	usage.UsedQuota = 0
+
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusUnauthorized}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := ai.UsageSource(); got != "" {
+		t.Errorf("UsageSource = %q, want empty (nothing to report)", got)
+	}
+	if got := m.state.Non2xxUsageReported.Get(); got != 0 {
+		t.Errorf("Non2xxUsageReported = %d, want 0", got)
 	}
 	if len(client.data) != 0 {
 		t.Error("non-2xx response must not deduct quota")
@@ -2935,7 +3069,10 @@ func TestTokenRequestFinishHandler_ObservedDispositionKeepsLogView(t *testing.T)
 		QuotaPlans: []*QuotaPlan{rmbPlan}}, 100, nil)
 
 	ai := req.GetAiBasicInfo()
-	ai.SetAllowEstimateToken(true)
+	// Estimation disabled: the abort keeps the historical zero-deduction
+	// shape this test pins (issue #1478 moved the billable shape to
+	// AbortBillingEstimated, see ClientAbortNoFinalUsage).
+	ai.SetAllowEstimateToken(false)
 	req.ErrCode = bfe_basic.ErrClientWrite // aborted before the final usage
 
 	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK, ContentLength: -1}
@@ -3078,7 +3215,9 @@ func TestTokenRequestFinishHandler_ClientAbortCounted(t *testing.T) {
 		QuotaPlans: []*QuotaPlan{rmbPlan}}, 100, nil)
 
 	ai := req.GetAiBasicInfo()
-	ai.SetAllowEstimateToken(true)
+	// issue #1478: the zero-billed abort arm is the estimation-disabled one
+	// (the billable arm is covered by ClientAbortNoFinalUsage).
+	ai.SetAllowEstimateToken(false)
 	req.ErrCode = bfe_basic.ErrClientReset
 
 	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK, ContentLength: -1}

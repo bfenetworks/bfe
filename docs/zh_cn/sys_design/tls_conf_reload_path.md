@@ -118,7 +118,18 @@ return srv.tlsConfLoad(certConfFile, tlsRuleFile, clientCABaseDir, clientCRLBase
 - 版本目录结构、符号链接机制、`VersionKeepCount` 语义均不变。
 - 旧 conf-agent + 新 BFE 组合兼容：conf-agent 请求格式不变；反过来新 conf-agent（版本目录自包含）+ 旧 BFE 仍会触发 #19 死锁，**存量环境必须先升级 BFE**。
 
-## 7. 参考资料
+## 7. 与 bfe_tls 移除改造的关系
+
+BFE 的 TLS 栈从 `bfe_tls` fork 迁移到标准库 `crypto/tls` 后（详见 `bfe/docs/zh_cn/modifications/2026-10-14-remove-bfe-tls-fork/design-changes.md`），本文档描述的机制**完全不变**：
+
+- `TLSConfReload` / `tlsConfLoad` 的流程、函数签名、`path` 重定向规则、`joinPath` 语义不变；
+- `MultiCert.Update` / `TLSServerRule.Update` 对调用方透明，只是内部从构建 fork 的 `bfe_tls.Config` 改为构建标准库 `*tls.Config` 模板 + `GetConfigForClient` / `GetCertificate` 回调；
+- `/reload/tls_conf` 接口签名、返回格式、`enable` 参数（h2/spdy 全局开关）语义不变；
+- 废弃字段（`Grade` / `Chacha20` / `DynamicRecord` 等）在 reload 时正常解析但不产生效果，旧版 `tls_rule_conf.data` 热加载行为不变。
+
+迁移带来的唯一变化点：reload 校验阶段对废弃字段的强校验放松（如 `checkGrade` 不再因非法 grade 值拒绝加载），其余校验（证书引用完整性、client CA/CRL 存在性、`CheckTlsConf`）保持不变。
+
+## 8. 参考资料
 
 - [rainway-ai-gateway/conf-agent#19](https://github.com/rainway-ai-gateway/conf-agent/issues/19)
 - `bfe/bfe_server/bfe_confdata_load.go`（`TLSConfReload` / `tlsConfLoad` / `joinPath`）
@@ -126,3 +137,4 @@ return srv.tlsConfLoad(certConfFile, tlsRuleFile, clientCABaseDir, clientCRLBase
 - `bfe/bfe_config/bfe_tls_conf/tls_rule_conf/tls_rule_conf_load.go`（`ClientCALoad` / `ClientCRLLoad`）
 - `bfe/docs/zh_cn/modifications/2026-09-05-tls-conf-reload-path-fix/design-changes.md`（本次变更记录）
 - `conf-agent/docs/zh_cn/modifications/2026-09-05-tls-conf-reload-path-fix/`（conf-agent 侧方案与线上恢复手册）
+- `bfe/docs/zh_cn/modifications/2026-10-14-remove-bfe-tls-fork/design-changes.md`（bfe_tls 移除改造，含本文档第 7 节说明）

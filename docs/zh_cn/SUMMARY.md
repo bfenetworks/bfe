@@ -131,6 +131,7 @@
     * [BFE AI 网关错误码说明](sys_design/ai_error_codes.md)
     * [BFE TLS 配置版本目录热加载设计](sys_design/tls_conf_reload_path.md)
     * [AI 上游路径按协议改写（AIConf.ProtocolPaths）](sys_design/ai_protocol_paths.md)
+    * [provider 级补偿性请求归一化（AIConf.EnsureReasoningContent）](sys_design/ai_reasoning_content_normalization.md)
     * [BFE 批量任务状态与结算设计（mod_ai_batch）](sys_design/ai_batch.md)
   * [模块开发介绍](development/module/overview.md)
     * [BFE回调机制说明](development/module/bfe_callback.md)

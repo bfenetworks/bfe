@@ -20,6 +20,7 @@ package bal_gslb
 
 import (
 	"bytes"
+	"strconv"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -35,6 +36,7 @@ const (
 	eppResultUnknownPool = "unknown_pool" // EPP has no cell of this cluster
 	eppResultDraining    = "draining"     // cell not serving (draining)
 	eppResultTransport   = "transport"    // connection / timeout / other errors
+	eppResultRejected    = "rejected"     // admission refused by EPP flow control (issue #1482)
 )
 
 // eppPromState holds labeled EPP metrics.
@@ -45,6 +47,7 @@ type eppPromState struct {
 	failoverTotal      *prometheus.CounterVec // {cluster}
 	failbackTotal      *prometheus.CounterVec // {cluster}
 	fallbackLocalTotal *prometheus.CounterVec // {cluster}
+	rejectedTotal      *prometheus.CounterVec // {cluster, status}: EPP admission refusals (issue #1482)
 	breakerTransitions *prometheus.CounterVec // {cluster, state}: open/half_open/closed
 	activeAddr         *prometheus.GaugeVec   // {cluster}
 }
@@ -68,6 +71,10 @@ func newEppPromState() *eppPromState {
 		Name: "epp_fallback_local_total",
 		Help: "fallback to local balance after EPP failure, by cluster",
 	}, []string{"cluster"})
+	s.rejectedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "epp_rejected_total",
+		Help: "EPP admission refusals by cluster and status code (issue #1482)",
+	}, []string{"cluster", "status"})
 	s.breakerTransitions = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "epp_breaker_transitions_total",
 		Help: "EPP breaker state transitions by cluster and target state",
@@ -78,7 +85,7 @@ func newEppPromState() *eppPromState {
 	}, []string{"cluster"})
 
 	s.registry.MustRegister(s.callsTotal, s.failoverTotal, s.failbackTotal,
-		s.fallbackLocalTotal, s.breakerTransitions, s.activeAddr)
+		s.fallbackLocalTotal, s.rejectedTotal, s.breakerTransitions, s.activeAddr)
 	return s
 }
 
@@ -106,6 +113,9 @@ func EppMetricsText() ([]byte, error) {
 func classifyEPPError(err error) string {
 	if err == nil {
 		return eppResultOK
+	}
+	if IsEPPRejected(err) {
+		return eppResultRejected
 	}
 
 	st, ok := status.FromError(err)
@@ -138,6 +148,12 @@ func classifyEPPError(err error) string {
 // recordEPPCall records the final outcome of one EPP-decided request.
 func recordEPPCall(cluster string, err error) {
 	eppProm.callsTotal.WithLabelValues(cluster, classifyEPPError(err)).Inc()
+}
+
+// recordEPPRejected records one EPP admission refusal (issue #1482): a healthy
+// decision that must not be counted as a failure or a local fallback.
+func recordEPPRejected(cluster string, statusCode int) {
+	eppProm.rejectedTotal.WithLabelValues(cluster, strconv.Itoa(statusCode)).Inc()
 }
 
 // recordEPPFallbackLocal records one fallback to local balance.

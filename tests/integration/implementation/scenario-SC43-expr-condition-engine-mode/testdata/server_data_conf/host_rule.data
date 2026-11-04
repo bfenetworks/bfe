@@ -1,0 +1,25 @@
+{
+    "Version": "20261030000000",
+    "Hosts": {
+        "expr_product": [
+            "expr.example.org"
+        ],
+        "legacy_product": [
+            "legacy.example.org"
+        ],
+        "fallback_product": [
+            "fallback.example.org"
+        ]
+    },
+    "HostTags": {
+        "expr_product": [
+            "expr_product"
+        ],
+        "legacy_product": [
+            "legacy_product"
+        ],
+        "fallback_product": [
+            "fallback_product"
+        ]
+    }
+}

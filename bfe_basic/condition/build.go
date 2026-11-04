@@ -25,18 +25,93 @@ import (
 
 import (
 	"github.com/bfenetworks/bfe/bfe_basic/condition/parser"
+	"github.com/bfenetworks/bfe/bfe_expr"
 )
 
+// EngineMode 条件引擎选择模式（进程级，由 bfe_server 依据 ConfigBasic.ConditionEngineMode 设置）
+type EngineMode int
+
+const (
+	// EngineLegacyFirst 旧引擎优先（默认）：当成旧条件表达式处理，走旧引擎；
+	// 仅当旧引擎编译失败时才用新引擎处理（如混写新函数、用户变量等）
+	EngineLegacyFirst EngineMode = iota
+	// EngineExprCompatible 新引擎 + 旧原语兼容：expr 编译，legacyPatcher 支持
+	// 旧原语混用；编译失败不回退，直接报错
+	EngineExprCompatible
+	// EngineExprOnly 纯新表达式：expr 编译，不支持旧原语（旧原语名即未知函数），
+	// 编译失败不回退，直接报错
+	EngineExprOnly
+)
+
+func (m EngineMode) String() string {
+	switch m {
+	case EngineLegacyFirst:
+		return "LegacyFirst"
+	case EngineExprCompatible:
+		return "ExprCompatible"
+	case EngineExprOnly:
+		return "ExprOnly"
+	}
+	return "Unknown"
+}
+
+// engineMode 进程级引擎模式，默认旧引擎优先
+var engineMode = EngineLegacyFirst
+
+// SetEngineMode 设置条件引擎模式。必须在任何 condition.Build 调用之前执行
+// （bfe_server 在 InitBeforeStartUp 起始处调用，先于路由表与模块配置加载）。
+func SetEngineMode(mode EngineMode) {
+	engineMode = mode
+}
+
+// EngineModeString 返回当前引擎模式字符串（日志用）
+func EngineModeString() string {
+	return engineMode.String()
+}
+
+// Build builds condition by condition string.
+//
+// 双轨支持，引擎选择由 SetEngineMode 决定：
+//  1. LegacyFirst（默认）：旧引擎优先，语义与旧版完全一致；旧引擎编译失败
+//     （如混写新函数、用户变量等）回退新引擎；双失败 → 配置报错。
+//  2. ExprCompatible：新引擎 + 旧原语兼容（legacyPatcher 重写旧原语名），
+//     编译失败不回退，直接报错。
+//  3. ExprOnly：纯新表达式，不支持旧原语，编译失败不回退，直接报错。
+//
+// 注意：两引擎对字符串字面量的转义处理不同（旧 scanner 只校验不解码、白名单含
+// `\.`；expr 按 Go 规则解码），存在反斜杠转义的条件串在 LegacyFirst 与
+// ExprCompatible/ExprOnly 下语义可能不同，这正是默认 LegacyFirst 的原因。
 func Build(condStr string) (Condition, error) {
+	switch engineMode {
+	case EngineLegacyFirst:
+		cond, err := legacyBuild(condStr)
+		if err == nil {
+			return cond, nil
+		}
+		exprCond, exprErr := bfe_expr.CompileLegacy(condStr)
+		if exprErr == nil {
+			return exprCond, nil
+		}
+		return nil, fmt.Errorf("condition %q: legacy build error: %v; expr compile error: %v",
+			condStr, err, exprErr)
+
+	case EngineExprOnly:
+		return bfe_expr.Compile(condStr)
+
+	default: // EngineExprCompatible
+		return bfe_expr.CompileLegacy(condStr)
+	}
+}
+
+// legacyBuild 旧引擎编译：parser.Parse + 变量检查 + build
+func legacyBuild(condStr string) (Condition, error) {
 	node, identList, err := parser.Parse(condStr)
 	if err != nil {
 		return nil, err
 	}
-
 	if len(identList) != 0 {
 		return nil, fmt.Errorf("found unresolved variable %s %d", identList[0].Name, identList[0].Pos())
 	}
-
 	return build(node)
 }
 
@@ -569,8 +644,8 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 
 	case "req_body_json_in":
 		return &PrimitiveCond{
-			name:    node.Fun.Name,
-			node:    node,
+			name: node.Fun.Name,
+			node: node,
 			fetcher: &ReqBodyJsonFetcher{
 				path: node.Args[0].Value,
 			},
@@ -578,8 +653,8 @@ func buildPrimitive(node *parser.CallExpr) (Condition, error) {
 		}, nil
 	case "req_body_json_prefix_in":
 		return &PrimitiveCond{
-			name:    node.Fun.Name,
-			node:    node,
+			name: node.Fun.Name,
+			node: node,
 			fetcher: &ReqBodyJsonFetcher{
 				path: node.Args[0].Value,
 			},

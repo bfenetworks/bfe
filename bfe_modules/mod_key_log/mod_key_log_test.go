@@ -16,7 +16,6 @@ package mod_key_log
 
 import (
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,10 +26,7 @@ import (
 )
 
 import (
-	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_module"
-	"github.com/bfenetworks/bfe/bfe_tls"
-	"github.com/bfenetworks/bfe/bfe_util/access_log"
 )
 
 func TestNewModuleKeyLog(t *testing.T) {
@@ -75,90 +71,16 @@ DataPath = ` + filepath.ToSlash(dataPath) + `
 	if err != nil {
 		t.Errorf("Init() error: %v", err)
 	}
-}
 
-func TestLogTlsKey(t *testing.T) {
-	dir, err := ioutil.TempDir("", "mod_key_log_test")
-	if err != nil {
-		t.Fatalf("TempDir() error: %v", err)
-	}
-	defer os.RemoveAll(dir)
-
-	logFile, err := ioutil.TempFile(dir, "key.log")
-	if err != nil {
-		t.Fatalf("TempFile() error: %v", err)
-	}
-	logFile.Close()
-
-	m := NewModuleKeyLog()
-	m.logger, err = access_log.LoggerInit(access_log.LogConfig{LogFile: logFile.Name()})
-	if err != nil {
-		t.Fatalf("logger init error: %v", err)
-	}
-
-	conf, err := keyLogConfLoad("./testdata/mod_key_log/key_log.json")
-	if err != nil {
-		t.Fatalf("keyLogConfLoad() error: %v", err)
-	}
-	m.ruleTable.Update(conf)
-
-	session := &bfe_basic.Session{
-		Product:    "example_product",
-		RemoteAddr: &net.TCPAddr{IP: net.ParseIP("10.0.0.5"), Port: 12345},
-		TlsState: &bfe_tls.ConnectionState{
-			ServerName:   "example.com",
-			ClientRandom: []byte{0x01, 0x02, 0x03},
-			MasterSecret: []byte{0x04, 0x05, 0x06},
-		},
-	}
-
-	ret := m.logTlsKey(session)
-	if ret != bfe_module.BfeHandlerGoOn {
-		t.Errorf("ret should be BfeHandlerGoOn, got: %d", ret)
+	if m.TlsKeyLogWriter() == nil {
+		t.Error("TlsKeyLogWriter() should not be nil after Init()")
 	}
 }
 
-func TestLogTlsKeyNotNeed(t *testing.T) {
+func TestTlsKeyLogWriterBeforeInit(t *testing.T) {
 	m := NewModuleKeyLog()
-	conf, err := keyLogConfLoad("./testdata/mod_key_log/key_log.json")
-	if err != nil {
-		t.Fatalf("keyLogConfLoad() error: %v", err)
-	}
-	m.ruleTable.Update(conf)
-
-	session := &bfe_basic.Session{
-		Product:    "not_match_product",
-		RemoteAddr: &net.TCPAddr{IP: net.ParseIP("10.0.0.5"), Port: 12345},
-		TlsState: &bfe_tls.ConnectionState{
-			ServerName:   "example.com",
-			ClientRandom: []byte{0x01, 0x02, 0x03},
-			MasterSecret: []byte{0x04, 0x05, 0x06},
-		},
-	}
-
-	ret := m.logTlsKey(session)
-	if ret != bfe_module.BfeHandlerGoOn {
-		t.Errorf("ret should be BfeHandlerGoOn, got: %d", ret)
-	}
-}
-
-func TestLogTlsKeyNoTlsState(t *testing.T) {
-	m := NewModuleKeyLog()
-	conf, err := keyLogConfLoad("./testdata/mod_key_log/key_log.json")
-	if err != nil {
-		t.Fatalf("keyLogConfLoad() error: %v", err)
-	}
-	m.ruleTable.Update(conf)
-
-	session := &bfe_basic.Session{
-		Product:    "example_product",
-		RemoteAddr: &net.TCPAddr{IP: net.ParseIP("10.0.0.5"), Port: 12345},
-		TlsState:   nil,
-	}
-
-	ret := m.logTlsKey(session)
-	if ret != bfe_module.BfeHandlerGoOn {
-		t.Errorf("ret should be BfeHandlerGoOn, got: %d", ret)
+	if m.TlsKeyLogWriter() != nil {
+		t.Error("TlsKeyLogWriter() should be nil before Init()")
 	}
 }
 

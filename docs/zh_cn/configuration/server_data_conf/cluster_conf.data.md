@@ -325,7 +325,9 @@
         "StripPrefix": false,
         "ModelProtocols": ["openai"],
         "ProtocolPaths": {},
+        "EnsureReasoningContent": [],
         "NormalizeUpstreamError": { /* AIConf.NormalizeUpstreamError 元素 */ },
+        "PriceMissAction": "fallback_chat",
         "Keys": [ /* AIConf.Keys 元素 */ ],
         "KeyPolicy": { /* AIConf.KeyPolicy 元素 */ },
         "ModelMapping": {},
@@ -345,8 +347,10 @@
 | StripPrefix | boolean | N | 是否裁剪 `MatchPrefix` 指定前缀；默认 `false` | - |
 | ModelProtocols | []string | N | 该集群 provider 支持的模型访问协议列表；为空时默认仅支持 `openai` | 元素取值须为 `openai`、`anthropic` 或 `gemini` |
 | ProtocolPaths | map[string]string | N | 按协议改写上游路径：协议 -> 上游 base path（该协议 SDK base_url 的 path 部分），详见下文说明 | 键取值须为 `openai` 或 `anthropic`；值须以 `/` 开头、不以 `/` 结尾、不含 `..`/`?`/`#`、长度 ≤ 128 |
+| EnsureReasoningContent | []string | N | 需为 assistant 消息补齐 `reasoning_content` 的协议列表，用于适配上游思考模式"必须回传 reasoning_content"的校验；为空表示关闭（默认），未配置时链路零改动。详见 [9.5 AIConf.EnsureReasoningContent 元素](#95-aiconfensurereasoningcontent-元素) | 元素仅允许 `openai`、`anthropic`，且须包含于本集群 `ModelProtocols`（为空按 `["openai"]`）。`gemini` **不适用**（其请求体为 `contents/parts` 结构，无 `reasoning_content` 落点），配置即报错 |
 | NormalizeUpstreamError | object | N | 上游错误体归一（统一错误码）配置；未配置本字段或 `Enabled=false` 时，上游错误（HTTP 状态码与响应体）原样透传，与历史版本行为一致 | 元素见 [9.4 AIConf.NormalizeUpstreamError 元素](#94-aiconfnormalizeupstreamerror-元素) |
 | ModelTable | object | N | 该集群的模型定价表；当前货币固定为 `RMB` | 元素见 [9.3 AIConf.ModelTable 元素](#93-aiconfmodeltable-元素) |
+| PriceMissAction | string | N | `(model, mode)` 价格条目缺失时的处理动作（issue #1479）：`fallback_chat`（缺省，按同模型 chat 价回退计费，issue #1408 行为）、`bill_zero`（按 0 计费，issue #1382 行为）、`reject`（转发前拒绝，返回 503 `PRICE_NOT_CONFIGURED`，不调用上游、不计费）。空值在加载期归一为 `fallback_chat` | 取值须为 `fallback_chat`、`bill_zero` 或 `reject`；`reject` 下 `ModelTable` 整体缺失视同"未定价"同样拒绝 |
 
 `ProtocolPaths` 的语义与改写规则：
 
@@ -392,7 +396,9 @@
     "SessionAffinity": true,
     "SessionAffinityTTL": 600,
     "SessionAffinityRedisPrefix": "bfe:ai:key_affinity",
-    "SessionAffinityPenaltyEnable": true
+    "SessionAffinityPenaltyEnable": true,
+    "SessionAffinityPenaltyTTL429": 60,
+    "SessionAffinityPenaltyTTLAuth": 300
 }
 ```
 
@@ -406,6 +412,8 @@
 | SessionAffinityTTL | integer | N | `ClientKeyId -> KeyName` 绑定的空闲超时时间，单位秒；命中绑定后会刷新 TTL，持续请求则绑定保持；默认 `600` | > 0 |
 | SessionAffinityRedisPrefix | string | N | Redis 绑定键的前缀；默认 `"bfe:ai:key_affinity"` | 非空 |
 | SessionAffinityPenaltyEnable | boolean | N | 是否开启 Key 惩罚：选择时跳过近期返回 429/401/403 的 Key；默认 `true` | - |
+| SessionAffinityPenaltyTTL429 | integer | N | 上游返回 429（限流）时写入惩罚键的时长，单位秒；默认 `60`。`0` 或未配置表示「用默认值」，**不是关闭惩罚**；超过 `86400` 会被截断为 `86400` 并打印 Warn 日志 | >= 0 |
+| SessionAffinityPenaltyTTLAuth | integer | N | 上游返回 401/402/403（凭证失效/欠费/无权限）时写入惩罚键的时长，单位秒；默认 `300`。语义同上 | >= 0 |
 
 **会话级 Key 亲和性说明：**
 
@@ -414,6 +422,12 @@
 - 同一 `ClientKeyId` 的后续请求优先命中已绑定的 Key；命中后会通过 `Expire` 刷新绑定 TTL，因此只要会话持续有请求，绑定就会一直保持。
 - `SessionAffinityTTL` 是**空闲超时时间**：只有当 `ClientKeyId` 在 TTL 时间内没有请求时，绑定才会自动释放。
 - 当绑定 Key 被惩罚、被删除或权重为 `0` 时，自动重新选择并写入新绑定。
+- 惩罚键格式为 `{prefix}:penalty:{cluster_name}:{key_name}`，值为触发原因（`429` / `401` / `402` / `403` / `404-batch`），存活期间该 Key 不参与选择。
+- `SessionAffinityPenaltyTTL429` / `SessionAffinityPenaltyTTLAuth` 只决定**新写入**惩罚键的时长，不追改已存在的键（Redis 不支持批量重设 TTL）；缩短配置后，事故中已有的长惩罚仍需等过期或人工 `DEL`。
+- 两档惩罚时长与 `SessionAffinityTTL`（绑定空闲超时）是**两个无关概念**，不要用 `SessionAffinityTTL` 配惩罚时长。
+- 批量接口 404 的惩罚固定 `60` 秒（reason `404-batch`），不受这两个字段影响。
+- 惩罚只在 `SessionAffinity=true` 且 `SessionAffinityPenaltyEnable=true` 时生效；若 `Keys` 中只有一个有效 Key，选择时直接短路返回，不读惩罚状态也不写绑定键（失败时写侧仍会记录惩罚键，但没有读侧消费它），因此配置的时长在该形态下没有实际效果。
+- 所有可用 Key 都被惩罚时，BFE 返回网关合成的 429（`NO_AVAILABLE_KEY`），其 `Retry-After` 与 `error.details.retry_after_seconds` 取 `SessionAffinityPenaltyTTL429`，含义是「按当前配置，被惩罚 Key 的最长剩余等待时间」，不是精确剩余值。
 - Redis 不可用时自动降级为无亲和的加权随机选择，不影响请求成功率。
 - 若 `Keys` 中只有一个有效 Key，直接短路返回，不会访问 Redis。
 
@@ -520,6 +534,31 @@
 - 上游 401/402/403 归一为 502 `UPSTREAM_AUTH_ERROR`，与客户端自身凭证错误的 401 区分；上游 5xx 归一为 500/504 等（完整映射见错误码总表）；
 - 网关自生成错误（认证、限流、配额等）已是统一格式，不参与归一；
 - 未配置本字段（或两开关均为 `false`）时链路零改动，存量配置无需变更即兼容。
+
+### 9.5 AIConf.EnsureReasoningContent 元素
+
+`EnsureReasoningContent` 声明对哪些协议补做 `reasoning_content` 归一化：部分思考模式模型要求"最后一条 user 消息之后"的 assistant 消息必须携带 `reasoning_content`（缺字段或 `null` 即 400），而这些模型自身存在不产出 reasoning 文本的回合，客户端忠实回传上游响应时就会命中该 400。开启本字段后，网关在校验窗口内补齐空串 `""`（语义为"本轮无思考过程"）。实现方案见 `docs/zh_cn/modifications/2026-11-03-ai-reasoning-content-normalization/design-changes.md`。通常由 `ai-gateway-api` 按集群下发。
+
+```json
+{
+    "EnsureReasoningContent": ["openai"]
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 | 合法性条件 |
+|------|------|------|------|------------|
+| EnsureReasoningContent | []string | N | 协议名数组，逐协议开启；空（缺省或 `[]`）表示关闭。`openai` 协议下为 `messages[]` 中的 assistant 消息补 `"reasoning_content": ""`；`anthropic` 协议下为 assistant `content` 数组头部插入空 thinking 块 `{"type":"thinking","thinking":"","signature":""}` | 元素仅允许 `openai`、`anthropic`；每项须包含于本集群的 `ModelProtocols`（为空按 `["openai"]`） |
+
+行为注意事项：
+
+- **只改必要的字节**：仅在缺少 `reasoning_content` 或值为 `null` 时插入空串，已有非空值一律不动；注入采用定点写入，不重排字段、不改变其余字节（因此不会影响上游对请求体的其它解析）；
+- **窗口判定**：仅处理"最后一条 `user` 消息之后"的 assistant 消息；历史消息不动（上游只校验该窗口）；
+- **按 attempt 生效**：开关挂在集群上，fallback 到未开启该字段的集群时该次尝试不生效；已补齐的请求体再次进入已开启的集群不会重复改写（幂等）；
+- **不生效的情形**（均原样透传，不引入新的请求失败）：批量/文件模式（`mod_ai_batch` 流式透传）、非 JSON `Content-Type`、请求体带 `Content-Encoding`、请求体超过 `Server.AccessibleBodySize`（默认 2MB，超限时无法完整读取）、请求体结构异常或 JSON 解析失败；
+- **不处理结构不同的端点**：`/responses`（Responses API）的 reasoning 是 `input` 数组中的独立 item，无注入落点，网关不处理；
+- **为什么不包含 `gemini`**：Gemini 协议（`/v1beta/models/*:generateContent` 等）的请求体是 `contents[].parts[]` 结构，既没有 `messages` 数组、也没有 `reasoning_content` 字段，注入无落点；其思考内容回传走的是另一套机制（`thought` / `thoughtSignature`），无法用补空串解决。因此本字段**不接受 `gemini`**（配置即加载报错），避免出现"配了但什么都不做"的假开关；将来若出现同类"必须回传思考内容"的契约，需先实现对应协议分支再放开取值；
+- **可观测**：`proxy_state` 指标 `ReasoningPatched`（补齐命中）、`ReasoningSkip`（因上述原因跳过）、`ReasoningFail`（解析失败透传）、`ReasoningStill400`（已补齐但仍返回 400，说明上游契约变更，应立即清空本字段）；
+- **退场条件**：上游修复该契约后即可清空本字段下线，无状态残留。
 
 ---
 
@@ -707,7 +746,9 @@
                     "SessionAffinity": true,
                     "SessionAffinityTTL": 600,
                     "SessionAffinityRedisPrefix": "bfe:ai:key_affinity",
-                    "SessionAffinityPenaltyEnable": true
+                    "SessionAffinityPenaltyEnable": true,
+                    "SessionAffinityPenaltyTTL429": 60,
+                    "SessionAffinityPenaltyTTLAuth": 300
                 },
                 "ModelMapping": {
                     "gpt-4": "backend-gpt-4-model"

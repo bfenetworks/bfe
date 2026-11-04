@@ -48,6 +48,11 @@ type mockEPPConfig struct {
 	// test observe which transport BFE actually uses and switch transport on
 	// hot reload while the EPP address stays the same.
 	dualMode bool
+	// perChunkResponse makes the mock answer every response-body chunk with
+	// a ProcessingResponse (plus one for EndOfStream), replicating the
+	// llm-d StreamingServer FULL_DUPLEX_STREAMING behavior (issue #1475).
+	// The default stub only acknowledges EndOfStream.
+	perChunkResponse bool
 }
 
 // MockEPPOption customizes NewMockEPP.
@@ -58,6 +63,13 @@ type MockEPPOption func(*mockEPPConfig)
 // historical BFE default.
 func WithDualMode() MockEPPOption {
 	return func(c *mockEPPConfig) { c.dualMode = true }
+}
+
+// WithPerChunkResponse makes the mock EPP reply to every response-body
+// chunk (llm-d StreamingServer behavior) instead of only acknowledging
+// EndOfStream. Used by the issue #1475 long-stream regression.
+func WithPerChunkResponse() MockEPPOption {
+	return func(c *mockEPPConfig) { c.perChunkResponse = true }
 }
 
 // MockEPP is an in-process mock EPP (ext-proc) server. It implements the
@@ -90,6 +102,14 @@ type MockEPP struct {
 	// decisionDelay delays the scheduling decision reply of every stream,
 	// used to exercise EPPTimeout.Call.
 	decisionDelay time.Duration
+	// perChunkResponse answers every response-body chunk with a
+	// ProcessingResponse (llm-d StreamingServer behavior, issue #1475).
+	perChunkResponse bool
+	// immediateResponse, when non-nil, is returned instead of a scheduling
+	// decision: the EPP admission refusal (issue #1482). onBody delays it to
+	// the request-body round trip.
+	immediateResponse *extprocv3.ImmediateResponse
+	immediateOnBody   bool
 
 	// acceptTLS / acceptPlaintext control whether the dual-mode dispatcher
 	// delivers a transport or closes it immediately.
@@ -137,14 +157,15 @@ func NewMockEPP(t *testing.T, opts ...MockEPPOption) *MockEPP {
 	}
 
 	m := &MockEPP{
-		t:               t,
-		addr:            ln.Addr().String(),
-		ln:              ln,
-		dualMode:        cfg.dualMode,
-		serving:         true,
-		done:            make(chan struct{}),
-		acceptTLS:       true,
-		acceptPlaintext: true,
+		t:                t,
+		addr:             ln.Addr().String(),
+		ln:               ln,
+		dualMode:         cfg.dualMode,
+		serving:          true,
+		done:             make(chan struct{}),
+		acceptTLS:        true,
+		acceptPlaintext:  true,
+		perChunkResponse: cfg.perChunkResponse,
 	}
 	m.srv = grpc.NewServer(grpc.Creds(credentials.NewServerTLSFromCert(&cert)))
 	hs := health.NewServer()
@@ -283,6 +304,18 @@ func (m *MockEPP) SetDecisionDelay(d time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.decisionDelay = d
+}
+
+// SetImmediateResponse makes the server refuse every stream with an ext_proc
+// ImmediateResponse (429 backpressure / 503 no capacity) instead of returning a
+// scheduling decision. onBody = true delays the refusal to the request-body
+// round trip (the EPP decided after reading the body). Pass nil to restore
+// normal behavior. Used by the issue #1482 overload-protection cases.
+func (m *MockEPP) SetImmediateResponse(ir *extprocv3.ImmediateResponse, onBody bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.immediateResponse = ir
+	m.immediateOnBody = onBody
 }
 
 // SetServing controls the gRPC health status reported to BFE's EPP health
@@ -478,6 +511,8 @@ func (m *MockEPP) Process(stream extprocv3.ExternalProcessor_ProcessServer) erro
 	reqErr := m.requestError
 	decision := m.decisionEndpoint
 	delay := m.decisionDelay
+	ir := m.immediateResponse
+	irOnBody := m.immediateOnBody
 	m.mu.Unlock()
 
 	if reqErr != nil {
@@ -505,11 +540,25 @@ func (m *MockEPP) Process(stream extprocv3.ExternalProcessor_ProcessServer) erro
 		time.Sleep(delay)
 	}
 
+	// Admission refusal (issue #1482): answer with ImmediateResponse instead of
+	// a scheduling decision.
+	if ir != nil && !irOnBody {
+		return stream.Send(&extprocv3.ProcessingResponse{
+			Response: &extprocv3.ProcessingResponse_ImmediateResponse{ImmediateResponse: ir},
+		})
+	}
+
 	// reply to RequestHeaders with the scheduling decision
 	if err := stream.Send(decisionResponse(decision)); err != nil {
 		return err
 	}
 	if !rh.EndOfStream {
+		if ir != nil {
+			// The refusal arrives after the EPP read the request body.
+			return stream.Send(&extprocv3.ProcessingResponse{
+				Response: &extprocv3.ProcessingResponse_ImmediateResponse{ImmediateResponse: ir},
+			})
+		}
 		// reply to RequestBody
 		if err := stream.Send(&extprocv3.ProcessingResponse{
 			Response: &extprocv3.ProcessingResponse_RequestBody{
@@ -555,10 +604,23 @@ func (m *MockEPP) Process(stream extprocv3.ExternalProcessor_ProcessServer) erro
 		if rb == nil {
 			return fmt.Errorf("mock epp: expected ResponseBody")
 		}
+		respBody = append(respBody, rb.Body...)
+		// issue #1475: llm-d answers every response-body chunk (replicating
+		// envoy ext-proc FULL_DUPLEX_STREAMING). bfe must drain these
+		// responses; an undrained client deadlocks both sides on flow
+		// control for long streams.
+		if m.perChunkResponse {
+			if err := stream.Send(&extprocv3.ProcessingResponse{
+				Response: &extprocv3.ProcessingResponse_ResponseBody{
+					ResponseBody: &extprocv3.BodyResponse{},
+				},
+			}); err != nil {
+				return err
+			}
+		}
 		if rb.EndOfStream {
 			break
 		}
-		respBody = append(respBody, rb.Body...)
 	}
 
 	m.mu.Lock()

@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	bfe_access_pb "github.com/bfenetworks/bfe-access-pb/bfe_access_pb"
+	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/tests/integration/common"
 )
@@ -65,6 +67,14 @@ var (
 	anthropicLargeBlock = fmt.Sprintf(`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":%q}}`,
 		strings.Repeat("x", 1<<20))
 
+	// injectedErrorFrame is the OpenAI-native error event issue #1474's
+	// streamTruncationInjector emits when it observes the upstream body being
+	// closed mid-stream (the abort path closes it via CloseWatcher). It is an
+	// observation of the read path, not model output, but the
+	// forwarded-content estimator counts every frame it sees — TC-01 budgets
+	// for it explicitly so the expected amount stays exact.
+	injectedErrorFrame = `{"error":{"message":"upstream stream terminated abnormally.","type":"server_error","param":null,"code":"upstream_stream_truncated"}}`
+
 	// Expected deduction for the full stream:
 	// prompt 320 * 452 + completion 150 * 2262 = 483940 units.
 	expectedStreamCost = int64(320*452 + 150*2262)
@@ -77,10 +87,19 @@ type testEnv struct {
 	redis          *common.RedisServer
 	bfePort        int
 	bfeMonitorPort int
+	logDir         string
 	stopBFE        func()
 }
 
 func newTestEnv(t *testing.T) *testEnv {
+	return newTestEnvWithEstimateToken(t, true)
+}
+
+// newTestEnvWithEstimateToken builds the SC12 environment; estimateToken
+// rewrites the generated bfe.conf after Build (the template ships
+// EstimateToken = true), so the billed arm (issue #1478, TC-01~03) and the
+// zero-billed arm (EstimateToken=false, TC-04) share one static template.
+func newTestEnvWithEstimateToken(t *testing.T, estimateToken bool) *testEnv {
 	e := &testEnv{t: t}
 
 	e.backend = common.NewMockBackend(clusterClientAbort, http.StatusOK, "")
@@ -144,9 +163,30 @@ func newTestEnv(t *testing.T) *testEnv {
 	if err := builder.Build(); err != nil {
 		t.Fatalf("build bfe config failed: %v", err)
 	}
+	if !estimateToken {
+		rewriteEstimateToken(t, filepath.Join(confDir, "bfe.conf"))
+	}
 
 	e.bfePort, e.bfeMonitorPort, e.stopBFE = e.processEnv.StartBFE(confDir, logDir)
+	e.logDir = logDir
 	return e
+}
+
+// rewriteEstimateToken flips the generated bfe.conf to EstimateToken = false
+// for the issue #1478 zero-billed abort arm (TC-04).
+func rewriteEstimateToken(t *testing.T, path string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read bfe.conf failed: %v", err)
+	}
+	replaced := strings.Replace(string(data), "EstimateToken = true", "EstimateToken = false", 1)
+	if replaced == string(data) {
+		t.Fatalf("EstimateToken = true not found in %s", path)
+	}
+	if err := os.WriteFile(path, []byte(replaced), 0644); err != nil {
+		t.Fatalf("write bfe.conf failed: %v", err)
+	}
 }
 
 func (e *testEnv) Close() {
@@ -309,6 +349,46 @@ func (e *testEnv) waitTokenAuthMetric(t *testing.T, field string, want float64) 
 	return got
 }
 
+// proxyStateMetric reads a proxy_state counter by its Go field name.
+func (e *testEnv) proxyStateMetric(t *testing.T, field string) float64 {
+	t.Helper()
+	v, err := common.ModuleMetric(e.bfeMonitorPort, "proxy_state", field)
+	if err != nil {
+		t.Fatalf("read proxy_state.%s failed: %v", field, err)
+	}
+	return v
+}
+
+// waitProxyStateMetric polls a proxy_state counter until cond holds; the copy
+// error is recorded after the response write, so a bare read can race it.
+func (e *testEnv) waitProxyStateMetric(t *testing.T, field string, cond func(float64) bool) float64 {
+	t.Helper()
+	got, err := common.WaitForModuleMetric(e.bfeMonitorPort, "proxy_state", field,
+		10*time.Second, cond)
+	if err != nil {
+		t.Fatalf("read proxy_state.%s failed: %v", field, err)
+	}
+	return got
+}
+
+// lastRequestLog stops BFE (flushing the pb3 access log) and returns the last
+// recorded request row.
+func (e *testEnv) lastRequestLog() *bfe_access_pb.RequestLog {
+	e.t.Helper()
+	if e.stopBFE != nil {
+		e.stopBFE()
+		e.stopBFE = nil
+	}
+	reqLogs, err := common.ParseAccessLogAfterStop(e.logDir)
+	if err != nil {
+		e.t.Fatalf("parse access log failed: %v", err)
+	}
+	if len(reqLogs) == 0 {
+		e.t.Fatal("expected at least 1 access log, got 0")
+	}
+	return reqLogs[len(reqLogs)-1]
+}
+
 // assertAbortSignals asserts the issue #1414 zero-deduction signals of one
 // aborted request: the abort branch is counted on its own counter, the
 // unrecognized-usage counter stays untouched (the semantic split), and the
@@ -335,10 +415,12 @@ func (e *testEnv) assertAbortSignals(t *testing.T, arm string, wantAbort, wantZe
 	}
 }
 
-// TestTC01 verifies issue #1352: EstimateToken=true, the client aborts
-// (TCP RST) right after message_start, before any final usage. BFE must not
-// bill the request by full-request estimation.
-func TestTC01_ClientAbortAfterMessageStartNoDeduction(t *testing.T) {
+// TestTC01 verifies issue #1478: EstimateToken=true, the client aborts (TCP
+// RST) mid-stream without any final usage. BFE bills the request by the
+// forwarded-content estimate — the auth-time prompt seeding plus the
+// per-chunk accumulation of the frames actually forwarded to the client —
+// instead of dropping it to zero as the issue #1352-era behavior did.
+func TestTC01_ClientAbortBilledByForwardedContent(t *testing.T) {
 	e := newTestEnv(t)
 	defer e.Close()
 
@@ -346,20 +428,48 @@ func TestTC01_ClientAbortAfterMessageStartNoDeduction(t *testing.T) {
 
 	hold := make(chan struct{})
 	defer close(hold)
-	e.backend.SSEEvents = []string{anthropicMessageStart}
+	// Usage-free frames only: billing runs entirely through the
+	// forwarded-content estimate (issue #1478).
+	e.backend.SSEEvents = []string{anthropicPing, anthropicContentDelta}
 	e.backend.SSEHold = hold
-	// After the abort, push a large frame so BFE's next write to the dead
-	// connection fails with ECONNRESET (ErrClientWrite).
-	e.backend.SSETrailing = []string{anthropicLargeBlock}
 
 	_, reader, conn := e.startSSERequest(t, "/anthropic/v1/messages", claudeStreamBody)
-	readUntilSSEMarker(t, conn, reader, "message_start")
+	readUntilSSEMarker(t, conn, reader, "hello") // content frame forwarded
 	abortRST(t, conn)
 
+	// prompt = request body bytes / 4 (auth-time seeding); completion = the
+	// data length of every frame the estimator sees / 4 (QuotaUsageProcessor,
+	// per-event integer division). Besides the two forwarded frames, the abort
+	// closes the upstream body (CloseWatcher), which issue #1474's truncation
+	// injector reports as a mid-stream drop and answers with one protocol
+	// error event; that frame enters the same read path and is counted — the
+	// same accounting as bfe SC29 TC-07/08 and documented there.
+	promptEst := int64(len(claudeStreamBody)) / 4
+	completionEst := int64(len(anthropicPing))/4 +
+		int64(len(anthropicContentDelta))/4 +
+		int64(len(injectedErrorFrame))/4
+	want := initialQuota - (promptEst*452 + completionEst*2262)
+
 	remaining := e.quotaRemaining(t)
-	if remaining != initialQuota {
-		t.Fatalf("client abort after message_start must not be deducted: remaining = %d, want %d",
-			remaining, initialQuota)
+	if remaining != want {
+		t.Fatalf("client abort must be billed by the forwarded-content estimate: remaining = %d, want %d (promptEst=%d completionEst=%d)",
+			remaining, want, promptEst, completionEst)
+	}
+
+	// issue #1478 signal split: the billed arm counts AbortBillingEstimated
+	// and leaves the zero-billed shape untouched.
+	billed := e.waitTokenAuthMetric(t, "AbortBillingEstimated", 1)
+	if billed != 1 {
+		t.Errorf("AbortBillingEstimated = %v, want 1", billed)
+	}
+	if got := e.tokenAuthMetric(t, "AbortBillingSkipped"); got != 0 {
+		t.Errorf("AbortBillingSkipped = %v, want 0 (the abort was billed)", got)
+	}
+	if got := e.tokenAuthMetric(t, "BillingZeroCost"); got != 0 {
+		t.Errorf("BillingZeroCost = %v, want 0 (the abort was billed)", got)
+	}
+	if got := e.tokenAuthMetric(t, "UsageUnrecognized"); got != 0 {
+		t.Errorf("UsageUnrecognized = %v, want 0", got)
 	}
 }
 
@@ -418,8 +528,8 @@ func TestTC03_CompleteStreamBillsActualUsage(t *testing.T) {
 	}
 }
 
-// TestTC04_AbortBillingSkippedSignals verifies issue #1414 (step 5, plan A+B):
-// the client-abort zero-deduction (issue #1352 yardstick) is observable and
+// TestTC04_AbortBillingSkippedSignals verifies issue #1414 + #1478: with
+// EstimateToken=false the client-abort zero-deduction is observable and
 // separable from "upstream usage unrecognized". Two arms cover the two shapes
 // the abort branch absorbs:
 //
@@ -427,12 +537,11 @@ func TestTC03_CompleteStreamBillsActualUsage(t *testing.T) {
 //	A2: message_start (initial usage, UsedQuota > 0, not a final event) was
 //	    already parsed when the client aborts.
 //
-// Both must stay at zero deduction (the #1352 yardstick this case does not
-// claim should be billed), be counted by AbortBillingSkipped, counted by
-// BillingZeroCost (an RMB plan is bound), and must NOT touch
-// UsageUnrecognized.
+// Both must stay at zero deduction (the #1478 billed arm is TC-01), be counted
+// by AbortBillingSkipped, counted by BillingZeroCost (an RMB plan is bound),
+// must NOT touch UsageUnrecognized, and must NOT advance AbortBillingEstimated.
 func TestTC04_AbortBillingSkippedSignals(t *testing.T) {
-	e := newTestEnv(t)
+	e := newTestEnvWithEstimateToken(t, false)
 	defer e.Close()
 
 	e.redis.SetQuota(redisKeyRMB, initialQuota)
@@ -473,4 +582,128 @@ func TestTC04_AbortBillingSkippedSignals(t *testing.T) {
 			remaining, initialQuota)
 	}
 	e.assertAbortSignals(t, "arm A2 (initial usage before abort)", 2, 2)
+
+	// issue #1478: the billed-abort counter must stay untouched on the
+	// estimation-disabled arm.
+	if got := e.tokenAuthMetric(t, "AbortBillingEstimated"); got != 0 {
+		t.Errorf("AbortBillingEstimated = %v, want 0 (no abort was billed)", got)
+	}
+}
+
+// TestTC05_ClientCloseAfterCompleteIsNotAClientWrite verifies issue #1473: the
+// response was fully delivered (message_stop parsed, final usage billed) and
+// the client then closed the connection without waiting for the HTTP chunked
+// terminator. That is not a client abort and not a write failure:
+//
+//   - err_code stays empty and err_msg is not the misleading upstream-read text;
+//   - ERR_CLIENT_WRITE does not move;
+//   - the request is reported by ai_client_closed_after_complete (field 816)
+//     and by the REQ_AI_CLIENT_CLOSED_AFTER_COMPLETE counter;
+//   - the billing stays the parsed usage of the completed stream.
+//
+// The upstream keeps the connection open after the terminal event (SSEHold),
+// which is the production keep-alive shape: the client FIN is then the only
+// thing that can end the copy, so the CloseWatcher path is deterministic.
+func TestTC05_ClientCloseAfterCompleteIsNotAClientWrite(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+	hold := make(chan struct{})
+	defer close(hold)
+	e.backend.SSEEvents = []string{
+		anthropicMessageStart,
+		anthropicContentDelta,
+		anthropicMessageDelta,
+		anthropicMessageStop,
+	}
+	e.backend.SSEHold = hold
+
+	_, reader, conn := e.startSSERequest(t, "/anthropic/v1/messages", claudeStreamBody)
+	readUntilSSEMarker(t, conn, reader, "message_stop")
+	// The client got the terminal event and hangs up without draining EOF.
+	_ = conn.Close()
+
+	// proxy_state: the new counter moves, the client-write counter does not.
+	if got := e.waitProxyStateMetric(t, "ReqAiClientClosedAfterComplete",
+		func(v float64) bool { return v >= 1 }); got != 1 {
+		t.Errorf("ReqAiClientClosedAfterComplete = %v, want 1", got)
+	}
+	if got := e.proxyStateMetric(t, "ErrClientWrite"); got != 0 {
+		t.Errorf("ErrClientWrite = %v, want 0 (a completed response is not a client write)", got)
+	}
+
+	// Billing: parsed usage of the completed stream, exactly as TC-03.
+	if remaining := e.quotaRemaining(t); remaining != initialQuota-expectedStreamCost {
+		t.Fatalf("remaining = %d, want %d (actual usage of the completed stream)",
+			remaining, initialQuota-expectedStreamCost)
+	}
+
+	reqLog := e.lastRequestLog()
+	if got := reqLog.GetErrCode(); got != "" {
+		t.Errorf("err_code = %q, want empty (no abort, no write failure)", got)
+	}
+	if got := reqLog.GetErrMsg(); got != "" {
+		t.Errorf("err_msg = %q, want empty for a fully delivered response", got)
+	}
+	if !reqLog.GetAiClientClosedAfterComplete() {
+		t.Error("ai_client_closed_after_complete must be true")
+	}
+	if reqLog.AiStreamTruncated != nil {
+		t.Errorf("ai_stream_truncated must stay unset for a terminated stream, got %v",
+			reqLog.GetAiStreamTruncated())
+	}
+	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceParsed {
+		t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceParsed)
+	}
+}
+
+// TestTC06_ClientCloseBeforeTerminalEventStaysAClientWrite is the contrast arm
+// of issue #1473: the client closes before message_stop, so the abort semantics
+// must not regress. The two arms are told apart by err_code and field 816, not
+// by the err_msg text.
+func TestTC06_ClientCloseBeforeTerminalEventStaysAClientWrite(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+	hold := make(chan struct{})
+	defer close(hold)
+	e.backend.SSEEvents = []string{anthropicMessageStart, anthropicContentDelta, anthropicMessageDelta}
+	e.backend.SSEHold = hold
+	e.backend.SSETrailing = []string{anthropicMessageStop}
+
+	_, reader, conn := e.startSSERequest(t, "/anthropic/v1/messages", claudeStreamBody)
+	readUntilSSEMarker(t, conn, reader, "message_delta")
+	_ = conn.Close() // before message_stop: a real abort
+
+	if got := e.waitProxyStateMetric(t, "ErrClientWrite",
+		func(v float64) bool { return v >= 1 }); got < 1 {
+		t.Errorf("ErrClientWrite = %v, want >= 1 (the abort semantics must not regress)", got)
+	}
+	if got := e.proxyStateMetric(t, "ReqAiClientClosedAfterComplete"); got != 0 {
+		t.Errorf("ReqAiClientClosedAfterComplete = %v, want 0", got)
+	}
+
+	// The row is written by the request finish handler when BFE notices the
+	// write failure; give it a moment before stopping the process.
+	time.Sleep(500 * time.Millisecond)
+
+	reqLog := e.lastRequestLog()
+	if got := reqLog.GetErrCode(); got != bfe_basic.ErrClientWrite.Error() {
+		t.Errorf("err_code = %q, want %q", got, bfe_basic.ErrClientWrite)
+	}
+	if reqLog.GetAiClientClosedAfterComplete() {
+		t.Error("ai_client_closed_after_complete must stay unset on a real abort")
+	}
+	// Criterion 4: the message must not blame the upstream read side. Which of
+	// the two client-side texts shows up depends on whether the FIN was seen by
+	// the watcher or as a write failure.
+	switch msg := reqLog.GetErrMsg(); msg {
+	case "client closed connection", "client write failed":
+	default:
+		t.Errorf("err_msg = %q, want a client-side message (never the BodyProcessError upstream-read text)", msg)
+	}
 }

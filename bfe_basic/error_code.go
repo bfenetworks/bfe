@@ -43,11 +43,19 @@ var (
 	ErrBkWriteRequest      = errors.New("BK_WRITE_REQUEST")        // write request error (caused by bk or client)
 	ErrBkReadRespHeader    = errors.New("BK_READ_RESP_HEADER")     // read response error
 	ErrBkRespHeaderTimeout = errors.New("BK_RESP_HEADER_TIMEOUT")  // read response timeout
+	ErrBkReadRespBody      = errors.New("BK_READ_RESP_BODY")       // read response body error (upstream dropped mid-stream)
 	ErrBkTransportBroken   = errors.New("BK_TRANSPORT_BROKEN")     // conn broken
 	ErrBkRetryTooMany      = errors.New("BK_RETRY_TOOMANY")        // reach retry max
 	ErrBkNoSubClusterCross = errors.New("BK_NO_SUB_CLUSTER_CROSS") // no sub-cluster found
 	ErrBkCrossRetryBalance = errors.New("BK_CROSS_RETRY_BALANCE")  // cross retry balance failed
 	ErrBkBodyProcess       = errors.New("BK_BODY_PROCESS")         // body process error
+
+	// EPP admission decision (ext_proc ImmediateResponse), not a transport or
+	// infra failure: the request must not be retried on another EPP address,
+	// must not fall back to local balancing, and must not count against the
+	// EPP circuit breaker (issue #1482). The concrete status code (429/503)
+	// travels through the bal_gslb request context.
+	ErrEppRejected = errors.New("EPP_REJECTED")
 
 	// GSLB error
 	ErrGslbBlackhole = errors.New("GSLB_BLACKHOLE") // deny by blackhole

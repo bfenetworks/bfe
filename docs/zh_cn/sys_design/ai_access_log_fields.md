@@ -19,7 +19,7 @@ BFE 作为 AI 网关，需要把请求在认证、路由、转发、计费等各
 
 ## 2. 字段总览
 
-AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前已定义 47 个字段：
+AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前已定义 48 个字段：
 
 | 编号 | 字段名 | 类型 | 说明 | 采集模块 |
 |------|--------|------|------|----------|
@@ -71,7 +71,8 @@ AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前
 | 812 | `ai_err_normalized` | `bool` | 上游归一是否生效：`true` 重写 / `false` 透传（含未识别、开关关闭） | 同上 |
 | 813 | `ai_err_normalize_miss` | `bool` | 归一未识别标记（parser 返回 nil 的样本，用于补映射表） | 同上 |
 | 814 | `ai_stream_error_rewritten` | `bool` | 本流至少一个 SSE 错误事件被归一改写（`StreamEnabled` 时） | 同上 |
-| 815 | `ai_stream_truncated` | `bool` | 流截断：EOF 时缺失协议终止事件（`StreamEnabled` 时；Gemini 流以 EOF 正常结束，恒不标记） | 同上 |
+| 815 | `ai_stream_truncated` | `bool` | 流截断：EOF 时缺失协议终止事件（默认即生效；Gemini 流以 EOF 正常结束，恒不标记。issue #1473 补齐了 clean-EOF 路径：`StreamEnabled` 未开时也置位） | `bfe_server/reverseproxy_stream_inject.go` / `reverseproxy_ai_error.go` |
+| 816 | `ai_client_closed_after_complete` | `bool` | 响应已完整投递（协议终止事件已解析）后客户端才关闭连接：不是中断、不是写失败，该请求 `err_code` 为空且不计 `ERR_CLIENT_WRITE`（issue #1473）。非 AI、非流式与正常读到 EOF 的请求恒不写 | `bfe_server/reverseproxy.go` |
 | 841 | `ai_auth_hit_quota_plans` | `repeated string` | 正常请求时命中的 Quota Plan ID 列表 | `mod_ai_token_auth` |
 
 ### 2.1 编号区间规划

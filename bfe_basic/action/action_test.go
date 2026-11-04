@@ -37,10 +37,8 @@ var actionTestCaseList = []struct {
 	{
 		"CaseWrongJson",
 		`{"Params":[]`,
-		Action{
-			ActionClose,
-			[]string{},
-		},
+		Action{Cmd: ActionClose, Params: []string{}},
+
 		false,
 		map[string]string{},
 		map[string]string{},
@@ -48,10 +46,8 @@ var actionTestCaseList = []struct {
 	{
 		"CaseNilCmd",
 		`{"Params":[]}`,
-		Action{
-			ActionClose,
-			[]string{},
-		},
+		Action{Cmd: ActionClose, Params: []string{}},
+
 		false,
 		map[string]string{},
 		map[string]string{},
@@ -59,10 +55,8 @@ var actionTestCaseList = []struct {
 	{
 		"CloseCaseNormal",
 		`{"Cmd": "CLOSE", "Params":[]}`,
-		Action{
-			ActionClose,
-			[]string{},
-		},
+		Action{Cmd: ActionClose, Params: []string{}},
+
 		true,
 		map[string]string{},
 		map[string]string{},
@@ -70,10 +64,8 @@ var actionTestCaseList = []struct {
 	{
 		"CloseCaseWrongParams",
 		`{"Cmd": "CLOSE", "Params":["colu"]}`,
-		Action{
-			ActionClose,
-			[]string{},
-		},
+		Action{Cmd: ActionClose, Params: []string{}},
+
 		false,
 		map[string]string{},
 		map[string]string{},
@@ -81,10 +73,8 @@ var actionTestCaseList = []struct {
 	{
 		"CloseCaseLowerCase",
 		`{"Cmd": "close", "Params":[]}`,
-		Action{
-			ActionClose,
-			[]string{},
-		},
+		Action{Cmd: ActionClose, Params: []string{}},
+
 		true,
 		map[string]string{},
 		map[string]string{},
@@ -92,10 +82,8 @@ var actionTestCaseList = []struct {
 	{
 		"PassCaseNormal",
 		`{"Cmd": "Pass", "Params":[]}`,
-		Action{
-			ActionPass,
-			[]string{},
-		},
+		Action{Cmd: ActionPass, Params: []string{}},
+
 		true,
 		map[string]string{},
 		map[string]string{},
@@ -103,10 +91,8 @@ var actionTestCaseList = []struct {
 	{
 		"AddHeaderNormalCase",
 		`{"Cmd": "REQ_HEADER_ADD", "Params":["x-bfe-key","value"]}`,
-		Action{
-			ActionReqHeaderAdd,
-			[]string{"x-bfe-key", "value"},
-		},
+		Action{Cmd: ActionReqHeaderAdd, Params: []string{"x-bfe-key", "value"}},
+
 		true,
 		map[string]string{},
 		map[string]string{
@@ -116,10 +102,8 @@ var actionTestCaseList = []struct {
 	{
 		"AddHeaderNormalWrongCase1",
 		`{"Cmd": "REQ_HEADER_ADD", "Params":["x-bfe-key"]}`,
-		Action{
-			ActionReqHeaderAdd,
-			[]string{"key"},
-		},
+		Action{Cmd: ActionReqHeaderAdd, Params: []string{"key"}},
+
 		false,
 		map[string]string{},
 		map[string]string{},
@@ -127,10 +111,8 @@ var actionTestCaseList = []struct {
 	{
 		"SetHeaderNormalCase",
 		`{"Cmd": "REQ_HEADER_SET", "Params":["x-bfe-key","value"]}`,
-		Action{
-			ActionReqHeaderSet,
-			[]string{"x-bfe-key", "value"},
-		},
+		Action{Cmd: ActionReqHeaderSet, Params: []string{"x-bfe-key", "value"}},
+
 		true,
 		map[string]string{"x-bfe-key": "key1"},
 		map[string]string{"x-bfe-key": "value"},
@@ -138,10 +120,8 @@ var actionTestCaseList = []struct {
 	{
 		"SetHeaderNormalWrongCase1",
 		`{"Cmd": "REQ_HEADER_SET", "Params":["key"]}`,
-		Action{
-			ActionReqHeaderSet,
-			[]string{"key"},
-		},
+		Action{Cmd: ActionReqHeaderSet, Params: []string{"key"}},
+
 		false,
 		map[string]string{},
 		map[string]string{},
@@ -149,10 +129,8 @@ var actionTestCaseList = []struct {
 	{
 		"DelHeaderNormalCase",
 		`{"Cmd": "REQ_HEADER_DEL", "Params":["key"]}`,
-		Action{
-			ActionReqHeaderDel,
-			[]string{"key"},
-		},
+		Action{Cmd: ActionReqHeaderDel, Params: []string{"key"}},
+
 		true,
 		map[string]string{"key": "value"},
 		map[string]string{},
@@ -160,10 +138,8 @@ var actionTestCaseList = []struct {
 	{
 		"DelHeaderWrongCase1",
 		`{"Cmd": "REQ_HEADER_DEL", "Params":["x-bfe-key", "value"]}`,
-		Action{
-			ActionReqHeaderDel,
-			[]string{"x-bfe-key"},
-		},
+		Action{Cmd: ActionReqHeaderDel, Params: []string{"x-bfe-key"}},
+
 		false,
 		map[string]string{},
 		map[string]string{},
@@ -171,10 +147,8 @@ var actionTestCaseList = []struct {
 	{
 		"DelHeaderWrongCase2",
 		`{"Cmd": "REQ_HEADER_DEL", "Params":[""]}`,
-		Action{
-			ActionReqHeaderDel,
-			[]string{""},
-		},
+		Action{Cmd: ActionReqHeaderDel, Params: []string{""}},
+
 		false,
 		map[string]string{},
 		map[string]string{},

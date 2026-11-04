@@ -1,0 +1,20 @@
+{
+    "Version": "12",
+    "DefaultNextProtos": ["http/1.1"],
+    "Config": {
+        "example_product": {
+            "VipConf": [
+                "10.199.4.14"
+            ],
+            "SniConf": ["example.org"],
+            "CertName": "example.org",
+            "NextProtos": [
+                "h2;rate=100;isw=65535;mcs=200;level=0",
+                "http/1.1"
+            ],
+            "Grade": "C",
+            "ClientAuth": false,
+            "ClientCAName": "example_ca"
+        }
+    }
+}

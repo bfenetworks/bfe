@@ -24,6 +24,9 @@ import (
 	"testing"
 	"time"
 
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	extprocv3 "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
+	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -461,5 +464,169 @@ func TestTC07_CircuitBreaker(t *testing.T) {
 	openKey := fmt.Sprintf(`epp_breaker_transitions_total{cluster="%s",state="open"}`, clusterName)
 	if !e.waitForMetrics(10*time.Second, func(m map[string]float64) bool { return m[openKey] >= 1 }) {
 		t.Fatalf("metric %s should be >= 1", openKey)
+	}
+}
+
+// eppImmediateResponse builds an admission-refusal ImmediateResponse
+// (issue #1482): status 429 backpressure / 503 no capacity, with optional
+// Retry-After.
+func eppImmediateResponse(code int, retryAfter, body string) *extprocv3.ImmediateResponse {
+	ir := &extprocv3.ImmediateResponse{
+		Status: &typev3.HttpStatus{Code: typev3.StatusCode(code)},
+		Body:   []byte(body),
+	}
+	if retryAfter != "" {
+		ir.Headers = &extprocv3.HeaderMutation{
+			SetHeaders: []*corev3.HeaderValueOption{{
+				Header: &corev3.HeaderValue{Key: "Retry-After", RawValue: []byte(retryAfter)},
+			}},
+		}
+	}
+	return ir
+}
+
+// postWithHeaders sends one request like post but also returns the response
+// headers (Retry-After assertions).
+func (e *testEnv) postWithHeaders(path, body string) (int, http.Header, string) {
+	e.t.Helper()
+	req, err := http.NewRequest(http.MethodPost,
+		fmt.Sprintf("http://127.0.0.1:%d%s", e.httpPort, path), strings.NewReader(body))
+	if err != nil {
+		e.t.Fatalf("build request failed: %v", err)
+	}
+	req.Host = testHost
+	req.Header.Set("Authorization", "Bearer "+testAPIKey)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	if err != nil {
+		e.t.Fatalf("post %s failed: %v", path, err)
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, resp.Header, string(data)
+}
+
+// TestTC09_EPPRejectOverload verifies issue #1482: an EPP admission refusal
+// (ext_proc ImmediateResponse 429) is surfaced to the client as
+// EPP_OVERLOAD / 429 with the EPP Retry-After, and the upstream is never
+// called.
+func TestTC09_EPPRejectOverload(t *testing.T) {
+	epp := &common.EPPClusterConf{}
+	e := newTestEnv(t, 1, epp)
+
+	e.epp[0].SetImmediateResponse(eppImmediateResponse(http.StatusTooManyRequests, "5", "pool saturated"), false)
+
+	statusCode, headers, body := e.postWithHeaders("/v1/chat/completions",
+		`{"model":"epp-test-model","messages":[{"role":"user","content":"hello-epp-tc08"}]}`)
+	if statusCode != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want 429; body: %s", statusCode, body)
+	}
+	if !strings.Contains(body, "EPP_OVERLOAD") {
+		t.Fatalf("body should carry EPP_OVERLOAD, got: %s", body)
+	}
+	if !strings.Contains(body, "rate_limit_error") {
+		t.Fatalf("body should carry type rate_limit_error, got: %s", body)
+	}
+	if got := headers.Get("Retry-After"); got != "5" {
+		t.Fatalf("Retry-After = %q, want the EPP hint 5", got)
+	}
+	if got := headers.Get("X-Bfe-Gw-Error"); got != "1" {
+		t.Fatalf("response must be marked gateway-generated, got X-Bfe-Gw-Error=%q", got)
+	}
+	if strings.Contains(body, "pool saturated") {
+		t.Fatalf("the EPP body must not be echoed, got: %s", body)
+	}
+
+	key := fmt.Sprintf(`epp_calls_total{cluster="%s",result="rejected"}`, clusterName)
+	statusKey := fmt.Sprintf(`epp_rejected_total{cluster="%s",status="429"}`, clusterName)
+	if !e.waitForMetrics(5*time.Second, func(m map[string]float64) bool { return m[key] >= 1 && m[statusKey] >= 1 }) {
+		t.Fatalf("metrics %s / %s should both be >= 1", key, statusKey)
+	}
+}
+
+// TestTC10_EPPRejectNoCapacity verifies the 503 shape: EPP_NO_CAPACITY / 503
+// without a Retry-After.
+func TestTC10_EPPRejectNoCapacity(t *testing.T) {
+	epp := &common.EPPClusterConf{}
+	e := newTestEnv(t, 1, epp)
+
+	e.epp[0].SetImmediateResponse(eppImmediateResponse(http.StatusServiceUnavailable, "", "no capacity"), false)
+
+	statusCode, headers, body := e.postWithHeaders("/v1/chat/completions",
+		`{"model":"epp-test-model","messages":[{"role":"user","content":"hello-epp-tc09"}]}`)
+	if statusCode != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503; body: %s", statusCode, body)
+	}
+	if !strings.Contains(body, "EPP_NO_CAPACITY") {
+		t.Fatalf("body should carry EPP_NO_CAPACITY, got: %s", body)
+	}
+	if got := headers.Get("Retry-After"); got != "" {
+		t.Fatalf("503 must not carry Retry-After, got %q", got)
+	}
+}
+
+// TestTC11_EPPRejectNoLocalFallback verifies the loophole closed by issue
+// #1482: a refusal must NOT fall back to local balancing (which would forward
+// the request into the saturated pool anyway). Every request must reach the
+// EPP, the client must see 429, and no local-fallback metric may grow.
+func TestTC11_EPPRejectNoLocalFallback(t *testing.T) {
+	epp := &common.EPPClusterConf{}
+	e := newTestEnv(t, 1, epp)
+
+	e.epp[0].SetImmediateResponse(eppImmediateResponse(http.StatusTooManyRequests, "", "saturated"), false)
+
+	fallbackKey := fmt.Sprintf(`epp_fallback_local_total{cluster="%s"}`, clusterName)
+	before := e.eppMetrics()[fallbackKey]
+
+	for i := 0; i < 3; i++ {
+		statusCode, body := e.post("/v1/chat/completions",
+			`{"model":"epp-test-model","messages":[{"role":"user","content":"hello-epp-tc10"}]}`)
+		if statusCode != http.StatusTooManyRequests {
+			t.Fatalf("request %d: status = %d, want 429 (no local fallback); body: %s", i, statusCode, body)
+		}
+	}
+
+	// Every request reached the EPP: the refusal is a decision, not a failure.
+	if got := len(e.epp[0].Pools()); got != 3 {
+		t.Fatalf("EPP saw %d requests, want 3 (no local short-circuit without a decision)", got)
+	}
+	after := e.eppMetrics()[fallbackKey]
+	if after != before {
+		t.Fatalf("epp_fallback_local_total grew from %v to %v: a refusal must not be counted as a fallback", before, after)
+	}
+}
+
+// TestTC12_EPPRejectKeepsBreakerClosed verifies that repeated refusals do not
+// open the EPP circuit breaker (which would silently degrade the pool to
+// local balancing).
+func TestTC12_EPPRejectKeepsBreakerClosed(t *testing.T) {
+	minVolume, windowSize, errorRate := 3, 10, 50
+	epp := &common.EPPClusterConf{
+		EPPBreaker: map[string]interface{}{
+			"Disabled":         false,
+			"WindowSize":       windowSize,
+			"MinVolume":        minVolume,
+			"ErrorRatePercent": errorRate,
+			"OpenTimeout":      "10s",
+		},
+	}
+	e := newTestEnv(t, 1, epp)
+
+	e.epp[0].SetImmediateResponse(eppImmediateResponse(http.StatusTooManyRequests, "", "saturated"), false)
+
+	for i := 0; i < 6; i++ {
+		statusCode, body := e.post("/v1/chat/completions",
+			`{"model":"epp-test-model","messages":[{"role":"user","content":"hello-epp-tc11"}]}`)
+		if statusCode != http.StatusTooManyRequests {
+			t.Fatalf("request %d: status = %d, want 429; body: %s", i, statusCode, body)
+		}
+	}
+
+	openKey := fmt.Sprintf(`epp_breaker_transitions_total{cluster="%s",state="open"}`, clusterName)
+	if got := e.eppMetrics()[openKey]; got != 0 {
+		t.Fatalf("%s = %v, want 0 (refusals must not open the breaker)", openKey, got)
+	}
+	if got := len(e.epp[0].Pools()); got != 6 {
+		t.Fatalf("EPP saw %d requests, want 6 (breaker stayed closed)", got)
 	}
 }

@@ -1568,20 +1568,56 @@ func assertNoBackendTimeFields(t *testing.T, name string, reqLog *bfe_access_pb.
 // never successfully called the upstream are absent (issue #1409). Absent is
 // deliberately different from 0: it tells "no model usage" apart from
 // "usage = 0", while aggregations using SUM(COALESCE(ai_*, 0)) are unaffected.
+// assertNoUsageFields asserts a row without reportable usage: the token fields
+// stay absent so "no model call" is distinguishable from "reported as 0"
+// (issue #1480 keeps this shape only for rows that never reached model auth
+// and accumulated nothing).
 func assertNoUsageFields(t *testing.T, name string, reqLog *bfe_access_pb.RequestLog) {
 	t.Helper()
 	if reqLog.AiInputTokens != nil {
-		t.Errorf("%s: ai_input_tokens = %d, want absent (no model usage on a failed request)",
+		t.Errorf("%s: ai_input_tokens = %d, want absent (no reportable usage)",
 			name, *reqLog.AiInputTokens)
 	}
 	if reqLog.AiOutputTokens != nil {
-		t.Errorf("%s: ai_output_tokens = %d, want absent (no model usage on a failed request)",
+		t.Errorf("%s: ai_output_tokens = %d, want absent (no reportable usage)",
 			name, *reqLog.AiOutputTokens)
 	}
 	if reqLog.AiTotalTokens != nil {
-		t.Errorf("%s: ai_total_tokens = %d, want absent (no model usage on a failed request)",
+		t.Errorf("%s: ai_total_tokens = %d, want absent (no reportable usage)",
 			name, *reqLog.AiTotalTokens)
 	}
+	if reqLog.AiCostValue != nil {
+		t.Errorf("%s: ai_cost_value = %d, want absent (nothing is billed for a failed request)",
+			name, *reqLog.AiCostValue)
+	}
+}
+
+// assertFailedRowUsage asserts the issue #1480 shape of a non-2xx row that does
+// carry usage: input/output reported, total = input + output, usage source
+// "failed", and no cost (a failed request is never billed).
+func assertFailedRowUsage(t *testing.T, name string, reqLog *bfe_access_pb.RequestLog) {
+	t.Helper()
+	if reqLog.AiInputTokens == nil || *reqLog.AiInputTokens <= 0 {
+		t.Errorf("%s: ai_input_tokens = %v, want > 0 (auth-time seeding is reported since issue #1480)",
+			name, reqLog.AiInputTokens)
+	}
+	if reqLog.AiOutputTokens == nil {
+		t.Errorf("%s: ai_output_tokens is nil, want a reported value (issue #1480)", name)
+	}
+	if reqLog.AiTotalTokens == nil {
+		t.Fatalf("%s: ai_total_tokens is nil, want input+output (issue #1480)", name)
+	}
+	var in, out int64
+	if reqLog.AiInputTokens != nil {
+		in = *reqLog.AiInputTokens
+	}
+	if reqLog.AiOutputTokens != nil {
+		out = *reqLog.AiOutputTokens
+	}
+	if got := *reqLog.AiTotalTokens; got != in+out {
+		t.Errorf("%s: ai_total_tokens = %d, want %d (ai_input_tokens + ai_output_tokens)", name, got, in+out)
+	}
+	assertStringField(t, reqLog.AiUsageSource, name+": ai_usage_source", bfe_basic.UsageSourceFailed)
 	if reqLog.AiCostValue != nil {
 		t.Errorf("%s: ai_cost_value = %d, want absent (nothing is billed for a failed request)",
 			name, *reqLog.AiCostValue)
@@ -1619,25 +1655,26 @@ func (e *testEnv) sendRequestNoKeepAlive(host string, body []byte) (*http.Respon
 	return resp, string(respBody), nil
 }
 
-// TestTC19_Non2xxNoUsageFields verifies issue #1409: a request whose upstream
-// call never succeeded (non-2xx) must report no model usage in the access log,
-// and a billable row must keep the token triple consistent.
+// TestTC19_Non2xxUsageRecordedWithFailedSource verifies issue #1480: a request
+// whose upstream call never succeeded (non-2xx) is never billed, but its token
+// usage is reported — input/output plus ai_total_tokens = input + output, with
+// ai_usage_source=failed — so SUM(ai_total_tokens) does not lose the usage.
 //
 // Arm A: no ai_route rule for the host -> BFE generated 404, no backend call.
 //
 //	The product/token rule still matched first, so the auth-time prompt
-//	estimate was seeded: this is the production shape that polluted the
-//	pb3 log with ai_input_tokens > 0 while ai_total_tokens stayed 0.
+//	estimate was seeded: this is the production shape that used to log
+//	ai_input_tokens > 0 while ai_total_tokens stayed 0.
 //
 // Arm B: the upstream itself returns 404 -> straight through (404 is not in
 //
-//	the fallback status-code set), again with no model usage.
+//	the fallback status-code set), same reporting shape.
 //
 // Arm C: control arm, a 200 response without usage: EstimateToken bills and
 //
 //	logs the approved estimate, and the logged triple must satisfy
 //	ai_total_tokens = ai_input_tokens + ai_output_tokens.
-func TestTC19_Non2xxNoUsageFields(t *testing.T) {
+func TestTC19_Non2xxUsageRecordedWithFailedSource(t *testing.T) {
 	aiConfs := map[string]*cluster_conf.AIConf{
 		clusterRMB: defaultRMBAIConf(),
 	}
@@ -1718,7 +1755,7 @@ func TestTC19_Non2xxNoUsageFields(t *testing.T) {
 	if logNoRoute.GetResStatusCode() != http.StatusNotFound {
 		t.Errorf("arm A: res_status_code = %d, want 404", logNoRoute.GetResStatusCode())
 	}
-	assertNoUsageFields(t, "arm A (no ai route)", logNoRoute)
+	assertFailedRowUsage(t, "arm A (no ai route)", logNoRoute)
 	assertStringField(t, logNoRoute.AiApikeyId, "arm A: ai_apikey_id", apiKeyId)
 	if len(logNoRoute.GetAiClusterKeyNames()) != 0 {
 		t.Errorf("arm A: expected no cluster_key_names, got %d", len(logNoRoute.GetAiClusterKeyNames()))
@@ -1729,7 +1766,7 @@ func TestTC19_Non2xxNoUsageFields(t *testing.T) {
 	if logUpstream404.GetResStatusCode() != http.StatusNotFound {
 		t.Errorf("arm B: res_status_code = %d, want 404", logUpstream404.GetResStatusCode())
 	}
-	assertNoUsageFields(t, "arm B (upstream 404)", logUpstream404)
+	assertFailedRowUsage(t, "arm B (upstream 404)", logUpstream404)
 	if len(logUpstream404.GetAiClusterKeyNames()) == 0 {
 		t.Error("arm B: expected cluster_key_names of the tried cluster/key")
 	}
@@ -1978,8 +2015,9 @@ func TestTC21_ZeroCostRowsExplicitCostAndReason(t *testing.T) {
 	assertInt64Field(t, logZeroCost.AiOutputTokens, "arm 2: ai_output_tokens", 0)
 	assertInt64Field(t, logZeroCost.AiTotalTokens, "arm 2: ai_total_tokens", 0)
 
-	// Arm 3: no upstream call, nothing to report (issue #1409 convention).
-	assertNoUsageFields(t, "arm 3 (no ai route)", logNon2xx)
+	// Arm 3: no upstream call, but the auth-time seeding was reported as usage
+	// with ai_usage_source=failed and no cost (issue #1480).
+	assertFailedRowUsage(t, "arm 3 (no ai route)", logNon2xx)
 	if logNon2xx.AiZeroCostReason != nil {
 		t.Errorf("arm 3: ai_zero_cost_reason = %q, want absent (the upstream was never called)",
 			*logNon2xx.AiZeroCostReason)

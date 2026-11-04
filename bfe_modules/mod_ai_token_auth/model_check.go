@@ -113,5 +113,12 @@ func (m *ModuleAITokenAuth) targetModelCheckFilter(req *bfe_basic.Request) (int,
 	if aiErr := m.ValidateTargetModel(req, meta.TargetModel); aiErr != nil {
 		return bfe_module.BfeHandlerFinish, aiErr.CreateErrorResponse(req)
 	}
+	// issue #1479: "reject" action — the requested (model, mode) has no price
+	// entry. Rejected here, after the target model was resolved but before the
+	// request is forwarded; BfeHandlerResponse keeps the connection reusable
+	// (the 503 body is self-delimited, issue #1416).
+	if rejected, resp := m.rejectIfPriceMissing(req); rejected {
+		return bfe_module.BfeHandlerResponse, resp
+	}
 	return bfe_module.BfeHandlerGoOn, nil
 }

@@ -29,8 +29,10 @@ bfe.conf是BFE的核心配置
 | Server.MonitorAddr             | String  | Monitor监听地址                                    | N    | 参见 [ListenAddr](00-common.md#2-监听地址listenaddr) 类型定义            | 类型为 [ListenAddr](00-common.md#2-监听地址listenaddr)                     |
 | Server.AcceptNum               | Integer | 每个监听地址的Accept协程数                         | N    | 默认值1；为0时自动设为1                                                  | >= 0                                            |
 | Server.EnableAiGateway         | Boolean | 是否启用AI Gateway模式                             | N    | 默认值`False`                                                            | -                                               |
-| Server.EstimateToken           | Boolean | 当上游响应未返回usage时，是否基于请求Content-Length估算token使用量。估算仅在响应正常完成时生效：客户端中断（RST/断开）或写客户端失败且未收到最终usage的请求不按估算扣费（issue #1352）。缺usage按估算兜底是既定设计口径（issue #1398）。估算的适用条件进一步明确为**上游未返回 usage**（按 usage 对象的存在性判定，issue #1414）：usage 存在但各项计数为 0 的响应按真实 0 计费，不再走估算；相应地，`ai_total_tokens` 记 0 而 `ai_usage_source=parsed`，与"usage 未识别"（`unrecognized`）可区分 | N    | 默认值`True`（issue #1401 起为程序默认值，conf未配置时生效，显式配置可覆盖；issue #1398 前为`False`） | -                                               |
+| Server.EstimateToken           | Boolean | 当上游响应未返回usage时，是否基于请求Content-Length估算token使用量。估算在响应正常完成、上游中途异常断流（issue #1474）以及客户端中断（RST/断开/写失败）且未收到最终usage（issue #1478）三种情形下均可生效——后两者按**已转发内容**估算（请求体种子 + 逐 chunk 已转发内容累加），未生成/未交付给客户端的内容不计费，与 issue #1352 的实质一致；本开关关闭时上述缺 usage 的请求一律零扣费，并以 `ai_usage_source` / `ai_zero_cost_reason` 信号标记（`unrecognized` / `upstream_dropped` / `aborted`）。缺usage按估算兜底是既定设计口径（issue #1398）。估算的适用条件进一步明确为**上游未返回 usage**（按 usage 对象的存在性判定，issue #1414）：usage 存在但各项计数为 0 的响应按真实 0 计费，不再走估算；相应地，`ai_total_tokens` 记 0 而 `ai_usage_source=parsed`，与"usage 未识别"（`unrecognized`）可区分 | N    | 默认值`True`（issue #1401 起为程序默认值，conf未配置时生效，显式配置可覆盖；issue #1398 前为`False`） | -                                               |
 | Server.InjectStreamUsage       | Boolean | 对OpenAI协议流式chat completion请求，当客户端未显式设置`stream_options.include_usage`时，自动注入`stream_options.include_usage=true`，使上游回发真实final usage chunk（issue #1398）。注入失败（非JSON请求体等）时静默透传 | N    | 默认值`True`（issue #1401 起为程序默认值，conf显式配置可覆盖）          | -                                               |
+| Server.AIUpstreamAcceptEncoding | String  | 回源时如何改写AI请求的`Accept-Encoding`，用于把握手结果限制在网关能解压的编码集合内，从而保证压缩流式响应的usage可被解析（issue #1468）。`auto`：与客户端声明求交后仅保留网关可解码的编码（`gzip`、`deflate`），求交为空则不改写；`identity`：剥离压缩，让上游回明文（排障用）；`off`：按客户端原值透传（保持旧行为）。仅作用于AI转发请求的出站头，入站请求头不受影响 | N    | 默认值`auto`；取值`auto`/`identity`/`off`，非法值按`auto`处理 | 取值见补充描述 |
+| Server.ConditionEngineMode     | String  | 条件表达式引擎模式                                 | N    | 默认值`LegacyFirst`；取值`LegacyFirst`（旧引擎优先，旧引擎解析失败回退expr引擎，存量配置行为不变）/`ExprCompatible`（expr引擎+旧原语兼容，可新旧混写，编译失败直接报错）/`ExprOnly`（纯expr表达式，不支持旧原语）；兼容数字写法`0`/`1`/`2`，非法值启动报错 | 取值`LegacyFirst`/`ExprCompatible`/`ExprOnly`/`0`/`1`/`2` |
 | Server.AccessibleBodySize      | Integer | 请求体可缓冲的最大长度，单位为Byte                 | N    | 默认值2097152；用于请求体改写及AI Gateway fallback重试；超过此大小的请求体无法被完整缓存并重传 | > 0 且 <= 8388608                             |
 | Server.TotalBodyBufferSize     | Integer | 所有活跃bytes_body buffer占用内存之和的上限，单位为Byte | N    | 默认值0（表示无限制）；达到上限时，AI Gateway fallback不再对请求体做缓存封装，即不重传 | >= 0                                          |
 | Server.HostRuleConf            | String  | [租户域名表配置](server_data_conf/host_rule.data.md)文件路径 | N    | 默认值`server_data_conf/host_rule.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
@@ -53,21 +55,21 @@ bfe.conf是BFE的核心配置
 | ------------------------------------ | --------- | -------------------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
 | HttpsBasic.ServerCertConf            | String    | [服务端证书与密钥的配置](tls_conf/server_cert_conf.data.md)文件路径              | N    | 默认值`tls_conf/server_cert_conf.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
 | HttpsBasic.TlsRuleConf               | String    | [TLS协议参数配置](tls_conf/tls_rule_conf.data.md)文件路径                        | N    | 默认值`tls_conf/tls_rule_conf.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
-| HttpsBasic.CipherSuites              | String[]  | 启用的加密套件列表                                                               | N    | 启用多个套件请增加多行`CipherSuites`配置，等效套件可用`&#124;`分隔，详见示例 | 必须是BFE支持的加密套件，如 `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` 等     |
+| HttpsBasic.CipherSuites              | String[]  | 启用的加密套件列表（白名单）                                                     | N    | 启用多个套件请增加多行`CipherSuites`配置，同一行可用`&#124;`分隔；该配置仅决定"哪些套件可用"，配置行序与 `&#124;` 分组**不再影响协商优先级**，实际优先级由标准库 `crypto/tls` 的固定顺序决定，详见示例 | 必须是BFE支持的加密套件，如 `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` 等     |
 | HttpsBasic.CurvePreferences          | String[]  | 启用的ECC椭圆曲线                                                                | N    | 默认值`CurveP256`                                                        | 仅支持 `CurveP256`、`CurveP384`、`CurveP521`                               |
-| HttpsBasic.EnableSslv2ClientHello    | Boolean   | 针对SSLv3协议，启用对SSLv2格式ClientHello的兼容                                  | N    | 默认值`True`                                                             | -                                                                          |
-| HttpsBasic.ClientCABaseDir           | String    | 客户端根CA证书基目录                                                             | N    | 默认值`tls_conf/client_ca`；目录下证书文件后缀须为 `.crt`；参见 [DirPath](00-common.md#4-目录路径dirpath) 类型定义 | 类型为 [DirPath](00-common.md#4-目录路径dirpath)                         |
-| HttpsBasic.MaxTlsVersion             | String    | 支持的最高TLS版本                                                                | N    | 默认值`VersionTLS12`                                                     | 仅支持 `VersionSSL30`、`VersionTLS10`、`VersionTLS11`、`VersionTLS12`      |
-| HttpsBasic.MinTlsVersion             | String    | 支持的最低TLS版本                                                                | N    | 默认值`VersionSSL30`                                                     | 仅支持上述枚举值；且 `MaxTlsVersion >= MinTlsVersion`                      |
+| HttpsBasic.EnableSslv2ClientHello    | Boolean   | 针对SSLv3协议，启用对SSLv2格式ClientHello的兼容                                  | N    | **已废弃**：BFE 改用标准库 `crypto/tls` 后不再支持 SSLv2 ClientHello，该字段解析但忽略 | -                                                                          |
+| HttpsBasic.ClientCABaseDir           | String    | 客户端根CA证书基目录                                                             | N    | 默认值`tls_conf/client_ca`；目录下证书文件后缀须为 `.crt`；参见 [DirPath](00-common.md#4-目录路径dirpath) 类型定义 | 类型为 [DirPath](../00-common.md#4-目录路径dirpath)                         |
+| HttpsBasic.MaxTlsVersion             | String    | 支持的最高TLS版本                                                                | N    | 默认值`VersionTLS13`                                                     | 仅支持 `VersionTLS10`、`VersionTLS11`、`VersionTLS12`、`VersionTLS13`      |
+| HttpsBasic.MinTlsVersion             | String    | 支持的最低TLS版本                                                                | N    | 默认值`VersionTLS10`；`VersionSSL30` 已废弃（标准库不再支持 SSLv3，按 `VersionTLS10` 处理） | 仅支持上述枚举值；且 `MaxTlsVersion >= MinTlsVersion`                      |
 | HttpsBasic.ClientCRLBaseDir          | String    | 客户端CRL基目录                                                                  | N    | 默认值`tls_conf/client_crl`；参见 [DirPath](00-common.md#4-目录路径dirpath) 类型定义 | 类型为 [DirPath](00-common.md#4-目录路径dirpath)                         |
-| SessionCache.SessionCacheDisabled    | Boolean   | 是否禁用TLS Session Cache机制                                                    | N    | 默认值`True`；为`True`时跳过其他SessionCache相关校验                     | -                                                                          |
-| SessionCache.Servers                 | String    | Cache服务的访问地址                                                              | 条件 | `SessionCacheDisabled=false` 时必填                                      | `SessionCacheDisabled=false` 时不能为空；多个地址以逗号`,`分隔             |
-| SessionCache.KeyPrefix               | String    | 缓存key前缀                                                                      | N    | 默认值`bfe`                                                              | -                                                                          |
-| SessionCache.ConnectTimeout          | Integer   | 连接Cache服务的超时时间，单位毫秒                                                | N    | 默认值50                                                                 | -                                                                          |
-| SessionCache.ReadTimeout             | Integer   | 读取Cache服务的超时时间，单位毫秒                                                | 条件 | `SessionCacheDisabled=false` 时必填                                      | `SessionCacheDisabled=false` 时必须 > 0                                    |
-| SessionCache.WriteTimeout            | Integer   | 写入Cache服务的超时时间，单位毫秒                                                | 条件 | `SessionCacheDisabled=false` 时必填                                      | `SessionCacheDisabled=false` 时必须 > 0                                    |
-| SessionCache.MaxIdle                 | Integer   | 与Cache服务的最大空闲长连接数                                                    | 条件 | `SessionCacheDisabled=false` 时必填                                      | `SessionCacheDisabled=false` 时必须 > 0                                    |
-| SessionCache.SessionExpire           | Integer   | 存储在Cache服务中会话信息的过期时间，单位秒                                      | 条件 | `SessionCacheDisabled=false` 时必填                                      | `SessionCacheDisabled=false` 时必须 > 0                                    |
+| SessionCache.SessionCacheDisabled    | Boolean   | 是否禁用TLS Session Cache机制                                                    | N    | **已废弃**：Redis 会话缓存已移除，全部 SessionCache 字段解析但忽略      | -                                                                          |
+| SessionCache.Servers                 | String    | Cache服务的访问地址                                                              | N    | **已废弃**                                                               | -                                                                          |
+| SessionCache.KeyPrefix               | String    | 缓存key前缀                                                                      | N    | **已废弃**                                                               | -                                                                          |
+| SessionCache.ConnectTimeout          | Integer   | 连接Cache服务的超时时间，单位毫秒                                                | N    | **已废弃**                                                               | -                                                                          |
+| SessionCache.ReadTimeout             | Integer   | 读取Cache服务的超时时间，单位毫秒                                                | N    | **已废弃**                                                               | -                                                                          |
+| SessionCache.WriteTimeout            | Integer   | 写入Cache服务的超时时间，单位毫秒                                                | N    | **已废弃**                                                               | -                                                                          |
+| SessionCache.MaxIdle                 | Integer   | 与Cache服务的最大空闲长连接数                                                    | N    | **已废弃**                                                               | -                                                                          |
+| SessionCache.SessionExpire           | Integer   | 存储在Cache服务中会话信息的过期时间，单位秒                                      | N    | **已废弃**                                                               | -                                                                          |
 | SessionTicket.SessionTicketsDisabled | Boolean   | 是否禁用TLS Session Ticket                                                       | N    | 默认值`True`；为`True`时跳过其他SessionTicket相关校验                    | -                                                                          |
 | SessionTicket.SessionTicketKeyFile   | String    | [Session Ticket Key配置](tls_conf/session_ticket_key.data.md)文件路径            | N    | 默认值`tls_conf/session_ticket_key.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
 
@@ -147,6 +149,12 @@ EstimateToken = true
 # returns the real final usage chunk (issue #1398)
 InjectStreamUsage = true
 
+# how Accept-Encoding is forwarded to an AI upstream (issue #1468):
+#   auto     - keep only the codings the gateway can decode (default)
+#   identity - strip compression (diagnostics / troubleshooting)
+#   off      - forward the client value unchanged
+AIUpstreamAcceptEncoding = auto
+
 # timeout for graceful shutdown (maximum 300 sec)
 GracefulShutdownTimeout = 10
 
@@ -161,6 +169,9 @@ AccessibleBodySize = 2097152
 
 # max total bytes of all active bytes_body buffers (0 means unlimited)
 TotalBodyBufferSize = 0
+
+# condition expression engine mode: LegacyFirst(default) / ExprCompatible / ExprOnly
+# ConditionEngineMode = LegacyFirst
 
 # routing related conf
 HostRuleConf = server_data_conf/host_rule.data
@@ -199,7 +210,7 @@ ServerCertConf = tls_conf/server_cert_conf.data
 # tls rule
 TlsRuleConf = tls_conf/tls_rule_conf.data
 
-# supported cipherSuites preference settings
+# enabled cipherSuites (whitelist)
 #
 # ciphersuites implemented in golang:
 #     TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
@@ -219,9 +230,13 @@ TlsRuleConf = tls_conf/tls_rule_conf.data
 #     TLS_RSA_WITH_3DES_EDE_CBC_SHA
 #
 # Note:
-# -. Equivalent cipher suites (cipher suites with same priority in server side):
+# -. CipherSuites acts as a whitelist: it only selects which suites are enabled.
+#    The actual negotiation order is determined by the fixed preference order of
+#    the standard library crypto/tls. The order of the config lines and the '|'
+#    grouping no longer affect priority.
+# -. Listing several suites on one line separated by '|' is still accepted and is
+#    equivalent to listing them on separate lines:
 #    CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
-#    CipherSuites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
 #
 CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
 CipherSuites=TLS_ECDHE_RSA_WITH_RC4_128_SHA
@@ -245,6 +260,7 @@ CurvePreferences=CurveP256
 
 # support Sslv2 ClientHello for compatible with ancient
 # TLS capable clients (mozilla 5, java 5/6, openssl 0.9.8 etc)
+# DEPRECATED: ignored (standard crypto/tls does not support SSLv2 ClientHello)
 EnableSslv2ClientHello = true
 
 # base directory of client ca certificates
@@ -252,6 +268,8 @@ EnableSslv2ClientHello = true
 ClientCABaseDir = tls_conf/client_ca
 
 [SessionCache]
+# DEPRECATED: tls session cache (redis) has been removed;
+# all SessionCache fields below are parsed but ignored
 # disable tls session cache or not
 SessionCacheDisabled = true
 
