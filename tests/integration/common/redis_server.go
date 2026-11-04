@@ -113,6 +113,16 @@ func (s *RedisServer) Exists(key string) bool {
 	return s.server.Exists(key)
 }
 
+// TTL returns the remaining time-to-live of a key. ok is false when the key
+// does not exist; a zero duration with ok=true means the key has no expiry
+// (which for a penalty key is the "never expire" bug this harness watches for).
+func (s *RedisServer) TTL(key string) (time.Duration, bool) {
+	if !s.server.Exists(key) {
+		return 0, false
+	}
+	return s.server.TTL(key), true
+}
+
 // HGetAll returns the field/value map of a hash key (nil when the key is
 // missing or not a hash). Used by scenarios that assert on BATCH_* records.
 func (s *RedisServer) HGetAll(key string) map[string]string {

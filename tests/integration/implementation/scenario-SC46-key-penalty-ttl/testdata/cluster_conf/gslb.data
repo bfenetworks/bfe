@@ -1,0 +1,10 @@
+{
+    "clusters": {
+        "cluster_penalty_ttl": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20261104150000"
+}

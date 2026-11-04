@@ -396,7 +396,9 @@
     "SessionAffinity": true,
     "SessionAffinityTTL": 600,
     "SessionAffinityRedisPrefix": "bfe:ai:key_affinity",
-    "SessionAffinityPenaltyEnable": true
+    "SessionAffinityPenaltyEnable": true,
+    "SessionAffinityPenaltyTTL429": 60,
+    "SessionAffinityPenaltyTTLAuth": 300
 }
 ```
 
@@ -410,6 +412,8 @@
 | SessionAffinityTTL | integer | N | `ClientKeyId -> KeyName` 绑定的空闲超时时间，单位秒；命中绑定后会刷新 TTL，持续请求则绑定保持；默认 `600` | > 0 |
 | SessionAffinityRedisPrefix | string | N | Redis 绑定键的前缀；默认 `"bfe:ai:key_affinity"` | 非空 |
 | SessionAffinityPenaltyEnable | boolean | N | 是否开启 Key 惩罚：选择时跳过近期返回 429/401/403 的 Key；默认 `true` | - |
+| SessionAffinityPenaltyTTL429 | integer | N | 上游返回 429（限流）时写入惩罚键的时长，单位秒；默认 `60`。`0` 或未配置表示「用默认值」，**不是关闭惩罚**；超过 `86400` 会被截断为 `86400` 并打印 Warn 日志 | >= 0 |
+| SessionAffinityPenaltyTTLAuth | integer | N | 上游返回 401/402/403（凭证失效/欠费/无权限）时写入惩罚键的时长，单位秒；默认 `300`。语义同上 | >= 0 |
 
 **会话级 Key 亲和性说明：**
 
@@ -418,6 +422,12 @@
 - 同一 `ClientKeyId` 的后续请求优先命中已绑定的 Key；命中后会通过 `Expire` 刷新绑定 TTL，因此只要会话持续有请求，绑定就会一直保持。
 - `SessionAffinityTTL` 是**空闲超时时间**：只有当 `ClientKeyId` 在 TTL 时间内没有请求时，绑定才会自动释放。
 - 当绑定 Key 被惩罚、被删除或权重为 `0` 时，自动重新选择并写入新绑定。
+- 惩罚键格式为 `{prefix}:penalty:{cluster_name}:{key_name}`，值为触发原因（`429` / `401` / `402` / `403` / `404-batch`），存活期间该 Key 不参与选择。
+- `SessionAffinityPenaltyTTL429` / `SessionAffinityPenaltyTTLAuth` 只决定**新写入**惩罚键的时长，不追改已存在的键（Redis 不支持批量重设 TTL）；缩短配置后，事故中已有的长惩罚仍需等过期或人工 `DEL`。
+- 两档惩罚时长与 `SessionAffinityTTL`（绑定空闲超时）是**两个无关概念**，不要用 `SessionAffinityTTL` 配惩罚时长。
+- 批量接口 404 的惩罚固定 `60` 秒（reason `404-batch`），不受这两个字段影响。
+- 惩罚只在 `SessionAffinity=true` 且 `SessionAffinityPenaltyEnable=true` 时生效；若 `Keys` 中只有一个有效 Key，选择时直接短路返回，不读惩罚状态也不写绑定键（失败时写侧仍会记录惩罚键，但没有读侧消费它），因此配置的时长在该形态下没有实际效果。
+- 所有可用 Key 都被惩罚时，BFE 返回网关合成的 429（`NO_AVAILABLE_KEY`），其 `Retry-After` 与 `error.details.retry_after_seconds` 取 `SessionAffinityPenaltyTTL429`，含义是「按当前配置，被惩罚 Key 的最长剩余等待时间」，不是精确剩余值。
 - Redis 不可用时自动降级为无亲和的加权随机选择，不影响请求成功率。
 - 若 `Keys` 中只有一个有效 Key，直接短路返回，不会访问 Redis。
 
@@ -736,7 +746,9 @@
                     "SessionAffinity": true,
                     "SessionAffinityTTL": 600,
                     "SessionAffinityRedisPrefix": "bfe:ai:key_affinity",
-                    "SessionAffinityPenaltyEnable": true
+                    "SessionAffinityPenaltyEnable": true,
+                    "SessionAffinityPenaltyTTL429": 60,
+                    "SessionAffinityPenaltyTTLAuth": 300
                 },
                 "ModelMapping": {
                     "gpt-4": "backend-gpt-4-model"

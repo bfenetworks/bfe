@@ -45,6 +45,10 @@ type AIKeyPolicy struct {
     SessionAffinityTTL           int    // 绑定空闲超时时间，单位秒，默认 600
     SessionAffinityRedisPrefix   string // Redis key 前缀，默认 "bfe:ai:key_affinity"
     SessionAffinityPenaltyEnable bool   // 是否开启 Key 惩罚，默认 true
+
+    // Key 惩罚时长（秒），加载期 0 补默认、负数报错、超 86400 截断
+    SessionAffinityPenaltyTTL429  int // 上游 429 时的惩罚时长，默认 60
+    SessionAffinityPenaltyTTLAuth int // 上游 401/402/403 时的惩罚时长，默认 300
 }
 
 // ModelPrice represents a single model pricing entry
@@ -440,8 +444,12 @@ bfe:ai:key_affinity:deepseek-cluster:ckt-abc-123 -> "key-primary"  (TTL=600)
 ```
 key:   {prefix}:penalty:{cluster_name}:{key_name}
 value: <reason_code>
-TTL:   429 为 60 秒；401/403 为 3600 秒
+TTL:   429 → SessionAffinityPenaltyTTL429（默认 60 秒）
+       401/402/403 → SessionAffinityPenaltyTTLAuth（默认 300 秒）
+       404-batch → 固定 60 秒（非配置项）
 ```
+
+惩罚时长是集群级配置（`KeyPolicy.SessionAffinityPenaltyTTL*`），加载期归一化：缺省 `0` 补默认值，负数报错，超过 `86400` 截断并打 Warn。只有新写入的惩罚键使用新值，Redis 不支持批量重设 TTL，已存在的长惩罚仍需等过期或人工 `DEL`。所有可用 Key 都被惩罚时合成的 429，其 `Retry-After` 取 `SessionAffinityPenaltyTTL429`，表示「按当前配置，被惩罚 Key 的最长剩余等待时间」，不是精确剩余值（精确值需 `PTTL`，见 §7 二期）。
 
 #### 3.5.3 选择流程
 
@@ -518,8 +526,9 @@ func chooseAIKeyWithAffinity(
 
 | 错误类型 | 原有处理 | 亲和性增强 |
 |---|---|---|
-| 429 | 标记 `used` | 写短 TTL 惩罚键；删除本客户绑定；切换成功后更新绑定 |
-| 401 / 402 / 403 | 标记 `dead` | 写长 TTL 惩罚键；删除本客户绑定；切换成功后更新绑定 |
+| 429 | 标记 `used` | 写惩罚键（`SessionAffinityPenaltyTTL429`，默认 60s）；删除本客户绑定；切换成功后更新绑定 |
+| 401 / 402 / 403 | 标记 `dead` | 写惩罚键（`SessionAffinityPenaltyTTLAuth`，默认 300s）；删除本客户绑定；切换成功后更新绑定 |
+| 批量 404 | 标记 `used` | 写惩罚键（固定 60s，reason `404-batch`）；清理批量绑定 |
 | 5xx / 连接错误 | 同 Key 退避重试 | 重试耗尽后换 Key，成功则更新绑定 |
 
 当最终成功且实际使用 Key 与绑定不一致时：
@@ -687,5 +696,5 @@ aiClusterInvoke: all ai keys exhausted for cluster[%s], return synthetic 429  # 
 3. **与 `ServeHTTP()` 隔离**：多 API-Key 逻辑仅作用于 `ServeHTTPForAI()` 路径；
 4. **旧字段清理**：`AIConf.Key` 不再保留，统一使用 `AIConf.Keys`；
 5. **会话级亲和性依赖 Redis**：`SessionAffinity` 默认关闭；开启后需在 `bfe.conf` 配置 `[AIKeyAffinity]` 段（bfe_server 自持 Redis 连接，不复用 `mod_ai_rate_limit` 的 Redis），未配置时亲和静默不生效（fail-open）；Redis 故障时自动降级为加权随机；
-6. **单 Key 短路**：当 `AIConf.Keys` 中只有一个有效 Key 时，无论是否开启亲和性，都不会访问 Redis；
+6. **单 Key 短路**：当 `AIConf.Keys` 中只有一个有效 Key 时，无论是否开启亲和性，选择阶段都不读取惩罚状态、也不写入绑定键；但失败时写侧仍会写入惩罚键（没有读侧消费），因此惩罚时长配置在该形态下无实际效果；
 7. **ClientKeyId 稳定性**：会话绑定基于 `AiBasicInfo.ClientKeyId`，控制面更新 API-Key 值时应保持该 ID 不变，否则原有绑定会失效。

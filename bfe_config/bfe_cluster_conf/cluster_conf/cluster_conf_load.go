@@ -150,6 +150,12 @@ type AIKeyPolicy struct {
 	SessionAffinityTTL           int    // Redis binding TTL in seconds, default 300
 	SessionAffinityRedisPrefix   string // Redis key prefix, default "bfe:ai:key_affinity"
 	SessionAffinityPenaltyEnable bool   // skip Keys recently returned 429/401/403, default true
+
+	// SessionAffinityPenaltyTTL* is the penalty TTL (seconds) written when an
+	// upstream Key becomes unusable. 0 is filled to the default at load time; it
+	// must never reach Redis, where expire=0 means "no expiry".
+	SessionAffinityPenaltyTTL429  int // upstream 429 (rate limited), default 60
+	SessionAffinityPenaltyTTLAuth int // upstream 401/402/403, default 300
 }
 
 // TimeRange defines a single time range within a week for a pricing tier.
@@ -1435,6 +1441,36 @@ func checkUpstreamBasePath(base string) error {
 	return nil
 }
 
+// Key penalty TTL constraints. The defaults must stay identical to
+// defaultAIKeyPolicy() in bfe_server and to the control-plane defaults.
+const (
+	aiKeyPenaltyDefaultTTL429  = 60
+	aiKeyPenaltyDefaultTTLAuth = 300
+	// aiKeyPenaltyMaxTTL guards against a misconfiguration locking a Key for
+	// days. Out-of-range values are clamped (with a warning) instead of
+	// rejected: rejecting the config fails the whole reload, which during an
+	// incident is worse than a clamped TTL.
+	aiKeyPenaltyMaxTTL = 86400
+)
+
+// checkPenaltyTTL normalizes one penalty TTL in place: negative is a config
+// error (same convention as SessionAffinityTTL), 0 means "unset" and is filled
+// with def, values above aiKeyPenaltyMaxTTL are clamped.
+func checkPenaltyTTL(name string, ttl *int, def int) error {
+	if *ttl < 0 {
+		return fmt.Errorf("%s must be >= 0", name)
+	}
+	if *ttl == 0 {
+		*ttl = def
+		return nil
+	}
+	if *ttl > aiKeyPenaltyMaxTTL {
+		log.Logger.Warn("AIKeyPolicy: %s[%ds] exceeds max[%ds], clamped", name, *ttl, aiKeyPenaltyMaxTTL)
+		*ttl = aiKeyPenaltyMaxTTL
+	}
+	return nil
+}
+
 // AIKeyPolicyCheck checks and fills defaults for AIKeyPolicy.
 func AIKeyPolicyCheck(policy *AIKeyPolicy) error {
 	if policy.SessionAffinityTTL < 0 {
@@ -1454,6 +1490,14 @@ func AIKeyPolicyCheck(policy *AIKeyPolicy) error {
 	}
 	if policy.RetryBackoffMax < 0 {
 		return fmt.Errorf("RetryBackoffMax must be >= 0")
+	}
+	if err := checkPenaltyTTL("SessionAffinityPenaltyTTL429",
+		&policy.SessionAffinityPenaltyTTL429, aiKeyPenaltyDefaultTTL429); err != nil {
+		return err
+	}
+	if err := checkPenaltyTTL("SessionAffinityPenaltyTTLAuth",
+		&policy.SessionAffinityPenaltyTTLAuth, aiKeyPenaltyDefaultTTLAuth); err != nil {
+		return err
 	}
 	return nil
 }

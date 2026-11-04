@@ -264,6 +264,12 @@ func TestDefaultAIKeyPolicy(t *testing.T) {
 	if policy.RetryBackoffMax != 5000 {
 		t.Errorf("expected retry_backoff_max 5000, got %d", policy.RetryBackoffMax)
 	}
+	if policy.SessionAffinityPenaltyTTL429 != 60 {
+		t.Errorf("expected penalty ttl 429 default 60, got %d", policy.SessionAffinityPenaltyTTL429)
+	}
+	if policy.SessionAffinityPenaltyTTLAuth != 300 {
+		t.Errorf("expected penalty ttl auth default 300, got %d", policy.SessionAffinityPenaltyTTLAuth)
+	}
 }
 
 func TestStripProviderPrefix(t *testing.T) {
@@ -507,6 +513,12 @@ func TestDefaultAIKeyPolicyIncludesAffinityDefaults(t *testing.T) {
 	}
 	if policy.SessionAffinityPenaltyEnable != true {
 		t.Errorf("expected SessionAffinityPenaltyEnable true, got %v", policy.SessionAffinityPenaltyEnable)
+	}
+	if policy.SessionAffinityPenaltyTTL429 != 60 {
+		t.Errorf("expected SessionAffinityPenaltyTTL429 60, got %d", policy.SessionAffinityPenaltyTTL429)
+	}
+	if policy.SessionAffinityPenaltyTTLAuth != 300 {
+		t.Errorf("expected SessionAffinityPenaltyTTLAuth 300, got %d", policy.SessionAffinityPenaltyTTLAuth)
 	}
 }
 
@@ -957,8 +969,11 @@ func TestAiClusterInvokeExhaustionReturnsSynthetic429(t *testing.T) {
 	}
 	// issue #1441: unified AiError body with error.code (§3.2 必填),
 	// retry_after_seconds detail and a Retry-After header.
-	if res.Header.Get("Retry-After") != strconv.Itoa(aiKeyPenaltyTTL429) {
-		t.Errorf("expected Retry-After %d, got %q", aiKeyPenaltyTTL429, res.Header.Get("Retry-After"))
+	// Issue #1448: the hint follows the 429 penalty TTL. This case has
+	// KeyPolicy == nil, so defaultAIKeyPolicy() supplies 60.
+	expectedRetryAfter := defaultAIKeyPolicy().SessionAffinityPenaltyTTL429
+	if res.Header.Get("Retry-After") != strconv.Itoa(expectedRetryAfter) {
+		t.Errorf("expected Retry-After %d, got %q", expectedRetryAfter, res.Header.Get("Retry-After"))
 	}
 	body, readErr := ioutil.ReadAll(res.Body)
 	if readErr != nil {
@@ -974,9 +989,139 @@ func TestAiClusterInvokeExhaustionReturnsSynthetic429(t *testing.T) {
 	if aiErrBody.Error.Type != bfe_basic.TypeRateLimitError {
 		t.Errorf("expected error.type %q, got %q", bfe_basic.TypeRateLimitError, aiErrBody.Error.Type)
 	}
-	if aiErrBody.Error.Details == nil || aiErrBody.Error.Details.RetryAfterSeconds != aiKeyPenaltyTTL429 {
-		t.Errorf("expected error.details.retry_after_seconds=%d, got %+v", aiKeyPenaltyTTL429, aiErrBody.Error.Details)
+	if aiErrBody.Error.Details == nil || aiErrBody.Error.Details.RetryAfterSeconds != expectedRetryAfter {
+		t.Errorf("expected error.details.retry_after_seconds=%d, got %+v", expectedRetryAfter, aiErrBody.Error.Details)
 	}
+}
+
+// TestAiClusterInvokeSynthetic429RetryAfterFollowsPolicy pins issue #1448: the
+// Retry-After hint of the synthetic 429 must follow the cluster's 429 penalty
+// TTL instead of a hard-coded constant. The cluster is built directly (bypassing
+// AIConfCheck), so the TTL is set explicitly on purpose: this is also the
+// "policy not normalized by the loader" boundary.
+func TestAiClusterInvokeSynthetic429RetryAfterFollowsPolicy(t *testing.T) {
+	intPtr := func(v int) *int { return &v }
+	boolPtr := func(v bool) *bool { return &v }
+	strPtr := func(v string) *string { return &v }
+
+	const (
+		clusterName  = "exhausted-cluster-ttl"
+		penaltyTTL   = 30
+		wantRetryTTL = 30
+	)
+
+	clusterConfs := cluster_conf.BfeClusterConf{
+		Version: strPtr("test"),
+		Config: &cluster_conf.ClusterToConf{
+			clusterName: {
+				ClusterBasic: &cluster_conf.ClusterBasicConf{
+					TimeoutReadClient:      intPtr(1000),
+					TimeoutWriteClient:     intPtr(1000),
+					TimeoutReadClientAgain: intPtr(1000),
+					ReqWriteBufferSize:     intPtr(4096),
+					ReqFlushInterval:       intPtr(0),
+					ResFlushInterval:       intPtr(0),
+					CancelOnClientClose:    boolPtr(false),
+					DisableHostHeader:      boolPtr(false),
+					DisableHealthCheck:     boolPtr(true),
+				},
+				AIConf: &cluster_conf.AIConf{
+					Keys: []cluster_conf.AIKey{
+						{Name: "key-zero", Key: "ak-zero", Weight: 0},
+					},
+					KeyPolicy: &cluster_conf.AIKeyPolicy{
+						SessionAffinityPenaltyTTL429:  penaltyTTL,
+						SessionAffinityPenaltyTTLAuth: 120,
+					},
+				},
+			},
+		},
+	}
+	clusterTable := new(bfe_route.ClusterTable)
+	clusterTable.BasicInit(clusterConfs)
+	serverConf := &bfe_route.ServerDataConf{ClusterTable: clusterTable}
+
+	conn, _ := net.Pipe()
+	defer conn.Close()
+	httpReq := &bfe_http.Request{
+		Method: "POST",
+		URL:    &url.URL{Path: "/v1/chat/completions"},
+		Header: bfe_http.Header{},
+		Body:   ioutil.NopCloser(strings.NewReader(`{"model":"m"}`)),
+	}
+	basicReq := &bfe_basic.Request{HttpRequest: httpReq, Connection: conn}
+
+	rp := NewReverseProxy(nil, new(ProxyState))
+	srv := &BfeServer{}
+	attempt := aiForwardAttempt{ClusterName: clusterName, Model: "m"}
+
+	res, _, _, err, _ := rp.aiClusterInvoke(srv, serverConf, basicReq, nil, attempt, nil, "m")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if res == nil || res.StatusCode != 429 {
+		t.Fatalf("expected synthetic 429, got %+v", res)
+	}
+	if got := res.Header.Get("Retry-After"); got != strconv.Itoa(wantRetryTTL) {
+		t.Errorf("expected Retry-After %d, got %q", wantRetryTTL, got)
+	}
+
+	body, readErr := ioutil.ReadAll(res.Body)
+	if readErr != nil {
+		t.Fatalf("read body failed: %v", readErr)
+	}
+	var aiErrBody bfe_basic.AiErrorBody
+	if jsonErr := json.Unmarshal(body, &aiErrBody); jsonErr != nil {
+		t.Fatalf("body is not a unified AiError JSON: %v, body: %s", jsonErr, body)
+	}
+	if aiErrBody.Error.Details == nil || aiErrBody.Error.Details.RetryAfterSeconds != wantRetryTTL {
+		t.Errorf("expected error.details.retry_after_seconds=%d, got %+v", wantRetryTTL, aiErrBody.Error.Details)
+	}
+}
+
+// TestSetKeyPenaltyTTL verifies issue #1448's write side: the TTL handed to
+// Redis comes from the cluster policy, and a non-positive TTL is dropped
+// instead of being written (Redis expire=0 means "never expire").
+func TestSetKeyPenaltyTTL(t *testing.T) {
+	policy := cluster_conf.AIKeyPolicy{
+		SessionAffinityRedisPrefix:    "bfe:ai:key_affinity",
+		SessionAffinityPenaltyTTL429:  30,
+		SessionAffinityPenaltyTTLAuth: 120,
+	}
+
+	t.Run("429 uses the 429 ttl", func(t *testing.T) {
+		client := newMockRedisClient()
+		setKeyPenalty("cluster", "key-a", "429", policy.SessionAffinityPenaltyTTL429, policy, client)
+		got, ok := client.data["bfe:ai:key_affinity:penalty:cluster:key-a"]
+		if !ok {
+			t.Fatal("expected a penalty key")
+		}
+		if got.expire != 30 {
+			t.Errorf("expected expire 30, got %d", got.expire)
+		}
+	})
+
+	t.Run("auth uses the auth ttl", func(t *testing.T) {
+		client := newMockRedisClient()
+		setKeyPenalty("cluster", "key-a", "401", policy.SessionAffinityPenaltyTTLAuth, policy, client)
+		got, ok := client.data["bfe:ai:key_affinity:penalty:cluster:key-a"]
+		if !ok {
+			t.Fatal("expected a penalty key")
+		}
+		if got.expire != 120 {
+			t.Errorf("expected expire 120, got %d", got.expire)
+		}
+	})
+
+	t.Run("non-positive ttl is not written", func(t *testing.T) {
+		for _, ttl := range []int{0, -1} {
+			client := newMockRedisClient()
+			setKeyPenalty("cluster", "key-a", "429", ttl, policy, client)
+			if len(client.data) != 0 {
+				t.Errorf("ttl %d: expected no penalty key, got %v", ttl, client.data)
+			}
+		}
+	})
 }
 
 // TestFilterPenaltyKeys_ExcludesZeroWeight verifies issue #1439: a Weight=0
