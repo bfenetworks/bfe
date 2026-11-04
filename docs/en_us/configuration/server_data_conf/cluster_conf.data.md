@@ -231,6 +231,8 @@ Common provider values for `AIConf.ProtocolPaths`:
 | AIConf.KeyPolicy.SessionAffinityTTL | Integer | Idle timeout of the `ClientKeyId -> KeyName` binding in Redis, in seconds | N | Default `600`; the TTL is refreshed on each binding hit, so the binding persists as long as the session keeps sending requests | > 0 |
 | AIConf.KeyPolicy.SessionAffinityRedisPrefix | String | Prefix of the Redis binding key | N | Default `"bfe:ai:key_affinity"` | Non-empty |
 | AIConf.KeyPolicy.SessionAffinityPenaltyEnable | Boolean | Whether to enable Key penalty: skip Keys that recently returned 429/401/403 | N | Default `true` | - |
+| AIConf.KeyPolicy.SessionAffinityPenaltyTTL429 | Integer | TTL of the penalty key written when the upstream returns 429 (rate limited), in seconds | N | Default `60`. `0` or absent means "use the default", **not** "disable"; values above `86400` are clamped to `86400` with a warning log | >= 0 |
+| AIConf.KeyPolicy.SessionAffinityPenaltyTTLAuth | Integer | TTL of the penalty key written when the upstream returns 401/402/403, in seconds | N | Default `300`; same semantics as above | >= 0 |
 
 **Session-level Key Affinity Notes:**
 
@@ -239,6 +241,12 @@ Common provider values for `AIConf.ProtocolPaths`:
 - Subsequent requests with the same `ClientKeyId` prefer the bound Key; on each hit, BFE refreshes the binding TTL via `Expire`, so the binding persists as long as the session keeps sending requests.
 - `SessionAffinityTTL` is the **idle timeout**: the binding is released automatically only when no request arrives within the TTL window.
 - If the bound Key is penalized, deleted, or has weight `0`, a new Key is selected and the binding is updated.
+- The penalty key is `{prefix}:penalty:{cluster_name}:{key_name}`, valued with the trigger reason (`429` / `401` / `402` / `403` / `404-batch`); while it exists the Key is excluded from selection.
+- `SessionAffinityPenaltyTTL429` / `SessionAffinityPenaltyTTLAuth` only affect **newly written** penalty keys; existing keys keep their TTL (Redis cannot bulk-update TTLs). After shortening the values, long penalties already created during an incident still have to expire or be deleted manually.
+- These two values are unrelated to `SessionAffinityTTL` (the binding idle timeout); do not use `SessionAffinityTTL` to configure penalty duration.
+- Batch API 404 penalties are fixed at `60` seconds (reason `404-batch`) and are not affected by these fields.
+- The penalty only applies when `SessionAffinity=true` and `SessionAffinityPenaltyEnable=true`; if `Keys` contains only one valid Key, selection short-circuits without reading penalty state (the failure path still records a penalty key, but nothing consumes it), so the configured TTL has no practical effect on such a cluster.
+- When every usable Key is penalized, BFE returns a synthetic 429 (`NO_AVAILABLE_KEY`) whose `Retry-After` and `error.details.retry_after_seconds` come from `SessionAffinityPenaltyTTL429`; the value is the **longest remaining wait under the current configuration**, not an exact remaining time.
 - If Redis is unavailable, the affinity logic gracefully degrades to weighted random selection without affecting request success rate.
 - If `Keys` contains only one valid Key, it is returned directly without accessing Redis.
 
@@ -489,7 +497,9 @@ Behavior notes:
                     "SessionAffinity": true,
                     "SessionAffinityTTL": 600,
                     "SessionAffinityRedisPrefix": "bfe:ai:key_affinity",
-                    "SessionAffinityPenaltyEnable": true
+                    "SessionAffinityPenaltyEnable": true,
+                    "SessionAffinityPenaltyTTL429": 60,
+                    "SessionAffinityPenaltyTTLAuth": 300
                 },
                 "ModelMapping": {
                     "gpt-4": "backend-gpt-4-model"

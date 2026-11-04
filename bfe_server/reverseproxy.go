@@ -2284,8 +2284,16 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 				// and err_code attribution. The ErrCode sentinel is deliberately
 				// NOT ErrAiRateLimit: that would suppress cluster fallback (the
 				// local-RL short-circuit in ServeHTTPForAI).
+				// The hint uses the 429 penalty TTL, i.e. the same source as the
+				// write side: it means "longest remaining wait of a penalized
+				// Key under the current config", not an exact remaining time
+				// (an exact value needs PTTL, deferred to phase 2).
 				log.Logger.Warn("aiClusterInvoke: all ai keys exhausted for cluster[%s], return synthetic 429", attempt.ClusterName)
-				retryAfter := aiKeyPenaltyTTL429
+				retryAfter := policy.SessionAffinityPenaltyTTL429
+				if retryAfter <= 0 {
+					// defensive: a policy built without AIKeyPolicyCheck
+					retryAfter = 60
+				}
 				res = bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeNoAvailableKey, bfe_basic.TypeRateLimitError,
 					"no available upstream api key for this cluster",
 					&bfe_basic.AiErrorDetail{Model: attempt.Model, RetryAfterSeconds: retryAfter},
@@ -2351,22 +2359,24 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 			// rate limit: mark key as used and rotate to another key
 			state.usedSet[idx] = struct{}{}
 			if policy.SessionAffinity && policy.SessionAffinityPenaltyEnable && redisClient != nil {
-				setKeyPenalty(cluster.Name, key.Name, "429", aiKeyPenaltyTTL429, policy, redisClient)
+				setKeyPenalty(cluster.Name, key.Name, "429", policy.SessionAffinityPenaltyTTL429, policy, redisClient)
 				if sessionID != "" {
 					redisDeleteBinding(cluster.Name, sessionID, policy, redisClient)
 				}
 			}
-			log.Logger.Info("aiClusterInvoke: ai key [name=%s] rate limited (429), rotate", key.Name)
+			log.Logger.Info("aiClusterInvoke: ai key [name=%s] rate limited (429), rotate, penalty_ttl=%ds",
+				key.Name, policy.SessionAffinityPenaltyTTL429)
 		case statusCode == 401 || statusCode == 402 || statusCode == 403:
 			// auth failure: mark key as dead
 			state.deadSet[idx] = struct{}{}
 			if policy.SessionAffinity && policy.SessionAffinityPenaltyEnable && redisClient != nil {
-				setKeyPenalty(cluster.Name, key.Name, fmt.Sprintf("%d", statusCode), 3600, policy, redisClient)
+				setKeyPenalty(cluster.Name, key.Name, fmt.Sprintf("%d", statusCode), policy.SessionAffinityPenaltyTTLAuth, policy, redisClient)
 				if sessionID != "" {
 					redisDeleteBinding(cluster.Name, sessionID, policy, redisClient)
 				}
 			}
-			log.Logger.Info("aiClusterInvoke: ai key [name=%s] auth failed (%d), dead", key.Name, statusCode)
+			log.Logger.Info("aiClusterInvoke: ai key [name=%s] auth failed (%d), dead, penalty_ttl=%ds",
+				key.Name, statusCode, policy.SessionAffinityPenaltyTTLAuth)
 		case statusCode >= 500 || err != nil:
 			// transient server failure or connection error:
 			// keep current key selected for next retry (with backoff)
@@ -2409,12 +2419,6 @@ var aiFallbackStatusCodes = map[int]struct{}{
 	422: {},
 	429: {},
 }
-
-// aiKeyPenaltyTTL429 is the penalty TTL (seconds) written for a key that the
-// upstream rate limited (429). It is also used as the Retry-After hint of the
-// gateway-generated NO_AVAILABLE_KEY response (issue #1441), so the write side
-// and the retry hint share a single source.
-const aiKeyPenaltyTTL429 = 60
 
 // aiGatewayFailureResponse builds the unified AiError response for a
 // gateway-side failure with a live client (issue #1441). A request that the
@@ -2667,11 +2671,26 @@ func selectAIKey(keys []cluster_conf.AIKey) (cluster_conf.AIKey, int) {
 // chooseNextAIKey returns next eligible key and its index.
 // If all keys are dead, returns (-1, empty key, false).
 // If all alive keys are in used_set, clears used_set and retries.
-func chooseNextAIKey(keys []cluster_conf.AIKey, state *aiKeyAttemptState) (int, cluster_conf.AIKey, bool) {
+// chooseNextAIKey selects a key among allowed (indices into keys; nil means
+// every index). The returned index is always an index into keys, which is the
+// space aiKeyAttemptState.deadSet / usedSet is keyed by.
+func chooseNextAIKey(keys []cluster_conf.AIKey, allowed []int, state *aiKeyAttemptState) (int, cluster_conf.AIKey, bool) {
+	ordered := allowed
+	if ordered == nil {
+		ordered = make([]int, len(keys))
+		for i := range keys {
+			ordered[i] = i
+		}
+	}
+
 	var eligible []cluster_conf.AIKey
 	var indices []int
 
-	for i, k := range keys {
+	for _, i := range ordered {
+		if i < 0 || i >= len(keys) {
+			continue
+		}
+		k := keys[i]
 		if k.Weight == 0 {
 			continue
 		}
@@ -2741,6 +2760,11 @@ func defaultAIKeyPolicy() cluster_conf.AIKeyPolicy {
 		SessionAffinityTTL:           600,
 		SessionAffinityRedisPrefix:   "bfe:ai:key_affinity",
 		SessionAffinityPenaltyEnable: true,
+
+		// Must stay identical to aiKeyPenaltyDefaultTTL* in cluster_conf and to
+		// the control-plane defaults.
+		SessionAffinityPenaltyTTL429:  60,
+		SessionAffinityPenaltyTTLAuth: 300,
 	}
 }
 
@@ -2884,28 +2908,42 @@ func isKeyPenalized(clusterName, keyName string, policy cluster_conf.AIKeyPolicy
 }
 
 func setKeyPenalty(clusterName, keyName, reason string, ttl int, policy cluster_conf.AIKeyPolicy, client redis_client.Client) {
+	if ttl <= 0 {
+		// Redis treats expire=0 as "never expire": skipping the write is far
+		// safer than turning a transient failure into a permanent penalty.
+		// The loader fills defaults, so this only fires for a policy that was
+		// built without AIKeyPolicyCheck.
+		log.Logger.Warn("aiKeyAffinity: skip penalty for key[%s] reason[%s]: invalid ttl[%d]", keyName, reason, ttl)
+		return
+	}
 	key := aiKeyAffinityPenaltyRedisKey(clusterName, keyName, policy.SessionAffinityRedisPrefix)
 	if err := client.Setex(key, []byte(reason), ttl); err != nil {
 		log.Logger.Warn("aiKeyAffinity: set penalty error[%v]", err)
 	}
 }
 
-func filterPenaltyKeys(clusterName string, keys []cluster_conf.AIKey, policy cluster_conf.AIKeyPolicy, client redis_client.Client) ([]cluster_conf.AIKey, int) {
-	var filtered []cluster_conf.AIKey
+// filterPenaltyKeys returns the indices (into keys) of the keys that may be
+// selected, plus the number of usable keys skipped because of a penalty.
+// Indices are kept in the caller's key space on purpose: the attempt state
+// (deadSet/usedSet) is keyed by the position in AIConf.Keys, so returning a
+// re-indexed sub-slice would make a healthy key look dead (see
+// docs/zh_cn/modifications/2026-11-04-ai-key-penalty-filter-index-mismatch/).
+func filterPenaltyKeys(clusterName string, keys []cluster_conf.AIKey, policy cluster_conf.AIKeyPolicy, client redis_client.Client) ([]int, int) {
+	var allowed []int
 	skipped := 0
-	for _, k := range keys {
+	for i, k := range keys {
 		if k.Weight == 0 {
 			// Weight=0 keys are never eligible for selection; they must not
 			// count as candidates (issue #1439).
 			continue
 		}
 		if !isKeyPenalized(clusterName, k.Name, policy, client) {
-			filtered = append(filtered, k)
+			allowed = append(allowed, i)
 		} else {
 			skipped++
 		}
 	}
-	if len(filtered) == 0 {
+	if len(allowed) == 0 {
 		// All usable keys are penalized (circuit breaker, issue #1439):
 		// return no candidates so chooseNextAIKey fails and aiClusterInvoke
 		// surfaces a synthetic 429 (issue #1440) for cluster fallback. The
@@ -2914,7 +2952,7 @@ func filterPenaltyKeys(clusterName string, keys []cluster_conf.AIKey, policy clu
 		log.Logger.Info("aiKeyAffinity: all usable keys penalized for cluster[%s], circuit break", clusterName)
 		return nil, skipped
 	}
-	return filtered, skipped
+	return allowed, skipped
 }
 
 func findKeyIndexByName(name string, keys []cluster_conf.AIKey) int {
@@ -2956,7 +2994,7 @@ func chooseAIKeyWithAffinity(
 
 	if client == nil || (sessionID == "" && batchHint == nil) ||
 		(!policy.SessionAffinity && batchHint == nil) {
-		idx, key, ok := chooseNextAIKey(keys, state)
+		idx, key, ok := chooseNextAIKey(keys, nil, state)
 		return idx, key, "", ok
 	}
 
@@ -2966,10 +3004,16 @@ func chooseAIKeyWithAffinity(
 		return 0, keys[0], keys[0].Name, true
 	}
 
-	candidateKeys := keys
+	// allowed is nil when the penalty filter is off (every key is a candidate).
+	// An empty non-nil slice means the circuit breaker fired, i.e. no key may be
+	// selected; the two must stay distinguishable for chooseNextAIKey.
+	var allowed []int
 	penaltySkipCount := 0
 	if policy.SessionAffinityPenaltyEnable {
-		candidateKeys, penaltySkipCount = filterPenaltyKeys(clusterName, keys, policy, client)
+		allowed, penaltySkipCount = filterPenaltyKeys(clusterName, keys, policy, client)
+		if allowed == nil {
+			allowed = []int{}
+		}
 	}
 
 	// batch-level binding takes precedence: it chains all lifecycle
@@ -2989,7 +3033,7 @@ func chooseAIKeyWithAffinity(
 	}
 
 	if !policy.SessionAffinity || sessionID == "" {
-		idx, key, ok := chooseNextAIKey(candidateKeys, state)
+		idx, key, ok := chooseNextAIKey(keys, allowed, state)
 		return idx, key, "", ok
 	}
 
@@ -2999,7 +3043,7 @@ func chooseAIKeyWithAffinity(
 		if proxyState != nil {
 			proxyState.ReqAiKeyAffinityRedisErr.Inc(1)
 		}
-		idx, key, ok := chooseNextAIKey(candidateKeys, state)
+		idx, key, ok := chooseNextAIKey(keys, allowed, state)
 		return idx, key, "", ok
 	}
 
@@ -3021,7 +3065,7 @@ func chooseAIKeyWithAffinity(
 		// binding stale (key removed/dead/penalized), continue to select a new key
 	}
 
-	idx, key, ok := chooseNextAIKey(candidateKeys, state)
+	idx, key, ok := chooseNextAIKey(keys, allowed, state)
 	if ok {
 		if err := redisSetBinding(clusterName, sessionID, key.Name, policy, client); err != nil {
 			log.Logger.Warn("aiKeyAffinity: redis set binding error[%v]", err)

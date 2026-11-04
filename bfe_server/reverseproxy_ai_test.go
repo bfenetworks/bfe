@@ -188,7 +188,7 @@ func TestChooseNextAIKeyRotateOn429(t *testing.T) {
 	state := newAIKeyAttemptState()
 
 	// first selection
-	idx1, key1, ok := chooseNextAIKey(keys, state)
+	idx1, key1, ok := chooseNextAIKey(keys, nil, state)
 	if !ok {
 		t.Fatal("expected to select a key")
 	}
@@ -197,7 +197,7 @@ func TestChooseNextAIKeyRotateOn429(t *testing.T) {
 	state.usedSet[idx1] = struct{}{}
 
 	// second selection should choose the other key
-	idx2, key2, ok := chooseNextAIKey(keys, state)
+	idx2, key2, ok := chooseNextAIKey(keys, nil, state)
 	if !ok {
 		t.Fatal("expected to select a key")
 	}
@@ -210,7 +210,7 @@ func TestChooseNextAIKeyRotateOn429(t *testing.T) {
 
 	// mark second key as 429 used, no eligible keys left
 	state.usedSet[idx2] = struct{}{}
-	_, _, ok = chooseNextAIKey(keys, state)
+	_, _, ok = chooseNextAIKey(keys, nil, state)
 	if !ok {
 		t.Error("expected reset used_set and reselect when all alive keys used")
 	}
@@ -224,7 +224,7 @@ func TestChooseNextAIKeyDeadOn403(t *testing.T) {
 	state := newAIKeyAttemptState()
 	state.deadSet[0] = struct{}{}
 
-	_, _, ok := chooseNextAIKey(keys, state)
+	_, _, ok := chooseNextAIKey(keys, nil, state)
 	if ok {
 		t.Error("expected no key available when the only key is dead")
 	}
@@ -263,6 +263,12 @@ func TestDefaultAIKeyPolicy(t *testing.T) {
 	}
 	if policy.RetryBackoffMax != 5000 {
 		t.Errorf("expected retry_backoff_max 5000, got %d", policy.RetryBackoffMax)
+	}
+	if policy.SessionAffinityPenaltyTTL429 != 60 {
+		t.Errorf("expected penalty ttl 429 default 60, got %d", policy.SessionAffinityPenaltyTTL429)
+	}
+	if policy.SessionAffinityPenaltyTTLAuth != 300 {
+		t.Errorf("expected penalty ttl auth default 300, got %d", policy.SessionAffinityPenaltyTTLAuth)
 	}
 }
 
@@ -507,6 +513,12 @@ func TestDefaultAIKeyPolicyIncludesAffinityDefaults(t *testing.T) {
 	}
 	if policy.SessionAffinityPenaltyEnable != true {
 		t.Errorf("expected SessionAffinityPenaltyEnable true, got %v", policy.SessionAffinityPenaltyEnable)
+	}
+	if policy.SessionAffinityPenaltyTTL429 != 60 {
+		t.Errorf("expected SessionAffinityPenaltyTTL429 60, got %d", policy.SessionAffinityPenaltyTTL429)
+	}
+	if policy.SessionAffinityPenaltyTTLAuth != 300 {
+		t.Errorf("expected SessionAffinityPenaltyTTLAuth 300, got %d", policy.SessionAffinityPenaltyTTLAuth)
 	}
 }
 
@@ -957,8 +969,11 @@ func TestAiClusterInvokeExhaustionReturnsSynthetic429(t *testing.T) {
 	}
 	// issue #1441: unified AiError body with error.code (§3.2 必填),
 	// retry_after_seconds detail and a Retry-After header.
-	if res.Header.Get("Retry-After") != strconv.Itoa(aiKeyPenaltyTTL429) {
-		t.Errorf("expected Retry-After %d, got %q", aiKeyPenaltyTTL429, res.Header.Get("Retry-After"))
+	// Issue #1448: the hint follows the 429 penalty TTL. This case has
+	// KeyPolicy == nil, so defaultAIKeyPolicy() supplies 60.
+	expectedRetryAfter := defaultAIKeyPolicy().SessionAffinityPenaltyTTL429
+	if res.Header.Get("Retry-After") != strconv.Itoa(expectedRetryAfter) {
+		t.Errorf("expected Retry-After %d, got %q", expectedRetryAfter, res.Header.Get("Retry-After"))
 	}
 	body, readErr := ioutil.ReadAll(res.Body)
 	if readErr != nil {
@@ -974,9 +989,139 @@ func TestAiClusterInvokeExhaustionReturnsSynthetic429(t *testing.T) {
 	if aiErrBody.Error.Type != bfe_basic.TypeRateLimitError {
 		t.Errorf("expected error.type %q, got %q", bfe_basic.TypeRateLimitError, aiErrBody.Error.Type)
 	}
-	if aiErrBody.Error.Details == nil || aiErrBody.Error.Details.RetryAfterSeconds != aiKeyPenaltyTTL429 {
-		t.Errorf("expected error.details.retry_after_seconds=%d, got %+v", aiKeyPenaltyTTL429, aiErrBody.Error.Details)
+	if aiErrBody.Error.Details == nil || aiErrBody.Error.Details.RetryAfterSeconds != expectedRetryAfter {
+		t.Errorf("expected error.details.retry_after_seconds=%d, got %+v", expectedRetryAfter, aiErrBody.Error.Details)
 	}
+}
+
+// TestAiClusterInvokeSynthetic429RetryAfterFollowsPolicy pins issue #1448: the
+// Retry-After hint of the synthetic 429 must follow the cluster's 429 penalty
+// TTL instead of a hard-coded constant. The cluster is built directly (bypassing
+// AIConfCheck), so the TTL is set explicitly on purpose: this is also the
+// "policy not normalized by the loader" boundary.
+func TestAiClusterInvokeSynthetic429RetryAfterFollowsPolicy(t *testing.T) {
+	intPtr := func(v int) *int { return &v }
+	boolPtr := func(v bool) *bool { return &v }
+	strPtr := func(v string) *string { return &v }
+
+	const (
+		clusterName  = "exhausted-cluster-ttl"
+		penaltyTTL   = 30
+		wantRetryTTL = 30
+	)
+
+	clusterConfs := cluster_conf.BfeClusterConf{
+		Version: strPtr("test"),
+		Config: &cluster_conf.ClusterToConf{
+			clusterName: {
+				ClusterBasic: &cluster_conf.ClusterBasicConf{
+					TimeoutReadClient:      intPtr(1000),
+					TimeoutWriteClient:     intPtr(1000),
+					TimeoutReadClientAgain: intPtr(1000),
+					ReqWriteBufferSize:     intPtr(4096),
+					ReqFlushInterval:       intPtr(0),
+					ResFlushInterval:       intPtr(0),
+					CancelOnClientClose:    boolPtr(false),
+					DisableHostHeader:      boolPtr(false),
+					DisableHealthCheck:     boolPtr(true),
+				},
+				AIConf: &cluster_conf.AIConf{
+					Keys: []cluster_conf.AIKey{
+						{Name: "key-zero", Key: "ak-zero", Weight: 0},
+					},
+					KeyPolicy: &cluster_conf.AIKeyPolicy{
+						SessionAffinityPenaltyTTL429:  penaltyTTL,
+						SessionAffinityPenaltyTTLAuth: 120,
+					},
+				},
+			},
+		},
+	}
+	clusterTable := new(bfe_route.ClusterTable)
+	clusterTable.BasicInit(clusterConfs)
+	serverConf := &bfe_route.ServerDataConf{ClusterTable: clusterTable}
+
+	conn, _ := net.Pipe()
+	defer conn.Close()
+	httpReq := &bfe_http.Request{
+		Method: "POST",
+		URL:    &url.URL{Path: "/v1/chat/completions"},
+		Header: bfe_http.Header{},
+		Body:   ioutil.NopCloser(strings.NewReader(`{"model":"m"}`)),
+	}
+	basicReq := &bfe_basic.Request{HttpRequest: httpReq, Connection: conn}
+
+	rp := NewReverseProxy(nil, new(ProxyState))
+	srv := &BfeServer{}
+	attempt := aiForwardAttempt{ClusterName: clusterName, Model: "m"}
+
+	res, _, _, err, _ := rp.aiClusterInvoke(srv, serverConf, basicReq, nil, attempt, nil, "m")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if res == nil || res.StatusCode != 429 {
+		t.Fatalf("expected synthetic 429, got %+v", res)
+	}
+	if got := res.Header.Get("Retry-After"); got != strconv.Itoa(wantRetryTTL) {
+		t.Errorf("expected Retry-After %d, got %q", wantRetryTTL, got)
+	}
+
+	body, readErr := ioutil.ReadAll(res.Body)
+	if readErr != nil {
+		t.Fatalf("read body failed: %v", readErr)
+	}
+	var aiErrBody bfe_basic.AiErrorBody
+	if jsonErr := json.Unmarshal(body, &aiErrBody); jsonErr != nil {
+		t.Fatalf("body is not a unified AiError JSON: %v, body: %s", jsonErr, body)
+	}
+	if aiErrBody.Error.Details == nil || aiErrBody.Error.Details.RetryAfterSeconds != wantRetryTTL {
+		t.Errorf("expected error.details.retry_after_seconds=%d, got %+v", wantRetryTTL, aiErrBody.Error.Details)
+	}
+}
+
+// TestSetKeyPenaltyTTL verifies issue #1448's write side: the TTL handed to
+// Redis comes from the cluster policy, and a non-positive TTL is dropped
+// instead of being written (Redis expire=0 means "never expire").
+func TestSetKeyPenaltyTTL(t *testing.T) {
+	policy := cluster_conf.AIKeyPolicy{
+		SessionAffinityRedisPrefix:    "bfe:ai:key_affinity",
+		SessionAffinityPenaltyTTL429:  30,
+		SessionAffinityPenaltyTTLAuth: 120,
+	}
+
+	t.Run("429 uses the 429 ttl", func(t *testing.T) {
+		client := newMockRedisClient()
+		setKeyPenalty("cluster", "key-a", "429", policy.SessionAffinityPenaltyTTL429, policy, client)
+		got, ok := client.data["bfe:ai:key_affinity:penalty:cluster:key-a"]
+		if !ok {
+			t.Fatal("expected a penalty key")
+		}
+		if got.expire != 30 {
+			t.Errorf("expected expire 30, got %d", got.expire)
+		}
+	})
+
+	t.Run("auth uses the auth ttl", func(t *testing.T) {
+		client := newMockRedisClient()
+		setKeyPenalty("cluster", "key-a", "401", policy.SessionAffinityPenaltyTTLAuth, policy, client)
+		got, ok := client.data["bfe:ai:key_affinity:penalty:cluster:key-a"]
+		if !ok {
+			t.Fatal("expected a penalty key")
+		}
+		if got.expire != 120 {
+			t.Errorf("expected expire 120, got %d", got.expire)
+		}
+	})
+
+	t.Run("non-positive ttl is not written", func(t *testing.T) {
+		for _, ttl := range []int{0, -1} {
+			client := newMockRedisClient()
+			setKeyPenalty("cluster", "key-a", "429", ttl, policy, client)
+			if len(client.data) != 0 {
+				t.Errorf("ttl %d: expected no penalty key, got %v", ttl, client.data)
+			}
+		}
+	})
 }
 
 // TestFilterPenaltyKeys_ExcludesZeroWeight verifies issue #1439: a Weight=0
@@ -991,9 +1136,9 @@ func TestFilterPenaltyKeys_ExcludesZeroWeight(t *testing.T) {
 		{Name: "key-a", Key: "ak-a", Weight: 100},
 		{Name: "key-z", Key: "ak-z", Weight: 0},
 	}
-	filtered, skipped := filterPenaltyKeys("cluster", keys, policy, client)
-	if len(filtered) != 0 {
-		t.Fatalf("expected no candidates (circuit break), got %v", filtered)
+	allowed, skipped := filterPenaltyKeys("cluster", keys, policy, client)
+	if len(allowed) != 0 {
+		t.Fatalf("expected no candidates (circuit break), got %v", allowed)
 	}
 	if skipped != 1 {
 		t.Errorf("expected skipped=1 (only the penalized usable key), got %d", skipped)
@@ -1013,12 +1158,90 @@ func TestFilterPenaltyKeys_CircuitBreakWhenAllPenalized(t *testing.T) {
 		{Name: "key-a", Key: "ak-a", Weight: 50},
 		{Name: "key-b", Key: "ak-b", Weight: 50},
 	}
-	filtered, skipped := filterPenaltyKeys("cluster", keys, policy, client)
-	if len(filtered) != 0 {
-		t.Fatalf("expected no candidates when all usable keys penalized, got %v", filtered)
+	allowed, skipped := filterPenaltyKeys("cluster", keys, policy, client)
+	if len(allowed) != 0 {
+		t.Fatalf("expected no candidates when all usable keys penalized, got %v", allowed)
 	}
 	if skipped != 2 {
 		t.Errorf("expected skipped=2, got %d", skipped)
+	}
+}
+
+// TestChooseAIKeyWithAffinity_PenalizedSiblingNotSkipped is the regression for
+// the index-space mismatch: with key-a (index 0) penalized and marked dead, the
+// healthy key-b must still be selectable. Before the fix the filtered
+// candidates were re-indexed, so deadSet[0] hit key-b and the request ended in a
+// synthetic 429 without trying it.
+func TestChooseAIKeyWithAffinity_PenalizedSiblingNotSkipped(t *testing.T) {
+	keys := []cluster_conf.AIKey{
+		{Name: "key-a", Key: "ak-a", Weight: 50},
+		{Name: "key-b", Key: "ak-b", Weight: 50},
+	}
+	policy := cluster_conf.AIKeyPolicy{
+		SessionAffinity:              true,
+		SessionAffinityPenaltyEnable: true,
+		SessionAffinityRedisPrefix:   "bfe:ai:key_affinity",
+	}
+	client := newMockRedisClient()
+	client.Setex("bfe:ai:key_affinity:penalty:cluster:key-a", []byte("401"), 300)
+
+	state := newAIKeyAttemptState()
+	state.deadSet[0] = struct{}{} // key-a failed in this request
+
+	idx, key, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", nil, nil)
+	if !ok {
+		t.Fatal("expected key-b to be selectable, got no candidate (index mismatch)")
+	}
+	if key.Name != "key-b" || idx != 1 {
+		t.Fatalf("expected key-b at index 1, got %s at %d", key.Name, idx)
+	}
+}
+
+// TestChooseNextAIKey_AllowedKeepsOriginalIndex pins the index contract of
+// chooseNextAIKey: `allowed` is interpreted in the keys space, and nil means
+// "every index" while an empty slice means "no candidate".
+func TestChooseNextAIKey_AllowedKeepsOriginalIndex(t *testing.T) {
+	keys := []cluster_conf.AIKey{
+		{Name: "key-a", Key: "ak-a", Weight: 50},
+		{Name: "key-b", Key: "ak-b", Weight: 50},
+	}
+	state := newAIKeyAttemptState()
+	state.deadSet[0] = struct{}{} // key-a dead, and it is not in allowed anyway
+
+	idx, key, ok := chooseNextAIKey(keys, []int{1}, state)
+	if !ok || idx != 1 || key.Name != "key-b" {
+		t.Fatalf("expected key-b at index 1, got %s at %d (ok=%v)", key.Name, idx, ok)
+	}
+
+	if _, _, ok := chooseNextAIKey(keys, []int{}, state); ok {
+		t.Error("an empty allowed slice must mean no candidate")
+	}
+}
+
+// TestChooseAIKeyWithAffinity_WeightZeroBeforeUsable covers the other shifting
+// shape: a Weight=0 key before the usable one. The returned index must point at
+// the usable key, so the caller's dead mark lands on the right entry.
+func TestChooseAIKeyWithAffinity_WeightZeroBeforeUsable(t *testing.T) {
+	keys := []cluster_conf.AIKey{
+		{Name: "key-z", Key: "ak-z", Weight: 0},
+		{Name: "key-a", Key: "ak-a", Weight: 100},
+	}
+	policy := cluster_conf.AIKeyPolicy{
+		SessionAffinity:              true,
+		SessionAffinityPenaltyEnable: true,
+		SessionAffinityRedisPrefix:   "bfe:ai:key_affinity",
+	}
+	client := newMockRedisClient()
+	state := newAIKeyAttemptState()
+
+	idx, key, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", nil, nil)
+	if !ok || idx != 1 || key.Name != "key-a" {
+		t.Fatalf("expected key-a at index 1, got %s at %d (ok=%v)", key.Name, idx, ok)
+	}
+
+	state.deadSet[idx] = struct{}{}
+	if _, _, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", nil, nil); ok {
+		t.Error("expected no candidate once the only usable key is marked dead")
 	}
 }
 
@@ -1032,9 +1255,11 @@ func TestFilterPenaltyKeys_ZeroWeightNotCandidate(t *testing.T) {
 		{Name: "key-z", Key: "ak-z", Weight: 0},
 		{Name: "key-a", Key: "ak-a", Weight: 100},
 	}
-	filtered, skipped := filterPenaltyKeys("cluster", keys, policy, client)
-	if len(filtered) != 1 || filtered[0].Name != "key-a" {
-		t.Fatalf("expected [key-a], got %v", filtered)
+	allowed, skipped := filterPenaltyKeys("cluster", keys, policy, client)
+	// The surviving index must stay in the caller's key space: key-a is the
+	// second entry of `keys`, so the filter has to return 1, not 0.
+	if len(allowed) != 1 || allowed[0] != 1 {
+		t.Fatalf("expected [1] (key-a keeps its original index), got %v", allowed)
 	}
 	if skipped != 0 {
 		t.Errorf("expected skipped=0 (Weight=0 exclusion is not a penalty skip), got %d", skipped)
