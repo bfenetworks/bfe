@@ -241,5 +241,5 @@ go vet ./bfe_config/... ./bfe_server/...
 ### 8.5 遗留事项
 
 1. **未提交、未推送 fork**：需要人工确认后提交；控制面方案依赖 fork 上含本改动的提交（伪版本号待推送后回填）。
-2. **发现的既有缺陷（不在本期范围）**：`chooseNextAIKey` 用传入切片下标索引 `deadSet`/`usedSet`，而 `filterPenaltyKeys` 返回的是过滤后的子切片，下标会重排。2 把 Key 时，若第一把先返回 401（dead + 惩罚过滤），剩下的健康 Key 可能被误判为 dead，同一请求直接合成 429、健康 Key 未获尝试；429 路径因 `usedSet` 会重置而不受影响。详见 `tests/integration/测试设计文档/scenario-SC46-Key惩罚时长可配置/场景说明.md` §8，建议单独开卡修复。
+2. **发现的既有缺陷（已单独修复）**：`chooseNextAIKey` 用传入切片下标索引 `deadSet`/`usedSet`，而 `filterPenaltyKeys` 返回的是过滤后的子切片，下标会重排。2 把 Key 时，若第一把先返回 401（dead + 惩罚过滤），剩下的健康 Key 可能被误判为 dead，同一请求直接合成 429、健康 Key 未获尝试；429 路径因 `usedSet` 会重置而不受影响。该缺陷已由 `docs/zh_cn/modifications/2026-11-04-ai-key-penalty-filter-index-mismatch/` 修复（下标空间统一为 `AIConf.Keys` 原始下标），SC46 TC-07 为其回归用例；本卡（#1448）的 TC-01 相应恢复为「两个惩罚键」严格断言。
 3. 命中侧剩余 TTL 日志（需 `PTTL` 与 4 处实现/桩）仍为二期。

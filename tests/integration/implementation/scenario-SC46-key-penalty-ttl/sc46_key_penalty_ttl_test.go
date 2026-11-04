@@ -389,12 +389,10 @@ func TestTC01_DefaultPenaltyTTL(t *testing.T) {
 			t.Logf("response body: %s", body)
 		}
 		e.assertPenaltyTTLs(300 * time.Second)
-		// 401 marks the key dead, and a pre-existing index mismatch in the
-		// penalty filter can skip the healthy sibling within the same request
-		// (see 场景说明.md §8), so only "at least one key penalized" is
-		// guaranteed here.
-		if got := len(e.penaltyKeys()); got < 1 {
-			t.Errorf("expected at least one penalized key, got %d", got)
+		// After the index-space fix the dead mark lands on the failed key, so
+		// the retry reaches the healthy sibling and both keys get penalized.
+		if got := len(e.penaltyKeys()); got != 2 {
+			t.Errorf("expected both keys penalized, got %d penalty keys", got)
 		}
 	})
 
@@ -616,4 +614,45 @@ func TestTC06_ZeroFieldsDefault(t *testing.T) {
 		}
 		e.assertPenaltyTTLs(60 * time.Second)
 	})
+}
+
+// TestTC07_HealthySiblingNotSkipped is the regression for the index-space
+// mismatch fixed in 2026-11-04-ai-key-penalty-filter-index-mismatch: a key that
+// just failed and got penalized must not make the healthy sibling look dead.
+// The session is pre-bound to key-a (index 0), key-a answers 401 and key-b 200,
+// so one request must rotate to key-b instead of returning a synthetic 429.
+func TestTC07_HealthySiblingNotSkipped(t *testing.T) {
+	e := newTestEnv(t, 60, 300, nil, func(r *http.Request, count int) (int, string) {
+		if strings.Contains(r.Header.Get("Authorization"), keyA) {
+			return http.StatusUnauthorized, `{"error":"invalid api key"}`
+		}
+		return http.StatusOK, `{"ok":true}`
+	})
+	defer e.Close()
+
+	// Pin the first pick to key-a, the shape that used to hide key-b.
+	e.redis.Set("bfe:ai:key_affinity:"+clusterName+":"+apiKeyId, "key-a")
+
+	resp, body, err := e.sendRequest()
+	if err != nil {
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected 200 from the healthy sibling, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	headers := e.backend.AuthHeaders()
+	if len(headers) != 2 {
+		t.Fatalf("expected 2 upstream attempts (key-a then key-b), got %d: %v", len(headers), headers)
+	}
+	if !strings.Contains(headers[0], keyA) || !strings.Contains(headers[1], keyB) {
+		t.Errorf("expected key-a then key-b, got %v", headers)
+	}
+
+	keys := e.penaltyKeys()
+	if len(keys) != 1 || !strings.HasSuffix(keys[0], ":key-a") {
+		t.Errorf("expected only key-a penalized, got %v", keys)
+	}
+	e.assertPenaltyTTLs(300 * time.Second)
 }

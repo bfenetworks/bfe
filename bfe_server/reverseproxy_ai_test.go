@@ -188,7 +188,7 @@ func TestChooseNextAIKeyRotateOn429(t *testing.T) {
 	state := newAIKeyAttemptState()
 
 	// first selection
-	idx1, key1, ok := chooseNextAIKey(keys, state)
+	idx1, key1, ok := chooseNextAIKey(keys, nil, state)
 	if !ok {
 		t.Fatal("expected to select a key")
 	}
@@ -197,7 +197,7 @@ func TestChooseNextAIKeyRotateOn429(t *testing.T) {
 	state.usedSet[idx1] = struct{}{}
 
 	// second selection should choose the other key
-	idx2, key2, ok := chooseNextAIKey(keys, state)
+	idx2, key2, ok := chooseNextAIKey(keys, nil, state)
 	if !ok {
 		t.Fatal("expected to select a key")
 	}
@@ -210,7 +210,7 @@ func TestChooseNextAIKeyRotateOn429(t *testing.T) {
 
 	// mark second key as 429 used, no eligible keys left
 	state.usedSet[idx2] = struct{}{}
-	_, _, ok = chooseNextAIKey(keys, state)
+	_, _, ok = chooseNextAIKey(keys, nil, state)
 	if !ok {
 		t.Error("expected reset used_set and reselect when all alive keys used")
 	}
@@ -224,7 +224,7 @@ func TestChooseNextAIKeyDeadOn403(t *testing.T) {
 	state := newAIKeyAttemptState()
 	state.deadSet[0] = struct{}{}
 
-	_, _, ok := chooseNextAIKey(keys, state)
+	_, _, ok := chooseNextAIKey(keys, nil, state)
 	if ok {
 		t.Error("expected no key available when the only key is dead")
 	}
@@ -1136,9 +1136,9 @@ func TestFilterPenaltyKeys_ExcludesZeroWeight(t *testing.T) {
 		{Name: "key-a", Key: "ak-a", Weight: 100},
 		{Name: "key-z", Key: "ak-z", Weight: 0},
 	}
-	filtered, skipped := filterPenaltyKeys("cluster", keys, policy, client)
-	if len(filtered) != 0 {
-		t.Fatalf("expected no candidates (circuit break), got %v", filtered)
+	allowed, skipped := filterPenaltyKeys("cluster", keys, policy, client)
+	if len(allowed) != 0 {
+		t.Fatalf("expected no candidates (circuit break), got %v", allowed)
 	}
 	if skipped != 1 {
 		t.Errorf("expected skipped=1 (only the penalized usable key), got %d", skipped)
@@ -1158,12 +1158,90 @@ func TestFilterPenaltyKeys_CircuitBreakWhenAllPenalized(t *testing.T) {
 		{Name: "key-a", Key: "ak-a", Weight: 50},
 		{Name: "key-b", Key: "ak-b", Weight: 50},
 	}
-	filtered, skipped := filterPenaltyKeys("cluster", keys, policy, client)
-	if len(filtered) != 0 {
-		t.Fatalf("expected no candidates when all usable keys penalized, got %v", filtered)
+	allowed, skipped := filterPenaltyKeys("cluster", keys, policy, client)
+	if len(allowed) != 0 {
+		t.Fatalf("expected no candidates when all usable keys penalized, got %v", allowed)
 	}
 	if skipped != 2 {
 		t.Errorf("expected skipped=2, got %d", skipped)
+	}
+}
+
+// TestChooseAIKeyWithAffinity_PenalizedSiblingNotSkipped is the regression for
+// the index-space mismatch: with key-a (index 0) penalized and marked dead, the
+// healthy key-b must still be selectable. Before the fix the filtered
+// candidates were re-indexed, so deadSet[0] hit key-b and the request ended in a
+// synthetic 429 without trying it.
+func TestChooseAIKeyWithAffinity_PenalizedSiblingNotSkipped(t *testing.T) {
+	keys := []cluster_conf.AIKey{
+		{Name: "key-a", Key: "ak-a", Weight: 50},
+		{Name: "key-b", Key: "ak-b", Weight: 50},
+	}
+	policy := cluster_conf.AIKeyPolicy{
+		SessionAffinity:              true,
+		SessionAffinityPenaltyEnable: true,
+		SessionAffinityRedisPrefix:   "bfe:ai:key_affinity",
+	}
+	client := newMockRedisClient()
+	client.Setex("bfe:ai:key_affinity:penalty:cluster:key-a", []byte("401"), 300)
+
+	state := newAIKeyAttemptState()
+	state.deadSet[0] = struct{}{} // key-a failed in this request
+
+	idx, key, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", nil, nil)
+	if !ok {
+		t.Fatal("expected key-b to be selectable, got no candidate (index mismatch)")
+	}
+	if key.Name != "key-b" || idx != 1 {
+		t.Fatalf("expected key-b at index 1, got %s at %d", key.Name, idx)
+	}
+}
+
+// TestChooseNextAIKey_AllowedKeepsOriginalIndex pins the index contract of
+// chooseNextAIKey: `allowed` is interpreted in the keys space, and nil means
+// "every index" while an empty slice means "no candidate".
+func TestChooseNextAIKey_AllowedKeepsOriginalIndex(t *testing.T) {
+	keys := []cluster_conf.AIKey{
+		{Name: "key-a", Key: "ak-a", Weight: 50},
+		{Name: "key-b", Key: "ak-b", Weight: 50},
+	}
+	state := newAIKeyAttemptState()
+	state.deadSet[0] = struct{}{} // key-a dead, and it is not in allowed anyway
+
+	idx, key, ok := chooseNextAIKey(keys, []int{1}, state)
+	if !ok || idx != 1 || key.Name != "key-b" {
+		t.Fatalf("expected key-b at index 1, got %s at %d (ok=%v)", key.Name, idx, ok)
+	}
+
+	if _, _, ok := chooseNextAIKey(keys, []int{}, state); ok {
+		t.Error("an empty allowed slice must mean no candidate")
+	}
+}
+
+// TestChooseAIKeyWithAffinity_WeightZeroBeforeUsable covers the other shifting
+// shape: a Weight=0 key before the usable one. The returned index must point at
+// the usable key, so the caller's dead mark lands on the right entry.
+func TestChooseAIKeyWithAffinity_WeightZeroBeforeUsable(t *testing.T) {
+	keys := []cluster_conf.AIKey{
+		{Name: "key-z", Key: "ak-z", Weight: 0},
+		{Name: "key-a", Key: "ak-a", Weight: 100},
+	}
+	policy := cluster_conf.AIKeyPolicy{
+		SessionAffinity:              true,
+		SessionAffinityPenaltyEnable: true,
+		SessionAffinityRedisPrefix:   "bfe:ai:key_affinity",
+	}
+	client := newMockRedisClient()
+	state := newAIKeyAttemptState()
+
+	idx, key, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", nil, nil)
+	if !ok || idx != 1 || key.Name != "key-a" {
+		t.Fatalf("expected key-a at index 1, got %s at %d (ok=%v)", key.Name, idx, ok)
+	}
+
+	state.deadSet[idx] = struct{}{}
+	if _, _, _, ok := chooseAIKeyWithAffinity("cluster", keys, policy, state, client, "session-1", nil, nil); ok {
+		t.Error("expected no candidate once the only usable key is marked dead")
 	}
 }
 
@@ -1177,9 +1255,11 @@ func TestFilterPenaltyKeys_ZeroWeightNotCandidate(t *testing.T) {
 		{Name: "key-z", Key: "ak-z", Weight: 0},
 		{Name: "key-a", Key: "ak-a", Weight: 100},
 	}
-	filtered, skipped := filterPenaltyKeys("cluster", keys, policy, client)
-	if len(filtered) != 1 || filtered[0].Name != "key-a" {
-		t.Fatalf("expected [key-a], got %v", filtered)
+	allowed, skipped := filterPenaltyKeys("cluster", keys, policy, client)
+	// The surviving index must stay in the caller's key space: key-a is the
+	// second entry of `keys`, so the filter has to return 1, not 0.
+	if len(allowed) != 1 || allowed[0] != 1 {
+		t.Fatalf("expected [1] (key-a keeps its original index), got %v", allowed)
 	}
 	if skipped != 0 {
 		t.Errorf("expected skipped=0 (Weight=0 exclusion is not a penalty skip), got %d", skipped)
