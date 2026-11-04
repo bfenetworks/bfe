@@ -189,6 +189,7 @@ Configuration hot-reload does not reset the OPEN state (avoiding a thundering he
 | AIConf.StripPrefix | Boolean | Whether to strip the prefix specified by `MatchPrefix` | N | When `true`, the prefix is removed from the request model field before forwarding to the backend; when `false`, the prefix is only used as a routing marker and not stripped | Defaults to `false` |
 | AIConf.ModelProtocols | []String | Model access protocols supported by this cluster's provider | N | e.g. `["openai"]`, `["openai", "anthropic"]`; empty defaults to `["openai"]` | Each element must be `openai`, `anthropic` or `gemini` |
 | AIConf.ProtocolPaths | Map[string]string | Per-protocol upstream path rewrite: protocol -> upstream base path (the path part of the protocol SDK's base_url) | N | See "AIConf.ProtocolPaths semantics" below | Keys must be `openai` or `anthropic`; values must start with `/`, must not end with `/`, must not contain `..`/`?`/`#`, and length must be <= 128 |
+| AIConf.EnsureReasoningContent | []String | Model protocols for which the gateway fills an empty `reasoning_content` on assistant messages | N | Adapts upstream thinking-mode validation that requires `reasoning_content` to be passed back; empty (default) disables it and the request path is unchanged. See "AIConf.EnsureReasoningContent elements" below | Each element must be `openai` or `anthropic`, and must be listed in this cluster's `ModelProtocols` (empty means `["openai"]`). `gemini` **does not apply** (its body is a `contents/parts` structure with no place for `reasoning_content`); configuring it is an error |
 | AIConf.NormalizeUpstreamError | Object | Upstream error normalization (unified error codes) configuration | N | When absent or `Enabled=false`, upstream errors (HTTP status and body) are passed through unchanged, consistent with historical behavior | See the "AIConf.NormalizeUpstreamError elements" table below |
 | AIConf.ModelTable | Object | Model pricing table of this cluster | N | Automatically populated by ai-gateway-api by querying `model_prices` based on `Provider`; currency is fixed to `RMB` for now | See the "AIConf.ModelTable elements" table below |
 | AIConf.PriceMissAction | String | Action taken when the `(model, mode)` price entry is absent (issue #1479): `fallback_chat` (default; bill at the model's chat-mode price, issue #1408 behavior), `bill_zero` (bill 0, issue #1382 behavior) or `reject` (reject before forwarding with 503 `PRICE_NOT_CONFIGURED`; no upstream call, no billing). An empty value is normalized to `fallback_chat` at load time | Must be `fallback_chat`, `bill_zero` or `reject`; under `reject`, a missing `ModelTable` counts as unpriced and is rejected too |
@@ -279,6 +280,31 @@ Behavior notes:
 - Upstream 401/402/403 is remapped to 502 `UPSTREAM_AUTH_ERROR`, distinguishing it from a client-credential 401; upstream 5xx is remapped to 500/504, etc. (see the error code catalog for the full mapping);
 - Gateway-generated errors (auth, rate-limit, quota, etc.) are already in the unified format and are not normalized;
 - When this field is absent (or both switches are `false`), the forwarding path is unchanged and existing configurations remain compatible.
+
+##### AIConf.EnsureReasoningContent elements
+
+`EnsureReasoningContent` declares which protocols get `reasoning_content` normalization: some thinking-mode models require every assistant message after the last `user` message to carry `reasoning_content` (a missing field or `null` returns 400), while those models themselves have turns that produce no reasoning text — a client that faithfully mirrors the upstream response therefore hits that 400. When configured, the gateway fills the empty string `""` ("no reasoning in this turn") inside the validation window. Implementation note: `docs/zh_cn/modifications/2026-11-03-ai-reasoning-content-normalization/design-changes.md`. Usually distributed per cluster by ai-gateway-api.
+
+```json
+{
+    "EnsureReasoningContent": ["openai"]
+}
+```
+
+| Configuration Item | Type | Meaning | Required | Supplementary Description | Validity Condition |
+| ------------------ | ------- | -------------------- | -------- | ------------------------------------------------------------ | -------------------------------- |
+| AIConf.EnsureReasoningContent | []String | Protocol list, enabled per protocol; empty (absent or `[]`) disables it | N | Under `openai`, adds `"reasoning_content": ""` to assistant messages inside `messages[]`; under `anthropic`, inserts an empty thinking block `{"type":"thinking","thinking":"","signature":""}` at the head of the assistant `content` array | Elements must be `openai` or `anthropic`, and each must be listed in this cluster's `ModelProtocols` (empty means `["openai"]`) |
+
+Behavior notes:
+
+- **Minimal byte change**: an empty string is inserted only when `reasoning_content` is missing or `null`; an existing non-empty value is never touched. The write is in place — field order is preserved and no other byte changes, so upstream parsing of the rest of the body is unaffected;
+- **Window**: only assistant messages after the last `user` message are processed; historical messages are left untouched (the upstream validates that window only);
+- **Per attempt**: the switch is a cluster-level setting, so an attempt that falls back to a cluster without the field is unaffected; re-entering an enabled cluster with an already-patched body does not patch it twice (idempotent);
+- **Cases where it does nothing** (the body is passed through unchanged, never causing a new failure): batch/file mode (`mod_ai_batch` streaming passthrough), non-JSON `Content-Type`, a body carrying `Content-Encoding`, a body larger than `Server.AccessibleBodySize` (default 2MB — it cannot be read in full), and malformed or unparsable request bodies;
+- **Endpoints with a different shape are not handled**: for `/responses` (Responses API) the reasoning lives in standalone `input` items, so there is no injection point and the gateway leaves it alone;
+- **Why `gemini` is excluded**: a Gemini request body (`/v1beta/models/*:generateContent` and friends) is a `contents[].parts[]` structure — there is no `messages` array and no `reasoning_content` field, hence no place to inject; its thinking carry-back uses a different mechanism (`thought` / `thoughtSignature`) that an empty-string fill cannot satisfy. The field therefore **rejects `gemini`** at load time instead of silently doing nothing; should an equivalent "must pass thinking back" contract appear for that protocol, implement the branch first and then widen the accepted values;
+- **Observability**: `proxy_state` counters `ReasoningPatched` (patched), `ReasoningSkip` (skipped for the reasons above), `ReasoningFail` (parse failure, passed through) and `ReasoningStill400` (patched yet still 400 — the upstream contract changed; clear this field immediately);
+- **Sunset**: once the upstream fixes its contract, clear this field; no state is left behind.
 
 ## Configuration Example
 

@@ -2096,6 +2096,12 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 		}
 	}
 
+	// Provider-level compensating normalization (AIConf.EnsureReasoningContent):
+	// fill an empty reasoning_content inside the upstream validation window.
+	// Runs after the HandleAfterAITargetModel callbacks and after the model
+	// rewrite, both of which may rewrite the body.
+	reasoningPatched := p.ensureReasoningContent(basicReq, outreq, cluster.AIConf, aiMeta)
+
 	// apply cluster.AIConf (api key, provider, cost currency)
 	if cluster.AIConf != nil {
 		if cluster.AIConf.Provider != "" {
@@ -2137,6 +2143,14 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 
 	// invoke cluster to get response
 	res, action, err = p.clusterInvoke(srv, cluster, basicReq, rw)
+
+	// Contract-reversal signal: the body was patched for this attempt and the
+	// upstream still answered 400. Counted before the fallback decision so the
+	// signal survives a later attempt that succeeds.
+	if reasoningPatched && res != nil && res.StatusCode == 400 {
+		incStateCounter(p.proxyState.ReasoningStill400)
+	}
+
 	return res, action, err, newBodyModel
 }
 
