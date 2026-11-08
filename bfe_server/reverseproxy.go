@@ -1487,6 +1487,13 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		})
 	}
 
+	// Settle the replay-retained body buffers when the request reaches its
+	// terminal state. The explicit release after the attempts loop below does
+	// the work; this defer is the backstop for early exits and panics. It is
+	// registered before the wrapping that may retain a buffer, so no exit path
+	// can leave the gauge counted (issue #1494).
+	defer releaseRetainedBodyBuffers(basicReq)
+
 	// ensure request body is rewindable before attempting fallbacks
 	if len(attempts) > 1 && basicReq.HttpRequest.Body != nil {
 		if isBatchPassthroughMode(aiMeta) {
@@ -1494,18 +1501,13 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 			// must never be buffered for retry: forward exactly once
 			log.Logger.Debug("ServeHTTPForAI: batch/file mode, disable fallback")
 			attempts = attempts[:1]
-		} else if !prepareRequestBodyForRetry(basicReq.HttpRequest) {
+		} else if body, ok := prepareRequestBodyForRetry(basicReq.HttpRequest); ok {
+			retainBodyBufferForReplay(basicReq, body)
+		} else {
 			log.Logger.Warn("ServeHTTPForAI: request body is not rewindable, disable fallback")
 			attempts = attempts[:1]
 		}
 	}
-
-	// The request body buffer stays accounted for as long as any attempt
-	// (cluster fallback or key-level retry inside aiClusterInvoke) may still
-	// rewind it; settle the gauge when ServeHTTPForAI returns, i.e. after
-	// the attempts loop, when no more Rewind is possible. No-op when nothing
-	// was retained (Close already released the gauge) (issue #1494).
-	defer bfe_http.ReleaseBodyBuffer(basicReq.HttpRequest.Body)
 
 	// bodyModel tracks the model currently in the request body.
 	// aiMeta.ClientModel was already extracted from the request body before
@@ -1565,6 +1567,13 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 			res.Body.Close()
 		}
 	}
+
+	// No attempt can rewind the request body once the loop has settled:
+	// release the replay accounting here rather than at function return, so a
+	// long response (SSE) does not keep the buffer in the gauge and in the
+	// fallback retry quota. The deferred release above is the backstop
+	// (issue #1494).
+	releaseRetainedBodyBuffers(basicReq)
 
 	// Upstream error normalization (AIConf.NormalizeUpstreamError): rewrite
 	// the final upstream error into the unified error catalog. Runs after
@@ -2219,7 +2228,9 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 		policy.MaxRetries = 0
 	}
 	if keyRetryEnabled {
-		if !prepareRequestBodyForRetry(basicReq.HttpRequest) {
+		if body, ok := prepareRequestBodyForRetry(basicReq.HttpRequest); ok {
+			retainBodyBufferForReplay(basicReq, body)
+		} else {
 			log.Logger.Warn("aiClusterInvoke: request body is not rewindable, disable key-level retry for cluster[%s]",
 				attempt.ClusterName)
 			keyRetryEnabled = false
@@ -2603,34 +2614,89 @@ func isBatchPassthroughMode(aiMeta *bfe_basic.AiBasicInfo) bool {
 // If the body already implements Rewindable, it returns true directly.
 // Otherwise, it tries to convert the body to bytes_body via GetBodyAccessor.
 // It rejects wrapping when the total bytes_body buffer size reaches the limit.
-// On success the body buffer is marked retained for replay: it stays
+// On success the returned body is the buffer retained for replay: it stays
 // accounted for in TotalBytesBodyBuffer until the caller settles it with
-// ReleaseBodyBuffer at the request's terminal state (issue #1494).
-func prepareRequestBodyForRetry(req *bfe_http.Request) bool {
+// releaseRetainedBodyBuffers at the request's terminal state (issue #1494).
+// The body is nil when the body type carries no bytes_body accounting.
+func prepareRequestBodyForRetry(req *bfe_http.Request) (io.ReadCloser, bool) {
 	// if total buffer size already reaches the limit, do not wrap (no retry)
 	if limit := bfe_http.TotalBodyBufferSizeLimit(); limit > 0 {
 		if bfe_http.TotalBytesBodyBuffer() >= limit {
-			return false
+			return nil, false
 		}
 	}
 	if req.Body == nil {
-		return true
+		return nil, true
 	}
 	if _, ok := req.Body.(bfe_http.Rewindable); ok {
-		// The buffer stays accounted for as long as an attempt may still
-		// rewind it (issue #1494); ServeHTTPForAI settles the gauge with a
-		// deferred ReleaseBodyBuffer at the request's terminal state.
-		bfe_http.RetainBodyBufferForRetry(req.Body)
-		return true
+		return retainRequestBody(req.Body)
 	}
 	if _, err := req.GetBodyAccessor(); err != nil {
-		return false
+		return nil, false
 	}
-	_, ok := req.Body.(bfe_http.Rewindable)
-	if ok {
-		bfe_http.RetainBodyBufferForRetry(req.Body)
+	if _, ok := req.Body.(bfe_http.Rewindable); !ok {
+		return nil, false
 	}
-	return ok
+	return retainRequestBody(req.Body)
+}
+
+// retainRequestBody marks body as retained for replay and returns it for the
+// terminal settlement (nil for bodies without bytes_body accounting).
+func retainRequestBody(body io.ReadCloser) (io.ReadCloser, bool) {
+	if _, ok := body.(bfe_http.RetryBuffer); ok {
+		bfe_http.RetainBodyBufferForRetry(body)
+		return body, true
+	}
+	return nil, true
+}
+
+// retainedBodyBuffers records the body buffers a request retained for
+// fallback/key retry replay. Settling this record instead of re-reading
+// req.Body binds the release to the object that was actually retained, even
+// if the body pointer is replaced between the wrap and the terminal state
+// (issue #1494).
+type retainedBodyBuffers struct {
+	bodies []io.ReadCloser
+}
+
+const ctxRetainedBodyBuffers = "retained_body_buffers"
+
+// retainBodyBufferForReplay records body for the request's terminal
+// settlement. No-op for nil bodies (nothing was accounted) and defensive about
+// a request without a context map.
+func retainBodyBufferForReplay(basicReq *bfe_basic.Request, body io.ReadCloser) {
+	if basicReq == nil || body == nil {
+		return
+	}
+	holder, _ := basicReq.GetContext(ctxRetainedBodyBuffers).(*retainedBodyBuffers)
+	if holder == nil {
+		if basicReq.Context == nil {
+			basicReq.Context = make(map[interface{}]interface{})
+		}
+		holder = &retainedBodyBuffers{}
+		basicReq.SetContext(ctxRetainedBodyBuffers, holder)
+	}
+	holder.bodies = append(holder.bodies, body)
+}
+
+// releaseRetainedBodyBuffers settles the accounting of every buffer the
+// request retained. Idempotent: the record is dropped on the first call, so
+// the deferred backstop that follows the explicit release is a no-op
+// (issue #1494).
+func releaseRetainedBodyBuffers(basicReq *bfe_basic.Request) {
+	if basicReq == nil {
+		return
+	}
+	holder, _ := basicReq.GetContext(ctxRetainedBodyBuffers).(*retainedBodyBuffers)
+	if holder == nil || len(holder.bodies) == 0 {
+		return
+	}
+	bodies := holder.bodies
+	holder.bodies = nil
+	basicReq.SetContext(ctxRetainedBodyBuffers, nil)
+	for _, body := range bodies {
+		bfe_http.ReleaseBodyBuffer(body)
+	}
 }
 
 // rewindRequestBody rewinds the request body to the beginning.

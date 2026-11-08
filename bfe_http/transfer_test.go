@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"io"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -213,9 +214,10 @@ func TestBytesBodyReleaseIdempotentAndCloseAfterRelease(t *testing.T) {
 	}
 }
 
-// Issue #1494: SetBytes on an already released buffer re-activates the
-// accounting (defensive branch); a later Release settles it again.
-func TestBytesBodySetBytesReactivatesAfterRelease(t *testing.T) {
+// Issue #1494: a released buffer stays out of the accounting. Re-activating
+// it on a later SetBytes would count bytes nobody settles on the non-retained
+// Close-then-Rewind paths (e.g. mod_ai_batch rewinding a consumed body).
+func TestBytesBodyRewindAfterReleaseUnretainedNoop(t *testing.T) {
 	resetTotalBytesBodyBuffer()
 	defer resetTotalBytesBodyBuffer()
 
@@ -224,21 +226,54 @@ func TestBytesBodySetBytesReactivatesAfterRelease(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewBytesBody failed: %v", err)
 	}
+	if err := body.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
+	}
+	if got := TotalBytesBodyBuffer(); got != 0 {
+		t.Fatalf("expected total 0 after close, got %d", got)
+	}
+
+	// all=true bodies can still be rewound after Close; the accounting must
+	// not come back (nobody would settle it).
+	body.(BodyAccessor).SetBytes([]byte("hello world"), true)
+	if got := TotalBytesBodyBuffer(); got != 0 {
+		t.Fatalf("SetBytes after release must not re-activate accounting: total = %d, want 0", got)
+	}
+}
+
+// Issue #1494: Close() runs on the transport's write goroutine while
+// Release() runs on the request goroutine; the settlement must stay
+// exactly-once (run with -race).
+func TestBytesBodyConcurrentCloseRelease(t *testing.T) {
+	resetTotalBytesBodyBuffer()
+	defer resetTotalBytesBodyBuffer()
+
+	data := []byte("concurrent body")
+	body, err := NewBytesBody(io.NopCloser(bytes.NewReader(data)), int64(len(data)+1))
+	if err != nil {
+		t.Fatalf("NewBytesBody failed: %v", err)
+	}
 	body.(RetryBuffer).RetainForRetry()
-	ReleaseBodyBuffer(body)
-	if got := TotalBytesBodyBuffer(); got != 0 {
-		t.Fatalf("expected total 0 after Release, got %d", got)
+	if got := TotalBytesBodyBuffer(); got != int64(len(data)) {
+		t.Fatalf("expected total %d after wrap, got %d", len(data), got)
 	}
 
-	newData := []byte("hello world")
-	body.(BodyAccessor).SetBytes(newData, true)
-	if got := TotalBytesBodyBuffer(); got != int64(len(newData)) {
-		t.Fatalf("SetBytes after Release must re-activate accounting: total = %d, want %d", got, len(newData))
+	var wg sync.WaitGroup
+	for i := 0; i < 16; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			body.Close()
+		}()
+		go func() {
+			defer wg.Done()
+			ReleaseBodyBuffer(body)
+		}()
 	}
+	wg.Wait()
 
-	ReleaseBodyBuffer(body)
 	if got := TotalBytesBodyBuffer(); got != 0 {
-		t.Fatalf("expected total 0 after second Release, got %d", got)
+		t.Fatalf("expected total 0 after concurrent Close/Release, got %d", got)
 	}
 }
 

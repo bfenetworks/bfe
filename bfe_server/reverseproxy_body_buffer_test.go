@@ -19,14 +19,15 @@ import (
 	"io"
 	"testing"
 
+	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 )
 
 // Issue #1494 (SC3101-TC006): prepareRequestBodyForRetry retains the wrapped
 // body buffer for replay, so the gauge must keep the bytes accounted after
 // the body is Closed (written to the main target), until the terminal
-// ReleaseBodyBuffer settles it. Relative to the pre-test baseline because
-// the gauge is process-global.
+// releaseRetainedBodyBuffers settles it. Relative to the pre-test baseline
+// because the gauge is process-global.
 func TestPrepareRequestBodyForRetryRetainsBufferAccounting(t *testing.T) {
 	bfe_http.SetTotalBodyBufferSizeLimit(0)
 	defer bfe_http.SetTotalBodyBufferSizeLimit(0)
@@ -34,10 +35,13 @@ func TestPrepareRequestBodyForRetryRetainsBufferAccounting(t *testing.T) {
 	data := []byte("a body retained for fallback replay")
 	base := bfe_http.TotalBytesBodyBuffer()
 	req := &bfe_http.Request{Body: io.NopCloser(bytes.NewReader(data))}
+	basicReq := newBasicReqForBufferTest(req)
 
-	if !prepareRequestBodyForRetry(req) {
+	body, ok := prepareRequestBodyForRetry(req)
+	if !ok {
 		t.Fatal("prepareRequestBodyForRetry failed")
 	}
+	retainBodyBufferForReplay(basicReq, body)
 	if got := bfe_http.TotalBytesBodyBuffer() - base; got != int64(len(data)) {
 		t.Fatalf("gauge = base+%d, want base+%d after wrap", got, len(data))
 	}
@@ -51,10 +55,52 @@ func TestPrepareRequestBodyForRetryRetainsBufferAccounting(t *testing.T) {
 		t.Fatalf("retained buffer must stay accounted after Close: base+%d, want base+%d", got, len(data))
 	}
 
-	// Terminal settlement (the deferred release in ServeHTTPForAI).
-	bfe_http.ReleaseBodyBuffer(req.Body)
+	// Terminal settlement (the explicit release after the attempts loop).
+	releaseRetainedBodyBuffers(basicReq)
 	if got := bfe_http.TotalBytesBodyBuffer() - base; got != 0 {
-		t.Fatalf("gauge must return to baseline after Release, still base+%d", got)
+		t.Fatalf("gauge must return to baseline after release, still base+%d", got)
+	}
+}
+
+// Issue #1494: the settlement is bound to the buffer that was retained, not to
+// whatever req.Body happens to point at later. A body replaced between the
+// wrap and the terminal state (module wrappers, a second GetBodyAccessor) must
+// not leave the retained bytes counted forever.
+func TestRetainedBufferReleasedWhenBodyReplaced(t *testing.T) {
+	bfe_http.SetTotalBodyBufferSizeLimit(0)
+	defer bfe_http.SetTotalBodyBufferSizeLimit(0)
+
+	data := []byte("body whose pointer is replaced")
+	base := bfe_http.TotalBytesBodyBuffer()
+	req := &bfe_http.Request{Body: io.NopCloser(bytes.NewReader(data))}
+	basicReq := newBasicReqForBufferTest(req)
+
+	body, ok := prepareRequestBodyForRetry(req)
+	if !ok {
+		t.Fatal("prepareRequestBodyForRetry failed")
+	}
+	retainBodyBufferForReplay(basicReq, body)
+
+	// A later stage installs its own wrapper around the body.
+	req.Body = io.NopCloser(bytes.NewReader(data))
+
+	if err := body.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
+	}
+	if got := bfe_http.TotalBytesBodyBuffer() - base; got != int64(len(data)) {
+		t.Fatalf("retained buffer must stay accounted after Close: base+%d, want base+%d", got, len(data))
+	}
+
+	releaseRetainedBodyBuffers(basicReq)
+	if got := bfe_http.TotalBytesBodyBuffer() - base; got != 0 {
+		t.Fatalf("gauge must return to baseline after the terminal release, still base+%d", got)
+	}
+
+	// The deferred backstop runs after the explicit release on every exit
+	// path: it must be a no-op, never a second subtraction.
+	releaseRetainedBodyBuffers(basicReq)
+	if got := bfe_http.TotalBytesBodyBuffer() - base; got != 0 {
+		t.Fatalf("repeated release must be a no-op, gauge = base+%d", got)
 	}
 }
 
@@ -70,9 +116,12 @@ func TestTotalBodyBufferLimitBlocksWrapWhileRetained(t *testing.T) {
 
 	// First request wraps and retains its buffer: gauge reaches the limit.
 	reqA := &bfe_http.Request{Body: io.NopCloser(bytes.NewReader(data))}
-	if !prepareRequestBodyForRetry(reqA) {
+	basicReqA := newBasicReqForBufferTest(reqA)
+	bodyA, ok := prepareRequestBodyForRetry(reqA)
+	if !ok {
 		t.Fatal("first prepareRequestBodyForRetry failed")
 	}
+	retainBodyBufferForReplay(basicReqA, bodyA)
 	if got := bfe_http.TotalBytesBodyBuffer() - base; got != int64(len(data)) {
 		t.Fatalf("gauge = base+%d, want base+%d", got, len(data))
 	}
@@ -80,7 +129,7 @@ func TestTotalBodyBufferLimitBlocksWrapWhileRetained(t *testing.T) {
 	// Second request: the retained bytes are visible, so the wrap must be
 	// rejected (fallback disabled) instead of bypassing the limit.
 	reqB := &bfe_http.Request{Body: io.NopCloser(bytes.NewReader(data))}
-	if prepareRequestBodyForRetry(reqB) {
+	if _, ok := prepareRequestBodyForRetry(reqB); ok {
 		t.Error("second prepareRequestBodyForRetry must be blocked by the retained buffer")
 	}
 	if _, ok := reqB.Body.(bfe_http.Rewindable); ok {
@@ -88,13 +137,23 @@ func TestTotalBodyBufferLimitBlocksWrapWhileRetained(t *testing.T) {
 	}
 
 	// After the terminal settlement the capacity is usable again.
-	bfe_http.ReleaseBodyBuffer(reqA.Body)
+	releaseRetainedBodyBuffers(basicReqA)
 	reqC := &bfe_http.Request{Body: io.NopCloser(bytes.NewReader(data))}
-	if !prepareRequestBodyForRetry(reqC) {
-		t.Error("prepareRequestBodyForRetry must succeed again after Release")
+	basicReqC := newBasicReqForBufferTest(reqC)
+	bodyC, ok := prepareRequestBodyForRetry(reqC)
+	if !ok {
+		t.Error("prepareRequestBodyForRetry must succeed again after release")
 	}
-	bfe_http.ReleaseBodyBuffer(reqC.Body)
+	retainBodyBufferForReplay(basicReqC, bodyC)
+	releaseRetainedBodyBuffers(basicReqC)
 	if got := bfe_http.TotalBytesBodyBuffer() - base; got != 0 {
 		t.Fatalf("gauge must return to baseline, still base+%d", got)
+	}
+}
+
+func newBasicReqForBufferTest(req *bfe_http.Request) *bfe_basic.Request {
+	return &bfe_basic.Request{
+		HttpRequest: req,
+		Context:     make(map[interface{}]interface{}),
 	}
 }

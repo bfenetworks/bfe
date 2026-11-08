@@ -4,14 +4,15 @@
 - 缺陷：启用 fallback 的 AI 请求把请求体缓冲为 `bytes_body` 供重放时，`total_bytes_body_buffer` 监控指标在**主 Target 请求体写完的瞬间**就被减账（`bytes_body.Close()`），但 buffer 仍被保留供 fallback 重放（`Rewind()`）。后果有二：(1) 监控指标只在上传/写主 Target 的几十毫秒内可见，主 Target 响应头超时（现场 12 秒）的整个保留期内归零，少报真实常驻内存；(2) `TotalBodyBufferSize > 0` 时，`prepareRequestBodyForRetry()` 的限额判断读到的是已减账的值，保留中的 buffer 不占用额度，新请求仍被允许包装，容量保护失效。
 - 代码基线：`bfe/`，`v1.9.0-dev`（含 issue #1493 修复，tip `14fcdb8d`）；行号以当前工作树为准。issue 现场部署构建 `eb4ed4a4` 与本方案所读源码同链（issue 已用 `go version -m`/`strings` 排除二进制差异）。
 - 关联：#1317（fallback 状态码白名单）、#1387、#1482、#1416、#1440/#1441/#1442（key 选择/错误契约）、#1426（body model 改写）、#1406/#1468（body 读写链）。与计费/日志口径（#1398/#1409/#1480/#1493）无关，本卡不动 `TokenUsage`。
-- **产品裁定点（issue 已声明「需要产品裁定：是」）**：`bytes_body` 的「活跃」生命周期。**已于 2026-11-08 裁定：「仍可能被 fallback/key 重放重放的 buffer 即活跃 buffer」**（计为活跃），与本方案推荐一致，依据是 issue 自己的验收判据 1/2（在途窗口内 gauge 必须上升、保留额度必须阻挡后续包装）以及 `bfe.conf.md:37`「所有**活跃** bytes_body buffer 占用内存之和的上限」+ `mod_ai_route_bfe_changes.md:738`「达到上限后不再包装 body」的语义闭环。SC3101-TC006 据此解除 DEFERRED，待发布后重跑判分。
+- **勘误（2026-11-08 评审）**：本稿的行号基于修复前工作树；释放点、释放归属与并发安全的实现细节已由 `2026-11-08-issue-1494-bytes-body-buffer-accounting-lifecycle-review/design-changes.md` 修订（释放点前移到 attempts 循环收敛、结算绑定到被保留对象、状态位加锁；§三.3 关于"随 `aiClusterInvoke` 返回到外层后不再发生 `Rewind`"的表述有误，外层 fallback 循环正会 rewind）。两份文档冲突时以评审稿为准。
+- **产品裁定点（issue 已声明「需要产品裁定：是」）**：`bytes_body` 的「活跃」生命周期。**已于 2026-11-08 裁定：「仍可能被 fallback/key 重放的 buffer 即活跃 buffer」**（计为活跃），与本方案推荐一致，依据是 issue 自己的验收判据 1/2（在途窗口内 gauge 必须上升、保留额度必须阻挡后续包装）以及 `bfe.conf.md:37`「所有**活跃** bytes_body buffer 占用内存之和的上限」+ `mod_ai_route_bfe_changes.md:738`「达到上限后不再包装 body」的语义闭环。SC3101-TC006 据此解除 DEFERRED，待发布后重跑判分。
 
 ## 一、口径依据（Expected 的来源）
 
 1. `docs/zh_cn/configuration/bfe.conf.md:37`——`Server.TotalBodyBufferSize`：「所有活跃 bytes_body buffer 占用内存之和的上限……达到上限时，AI Gateway fallback 不再对请求体做缓存封装，即不重传」。
 2. `docs/zh_cn/sys_design/mod_ai_route_bfe_changes.md:530`（§4.3.5）——「当全局 bytes_body 缓冲区大小达到 `TotalBodyBufferSizeLimit()` 限制时，不再包装，fallback 被禁用」；`:738`（§8.3）——「全局 bytes_body 缓冲区受 `TotalBodyBufferSizeLimit()` 限制，达到上限后不再包装 body，fallback 会被禁用」。
 3. **条款推论（issue 根因链第 4 环已给出）**：fallback 设计要求 buffer 在主 Target 之后仍可 `Rewind()`，因此该 buffer 在请求终态（最后一次 attempt 结束、不再可能被重放）之前仍属「活跃 bytes_body buffer」，必须计入 gauge；否则限额门槛与文档定义不一致。
-4. **条款缺口（本方案补写）**：现有文档未写明记账释放点。本方案在落地时同步补充：「bytes_body buffer 从被包装（或成为可重放 body）起计入 `TotalBytesBodyBuffer`；在仍可能被 fallback/key 重放重放期间保持活跃；仅在请求的最后一次 attempt 结束（不再可能 Rewind）后释放记账」。
+4. **条款缺口（本方案补写）**：现有文档未写明记账释放点。本方案在落地时同步补充：「bytes_body buffer 从被包装（或成为可重放 body）起计入 `TotalBytesBodyBuffer`；在仍可能被 fallback/key 重放期间保持活跃；仅在请求的最后一次 attempt 结束（不再可能 Rewind）后释放记账」。
 
 issue 的验收判据（原文 1–5）在本裁定下全部可判：在途窗口 gauge 上升 ≥768KiB（判据 1）、保留额度阻挡第二次包装（判据 2）、2.5MiB 超限请求 503/fallback 禁用/命中差分 1/0（判据 3）、终态归零无泄漏（判据 4）、fallback 行为不回归（判据 5）。
 
@@ -162,7 +163,7 @@ defer bfe_http.ReleaseBodyBuffer(basicReq.HttpRequest.Body)
 
 ### 步骤 5（必改）：文档补写「活跃」定义（条款缺口）
 
-- `docs/zh_cn/configuration/bfe.conf.md:37`：`TotalBodyBufferSize` 补充描述追加——「『活跃』指 buffer 被包装起至请求最后一次转发 attempt 结束（不再可能被 fallback/key 重放重放）为止；期间即使请求体已写完上游，只要仍可能被重放，buffer 继续计入」（issue #1494）。
+- `docs/zh_cn/configuration/bfe.conf.md:37`：`TotalBodyBufferSize` 补充描述追加——「『活跃』指 buffer 被包装起至请求最后一次转发 attempt 结束（不再可能被 fallback/key 重放）为止；期间即使请求体已写完上游，只要仍可能被重放，buffer 继续计入」（issue #1494）。
 - `docs/zh_cn/sys_design/mod_ai_route_bfe_changes.md` §4.3.5 与 §8.3（`:530`/`:738`）各补一句记账生命周期说明 + issue #1494 交叉引用。
 
 ### 步骤 6（必改）：单测

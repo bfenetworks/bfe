@@ -854,6 +854,12 @@ func ReleaseBodyBuffer(body io.ReadCloser) {
 
 // body with BodyAccessor interface
 type bytes_body struct {
+	// mu guards the accounting state and the buf/reader handoff. Read() and
+	// Close() run on the transport's write goroutine while Release() and
+	// SetBytes() run on the request goroutine, so the two sides must be
+	// synchronized; the lock is never held across a blocking source read
+	// (issue #1494).
+	mu        sync.Mutex
 	src       io.ReadCloser // source body
 	buf       []byte        // bytes read out from src
 	all       bool          // all already read out from src to buf
@@ -869,18 +875,21 @@ type bytes_body struct {
 
 // bodyReader tracks whether reading has moved from the buffer to the source.
 type bodyReader struct {
-	buf        *bytes.Buffer
-	src        io.Reader
-	srcStarted bool
+	buf *bytes.Buffer
+	src io.Reader
+	// srcStarted is read by Rewind() on the request goroutine while the
+	// transport's write goroutine is reading the body, so it is atomic
+	// (issue #1494).
+	srcStarted atomic.Bool
 }
 
 func (br *bodyReader) Read(p []byte) (int, error) {
-	if !br.srcStarted {
+	if !br.srcStarted.Load() {
 		n, err := br.buf.Read(p)
 		if err != io.EOF {
 			return n, err
 		}
-		br.srcStarted = true
+		br.srcStarted.Store(true)
 		if n > 0 {
 			return n, nil
 		}
@@ -892,18 +901,25 @@ func (br *bodyReader) Read(p []byte) (int, error) {
 }
 
 func (b *bytes_body) Read(p []byte) (n int, err error) {
-	if b.err != nil {
-		return 0, b.err
+	b.mu.Lock()
+	r, rerr := b.r, b.err
+	b.mu.Unlock()
+	if rerr != nil {
+		return 0, rerr
 	}
-	n, err = b.r.Read(p)
+	n, err = r.Read(p)
 	if err != nil {
+		b.mu.Lock()
 		b.err = err
+		b.mu.Unlock()
 	}
 	return
 }
 
 func (b *bytes_body) Close() error {
+	b.mu.Lock()
 	if b.srcClosed {
+		b.mu.Unlock()
 		return nil
 	}
 	b.srcClosed = true
@@ -914,33 +930,42 @@ func (b *bytes_body) Close() error {
 		b.released = true
 		subTotalBytesBodyBuffer(int64(len(b.buf)))
 	}
-	if b.src == nil {
+	src := b.src
+	b.mu.Unlock()
+	if src == nil {
 		return nil
 	}
-	return b.src.Close()
+	return src.Close()
 }
 
 // RetainForRetry marks the buffer as retained for replay: Close() stops
 // releasing the gauge, and the caller must pair it with Release() once no
 // attempt can rewind the body any more. Idempotent (issue #1494).
 func (b *bytes_body) RetainForRetry() {
+	b.mu.Lock()
 	b.retained = true
+	b.mu.Unlock()
 }
 
 // Release settles the gauge accounting once the buffer can no longer be
 // rewound (the request's last attempt has settled). Idempotent; also closes
 // the source if it is still open, as a defensive measure for early-exit
-// paths where WriteBody never ran (issue #1494).
+// paths where WriteBody never ran. Clearing retained makes a later Close() a
+// legitimate second settlement point instead of leaving the bytes counted
+// forever (issue #1494).
 func (b *bytes_body) Release() {
+	b.mu.Lock()
 	if !b.released {
 		b.released = true
 		subTotalBytesBodyBuffer(int64(len(b.buf)))
 	}
-	if !b.srcClosed {
-		b.srcClosed = true
-		if b.src != nil {
-			b.src.Close()
-		}
+	b.retained = false
+	src := b.src
+	needClose := !b.srcClosed
+	b.srcClosed = true
+	b.mu.Unlock()
+	if needClose && src != nil {
+		src.Close()
 	}
 }
 
@@ -948,6 +973,8 @@ func (b *bytes_body) Peek(n int) ([]byte, error) {
 	if n < 0 {
 		return nil, fmt.Errorf("negative peek count")
 	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if n > len(b.buf) {
 		n = len(b.buf)
 	}
@@ -959,20 +986,25 @@ func (b *bytes_body) ForcePeek(n int) ([]byte, error) {
 }
 
 func (b *bytes_body) GetBytes() ([]byte, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.buf, b.all
 }
 
 func (b *bytes_body) SetBytes(newBuf []byte, all bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.setBytes(newBuf, all)
+}
+
+// setBytes rewrites the buffer; the caller holds b.mu. A released buffer
+// stays out of the accounting: re-activating it here would leave bytes that
+// nobody settles (the non-retained Close-then-Rewind paths) and would
+// re-grant replay quota after the request had settled (issue #1494).
+func (b *bytes_body) setBytes(newBuf []byte, all bool) {
 	if !b.released {
 		subTotalBytesBodyBuffer(int64(len(b.buf)))
 		addTotalBytesBodyBuffer(int64(len(newBuf)))
-	} else {
-		// Defensive re-activation: a released buffer that is rewritten
-		// (e.g. a body rewrite racing the terminal Release) becomes active
-		// accounting again and must be settled by a later Release
-		// (issue #1494).
-		addTotalBytesBodyBuffer(int64(len(newBuf)))
-		b.released = false
 	}
 	b.buf = newBuf
 	br := bytes.NewBuffer(newBuf)
@@ -985,18 +1017,28 @@ func (b *bytes_body) SetBytes(newBuf []byte, all bool) {
 	}
 }
 
+// srcStarted reports whether reading moved from buf to the source; the caller
+// holds b.mu.
+func (b *bytes_body) srcStarted() bool {
+	return b.r != nil && b.r.srcStarted.Load()
+}
+
 func (b *bytes_body) SrcStarted() bool {
-	return b.r != nil && b.r.srcStarted
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.srcStarted()
 }
 
 func (b *bytes_body) Rewind() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	// If all data is already in buffer, we can rewind regardless of
 	// src state. Otherwise, rewind is only possible before src is
 	// started or closed.
-	if (b.srcClosed || b.SrcStarted()) && !b.all {
+	if (b.srcClosed || b.srcStarted()) && !b.all {
 		return false
 	}
-	b.SetBytes(b.buf, b.all)
+	b.setBytes(b.buf, b.all)
 	return true
 }
 
