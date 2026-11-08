@@ -797,28 +797,17 @@ func TotalBytesBodyBuffer() int64 {
 	return atomic.LoadInt64(&totalBytesBodyBuffer)
 }
 
-// addTotalBytesBodyBuffer adds delta to the total buffer size and returns true.
-// If limit > 0 and the new total would exceed the limit, the addition is not
-// performed and false is returned.
-func addTotalBytesBodyBuffer(delta int64) bool {
+// addTotalBytesBodyBuffer adds delta to the total buffer size. The gauge
+// must always reflect the bytes actually held: the TotalBodyBufferSize
+// limit is enforced at the documented gate (prepareRequestBodyForRetry,
+// "达到上限后不再包装"), not by silently dropping bytes from the
+// accounting — an uncounted buffer would under-report memory (issue #1494)
+// and later drive the gauge negative when released.
+func addTotalBytesBodyBuffer(delta int64) {
 	if delta == 0 {
-		return true
+		return
 	}
-	limit := TotalBodyBufferSizeLimit()
-	if limit <= 0 {
-		atomic.AddInt64(&totalBytesBodyBuffer, delta)
-		return true
-	}
-	for {
-		old := atomic.LoadInt64(&totalBytesBodyBuffer)
-		new := old + delta
-		if new > limit {
-			return false
-		}
-		if atomic.CompareAndSwapInt64(&totalBytesBodyBuffer, old, new) {
-			return true
-		}
-	}
+	atomic.AddInt64(&totalBytesBodyBuffer, delta)
 }
 
 // subTotalBytesBodyBuffer subtracts delta from the total buffer size.
@@ -829,6 +818,40 @@ func subTotalBytesBodyBuffer(delta int64) {
 	atomic.AddInt64(&totalBytesBodyBuffer, -delta)
 }
 
+// RetryBuffer is implemented by request bodies whose underlying buffer
+// memory may be retained for fallback/key retry replay. While retained, the
+// buffer stays accounted for in TotalBytesBodyBuffer even after the body was
+// written to a backend; Release must be called once no attempt can rewind
+// the body any more (the request's terminal state). See issue #1494.
+type RetryBuffer interface {
+	// RetainForRetry marks the buffer as retained for replay: Close stops
+	// releasing the gauge. Idempotent.
+	RetainForRetry()
+	// Release settles the gauge accounting at the request's terminal
+	// state. Idempotent.
+	Release()
+}
+
+// RetainBodyBufferForRetry marks body (if it is a replay-retained buffer)
+// as retained for fallback/key retry replay. No-op for other body types.
+func RetainBodyBufferForRetry(body io.ReadCloser) {
+	if rb, ok := body.(RetryBuffer); ok {
+		rb.RetainForRetry()
+	}
+}
+
+// ReleaseBodyBuffer settles the gauge accounting of body (if it is a
+// replay-retained buffer). No-op for other body types, and a no-op for
+// buffers that were never retained (their Close already released the gauge).
+func ReleaseBodyBuffer(body io.ReadCloser) {
+	if body == nil {
+		return
+	}
+	if rb, ok := body.(RetryBuffer); ok {
+		rb.Release()
+	}
+}
+
 // body with BodyAccessor interface
 type bytes_body struct {
 	src       io.ReadCloser // source body
@@ -836,8 +859,12 @@ type bytes_body struct {
 	all       bool          // all already read out from src to buf
 	srcClosed bool          // source has been closed
 	released  bool          // whether buffer has been subtracted from total accounting
-	r         *bodyReader   // reader of buf and src
-	err       error
+	retained  bool          // buffer is retained for fallback/key retry replay:
+	// Close() only closes the source and must NOT release the gauge; the
+	// accounting is settled by Release() at the request's terminal state,
+	// when no attempt can rewind the body any more (issue #1494).
+	r   *bodyReader // reader of buf and src
+	err error
 }
 
 // bodyReader tracks whether reading has moved from the buffer to the source.
@@ -880,7 +907,10 @@ func (b *bytes_body) Close() error {
 		return nil
 	}
 	b.srcClosed = true
-	if !b.released {
+	// A retained buffer stays accounted for as long as any fallback/key
+	// retry may still rewind it; Release() settles the gauge at the
+	// request's terminal state (issue #1494).
+	if !b.retained && !b.released {
 		b.released = true
 		subTotalBytesBodyBuffer(int64(len(b.buf)))
 	}
@@ -888,6 +918,30 @@ func (b *bytes_body) Close() error {
 		return nil
 	}
 	return b.src.Close()
+}
+
+// RetainForRetry marks the buffer as retained for replay: Close() stops
+// releasing the gauge, and the caller must pair it with Release() once no
+// attempt can rewind the body any more. Idempotent (issue #1494).
+func (b *bytes_body) RetainForRetry() {
+	b.retained = true
+}
+
+// Release settles the gauge accounting once the buffer can no longer be
+// rewound (the request's last attempt has settled). Idempotent; also closes
+// the source if it is still open, as a defensive measure for early-exit
+// paths where WriteBody never ran (issue #1494).
+func (b *bytes_body) Release() {
+	if !b.released {
+		b.released = true
+		subTotalBytesBodyBuffer(int64(len(b.buf)))
+	}
+	if !b.srcClosed {
+		b.srcClosed = true
+		if b.src != nil {
+			b.src.Close()
+		}
+	}
 }
 
 func (b *bytes_body) Peek(n int) ([]byte, error) {
@@ -912,6 +966,13 @@ func (b *bytes_body) SetBytes(newBuf []byte, all bool) {
 	if !b.released {
 		subTotalBytesBodyBuffer(int64(len(b.buf)))
 		addTotalBytesBodyBuffer(int64(len(newBuf)))
+	} else {
+		// Defensive re-activation: a released buffer that is rewritten
+		// (e.g. a body rewrite racing the terminal Release) becomes active
+		// accounting again and must be settled by a later Release
+		// (issue #1494).
+		addTotalBytesBodyBuffer(int64(len(newBuf)))
+		b.released = false
 	}
 	b.buf = newBuf
 	br := bytes.NewBuffer(newBuf)

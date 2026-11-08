@@ -1500,6 +1500,13 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		}
 	}
 
+	// The request body buffer stays accounted for as long as any attempt
+	// (cluster fallback or key-level retry inside aiClusterInvoke) may still
+	// rewind it; settle the gauge when ServeHTTPForAI returns, i.e. after
+	// the attempts loop, when no more Rewind is possible. No-op when nothing
+	// was retained (Close already released the gauge) (issue #1494).
+	defer bfe_http.ReleaseBodyBuffer(basicReq.HttpRequest.Body)
+
 	// bodyModel tracks the model currently in the request body.
 	// aiMeta.ClientModel was already extracted from the request body before
 	// entering the reverse proxy, so we can use it as the initial value without
@@ -2596,6 +2603,9 @@ func isBatchPassthroughMode(aiMeta *bfe_basic.AiBasicInfo) bool {
 // If the body already implements Rewindable, it returns true directly.
 // Otherwise, it tries to convert the body to bytes_body via GetBodyAccessor.
 // It rejects wrapping when the total bytes_body buffer size reaches the limit.
+// On success the body buffer is marked retained for replay: it stays
+// accounted for in TotalBytesBodyBuffer until the caller settles it with
+// ReleaseBodyBuffer at the request's terminal state (issue #1494).
 func prepareRequestBodyForRetry(req *bfe_http.Request) bool {
 	// if total buffer size already reaches the limit, do not wrap (no retry)
 	if limit := bfe_http.TotalBodyBufferSizeLimit(); limit > 0 {
@@ -2607,12 +2617,19 @@ func prepareRequestBodyForRetry(req *bfe_http.Request) bool {
 		return true
 	}
 	if _, ok := req.Body.(bfe_http.Rewindable); ok {
+		// The buffer stays accounted for as long as an attempt may still
+		// rewind it (issue #1494); ServeHTTPForAI settles the gauge with a
+		// deferred ReleaseBodyBuffer at the request's terminal state.
+		bfe_http.RetainBodyBufferForRetry(req.Body)
 		return true
 	}
 	if _, err := req.GetBodyAccessor(); err != nil {
 		return false
 	}
 	_, ok := req.Body.(bfe_http.Rewindable)
+	if ok {
+		bfe_http.RetainBodyBufferForRetry(req.Body)
+	}
 	return ok
 }
 

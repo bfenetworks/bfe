@@ -726,6 +726,188 @@ func TestTC12_NoRoute404ConnectionReuse(t *testing.T) {
 	}
 }
 
+// TestTC13_RetainedBodyBufferGaugeLifecycle verifies issue #1494: a request
+// body buffered for fallback replay stays accounted in
+// total_bytes_body_buffer for the whole retention window — after the body
+// was written to the main target and while the fallback decision is still
+// pending — and the retained bytes count towards TotalBodyBufferSize.
+//
+// Arm A (gauge visibility): the primary backend holds the response; while
+// the request is in flight the gauge must show the retained body, and after
+// the request ends it must drain back to the baseline (SC3101-TC006 A-07).
+//
+// Arm B (limit semantics): with TotalBodyBufferSize equal to the retained
+// size, a second fallback-capable request must see the retained bytes and
+// get its fallback disabled (acceptance criterion 2 of issue #1494).
+func TestTC13_RetainedBodyBufferGaugeLifecycle(t *testing.T) {
+	const bodySize = 512 * 1024
+
+	// Arm A: gauge stays elevated for the whole retention window.
+	t.Run("ArmAGaugeVisibleWhileRetained", func(t *testing.T) {
+		e := newTestEnv(t, map[string]int{
+			"cluster_primary_a":  http.StatusInternalServerError,
+			"cluster_fallback_1": http.StatusOK,
+		})
+		defer e.Close()
+
+		base, err := common.GetBFETotalBytesBodyBuffer(e.bfeMonitorPort)
+		if err != nil {
+			t.Fatalf("read baseline gauge: %v", err)
+		}
+
+		hold := make(chan struct{})
+		e.backends["cluster_primary_a"].HoldResponse = hold
+
+		type result struct {
+			status int
+			err    error
+		}
+		done := make(chan result, 1)
+		go func() {
+			resp, _, err := e.sendRequestWithContentType(largeHost, apiKeyUserA,
+				generateBody(bodySize), "application/octet-stream")
+			if err != nil {
+				done <- result{0, err}
+				return
+			}
+			done <- result{resp.StatusCode, nil}
+		}()
+
+		// Poll the gauge while the primary backend holds the response: the
+		// retained buffer must be visible for the whole window.
+		elevated := false
+		deadline := time.Now().Add(10 * time.Second)
+		for !elevated && time.Now().Before(deadline) {
+			total, err := common.GetBFETotalBytesBodyBuffer(e.bfeMonitorPort)
+			if err == nil && total-base >= bodySize {
+				elevated = true
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
+		if !elevated {
+			close(hold)
+			t.Fatal("total_bytes_body_buffer never showed the retained body while the request was in flight")
+		}
+
+		close(hold) // primary answers 500 -> fallback answers 200
+		r := <-done
+		if r.err != nil {
+			t.Fatalf("arm A request failed: %v", r.err)
+		}
+		if r.status != http.StatusOK {
+			t.Fatalf("arm A: status = %d, want 200 via fallback", r.status)
+		}
+
+		// The gauge must drain back to the baseline after the request ends.
+		drained := false
+		drainDeadline := time.Now().Add(10 * time.Second)
+		for !drained && time.Now().Before(drainDeadline) {
+			total, err := common.GetBFETotalBytesBodyBuffer(e.bfeMonitorPort)
+			if err == nil && total <= base {
+				drained = true
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
+		if !drained {
+			t.Fatalf("total_bytes_body_buffer did not drain back to baseline %d", base)
+		}
+	})
+
+	// Arm B: a retained buffer occupies the TotalBodyBufferSize limit, so a
+	// second fallback-capable request gets its fallback disabled.
+	//
+	// Limit sizing note: the AI path wraps (and accounts) the request body
+	// before prepareRequestBodyForRetry runs (model extraction), so at
+	// request A's own limit check the gauge already holds A's body. The
+	// limit must therefore be > 1x body (A must pass) and <= 2x body (A
+	// retained + B's own wrap must exceed it). 1.5x body satisfies both.
+	t.Run("ArmBLimitBlocksSecondWrapWhileRetained", func(t *testing.T) {
+		// Fresh env has a zero gauge baseline (TestTC10 relies on the same).
+		e := newTestEnv(t, map[string]int{
+			"cluster_primary_a":  http.StatusInternalServerError,
+			"cluster_fallback_1": http.StatusOK,
+		}, withTotalBodyBufferSize(bodySize+bodySize/2))
+		defer e.Close()
+
+		base, err := common.GetBFETotalBytesBodyBuffer(e.bfeMonitorPort)
+		if err != nil {
+			t.Fatalf("read baseline gauge: %v", err)
+		}
+
+		hold := make(chan struct{})
+		e.backends["cluster_primary_a"].HoldResponse = hold
+
+		doneA := make(chan int, 1)
+		go func() {
+			resp, _, err := e.sendRequestWithContentType(largeHost, apiKeyUserA,
+				generateBody(bodySize), "application/octet-stream")
+			if err != nil {
+				doneA <- 0
+				return
+			}
+			doneA <- resp.StatusCode
+		}()
+
+		// Wait until request A's buffer is retained and visible on the gauge.
+		retained := false
+		var lastTotal int64
+		deadline := time.Now().Add(10 * time.Second)
+		for !retained && time.Now().Before(deadline) {
+			total, err := common.GetBFETotalBytesBodyBuffer(e.bfeMonitorPort)
+			if err == nil {
+				lastTotal = total
+				if total >= base+bodySize {
+					retained = true
+				}
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
+		if !retained {
+			close(hold)
+			statusA := <-doneA
+			e.logBFEException()
+			t.Fatalf("request A buffer was never retained on the gauge (baseline %d, last seen %d, want >= %d); A status=%d primary hits=%d fallback hits=%d",
+				base, lastTotal, base+bodySize, statusA,
+				e.backends["cluster_primary_a"].Hits(), e.backends["cluster_fallback_1"].Hits())
+		}
+
+		// Request B arrives while A is retained: the limit is exactly
+		// reached (A retained + B's own body wrap), so B's fallback must be
+		// disabled before any backend call. B then blocks on the same held
+		// primary, so release the hold shortly after B is sent.
+		doneB := make(chan int, 1)
+		go func() {
+			resp, _, err := e.sendRequestWithContentType(largeHost, apiKeyUserA,
+				generateBody(bodySize), "application/octet-stream")
+			if err != nil {
+				doneB <- 0
+				return
+			}
+			doneB <- resp.StatusCode
+		}()
+		time.Sleep(300 * time.Millisecond) // let B reach the held primary
+		close(hold)
+
+		statusB := <-doneB
+		statusA := <-doneA
+
+		if statusA != http.StatusOK {
+			t.Fatalf("request A: status = %d, want 200 via fallback", statusA)
+		}
+		// Fallback disabled: B gets the primary's 500 straight through (had
+		// the limit not blocked the wrap, B would have fallen back to 200).
+		if statusB != http.StatusInternalServerError {
+			t.Fatalf("request B: status = %d, want 500 (fallback disabled by the limit)", statusB)
+		}
+		if hits := e.backends["cluster_fallback_1"].Hits(); hits != 1 {
+			t.Fatalf("cluster_fallback_1 hits = %d, want 1 (only request A falls back)", hits)
+		}
+		if hits := e.backends["cluster_primary_a"].Hits(); hits != 2 {
+			t.Fatalf("cluster_primary_a hits = %d, want 2 (A and B)", hits)
+		}
+	})
+}
+
 func TestMain(m *testing.M) {
 	rand.Seed(time.Now().UnixNano())
 	os.Exit(m.Run())

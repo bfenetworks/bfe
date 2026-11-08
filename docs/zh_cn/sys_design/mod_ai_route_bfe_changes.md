@@ -529,6 +529,8 @@ func (p *ReverseProxy) resetRequestForRetry(basicReq *bfe_basic.Request) bool {
 
 在尝试 fallback 之前，先确保请求体可回退。若当前 body 已实现 `bfe_http.Rewindable` 接口，则直接返回成功；否则通过 `GetBodyAccessor()` 尝试将其转换为 `bytes_body`。当全局 bytes_body 缓冲区大小达到 `TotalBodyBufferSizeLimit()` 限制时，不再包装，fallback 被禁用。
 
+> 记账生命周期（issue #1494）：包装成功时 body buffer 被标记为「为重放保留」（`RetainForRetry`）——自包装起计入 `TotalBytesBodyBuffer`，在请求体写完主 Target 后（`Close()`）**不**减账，因为 fallback/key 重放仍可能 `Rewind()` 使用这些字节；直到 `ServeHTTPForAI` 返回（最后一次 attempt 已结束、不再可能重放）时由 `ReleaseBodyBuffer` 统一结算。因此限额判断看到的 `TotalBytesBodyBuffer` 覆盖完整保留窗口，监控指标 `total_bytes_body_buffer` 亦同。
+
 ```go
 func prepareRequestBodyForRetry(req *bfe_http.Request) bool {
     // if total buffer size already reaches the limit, do not wrap (no retry)
@@ -736,6 +738,8 @@ fallback 时需确保请求体可重新读取。实现要点：
 - `aiClusterInvoke()` 每次从 `basicReq.HttpRequest` 重新构造 `OutRequest`。
 
 全局 bytes_body 缓冲区受 `bfe_http.TotalBodyBufferSizeLimit()` 限制，达到上限后不再包装 body，fallback 会被禁用。单个请求可访问/缓冲的最大 body 大小由 `ConfigBasic.AccessibleBodySize` 控制（默认取自 `bfe_http.DefaultAccessibleBodySize`），超过该大小的请求体无法通过 `ReqBodyJsonSet` 等接口修改。
+
+> 记账生命周期（issue #1494）：「活跃 buffer」从包装起算，到请求最后一次 attempt 结束为止；fallback 重放保留期内的 buffer 持续计入 `TotalBytesBodyBuffer`（详见 §4.3.5），仅在终态结算，保证限额语义与监控语义一致。
 
 > 注意：请求体必须在首次消费前具备可回退能力，否则 fallback 将被禁用或失败。
 
