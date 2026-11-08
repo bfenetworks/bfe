@@ -701,6 +701,8 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 > 说明（issue #1398）：上表"扣费"列全部在计费副本 `billingUsage` 上结算；无论何种场景，**访问日志与统计读共享 `TokenUsage`，保留真实解析值或批准口径的估算值，不再被守卫抹零**——仅 `UsedCost` 写回共享对象。清零守卫曾直接改写共享对象，而 mod_access_pb3 与其读同一对象（`AiTotalTokens = UsedQuota`），导致后端真实产出 token 的请求在统计明细与计费中落成 `total_tokens=0`（实测 200 响应的 42.7%，且 TTFT 全部 > 0）。另：OpenAI 流式在 `InjectStreamUsage=true`（出厂默认）时对未显式设置 `stream_options.include_usage` 的 chat completion 请求自动注入，从上游拿到真实 final usage，"完成无 usage"场景退化为罕见兜底。
 
 > 说明（issue #1409）：上述"保留观测值/估算值"的前提是**请求成功调用了上游**。非 2xx 响应（未成功调用上游，如 AI 路由未命中的 404、上游 404 直通、上游错误归一化后的 404）不存在任何模型用量，鉴权阶段按请求体长度播种的 `PromptTokens`、以及响应阶段累加的 `CompletionTokens` 都只是估算残留：请求结束时这些估算值会从共享 `TokenUsage` 中清除（真实解析值仍保留），并把该请求标记为"无可用 usage"，`mod_access_pb3` 据此**不输出** `ai_input_tokens` / `ai_output_tokens` / `ai_total_tokens`（字段缺席，与"用量为 0"区分），并计数 `AiUsageSuppressed` / `Non2xxEstimateDropped`。修复前 404 行会带 `ai_input_tokens = 请求体/4`、`ai_output_tokens` 为哨兵夹取值，而 `ai_total_tokens=0`，三元组口径断裂并污染按 token 聚合的报表。
+>
+> 说明（issue #1493，2026-11-08）：issue #1480 曾把非 2xx 行反转为"照实记录估算残留并标 `ai_usage_source=failed`"（`Non2xxUsageReported` 计数），未同步修订本表与本说明；系统测试 SC3201-TC011 按本节条款判定其失格后，#1493 恢复了上述 #1409 语义，计数器名恢复为 `Non2xxEstimateDropped`。非 2xx 行唯一的输出例外：上游错误响应中确实携带真实 usage 对象时按 `ai_usage_source=parsed` 观测输出（不计费）。
 
 > 说明（issue #1410）："usage 未识别且不可估算"守卫分支（上表"零扣费"且 2xx 的两行）本身**计费口径不变**，但必须可观测，绝不静默跳过。修复后该分支在判定成立处产生两类同源信号：
 >

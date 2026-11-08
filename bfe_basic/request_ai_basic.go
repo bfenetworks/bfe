@@ -438,11 +438,13 @@ const (
 	// when EstimateToken allows, or reported unrecognized otherwise.
 	UsageSourceUpstreamDropped = "upstream_dropped"
 	// UsageSourceFailed means the upstream call never succeeded (non-2xx,
-	// including BFE-generated rejections): the reported tokens are the
-	// auth-time prompt seeding plus the accumulated forwarded content — an
-	// estimate kept for reporting but never billed (issue #1480). A non-2xx
-	// response that does carry a real usage object is reported as parsed
-	// instead.
+	// including BFE-generated rejections) and the EstimateToken residue would
+	// have been reported for it (issue #1480). Issue #1493 restored the
+	// normative clause that such residue must not be reported at all, so this
+	// value has no producer since then and the token fields of a non-2xx row
+	// without real usage stay absent. A non-2xx response that does carry a
+	// real usage object is reported as parsed. The constant is kept for
+	// log-decoding compatibility with rows written while #1480 was live.
 	UsageSourceFailed = "failed"
 )
 

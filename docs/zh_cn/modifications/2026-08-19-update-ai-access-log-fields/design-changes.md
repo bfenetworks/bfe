@@ -464,3 +464,5 @@ go test ./bfe_modules/mod_access_pb3/...
 - 字段缺席计数 `AiUsageSuppressed` 与估算残留清除计数 `Non2xxEstimateDropped` 可在 BFE monitor 端点观测。
 
 > 说明：2xx 但未拿到最终 usage 的请求（客户端中断、流式截断）仍按 issue #1398 的观测契约输出观测/估算值（`total` 可能为 0），此为设计内的观测视图，不属于本约定收窄的范围。AI 缓存命中（`mod_ai_cache`，未调用上游）目前同样按 2xx 观测口径输出播种估算值，如需一并收窄见方案文档「边界与残余风险」。
+
+> 说明（issue #1493，2026-11-08）：issue #1480 曾以 `ai_usage_source=failed` 在运行时反转本节约定的非 2xx 行为（照实记录估算残留以补齐 `SUM(ai_total_tokens)`），但未修订本节；系统测试 SC3201-TC011（issue #1493）依据本节条款裁定运行时失格，运行时行为已恢复本节语义（详见 `docs/zh_cn/modifications/2026-11-08-issue-1493-non2xx-usage-suppression-restore/design-changes.md`）。唯一的非 2xx 例外：上游在错误响应中确实返回真实 usage 对象时，属"上游真实 usage"数据源，按 `ai_usage_source=parsed` 观测输出且不计费。

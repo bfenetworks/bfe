@@ -983,18 +983,17 @@ func TestReqAiInfoGenAiCacheExactHitNoSemantic(t *testing.T) {
 	}
 }
 
-// Issue #1480: a request whose upstream call never succeeded (non-2xx) is not
-// billed, but its token usage is still reported (auth-time seeding plus the
-// forwarded-content estimate) so token aggregates stay complete. The row
-// carries ai_usage_source=failed and ai_total_tokens = input + output, and
-// ai_cost_value stays absent.
-func TestReqAiInfoGenRecordsUsageOnNon2xx(t *testing.T) {
+// Issue #1409 (restored by #1493): a request whose upstream call never
+// succeeded (non-2xx) has no model usage. The EstimateToken residue (auth-time
+// prompt seeding plus the forwarded-content estimate) must not reach the
+// access log: with UsageDispositionNone the token fields, ai_usage_source and
+// ai_cost_value all stay absent, while non-usage AI fields are still logged.
+func TestReqAiInfoGenSuppressesUsageOnNon2xx(t *testing.T) {
 	_, req, res := makeRequestLogTest(t)
 	res.StatusCode = bfe_http.StatusNotFound
 
 	aiInfo := &bfe_basic.AiBasicInfo{ClientKeyId: "key-id-123"}
-	aiInfo.SetUsageDisposition(bfe_basic.UsageDispositionObserved)
-	aiInfo.SetUsageSource(bfe_basic.UsageSourceFailed)
+	aiInfo.SetUsageDisposition(bfe_basic.UsageDispositionNone)
 	usage := aiInfo.GetTokenUsage()
 	usage.PromptTokens = 100   // seeded at auth time (request bytes / 4)
 	usage.CompletionTokens = 4 // accumulated from the forwarded error body
@@ -1004,30 +1003,68 @@ func TestReqAiInfoGenRecordsUsageOnNon2xx(t *testing.T) {
 	reqLog := &bfe_access_pb3.RequestLog{}
 	suppressed, inconsistent := reqAiInfoGen(reqLog, req, res)
 
-	if suppressed {
-		t.Error("usageSuppressed is deprecated and must stay false: non-2xx rows report usage since issue #1480")
+	if !suppressed {
+		t.Error("a non-2xx residue row must be flagged as suppressed")
 	}
 	if inconsistent {
-		t.Error("total = input + output must satisfy the billing yardstick")
+		t.Error("a suppressed row must not be flagged")
 	}
-	if reqLog.AiInputTokens == nil || *reqLog.AiInputTokens != 100 {
-		t.Errorf("ai_input_tokens = %v, want 100", reqLog.AiInputTokens)
-	}
-	if reqLog.AiOutputTokens == nil || *reqLog.AiOutputTokens != 4 {
-		t.Errorf("ai_output_tokens = %v, want 4", reqLog.AiOutputTokens)
-	}
-	if reqLog.AiTotalTokens == nil || *reqLog.AiTotalTokens != 104 {
-		t.Errorf("ai_total_tokens = %v, want 104 (issue #1480 in+out fallback)", reqLog.AiTotalTokens)
+	if reqLog.AiInputTokens != nil || reqLog.AiOutputTokens != nil || reqLog.AiTotalTokens != nil {
+		t.Errorf("token fields must stay absent, got in=%v out=%v total=%v",
+			reqLog.AiInputTokens, reqLog.AiOutputTokens, reqLog.AiTotalTokens)
 	}
 	if reqLog.AiCostValue != nil {
 		t.Errorf("ai_cost_value = %v, want absent (a failed request is never billed)", reqLog.AiCostValue)
 	}
-	if reqLog.AiUsageSource == nil || *reqLog.AiUsageSource != bfe_basic.UsageSourceFailed {
-		t.Errorf("ai_usage_source = %v, want %q", reqLog.AiUsageSource, bfe_basic.UsageSourceFailed)
+	if reqLog.AiUsageSource != nil {
+		t.Errorf("ai_usage_source = %v, want absent (suppressed rows carry no source)", reqLog.AiUsageSource)
 	}
 	// non-usage AI fields are still logged
 	if reqLog.AiApikeyId == nil || *reqLog.AiApikeyId != "key-id-123" {
 		t.Errorf("ai_apikey_id = %v, want key-id-123", reqLog.AiApikeyId)
+	}
+}
+
+// Issue #1493 assertion B-02: the only non-2xx row still reporting token
+// fields is one whose upstream sent a real usage object with the error
+// response: it is the permitted "real upstream usage" data source, reported
+// as an observation (ai_usage_source=parsed) and never billed.
+func TestReqAiInfoGenNon2xxRealUsageReportedAsParsed(t *testing.T) {
+	_, req, res := makeRequestLogTest(t)
+	res.StatusCode = bfe_http.StatusInternalServerError
+
+	aiInfo := &bfe_basic.AiBasicInfo{ClientKeyId: "key-id-123"}
+	aiInfo.SetUsageDisposition(bfe_basic.UsageDispositionObserved)
+	aiInfo.SetUsageSource(bfe_basic.UsageSourceParsed)
+	usage := aiInfo.GetTokenUsage()
+	usage.PromptTokens = 10
+	usage.CompletionTokens = 20
+	usage.UsedQuota = 0 // never billed; total falls back to in+out
+	req.SetContext(bfe_basic.REQ_AI_BASIC_CONTEXT, aiInfo)
+
+	reqLog := &bfe_access_pb3.RequestLog{}
+	suppressed, inconsistent := reqAiInfoGen(reqLog, req, res)
+
+	if suppressed {
+		t.Error("a real-usage observation row must not be suppressed")
+	}
+	if inconsistent {
+		t.Error("total = input + output must satisfy the billing yardstick")
+	}
+	if reqLog.AiInputTokens == nil || *reqLog.AiInputTokens != 10 {
+		t.Errorf("ai_input_tokens = %v, want 10", reqLog.AiInputTokens)
+	}
+	if reqLog.AiOutputTokens == nil || *reqLog.AiOutputTokens != 20 {
+		t.Errorf("ai_output_tokens = %v, want 20", reqLog.AiOutputTokens)
+	}
+	if reqLog.AiTotalTokens == nil || *reqLog.AiTotalTokens != 30 {
+		t.Errorf("ai_total_tokens = %v, want 30 (in+out fallback)", reqLog.AiTotalTokens)
+	}
+	if reqLog.AiUsageSource == nil || *reqLog.AiUsageSource != bfe_basic.UsageSourceParsed {
+		t.Errorf("ai_usage_source = %v, want %q", reqLog.AiUsageSource, bfe_basic.UsageSourceParsed)
+	}
+	if reqLog.AiCostValue != nil {
+		t.Errorf("ai_cost_value = %v, want absent (a failed request is never billed)", reqLog.AiCostValue)
 	}
 }
 
@@ -1076,7 +1113,7 @@ func TestReqAiInfoGenTotalFallsBackToInPlusOut(t *testing.T) {
 		{name: "unrecognized residue", prompt: 10, completion: 4, usedQuota: 0,
 			source: bfe_basic.UsageSourceUnrecognized, outputTokens: 4, wantTotal: 14},
 		{name: "negative completion sentinel clamps", prompt: 10, completion: -1, usedQuota: 0,
-			source: bfe_basic.UsageSourceFailed, outputTokens: 0, wantTotal: 10},
+			source: bfe_basic.UsageSourceUnrecognized, outputTokens: 0, wantTotal: 10},
 		{name: "billed total is kept", prompt: 100, completion: 50, usedQuota: 150,
 			source: bfe_basic.UsageSourceParsed, outputTokens: 50, wantTotal: 150},
 		{name: "per-image count is kept", prompt: 0, completion: 0, usedQuota: 2, imageCount: 2,
@@ -1185,7 +1222,8 @@ func TestReqAiInfoGenUsageSource(t *testing.T) {
 		{"estimated", bfe_basic.UsageDispositionObserved, bfe_basic.UsageSourceEstimated, strPtr("estimated")},
 		{"unrecognized", bfe_basic.UsageDispositionObserved, bfe_basic.UsageSourceUnrecognized, strPtr("unrecognized")},
 		{"unset source stays absent", bfe_basic.UsageDispositionObserved, "", nil},
-		{"non-2xx reports source=failed", bfe_basic.UsageDispositionObserved, bfe_basic.UsageSourceFailed, strPtr("failed")},
+		{"non-2xx suppresses the source too", bfe_basic.UsageDispositionNone, "", nil},
+		{"non-2xx with real usage reports source=parsed", bfe_basic.UsageDispositionObserved, bfe_basic.UsageSourceParsed, strPtr("parsed")},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
