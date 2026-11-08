@@ -52,6 +52,7 @@ Core request flow:
   - `make build` builds the `bfe` binary.
   - `make strip` builds without symbols.
 - **Test**: `make test` runs `go test -cover ./...` and `go vet ./...`.
+- **Race**: `make race-case` runs `go test -race` on `bfe_http` + `bfe_server` (requires cgo; not runnable on the Windows dev box with `CGO_ENABLED=0`). CI runs it before the coverage step.
 - **Prepare**: `make prepare` installs `goyacc` and regenerates `bfe_basic/condition/parser` via `go generate`.
 - **Lint/static analysis**: `make check` runs `staticcheck`; `make license-check` / `make license-fix` use `license-eye`.
 - **Pre-commit**: Install with `pre-commit install`; `gofmt` is required.

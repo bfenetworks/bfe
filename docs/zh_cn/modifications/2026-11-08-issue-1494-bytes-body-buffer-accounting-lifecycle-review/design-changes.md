@@ -110,7 +110,7 @@ gauge 作为"常驻内存"是准的（buffer 确实还被 `req.Body` 引用）�
 
 释放点（§2.3）没有单独单测：它是 `ServeHTTPForAI` 的语句位置，单测只能复刻调用序列而测不到位置本身。改由两处覆盖——`releaseRetainedBodyBuffers` 的幂等断言（重复调用不二次减账），以及集成 TC13 臂 A 的 drain 断言（请求结束后回落）。
 
-回归：`go test ./bfe_http ./bfe_server`；`-race` 在 WSL（Ubuntu，Go 1.22.9，gcc 15.2，`CGO_ENABLED=1`）上跑通，Windows 侧 `CGO_ENABLED=0` 且无 gcc 无法执行；集成 SC01 全量（TC13 两臂 + TC08/09/10 对照）、SC05/SC08/SC28/SC12/SC03/SC29/SC27。
+回归：`go test ./bfe_http ./bfe_server`；`-race` 由新增的 `make race-case` 目标承担（CI 在 Coverage 之前执行，见 `.github/workflows/ci.yml`），WSL 上已跑通，Windows 侧 `CGO_ENABLED=0` 且无 gcc 无法执行；集成 SC01 全量（TC13 两臂 + TC08/09/10 对照）、SC05/SC08/SC28/SC12/SC03/SC29/SC27。
 
 ## 六、影响面与兼容性
 
@@ -133,6 +133,7 @@ gauge 作为"常驻内存"是准的（buffer 确实还被 `req.Body` 引用）�
 | 5 | 文档口径：`bfe.conf.md` `Server.TotalBodyBufferSize`、`mod_ai_route_bfe_changes.md` §4.3.5/§8.3（§三） | 已实施 |
 | 6 | 初版设计稿：补勘误段（指向本文档），修正"重放重放"重复字 | 已实施 |
 | 7 | 集成回归（SC01 全量 + 6 个对照场景） | 见 §八 |
+| 8 | CI：新增 `make race-case`（`.github/workflows/ci.yml` 在 Coverage 之前执行），`AGENTS.md` 同步该目标 | 已实施 |
 
 **实施结果**
 

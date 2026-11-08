@@ -110,6 +110,13 @@ test-case:
 vet-case:
 	${GOVET} ./...
 
+# make race-case: run the race detector on the packages whose request-body
+# buffer accounting is touched from more than one goroutine (issue #1494).
+# Explicit on purpose: the ARCH/GOFLAGS block above only injects -race into
+# GOTEST on 64-bit hosts, so this keeps the check independent of that guess.
+race-case:
+	$(GO) test -race -count=1 ./bfe_http/ ./bfe_server/
+
 # make coverage for codecov
 coverage:
 	echo -n > coverage.txt

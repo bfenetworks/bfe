@@ -64,6 +64,15 @@ jobs:
       run: |
         make
 
+    # Race detector on the packages that account the bytes_body buffer from
+    # two goroutines (issue #1494): the transport's write goroutine calls
+    # Close() while the request goroutine calls Release()/SetBytes(). Runs
+    # before Coverage so the fast, targeted check fails first.
+    - name: Race
+      shell: bash
+      run: |
+        make race-case
+
     # Coverage
     - name: Coverage
       shell: bash
