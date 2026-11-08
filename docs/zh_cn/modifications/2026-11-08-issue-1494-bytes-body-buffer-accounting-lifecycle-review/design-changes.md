@@ -110,7 +110,7 @@ gauge 作为"常驻内存"是准的（buffer 确实还被 `req.Body` 引用）�
 
 释放点（§2.3）没有单独单测：它是 `ServeHTTPForAI` 的语句位置，单测只能复刻调用序列而测不到位置本身。改由两处覆盖——`releaseRetainedBodyBuffers` 的幂等断言（重复调用不二次减账），以及集成 TC13 臂 A 的 drain 断言（请求结束后回落）。
 
-回归：`go test ./bfe_http ./bfe_server`；`-race` 需在 Linux/CI 上跑（本机 `CGO_ENABLED=0` 且无 gcc，`go test -race` 直接报错，未能本地执行）；集成 SC01 全量（TC13 两臂 + TC08/09/10 对照）、SC05/SC08/SC28/SC12/SC03/SC29/SC27。
+回归：`go test ./bfe_http ./bfe_server`；`-race` 在 WSL（Ubuntu，Go 1.22.9，gcc 15.2，`CGO_ENABLED=1`）上跑通，Windows 侧 `CGO_ENABLED=0` 且无 gcc 无法执行；集成 SC01 全量（TC13 两臂 + TC08/09/10 对照）、SC05/SC08/SC28/SC12/SC03/SC29/SC27。
 
 ## 六、影响面与兼容性
 
@@ -129,7 +129,7 @@ gauge 作为"常驻内存"是准的（buffer 确实还被 `req.Body` 引用）�
 | 1 | `bfe_http/transfer.go`：`bytes_body` 状态位加 `sync.Mutex`；`bodyReader.srcStarted` 原子化；`Release` 复位 `retained`；删除 `SetBytes` 重激活分支（§四） | 已实施 |
 | 2 | 释放归属：`prepareRequestBodyForRetry` 改为返回被保留对象；`bfe_server` 侧新增 `retainedBodyBuffers` + `retainBodyBufferForReplay` / `releaseRetainedBodyBuffers`（挂在 `bfe_basic.Request.Context`），无需 bfe_http 新增导出 | 已实施 |
 | 3 | `bfe_server/reverseproxy.go`：defer 提前到包装之前；两处 prepare 调用点记录被保留对象；attempts 循环收敛处显式释放，defer 作兜底 | 已实施 |
-| 4 | 单测：`bfe_http` 3 例（含并发）、`bfe_server` 3 例（含 body 被替换 / 重复释放） | 已实施（`-race` 待 CI） |
+| 4 | 单测：`bfe_http` 3 例（含并发读/Close/Release）、`bfe_server` 3 例（含 body 被替换 / 重复释放） | 已实施（WSL `-race` 通过） |
 | 5 | 文档口径：`bfe.conf.md` `Server.TotalBodyBufferSize`、`mod_ai_route_bfe_changes.md` §4.3.5/§8.3（§三） | 已实施 |
 | 6 | 初版设计稿：补勘误段（指向本文档），修正"重放重放"重复字 | 已实施 |
 | 7 | 集成回归（SC01 全量 + 6 个对照场景） | 见 §八 |
@@ -142,7 +142,7 @@ gauge 作为"常驻内存"是准的（buffer 确实还被 `req.Body` 引用）�
 | `go test ./bfe_http/`（9 例 bytes_body/记账相关，含并发用例） | 通过 |
 | `go test ./bfe_server/`（3 例 body buffer 相关） | 通过 |
 | 集成 SC01 全量 + SC02/03/05/08/12/27/28/29 回归 | 全部通过（详见 §八） |
-| `go test -race` | 未执行：本机 `CGO_ENABLED=0` 且无 gcc，`-race` 要求 cgo；须在 Linux/CI 补跑 |
+| `go test -race`（WSL：Ubuntu + Go 1.22.9 + gcc 15.2，`CGO_ENABLED=1`） | 通过：`bfe_http`、`bfe_server` 两包全量无竞态报告；`TestBytesBodyConcurrentCloseRelease`（含并发读）另以 `-count=5` 复跑通过 |
 
 ## 八、集成回归
 

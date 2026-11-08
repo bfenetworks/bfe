@@ -259,6 +259,20 @@ func TestBytesBodyConcurrentCloseRelease(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
+
+	// The transport's write goroutine reads the body while the request
+	// goroutine may settle it; both sides must be race-free.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		buf := make([]byte, 4)
+		for i := 0; i < 64; i++ {
+			if _, err := body.Read(buf); err != nil {
+				return
+			}
+		}
+	}()
+
 	for i := 0; i < 16; i++ {
 		wg.Add(2)
 		go func() {
