@@ -523,10 +523,14 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 	// Token usage
 	usage := aiInfo.GetTokenUsage()
 	// UsageDispositionNone marks a request with no reportable usage (issue
-	// #1409): since issue #1480 that is only the non-2xx shape with nothing to
-	// report — no model auth reached, nothing accumulated. Non-2xx rows that
-	// do carry usage (estimate residue or a real upstream usage object) are
-	// disposition Observed and reported with ai_usage_source=failed/parsed.
+	// #1409): mod_ai_token_auth drops the EstimateToken residue of a non-2xx
+	// response (upstream never successfully called) and marks it none, so the
+	// access log keeps the token fields absent — the field-definition clause
+	// forbids reporting auth-time/byte-length estimates for such rows
+	// (restored by #1493 after #1480's ai_usage_source=failed reporting was
+	// rejected against that clause). The only non-2xx rows still observed
+	// here carry a real usage object parsed from the error response
+	// (ai_usage_source=parsed).
 	if usage != nil && aiInfo.UsageDisposition() != bfe_basic.UsageDispositionNone {
 		reqLog.AiInputTokens = proto.Int64(usage.PromptTokens)
 		// CompletionTokens is preset to the COMPLETION_TOKENS_UNKNOWN
@@ -541,10 +545,11 @@ func reqAiInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Request, res
 		// issue #1480: ai_total_tokens is in+out unless UsedQuota carries a
 		// different meaning. UsedQuota is the per-image / per-video count in
 		// image_generation / video_generation mode and is settled separately
-		// for batch tasks, so those rows keep it; every other shape with
-		// UsedQuota == 0 but non-zero parts (an unrecognized estimate, or the
-		// residue of a non-2xx response) falls back to the sum instead of
-		// leaving ai_total_tokens at 0 while in/out carry values.
+		// for batch tasks, so those rows keep it; every other 2xx shape with
+		// UsedQuota == 0 but non-zero parts (an unrecognized estimate) falls
+		// back to the sum instead of leaving ai_total_tokens at 0 while in/out
+		// carry values. Non-2xx rows never reach this block since issue
+		// #1493: their residue is dropped and disposition is none.
 		totalTokens := usage.UsedQuota
 		if totalTokens == 0 {
 			totalTokens = usage.PromptTokens + outputTokens

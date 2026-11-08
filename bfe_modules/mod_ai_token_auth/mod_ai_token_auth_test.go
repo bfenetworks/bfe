@@ -2910,12 +2910,14 @@ func TestUpdateCtxByUsage_Gemini(t *testing.T) {
 	}
 }
 
-// Issue #1409: a non-2xx response means the upstream was never successfully
-// called, so the EstimateToken residue (prompt tokens seeded at auth time,
-// completion tokens accumulated from response bytes) must be dropped from the
-// shared TokenUsage and the request must be marked as "no usable usage" so the
-// access log reports no token field at all.
-func TestTokenRequestFinishHandler_Non2xxKeepsEstimateResidue(t *testing.T) {
+// Issue #1409 (restored by #1493): a non-2xx response means the upstream was
+// never successfully called, so the EstimateToken residue (prompt tokens
+// seeded at auth time, completion tokens accumulated from response bytes)
+// must be dropped from the shared TokenUsage and the request must be marked
+// as "no usable usage" so the access log reports no token field at all. The
+// field-definition clause forbids reporting auth-time/byte-length estimates
+// for a request that never successfully called the upstream.
+func TestTokenRequestFinishHandler_Non2xxDropsEstimateResidue(t *testing.T) {
 	m := NewModuleAITokenAuth()
 	client := newMockRedisClient()
 	m.redisClient = client
@@ -2948,22 +2950,86 @@ func TestTokenRequestFinishHandler_Non2xxKeepsEstimateResidue(t *testing.T) {
 	if _, ok := client.data[rmbPlan.RedisKey]; ok {
 		t.Error("non-2xx response must not deduct quota")
 	}
-	if got := ai.UsageDisposition(); got != bfe_basic.UsageDispositionObserved {
-		t.Errorf("UsageDisposition = %q, want %q (non-2xx rows report usage since issue #1480)",
-			got, bfe_basic.UsageDispositionObserved)
+	if got := ai.UsageDisposition(); got != bfe_basic.UsageDispositionNone {
+		t.Errorf("UsageDisposition = %q, want %q (estimate residue must be suppressed)",
+			got, bfe_basic.UsageDispositionNone)
 	}
-	if got := ai.UsageSource(); got != bfe_basic.UsageSourceFailed {
-		t.Errorf("UsageSource = %q, want %q", got, bfe_basic.UsageSourceFailed)
+	if got := ai.UsageSource(); got != "" {
+		t.Errorf("UsageSource = %q, want empty (suppressed rows carry no source)", got)
 	}
-	// The residue is kept for the access log; UsedQuota stays 0 (never billed).
-	if u := ai.GetTokenUsage(); u.CompletionTokens != 75 || u.UsedQuota != 0 {
-		t.Errorf("estimate residue must be kept with UsedQuota=0, got %+v", *u)
+	// The residue is dropped; every estimate field is zeroed.
+	if u := ai.GetTokenUsage(); u.PromptTokens != 0 || u.CompletionTokens != 0 || u.UsedQuota != 0 {
+		t.Errorf("estimate residue must be dropped, got %+v", *u)
 	}
-	if got := m.state.Non2xxUsageReported.Get(); got != 1 {
-		t.Errorf("Non2xxUsageReported = %d, want 1", got)
+	if got := m.state.Non2xxEstimateDropped.Get(); got != 1 {
+		t.Errorf("Non2xxEstimateDropped = %d, want 1", got)
 	}
 	if got := m.state.Non2xxRealUsageKept.Get(); got != 0 {
 		t.Errorf("Non2xxRealUsageKept = %d, want 0", got)
+	}
+}
+
+// Issue #1493 (SC3201-TC011): pins the exact failing system-test shape — a
+// BFE-local 404 ("AI route not found") for a request that passed model auth
+// (auth-time prompt seeding of req_body_len/4 = 43) but never invoked a
+// backend (req.Stat.BackendFirst stays zero, the same signal the access log
+// documents for never-invoked backends). The token triple must collapse to
+// all-zero sources with disposition none, so mod_access_pb3 keeps 706/707/708
+// absent. Upstream-called-but-failed rows get the same treatment since
+// #1493 (the clause covers "never successfully called", not just "never
+// called"), which the second half of this test pins explicitly.
+func TestTokenRequestFinishHandler_Local404UpstreamNeverCalled(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	// Shape 1: local 404, backend never invoked (BackendFirst zero value).
+	req := newTestRequestWithCluster("ak-123", "AI_product", "", "run-scoped-unrouted")
+	req.Stat = &bfe_basic.RequestStat{}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 43, nil)
+
+	ai := req.GetAiBasicInfo()
+	if !req.Stat.BackendFirst.IsZero() {
+		t.Fatal("test precondition: BackendFirst must be zero before any backend invoke")
+	}
+
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusNotFound}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := ai.UsageDisposition(); got != bfe_basic.UsageDispositionNone {
+		t.Errorf("local 404: UsageDisposition = %q, want %q", got, bfe_basic.UsageDispositionNone)
+	}
+	if u := ai.GetTokenUsage(); u.PromptTokens != 0 || u.CompletionTokens != 0 || u.UsedQuota != 0 {
+		t.Errorf("local 404: token triple must be zeroed for the log gate, got %+v", *u)
+	}
+	if got := m.state.Non2xxEstimateDropped.Get(); got != 1 {
+		t.Errorf("Non2xxEstimateDropped = %d, want 1", got)
+	}
+	if len(client.data) != 0 {
+		t.Error("local 404 must not deduct quota")
+	}
+
+	// Shape 2: upstream was invoked but returned 404 — same clearing
+	// semantics (the clause says "never successfully called").
+	req2 := newTestRequestWithCluster("ak-123", "AI_product", "deepseek-backup", "deepseek-v4-flash")
+	req2.Stat = &bfe_basic.RequestStat{BackendFirst: time.Now()}
+	SetTokenAuthContext(req2, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 43, nil)
+
+	res2 := &bfe_http.Response{StatusCode: bfe_http.StatusNotFound}
+	if ret := m.tokenRequestFinishHandler(req2, res2); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+	ai2 := req2.GetAiBasicInfo()
+	if got := ai2.UsageDisposition(); got != bfe_basic.UsageDispositionNone {
+		t.Errorf("upstream 404: UsageDisposition = %q, want %q", got, bfe_basic.UsageDispositionNone)
+	}
+	if u := ai2.GetTokenUsage(); u.PromptTokens != 0 || u.UsedQuota != 0 {
+		t.Errorf("upstream 404: estimate residue must be dropped, got %+v", *u)
+	}
+	if got := m.state.Non2xxEstimateDropped.Get(); got != 2 {
+		t.Errorf("Non2xxEstimateDropped = %d, want 2", got)
 	}
 }
 
@@ -3003,8 +3069,8 @@ func TestTokenRequestFinishHandler_Non2xxKeepsRealUsageObservation(t *testing.T)
 	if got := m.state.Non2xxRealUsageKept.Get(); got != 1 {
 		t.Errorf("Non2xxRealUsageKept = %d, want 1", got)
 	}
-	if got := m.state.Non2xxUsageReported.Get(); got != 0 {
-		t.Errorf("Non2xxUsageReported = %d, want 0 (real usage is not an estimate)", got)
+	if got := m.state.Non2xxEstimateDropped.Get(); got != 0 {
+		t.Errorf("Non2xxEstimateDropped = %d, want 0 (real usage is not an estimate)", got)
 	}
 	if len(client.data) != 0 {
 		t.Error("non-2xx response must not deduct quota")
@@ -3036,8 +3102,8 @@ func TestTokenRequestFinishHandler_Non2xxNoResidueNoCounter(t *testing.T) {
 	if got := ai.UsageSource(); got != "" {
 		t.Errorf("UsageSource = %q, want empty (nothing to report)", got)
 	}
-	if got := m.state.Non2xxUsageReported.Get(); got != 0 {
-		t.Errorf("Non2xxUsageReported = %d, want 0", got)
+	if got := m.state.Non2xxEstimateDropped.Get(); got != 0 {
+		t.Errorf("Non2xxEstimateDropped = %d, want 0", got)
 	}
 	if len(client.data) != 0 {
 		t.Error("non-2xx response must not deduct quota")

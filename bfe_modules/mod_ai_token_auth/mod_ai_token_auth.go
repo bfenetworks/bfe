@@ -79,13 +79,13 @@ type ModuleAITokenAuthState struct {
 	// is billed the same as chat). Together with the per-request ai_price_miss
 	// access-log marker it keeps the price-table gap visible.
 	PriceFallbackUsed *metrics.Counter
-	// Non2xxUsageReported counts requests whose upstream call never succeeded
-	// (non-2xx) and whose token usage is reported anyway: the auth-time prompt
-	// seeding plus the forwarded-content estimate, or a real usage object the
-	// upstream returned on the error response (issue #1480). The rows are
-	// never billed (ai_cost_value stays absent); the token triple is what
-	// makes SUM(ai_total_tokens) complete.
-	Non2xxUsageReported *metrics.Counter
+	// Non2xxEstimateDropped counts requests whose upstream call never
+	// succeeded (non-2xx) and whose EstimateToken residue (auth-time prompt
+	// seeding / response-time completion guessing) was dropped from the
+	// shared TokenUsage so it cannot be reported as model usage
+	// (issue #1409; restored by #1493 after #1480's reversal was rejected
+	// against the normative field-definition clause).
+	Non2xxEstimateDropped *metrics.Counter
 	// Non2xxRealUsageKept counts non-2xx requests that still carried a real
 	// parsed usage. Such observations are reported with ai_usage_source=parsed
 	// (issue #1480; before that they were kept in the shared TokenUsage but
@@ -394,12 +394,14 @@ func isClientAbortErr(err error) bool {
 func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, res *bfe_http.Response) int {
 	if res == nil || res.StatusCode != bfe_http.StatusOK {
 		// Only successful requests are billed; a non-2xx response means the
-		// upstream was never successfully called. Since issue #1480 such a
-		// request still reports its token usage (auth-time seeding plus the
-		// forwarded-content estimate, or a real usage object the upstream sent
-		// with the error) so SUM(ai_total_tokens) does not silently lose it;
-		// the row carries ai_usage_source=failed and no ai_cost_value.
-		m.keepNon2xxUsage(req, res)
+		// upstream was never successfully called, so the request must not
+		// report model usage: the EstimateToken residue (auth-time prompt
+		// seeding plus forwarded-content guessing) is dropped and the row is
+		// marked so the access log keeps the token fields absent
+		// (issue #1409; restored by #1493, reversing issue #1480's
+		// ai_usage_source=failed reporting). A real usage object parsed from
+		// an error response is still reported as an observation (parsed).
+		m.dropUnbilledEstimate(req, res)
 		return bfe_module.BfeHandlerGoOn
 	}
 
@@ -652,24 +654,29 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 	return bfe_module.BfeHandlerGoOn
 }
 
-// keepNon2xxUsage handles the request-finish path of a response whose upstream
-// call never succeeded (res == nil or non-2xx, issue #1480).
+// dropUnbilledEstimate handles the request-finish path of a response whose
+// upstream call never succeeded (res == nil or non-2xx, issue #1409).
 //
-// Such a request is never billed, but its token usage is still reported so
-// token aggregates stay complete: the access log reads the shared TokenUsage
-// directly, and before issue #1480 a non-2xx row either reported
-// ai_input_tokens/ai_output_tokens with ai_total_tokens stuck at 0 (the
-// EstimateToken residue kept on the object while the log gate suppressed the
-// total, issue #1409) or reported nothing at all (issue #1409's suppression).
-// Both shapes made SUM(ai_total_tokens) lose the usage.
+// Such a request cannot have produced model usage, yet the shared TokenUsage
+// may still carry EstimateToken residue: the prompt tokens seeded at auth
+// time (mod_ai_token_auth.tokenFoundProductHandler, gated only by
+// Server.EstimateToken) and the completion tokens accumulated from response
+// bytes by mod_body_process.QuotaUsageProcessor. Because the access log
+// (mod_access_pb3) reads that shared object directly, the residue would be
+// written as ai_input_tokens/ai_output_tokens and pollute every token-based
+// report. The field-definition clause (docs/zh_cn/modifications/
+// 2026-08-19-update-ai-access-log-fields/design-changes.md §10) forbids
+// reporting auth-time or byte-length estimates for a request that never
+// successfully called the upstream, so the residue is dropped here and the
+// request is marked so the access log reports no token field at all.
 //
-// The residue is therefore kept as-is and marked: report it with
-// ai_usage_source=failed (estimate: auth-time prompt seeding plus the
-// forwarded-content accumulation) or =parsed when the upstream really sent a
-// usage object with the error response. Rows without any usage to show
-// (never reached model auth, nothing accumulated) keep the token fields
-// absent, so "not a model call" stays distinguishable from "logged as 0".
-func (m *ModuleAITokenAuth) keepNon2xxUsage(req *bfe_basic.Request, res *bfe_http.Response) {
+// Issue #1480 used to keep the residue and report it with
+// ai_usage_source=failed so SUM(ai_total_tokens) would not lose failed-row
+// usage; SC3201-TC011 (issue #1493) re-asserted the normative clause, so the
+// clearing semantics are restored. Real usage parsed from the response is
+// never dropped: it is the one permitted data source for such rows and is
+// reported as an observation (ai_usage_source=parsed, never billed).
+func (m *ModuleAITokenAuth) dropUnbilledEstimate(req *bfe_basic.Request, res *bfe_http.Response) {
 	aiBasicInfo := req.GetAiBasicInfo()
 	if aiBasicInfo == nil {
 		return
@@ -680,10 +687,6 @@ func (m *ModuleAITokenAuth) keepNon2xxUsage(req *bfe_basic.Request, res *bfe_htt
 		status = res.StatusCode
 	}
 
-	// The request may report usage even though no billing happened (issue
-	// #1480): rows that carry usage are disposition Observed, rows with
-	// nothing to report stay UsageDispositionNone so the access log keeps the
-	// token fields absent.
 	if aiBasicInfo.IsFinalUsageSeen() {
 		// A real usage was parsed even though the final status is not 2xx
 		// (e.g. an upstream returning usage on an error response): report it
@@ -708,13 +711,23 @@ func (m *ModuleAITokenAuth) keepNon2xxUsage(req *bfe_basic.Request, res *bfe_htt
 		return
 	}
 
-	aiBasicInfo.SetUsageDisposition(bfe_basic.UsageDispositionObserved)
-	// UsedQuota stays 0: the request was not billed. mod_access_pb3 fills
-	// ai_total_tokens from prompt+completion in that case (issue #1480).
+	// Estimate residue (issue #1409/#1493): the clause forbids reporting it,
+	// so clear every estimate field and suppress the token fields altogether.
+	aiBasicInfo.SetUsageDisposition(bfe_basic.UsageDispositionNone)
+	usage.PromptTokens = 0
+	usage.CompletionTokens = 0
+	usage.CacheReadTokens = 0
+	usage.CacheWriteTokens = 0
+	usage.CacheWriteTokens1h = 0
+	usage.AudioInputTokens = 0
+	usage.AudioOutputTokens = 0
+	usage.ImageInputTokens = 0
+	usage.ImageCount = 0
+	usage.VideoCount = 0
 	usage.UsedQuota = 0
-	aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceFailed)
-	m.state.Non2xxUsageReported.Inc(1)
-	log.Logger.Warn("%s: non-2xx response reports estimated usage without billing: status=%d cluster=%s model=%s req_body_len=%d",
+
+	m.state.Non2xxEstimateDropped.Inc(1)
+	log.Logger.Warn("%s: drop estimated usage of non-2xx response: status=%d cluster=%s model=%s req_body_len=%d",
 		m.name, status, req.Route.ClusterName, aiBasicInfo.TargetModel, req.HttpRequest.ContentLength)
 }
 
