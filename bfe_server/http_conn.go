@@ -537,6 +537,12 @@ func extractClientModel(request *bfe_basic.Request) string {
 }
 
 func (c *conn) serveRequest(w bfe_http.ResponseWriter, request *bfe_basic.Request) (isKeepAlive bool) {
+	// Settle the accounting of buffered request bodies once the request can no
+	// longer be retried. Body.Close() cannot own this: the transport closes the
+	// body after writing it, while a retry may still rewind and reuse the
+	// buffer. The deferred call also covers panic and closeDirectly paths.
+	defer request.HttpRequest.ReleaseBodyBuffers()
+
 	session := c.session
 	serverStatus := c.server.serverStatus
 	proxyState := serverStatus.ProxyState

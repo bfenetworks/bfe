@@ -529,6 +529,8 @@ func (p *ReverseProxy) resetRequestForRetry(basicReq *bfe_basic.Request) bool {
 
 在尝试 fallback 之前，先确保请求体可回退。若当前 body 已实现 `bfe_http.Rewindable` 接口，则直接返回成功；否则通过 `GetBodyAccessor()` 尝试将其转换为 `bytes_body`。当全局 bytes_body 缓冲区大小达到 `TotalBodyBufferSizeLimit()` 限制时，不再包装，fallback 被禁用。
 
+该限额只作为**准入检查**（issue #1494）：计数在 buffer 创建时累加，在请求结束时（`Request.ReleaseBodyBuffers()`）统一归还，不随请求体 `Close()` 归还；已创建的 buffer 也不会被拒记。因此统计值可能短时高于限额，重试期间的 buffer 也不会因某次 attempt 写完后 `Close()` 而提前释放。
+
 ```go
 func prepareRequestBodyForRetry(req *bfe_http.Request) bool {
     // if total buffer size already reaches the limit, do not wrap (no retry)
@@ -735,7 +737,7 @@ fallback 时需确保请求体可重新读取。实现要点：
 - 每次 fallback 前由 `resetRequestForRetry()` 调用 `rewindRequestBody()` 将 body 重置到起始位置；
 - `aiClusterInvoke()` 每次从 `basicReq.HttpRequest` 重新构造 `OutRequest`。
 
-全局 bytes_body 缓冲区受 `bfe_http.TotalBodyBufferSizeLimit()` 限制，达到上限后不再包装 body，fallback 会被禁用。单个请求可访问/缓冲的最大 body 大小由 `ConfigBasic.AccessibleBodySize` 控制（默认取自 `bfe_http.DefaultAccessibleBodySize`），超过该大小的请求体无法通过 `ReqBodyJsonSet` 等接口修改。
+全局 bytes_body 缓冲区受 `bfe_http.TotalBodyBufferSizeLimit()` 限制，达到上限后不再包装 body，fallback 会被禁用。该限额是准入检查而非硬上限：计数按请求生命周期结算（buffer 创建时累加，请求结束时归还），请求体 `Close()` 不参与计数，故统计值可能短时超过阈值，但不会因重试而泄漏。单个请求可访问/缓冲的最大 body 大小由 `ConfigBasic.AccessibleBodySize` 控制（默认取自 `bfe_http.DefaultAccessibleBodySize`），超过该大小的请求体无法通过 `ReqBodyJsonSet` 等接口修改。
 
 > 注意：请求体必须在首次消费前具备可回退能力，否则 fallback 将被禁用或失败。
 

@@ -535,6 +535,10 @@ func diff(t *testing.T, prefix string, have, want interface{}) {
 		t.Errorf("%s: type mismatch %v want %v", prefix, hv.Type(), wv.Type())
 	}
 	for i := 0; i < hv.NumField(); i++ {
+		if hv.Type().Field(i).PkgPath != "" {
+			// Unexported fields cannot be read through reflection.
+			continue
+		}
 		hf := hv.Field(i).Interface()
 		wf := wv.Field(i).Interface()
 		if !reflect.DeepEqual(hf, wf) {
