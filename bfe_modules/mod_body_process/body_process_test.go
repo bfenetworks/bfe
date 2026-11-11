@@ -536,11 +536,20 @@ func TestNewJsonDecoderNilSource(t *testing.T) {
 	if _, err := NewLineDecoder(nil); err == nil {
 		t.Fatal("expected an error for a nil source")
 	}
+	if _, err := NewSSEEventDecoder(nil); err == nil {
+		t.Fatal("expected an error for a nil source")
+	}
+	for _, contentType := range []string{"application/json", "text/event-stream", "text/plain"} {
+		if _, err := NewContentTypeDecoder(nil, contentType); err == nil {
+			t.Fatalf("expected an error for a nil source (content-type %q)", contentType)
+		}
+	}
 }
 
-// Issue #1501: DoResponseProcess with a nil response body must return nil
-// (no processing) instead of constructing a BodyProcessor that panics the
-// forwarding copy.
+// Issue #1501: a nil response body must degrade to a NON-nil processor
+// carrying the construction error — the caller replaces res.Body with the
+// processor, so the forwarding path's Read/Close stay safe and surface the
+// error (BK_READ_RESP_BODY via the copy path), never a nil-body panic.
 func TestDoResponseProcessNilBody(t *testing.T) {
 	m := NewModuleBodyProcess()
 	req := newTestRequest("AI_product")
@@ -548,7 +557,18 @@ func TestDoResponseProcessNilBody(t *testing.T) {
 	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK, Body: nil}
 
 	bp := m.DoResponseProcess(req, res, &BodyProcessConfig{Dec: "json"})
-	if bp != nil {
-		t.Fatalf("expected nil processor for a nil body, got %v", bp)
+	if bp == nil {
+		t.Fatal("a nil body must degrade to a non-nil processor carrying the error")
+	}
+
+	// Call-site semantics (mod_body_process.go): res.Body is replaced by the
+	// processor. The invariant the forwarding path needs is that Read/Close
+	// are safe and surface the error.
+	res.Body = bp
+	if _, err := io.ReadAll(res.Body); err == nil {
+		t.Fatal("reading the degraded processor must surface the decoder error")
+	}
+	if err := res.Body.Close(); err != nil {
+		t.Fatalf("close must be safe for the forwarding path: %v", err)
 	}
 }

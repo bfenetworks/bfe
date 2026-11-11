@@ -264,6 +264,13 @@ func (bp *BodyProcessor) Close() error {
 		_ = closer.Close()
 	}
 
+	// issue #1501: a nil source (the GetBodyAccessor truncation shape) never
+	// reaches Read — the decoder factory error is recorded in bp.err and
+	// Read returns it first — but Close must stay safe for the forwarding
+	// path regardless.
+	if bp.source == nil {
+		return nil
+	}
 	return bp.source.Close()
 }
 
@@ -332,14 +339,6 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 	}
 
 	m.state.ResProcess.Inc(1)
-
-	if res.Body == nil {
-		// issue #1501: a nil response body (e.g. an upstream that dropped
-		// mid-response after GetBodyAccessor failed) must surface as "no
-		// processing", never as a BodyProcessor whose JsonDecoder panics on
-		// a nil reader during the forwarding copy.
-		return nil
-	}
 
 	bp := NewBodyProcessor(res.Body)
 	// 缺省添加streamcompletion处理器
@@ -654,14 +653,26 @@ func mediaTypeOnly(contentType string) string {
 }
 
 func NewContentTypeDecoder(source io.Reader, contentType string) (EventDecoder, error) {
-	var dec EventDecoder
+	// issue #1501: a nil source must fail construction in every branch —
+	// the decoder factories panic on first use with a nil reader, and a nil
+	// decoder wrapped here would panic just the same (ctd.dec.Decode()).
+	if source == nil {
+		return nil, fmt.Errorf("content-type decoder: nil body source")
+	}
+	var (
+		dec EventDecoder
+		err error
+	)
 	switch mediaTypeOnly(contentType) {
 	case "application/sse", "text/event-stream", "application/x-sse":
-		dec, _ = NewSSEEventDecoder(source)
+		dec, err = NewSSEEventDecoder(source)
 	case "application/json", "application/ndjson", "application/x-ndjson":
-		dec, _ = NewJsonDecoder(source) // ndjson is a line-delimited JSON, can use JsonDecoder
+		dec, err = NewJsonDecoder(source) // ndjson is a line-delimited JSON, can use JsonDecoder
 	default:
-		dec, _ = NewLineDecoder(source) // 默认使用行解码器
+		dec, err = NewLineDecoder(source) // 默认使用行解码器
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	return &ContentTypeDecoder{contentType: contentType, dec: dec}, nil

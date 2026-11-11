@@ -23,6 +23,7 @@ package bfe_http
 import (
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -308,12 +309,12 @@ func (r *Response) GetBodyAccessor() (BodyAccessor, error) {
 	if !ok {
 		newBody, err := NewBytesBody(r.Body, GetAccessibleBodySize())
 		if err != nil {
-			// issue #1501: never nil out r.Body here. The upstream body may
-			// be truncated (io.ReadAll error): keeping the original stream
-			// lets the forwarding path deliver the remaining bytes and the
-			// read error, instead of a nil body reaching mod_body_process
-			// and panicking its JsonDecoder on a nil reader.
-			return nil, errors.New("can't get body")
+			// issue #1501: never nil out r.Body here. io.ReadAll may have
+			// consumed a prefix before the truncation error; the retained
+			// stream only yields that read error, and the forwarding path
+			// terminates the response as truncated (issue #1474 yardstick).
+			// The wrapped error keeps io.ErrUnexpectedEOF for errors.Is.
+			return nil, fmt.Errorf("can't get body: %w", err)
 		}
 		r.Body = newBody
 		bodyAccessor, _ = r.Body.(BodyAccessor)

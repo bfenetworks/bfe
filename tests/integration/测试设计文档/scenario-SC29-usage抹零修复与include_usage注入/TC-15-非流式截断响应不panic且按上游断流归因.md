@@ -48,12 +48,13 @@ SC29 usage 抹零修复与 include_usage 注入
 
 客户端使用容错读取（容忍截断传输错误，或因 close-delimit 而收到短 body）。
 
-## 预期结果
+## 预期结果（PR #1504 评审修订后，true/false 双子臂）
 
-- **无 panic**：`log/exception.log` 不含 panic 记录（修复前：panic 栈 + 该请求无 RequestLog 行）。
-- **客户端**：HTTP 200 + 截断（读错误或收到的字节数少于声明长度）；无 SSE error 注入事件。
-- **计费**（已转发内容口径）：无字节送达客户端 ⇒ completion 估算为 0，扣减 = `len(请求体)/4 × 300` 定点。
-- **RequestLog**：行存在；`err_code=BK_READ_RESP_BODY`；`ai_usage_source=upstream_dropped`；`ai_stream=false`。
+- **无 panic**：`PanicClientConnServe` 前后差分 = 0（请求前后各读一次 `/monitor/proxy_state`）；先停 BFE 再读 `exception.log`，断言为空（进程停止冲刷日志，杜绝缓冲导致的空转通过）。
+- **客户端**：HTTP 200 + 截断（读错误，或 close-delimit 形态下收到的字节数少于声明长度）；无 SSE error 注入事件。
+- **臂 A（EstimateToken=true，已转发内容口径）**：无字节送达客户端 ⇒ completion 估算为 0，扣减 = `len(请求体)/4 × 300` 定点；RequestLog `ai_usage_source=upstream_dropped`。
+- **臂 B（EstimateToken=false）**：余额不变；RequestLog `ai_usage_source=unrecognized` 且 `ai_zero_cost_reason=upstream_dropped`。
+- **RequestLog（两臂共有）**：行存在；`err_code=BK_READ_RESP_BODY`；`ai_stream=false`。
 
 ## 清理
 

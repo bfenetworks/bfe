@@ -42,21 +42,25 @@ if err != nil {
 ```go
 	newBody, err := NewBytesBody(r.Body, GetAccessibleBodySize())
 	if err != nil {
-		// issue #1501: never nil out r.Body here. The partial body was
-		// consumed by io.ReadAll; keeping the original stream lets the
-		// forwarding path deliver the truncated remainder and the read
-		// error instead of panicking downstream on a nil reader.
-		return nil, err
+		// issue #1501: never nil out r.Body here. io.ReadAll may have
+		// consumed a prefix before the truncation error; the retained
+		// stream only yields that read error, and the forwarding path
+		// terminates the response as truncated (issue #1474 yardstick).
+		// The wrapped error keeps io.ErrUnexpectedEOF for errors.Is.
+		return nil, fmt.Errorf("can't get body: %w", err)
 	}
 	r.Body = newBody
 ```
 
-效果：转发路径拿到残余流，客户端得到截断传输错误（条款③）；`copyResponse` 读到错误走 #1474 归因（条款①）。
+效果：转发路径保留原流（残余前缀已被 `io.ReadAll` 消费，实际拿到的是读错误而非残余字节——评审修订已修正本表述），客户端得到截断传输错误（条款③）；`copyResponse` 读到错误走 #1474 归因（条款①）。实现形态为 `fmt.Errorf("can't get body: %w", err)`，底层 `io.ErrUnexpectedEOF` 不丢弃（评审第 8 点）。
 
 ### 步骤 2（防御纵深）：mod_body_process 对 nil body 永不 panic
 
-- `DoResponseProcess`（`body_process.go:330-336`）：`if res.Body == nil { return nil }` 提前返回（不构造 BodyProcessor）；
-- `NewJsonDecoder` / `NewLineDecoder`：`if source == nil { return nil, errors.New("nil body source") }`——即便未来再出现 nil body 来源，失败也发生在构造期（factory 错误路径），而非转发中途 panic。
+> **PR #1504 评审修订（2026-11-11，见 `2026-11-11-issue-1501-pr1504-review-revision/design-changes.md`）**：本节初版实现（`DoResponseProcess` nil 早退）被评审判定为"把 panic 平移到下游"——调用方丢弃返回值后 `copyResponse`/`res.Body.Close()` 仍 nil panic，且破坏了 `CreateEventDecoder` 既有的 `bp.err` 正确降级。修订后：
+
+- **删除 nil 早退**；nil body 的降级完全由构造期守卫驱动：`NewJsonDecoder` / `NewLineDecoder` / `NewSSEEventDecoder` / `NewContentTypeDecoder` 对 nil source 构造期返回 error（SSE 与 content-type 分支为评审补全的同族守卫）；
+- `CreateEventDecoder` 收到工厂错误时写入 `bp.err` 并返回——`bp` **非 nil**，调用点以 `res.Body = bp` 替换后，转发路径 `Read` 返回 `bp.err`（归因 `BK_READ_RESP_BODY`），`Close` 经新增的 nil-source 守卫安全返回；
+- `NewBodyProcessor` 保持 nil source 原样传入（归一化为 `EofReader` 会使工厂守卫失效——工厂收到非 nil reader 后构造成功、错误丢失，此路在评审修订实现时被验证否决），nil-source 安全性由 `BodyProcessor.Close` 的 nil 守卫兜底。
 
 ### 步骤 3（语义修复）：截断响应不置 completed、不播种估算
 
@@ -87,18 +91,21 @@ if err != nil {
 
 ### 步骤 4（测试）
 
+> **PR #1504 评审修订后**（详见 `2026-11-11-issue-1501-pr1504-review-revision/design-changes.md` §三）：
+
 **单元测试**（三个包）：
 
 | 用例 | 位置 | 断言 |
 | --- | --- | --- |
-| GetBodyAccessor 截断 | `bfe_http` | 返回 err；**r.Body 非 nil** 且可读出残余前缀 |
-| tokenReadResponseHandler 截断 | `mod_ai_token_auth` | `IsResponseCompleted()==false`；`CompletionTokens` 未被播种 |
-| NewJsonDecoder(nil) / DoResponseProcess(nil body) | `mod_body_process` | 返回 error / nil processor，**不 panic** |
-| 链路定点（issue 推断环） | `mod_ai_token_auth`+`mod_body_process` | 模拟"GetBodyAccessor 部分消费后失败 → DoResponseProcess → Read"全链无 panic |
+| GetBodyAccessor 截断 | `bfe_http` | 返回 err（`errors.Is(err, io.ErrUnexpectedEOF)`）；**r.Body 非 nil** |
+| tokenReadResponseHandler 截断 | `mod_ai_token_auth` | `IsResponseCompleted()==false`；`CompletionTokens` 保持 `COMPLETION_TOKENS_UNKNOWN`（未播种）；`res.Body` 存活 |
+| 解码器工厂 nil 守卫 | `mod_body_process` | `NewJsonDecoder`/`NewLineDecoder`/`NewSSEEventDecoder`/`NewContentTypeDecoder`（三种 content-type）nil source 均构造期返回 error，**不 panic** |
+| nil body 降级不变量 | `mod_body_process` | 降级后 processor **非 nil**；`res.Body=bp` 后 Read 返回构造错误、Close 安全（评审要求的真实不变量，替代初版"bp == nil"错误契约） |
+| 全链定点（评审补充） | `mod_ai_token_auth` → `mod_body_process` | 截断响应依次经过 `tokenReadResponseHandler` → `DoResponseProcess` → Read：不 panic、不置 completed、Read/Close 安全且返回错误 |
 
-**集成测试**（SC29 新增 TC-15，复刻 SC3201-TC035 A-06 形态）：
-- mock 后端新增响应侧截断能力（非 SSE 模式：写出 N 字节 flush 后 `panic(http.ErrAbortHandler)`，机制同 `SSEAbortAfter`）；
-- 用例：`POST /v1/messages` `stream=false` ⇒ 客户端 200+截断错误；BFE 无 panic（`PanicClientConnServe` 不增）；RequestLog 存在且 `err_code=BK_READ_RESP_BODY`；`EstimateToken=true` ⇒ `ai_usage_source=upstream_dropped`、`UpstreamDropBilled` +1；`EstimateToken=false` ⇒ `unrecognized` + `ai_zero_cost_reason=upstream_dropped`；无 SSE error 注入事件。
+**集成测试**（SC29 TC-15，复刻 SC3201-TC035 A-06 形态；评审修订后为 EstimateToken=true/false 双子臂）：
+- mock 后端新增响应侧截断能力 `BodyTruncateAt`（非 SSE 模式：声明完整 `Content-Length`、写出 N 字节 flush 后 `panic(http.ErrAbortHandler)`，机制同 `SSEAbortAfter`）；
+- 用例：`POST /v1/messages` `stream=false` ⇒ 客户端 200+截断（读错误或短 body）；`PanicClientConnServe` 前后差分 = 0（评审补充的指标断言）；先停 BFE 再读 `exception.log` 断言无 panic（评审修正的空转风险）；RequestLog 存在且 `err_code=BK_READ_RESP_BODY`、`ai_stream=false`；`EstimateToken=true` ⇒ `ai_usage_source=upstream_dropped`、按已转发内容计费（无字节送达 ⇒ 扣 `len(请求体)/4×300`）；`EstimateToken=false` ⇒ `unrecognized` + `ai_zero_cost_reason=upstream_dropped` + 零扣费；无 SSE error 注入事件。
 
 ### 步骤 5（集成设计文档）
 
@@ -118,3 +125,7 @@ if err != nil {
 3. `EstimateToken=true` ⇒ field 764=`upstream_dropped` + `UpstreamDropBilled`+1 + cost/quota 按已转发内容（708=706+707）；`false` ⇒ 764=`unrecognized` + 765=`upstream_dropped` + 零扣费——步骤 3（`responseCompleted=false` 使请求落入 #1474 upstreamDropped 门控；播种精化保证估算基数=已转发内容）。
 4. 客户端 200+截断传输错误、不注入 SSE error 事件——步骤 1（残余流转发 + 读错误自然终止）。
 5. 流式 partial-drop 与 terminal-marker 不回归——改动均不触碰流式路径，SC29 全场景回归。
+
+## 五、评审修订
+
+PR #1504 评审（xuleiming，CHANGES_REQUESTED）指出初版 `DoResponseProcess` nil 早退"把 panic 平移到下游"、单测固化错误契约等 8 项问题，全部属实；修订方案与落地记录见 `2026-11-11-issue-1501-pr1504-review-revision/design-changes.md`，本文档 §一.1.2、§二.1、§二.2、§四 已同步修订。修订实现中一处与评审建议的字面偏差：`NewBodyProcessor` 采用 **nil source 保留 + `Close` 守卫**而非归一化 `bfe_http.EofReader`——后者会使解码器工厂收到非 nil reader、构造成功、`bp.err` 丢失（错误路径被验证失效），已在修订文档 §一.4 附记。

@@ -16,6 +16,7 @@ package sc29
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -81,13 +82,14 @@ var (
 )
 
 type testEnv struct {
-	t          *testing.T
-	processEnv *common.ProcessEnv
-	backend    *common.MockBackend
-	redis      *common.RedisServer
-	bfePort    int
-	logDir     string
-	stopBFE    func()
+	t              *testing.T
+	processEnv     *common.ProcessEnv
+	backend        *common.MockBackend
+	redis          *common.RedisServer
+	bfePort        int
+	bfeMonitorPort int
+	logDir         string
+	stopBFE        func()
 }
 
 func newTestEnv(t *testing.T) *testEnv {
@@ -165,8 +167,32 @@ func newTestEnvWithEstimateToken(t *testing.T, estimateToken bool) *testEnv {
 		rewriteEstimateToken(t, filepath.Join(confDir, "bfe.conf"))
 	}
 
-	e.bfePort, _, e.stopBFE = e.processEnv.StartBFE(confDir, e.logDir)
+	e.bfePort, e.bfeMonitorPort, e.stopBFE = e.processEnv.StartBFE(confDir, e.logDir)
 	return e
+}
+
+// proxyStateCounter reads /monitor/proxy_state and returns one counter value
+// (e.g. PanicClientConnServe for the issue #1501 no-panic assertion).
+func (e *testEnv) proxyStateCounter(t *testing.T, key string) int64 {
+	t.Helper()
+
+	url := fmt.Sprintf("http://127.0.0.1:%d/monitor/proxy_state", e.bfeMonitorPort)
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatalf("get proxy_state failed: %v", err)
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read proxy_state failed: %v", err)
+	}
+	var data struct {
+		SCounters map[string]int64 `json:"SCounters"`
+	}
+	if err := json.Unmarshal(raw, &data); err != nil {
+		t.Fatalf("parse proxy_state failed: %v, body: %s", err, raw)
+	}
+	return data.SCounters[key]
 }
 
 // rewriteEstimateToken flips the generated bfe.conf to EstimateToken = false.
@@ -786,62 +812,91 @@ func TestTC10_EarlyUsageNoFinalBillsForwardedContentEstimate(t *testing.T) {
 // the request must keep its full observability: a RequestLog row with
 // err_code=BK_READ_RESP_BODY, ai_usage_source=upstream_dropped, and billing
 // by the forwarded-content yardstick (issue #1474 non-stream boundary).
+// PR #1504 review revisions: EstimateToken=true/false two arms, the no-panic
+// assertion runs only after BFE stops (flushed logs, no vacuous pass), and
+// PanicClientConnServe is asserted directly.
 func TestTC15_NonStreamTruncatedBodyNoPanic(t *testing.T) {
-	e := newTestEnv(t)
-	defer e.Close()
+	runArm := func(t *testing.T, estimateToken bool) {
+		e := newTestEnvWithEstimateToken(t, estimateToken)
+		defer e.Close()
 
-	e.redis.SetQuota(redisKeyRMB, initialQuota)
+		e.redis.SetQuota(redisKeyRMB, initialQuota)
 
-	// A full Anthropic message body; the mock declares the full length but
-	// writes only the first 128 bytes before killing the connection.
-	e.backend.Body = `{"id":"msg_01","type":"message","role":"assistant","model":"claude-3-sonnet","content":[{"type":"text","text":"BFE is a layer-7 load balancer originated at Baidu and a CNCF sandbox project."}],"stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":20,"total_tokens":30}}`
-	e.backend.BodyTruncateAt = 128
+		// A full Anthropic message body; the mock declares the full length but
+		// writes only the first 128 bytes before killing the connection.
+		e.backend.Body = `{"id":"msg_01","type":"message","role":"assistant","model":"claude-3-sonnet","content":[{"type":"text","text":"BFE is a layer-7 load balancer originated at Baidu and a CNCF sandbox project."}],"stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":20,"total_tokens":30}}`
+		e.backend.BodyTruncateAt = 128
 
-	nonStreamBody := []byte(`{"model":"claude-3","stream":false,"messages":[{"role":"user","content":"hi"}],"max_tokens":100}`)
-	respBody, readErr := e.sendStreamTolerant(t, "/v1/messages",
-		map[string]string{
-			"x-api-key":         apiKey,
-			"anthropic-version": "2023-06-01",
-			"Content-Type":      "application/json",
-		},
-		nonStreamBody)
-	// The upstream declared the full length but died mid-body, so the client
-	// must NOT receive a complete response: either its HTTP stack surfaces a
-	// truncated transport error, or (close-delimited response) it receives
-	// fewer bytes than promised. A clean read of the full body would mean
-	// BFE fabricated the missing bytes.
-	if readErr == nil && len(respBody) >= len(e.backend.Body) {
-		t.Fatalf("client read the full body of a truncated upstream response (err=%v, len=%d)", readErr, len(respBody))
-	}
+		panicBefore := e.proxyStateCounter(t, "PanicClientConnServe")
 
-	// Pre-fix the request panicked and died before mod_access_pb3 wrote its
-	// RequestLog; the exception log must stay free of panics.
-	if data, err := os.ReadFile(filepath.Join(e.processEnv.WorkDir(), "log", "exception.log")); err == nil {
-		if Panics := strings.Contains(string(data), "panic"); Panics {
+		nonStreamBody := []byte(`{"model":"claude-3","stream":false,"messages":[{"role":"user","content":"hi"}],"max_tokens":100}`)
+		respBody, readErr := e.sendStreamTolerant(t, "/v1/messages",
+			map[string]string{
+				"x-api-key":         apiKey,
+				"anthropic-version": "2023-06-01",
+				"Content-Type":      "application/json",
+			},
+			nonStreamBody)
+		// The upstream declared the full length but died mid-body, so the client
+		// must NOT receive a complete response: either its HTTP stack surfaces a
+		// truncated transport error, or (close-delimited response) it receives
+		// fewer bytes than promised. A clean read of the full body would mean
+		// BFE fabricated the missing bytes.
+		if readErr == nil && len(respBody) >= len(e.backend.Body) {
+			t.Fatalf("client read the full body of a truncated upstream response (err=%v, len=%d)", readErr, len(respBody))
+		}
+
+		// No connection-level panic at all (pre-fix the request died before
+		// mod_access_pb3 wrote its RequestLog).
+		if panicAfter := e.proxyStateCounter(t, "PanicClientConnServe"); panicAfter != panicBefore {
+			t.Fatalf("PanicClientConnServe grew %d -> %d (issue #1501)", panicBefore, panicAfter)
+		}
+
+		if estimateToken {
+			promptEst := int64(len(nonStreamBody)) / 4
+			wantRemaining := initialQuota - promptEst*300 // completion estimate: nothing forwarded
+			if remaining := e.quotaRemaining(t); remaining != wantRemaining {
+				e.logBFEException()
+				t.Fatalf("billed by the forwarded-content yardstick: remaining = %d, want %d (promptEst=%d)",
+					remaining, wantRemaining, promptEst)
+			}
+		} else {
+			if remaining := e.quotaRemaining(t); remaining != initialQuota {
+				e.logBFEException()
+				t.Fatalf("EstimateToken=false must not bill: remaining = %d, want %d", remaining, initialQuota)
+			}
+		}
+
+		// Access log assertions; stopAndParseLogs stops BFE first, so the
+		// exception-log read below sees flushed logs (review fix: the old
+		// order could pass vacuously on buffered output).
+		reqLogs := e.stopAndParseLogs()
+		reqLog := reqLogs[len(reqLogs)-1]
+		if got := reqLog.GetErrCode(); got != bfe_basic.ErrBkReadRespBody.Error() {
+			t.Errorf("err_code = %q, want %q", got, bfe_basic.ErrBkReadRespBody)
+		}
+		if reqLog.GetAiStream() {
+			t.Error("ai_stream must be false for a non-streaming request")
+		}
+		if estimateToken {
+			if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceUpstreamDropped {
+				t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceUpstreamDropped)
+			}
+		} else {
+			if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceUnrecognized {
+				t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceUnrecognized)
+			}
+			if got := reqLog.GetAiZeroCostReason(); got != bfe_basic.ZeroCostReasonUpstreamDropped {
+				t.Errorf("ai_zero_cost_reason = %q, want %q", got, bfe_basic.ZeroCostReasonUpstreamDropped)
+			}
+		}
+
+		if data, err := os.ReadFile(filepath.Join(e.processEnv.WorkDir(), "log", "exception.log")); err == nil && len(data) > 0 {
 			e.logBFEException()
-			t.Fatalf("bfe exception log contains a panic (issue #1501):\n%s", data)
+			t.Fatalf("bfe exception log must stay empty (issue #1501):\n%s", data)
 		}
 	}
 
-	promptEst := int64(len(nonStreamBody)) / 4
-	wantRemaining := initialQuota - promptEst*300 // completion estimate: nothing forwarded
-
-	remaining := e.quotaRemaining(t)
-	if remaining != wantRemaining {
-		e.logBFEException()
-		t.Fatalf("billed by the forwarded-content yardstick: remaining = %d, want %d (promptEst=%d)",
-			remaining, wantRemaining, promptEst)
-	}
-
-	reqLogs := e.stopAndParseLogs()
-	reqLog := reqLogs[len(reqLogs)-1]
-	if got := reqLog.GetErrCode(); got != bfe_basic.ErrBkReadRespBody.Error() {
-		t.Errorf("err_code = %q, want %q", got, bfe_basic.ErrBkReadRespBody)
-	}
-	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceUpstreamDropped {
-		t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceUpstreamDropped)
-	}
-	if reqLog.GetAiStream() {
-		t.Error("ai_stream must be false for a non-streaming request")
-	}
+	t.Run("EstimateToken=true", func(t *testing.T) { runArm(t, true) })
+	t.Run("EstimateToken=false", func(t *testing.T) { runArm(t, false) })
 }

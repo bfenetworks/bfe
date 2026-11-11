@@ -377,7 +377,7 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 	}
 	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
 	if res.StatusCode == bfe_http.StatusOK && isCompleteNonStreamBody(res) {
-		if bodyAccessor, err := res.GetBodyAccessor(); err == nil {
+		if bodyAccessor, err := res.GetBodyAccessor(); err == nil && bodyAccessor != nil {
 			// The full non-streaming body was read into the buffer: the
 			// response is complete (issue #1364).
 			ctx.aiBasicInfo.MarkResponseCompleted()
