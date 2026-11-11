@@ -1559,6 +1559,12 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		}
 	}
 
+	// The request body can no longer be rewound once the fallback loop
+	// settles, so release the buffered request bodies now: a long-lived SSE
+	// response must not keep the retry-buffer accounting (and the
+	// TotalBodyBufferSize admission budget) occupied.
+	basicReq.HttpRequest.ReleaseBodyBuffers()
+
 	// Upstream error normalization (AIConf.NormalizeUpstreamError): rewrite
 	// the final upstream error into the unified error catalog. Runs after
 	// the fallback loop settles (never affects retry/fallback decisions)

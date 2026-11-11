@@ -114,6 +114,10 @@ func NewRequest(request *bfe_http.Request, conn net.Conn, stat *RequestStat,
 	fReq.ErrCode = nil
 	fReq.Connection = conn
 	fReq.HttpRequest = request
+	// Buffer accounting is settled once per request; init the registry before
+	// any shallow copy (OutRequest) is made so all copies share it. HTTP/1.x
+	// requests already get one in ReadRequest; HTTP/2 and SPDY need it here.
+	request.InitBodyBufferTracking()
 	fReq.Stat = stat
 	fReq.Session = session
 	fReq.Context = make(map[interface{}]interface{})

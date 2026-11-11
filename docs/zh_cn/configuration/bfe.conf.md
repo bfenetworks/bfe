@@ -34,7 +34,7 @@ bfe.conf是BFE的核心配置
 | Server.AIUpstreamAcceptEncoding | String  | 回源时如何改写AI请求的`Accept-Encoding`，用于把握手结果限制在网关能解压的编码集合内，从而保证压缩流式响应的usage可被解析（issue #1468）。`auto`：与客户端声明求交后仅保留网关可解码的编码（`gzip`、`deflate`），求交为空则不改写；`identity`：剥离压缩，让上游回明文（排障用）；`off`：按客户端原值透传（保持旧行为）。仅作用于AI转发请求的出站头，入站请求头不受影响 | N    | 默认值`auto`；取值`auto`/`identity`/`off`，非法值按`auto`处理 | 取值见补充描述 |
 | Server.ConditionEngineMode     | String  | 条件表达式引擎模式                                 | N    | 默认值`LegacyFirst`；取值`LegacyFirst`（旧引擎优先，旧引擎解析失败回退expr引擎，存量配置行为不变）/`ExprCompatible`（expr引擎+旧原语兼容，可新旧混写，编译失败直接报错）/`ExprOnly`（纯expr表达式，不支持旧原语）；兼容数字写法`0`/`1`/`2`，非法值启动报错 | 取值`LegacyFirst`/`ExprCompatible`/`ExprOnly`/`0`/`1`/`2` |
 | Server.AccessibleBodySize      | Integer | 请求体可缓冲的最大长度，单位为Byte                 | N    | 默认值2097152；用于请求体改写及AI Gateway fallback重试；超过此大小的请求体无法被完整缓存并重传 | > 0 且 <= 8388608                             |
-| Server.TotalBodyBufferSize     | Integer | 所有活跃bytes_body buffer占用内存之和的上限，单位为Byte | N    | 默认值0（表示无限制）；达到上限时，AI Gateway fallback不再对请求体做缓存封装，即不重传 | >= 0                                          |
+| Server.TotalBodyBufferSize     | Integer | 可重传请求体缓冲（bytes_body）总量的准入阈值，单位为Byte | N    | 默认值0（表示无限制）；达到阈值时，AI Gateway fallback不再对请求体做缓存封装，即不重传。该值只作为准入检查：计数在请求结束时统一归还，且已创建的 buffer 仍全部计入，因此统计值可能短时高于阈值 | >= 0                                          |
 | Server.HostRuleConf            | String  | [租户域名表配置](server_data_conf/host_rule.data.md)文件路径 | N    | 默认值`server_data_conf/host_rule.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
 | Server.VipRuleConf             | String  | [租户VIP表配置](server_data_conf/vip_rule.data.md)文件路径 | N    | 默认值`server_data_conf/vip_rule.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
 | Server.RouteRuleConf           | String  | [转发规则配置](server_data_conf/route_rule.data.md)文件路径 | N    | 默认值`server_data_conf/route_rule.data`；参见 [FilePath](00-common.md#3-文件路径filepath) 类型定义 | 类型为 [FilePath](00-common.md#3-文件路径filepath)                         |
@@ -167,7 +167,7 @@ MaxHeaderUriBytes = 8192
 # max request body size that can be buffered for rewriting/fallback (default 2MB, max 8MB)
 AccessibleBodySize = 2097152
 
-# max total bytes of all active bytes_body buffers (0 means unlimited)
+# admission threshold for retryable request body buffers (0 means unlimited)
 TotalBodyBufferSize = 0
 
 # condition expression engine mode: LegacyFirst(default) / ExprCompatible / ExprOnly
