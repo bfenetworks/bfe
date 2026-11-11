@@ -779,3 +779,69 @@ func TestTC10_EarlyUsageNoFinalBillsForwardedContentEstimate(t *testing.T) {
 		t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceEarlySuppressed)
 	}
 }
+
+// TestTC15 verifies issue #1501: a non-streaming 200 response whose body is
+// truncated mid-transfer must not panic BFE (pre-fix: GetBodyAccessor nil-ed
+// res.Body and mod_body_process's JsonDecoder dereferenced a nil reader), and
+// the request must keep its full observability: a RequestLog row with
+// err_code=BK_READ_RESP_BODY, ai_usage_source=upstream_dropped, and billing
+// by the forwarded-content yardstick (issue #1474 non-stream boundary).
+func TestTC15_NonStreamTruncatedBodyNoPanic(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+	// A full Anthropic message body; the mock declares the full length but
+	// writes only the first 128 bytes before killing the connection.
+	e.backend.Body = `{"id":"msg_01","type":"message","role":"assistant","model":"claude-3-sonnet","content":[{"type":"text","text":"BFE is a layer-7 load balancer originated at Baidu and a CNCF sandbox project."}],"stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":20,"total_tokens":30}}`
+	e.backend.BodyTruncateAt = 128
+
+	nonStreamBody := []byte(`{"model":"claude-3","stream":false,"messages":[{"role":"user","content":"hi"}],"max_tokens":100}`)
+	respBody, readErr := e.sendStreamTolerant(t, "/v1/messages",
+		map[string]string{
+			"x-api-key":         apiKey,
+			"anthropic-version": "2023-06-01",
+			"Content-Type":      "application/json",
+		},
+		nonStreamBody)
+	// The upstream declared the full length but died mid-body, so the client
+	// must NOT receive a complete response: either its HTTP stack surfaces a
+	// truncated transport error, or (close-delimited response) it receives
+	// fewer bytes than promised. A clean read of the full body would mean
+	// BFE fabricated the missing bytes.
+	if readErr == nil && len(respBody) >= len(e.backend.Body) {
+		t.Fatalf("client read the full body of a truncated upstream response (err=%v, len=%d)", readErr, len(respBody))
+	}
+
+	// Pre-fix the request panicked and died before mod_access_pb3 wrote its
+	// RequestLog; the exception log must stay free of panics.
+	if data, err := os.ReadFile(filepath.Join(e.processEnv.WorkDir(), "log", "exception.log")); err == nil {
+		if Panics := strings.Contains(string(data), "panic"); Panics {
+			e.logBFEException()
+			t.Fatalf("bfe exception log contains a panic (issue #1501):\n%s", data)
+		}
+	}
+
+	promptEst := int64(len(nonStreamBody)) / 4
+	wantRemaining := initialQuota - promptEst*300 // completion estimate: nothing forwarded
+
+	remaining := e.quotaRemaining(t)
+	if remaining != wantRemaining {
+		e.logBFEException()
+		t.Fatalf("billed by the forwarded-content yardstick: remaining = %d, want %d (promptEst=%d)",
+			remaining, wantRemaining, promptEst)
+	}
+
+	reqLogs := e.stopAndParseLogs()
+	reqLog := reqLogs[len(reqLogs)-1]
+	if got := reqLog.GetErrCode(); got != bfe_basic.ErrBkReadRespBody.Error() {
+		t.Errorf("err_code = %q, want %q", got, bfe_basic.ErrBkReadRespBody)
+	}
+	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceUpstreamDropped {
+		t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceUpstreamDropped)
+	}
+	if reqLog.GetAiStream() {
+		t.Error("ai_stream must be false for a non-streaming request")
+	}
+}

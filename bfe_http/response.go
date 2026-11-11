@@ -306,11 +306,16 @@ func (r *Response) GetBodyAccessor() (BodyAccessor, error) {
 	}
 	bodyAccessor, ok := r.Body.(BodyAccessor)
 	if !ok {
-		var err error
-		r.Body, err = NewBytesBody(r.Body, GetAccessibleBodySize())
+		newBody, err := NewBytesBody(r.Body, GetAccessibleBodySize())
 		if err != nil {
+			// issue #1501: never nil out r.Body here. The upstream body may
+			// be truncated (io.ReadAll error): keeping the original stream
+			// lets the forwarding path deliver the remaining bytes and the
+			// read error, instead of a nil body reaching mod_body_process
+			// and panicking its JsonDecoder on a nil reader.
 			return nil, errors.New("can't get body")
 		}
+		r.Body = newBody
 		bodyAccessor, _ = r.Body.(BodyAccessor)
 	}
 	return bodyAccessor, nil

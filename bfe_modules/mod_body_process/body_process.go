@@ -333,6 +333,14 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 
 	m.state.ResProcess.Inc(1)
 
+	if res.Body == nil {
+		// issue #1501: a nil response body (e.g. an upstream that dropped
+		// mid-response after GetBodyAccessor failed) must surface as "no
+		// processing", never as a BodyProcessor whose JsonDecoder panics on
+		// a nil reader during the forwarding copy.
+		return nil
+	}
+
 	bp := NewBodyProcessor(res.Body)
 	// 缺省添加streamcompletion处理器
 	if ccq != nil {
@@ -566,6 +574,10 @@ type LineDecoder struct {
 }
 
 func NewLineDecoder(source io.Reader) (EventDecoder, error) {
+	if source == nil {
+		// issue #1501: same nil-source guard as NewJsonDecoder.
+		return nil, fmt.Errorf("line decoder: nil body source")
+	}
 	reader := bufio.NewReader(source)
 	return &LineDecoder{reader: reader}, nil
 }
@@ -587,6 +599,12 @@ type JsonDecoder struct {
 }
 
 func NewJsonDecoder(source io.Reader) (EventDecoder, error) {
+	if source == nil {
+		// issue #1501: a nil source would build a json.Decoder that panics
+		// on the first Decode (nil reader deref in refill); fail at
+		// construction instead.
+		return nil, fmt.Errorf("json decoder: nil body source")
+	}
 	dec := json.NewDecoder(source)
 	return &JsonDecoder{dec: dec}, nil
 }

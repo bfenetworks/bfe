@@ -525,3 +525,30 @@ func TestRawEventGetQuotaUsageAllZeroUsageIsPresent(t *testing.T) {
 		t.Error("expected IsFinalUsage true for a whole-body usage object")
 	}
 }
+
+// Issue #1501: a nil body source must fail decoder construction instead of
+// building a json.Decoder that panics on the first Decode (nil reader deref
+// in refill).
+func TestNewJsonDecoderNilSource(t *testing.T) {
+	if _, err := NewJsonDecoder(nil); err == nil {
+		t.Fatal("expected an error for a nil source")
+	}
+	if _, err := NewLineDecoder(nil); err == nil {
+		t.Fatal("expected an error for a nil source")
+	}
+}
+
+// Issue #1501: DoResponseProcess with a nil response body must return nil
+// (no processing) instead of constructing a BodyProcessor that panics the
+// forwarding copy.
+func TestDoResponseProcessNilBody(t *testing.T) {
+	m := NewModuleBodyProcess()
+	req := newTestRequest("AI_product")
+	req.InitAiBasicInfo()
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK, Body: nil}
+
+	bp := m.DoResponseProcess(req, res, &BodyProcessConfig{Dec: "json"})
+	if bp != nil {
+		t.Fatalf("expected nil processor for a nil body, got %v", bp)
+	}
+}

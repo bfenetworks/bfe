@@ -21,6 +21,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -3731,5 +3732,63 @@ func TestTokenRequestFinishHandler_PerCountDataFallbackParsed(t *testing.T) {
 	}
 	if remaining := client.data[tokenPlan.RedisKey]; remaining != 98 {
 		t.Errorf("remaining = %d, want 98: billed by data.#=2, not the request preset 3", remaining)
+	}
+}
+
+// truncatedBodyReadCloser delivers its payload once and then fails with
+// io.ErrUnexpectedEOF, simulating an upstream that disconnects mid-body
+// after the response headers (issue #1501).
+type truncatedBodyReadCloser struct {
+	data []byte
+	sent bool
+}
+
+func (t *truncatedBodyReadCloser) Read(p []byte) (int, error) {
+	if !t.sent {
+		t.sent = true
+		return copy(p, t.data), nil
+	}
+	return 0, io.ErrUnexpectedEOF
+}
+
+func (t *truncatedBodyReadCloser) Close() error { return nil }
+
+// Issue #1501: a truncated non-streaming 200 response must NOT be marked
+// completed and must NOT be seeded with an estimate derived from
+// Content-Length. The request falls to the issue #1474 upstream-drop path
+// (BK_READ_RESP_BODY / upstreamDropped), and billing accumulates only
+// forwarded content.
+func TestTokenReadResponseHandlerTruncatedBody(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	req := newTestRequest("ak-123", "AI_product")
+	ai := req.InitAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 2, nil)
+
+	full := `{"id":"msg_01","usage":{"input_tokens":10,"output_tokens":5}}`
+	res := &bfe_http.Response{
+		StatusCode:    200,
+		ContentLength: int64(len(full)),
+		Body:          &truncatedBodyReadCloser{data: []byte(`{"id":"msg_01","u`)},
+	}
+
+	if ret := m.tokenReadResponseHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+	if ai.IsResponseCompleted() {
+		t.Error("a truncated body must not mark the response completed (issue #1501)")
+	}
+	if ai.IsFinalUsageSeen() {
+		t.Error("no usage may be parsed from a truncated body")
+	}
+	usage := ai.GetTokenUsage()
+	if usage.UsedQuota != 0 {
+		t.Errorf("UsedQuota = %d, want 0: no estimate may be seeded from Content-Length on truncation", usage.UsedQuota)
+	}
+	if usage.CompletionTokens != bfe_basic.COMPLETION_TOKENS_UNKNOWN {
+		t.Errorf("CompletionTokens = %d, want the unknown sentinel: no estimate may be seeded from Content-Length on truncation", usage.CompletionTokens)
+	}
+	if res.Body == nil {
+		t.Error("res.Body must survive the failed GetBodyAccessor so the forwarding path can deliver the truncation")
 	}
 }
