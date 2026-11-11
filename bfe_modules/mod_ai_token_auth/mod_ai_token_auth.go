@@ -267,8 +267,30 @@ func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) bool {
 		// (issue #1414).
 		fields = utils.ParseUsageFieldsCrossProtocol(data)
 	}
-	if !fields.UsagePresent {
+	// issue #1498: a per-count generation response (image / video generations)
+	// may omit the usage object entirely. The generated count parsed from the
+	// response structure (the approved data.# fallback, #1420 clause) is a
+	// real observation of what the upstream produced and must override the
+	// request-preset count: adopted as recognized usage it bills data.# under
+	// BOTH EstimateToken positions (previously: on billed the request n,
+	// off billed nothing). Restricted to per-count modes so a chat-shaped
+	// body that merely carries a data array keeps the issue #1414
+	// usage-object semantics.
+	countObserved := !fields.UsagePresent &&
+		((ctx.aiBasicInfo.Mode == bfe_basic.ModeImageGeneration && fields.ImageCount > 0) ||
+			(ctx.aiBasicInfo.Mode == bfe_basic.ModeVideoGeneration && fields.VideoCount > 0))
+	if !fields.UsagePresent && !countObserved {
 		return false
+	}
+	if countObserved {
+		// The data.# fallback filled both generated-count fields; keep only
+		// the one matching the request mode so the per-count billing and the
+		// access log do not record a spurious sibling count.
+		if ctx.aiBasicInfo.Mode == bfe_basic.ModeImageGeneration {
+			fields.VideoCount = 0
+		} else {
+			fields.ImageCount = 0
+		}
 	}
 
 	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
@@ -284,9 +306,16 @@ func UpdateCtxByUsage(ctx *TokenAuthContext, data []byte) bool {
 
 	// total_tokens is absent in some shapes (Anthropic): derive the quota from
 	// the parts, with the generated count as the quota unit for image / video
-	// modes (legacy derivation, issue #1414 keeps it).
+	// modes (legacy derivation, issue #1414 keeps it). issue #1498: within a
+	// per-count mode the matching count wins, so a video response does not
+	// take its quota from the sibling image field that the shared data.#
+	// structure fallback also fills.
 	if fields.UsedQuota == 0 {
 		switch {
+		case ctx.aiBasicInfo.Mode == bfe_basic.ModeImageGeneration && fields.ImageCount > 0:
+			fields.UsedQuota = fields.ImageCount
+		case ctx.aiBasicInfo.Mode == bfe_basic.ModeVideoGeneration && fields.VideoCount > 0:
+			fields.UsedQuota = fields.VideoCount
 		case fields.ImageCount > 0:
 			fields.UsedQuota = fields.ImageCount
 		case fields.VideoCount > 0:

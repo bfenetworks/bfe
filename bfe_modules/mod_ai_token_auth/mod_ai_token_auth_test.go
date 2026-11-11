@@ -3614,3 +3614,122 @@ func TestTokenRequestFinishHandler_EarlyUsageSuppressedEstimateDisabled(t *testi
 		t.Errorf("UsageSource = %q, want %q", got, bfe_basic.UsageSourceUnrecognized)
 	}
 }
+
+// Issue #1498: a per-count generation response (image / video generations)
+// that omits the usage object entirely must bill the generated count parsed
+// from the response structure (the approved data.# fallback), overriding the
+// request-preset count, under BOTH EstimateToken positions. Previously the
+// presence early-exit dropped the parsed count: EstimateToken=true billed
+// the request n and EstimateToken=false billed nothing.
+func TestUpdateCtxByUsage_PerCountDataFallback(t *testing.T) {
+	newCtx := func(mode string) (*TokenAuthContext, *bfe_basic.AiBasicInfo) {
+		req := newTestRequest("", "AI_product")
+		ai := req.InitAiBasicInfo()
+		ai.Mode = mode
+		return &TokenAuthContext{aiBasicInfo: ai}, ai
+	}
+
+	// probe C (video): no usage object, data.#=2; the auth-time preset was n=3.
+	ctx, ai := newCtx(bfe_basic.ModeVideoGeneration)
+	ai.GetTokenUsage().VideoCount = 3 // SetTokenAuthContext preset (GetVideoCountFromReq)
+	if !UpdateCtxByUsage(ctx, []byte(`{"id":"vid_1","data":[{"url":"u1"},{"url":"u2"}],"created":123}`)) {
+		t.Fatal("video mode: the data.# observation must be adopted as recognized usage")
+	}
+	if usage := ai.GetTokenUsage(); usage.VideoCount != 2 || usage.UsedQuota != 2 {
+		t.Errorf("VideoCount/UsedQuota = %d/%d, want 2/2: data.# must override the request preset 3",
+			usage.VideoCount, usage.UsedQuota)
+	}
+	if usage := ai.GetTokenUsage(); usage.ImageCount != 0 {
+		t.Errorf("ImageCount = %d, want 0: the shared data.# fallback must not leave a spurious sibling count on a video response", usage.ImageCount)
+	}
+
+	// probe C (image): same shape on the image mode.
+	ctx, ai = newCtx(bfe_basic.ModeImageGeneration)
+	ai.GetTokenUsage().ImageCount = 3
+	if !UpdateCtxByUsage(ctx, []byte(`{"created":123,"data":[{"b64_json":"x"},{"b64_json":"y"}]}`)) {
+		t.Fatal("image mode: the data.# observation must be adopted as recognized usage")
+	}
+	if usage := ai.GetTokenUsage(); usage.ImageCount != 2 || usage.UsedQuota != 2 {
+		t.Errorf("ImageCount/UsedQuota = %d/%d, want 2/2", usage.ImageCount, usage.UsedQuota)
+	}
+
+	// probe B regression: usage.video_count wins over data.#.
+	ctx, ai = newCtx(bfe_basic.ModeVideoGeneration)
+	if !UpdateCtxByUsage(ctx, []byte(`{"data":[{"url":"u1"},{"url":"u2"}],"usage":{"video_count":3}}`)) {
+		t.Fatal("a present usage object must be recognized")
+	}
+	if usage := ai.GetTokenUsage(); usage.VideoCount != 3 || usage.UsedQuota != 3 {
+		t.Errorf("VideoCount/UsedQuota = %d/%d, want 3/3: usage.video_count must win over data.#",
+			usage.VideoCount, usage.UsedQuota)
+	}
+
+	// probe A equivalent: data.#=1 bills one unit.
+	ctx, ai = newCtx(bfe_basic.ModeVideoGeneration)
+	ai.GetTokenUsage().VideoCount = 1
+	if !UpdateCtxByUsage(ctx, []byte(`{"data":[{"url":"u1"}]}`)) {
+		t.Fatal("data.#=1 must be adopted")
+	}
+	if usage := ai.GetTokenUsage(); usage.VideoCount != 1 || usage.UsedQuota != 1 {
+		t.Errorf("VideoCount/UsedQuota = %d/%d, want 1/1", usage.VideoCount, usage.UsedQuota)
+	}
+
+	// mode gate: a non-per-count mode with a data array but no usage object
+	// keeps the issue #1414 usage-object semantics (not recognized, preset
+	// untouched).
+	ctx, ai = newCtx(bfe_basic.ModeChat)
+	ai.GetTokenUsage().VideoCount = 3
+	if UpdateCtxByUsage(ctx, []byte(`{"data":[{"url":"u1"},{"url":"u2"}]}`)) {
+		t.Error("chat mode: a data array without a usage object must not be adopted")
+	}
+	if usage := ai.GetTokenUsage(); usage.VideoCount != 3 {
+		t.Errorf("chat mode: VideoCount = %d, want the preset 3 untouched", usage.VideoCount)
+	}
+}
+
+// Issue #1498: with the data.# observation adopted as recognized usage, the
+// request-finish billing is parsed — not unrecognized — and bills data.# even
+// with EstimateToken=false. The amount must not depend on the switch
+// (before the fix: on billed the request n=3, off billed nothing).
+func TestTokenRequestFinishHandler_PerCountDataFallbackParsed(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	req := newTestRequestWithCluster("ak-123", "AI_product", "video-cluster", "video-model")
+	tokenPlan := &QuotaPlan{
+		Id:       "tok-plan",
+		RedisKey: "QUOTA_AI_product-PerCountDataFallback",
+		Unit:     "total_token",
+		Quota:    100,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id",
+		QuotaPlans: []*QuotaPlan{tokenPlan}}, 0, nil)
+	client.data[tokenPlan.RedisKey] = 100
+
+	ai := req.GetAiBasicInfo()
+	ai.Mode = bfe_basic.ModeVideoGeneration
+	ai.SetAllowEstimateToken(false)   // the shape must bill with the estimate disabled too
+	ai.GetTokenUsage().VideoCount = 3 // auth-time preset from request n=3
+
+	// tokenReadResponseHandler path: the complete non-streaming body is parsed.
+	ctx := GetTokenAuthContext(req)
+	if !UpdateCtxByUsage(ctx, []byte(`{"data":[{"url":"u1"},{"url":"u2"}]}`)) {
+		t.Fatal("the data.# observation must be adopted as recognized usage")
+	}
+	ai.MarkFinalUsageSeen()
+
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := m.state.UsageUnrecognized.Get(); got != 0 {
+		t.Errorf("UsageUnrecognized = %d, want 0: the data.# observation is recognized usage", got)
+	}
+	if got := ai.UsageSource(); got != bfe_basic.UsageSourceParsed {
+		t.Errorf("UsageSource = %q, want %q", got, bfe_basic.UsageSourceParsed)
+	}
+	if remaining := client.data[tokenPlan.RedisKey]; remaining != 98 {
+		t.Errorf("remaining = %d, want 98: billed by data.#=2, not the request preset 3", remaining)
+	}
+}
