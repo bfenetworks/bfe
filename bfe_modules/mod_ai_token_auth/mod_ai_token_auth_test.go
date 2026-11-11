@@ -3536,3 +3536,81 @@ func TestTokenReadResponseHandler_AllZeroUsageIsRecognized(t *testing.T) {
 		t.Errorf("the reported zeros must replace the auth-time seeding, got %+v", *u)
 	}
 }
+
+// Issue #1497 (product ruling on the issue, 2026-11-11): a request where an
+// early usage appeared on a non-final event but no final usage ever followed
+// is billed by the forwarded-content estimate (issue #1415 yardstick), not
+// by the early usage values. The shape is reported as
+// ai_usage_source=early_suppressed and counted separately, so it stays
+// distinguishable from both a clean-EOF estimate (no usage object at all,
+// "estimated") and an unrecognized billing bypass ("unrecognized").
+func TestTokenRequestFinishHandler_EarlyUsageSuppressed(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	m.redisClient = newMockRedisClient()
+
+	req := newTestRequestWithCluster("ak-123", "AI_product", "deepseek-backup", "deepseek-v4-flash")
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 0, nil)
+
+	ai := req.GetAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+	ai.MarkResponseCompleted()
+	ai.MarkEarlyUsageSeen()
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 100 // prompt context mirrored from the early usage by mod_body_process
+	usage.CompletionTokens = 40
+	usage.UsedQuota = 0 // the early usage aggregate never entered the billing basis
+
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := m.state.EarlyUsageSuppressed.Get(); got != 1 {
+		t.Errorf("EarlyUsageSuppressed = %d, want 1", got)
+	}
+	if got := m.state.UsageUnrecognized.Get(); got != 0 {
+		t.Errorf("UsageUnrecognized = %d, want 0 for an estimate-billed request", got)
+	}
+	if got := ai.UsageSource(); got != bfe_basic.UsageSourceEarlySuppressed {
+		t.Errorf("UsageSource = %q, want %q", got, bfe_basic.UsageSourceEarlySuppressed)
+	}
+	want := CalcReqUsedQuota(req, 100, 40)
+	if u := ai.GetTokenUsage(); u.UsedQuota != want {
+		t.Errorf("mirrored UsedQuota = %d, want %d (issue #1398 estimate mirror)", u.UsedQuota, want)
+	}
+}
+
+// Issue #1497: the same early-usage-no-final shape with the estimate
+// disabled (EstimateToken=false) is not billable at all — it falls to the
+// unrecognized guard exactly like a usage-less incomplete response, and
+// must not be counted as an early-usage-suppressed estimate.
+func TestTokenRequestFinishHandler_EarlyUsageSuppressedEstimateDisabled(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	m.redisClient = newMockRedisClient()
+
+	req := newTestRequestWithCluster("ak-123", "AI_product", "deepseek-backup", "deepseek-v4-flash")
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 0, nil)
+
+	ai := req.GetAiBasicInfo()
+	ai.SetAllowEstimateToken(false) // not estimatable
+	ai.MarkResponseCompleted()
+	ai.MarkEarlyUsageSeen()
+	usage := ai.GetTokenUsage()
+	usage.PromptTokens = 100 // protocol context residue stays on the shared object
+	usage.UsedQuota = 0
+
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := m.state.EarlyUsageSuppressed.Get(); got != 0 {
+		t.Errorf("EarlyUsageSuppressed = %d, want 0: nothing was billed by estimate", got)
+	}
+	if got := m.state.UsageUnrecognized.Get(); got != 1 {
+		t.Errorf("UsageUnrecognized = %d, want 1", got)
+	}
+	if got := ai.UsageSource(); got != bfe_basic.UsageSourceUnrecognized {
+		t.Errorf("UsageSource = %q, want %q", got, bfe_basic.UsageSourceUnrecognized)
+	}
+}

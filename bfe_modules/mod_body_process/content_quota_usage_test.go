@@ -483,3 +483,58 @@ func TestQuotaUsageProcessorProcessAnthropicPromptCarriedOver(t *testing.T) {
 		t.Errorf("UsedQuota = %d, want 100", usage.UsedQuota)
 	}
 }
+
+// Issue #1497: an early usage in a non-terminal delta followed by a
+// usage-less termination event (response.completed) must not bill the early
+// usage values. The early usage feeds the protocol context only
+// (IsEarlyUsageSeen, prompt fields); UsedQuota stays 0 so the forwarded-
+// content estimate (#1415 yardstick) remains reachable, and only guess
+// events keep accumulating completion tokens.
+func TestQuotaUsageProcessorEarlyUsageNoFinalSuppressed(t *testing.T) {
+	req := newTestRequest("AI_product")
+	ai := req.InitAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+	res := &bfe_http.Response{StatusCode: bfe_http.StatusOK}
+	p := NewQuotaUsageProcessor(req, res)
+
+	content1 := `{"type":"response.output_text.delta","delta":{"text":"hel"}}`
+	early := `{"type":"response.output_text.delta","delta":{"text":"lo"},"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}`
+	content2 := `{"type":"response.output_text.delta","delta":{"text":"!"}}`
+	termination := `{"type":"response.completed","response":{"id":"resp_1","status":"completed"}}`
+
+	events := []Event{
+		newRawEvent(content1),
+		newRawEvent(early),
+		newRawEvent(content2),
+		// The termination event travels as an SSE event in production; a
+		// RawEvent carries no SSE envelope and only marks termination
+		// together with a final usage (issue #1364).
+		&SSEEvent{DataLines: [][]byte{[]byte(termination)}},
+	}
+	if _, err := p.Process(events); err != nil {
+		t.Fatalf("Process failed: %s", err)
+	}
+
+	if ai.IsFinalUsageSeen() {
+		t.Error("a usage-less termination event must not mark a final usage")
+	}
+	if !ai.IsEarlyUsageSeen() {
+		t.Error("the early usage on the non-terminal delta must mark early usage seen")
+	}
+	if !ai.IsResponseCompleted() {
+		t.Error("the response.completed termination event must mark the response completed")
+	}
+
+	usage := ai.GetTokenUsage()
+	if usage.UsedQuota != 0 {
+		t.Errorf("UsedQuota = %d, want 0: the early usage aggregate (150) must not become the billing basis", usage.UsedQuota)
+	}
+	if usage.PromptTokens != 100 {
+		t.Errorf("PromptTokens = %d, want 100: the early usage must still feed the protocol context", usage.PromptTokens)
+	}
+	wantCompletion := EstimateContentToken(content1) + EstimateContentToken(content2) + EstimateContentToken(termination)
+	if usage.CompletionTokens != wantCompletion {
+		t.Errorf("CompletionTokens = %d, want %d: only forwarded-content guess events may accumulate; the early usage completion (50) must not be written",
+			usage.CompletionTokens, wantCompletion)
+	}
+}

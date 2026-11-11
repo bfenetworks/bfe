@@ -125,6 +125,16 @@ type ModuleAITokenAuthState struct {
 	// separable from the client-abort counters and from the issue #1415
 	// clean-EOF estimate billing.
 	UpstreamDropBilled *metrics.Counter
+	// EarlyUsageSuppressed counts 2xx requests where a usage object appeared
+	// on a non-final event (early usage, issue #1497) but no final usage ever
+	// followed, and which were billed by the forwarded-content estimate. The
+	// early usage values fed the protocol context only and were kept out of
+	// the billing basis, so the billed amount is the #1415 forwarded-content
+	// estimate rather than the early numbers. Together with the per-request
+	// ai_usage_source=early_suppressed marker this keeps the shape separable
+	// from a clean-EOF estimate (no usage object at all) and from an
+	// unrecognized billing bypass (#1410).
+	EarlyUsageSuppressed *metrics.Counter
 	// BillingZeroCost counts 2xx requests that hold an RMB quota plan and were
 	// charged 0, excluding AI cache hits (which never call the upstream, so
 	// their zero cost is by design). It is the structural counterpart of
@@ -556,6 +566,20 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 		// ai_zero_cost_reason=aborted, set only on the unbilled arm).
 		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceAborted)
 		m.state.AbortBillingEstimated.Inc(1)
+	case ctx.aiBasicInfo.IsEarlyUsageSeen() && estimateBillable:
+		// issue #1497: a usage object arrived on a non-final event (early
+		// usage) but no final usage ever followed. The early values were
+		// kept out of the billing basis; the request is billed by the
+		// forwarded-content estimate below (issue #1415 yardstick). The
+		// source marker keeps the shape distinct from a clean-EOF estimate
+		// (estimated, no usage object at all); when the estimate is not
+		// billable the unrecognized branch above already claimed the
+		// request.
+		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceEarlySuppressed)
+		m.state.EarlyUsageSuppressed.Inc(1)
+		log.Logger.Warn("%s: early usage suppressed, billing by forwarded-content estimate: cluster=%s key_id=%s model=%s response_completed=%v",
+			m.name, req.Route.ClusterName, ctx.aiBasicInfo.ClientKeyId, ctx.aiBasicInfo.TargetModel,
+			ctx.aiBasicInfo.IsResponseCompleted())
 	default:
 		ctx.aiBasicInfo.SetUsageSource(bfe_basic.UsageSourceEstimated)
 	}

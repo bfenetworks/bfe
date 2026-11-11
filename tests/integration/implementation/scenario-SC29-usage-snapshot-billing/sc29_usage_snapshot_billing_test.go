@@ -55,6 +55,10 @@ var (
 
 	openAIContentChunk = `{"id":"chatcmpl-1","choices":[{"delta":{"content":"hello"}}]}`
 	openAIUsageChunk   = `{"id":"chatcmpl-1","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}`
+	// Issue #1497: an early usage riding a non-terminal event type. The type
+	// is outside the final-usage whitelist, so the values must feed the
+	// protocol context only and never become the billing basis.
+	openAIEarlyUsageChunk = `{"id":"chatcmpl-1","type":"response.output_text.delta","choices":[{"delta":{"content":" world"}}],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}`
 
 	// expectedActualCost: prompt 10 * 300 + completion 20 * 900 = 21000
 	// fixed-point units (input 0.000003 yuan/token, output 0.000009).
@@ -711,5 +715,67 @@ func TestTC06_CleanEofEstimateTokenOffStaysZeroWithSignal(t *testing.T) {
 	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceUnrecognized {
 		t.Errorf("ai_usage_source = %q, want %q (unbillable shape must keep its signal)",
 			got, bfe_basic.UsageSourceUnrecognized)
+	}
+}
+
+// TestTC10 verifies issue #1497 (product ruling on the issue, 2026-11-11):
+// an upstream that emits an early usage on a non-terminal event and then a
+// usage-less termination event must not bill the early usage values. The
+// early usage feeds the protocol context only (prompt fields); with no final
+// usage the request is billed by the forwarded-content estimate (issue
+// #1415 yardstick), reported as ai_usage_source=early_suppressed. Before the
+// fix the early aggregate (10*300 + 20*900 = 21000 units) was billed
+// verbatim, which is exactly what this test's exact-remaining assertion
+// rules out.
+func TestTC10_EarlyUsageNoFinalBillsForwardedContentEstimate(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+	// Frame 1: plain content chunk (guess event, accumulates into the
+	// forwarded-content estimate). Frame 2: the early usage rides a
+	// non-terminal event type, so it is not a final usage (issue #1497);
+	// its prompt values become protocol context only. Frame 3: usage-less
+	// termination ([DONE]) — completes the response, contributes its own
+	// data length to the estimate.
+	e.backend.SSERaw = []string{
+		"data: " + openAIContentChunk + "\n\n",
+		"data: " + openAIEarlyUsageChunk + "\n\n",
+		"data: [DONE]\n\n",
+	}
+
+	respBody := e.sendOpenAIStream(t, openAIStreamBody)
+	if !strings.Contains(respBody, `"total_tokens":30`) {
+		t.Errorf("client must receive the early usage frame passed through, got: %s", respBody)
+	}
+
+	// Estimate fallback: prompt = the early usage's prompt context (10,
+	// mirrored by the context arm); completion = guess frames only (the
+	// content chunk and [DONE]; the early usage event contributes 0 as a
+	// non-guess event). Never the early aggregate 10+20.
+	prompt := int64(10)
+	completionEst := int64(len(openAIContentChunk))/4 + int64(len("[DONE]"))/4
+	expectedCost := prompt*300 + completionEst*900
+
+	remaining := e.quotaRemaining(t)
+	if remaining != initialQuota-expectedCost {
+		t.Fatalf("billing by forwarded-content estimate: remaining = %d, want %d (prompt=%d completionEst=%d; the early usage aggregate 10+20 must not be billed)",
+			remaining, initialQuota-expectedCost, prompt, completionEst)
+	}
+
+	reqLogs := e.stopAndParseLogs()
+	reqLog := reqLogs[len(reqLogs)-1]
+	if got := logInt64(reqLog.AiInputTokens); got != prompt {
+		t.Errorf("ai_input_tokens = %d, want %d (early usage prompt context)", got, prompt)
+	}
+	if got := logInt64(reqLog.AiOutputTokens); got != completionEst {
+		t.Errorf("ai_output_tokens = %d, want %d (forwarded-content estimate)", got, completionEst)
+	}
+	if got := logInt64(reqLog.AiTotalTokens); got != prompt+completionEst {
+		t.Errorf("ai_total_tokens = %d, want %d (mirrored estimate, issue #1398 semantics)", got, prompt+completionEst)
+	}
+	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceEarlySuppressed {
+		t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceEarlySuppressed)
 	}
 }

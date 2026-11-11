@@ -536,10 +536,11 @@ SSE 事件的 `QuotaUsage` 携带 `IsFinalUsage` / `IsTermination` 标志（`bfe
 
 > 说明（issue #1364）：`isFinalUsage` 判定从"`type == "message_delta" || ""`"扩展为同时认可顶层 `type:"message"`。`gjson` 只读顶层 `type`，SSE `message_start` 事件的顶层无 `type` 字段（嵌套在 `message.` 下），不受影响。非 SSE 路径整条 body 作为单事件处理完成时，`QuotaUsageProcessor` 额外置位 `MarkResponseCompleted()`，使正常完成的非流式响应可计费、真正未完成/被截断的响应仍被守卫拦截。
 
-`QuotaUsageProcessor.Process` 据此在 `AiBasicInfo` 上置位 `MarkFinalUsageSeen()` / `MarkResponseCompleted()`（图片/视频按次计费事件同样置位 `finalUsageSeen`），并做两件与计费正确性相关的事：
+`QuotaUsageProcessor.Process` 据此在 `AiBasicInfo` 上置位 `MarkFinalUsageSeen()` / `MarkResponseCompleted()`（图片/视频按次计费事件同样置位 `finalUsageSeen`），并做三件与计费正确性相关的事：
 
 1. **最终 usage 合并**：Anthropic `message_delta` 只携带输出 token。原实现在 `message_start` 设置 `UsedQuota` 后，`message_delta` 的 completion tokens 会被 `UsedQuota <= 0` 门槛忽略，导致输出 token 漏计；现改为 `UsedQuota <= 0 || IsFinalUsage` 都进入处理，`message_delta` 落账时从已解析的上下文补齐 prompt 及子 token 字段（`UsedQuota = prompt + completion`）。
 2. **真实报文结构解析**：线上 Anthropic 流式的初始 usage 位于 `message_start.message.usage`，`bfe_model_protocol/utils/usage_parse.go` 的 `ParseAnthropicUsageFields` 增加 `message.usage.*` 回退路径。
+3. **early usage 只进协议上下文，不进计费基数**（issue #1497）：非 final 事件上的 usage 对象（非终止 delta 里提前出现的 usage、Anthropic `message_start` 初始 usage）只镜像 prompt 侧上下文字段（`PromptTokens` 及 cache/audio/image 子 token——即第 1 条合并分支从 tctx 读回的字段清单），**不写 `UsedQuota` / `CompletionTokens`**，并置位 `MarkEarlyUsageSeen()`；计费基数只能由 final usage（或图片/视频按次计数）写入。由此，"提前出现 usage + 终止事件不带 usage"的异常上游形态不再按 early usage 数值扣费（修复前精确按 early 聚合值入账，与报表对账不一致），且 `UsedQuota` 不被提前占住、逐事件转发内容估算累加不被掐断——无 final usage 时自然落入 #1415 的已转发内容估算计费（产品裁定：issue #1497，2026-11-11）。
 
 > 说明（issue #1415）：上表的两个标记都来自**协议层事件**。上游省略终止事件（且无 usage）时，事件路径两个标记都置不上——生产实测 deepseek anthropic-compat 端点的大上下文 omit-usage 流即此形态（完整交付但 `total=0` 零扣费）。修复：`ServeHTTPForAI` 在 SSE 响应**完整交付**（`copyResponse` 返回 nil）且 200 时置位 `MarkResponseCompleted()`（`bfe_server/reverseproxy.go` 的 `shouldMarkAIStreamCompleted`）。「完整交付」是传输层事实——chunked 仅在终止 chunk 处 EOF、定长仅在字节凑齐时 EOF——因此客户端中断（`ErrClientWrite`）与上游中途断流（读错误）天然不会误置位，#1352 的「中断未拿 final usage 不估算扣费」语义不受影响；gemini 流因每个 chunk 带 usage 本来就走不到该门控。对 EstimateToken=true 的请求，该形态自此按批准口径的估算兜底计费；EstimateToken=false 时仍为不可计费形态，但走 `UsageUnrecognized` 信号（issue #1410），不再是静默 0。
 
@@ -688,6 +689,8 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 | 正常完成，usage 存在但各项计数为 0 | true（issue #1414 起按 usage 对象存在性判定） | 按真实 0 计费（不估算；修复前该形态被值判定误判为"无 usage"而按估算计费） |
 | 正常完成，无 usage + EstimateToken | false（responseCompleted=true） | 按估算计费 |
 | 正常完成，无 usage + `EstimateToken=false` | false | 零扣费（issue #1398 起出厂默认 EstimateToken=true，该行为仅显式关闭时出现） |
+| 正常完成，非终止事件提前给出 usage、终止事件不带 usage（early usage）+ EstimateToken | false（`earlyUsageSeen=true`，issue #1497） | 按已转发内容估算计费：early usage 数值只作协议上下文、不进计费基数（`ai_usage_source=early_suppressed`，计 `EarlyUsageSuppressed`；prompt 侧取已观测上下文，output 侧取 guess 帧累加） |
+| 同上形态 + `EstimateToken=false` | false | 零扣费（与"无 usage"同走 `unrecognized` 不可计费形态，计 `UsageUnrecognized`） |
 | 客户端中断/写失败，未拿到最终 usage + EstimateToken | false（issue #1478 起按中断维度计入估算门控） | 按已转发内容估算计费（`ai_usage_source=aborted`，计 `AbortBillingEstimated`；未转发内容不计费） |
 | 客户端中断/写失败，未拿到最终 usage + `EstimateToken=false` | false | 零扣费（无论此前是否已解析出初始 usage，如 Anthropic `message_start`；计 `AbortBillingSkipped` + `ai_zero_cost_reason=aborted`） |
 | 上游流中途异常断流（如后端进程被 kill），未拿到最终 usage + EstimateToken | false（issue #1474 起 `upstreamDropped=true`） | 按已转发内容估算计费（`ai_usage_source=upstream_dropped`，计 `UpstreamDropBilled`；客户端同时收到注入的协议错误事件） |
@@ -707,7 +710,7 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 > 说明（issue #1410）："usage 未识别且不可估算"守卫分支（上表"零扣费"且 2xx 的两行）本身**计费口径不变**，但必须可观测，绝不静默跳过。修复后该分支在判定成立处产生两类同源信号：
 >
 > 1. **模块计数器 + 告警日志**：`mod_ai_token_auth.UsageUnrecognized` 自增（经 `monitorHandlers` 及 `.diff` 导出，可直接配阈值告警），并输出 Warn（携带 cluster / key_id / model / response_completed / allow_estimate，免回源码即可初判成因）。客户端中止跳过计费分支（issue #1352 既定口径）当时同模式计数；**issue #1414 起该分支改由独立计数器 `AbortBillingSkipped` 承载**，`UsageUnrecognized` 语义随之收窄为"仅上游 usage 未识别"；**issue #1478 起 `AbortBillingSkipped` 进一步收窄为"中断且 EstimateToken 关闭、确实零扣费"**，估算计费的中断请求改计新增的 `AbortBillingEstimated`。
-> 2. **访问日志 usage 来源标记**：请求结束时按同一判定设置 `ai_usage_source`（`bfe-access-pb >= v0.3.15` 字段 764）——`parsed`（上游响应解析出 final usage）、`estimated`（`EstimateToken` 估算且已获准计费）、`unrecognized`（本分支：计费被跳过，日志 token 字段为鉴权期播种残留）；非 2xx 行维持 usage 字段整体缺席、本字段亦缺席。`unrecognized` 行照常输出数值字段（issue #1398 口径：missing usage 可见），对账查询 `ai_usage_source='unrecognized'` 即漏计费候选集，不再依赖 `total=0 且 in/out>0` 的跨字段矛盾签名或外部先验。**issue #1414 起新增第 4 个取值 `aborted`**（客户端中止且未拿到 final usage；**issue #1478 起该值不再等同"计费被跳过"**——它是断开原因标记，计费结果看 `ai_cost_value`，零扣费候选集以 `ai_zero_cost_reason=aborted` 判定）；**issue #1474 起新增第 5 个取值 `upstream_dropped`**（上游流中途异常断流且按已转发内容估算计费）。
+> 2. **访问日志 usage 来源标记**：请求结束时按同一判定设置 `ai_usage_source`（`bfe-access-pb >= v0.3.15` 字段 764）——`parsed`（上游响应解析出 final usage）、`estimated`（`EstimateToken` 估算且已获准计费）、`unrecognized`（本分支：计费被跳过，日志 token 字段为鉴权期播种残留）；非 2xx 行维持 usage 字段整体缺席、本字段亦缺席。`unrecognized` 行照常输出数值字段（issue #1398 口径：missing usage 可见），对账查询 `ai_usage_source='unrecognized'` 即漏计费候选集，不再依赖 `total=0 且 in/out>0` 的跨字段矛盾签名或外部先验。**issue #1414 起新增第 4 个取值 `aborted`**（客户端中止且未拿到 final usage；**issue #1478 起该值不再等同"计费被跳过"**——它是断开原因标记，计费结果看 `ai_cost_value`，零扣费候选集以 `ai_zero_cost_reason=aborted` 判定）；**issue #1474 起新增第 5 个取值 `upstream_dropped`**（上游流中途异常断流且按已转发内容估算计费）；**issue #1497 起新增第 6 个取值 `early_suppressed`**（非终止事件携带 early usage 但无 final usage 跟进，按已转发内容估算计费，early 数值只作协议上下文）。
 >
 > 修复前该分支全链零信号：守卫体内既无计数器也无日志，`ai_total_tokens=0` 与真实零用量同形，估算镜像生效（`tokenUsage.UsedQuota` 被回写估算值）后"漏计费"行与"估算计费"行亦同形——生产实测单日 95.5% 的收入缺口（736 行）只能靠带外人工对账脚本发现。
 >
@@ -1456,3 +1459,6 @@ return {yuan, frac}
    - **可解码编码集合**：`gzip`/`x-gzip`、`deflate`。`zstd`/`br` 不在集合内——若上游不遵守协商强行返回，则转发不变、计费落估算并计入 `ResStreamDecodeSkipped` / `ResStreamRawOnly`，**这两个计数器必须接告警**（阈值建议 > 1%），否则会以「部分流量仍在估算」的方式静默失效。
    - **估算口径修正**：tap 生效但上游确实未给 usage 时，估算改按解明文长度累加（不再是压缩后字节/4），同一请求的估算值会 **上升**，但仍标记 `ai_usage_source=estimated`。
    - **转发不变性**：客户端收到的字节序列与上游逐字节一致、`Content-Encoding` 头不变；唯一可观测差异是写窗口粒度由「压缩字节行边界」变为「SSE 事件边界」，对 SSE 客户端无语义影响。
+17. **early usage 不得成为无 final usage 流的计费基数**（issue #1497，产品裁定 2026-11-11 采 #1415 估算口径）：
+   - **计费口径变化**：「非终止事件提前给出 usage + 终止事件不带 usage」的异常上游形态，修复前按 early usage 聚合数值精确扣费（如 early input=100/output=50 扣 200000 定点单位），修复后按已转发内容估算计费（prompt 侧取 early usage 的 prompt 上下文，output 侧取 guess 帧累加）——该形态金额**下降**； EstimateToken=false 时仍零扣费（`unrecognized`），口径不变。正常 final usage、all-zero final（#1414）、clean-EOF 无 usage（#1415）等其余形态完全不受影响。
+   - **信号新增**：`ai_usage_source` 扩为六态（新增 `early_suppressed`，field 764 取值扩展、无需新版本 proto）；新增计数器 `EarlyUsageSuppressed`（early usage 被压制后按估算计费的请求数，配套 Warn）。对账侧可用 `ai_usage_source='early_suppressed'` 直接查询该异常上游形态的被计费行。
