@@ -80,14 +80,15 @@ type aiErrorBody struct {
 
 // testEnv holds all resources for a single SC20 integration test.
 type testEnv struct {
-	t          *testing.T
-	processEnv *common.ProcessEnv
-	backend    *common.MockBackend
-	redis      *common.RedisServer
-	confDir    string
-	logDir     string
-	bfePort    int
-	stopBFE    func()
+	t              *testing.T
+	processEnv     *common.ProcessEnv
+	backend        *common.MockBackend
+	redis          *common.RedisServer
+	confDir        string
+	logDir         string
+	bfePort        int
+	bfeMonitorPort int
+	stopBFE        func()
 }
 
 func newTestEnv(t *testing.T) *testEnv {
@@ -284,6 +285,15 @@ func (e *testEnv) startBFE(cacheRuleData *common.AiCacheRuleData, tokenRule *com
 // rateLimitData falls back to emptyRateLimitData().
 func (e *testEnv) startBFEWithRateLimit(cacheRuleData *common.AiCacheRuleData,
 	tokenRule *common.TokenRuleData, rateLimitData *common.RateLimitPolicyData) {
+	e.startBFEWithOptions(cacheRuleData, tokenRule, rateLimitData, "")
+}
+
+// startBFEWithOptions starts BFE; aiCacheRedisAddr, when non-empty, points
+// mod_ai_cache at a different Redis than the quota modules, so the cache Redis
+// can fail (or be killed) while requests keep flowing — used by TC-14 to
+// observe the module monitor counters under Redis faults (issue #1499).
+func (e *testEnv) startBFEWithOptions(cacheRuleData *common.AiCacheRuleData,
+	tokenRule *common.TokenRuleData, rateLimitData *common.RateLimitPolicyData, aiCacheRedisAddr string) {
 	if rateLimitData == nil {
 		rateLimitData = emptyRateLimitData()
 	}
@@ -297,6 +307,7 @@ func (e *testEnv) startBFEWithRateLimit(cacheRuleData *common.AiCacheRuleData,
 		TargetConfDir:       e.confDir,
 		Backends:            backends,
 		RedisAddr:           e.redis.Addr(),
+		AiCacheRedisAddr:    aiCacheRedisAddr,
 		TokenRuleData:       tokenRule,
 		RateLimitPolicyData: rateLimitData,
 		AiCacheRuleData:     cacheRuleData,
@@ -305,7 +316,7 @@ func (e *testEnv) startBFEWithRateLimit(cacheRuleData *common.AiCacheRuleData,
 		e.t.Fatalf("build bfe config failed: %v", err)
 	}
 
-	e.bfePort, _, e.stopBFE = e.processEnv.StartBFE(e.confDir, e.logDir)
+	e.bfePort, e.bfeMonitorPort, e.stopBFE = e.processEnv.StartBFE(e.confDir, e.logDir)
 }
 
 func (e *testEnv) Close() {
@@ -866,5 +877,121 @@ func TestTC13_CacheHitSkipsRateLimit(t *testing.T) {
 	}
 	if got := e.backend.Hits(); got != hitsAfterHit {
 		t.Fatalf("rate limited control request must not reach upstream, hits %d -> %d", hitsAfterHit, got)
+	}
+}
+
+// monitorJSONCounters fetches /monitor/mod_ai_cache and returns the module
+// state counters (the JSON monitor source).
+func (e *testEnv) monitorJSONCounters(t *testing.T) map[string]int64 {
+	t.Helper()
+
+	url := fmt.Sprintf("http://127.0.0.1:%d/monitor/mod_ai_cache", e.bfeMonitorPort)
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatalf("get module monitor failed: %v", err)
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read module monitor failed: %v", err)
+	}
+	var data struct {
+		SCounters map[string]int64 `json:"SCounters"`
+	}
+	if err := json.Unmarshal(raw, &data); err != nil {
+		t.Fatalf("parse module monitor json failed: %v, body: %s", err, raw)
+	}
+	if data.SCounters == nil {
+		t.Fatalf("module monitor json has no SCounters: %s", raw)
+	}
+	return data.SCounters
+}
+
+// monitorPrometheus fetches /monitor/mod_ai_cache.prometheus and returns the
+// metric values keyed by metric name (the prometheus monitor source).
+func (e *testEnv) monitorPrometheus(t *testing.T) map[string]int64 {
+	t.Helper()
+
+	url := fmt.Sprintf("http://127.0.0.1:%d/monitor/mod_ai_cache.prometheus", e.bfeMonitorPort)
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatalf("get prometheus monitor failed: %v", err)
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read prometheus monitor failed: %v", err)
+	}
+	values := make(map[string]int64)
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			continue
+		}
+		var v float64
+		if _, err := fmt.Sscanf(fields[1], "%g", &v); err != nil {
+			continue
+		}
+		values[fields[0]] = int64(v)
+	}
+	return values
+}
+
+// TestTC14 verifies issue #1499: with the cache Redis down (and the quota
+// Redis alive), the business path stays fail-open (200, miss, the request
+// reaches the upstream) and the JSON module monitor /monitor/mod_ai_cache
+// must report REDIS_ERR / LATENCY_MS in lockstep with
+// /monitor/mod_ai_cache.prometheus (redis_err / latency_ms). Before the fix
+// the module state counters were declared but never incremented, so the JSON
+// endpoint showed REDIS_ERR=0 while prometheus showed a growing redis_err —
+// the two views of the same metric contradicted each other.
+func TestTC14_ModuleMonitorRedisErrConsistency(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+
+	// Port 1 on loopback is reliably closed: every cache Redis operation
+	// fails with connection refused while the quota Redis (e.redis) stays
+	// healthy, so requests keep flowing through the module.
+	e.startBFEWithOptions(defaultCacheRule(), unlimitedTokenRule(), nil, "127.0.0.1:1")
+
+	resp, body, err := e.sendRequest(apiKey, questionBody)
+	e.expectOK(resp, body, err, "request with dead cache redis")
+	if cache := resp.Header.Get("X-Bfe-Ai-Cache"); cache == "hit" {
+		t.Fatalf("a dead cache redis must not produce a hit, got X-Bfe-Ai-Cache=%q", cache)
+	}
+	if !strings.Contains(body, "BFE is a layer-7 load balancer") {
+		t.Fatalf("fail-open response should contain the upstream answer, got: %s", body)
+	}
+	if e.backend.Hits() != 1 {
+		t.Fatalf("miss must reach the upstream, got %d hits", e.backend.Hits())
+	}
+	if e.waitForCacheKey("ai_cache:cache_key_id:", 2*time.Second) {
+		t.Fatal("no cache key may be written when the cache redis is down")
+	}
+
+	jsonCounters := e.monitorJSONCounters(t)
+	prom := e.monitorPrometheus(t)
+
+	if got := jsonCounters["REDIS_ERR"]; got < 1 {
+		e.logBFEException()
+		t.Fatalf("JSON REDIS_ERR = %d, want >= 1 (pre-fix bug: the state counter was never incremented)", got)
+	}
+	if got, want := jsonCounters["REDIS_ERR"], prom["redis_err"]; got != want {
+		t.Errorf("JSON REDIS_ERR = %d, want equal to prometheus redis_err %d", got, want)
+	}
+	if got, want := jsonCounters["LATENCY_MS"], prom["latency_ms"]; got != want {
+		t.Errorf("JSON LATENCY_MS = %d, want equal to prometheus latency_ms %d", got, want)
+	}
+	if got := jsonCounters["REQ_TOTAL"]; got != prom["req_total"] || got < 1 {
+		t.Errorf("REQ_TOTAL: JSON = %d, prometheus = %d, want equal and >= 1",
+			jsonCounters["REQ_TOTAL"], prom["req_total"])
+	}
+	if got := jsonCounters["CACHE_MISS"]; got != prom["cache_miss"] || got < 1 {
+		t.Errorf("CACHE_MISS: JSON = %d, prometheus = %d, want equal and >= 1",
+			jsonCounters["CACHE_MISS"], prom["cache_miss"])
 	}
 }

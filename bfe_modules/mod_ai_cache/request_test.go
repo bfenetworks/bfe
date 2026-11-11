@@ -241,7 +241,7 @@ func TestBuildHitResponseStream(t *testing.T) {
 func TestCacheRequestHandlerMissAndHit(t *testing.T) {
 	fake := newFakeRedisClient("")
 	m := prepareTestModule(t)
-	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable, m.state)
 
 	// miss: context saved, status miss, request continues
 	req := newTestRequest("default", chatBody("what is bfe", false))
@@ -284,7 +284,7 @@ func TestCacheRequestHandlerMissAndHit(t *testing.T) {
 func TestCacheRequestHandlerSkip(t *testing.T) {
 	fake := newFakeRedisClient("cached")
 	m := prepareTestModule(t)
-	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable, m.state)
 
 	req := newTestRequest("default", chatBody("q", false))
 	req.InitAiBasicInfo().ClientKeyId = "key_001"
@@ -398,7 +398,7 @@ func prepareSemanticTestModule(t *testing.T, emb *fakeEmbeddingProvider, vec *fa
 	if _, err := m.loadProductRuleTable(nil); err != nil {
 		t.Fatalf("loadProductRuleTable failed: %s", err)
 	}
-	m.semantic = newSemanticCache(emb, vec, DefaultMaxQuestionBytes, m.ruleTable)
+	m.semantic = newSemanticCache(emb, vec, DefaultMaxQuestionBytes, m.ruleTable, m.state)
 	return m
 }
 
@@ -408,7 +408,7 @@ func TestCacheRequestHandlerExactHitSkipsEmbedding(t *testing.T) {
 	emb := &fakeEmbeddingProvider{vec: []float32{0.1}}
 	vec := &fakeVectorProvider{}
 	m := prepareSemanticTestModule(t, emb, vec)
-	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable, m.state)
 
 	req := newTestRequest("default", chatBody("what is bfe", false))
 	req.InitAiBasicInfo().ClientKeyId = "key_001"
@@ -440,7 +440,7 @@ func TestCacheRequestHandlerSemanticHit(t *testing.T) {
 			Score: 0.1, Similarity: 0.9},
 	}}
 	m := prepareSemanticTestModule(t, emb, vec)
-	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable, m.state)
 
 	req := newTestRequest("default", chatBody("what is bfe", false))
 	req.InitAiBasicInfo().ClientKeyId = "key_001"
@@ -483,7 +483,7 @@ func TestCacheRequestHandlerSemanticMiss(t *testing.T) {
 	emb := &fakeEmbeddingProvider{vec: []float32{0.1, 0.2}}
 	vec := &fakeVectorProvider{} // no neighbors
 	m := prepareSemanticTestModule(t, emb, vec)
-	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable, m.state)
 
 	req := newTestRequest("default", chatBody("what is bfe", false))
 	req.InitAiBasicInfo().ClientKeyId = "key_001"
@@ -513,7 +513,7 @@ func TestCacheRequestHandlerSemanticEmbeddingFailure(t *testing.T) {
 	emb := &fakeEmbeddingProvider{err: errors.New("embedding down")}
 	vec := &fakeVectorProvider{}
 	m := prepareSemanticTestModule(t, emb, vec)
-	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable, m.state)
 
 	req := newTestRequest("default", chatBody("what is bfe", false))
 	req.InitAiBasicInfo().ClientKeyId = "key_001"
@@ -535,7 +535,7 @@ func TestCacheRequestHandlerSemanticQuestionTooLong(t *testing.T) {
 	emb := &fakeEmbeddingProvider{vec: []float32{0.1}}
 	vec := &fakeVectorProvider{}
 	m := prepareSemanticTestModule(t, emb, vec)
-	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable, m.state)
 	m.semantic.maxQuestionBytes = 3
 
 	req := newTestRequest("default", chatBody("what is bfe", false))
@@ -564,7 +564,7 @@ func TestCacheRequestHandlerSemanticNotEnabled(t *testing.T) {
 	emb := &fakeEmbeddingProvider{vec: []float32{0.1}}
 	vec := &fakeVectorProvider{}
 	m := prepareTestModule(t) // no semantic wiring at all
-	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable, m.state)
 
 	req := newTestRequest("default", chatBody("what is bfe", false))
 	req.InitAiBasicInfo().ClientKeyId = "key_001"
