@@ -196,6 +196,12 @@ type BFEConfigBuilder struct {
 	// RedisAddr is the address of the redis server used by mod_ai_token_auth.
 	// If empty, mod_ai_token_auth.conf is not rewritten.
 	RedisAddr string
+	// AiCacheRedisAddr, if set, points mod_ai_cache at a different Redis than
+	// the other modules (its own bns name redis_bns_ai_cache). Used by SC20
+	// TC-14 (issue #1499) to kill only the cache Redis while the quota Redis
+	// stays alive, so requests keep flowing and the module monitor counters
+	// can be observed under Redis faults.
+	AiCacheRedisAddr string
 	// TokenRuleData optionally generates mod_ai_token_auth/token_rule.data.
 	TokenRuleData *TokenRuleData
 	// RateLimitPolicyData optionally generates mod_ai_rate_limit/ai_rate_limit.data.
@@ -475,6 +481,7 @@ func (b *BFEConfigBuilder) rewriteAiCacheSemanticAddrs() error {
 }
 
 const redisBnsName = "redis_bns"
+const redisBnsNameAiCache = "redis_bns_ai_cache"
 
 func (b *BFEConfigBuilder) setupRedisBns() error {
 	host, port, err := splitHostPort(b.RedisAddr)
@@ -483,35 +490,52 @@ func (b *BFEConfigBuilder) setupRedisBns() error {
 	}
 
 	// rewrite module confs that support a Bns line to use the fixed bns name
-	if err := b.rewriteModBns("mod_ai_token_auth"); err != nil {
+	if err := b.rewriteModBns("mod_ai_token_auth", redisBnsName); err != nil {
 		return fmt.Errorf("rewrite mod_ai_token_auth bns failed: %w", err)
 	}
-	if err := b.rewriteModBns("mod_ai_rate_limit"); err != nil {
+	if err := b.rewriteModBns("mod_ai_rate_limit", redisBnsName); err != nil {
 		return fmt.Errorf("rewrite mod_ai_rate_limit bns failed: %w", err)
 	}
-	if err := b.rewriteModBns("mod_ai_cache"); err != nil {
+	// mod_ai_cache gets its own bns name when AiCacheRedisAddr is set, so the
+	// cache Redis can fail independently of the quota Redis (SC20 TC-14,
+	// issue #1499); otherwise it shares the common redis_bns.
+	cacheBnsName := redisBnsName
+	if b.AiCacheRedisAddr != "" {
+		cacheBnsName = redisBnsNameAiCache
+	}
+	if err := b.rewriteModBns("mod_ai_cache", cacheBnsName); err != nil {
 		return fmt.Errorf("rewrite mod_ai_cache bns failed: %w", err)
 	}
-	if err := b.rewriteModBns("mod_session_sticky"); err != nil {
+	if err := b.rewriteModBns("mod_session_sticky", redisBnsName); err != nil {
 		return fmt.Errorf("rewrite mod_session_sticky bns failed: %w", err)
 	}
 	// mod_ai_batch keeps its BATCH_* state in the same Redis as the quota
 	// keys; rewrite it when present (scenarios that do not ship the conf
 	// skip it silently)
 	if _, err := os.Stat(filepath.Join(b.TargetConfDir, "mod_ai_batch", "mod_ai_batch.conf")); err == nil {
-		if err := b.rewriteModBns("mod_ai_batch"); err != nil {
+		if err := b.rewriteModBns("mod_ai_batch", redisBnsName); err != nil {
 			return fmt.Errorf("rewrite mod_ai_batch bns failed: %w", err)
 		}
 	}
 
 	// generate name_conf.data mapping bns name to redis addr
+	config := map[string][]map[string]interface{}{
+		redisBnsName: {
+			{"Host": host, "Port": port, "Weight": 100},
+		},
+	}
+	if b.AiCacheRedisAddr != "" {
+		cacheHost, cachePort, err := splitHostPort(b.AiCacheRedisAddr)
+		if err != nil {
+			return fmt.Errorf("parse ai cache redis addr %s failed: %w", b.AiCacheRedisAddr, err)
+		}
+		config[redisBnsNameAiCache] = []map[string]interface{}{
+			{"Host": cacheHost, "Port": cachePort, "Weight": 100},
+		}
+	}
 	nameConf := map[string]interface{}{
 		"Version": "1.0",
-		"Config": map[string][]map[string]interface{}{
-			redisBnsName: {
-				{"Host": host, "Port": port, "Weight": 100},
-			},
-		},
+		"Config":  config,
 	}
 	path := filepath.Join(b.TargetConfDir, "server_data_conf", "name_conf.data")
 	if err := writeJSONFile(path, nameConf); err != nil {
@@ -522,7 +546,7 @@ func (b *BFEConfigBuilder) setupRedisBns() error {
 	return b.rewriteBFEConfNameConf()
 }
 
-func (b *BFEConfigBuilder) rewriteModBns(modName string) error {
+func (b *BFEConfigBuilder) rewriteModBns(modName, bnsName string) error {
 	path := filepath.Join(b.TargetConfDir, modName, modName+".conf")
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -536,7 +560,7 @@ func (b *BFEConfigBuilder) rewriteModBns(modName string) error {
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "Bns") {
-			lines[i] = "Bns = \"" + redisBnsName + "\""
+			lines[i] = "Bns = \"" + bnsName + "\""
 		}
 	}
 	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)

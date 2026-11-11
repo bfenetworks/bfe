@@ -227,6 +227,15 @@ type AiBasicInfo struct {
 	// response. An initial usage such as Anthropic message_start
 	// (output_tokens = 0) does not count.
 	finalUsageSeen bool
+	// earlyUsageSeen marks that a usage object was parsed from a non-final
+	// event (issue #1497): an early usage in a non-terminal delta, or the
+	// Anthropic message_start initial usage. Such usage feeds the protocol
+	// context (e.g. the prompt fields a later message_delta merges from)
+	// but must never become the billing basis when no final usage follows;
+	// its values are kept out of UsedQuota/CompletionTokens by
+	// mod_body_process and only serve as the "estimate, don't take the
+	// early numbers" signal at the billing decision point.
+	earlyUsageSeen bool
 
 	// priceMiss marks that the (model, mode) price entry was absent from the
 	// cluster price table and the cost was computed by falling back to the
@@ -309,6 +318,19 @@ func (aiinfo *AiBasicInfo) MarkFinalUsageSeen() {
 
 func (aiinfo *AiBasicInfo) IsFinalUsageSeen() bool {
 	return aiinfo.finalUsageSeen
+}
+
+// MarkEarlyUsageSeen records that a usage object was parsed from a non-final
+// event (issue #1497): an early usage in a non-terminal delta, or the
+// Anthropic message_start initial usage. The usage is protocol context only
+// and must not be billed as the final usage.
+func (aiinfo *AiBasicInfo) MarkEarlyUsageSeen() {
+	aiinfo.earlyUsageSeen = true
+}
+
+// IsEarlyUsageSeen reports whether MarkEarlyUsageSeen was recorded.
+func (aiinfo *AiBasicInfo) IsEarlyUsageSeen() bool {
+	return aiinfo.earlyUsageSeen
 }
 
 // MarkPriceMiss records that the request's (model, mode) price entry was
@@ -437,6 +459,16 @@ const (
 	// consumption: the request is billed by the forwarded-content estimate
 	// when EstimateToken allows, or reported unrecognized otherwise.
 	UsageSourceUpstreamDropped = "upstream_dropped"
+	// UsageSourceEarlySuppressed means a usage object arrived on a non-final
+	// event but no final usage ever followed (issue #1497): an early usage
+	// in a non-terminal delta, or Anthropic message_start without a later
+	// message_delta. The early usage fed the protocol context only and was
+	// kept out of the billing basis; with EstimateToken enabled the request
+	// is billed by the forwarded-content estimate per the issue #1415
+	// yardstick, otherwise it is reported unrecognized. This keeps the
+	// shape separable from both a clean-EOF estimate and a parsed final
+	// usage in ai_usage_source.
+	UsageSourceEarlySuppressed = "early_suppressed"
 	// UsageSourceFailed means the upstream call never succeeded (non-2xx,
 	// including BFE-generated rejections) and the EstimateToken residue would
 	// have been reported for it (issue #1480). Issue #1493 restored the
