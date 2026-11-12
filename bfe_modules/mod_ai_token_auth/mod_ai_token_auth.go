@@ -376,11 +376,15 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 		return bfe_module.BfeHandlerGoOn
 	}
 	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
-	if res.StatusCode == bfe_http.StatusOK && isCompleteNonStreamBody(res) {
+	if isCompleteNonStreamBody(res) {
 		if bodyAccessor, err := res.GetBodyAccessor(); err == nil && bodyAccessor != nil {
-			// The full non-streaming body was read into the buffer: the
-			// response is complete (issue #1364).
-			ctx.aiBasicInfo.MarkResponseCompleted()
+			if res.StatusCode == bfe_http.StatusOK {
+				// The full non-streaming body was read into the buffer: the
+				// response is complete (issue #1364). Completion is a 2xx
+				// concept: a non-2xx response must never satisfy the billing
+				// completion gate.
+				ctx.aiBasicInfo.MarkResponseCompleted()
+			}
 			bodyLen := 0
 			usagePresent := false
 			body, _ := bodyAccessor.GetBytes()
@@ -399,10 +403,15 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 			if usagePresent {
 				// The upstream carried a usage object — including an explicit
 				// all-zero report, which is a real observation and must not be
-				// re-estimated (issue #1414).
+				// re-estimated (issue #1414). On an error response this is
+				// issue #1480/#1493: a real usage object on a non-2xx body is
+				// a real observation — mark it so dropUnbilledEstimate reports
+				// the row as parsed instead of dropping it as estimate residue.
 				ctx.aiBasicInfo.MarkFinalUsageSeen()
 			}
-			if !usagePresent && ctx.aiBasicInfo.IsAllowEstimateToken() {
+			if res.StatusCode == bfe_http.StatusOK && !usagePresent && ctx.aiBasicInfo.IsAllowEstimateToken() {
+				// Estimate seeding stays 2xx-only (issue #1409/#1493 clause):
+				// a non-2xx body is never a billing-approved estimate source.
 				// A chunked response has ContentLength == -1, so estimate from the
 				// decoded body length instead of the (missing) Content-Length.
 				if bodyLen == 0 && res.ContentLength > 0 {

@@ -1,5 +1,7 @@
 # BFE Issue #1480 修复方案：总 token 按输入+输出记录，失败请求也记录用量
 
+> **状态更新（2026-11-12，取代标注）**：本卡"非 2xx 记录用量（B-记录）"的保留语义与计数器改名条款**已被 #1493（2026-11-08，SC3201-TC011 复验）否决**——§10 字段定义规范条款（"禁止对从未成功调用上游的请求上报鉴权期/字节长度估算 token"）恢复 #1409 清零抑制，本卡的语义反转未生效。现行口径：**保留 `Non2xxEstimateDropped`**（估算残留抑制计数），**新增 `Non2xxRealUsageKept`**（非 2xx 真实 usage 观测计数，source=parsed，不计费）；"非 2xx 记录用量"仅指**真实 usage 观测**，估算残留不上报。A 口径（total=in+out 回退补齐）不受影响，仍然有效。被取代条款在正文以「⚠️ 已被 #1493 取代」逐处标注；取代与计数器可达性的完整论证见 `2026-11-08-issue-1493-non2xx-usage-suppression-restore` 与 `2026-11-11-issue-1480-sc2201-tc005-non2xx-usage-counter-fix`。
+
 - Issue: https://github.com/bfenetworks/bfe/issues/1480
 - 缺陷：数据报表明细中，流式请求与返回错误（非 2xx）的请求，`ai_input_tokens` / `ai_output_tokens` 有值而 `ai_total_tokens` 记为 **0**；按总 token 汇总用量时这部分整块漏掉。
 - 现状（`v1.9.0-dev`，commit `39c15e10`）：issue #1398 已让"流式 + 估算计费"与 #1474/#1478 的断流/中止行把估算镜像进 `UsedQuota`（total = in+out），但仍有两条形态断裂：
@@ -7,8 +9,8 @@
   2. **非 2xx 行**：issue #1409 的决策是**整组抑制** token 字段（`UsageDispositionNone`），报表侧连 in/out 都看不到。
 - 已确认口径（本卡采用）：
   - **A**：`ai_total_tokens` 一律补齐为 `ai_input_tokens + ai_output_tokens` 口径；
-  - **B-记录**：非 2xx 请求**照实记录** in/out/total（不再整组抑制），并以 `ai_usage_source=failed` 与上游真实 usage（`parsed`）区分。
-- 关联：#1409（非 2xx 抑制，本卡反转其口径）、#1398（估算镜像 total）、#1410/#1414（`ai_usage_source` / `ai_zero_cost_reason`）、#1401（`CompletionTokens=-1` 哨兵 clamp）、#1474/#1478（断流/中止估算）。
+  - **B-记录**：非 2xx 请求**照实记录** in/out/total（不再整组抑制），并以 `ai_usage_source=failed` 与上游真实 usage（`parsed`）区分。 ⚠️ **已被 #1493 取代（2026-11-08）**：B-记录被 §10 规范条款否决，现行口径恢复非 2xx 整组抑制（#1409 清零）；仅"非 2xx 且响应体携带真实 usage 对象"的行以 source=parsed 观测上报并计 `Non2xxRealUsageKept`（解析通路修复见 `2026-11-11-issue-1480-sc2201-tc005-non2xx-usage-counter-fix` 步骤 1）。`UsageSourceFailed` 常量因此未落地。
+- 关联：#1409（非 2xx 抑制，本卡反转其口径——**反转后被 #1493 恢复**）、#1398（估算镜像 total）、#1410/#1414（`ai_usage_source` / `ai_zero_cost_reason`）、#1401（`CompletionTokens=-1` 哨兵 clamp）、#1474/#1478（断流/中止估算）、#1493（非 2xx 抑制语义恢复，**取代本卡 B-记录**）。
 - 影响面：仅本仓日志口径 + 一个模块计数器改名；不改 `bfe-access-pb`（字段齐备）、不改 `cluster_conf` / `mod_*.conf` / Redis key、无 DDL。
 
 ## 一、现状盘点与根因
@@ -34,6 +36,8 @@
 `mod_ai_token_auth.go:392-397`：`res == nil || res.StatusCode != 200` → `dropUnbilledEstimate`（`:666-708`）把共享 usage 的 `PromptTokens` / `CompletionTokens` / cache / audio / image / video / `UsedQuota` **全部清零**，并置 `UsageDispositionNone`；pb3 的门控（`request_log.go:521`）于是整组不写，只计 `AiUsageSuppressed`。
 
 #1409 的理由是"非 2xx 行里的 in/out 是未经计费口径批准的估算残留，属统计污染"。代价是失败请求的用量彻底丢失，与本 issue 的验收标准直接冲突。而残留本可被行级标记区分（#1410/#1414 已建 `ai_usage_source`），抑制并非唯一手段。
+
+> ⚠️ **已被 #1493 取代（2026-11-08）**：#1409 的抑制决策经 §10 规范条款复验后**恢复为现行口径**——"未经计费口径批准的估算残留属统计污染"成立，非 2xx 行清零抑制；仅真实 usage 观测（source=parsed）例外上报。
 
 ### 1.4 既有不变式检查器
 
@@ -62,9 +66,11 @@ reqLog.AiTotalTokens = proto.Int64(totalTokens)
 
 - **不能无条件改成 in+out**：会破坏 per-image / per-video 的 count 语义与批任务结算。
 - `outputTokens` 复用既有 clamp（`:526-528`），杜绝负数 total。
-- 不变式检查器 `usageTripleInconsistent` 的**判据改为接收已写出的 `totalTokens`**（原为 `usage.UsedQuota`）：A 之后 `UsedQuota == 0` 而行内 total 为 in+out 是合法形态，若仍比对 `UsedQuota` 会把每一行补齐都计成不一致（`AiUsageInconsistent` 暴涨）。副作用是"in>0 而 total=0"这一旧形态不再由检查器捕获——它已被 A 按构造消灭；检查器继续守住"`UsedQuota` 非 0 但与 in+out 对不上"的真实断裂。
+- 不变式检查器 `usageTripleInconsistent` 的**判据改为接收已写出的 `totalTokens`**（原为 `usage.UsedQuota`）：A 之后 `UsedQuota == 0` 而行内 total 为 in+out 是合法形态，若仍比对 `usage.UsedQuota` 会把每一行补齐都计成不一致（`AiUsageInconsistent` 暴涨）。副作用是"in>0 而 total=0"这一旧形态不再由检查器捕获——它已被 A 按构造消灭；检查器继续守住"`UsedQuota` 非 0 但与 in+out 对不上"的真实断裂。
 
-### 步骤 2（必改）：非 2xx 记录用量（B-记录）
+### 步骤 2（必改）：非 2xx 记录用量（B-记录） ⚠️ 本节已被 #1493（2026-11-08）整体取代，未实施
+
+> ⚠️ **取代说明**：本节的语义反转（`keepNon2xxUsage`、残留保留上报 source=failed、计数器改名 `Non2xxUsageReported`）被 #1493 以 §10 规范条款否决，**未实施**；现行实现恢复 #1409 清零抑制（函数仍名 `dropUnbilledEstimate`），保留 `Non2xxEstimateDropped` 并新增 `Non2xxRealUsageKept`（真实 usage 观测，source=parsed）。`UsageSourceFailed` 常量未落地。取代细节见 `2026-11-08-issue-1493-non2xx-usage-suppression-restore`；真实 usage 观测分支的解析通路修复见 `2026-11-11-issue-1480-sc2201-tc005-non2xx-usage-counter-fix` 步骤 1。以下原文保留存档。
 
 文件：`bfe_modules/mod_ai_token_auth/mod_ai_token_auth.go`。
 
@@ -75,11 +81,11 @@ reqLog.AiTotalTokens = proto.Int64(totalTokens)
    - `UsedQuota` 保持 0（非 2xx 不计费），由步骤 1 的 in+out 补齐；
    - **真实 usage 落在非 2xx 上**（既有 `IsFinalUsageSeen()` 分支 `:679-687`）：保留观测并照实写出，`SetUsageSource(UsageSourceParsed)`，`Non2xxRealUsageKept` 计数保留；
    - **无残留可写**（`usage == nil`，或 `PromptTokens==0 && CompletionTokens<=0 && UsedQuota==0`）：保持字段不写（"从未参与模型调用"与"记录为 0"仍可区分），不做任何标记。
-2. **计数器改名**：`Non2xxEstimateDropped` → `Non2xxUsageReported`（`:82-87` 定义与注释、`:706` 自增点）；语义从"丢弃估算残留"变为"记录了非 2xx 用量"。发布说明单列指标名变更（无外部看板依赖可接受；如需零中断可保留旧名 + 新增语义计数器，二选一，推荐改名）。
-3. **`UsageDispositionNone` 保留**：它现在只表达"没有可上报的用量"——非 2xx 且既未播种也未累加（如鉴权期就被拒的 401/429）仍置 `None`，访问日志据此保持三字段缺席，"未参与模型调用"与"记录为 0"仍可区分。`AiUsageSuppressed` 计数据此保留原语义（计这类行），**不 deprecated**。
+2. **计数器改名**：`Non2xxEstimateDropped` → `Non2xxUsageReported`（`:82-87` 定义与注释、`:706` 自增点）；语义从"丢弃估算残留"变为"记录了非 2xx 用量"。发布说明单列指标名变更（无外部看板依赖可接受；如需零中断可保留旧名 + 新增语义计数器，二选一，推荐改名）。 ⚠️ 改名未实施：现行实现保留 `Non2xxEstimateDropped`（语义=残留抑制行数），`Non2xxUsageReported` 一名不存在，E2E/看板必须按实现名断言（`NON2XX_ESTIMATE_DROPPED` / `NON2XX_REAL_USAGE_KEPT`）。
+3. **`UsageDispositionNone` 保留**：它现在只表达"没有可上报的用量"——非 2xx 且既未播种也未累加（如鉴权期就被拒的 401/429）仍置 `None`，访问日志据此保持三字段缺席，"未参与模型调用"与"记录为 0"仍可区分。`AiUsageSuppressed` 计数据此保留原语义（计这类行），**不 deprecated**。（本条被 #1493 恢复后的实现继承，仍然成立。）
 4. **调用点注释同步**：`tokenRequestFinishHandler`（`:392-397`）改为"非 2xx 记录用量但不计费"。
 
-### 步骤 3（必改）：新增 `ai_usage_source=failed` 常量
+### 步骤 3（必改）：新增 `ai_usage_source=failed` 常量 ⚠️ 未落地（随 B-记录被否决）
 
 文件：`bfe_basic/request_ai_basic.go`，`UsageSource*` 常量块（`:400-429`）：
 
@@ -92,7 +98,9 @@ reqLog.AiTotalTokens = proto.Int64(totalTokens)
 UsageSourceFailed = "failed"
 ```
 
-### 步骤 4（必改）：pb3 的 cost 门控（实现时补充）
+> ⚠️ 因 B-记录被 #1493 否决，该常量未落地；现行实现仅有 `UsageSourceParsed` 观测来源标记（`UsageDispositionNone` 行三字段缺席，无需 source）。
+
+### 步骤 4（必改）：pb3 的 cost 门控（实现时补充） ⚠️ 已按 #1493 现行语义实施
 
 文件：`bfe_modules/mod_access_pb3/request_log.go`。
 
@@ -108,6 +116,8 @@ if res == nil || (res.StatusCode >= 200 && res.StatusCode < 300) {
 
 `res == nil` 时保持写（与改动前一致，避免影响无响应对象的既有形态）。
 
+> 注：非 2xx 行在 #1493 现行语义下处置为 `None`、不进 token 块，此门控对非 2xx 是双保险；A 口径与 cost 2xx 门控不受 #1493 影响。
+
 ## 三、兼容性与发布顺序
 
 - **纯日志口径变更**：无配置字段、无 Redis key、无 DDL、无 pb 升版；bfe 单独发布即可，不需要 ai-gateway-api / log-reader / 报表侧配合（报表聚合均为 `SUM(ai_total_tokens)`，写出口径一改即正确）。
@@ -116,7 +126,8 @@ if res == nil || (res.StatusCode >= 200 && res.StatusCode < 300) {
   - 非 2xx 行从"三字段缺失/全 NULL"变为"in/out/total 有值、`ai_cost_value` 仍缺失"——按 total 汇总会**上升**，属本 issue 的预期效果；
   - unrecognized / 中止行 total 从 0 变为 in+out；
   - 报表若需"仅真实用量"，过滤条件为 `res_status_code=200`（`ai_usage_source` 目前**只存在于 pb 日志**，四个报表后端无该列，不能作为筛选维度）。
-- **与 #1409 的关系**：本卡**反转** #1409 的"非 2xx 抑制"决策，理由与代价见 §五；`2026-10-11-issue-1409-non2xx-estimate-token-residue-fix` 的历史文档不改写，仅在本目录记录映射（仓内既有约定）。
+  > ⚠️ 第一条随 B-记录被 #1493 取代：非 2xx 行现行恢复"三字段缺失/全 NULL"（仅真实 usage 观测行例外，source=parsed、有 in/out/total）；后两条（A 口径）不受影响。
+- **与 #1409 的关系**：本卡**反转** #1409 的"非 2xx 抑制"决策，理由与代价见 §五；`2026-10-11-issue-1409-non2xx-estimate-token-residue-fix` 的历史文档不改写，仅在本目录记录映射（仓内既有约定）。 ⚠️ **反转未生效**：#1493（2026-11-08）以 §10 规范条款恢复了 #1409 的抑制决策，本节所述反转仅作历史存档。
 - **回滚**：版本回退即可；已写出的行不回改，口径切换点需在报表说明中标注。
 
 ## 四、回归测试
@@ -133,6 +144,8 @@ if res == nil || (res.StatusCode >= 200 && res.StatusCode < 300) {
 | **新增** `TestReqAiInfoGenTotalFallsBackToInPlusOut` | 表驱动：`{UsedQuota:0,in:10,out:4,unrecognized}`→14；`{UsedQuota:0,in:10,out:-1}`→10（哨兵 clamp）；`{UsedQuota:150,in:100,out:50}`→150（不变）；`{ImageCount:2,UsedQuota:2}`→2；`{VideoCount:3,UsedQuota:3}`→3 |
 | **新增** `TestReqAiInfoGenNon2xxWithoutResidueKeepsFieldsAbsent` | in/out/UsedQuota 全 0 → 三字段仍不写 |
 
+> ⚠️ 首两行随 B-记录被 #1493 取代：`TestReqAiInfoGenSuppressesUsageOnNon2xx` 未改名，仍断言非 2xx 三字段缺失；`source=failed` 行未加入表驱动。A 口径相关用例（total 回退、不一致检测）不受影响。
+
 `bfe_modules/mod_ai_token_auth/`：
 
 | 用例 | 处理 |
@@ -141,6 +154,8 @@ if res == nil || (res.StatusCode >= 200 && res.StatusCode < 300) {
 | `TestTokenRequestFinishHandler_Non2xxKeepsRealUsageObservation`（`:2962`） | `UsageSource=parsed`、`Non2xxRealUsageKept` +1、`Non2xxUsageReported` 不增 |
 | **新增** `TestTokenRequestFinishHandler_Non2xxNoResidueNoCounter` | 非 2xx 且 usage 全 0 → 不清零、不标记、不计数 |
 | 回归 | `TestTokenRequestFinishHandler_ObservedDispositionKeepsLogView`、`TestTokenRequestFinishHandler_ClientAbort*`（#1478）、`TestUpdateCtxByUsage*` |
+
+> ⚠️ 前两行随 B-记录被 #1493 取代：`..._Non2xxDropsEstimateResidue` 未改名（仍断言清零 + `Non2xxEstimateDropped` +1）；`..._Non2xxKeepsRealUsageObservation` 保留但以手动 `MarkFinalUsageSeen()` 播种（`mod_ai_token_auth_test.go:3041`），断言 `Non2xxRealUsageKept` +1、`UsageSource=parsed`——真实响应驱动该分支的解析通路修复见 `2026-11-11-issue-1480-sc2201-tc005-non2xx-usage-counter-fix` 步骤 1/3。`..._Non2xxNoResidueNoCounter` 已落地。
 
 ### 集成测试（`bfe/tests/integration`）
 
@@ -154,21 +169,23 @@ if res == nil || (res.StatusCode >= 200 && res.StatusCode < 300) {
 | **SC28**（batch）、SC30（nested choice）、SC11（billing fix）、SC12（client abort）、SC03（RMB 配额） | 计费与 total 相关断言 | 全量回归；SC28 专门锁定 per-image/per-video/batch 的 total 语义不变（A 的护栏） |
 | SC21（traffic mirror）、SC22（intent） | 明细行断言 | 冒烟回归 |
 
+> ⚠️ SC05 TC19/TC21 的改写随 B-记录被 #1493 取代：`TestTC19_Non2xxNoUsageFields` 未改名，仍断言非 2xx token 字段缺失。QA 侧 E2E（SC2201-TC005、SC3201-TC011）须按现行实现名断言：`NON2XX_REAL_USAGE_KEPT`（真实 usage 观测行）与 `NON2XX_ESTIMATE_DROPPED`（残留抑制行），不得使用本卡设计名 `Non2xxUsageReported`（不存在）。
+
 运行建议：SC05 → SC29 → SC12/SC11 → SC28/SC30 → SC03；跑前删除 `.integration-test-bin` 缓存。
 
 ## 五、边界与残余风险
 
-1. **口径反转需产品确认（已在本卡确认）**：非 2xx 行的 `ai_input_tokens` 是**估算残留**（`req_body_len/4`），不是计费用量。本卡后"按 total 汇总"的含义是"含失败行估算残留"；需要严格真实用量时按 `res_status_code=200` 过滤。
-2. **`ai_usage_source` 未入仓**：新增的 `failed` 仅存在于 pb 日志（报表四后端无该列），因此报表侧区分失败行只能靠 `res_status_code` / `ai_cost_value` 缺失 / `err_code`。若需按来源筛选，另开卡加列（api DDL + log-reader + Doris/StarRocks/ClickHouse + 前端）。
+1. **口径反转需产品确认（已在本卡确认）**：非 2xx 行的 `ai_input_tokens` 是**估算残留**（`req_body_len/4`），不是计费用量。本卡后"按 total 汇总"的含义是"含失败行估算残留"；需要严格真实用量时按 `res_status_code=200` 过滤。 ⚠️ #1493 复验后口径反转被撤销：现行"按 total 汇总"**不含**失败行估算残留（整组抑制），与 #1409 一致。
+2. **`ai_usage_source` 未入仓**：新增的 `failed` 仅存在于 pb 日志（报表四后端无该列），因此报表侧区分失败行只能靠 `res_status_code` / `ai_cost_value` 缺失 / `err_code`。若需按来源筛选，另开卡加列（api DDL + log-reader + Doris/StarRocks/ClickHouse + 前端）。 ⚠️ `failed` 常量未落地，此条随之失效；现行失败行识别仍靠 `res_status_code` / 三字段缺失。
 3. **MySQL 侧 `ai_cost_value` 落 0**：log-reader 对该列是数值直通（零值写 0），"未计费"在 MySQL 明细表现为 0 而非 NULL（与 Doris 的 NULL 存在既存分叉）；不影响本卡 SUM 口径，可在 log-reader 侧独立处理。
 4. **客户端中止 + `EstimateToken=false`**：属 unrecognized 分支，本卡后报表出现"未计费但有用量"的行；需与 #1478 的"中止按估算计费（`aborted` + 有 `ai_cost_value`）"在文档口径上区分。
-5. **计数器改名**：`Non2xxEstimateDropped` → `Non2xxUsageReported` 会打断既有看板/告警（若已配置）；发布说明须单列。
-6. **`AiUsageSuppressed` 语义收窄**：该计数现在只覆盖"非 2xx 且无任何可上报用量"的行（鉴权期即被拒的 401/429 等）。原先它还覆盖"有残留的非 2xx 行"，这部分行现在计入新增的 `Non2xxUsageReported`；两个计数之和大致等于改动前的 `AiUsageSuppressed`，看板/告警阈值需按此调整。
+5. **计数器改名**：`Non2xxEstimateDropped` → `Non2xxUsageReported` 会打断既有看板/告警（若已配置）；发布说明须单列。 ⚠️ 已被 #1493 取代：改名未实施，`Non2xxEstimateDropped` 一名保留；看板/告警按 `Non2xxEstimateDropped`（残留抑制）+ `Non2xxRealUsageKept`（真实 usage 观测）双计数器接入，语义正交、可分别告警。
+6. **`AiUsageSuppressed` 语义收窄**：该计数现在只覆盖"非 2xx 且无任何可上报用量"的行（鉴权期即被拒的 401/429 等）。原先它还覆盖"有残留的非 2xx 行"，这部分行现在计入新增的 `Non2xxUsageReported`；两个计数之和大致等于改动前的 `AiUsageSuppressed`，看板/告警阈值需按此调整。 ⚠️ 已被 #1493 取代：语义收窄未发生，`AiUsageSuppressed` 维持 #1409 原语义；"有残留的非 2xx 行"计入 `Non2xxEstimateDropped`，"有真实 usage 的非 2xx 行"计入 `Non2xxRealUsageKept`。
 
 ## 六、部署与配置说明
 
 - 无新增/变更配置项；`EstimateToken` 的既有语义不变（仍决定"能否按估算计费"，与"是否记录 token"解耦）。
-- 灰度建议：先在一个集群的 bfe 实例上升级，观察 `AiUsageInconsistent` 不上升、`AiUsageSuppressed` 降至近 0、`Non2xxUsageReported` 有量且与 4xx/5xx 请求数同量级，再全量。
+- 灰度建议：先在一个集群的 bfe 实例上升级，观察 `AiUsageInconsistent` 不上升、`AiUsageSuppressed` 降至近 0、`Non2xxUsageReported` 有量且与 4xx/5xx 请求数同量级，再全量。 ⚠️ 已被 #1493 取代：灰度观察项应改为 `Non2xxEstimateDropped`（随 4xx/5xx 残留行增长）与 `Non2xxRealUsageKept`（随"非 2xx 且带真实 usage"行增长）；`Non2xxUsageReported` 不存在，任何按该名的断言必然失配（QA 复验 SC2201-TC005 实证）。
 
 ## 七、实施记录（2026-10-31）
 
@@ -176,13 +193,13 @@ if res == nil || (res.StatusCode >= 200 && res.StatusCode < 300) {
 
 | 文件 | 改动 |
 | --- | --- |
-| `bfe_basic/request_ai_basic.go` | 新增 `UsageSourceFailed = "failed"`（`UsageSource*` 常量块） |
-| `bfe_modules/mod_ai_token_auth/mod_ai_token_auth.go` | `dropUnbilledEstimate` → `keepNon2xxUsage`（保留残留、真实 usage 照实上报、`UsageSource=failed/parsed`、`Non2xxUsageReported` 计数）；计数器 `Non2xxEstimateDropped` → `Non2xxUsageReported`；调用点与注释同步 |
+| `bfe_basic/request_ai_basic.go` | 新增 `UsageSourceFailed = "failed"`（`UsageSource*` 常量块） ⚠️ 未落地（随 B-记录被 #1493 否决） |
+| `bfe_modules/mod_ai_token_auth/mod_ai_token_auth.go` | `dropUnbilledEstimate` → `keepNon2xxUsage`（保留残留、真实 usage 照实上报、`UsageSource=failed/parsed`、`Non2xxUsageReported` 计数）；计数器 `Non2xxEstimateDropped` → `Non2xxUsageReported`；调用点与注释同步 ⚠️ 已被 #1493 取代：函数仍名 `dropUnbilledEstimate`（清零抑制），计数器保留 `Non2xxEstimateDropped` 并新增 `Non2xxRealUsageKept` |
 | `bfe_modules/mod_access_pb3/request_log.go` | `ai_total_tokens` 在 `UsedQuota == 0` 时回退为 `in + clamped(out)`；`ai_cost_value` 仅 2xx 写出；`usageTripleInconsistent` 改为比对已写出的 total；门控与 `usageSuppressed` 分支保留（语义收窄） |
-| `bfe_modules/mod_access_pb3/mod_access_pb3.go` | `AiUsageSuppressed` 注释改为"无任何可上报用量的行" |
-| `bfe_modules/mod_access_pb3/request_log_test.go` | 改写 `TestReqAiInfoGenSuppressesUsageOnNon2xx` → `...RecordsUsageOnNon2xx`；新增 `...Non2xxWithoutResidueKeepsFieldsAbsent`、`...TotalFallsBackToInPlusOut`（6 个表驱动子用例）；`TestReqAiInfoGenDetectsInconsistentTripleWithoutTotal` → `...TripleWithoutTotalIsFixedByFallback`；`UsageSource` 表补 `failed` 行 |
-| `bfe_modules/mod_ai_token_auth/mod_ai_token_auth_test.go` | `..._Non2xxDropsEstimateResidue` → `..._Non2xxKeepsEstimateResidue`；更新 `..._Non2xxKeepsRealUsageObservation` 的处置/source/计数断言；新增 `..._Non2xxNoResidueNoCounter` |
-| `bfe/tests/integration/.../SC05` | `TestTC19_Non2xxNoUsageFields` → `TestTC19_Non2xxUsageRecordedWithFailedSource`；新增 `assertFailedRowUsage` 辅助；TC21 的 arm 3 改用该辅助 |
+| `bfe_modules/mod_access_pb3/mod_access_pb3.go` | `AiUsageSuppressed` 注释改为"无任何可上报用量的行" ⚠️ 语义收窄未发生，注释维持原语义 |
+| `bfe_modules/mod_access_pb3/request_log_test.go` | 改写 `TestReqAiInfoGenSuppressesUsageOnNon2xx` → `...RecordsUsageOnNon2xx`；新增 `...Non2xxWithoutResidueKeepsFieldsAbsent`、`...TotalFallsBackToInPlusOut`（6 个表驱动子用例）；`TestReqAiInfoGenDetectsInconsistentTripleWithoutTotal` → `...TripleWithoutTotalIsFixedByFallback`；`UsageSource` 表补 `failed` 行 ⚠️ 前两处改写未实施；A 口径相关用例已落地 |
+| `bfe_modules/mod_ai_token_auth/mod_ai_token_auth_test.go` | `..._Non2xxDropsEstimateResidue` → `..._Non2xxKeepsEstimateResidue`；更新 `..._Non2xxKeepsRealUsageObservation` 的处置/source/计数断言；新增 `..._Non2xxNoResidueNoCounter` ⚠️ 改名未实施；`..._Non2xxKeepsRealUsageObservation`（手动播种）与 `..._Non2xxNoResidueNoCounter` 已落地 |
+| `bfe/tests/integration/.../SC05` | `TestTC19_Non2xxNoUsageFields` → `TestTC19_Non2xxUsageRecordedWithFailedSource`；新增 `assertFailedRowUsage` 辅助；TC21 的 arm 3 改用该辅助 ⚠️ 未实施，TC19 未改名 |
 | `bfe/tests/integration/.../SC29` | TC06 与上游断流臂补 `total = in + out` 断言（TC06 为 `EstimateToken=false`，三元组仍为 0/0/0，只断言内部一致） |
 
 ### 7.2 验证结果
@@ -206,6 +223,8 @@ go vet ./bfe_basic/... ./bfe_modules/...                                        
 | SC28 ai-batch-support | ok（13.1s，per-image/per-video/batch 的 total 语义未变） |
 | SC03 rmb-quota | ok（26.7s） |
 | SC21 traffic-mirror / SC22 ai-intent-routing | ok（10.5s / 6.2s，冒烟） |
+
+> ⚠️ 本节验证结果对应"已实施"状态的记录；其中 SC05 TC19/TC21 的改写于 2026-11-08 被 #1493 回退，实际发布的实现与测试形态以 #1493 及当前 HEAD 为准。
 
 ### 7.3 实施期间与初稿的偏差（已在正文同步）
 

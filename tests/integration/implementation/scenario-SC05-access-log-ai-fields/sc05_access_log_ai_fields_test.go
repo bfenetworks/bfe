@@ -1654,13 +1654,12 @@ func (e *testEnv) sendRequestNoKeepAlive(host string, body []byte) (*http.Respon
 // Arm D: the upstream returns 409 (outside the fallback whitelist, so it
 //
 //	passes straight through) with a usage object embedded in the error body.
-//	Usage parsing is gated on 200 (tokenReadResponseHandler and
-//	QuotaUsageProcessor), so nothing is parsed; the row must still keep every
-//	token field absent rather than reporting the embedded object. (The
-//	"real usage on an error response is reported as parsed" exception is
-//	pinned at unit level only — TestReqAiInfoGenNon2xxRealUsageReportedAsParsed
-//	and TestTokenRequestFinishHandler_Non2xxKeepsRealUsageObservation — since
-//	no current code path can parse usage behind a non-2xx status.)
+//	Since the SC2201-TC005 fix, the read-response usage parser is no longer
+//	gated on 200 (mod_ai_token_auth.tokenReadResponseHandler): the embedded
+//	usage object is a real observation, so the row is reported as
+//	ai_usage_source=parsed with the parsed token triple — and still without
+//	ai_cost_value or any quota deduction. This arm is the in-repo replica of
+//	system test SC2201-TC005 (issue #1480/#1493).
 func TestTC19_Non2xxNoUsageFields(t *testing.T) {
 	aiConfs := map[string]*cluster_conf.AIConf{
 		clusterRMB: defaultRMBAIConf(),
@@ -1717,6 +1716,16 @@ func TestTC19_Non2xxNoUsageFields(t *testing.T) {
 	// Arm D: upstream 409 with a usage object in the error body. (409 is not
 	// in the fallback whitelist — 400/401/402/403/422/429 and all 5xx trigger
 	// fallback — so the response passes straight through.)
+	//
+	// Arm C's estimate billing lands asynchronously after its response is
+	// delivered; wait for any deduction before recording the baseline, so
+	// that arm D's no-billing assertion cannot race it.
+	const initialQuota = int64(10000000000)
+	deadline := time.Now().Add(10 * time.Second)
+	for e.redis.GetQuota(redisKeyRMB) == initialQuota && time.Now().Before(deadline) {
+		time.Sleep(100 * time.Millisecond)
+	}
+	quotaBeforeD := e.redis.GetQuota(redisKeyRMB)
 	e.backends[clusterRMB].Response = http.StatusConflict
 	e.backends[clusterRMB].Body = `{"error":{"message":"conflict"},"usage":{"prompt_tokens":7,"completion_tokens":11,"total_tokens":18}}`
 	respD, bodyD, err := e.sendRequestNoKeepAlive(apiHost, defaultBody)
@@ -1781,12 +1790,24 @@ func TestTC19_Non2xxNoUsageFields(t *testing.T) {
 		t.Error("arm B: expected cluster_key_names of the tried cluster/key")
 	}
 
-	// Arm D: a usage object inside a 409 error body is not parsed (usage
-	// parsing is gated on 200) and must not be reported either.
+	// Arm D: the usage object in the 409 body is parsed and reported as a
+	// parsed observation (SC2201-TC005): the token triple is present and
+	// matches the upstream object, ai_usage_source=parsed, ai_cost_value stays
+	// absent and no quota is deducted (a non-2xx row is never billed).
 	if logUpstream409.GetResStatusCode() != http.StatusConflict {
 		t.Errorf("arm D: res_status_code = %d, want 409", logUpstream409.GetResStatusCode())
 	}
-	assertNoUsageFields(t, "arm D (upstream 409 with usage body)", logUpstream409)
+	assertInt64Field(t, logUpstream409.AiInputTokens, "arm D: ai_input_tokens", 7)
+	assertInt64Field(t, logUpstream409.AiOutputTokens, "arm D: ai_output_tokens", 11)
+	assertInt64Field(t, logUpstream409.AiTotalTokens, "arm D: ai_total_tokens", 18)
+	assertStringField(t, logUpstream409.AiUsageSource, "arm D: ai_usage_source", bfe_basic.UsageSourceParsed)
+	if logUpstream409.AiCostValue != nil {
+		t.Errorf("arm D: ai_cost_value = %d, want absent (a non-2xx row is never billed)",
+			*logUpstream409.AiCostValue)
+	}
+	if got := e.redis.GetQuota(redisKeyRMB); got != quotaBeforeD {
+		t.Errorf("arm D: quota = %d, want %d (a non-2xx row must not deduct)", got, quotaBeforeD)
+	}
 	if len(logUpstream409.GetAiClusterKeyNames()) == 0 {
 		t.Error("arm D: expected cluster_key_names of the tried cluster/key")
 	}
