@@ -444,29 +444,40 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
         return bfe_module.BfeHandlerGoOn
     }
     tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
-    if res.StatusCode == bfe_http.StatusOK && isCompleteNonStreamBody(res) {
-        // 完整读取非流式响应体：响应视为完成（issue #1352）
-        ctx.aiBasicInfo.MarkResponseCompleted()
-        bodyLen := 0
-        if bodyAccessor, err := res.GetBodyAccessor(); err == nil {
+    if isCompleteNonStreamBody(res) {
+        if bodyAccessor, err := res.GetBodyAccessor(); err == nil && bodyAccessor != nil {
+            if res.StatusCode == bfe_http.StatusOK {
+                // 完整读取非流式响应体：响应视为完成（issue #1352）。
+                // 完成是 2xx 概念：非 2xx 永不满足计费完成门控。
+                ctx.aiBasicInfo.MarkResponseCompleted()
+            }
+            bodyLen := 0
+            usagePresent := false
             body, _ := bodyAccessor.GetBytes()
             // 仅解压解析副本，不改动转发的字节与响应头（issue #1406）
             if decoded, derr := bfe_util.DecodeContentEncoding(res.Header.Get("Content-Encoding"), body); derr == nil {
                 body = decoded
             }
             bodyLen = len(body)
-            UpdateCtxByUsage(ctx, body)
-        }
-        if tokenUsage.UsedQuota > 0 {
-            ctx.aiBasicInfo.MarkFinalUsageSeen()
-        }
-        if tokenUsage.UsedQuota <= 0 && ctx.aiBasicInfo.IsAllowEstimateToken() {
-            // chunked 时 ContentLength == -1，改用解码后 body 长度估算
-            if bodyLen == 0 && res.ContentLength > 0 {
-                bodyLen = int(res.ContentLength)
+            usagePresent = UpdateCtxByUsage(ctx, body)
+            if usagePresent {
+                // issue #1414：usage 对象 presence 判定（含显式全零报告）；
+                // 非 2xx 错误体上的真实 usage 对象是真实观测（issue #1480/#1493，
+                // SC2201-TC005），供请求结束阶段按 parsed 观测输出。
+                ctx.aiBasicInfo.MarkFinalUsageSeen()
             }
-            tokenUsage.CompletionTokens = int64(bodyLen) / 4
-            tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
+            if res.StatusCode == bfe_http.StatusOK && !usagePresent && ctx.aiBasicInfo.IsAllowEstimateToken() {
+                // 估算播种保持 2xx-only（issue #1409/#1493 规范条款）
+                if bodyLen == 0 && res.ContentLength > 0 {
+                    bodyLen = int(res.ContentLength)
+                }
+                tokenUsage.CompletionTokens = int64(bodyLen) / 4
+                tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens)
+            }
+        } else {
+            // issue #1501：响应体被截断（GetBodyAccessor 失败或 nil accessor）——
+            // 不置完成、不解析、不估算；计费只累计已转发内容
+            // （issue #1474 upstreamDropped）。
         }
     }
 
@@ -476,10 +487,12 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 
 > 说明 1：旧实现中 RMB 成本在此阶段计算，导致流式响应（`ContentLength = -1`）无法计费。当前实现已将成本计算移到请求结束阶段，见 7.5。
 > 说明 2（issue #1406）：此前 `ContentLength >= 0` 的判定使 chunked 非流式响应整段跳过；叠加 gzip 响应体未解码、以及 `Content-Type` 带 `; charset=utf-8` 时解码器精确匹配失配，usage 采集全部失效（访问日志 `ai_output_tokens` / `ai_total_tokens` 为 0，RMB 按 0 入账）。现在 chunked 非流式 JSON 走同一整体解析路径，并在解析副本上解压。
+> 说明 3（issue #1480/#1493 复验修复，2026-11-12，SC2201-TC005）：非流式 usage 解析原被 `StatusOK && isCompleteNonStreamBody` 整体门控，#1493 声明的"非 2xx 行携带真实 usage 对象时按 `parsed` 观测输出"例外因此不可达（`Non2xxRealUsageKept` 计数器 delta 恒 0，系统测试 SC2201-TC005 FAILED）。修复后外层门控放开为 `isCompleteNonStreamBody(res)`：非 2xx 完整 body 上的真实 usage 对象被解析并置 `finalUsageSeen`，请求结束阶段按 `UsageDisposition=Observed` / `UsageSource=parsed` 输出（不计费、计 `Non2xxRealUsageKept`）；完成标记与估算播种仍各自由内层 `StatusOK` 门控，#1501 截断体 else 分支不变；SSE 流式路径不变（`QuotaUsageProcessor` 对非 2xx 仍返回 nil，见下节）。仓内集成钉住：SC05 TC19 臂 D。
+> 说明 4（issue #1414）：`UpdateCtxByUsage` 按 usage 对象 **presence**（而非"某值 > 0"）返回 `bool`，区分真实全零报告与缺失；旧摘录中"`UsedQuota > 0` 才置 `finalUsageSeen`"的判定已由 `usagePresent` 取代。
 
 #### 流式响应的 Token 用量收集
 
-对于 `stream: true` 的 SSE 流式响应，`mod_body_process` 会注册 `QuotaUsageProcessor`（仅当响应状态为 200 时才创建，见 `content_quota_usage.go` 的 `NewQuotaUsageProcessor`；非 2xx 响应不产生任何用量口径）：
+对于 `stream: true` 的 SSE 流式响应，`mod_body_process` 会注册 `QuotaUsageProcessor`（仅当响应状态为 200 时才创建，见 `content_quota_usage.go` 的 `NewQuotaUsageProcessor`；非 2xx 响应不产生任何用量口径——非流式路径不受此限制，自 SC2201-TC005 修复起对非 2xx 完整 body 解析真实 usage 作观测输出，见 7.4 说明 3）：
 
 - `mod_body_process.DoResponseProcess` 根据响应 `Content-Type` 选择 SSE 解码器（响应带 `Content-Encoding` 时改由 tap 解码器承接，见下节「压缩流式响应的 usage 采集」）；
 - 每个 SSE 事件经过 `QuotaUsageProcessor.Process` 时，会从事件数据中提取 `usage.*_tokens`；
@@ -698,7 +711,7 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 | 按次计费模式（image / video generation），响应省略 usage 对象但 `data.#` 可观测（issue #1498） | true（`data.#` 观测采纳为 recognized usage，与 EstimateToken 无关） | 按 `data.#` 实际生成个数计费（`ai_usage_source=parsed`；不再按请求预置 `n`，EstimateToken=false 时也不再零扣） |
 | 客户端中断/写失败，已拿到最终 usage | true | 按实际 usage |
 | 非流式 Anthropic（chunked）完整响应，有 usage | true（#1364 起，`type:"message"` 视同最终 usage） | 按实际 usage（未命中输入 + cache read/write + 输出全额） |
-| 非 2xx（未成功调用上游，如 AI 路由未命中的 404、上游 404 直通、归一化后的 404） | false | 零扣费；访问日志不输出 token 字段（issue #1409）
+| 非 2xx（未成功调用上游，如 AI 路由未命中的 404、上游 404 直通、归一化后的 404） | false | 零扣费；访问日志不输出 token 字段（issue #1409）。例外：错误体携带真实 usage 对象的非流式响应按 `parsed` 观测输出（SC2201-TC005，2026-11-12，仍零扣费） |
 
 > 说明（issue #1364）：修复前 Anthropic 非流式（尤其 chunked）响应既无 `finalUsageSeen` 也无 `responseCompleted`，落入"不可计费"守卫；但守卫只清 `PromptTokens`/`CompletionTokens`/`UsedQuota`，`CacheReadTokens` 等子字段幸存，`calcChatCost` 对其按 `cache_read_input_token_cost` 计费，导致 RMB 只收缓存命中、漏计未命中输入与输出（实测漏计约 4.65x）。修复后守卫清零全部计费字段，并通过最终 usage 认可 + 完成置位让正常完成的非流式响应按实际 usage 全额计费。
 >
@@ -706,7 +719,7 @@ func (m *ModuleAITokenAuth) tokenRequestFinishHandler(req *bfe_basic.Request, re
 
 > 说明（issue #1409）：上述"保留观测值/估算值"的前提是**请求成功调用了上游**。非 2xx 响应（未成功调用上游，如 AI 路由未命中的 404、上游 404 直通、上游错误归一化后的 404）不存在任何模型用量，鉴权阶段按请求体长度播种的 `PromptTokens`、以及响应阶段累加的 `CompletionTokens` 都只是估算残留：请求结束时这些估算值会从共享 `TokenUsage` 中清除（真实解析值仍保留），并把该请求标记为"无可用 usage"，`mod_access_pb3` 据此**不输出** `ai_input_tokens` / `ai_output_tokens` / `ai_total_tokens`（字段缺席，与"用量为 0"区分），并计数 `AiUsageSuppressed` / `Non2xxEstimateDropped`。修复前 404 行会带 `ai_input_tokens = 请求体/4`、`ai_output_tokens` 为哨兵夹取值，而 `ai_total_tokens=0`，三元组口径断裂并污染按 token 聚合的报表。
 >
-> 说明（issue #1493，2026-11-08）：issue #1480 曾把非 2xx 行反转为"照实记录估算残留并标 `ai_usage_source=failed`"（`Non2xxUsageReported` 计数），未同步修订本表与本说明；系统测试 SC3201-TC011 按本节条款判定其失格后，#1493 恢复了上述 #1409 语义，计数器名恢复为 `Non2xxEstimateDropped`。非 2xx 行唯一的输出例外：上游错误响应中确实携带真实 usage 对象时按 `ai_usage_source=parsed` 观测输出（不计费）。
+> 说明（issue #1493，2026-11-08）：issue #1480 曾把非 2xx 行反转为"照实记录估算残留并标 `ai_usage_source=failed`"（`Non2xxUsageReported` 计数），未同步修订本表与本说明；系统测试 SC3201-TC011 按本节条款判定其失格后，#1493 恢复了上述 #1409 语义，计数器名恢复为 `Non2xxEstimateDropped`。非 2xx 行唯一的输出例外：上游错误响应中确实携带真实 usage 对象时按 `ai_usage_source=parsed` 观测输出（不计费）。该例外在 #1493 时点声明但不可达——全部 usage 解析路径仍有 200 门槛（系统测试 SC2201-TC005 FAILED，`Non2xxRealUsageKept` delta 恒 0）；2026-11-12 复验修复放开非流式解析门控后才真正落地（见 7.4 说明 3）。
 
 > 说明（issue #1410）："usage 未识别且不可估算"守卫分支（上表"零扣费"且 2xx 的两行）本身**计费口径不变**，但必须可观测，绝不静默跳过。修复后该分支在判定成立处产生两类同源信号：
 >

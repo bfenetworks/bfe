@@ -43,7 +43,7 @@ AI 可观测字段统一占用 `bfe-access-pb` 的 701-900 编号区间，当前
 | 761 | `ai_cost_value` | `int64` | 估算成本（定点整数，精度由币种决定） | `mod_ai_token_auth` |
 | 762 | `ai_cost_currency` | `string` | 成本币种，如 `RMB` / `USD` | `bfe_server/reverseproxy.go` |
 | 763 | `ai_price_miss` | `bool` | 价格缺失标记：`(model, mode)` 价格条目缺失、成本按 chat 价回退或按 0 计费时置真，用于区分「未定价的低价/0 计费」与合法 0 成本行（issue #1408） | `mod_ai_token_auth` |
-| 764 | `ai_usage_source` | `string` | usage 来源标记：`parsed` / `estimated` / `aborted` / `unrecognized` / `upstream_dropped`（issue #1474）/ `early_suppressed`（issue #1497）；非 2xx 行缺席（issue #1410、#1414） | `mod_ai_token_auth` |
+| 764 | `ai_usage_source` | `string` | usage 来源标记：`parsed` / `estimated` / `aborted` / `unrecognized` / `upstream_dropped`（issue #1474）/ `early_suppressed`（issue #1497）；非 2xx 行缺席（issue #1410、#1414），**例外**：非 2xx 且响应体携带真实 usage 对象的行按 `parsed` 观测输出（issue #1480/#1493 复验修复，2026-11-12，SC2201-TC005） | `mod_ai_token_auth` |
 | 765 | `ai_zero_cost_reason` | `string` | 零成本原因标记：绑定 RMB 计划的**可计费** 2xx 请求计费为 0 时的成因（`unrecognized` / `aborted` / `cache_hit` / `batch_release` / `price_miss` / `price_zero` / `model_table_missing` / `config_missing` / `no_usage_tokens` / `cost_zero`）；已计费、未绑定 RMB 计划或非 2xx 时缺席；**批量与 files 管理端点（`mode` 为 `file`/`batch`）与未解析出 `target_model` 的请求不写该字段**（从未成为可计费模型调用，零成本属设计）；配合计数器 `BillingZeroCost` 使用（issue #1414） | `mod_ai_token_auth` |
 | 781 | `ai_cache_read_tokens` | `int64` | 从 cache 读取的 Token 数（已包含在 `ai_input_tokens` 中） | `mod_ai_token_auth` / `mod_body_process` |
 | 782 | `ai_cache_write_tokens` | `int64` | 写入 cache 的 Token 数（独立附加项） | `mod_ai_token_auth` / `mod_body_process` |
@@ -315,7 +315,7 @@ message AIRouteRuleHit {
 - 新增字段：`AiMode`、`AiProtocol`、`AiProvider`、`AiRetryCount`、`AiCostValue`、`AiCostCurrency`、`AiCacheReadTokens`、`AiCacheWriteTokens`、`AiCacheWrite_1HTokens`、`AiAudioInputTokens`、`AiAudioOutputTokens`、`AiImageCount`、`AiImageInputTokens`、`AiVideoCount`、`AiRouteRuleHits`、`AiClusterKeyNames`、`AiAuthHitQuotaPlans`；
 - 意图字段（803-809）：读取请求上下文中已解析的 `*bfe_basic.AiIntent`（仅读缓存结果，不触发懒解析），按 `ConsumedQuestion` 回填，详见 `docs/zh_cn/sys_design/mod_ai_intent.md` 5.4；
 - 缓存字段（789-792）：`AiCacheStatus` / `AiCacheKey`（debug 时）直接映射，语义命中时同时写 `AiCacheSemantic`（=true）与 `AiCacheSimilarity`，详见 `docs/zh_cn/sys_design/ai_cache.md`；
-- 计费观测标记（763-765）：`AiPriceMiss`（763）、`AiUsageSource`（764）、`AiZeroCostReason`（765）在 usage 观测块内写出；`AiCostValue` 对已观测行显式写 0（原仅在 > 0 时写出），非 2xx 行整组 usage 与标记字段缺席（issue #1408 / #1410 / #1414）。
+- 计费观测标记（763-765）：`AiPriceMiss`（763）、`AiUsageSource`（764）、`AiZeroCostReason`（765）在 usage 观测块内写出；`AiCostValue` 对已观测行显式写 0（原仅在 > 0 时写出），非 2xx 行整组 usage 与标记字段缺席（issue #1408 / #1410 / #1414；例外：错误体携带真实 usage 对象的非 2xx 行按 `parsed` 观测输出，SC2201-TC005）。
 - **logid / session_id（bfenetworks/bfe#1417）**：`BfeLog.logid` 与 `RequestLog.session_id` 由 `logIdToUint64()` 从字符串无损转换（十进制串，取值 `[1, 2^63-1]`——`genLogId()` 已改产十进制并被掩到 63 位）；转换失败（mod_logid 未加载、异形串、滚动升级期旧版 32-hex 头）时由 `randUint64NonZero()` 本地重生非 0 值，并计入 `LogidRegenerated` / `SessionIdRegenerated`，不再静默写 0——写 0 会使报表库同秒同 Key 同模型的并发行互相覆盖。详见 `docs/zh_cn/modifications/2026-10-13-issue-1417-logid-dedup-fix/design-changes.md`。
 
 ---

@@ -3841,3 +3841,104 @@ func TestTokenReadResponseHandlerTruncatedBodyChain(t *testing.T) {
 		t.Fatalf("close must be safe for the forwarding path: %v", err)
 	}
 }
+
+// Issue #1480/#1493 (QA SC2201-TC005): a non-2xx response whose body carries
+// a real usage object must set finalUsageSeen, so that dropUnbilledEstimate
+// takes the "real usage" branch. Regression guard: the parse gate used to be
+// `StatusOK && isCompleteNonStreamBody`, so a 400+usage response never entered
+// UpdateCtxByUsage, finalUsageSeen stayed false, and the row fell into the
+// estimate-residue branch (cleared + Non2xxEstimateDropped) — the
+// NON2XX_REAL_USAGE_KEPT counter was unreachable from any real response.
+func TestTokenReadResponseHandlerNon2xxRealUsage(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	req := newTestRequest("ak-123", "AI_product")
+	ai := req.InitAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 2, nil)
+
+	// auth-time estimate residue, as seeded for a billed key
+	ai.GetTokenUsage().PromptTokens = 25
+
+	body := `{"error":"bad request","usage":{"total_tokens":10,"prompt_tokens":3,"completion_tokens":7}}`
+	res := &bfe_http.Response{
+		StatusCode:    400,
+		ContentLength: int64(len(body)),
+		Body:          ioutil.NopCloser(strings.NewReader(body)),
+	}
+
+	if ret := m.tokenReadResponseHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+	if !ai.IsFinalUsageSeen() {
+		t.Error("the usage object on the 400 body must set finalUsageSeen (a parsed real usage)")
+	}
+	if ai.IsResponseCompleted() {
+		t.Error("a non-2xx response must never satisfy the billing completion gate")
+	}
+	usage := ai.GetTokenUsage()
+	if usage.PromptTokens != 3 || usage.CompletionTokens != 7 || usage.UsedQuota != 10 {
+		t.Errorf("parsed usage = %+v, want prompt=3 completion=7 total=10", *usage)
+	}
+}
+
+// Issue #1480/#1493 (QA SC2201-TC005): end-to-end through read-response and
+// request-finish — a 400 + usage row is reported as a parsed observation:
+// UsageDisposition=Observed / UsageSource=parsed, Non2xxRealUsageKept +1, the
+// token fields are kept, nothing is billed (RMB plan balance unchanged), and
+// Non2xxEstimateDropped is not incremented. Unlike the manual-seeding
+// TestTokenRequestFinishHandler_Non2xxKeepsRealUsageObservation, the
+// finalUsageSeen mark here comes from the real response-parsing path.
+func TestTokenRequestFinishHandler_Non2xxRealUsageFromResponseBody(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	client := newMockRedisClient()
+	m.redisClient = client
+
+	req := newTestRequestWithCluster("ak-123", "AI_product", "deepseek-backup", "deepseek-v4-flash")
+	rmbPlan := &QuotaPlan{
+		Id:       "rmb-plan",
+		RedisKey: "QUOTA_AI_product-Non2xxRealUsage",
+		Unit:     "RMB",
+		Quota:    100000000,
+	}
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id",
+		QuotaPlans: []*QuotaPlan{rmbPlan}}, 0, nil)
+	client.data[rmbPlan.RedisKey] = 100000000
+
+	ai := req.GetAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+	ai.GetTokenUsage().PromptTokens = 25 // auth-time estimate residue
+
+	body := `{"error":"bad request","usage":{"total_tokens":10,"prompt_tokens":3,"completion_tokens":7}}`
+	res := &bfe_http.Response{
+		StatusCode:    400,
+		ContentLength: int64(len(body)),
+		Body:          ioutil.NopCloser(strings.NewReader(body)),
+	}
+
+	if ret := m.tokenReadResponseHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+	if ret := m.tokenRequestFinishHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+
+	if got := ai.UsageDisposition(); got != bfe_basic.UsageDispositionObserved {
+		t.Errorf("UsageDisposition = %q, want %q", got, bfe_basic.UsageDispositionObserved)
+	}
+	if got := ai.UsageSource(); got != bfe_basic.UsageSourceParsed {
+		t.Errorf("UsageSource = %q, want %q (an upstream usage on an error response is an observation)",
+			got, bfe_basic.UsageSourceParsed)
+	}
+	if u := ai.GetTokenUsage(); u.PromptTokens != 3 || u.CompletionTokens != 7 || u.UsedQuota != 10 {
+		t.Errorf("real usage observation must be kept, got %+v", *u)
+	}
+	if got := m.state.Non2xxRealUsageKept.Get(); got != 1 {
+		t.Errorf("Non2xxRealUsageKept = %d, want 1", got)
+	}
+	if got := m.state.Non2xxEstimateDropped.Get(); got != 0 {
+		t.Errorf("Non2xxEstimateDropped = %d, want 0 (real usage is not an estimate)", got)
+	}
+	if remaining := client.data[rmbPlan.RedisKey]; remaining != 100000000 {
+		t.Errorf("remaining = %d, want 100000000: a non-2xx response must not deduct quota", remaining)
+	}
+}
