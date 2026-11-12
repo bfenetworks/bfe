@@ -352,14 +352,17 @@ func isJSONMediaType(contentType string) bool {
 	return mediaType == "application/json" || strings.HasSuffix(mediaType, "+json")
 }
 
-// isCompleteNonStreamBody reports whether res carries a complete, non-streaming
-// body that can be read whole during the read-response phase.
+// isCompleteNonStreamBody reports whether res carries a non-streaming body
+// that can be read whole during the read-response phase. Completeness is
+// only about the transfer framing — a fixed-length body may still be
+// truncated mid-transfer (issue #1501), which GetBodyAccessor reports as an
+// error and must NOT mark the response completed.
 //
-// A fixed-length response (ContentLength >= 0) is always complete. A chunked
-// response (ContentLength == -1, e.g. gzip + chunked upstream) is read whole
-// only when it is neither an SSE stream nor a non-JSON type that may stream
-// incrementally; everything else is left to mod_body_process so a real stream
-// is never blocked here (issue #1406).
+// A fixed-length response (ContentLength >= 0) is always read whole here. A
+// chunked response (ContentLength == -1, e.g. gzip + chunked upstream) is
+// read whole only when it is neither an SSE stream nor a non-JSON type that
+// may stream incrementally; everything else is left to mod_body_process so
+// a real stream is never blocked here (issue #1406).
 func isCompleteNonStreamBody(res *bfe_http.Response) bool {
 	if res.ContentLength >= 0 {
 		return true
@@ -374,11 +377,12 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 	}
 	tokenUsage := ctx.aiBasicInfo.GetTokenUsage()
 	if res.StatusCode == bfe_http.StatusOK && isCompleteNonStreamBody(res) {
-		// The full non-streaming body was read: the response is complete.
-		ctx.aiBasicInfo.MarkResponseCompleted()
-		bodyLen := 0
-		usagePresent := false
-		if bodyAccessor, err := res.GetBodyAccessor(); err == nil {
+		if bodyAccessor, err := res.GetBodyAccessor(); err == nil && bodyAccessor != nil {
+			// The full non-streaming body was read into the buffer: the
+			// response is complete (issue #1364).
+			ctx.aiBasicInfo.MarkResponseCompleted()
+			bodyLen := 0
+			usagePresent := false
 			body, _ := bodyAccessor.GetBytes()
 			// Decode a parse-only copy: res.Body and res.Header are left
 			// untouched so the bytes forwarded to the client, and the
@@ -392,21 +396,26 @@ func (m *ModuleAITokenAuth) tokenReadResponseHandler(req *bfe_basic.Request, res
 			}
 			bodyLen = len(body)
 			usagePresent = UpdateCtxByUsage(ctx, body)
-		}
-		if usagePresent {
-			// The upstream carried a usage object — including an explicit
-			// all-zero report, which is a real observation and must not be
-			// re-estimated (issue #1414).
-			ctx.aiBasicInfo.MarkFinalUsageSeen()
-		}
-		if !usagePresent && ctx.aiBasicInfo.IsAllowEstimateToken() {
-			// A chunked response has ContentLength == -1, so estimate from the
-			// decoded body length instead of the (missing) Content-Length.
-			if bodyLen == 0 && res.ContentLength > 0 {
-				bodyLen = int(res.ContentLength)
+			if usagePresent {
+				// The upstream carried a usage object — including an explicit
+				// all-zero report, which is a real observation and must not be
+				// re-estimated (issue #1414).
+				ctx.aiBasicInfo.MarkFinalUsageSeen()
 			}
-			tokenUsage.CompletionTokens = int64(bodyLen) / 4                                                   // estimate completion tokens
-			tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens) // calculate used quota
+			if !usagePresent && ctx.aiBasicInfo.IsAllowEstimateToken() {
+				// A chunked response has ContentLength == -1, so estimate from the
+				// decoded body length instead of the (missing) Content-Length.
+				if bodyLen == 0 && res.ContentLength > 0 {
+					bodyLen = int(res.ContentLength)
+				}
+				tokenUsage.CompletionTokens = int64(bodyLen) / 4                                                   // estimate completion tokens
+				tokenUsage.UsedQuota = CalcReqUsedQuota(req, tokenUsage.PromptTokens, tokenUsage.CompletionTokens) // calculate used quota
+			}
+		} else {
+			// issue #1501: the upstream body was truncated (GetBodyAccessor's
+			// io.ReadAll failed). No completion mark and no estimate seeding:
+			// the copy path reports BK_READ_RESP_BODY / upstreamDropped
+			// (issue #1474) and billing accumulates only forwarded content.
 		}
 	}
 

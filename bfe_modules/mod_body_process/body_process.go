@@ -264,6 +264,13 @@ func (bp *BodyProcessor) Close() error {
 		_ = closer.Close()
 	}
 
+	// issue #1501: a nil source (the GetBodyAccessor truncation shape) never
+	// reaches Read — the decoder factory error is recorded in bp.err and
+	// Read returns it first — but Close must stay safe for the forwarding
+	// path regardless.
+	if bp.source == nil {
+		return nil
+	}
 	return bp.source.Close()
 }
 
@@ -566,6 +573,10 @@ type LineDecoder struct {
 }
 
 func NewLineDecoder(source io.Reader) (EventDecoder, error) {
+	if source == nil {
+		// issue #1501: same nil-source guard as NewJsonDecoder.
+		return nil, fmt.Errorf("line decoder: nil body source")
+	}
 	reader := bufio.NewReader(source)
 	return &LineDecoder{reader: reader}, nil
 }
@@ -587,6 +598,12 @@ type JsonDecoder struct {
 }
 
 func NewJsonDecoder(source io.Reader) (EventDecoder, error) {
+	if source == nil {
+		// issue #1501: a nil source would build a json.Decoder that panics
+		// on the first Decode (nil reader deref in refill); fail at
+		// construction instead.
+		return nil, fmt.Errorf("json decoder: nil body source")
+	}
 	dec := json.NewDecoder(source)
 	return &JsonDecoder{dec: dec}, nil
 }
@@ -636,14 +653,26 @@ func mediaTypeOnly(contentType string) string {
 }
 
 func NewContentTypeDecoder(source io.Reader, contentType string) (EventDecoder, error) {
-	var dec EventDecoder
+	// issue #1501: a nil source must fail construction in every branch —
+	// the decoder factories panic on first use with a nil reader, and a nil
+	// decoder wrapped here would panic just the same (ctd.dec.Decode()).
+	if source == nil {
+		return nil, fmt.Errorf("content-type decoder: nil body source")
+	}
+	var (
+		dec EventDecoder
+		err error
+	)
 	switch mediaTypeOnly(contentType) {
 	case "application/sse", "text/event-stream", "application/x-sse":
-		dec, _ = NewSSEEventDecoder(source)
+		dec, err = NewSSEEventDecoder(source)
 	case "application/json", "application/ndjson", "application/x-ndjson":
-		dec, _ = NewJsonDecoder(source) // ndjson is a line-delimited JSON, can use JsonDecoder
+		dec, err = NewJsonDecoder(source) // ndjson is a line-delimited JSON, can use JsonDecoder
 	default:
-		dec, _ = NewLineDecoder(source) // 默认使用行解码器
+		dec, err = NewLineDecoder(source) // 默认使用行解码器
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	return &ContentTypeDecoder{contentType: contentType, dec: dec}, nil

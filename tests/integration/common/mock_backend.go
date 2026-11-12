@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -96,6 +97,11 @@ type MockBackend struct {
 	// have been written and flushed, simulating an upstream process that dies
 	// mid-stream (issue #1474, the kill -9 shape).
 	SSEAbortAfter int
+	// BodyTruncateAt, if greater than 0 and shorter than Body, declares the
+	// full body length but writes only this many bytes before killing the
+	// connection — a non-streaming 200 whose body is cut mid-transfer
+	// (issue #1501, the non-stream truncate shape).
+	BodyTruncateAt int
 	// SNIRecorder, if non-nil, is called with the TLS ClientHello server name
 	// on every TLS handshake (TLS mock backend only).
 	SNIRecorder func(serverName string)
@@ -288,6 +294,15 @@ func (b *MockBackend) handler() http.HandlerFunc {
 
 		for k, v := range b.ResponseHeaders {
 			w.Header().Set(k, v)
+		}
+		if b.BodyTruncateAt > 0 && len(body) > b.BodyTruncateAt {
+			w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+			w.WriteHeader(status)
+			_, _ = w.Write([]byte(body[:b.BodyTruncateAt]))
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+			panic(http.ErrAbortHandler)
 		}
 		w.WriteHeader(status)
 		if b.HoldAfterHeader != nil {

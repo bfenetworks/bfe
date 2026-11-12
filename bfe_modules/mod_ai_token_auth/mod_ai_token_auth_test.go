@@ -21,6 +21,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -33,6 +34,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_module"
+	"github.com/bfenetworks/bfe/bfe_modules/mod_body_process"
 	"github.com/bfenetworks/bfe/bfe_route/bfe_cluster"
 	"github.com/bfenetworks/bfe/bfe_util/crypto"
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
@@ -3731,5 +3733,111 @@ func TestTokenRequestFinishHandler_PerCountDataFallbackParsed(t *testing.T) {
 	}
 	if remaining := client.data[tokenPlan.RedisKey]; remaining != 98 {
 		t.Errorf("remaining = %d, want 98: billed by data.#=2, not the request preset 3", remaining)
+	}
+}
+
+// truncatedBodyReadCloser delivers its payload once and then fails with
+// io.ErrUnexpectedEOF, simulating an upstream that disconnects mid-body
+// after the response headers (issue #1501).
+type truncatedBodyReadCloser struct {
+	data []byte
+	sent bool
+}
+
+func (t *truncatedBodyReadCloser) Read(p []byte) (int, error) {
+	if !t.sent {
+		t.sent = true
+		return copy(p, t.data), nil
+	}
+	return 0, io.ErrUnexpectedEOF
+}
+
+func (t *truncatedBodyReadCloser) Close() error { return nil }
+
+// Issue #1501: a truncated non-streaming 200 response must NOT be marked
+// completed and must NOT be seeded with an estimate derived from
+// Content-Length. The request falls to the issue #1474 upstream-drop path
+// (BK_READ_RESP_BODY / upstreamDropped), and billing accumulates only
+// forwarded content.
+func TestTokenReadResponseHandlerTruncatedBody(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	req := newTestRequest("ak-123", "AI_product")
+	ai := req.InitAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 2, nil)
+
+	full := `{"id":"msg_01","usage":{"input_tokens":10,"output_tokens":5}}`
+	res := &bfe_http.Response{
+		StatusCode:    200,
+		ContentLength: int64(len(full)),
+		Body:          &truncatedBodyReadCloser{data: []byte(`{"id":"msg_01","u`)},
+	}
+
+	if ret := m.tokenReadResponseHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+	if ai.IsResponseCompleted() {
+		t.Error("a truncated body must not mark the response completed (issue #1501)")
+	}
+	if ai.IsFinalUsageSeen() {
+		t.Error("no usage may be parsed from a truncated body")
+	}
+	usage := ai.GetTokenUsage()
+	if usage.UsedQuota != 0 {
+		t.Errorf("UsedQuota = %d, want 0: no estimate may be seeded from Content-Length on truncation", usage.UsedQuota)
+	}
+	if usage.CompletionTokens != bfe_basic.COMPLETION_TOKENS_UNKNOWN {
+		t.Errorf("CompletionTokens = %d, want the unknown sentinel: no estimate may be seeded from Content-Length on truncation", usage.CompletionTokens)
+	}
+	if res.Body == nil {
+		t.Error("res.Body must survive the failed GetBodyAccessor so the forwarding path can deliver the truncation")
+	}
+}
+
+// Issue #1501 (PR #1504 review): full-chain fixed-point test. A truncated
+// non-streaming body passes through tokenReadResponseHandler (which must not
+// mark the response completed and must leave res.Body usable) and then
+// through mod_body_process.DoResponseProcess (whose processor the forwarding
+// path substitutes for res.Body) — the invariant is no panic anywhere and a
+// Read error the copy path can attribute as BK_READ_RESP_BODY (issue #1474).
+func TestTokenReadResponseHandlerTruncatedBodyChain(t *testing.T) {
+	m := NewModuleAITokenAuth()
+	req := newTestRequest("ak-123", "AI_product")
+	ai := req.InitAiBasicInfo()
+	ai.SetAllowEstimateToken(true)
+	SetTokenAuthContext(req, &Token{Key: "ak-123", KeyId: "ak-123-id"}, 2, nil)
+
+	full := `{"id":"msg_01","type":"message","role":"assistant","content":[{"type":"text","text":"hello"}],"usage":{"input_tokens":10,"output_tokens":5}}`
+	res := &bfe_http.Response{
+		StatusCode:    200,
+		ContentLength: int64(len(full)),
+		Header:        make(bfe_http.Header),
+		Body:          &truncatedBodyReadCloser{data: []byte(`{"id":"msg_01","u`)},
+	}
+
+	// Stage 1: read-response phase (mod_ai_token_auth runs before
+	// mod_body_process in the module order).
+	if ret := m.tokenReadResponseHandler(req, res); ret != bfe_module.BfeHandlerGoOn {
+		t.Fatalf("expected goon, got %d", ret)
+	}
+	if ai.IsResponseCompleted() {
+		t.Error("a truncated body must not mark the response completed")
+	}
+	if res.Body == nil {
+		t.Fatal("res.Body must survive the failed GetBodyAccessor")
+	}
+
+	// Stage 2: response body processing. DoResponseProcess replaces res.Body
+	// with the processor internally; the truncated source yields a read error.
+	bpMod := mod_body_process.NewModuleBodyProcess()
+	bp := bpMod.DoResponseProcess(req, res, &mod_body_process.BodyProcessConfig{Dec: "json"})
+	if bp == nil {
+		t.Fatal("expected a non-nil processor wrapping the truncated source")
+	}
+	if _, err := io.ReadAll(res.Body); err == nil {
+		t.Fatal("the forwarding copy must surface the truncation error")
+	}
+	if err := res.Body.Close(); err != nil {
+		t.Fatalf("close must be safe for the forwarding path: %v", err)
 	}
 }

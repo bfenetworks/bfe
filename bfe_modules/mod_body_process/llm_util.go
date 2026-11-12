@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -248,6 +249,11 @@ type SSEEventDecoder struct {
 }
 
 func NewSSEEventDecoder(source io.Reader) (EventDecoder, error) {
+	if source == nil {
+		// issue #1501: same nil-source guard as NewJsonDecoder — a nil
+		// reader would panic on the first read.
+		return nil, fmt.Errorf("sse event decoder: nil body source")
+	}
 	return &SSEEventDecoder{
 		r: bufio.NewReader(source),
 	}, nil
