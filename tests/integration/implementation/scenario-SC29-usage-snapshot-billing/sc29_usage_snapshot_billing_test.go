@@ -172,7 +172,11 @@ func newTestEnvWithEstimateToken(t *testing.T, estimateToken bool) *testEnv {
 }
 
 // proxyStateCounter reads /monitor/proxy_state and returns one counter value
-// (e.g. PanicClientConnServe for the issue #1501 no-panic assertion).
+// (e.g. PanicClientConnServe for the issue #1501 no-panic assertion). The
+// body is a metrics.MetricsData serialization: counters live in CounterData
+// under UPPER_SNAKE keys (CamelCase is converted), NOT in module_state2's
+// SCounters — parsing the wrong field silently yields a nil map and a
+// vacuous assertion (PR #1504 second-round review).
 func (e *testEnv) proxyStateCounter(t *testing.T, key string) int64 {
 	t.Helper()
 
@@ -187,12 +191,16 @@ func (e *testEnv) proxyStateCounter(t *testing.T, key string) int64 {
 		t.Fatalf("read proxy_state failed: %v", err)
 	}
 	var data struct {
-		SCounters map[string]int64 `json:"SCounters"`
+		CounterData map[string]int64 `json:"CounterData"`
 	}
 	if err := json.Unmarshal(raw, &data); err != nil {
 		t.Fatalf("parse proxy_state failed: %v, body: %s", err, raw)
 	}
-	return data.SCounters[key]
+	v, ok := data.CounterData[key]
+	if !ok {
+		t.Fatalf("counter %q not found in proxy_state: %s", key, raw)
+	}
+	return v
 }
 
 // rewriteEstimateToken flips the generated bfe.conf to EstimateToken = false.
@@ -827,7 +835,7 @@ func TestTC15_NonStreamTruncatedBodyNoPanic(t *testing.T) {
 		e.backend.Body = `{"id":"msg_01","type":"message","role":"assistant","model":"claude-3-sonnet","content":[{"type":"text","text":"BFE is a layer-7 load balancer originated at Baidu and a CNCF sandbox project."}],"stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":20,"total_tokens":30}}`
 		e.backend.BodyTruncateAt = 128
 
-		panicBefore := e.proxyStateCounter(t, "PanicClientConnServe")
+		panicBefore := e.proxyStateCounter(t, "PANIC_CLIENT_CONN_SERVE")
 
 		nonStreamBody := []byte(`{"model":"claude-3","stream":false,"messages":[{"role":"user","content":"hi"}],"max_tokens":100}`)
 		respBody, readErr := e.sendStreamTolerant(t, "/v1/messages",
@@ -848,7 +856,7 @@ func TestTC15_NonStreamTruncatedBodyNoPanic(t *testing.T) {
 
 		// No connection-level panic at all (pre-fix the request died before
 		// mod_access_pb3 wrote its RequestLog).
-		if panicAfter := e.proxyStateCounter(t, "PanicClientConnServe"); panicAfter != panicBefore {
+		if panicAfter := e.proxyStateCounter(t, "PANIC_CLIENT_CONN_SERVE"); panicAfter != panicBefore {
 			t.Fatalf("PanicClientConnServe grew %d -> %d (issue #1501)", panicBefore, panicAfter)
 		}
 
@@ -871,6 +879,9 @@ func TestTC15_NonStreamTruncatedBodyNoPanic(t *testing.T) {
 		// exception-log read below sees flushed logs (review fix: the old
 		// order could pass vacuously on buffered output).
 		reqLogs := e.stopAndParseLogs()
+		if len(reqLogs) == 0 {
+			t.Fatal("expected at least 1 access log row, got 0")
+		}
 		reqLog := reqLogs[len(reqLogs)-1]
 		if got := reqLog.GetErrCode(); got != bfe_basic.ErrBkReadRespBody.Error() {
 			t.Errorf("err_code = %q, want %q", got, bfe_basic.ErrBkReadRespBody)
@@ -891,9 +902,19 @@ func TestTC15_NonStreamTruncatedBodyNoPanic(t *testing.T) {
 			}
 		}
 
-		if data, err := os.ReadFile(filepath.Join(e.processEnv.WorkDir(), "log", "exception.log")); err == nil && len(data) > 0 {
+		// exception.log is created lazily on the first exception: absence
+		// means no panic at all. Guard against a wrong log path by requiring
+		// the log directory itself to exist (the access log was just parsed
+		// from it, so this cannot pass vacuously).
+		logDir := filepath.Join(e.processEnv.WorkDir(), "log")
+		if _, err := os.Stat(logDir); err != nil {
+			t.Fatalf("log directory must exist after BFE stops: %v", err)
+		}
+		if data, err := os.ReadFile(filepath.Join(logDir, "exception.log")); err == nil && len(data) > 0 {
 			e.logBFEException()
 			t.Fatalf("bfe exception log must stay empty (issue #1501):\n%s", data)
+		} else if err != nil && !os.IsNotExist(err) {
+			t.Fatalf("read exception log failed: %v", err)
 		}
 	}
 

@@ -561,10 +561,9 @@ func TestDoResponseProcessNilBody(t *testing.T) {
 		t.Fatal("a nil body must degrade to a non-nil processor carrying the error")
 	}
 
-	// Call-site semantics (mod_body_process.go): res.Body is replaced by the
-	// processor. The invariant the forwarding path needs is that Read/Close
-	// are safe and surface the error.
-	res.Body = bp
+	// DoResponseProcess already replaced res.Body with the processor
+	// (body_process.go). The invariant the forwarding path needs is that
+	// Read/Close are safe and surface the error.
 	if _, err := io.ReadAll(res.Body); err == nil {
 		t.Fatal("reading the degraded processor must surface the decoder error")
 	}

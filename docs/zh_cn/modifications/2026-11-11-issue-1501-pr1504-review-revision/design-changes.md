@@ -134,6 +134,43 @@ func NewContentTypeDecoder(source io.Reader, contentType string) (EventDecoder, 
 
 评审建议的备选防御"`res.Body = bfe_http.EofReader`（或 `NewBodyProcessor` 归一化）"在实现时被验证**不可取**：归一化后解码器工厂收到的是非 nil reader，构造成功，`bp.err` 不设置——`Read` 走正常 EOF 路径，降级信号丢失（nil body 被静默当作空 body 转发完成，而非返回读错误归因 `BK_READ_RESP_BODY`）。落地改为：`NewBodyProcessor` 保留 nil source，四个解码器工厂 nil 守卫 + `CreateEventDecoder` 记 `bp.err`（`Read` 短路返回错误），`BodyProcessor.Close` 补 nil-source 守卫（`Close` 安全）。单测锁定的正是这组不变量。
 
+## 第二轮评审修订（2026-11-12，xuleiming：结论"核心修复已闭环，TC-15'不 panic'断言未生效，需小修后合入"）
+
+评审确认上轮 6 项全部闭环（逐条复述无异议），新阻塞项与建议均经源码复核**全部属实**：
+
+### 阻塞项：`proxyStateCounter` 读错字段，"不 panic"断言空转
+
+- **事实**：`/monitor/proxy_state` 的 body 是 `metrics.MetricsData` 直序（go-lib `web-monitor/metrics/metrics.go:343-348`：`Prefix/Kind/GaugeData/CounterData/StateData`），**没有 `SCounters`**（那是 `module_state2.StateData` 的字段）；计数器键经 `convert()`（同文件 :307 `unicode.ToUpper`）从 CamelCase 转 UPPER_SNAKE：`PanicClientConnServe → PANIC_CLIENT_CONN_SERVE`。当前实现按 `SCounters` 反序列化，`json.Unmarshal` 对未知字段不报错 ⇒ nil map ⇒ 前后恒 0 ⇒ 差分断言永不成立——正是上轮要求补的"不 panic"验证实际没有生效。
+- **修复**（评审给出的形态，直接采纳）：
+
+```go
+	var data struct {
+		CounterData map[string]int64 `json:"CounterData"`
+	}
+	if err := json.Unmarshal(raw, &data); err != nil {
+		t.Fatalf("parse proxy_state failed: %v, body: %s", err, raw)
+	}
+	v, ok := data.CounterData[key]
+	if !ok {
+		t.Fatalf("counter %q not found in proxy_state: %s", key, raw)
+	}
+	return v
+```
+
+调用处 key 改为 `"PANIC_CLIENT_CONN_SERVE"`；`ok` 判定保证键名再变时**立即失败**而非静默通过。
+
+### 非阻塞建议（全部采纳）
+
+1. **`exception.log` 断言防路径错写**：当前 `if err == nil && len(data) > 0` 在文件不存在时静默通过。实现精化（比评审建议多走一步的实证修正）：`exception.log` 由 BFE **惰性创建**（首次异常才写文件），"无 panic"时文件本就不存在——因此改为断言**日志目录存在**（access log 刚从中解析成功，目录断言不可能空转通过），文件缺失 = 通过、非空 = 失败、其他读错误 = 失败；
+2. **`reqLogs` 判空**：`reqLog := reqLogs[len(reqLogs)-1]` 前加 `if len(reqLogs) == 0 { t.Fatal(...) }`，日志缺失给明确失败信息而非 index out of range；
+3. **删除重复的 `res.Body = bp`**：`DoResponseProcess` 内部已赋值（`body_process.go:403`），`TestDoResponseProcessNilBody` 与全链测试中的显式赋值冗余，删除后断言直接读 `res.Body`（更贴近调用点真实语义）。
+
+### 验证
+
+- TC-15 重跑：键存在性由 `ok` 判定保证——反向校验可用性：临时把 key 写错，测试必须在 `not found` 处失败（确认断言链路不再空转）；
+- 三包单测 + SC29 全场景回归；
+- 修复推送后回复评审请其复核 `PANIC_CLIENT_CONN_SERVE` 断言实际读数（评审可用同形态 run 交叉验证）。
+
 ## 五、背景文档同步修订（`2026-11-11-issue-1501-.../design-changes.md`）
 
 1. §二"步骤 2"由"`DoResponseProcess` 对 nil body 返回 nil"改为"**删除早退**：nil body 降级由构造期守卫 + `bp.err` 驱动，`res.Body=bp` 非 nil 且 Read 返回错误——转发安全且归因正确"；删除"`ResProcess`"相关表述的隐含早退语义；

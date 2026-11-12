@@ -3827,14 +3827,13 @@ func TestTokenReadResponseHandlerTruncatedBodyChain(t *testing.T) {
 		t.Fatal("res.Body must survive the failed GetBodyAccessor")
 	}
 
-	// Stage 2: response body processing (mod_body_process replaces res.Body
-	// with the processor; the truncated source yields a read error).
+	// Stage 2: response body processing. DoResponseProcess replaces res.Body
+	// with the processor internally; the truncated source yields a read error.
 	bpMod := mod_body_process.NewModuleBodyProcess()
 	bp := bpMod.DoResponseProcess(req, res, &mod_body_process.BodyProcessConfig{Dec: "json"})
 	if bp == nil {
 		t.Fatal("expected a non-nil processor wrapping the truncated source")
 	}
-	res.Body = bp
 	if _, err := io.ReadAll(res.Body); err == nil {
 		t.Fatal("the forwarding copy must surface the truncation error")
 	}
