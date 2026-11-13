@@ -1695,6 +1695,16 @@ send_response:
 			// response error. h2/spdy module will close conn/stream properly
 			if !CheckSupportMultiplex(basicReq.Session.Proto) {
 				action = closeAfterReply
+				if shouldAbortTruncatedNonStream(res, err, basicReq.Session.Proto) {
+					// issue #1501 follow-up: the non-streaming response is
+					// incomplete and a clean FIN cannot signal truncation to
+					// the client. Close the connection abnormally (no
+					// terminating chunk; RST for close-delimited framing) so
+					// the client gets a transport error (issue #1474
+					// non-stream boundary clause 3).
+					action = closeDirectly
+					setRSTOnClose(basicReq.Connection)
+				}
 			}
 			p.recordCopyError(basicReq, res, aiMeta, err)
 		} else if shouldMarkAIStreamCompleted(res, aiMeta, err) {
@@ -1735,6 +1745,32 @@ func shouldMarkUpstreamDropped(res *bfe_http.Response, aiMeta *bfe_basic.AiBasic
 	return res != nil && res.StatusCode == bfe_http.StatusOK && aiMeta != nil &&
 		!aiMeta.IsResponseCompleted() &&
 		aiMeta.Mode != bfe_basic.ModeFile && aiMeta.Mode != bfe_basic.ModeBatch
+}
+
+// shouldAbortTruncatedNonStream reports whether a failed response copy must
+// abort the client connection (issue #1501 follow-up): the upstream broke a
+// non-streaming response mid-transfer while the client is still attached.
+// A clean FIN cannot signal truncation; the client must see a transport
+// error. SSE streams keep the issue #1474 injected-error-event path, and
+// multiplex protocols (h2/spdy) are excluded: a connection-level abort would
+// kill unrelated streams on the same connection.
+func shouldAbortTruncatedNonStream(res *bfe_http.Response, err error, proto string) bool {
+	return res != nil && !res.IsSse && isUpstreamDropErr(err) &&
+		!CheckSupportMultiplex(proto)
+}
+
+// setRSTOnClose arms an abortive TCP close (SO_LINGER 0) so the final Close
+// sends RST instead of FIN. Only *net.TCPConn is supported; other transports
+// (unix socket, and TLS handled by the caller unwrapping to the TCP conn)
+// keep the graceful close. Best-effort: a linger failure degrades to
+// closeDirectly alone, which still covers Content-Length/chunked framings.
+func setRSTOnClose(conn net.Conn) {
+	type lingerSetter interface{ SetLinger(sec int) error }
+	if ls, ok := conn.(lingerSetter); ok {
+		if err := ls.SetLinger(0); err != nil {
+			log.Logger.Warn("set SO_LINGER(0) for truncated non-stream response failed: %v", err)
+		}
+	}
 }
 
 // stripProviderPrefix strips the configured provider/model prefix from model.

@@ -823,6 +823,9 @@ func TestTC10_EarlyUsageNoFinalBillsForwardedContentEstimate(t *testing.T) {
 // PR #1504 review revisions: EstimateToken=true/false two arms, the no-panic
 // assertion runs only after BFE stops (flushed logs, no vacuous pass), and
 // PanicClientConnServe is asserted directly.
+// Issue #1501 follow-up (client abort signal): the client assertion is
+// tightened to require a truncated transport error — a clean EOF is a
+// regression (issue #1501 #1504-deploy复验).
 func TestTC15_NonStreamTruncatedBodyNoPanic(t *testing.T) {
 	runArm := func(t *testing.T, estimateToken bool) {
 		e := newTestEnvWithEstimateToken(t, estimateToken)
@@ -845,12 +848,16 @@ func TestTC15_NonStreamTruncatedBodyNoPanic(t *testing.T) {
 				"Content-Type":      "application/json",
 			},
 			nonStreamBody)
-		// The upstream declared the full length but died mid-body, so the client
-		// must NOT receive a complete response: either its HTTP stack surfaces a
-		// truncated transport error, or (close-delimited response) it receives
-		// fewer bytes than promised. A clean read of the full body would mean
+		// The upstream declared the full length but died mid-body, so the
+		// client MUST see a truncated transport error (issue #1474 non-stream
+		// boundary clause 3; issue #1501 follow-up: a clean EOF after a 200
+		// with an empty body is a regression — BFE must abort the connection,
+		// not finish it gracefully). A clean read of the full body would mean
 		// BFE fabricated the missing bytes.
-		if readErr == nil && len(respBody) >= len(e.backend.Body) {
+		if readErr == nil {
+			t.Fatalf("client must see a truncated transport error for a truncated upstream response (body=%d bytes)", len(respBody))
+		}
+		if len(respBody) >= len(e.backend.Body) {
 			t.Fatalf("client read the full body of a truncated upstream response (err=%v, len=%d)", readErr, len(respBody))
 		}
 
@@ -920,4 +927,59 @@ func TestTC15_NonStreamTruncatedBodyNoPanic(t *testing.T) {
 
 	t.Run("EstimateToken=true", func(t *testing.T) { runArm(t, true) })
 	t.Run("EstimateToken=false", func(t *testing.T) { runArm(t, false) })
+}
+
+// TestTC16_NonStreamTruncatedClientReset verifies the issue #1501 follow-up
+// (QA #1504 deploy re-check): an incomplete non-streaming response must abort
+// the client connection (closeDirectly + SO_LINGER(0) RST), not finish it
+// with a clean FIN. A raw TCP read must return a connection error instead of
+// a clean io.EOF. Framing note: BFE always frames an HTTP/1.1 response
+// (Content-Length or chunked), so a close-delimited BFE-to-client shape is
+// not constructible in this harness; the RST pins the abortive close
+// directly and covers the close-delimited shape by construction.
+func TestTC16_NonStreamTruncatedClientReset(t *testing.T) {
+	e := newTestEnvWithEstimateToken(t, true)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+	// Same shape as TC15: the mock declares the full length but writes only
+	// the first 128 bytes before killing the connection.
+	e.backend.Body = `{"id":"msg_01","type":"message","role":"assistant","model":"claude-3-sonnet","content":[{"type":"text","text":"BFE is a layer-7 load balancer originated at Baidu and a CNCF sandbox project."}],"stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":20,"total_tokens":30}}`
+	e.backend.BodyTruncateAt = 128
+
+	panicBefore := e.proxyStateCounter(t, "PANIC_CLIENT_CONN_SERVE")
+
+	nonStreamBody := `{"model":"claude-3","stream":false,"messages":[{"role":"user","content":"hi"}],"max_tokens":100}`
+	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", e.bfePort))
+	if err != nil {
+		t.Fatalf("dial BFE failed: %v", err)
+	}
+	defer conn.Close()
+	conn.SetDeadline(time.Now().Add(30 * time.Second))
+	fmt.Fprintf(conn, "POST /v1/messages HTTP/1.1\r\nHost: %s\r\nx-api-key: %s\r\n"+
+		"anthropic-version: 2023-06-01\r\nContent-Type: application/json\r\n"+
+		"Content-Length: %d\r\nConnection: keep-alive\r\n\r\n%s",
+		apiHost, apiKey, len(nonStreamBody), nonStreamBody)
+
+	raw, readErr := io.ReadAll(conn)
+	if !strings.HasPrefix(string(raw), "HTTP/1.1 200") {
+		t.Fatalf("expected a 200 response head, got: %q", string(raw))
+	}
+	if readErr == nil {
+		t.Fatal("client connection must be aborted with a reset (issue #1501 follow-up): got a clean EOF")
+	}
+
+	if panicAfter := e.proxyStateCounter(t, "PANIC_CLIENT_CONN_SERVE"); panicAfter != panicBefore {
+		t.Fatalf("PanicClientConnServe grew %d -> %d (issue #1501)", panicBefore, panicAfter)
+	}
+
+	reqLogs := e.stopAndParseLogs()
+	if len(reqLogs) == 0 {
+		t.Fatal("expected at least 1 access log row, got 0")
+	}
+	reqLog := reqLogs[len(reqLogs)-1]
+	if got := reqLog.GetErrCode(); got != bfe_basic.ErrBkReadRespBody.Error() {
+		t.Errorf("err_code = %q, want %q", got, bfe_basic.ErrBkReadRespBody)
+	}
 }
