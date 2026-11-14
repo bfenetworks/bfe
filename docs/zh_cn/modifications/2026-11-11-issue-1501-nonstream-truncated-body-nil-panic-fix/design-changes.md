@@ -1,7 +1,7 @@
 # BFE Issue #1501 修复方案：非流式截断响应置空 body 引发 JsonDecoder nil panic，RequestLog 与计费信号全失
 
 - Issue: https://github.com/bfenetworks/bfe/issues/1501
-- 缺陷：`stream=false` 请求 `/v1/messages`，上游返回 HTTP 200（`Content-Length: 827`）发送部分 JSON 后断开时，BFE 在 `mod_body_process.(*JsonDecoder).Decode` 发生 **nil pointer panic**（`encoding/json.(*Decoder).refill` 对 nil reader 解引用）。panic 被 `conn.serve.func1` recover 后连接中断——**该请求没有 RequestLog 行**，`err_code=BK_READ_RESP_BODY`、usage source、`UpstreamDropBilled`/quota 全部无法归因；客户端只见 `unexpected EOF`。违反 `2026-10-30-issue-1474-upstream-midstream-drop-fix/design-changes.md`「非流式边界」①②③（① `err_code=BK_READ_RESP_BODY`；② 按已转发内容估算计费；③ 不补发终止 chunk，客户端得到截断传输错误）与 `sys_design/ai_error_codes.md` §5。**不需要产品裁定**（panic 与 RequestLog 缺失均有运行日志与源码链实锤）。
+- 缺陷：`stream=false` 请求 `/v1/messages`，上游返回 HTTP 200（`Content-Length: 827`）发送部分 JSON 后断开时，BFE 在 `mod_body_process.(*JsonDecoder).Decode` 发生 **nil pointer panic**（`encoding/json.(*Decoder).refill` 对 nil reader 解引用）。panic 被 `conn.serve.func1` recover 后连接中断——**该请求没有 RequestLog 行**，`err_code=BK_READ_RESP_BODY`、usage source、`UpstreamDropBilled`/quota 全部无法归因；客户端只见 `unexpected EOF`。违反 `2026-10-30-issue-1474-upstream-midstream-drop-fix/design-changes.md`「非流式边界」①②③（① `err_code=BK_READ_RESP_BODY`；② 按已转发内容估算计费；③ 不补发终止 chunk，~~客户端得到截断传输错误~~ **③ 已于 2026-11-12 规范降级为优雅 FIN 收尾，见该文档 :120 降级说明**）与 `sys_design/ai_error_codes.md` §5。**不需要产品裁定**（panic 与 RequestLog 缺失均有运行日志与源码链实锤）。
 - 代码库：`bfe/`（行号基于当前 HEAD `5611f8f1`，逐环核实）
 
 ## 一、根因（全环源码实锤）
@@ -52,7 +52,7 @@ if err != nil {
 	r.Body = newBody
 ```
 
-效果：转发路径保留原流（残余前缀已被 `io.ReadAll` 消费，实际拿到的是读错误而非残余字节——评审修订已修正本表述），客户端得到截断传输错误（条款③）；`copyResponse` 读到错误走 #1474 归因（条款①）。实现形态为 `fmt.Errorf("can't get body: %w", err)`，底层 `io.ErrUnexpectedEOF` 不丢弃（评审第 8 点）。
+效果：转发路径保留原流（残余前缀已被 `io.ReadAll` 消费，实际拿到的是读错误而非残余字节——评审修订已修正本表述），客户端连接由拷贝错误路径收尾（条款③——**2026-11-12 已降级为优雅 FIN**，截断可检出性依赖响应分帧，见 #1474 文档 :120 降级说明）；`copyResponse` 读到错误走 #1474 归因（条款①）。实现形态为 `fmt.Errorf("can't get body: %w", err)`，底层 `io.ErrUnexpectedEOF` 不丢弃（评审第 8 点）。
 
 ### 步骤 2（防御纵深）：mod_body_process 对 nil body 永不 panic
 
@@ -123,7 +123,7 @@ if err != nil {
 1. 同形态请求 BFE 日志无 panic、`PanicClientConnServe` 不增——步骤 1+2（panic 源与兜底双保险）。
 2. RequestLog 存在：field 3=`BK_READ_RESP_BODY`、field 4 有错误信息、`ai_stream=false`——步骤 1 后连接正常走完 finish handler，既有 `recordCopyError` 归因路径生效。
 3. `EstimateToken=true` ⇒ field 764=`upstream_dropped` + `UpstreamDropBilled`+1 + cost/quota 按已转发内容（708=706+707）；`false` ⇒ 764=`unrecognized` + 765=`upstream_dropped` + 零扣费——步骤 3（`responseCompleted=false` 使请求落入 #1474 upstreamDropped 门控；播种精化保证估算基数=已转发内容）。
-4. 客户端 200+截断传输错误、不注入 SSE error 事件——步骤 1（残余流转发 + 读错误自然终止）。
+4. 客户端 200 + 不注入 SSE error 事件——步骤 1（残余流转发 + 读错误自然终止）；收尾形态随条款③ 2026-11-12 降级为优雅 FIN（不再以"截断传输错误"为验收）。
 5. 流式 partial-drop 与 terminal-marker 不回归——改动均不触碰流式路径，SC29 全场景回归。
 
 ## 五、评审修订

@@ -1,5 +1,7 @@
 # BFE Issue #1501 后续修复方案：非流式截断响应的客户端异常终止信号（#1504 部署后复验）
 
+> **状态更新（2026-11-12，已回退——规范降级，产品裁定方向 B）**：本方案**已完整实施并推送**（commit `28943c66`：`closeDirectly` + `SO_LINGER(0)` RST，含单测与 SC29 TC15/TC16），随后经评审质疑与产品裁定认定为**规范过度设计，已全部回退**（revert 提交见 git 历史，代码/测试恢复原状）。裁定理由：① 普通代理路径上游截断一直是"部分字节 + 干净 FIN + `CLIENT_WRITE`"，AI 路径无必要更严格；② 定长/chunked 分帧形态下合规客户端可自行校验截断（RFC 9112 §7.1），网关侧 RST 属多余；③ 分叉语义增加认知与维护成本。③ 号规范条款「非流式边界」已同步修订为优雅 FIN 语义 + close-delimited 残余限制声明（见 `2026-10-30-issue-1474-upstream-midstream-drop-fix/design-changes.md` :120 降级说明）；系统测试 SC3201-TC035 A-06 客户端判据须同步放宽。**本文档仅作决策存档**（根因分析、两层机制设计、测试设计与否决记录仍有参考价值；若未来重启方向 A——普通路径对齐异常终止语义——可从 §二/§四直接恢复）。
+
 - 来源：[issue #1501](https://github.com/bfenetworks/bfe/issues/1501) 评论「#1504 部署后复验结果」（MercuryLi，2026-11-12，经 GitHub API 核实原文）。
 - 复验结论：#1504 已修复原缺陷——非流式 200 body 中途截断不再 panic，RequestLog 与计费归因恢复（`BK_READ_RESP_BODY` / `upstream_dropped` / cost 为正）。
 - **剩余缺陷**：同一形态下客户端收到 **HTTP 200 + 空 body + 干净 EOF**，得不到截断传输错误。修复前客户端能看到 `unexpected EOF`，那是 panic 时代异常连接中断附带提供的；panic 修掉后连接收尾变为优雅 FIN，截断信号随之消失。**违反 `2026-10-30-issue-1474-upstream-midstream-drop-fix/design-changes.md`「非流式边界」③**（客户端必须得到截断传输错误）。

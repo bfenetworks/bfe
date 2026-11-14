@@ -117,7 +117,9 @@ estimateBillable := ctx.aiBasicInfo.IsAllowEstimateToken() &&
 | B：扩展 `aiErrorStreamFilter.fill()` 在读错误路径注入（`:324-354` 现在直接 `return err`） | 需把过滤器默认全量安装，引入按 SSE 块缓冲的时序副作用（部分块延迟到 blank line 才透传），且截断标记/错误归一/注入三种语义挤在一个过滤器里，耦合错误归一开关 |
 | C：在 `copyResponse` 里直接写字节 | copyResponse 是通用传输层，不认识 SSE/协议形态；且与 EPP 过滤器、错误归一过滤器的叠放顺序失控 |
 
-**非流式边界**：200 非流式响应（`Content-Length` 或 chunked JSON）头已发出，状态码无法回改为 502，属 HTTP 固有限制。该形态下本方案交付：① 正确的 `err_code=BK_READ_RESP_BODY`；② 按已转发内容估算计费（同步骤 2，拷贝错误归因不区分流式/非流式）；③ BFE 不在拷贝错误后补发终止 chunk/定长收尾，客户端 HTTP 栈会得到截断传输错误而非"完整但截短的 200"。是否在拷贝错误时显式确保连接异常关闭（而非依赖各协议栈默认行为）在实施时核实并固定。
+**非流式边界**：200 非流式响应（`Content-Length` 或 chunked JSON）头已发出，状态码无法回改为 502，属 HTTP 固有限制。该形态下本方案交付：① 正确的 `err_code=BK_READ_RESP_BODY`；② 按已转发内容估算计费（同步骤 2，拷贝错误归因不区分流式/非流式）；③ ~~BFE 不在拷贝错误后补发终止 chunk/定长收尾，客户端 HTTP 栈会得到截断传输错误而非"完整但截短的 200"~~ **（2026-11-12 规范降级）** BFE 不在拷贝错误后补发终止 chunk/定长收尾，连接以**优雅 FIN** 收尾（`closeAfterReply`），与普通代理路径、主流反向代理（nginx 等）一致；客户端截断可检出性**依赖响应分帧**——定长响应短读、chunked 响应缺终止 chunk 可由合规 HTTP 栈自行检出（RFC 9112 §7.1）；**close-delimited 形态**（如上游 gzip 被传输层解压剥离 `Content-Length`（`bfe_http/transport.go:892-895`）、HTTP/1.0 客户端）下干净 EOF 与完整响应不可区分，属**已接受的残余限制**，不再要求网关侧异常终止/RST。
+
+> 降级说明（2026-11-12，产品裁定方向 B）：③ 原表述"客户端必须得到截断传输错误"在 #1501/#1504 修复链中曾驱动实现（异常终止 + RST，commit `28943c66`），经评审质疑（论据：普通代理路径上游截断一直是"部分字节 + 干净 FIN"，AI 路径无必要更严格；且定长/chunked 形态下合规客户端可自行校验）与产品裁定，认定该要求过度设计，**已回退相关实现**（revert 提交见 git 历史）并降级为本表述。决策记录与替代方案评估见 `2026-11-12-issue-1501-nonstream-truncate-client-abort-signal-fix/design-changes.md` 顶部状态更新。系统测试 **SC3201-TC035 A-06 的客户端判据须同步放宽**：不再要求 `read_error` 非 nil，改为"客户端不得收到完整的伪造 body（截断可检出性依赖分帧；close-delimited 干净 EOF 为接受形态）"；`err_code=BK_READ_RESP_BODY` 与计费归因判据（①②）不变。
 
 ## 三、与既有语义的兼容性（安全边界）
 

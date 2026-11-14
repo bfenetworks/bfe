@@ -17,7 +17,6 @@ package bfe_server
 import (
 	"errors"
 	"io"
-	"net"
 	"strings"
 	"testing"
 
@@ -25,7 +24,6 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/tls_rule_conf"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_model_protocol/gemini"
 	"github.com/bfenetworks/bfe/bfe_model_protocol/openai"
@@ -339,95 +337,3 @@ func (r *byteATimeReader) Read(p []byte) (int, error) {
 }
 
 func (r *byteATimeReader) Close() error { return nil }
-
-// TestShouldAbortTruncatedNonStream pins the issue #1501 follow-up abort
-// predicate: only a non-streaming upstream-drop copy error on a
-// non-multiplex protocol aborts the client connection. Client aborts and
-// write failures keep the historical closeAfterReply semantics (issues
-// #1352/#1473); SSE streams keep the injected-error-event path (issue
-// #1474); h2/spdy are excluded because a connection-level abort would kill
-// unrelated streams.
-func TestShouldAbortTruncatedNonStream(t *testing.T) {
-	upstreamErr := errors.New("read tcp: connection reset by upstream")
-	tests := []struct {
-		name  string
-		res   *bfe_http.Response
-		err   error
-		proto string
-		want  bool
-	}{
-		{"non-stream upstream drop over http/1.1",
-			&bfe_http.Response{StatusCode: 200}, copyErr(upstreamErr, true, false), "HTTP/1.1", true},
-		{"non-stream upstream drop over http/1.0",
-			&bfe_http.Response{StatusCode: 200}, copyErr(upstreamErr, true, false), "HTTP/1.0", true},
-		{"non-200 truncated pass-through also aborts",
-			&bfe_http.Response{StatusCode: 404}, copyErr(upstreamErr, true, false), "HTTP/1.1", true},
-		{"sse keeps the injected-error-event path",
-			&bfe_http.Response{StatusCode: 200, IsSse: true}, copyErr(upstreamErr, true, false), "HTTP/1.1", false},
-		{"client closed: abort consequence, not an upstream drop",
-			&bfe_http.Response{StatusCode: 200}, copyErr(upstreamErr, true, true), "HTTP/1.1", false},
-		{"client write failure unchanged",
-			&bfe_http.Response{StatusCode: 200}, copyErr(upstreamErr, false, false), "HTTP/1.1", false},
-		{"h2 excluded",
-			&bfe_http.Response{StatusCode: 200}, copyErr(upstreamErr, true, false), tls_rule_conf.HTTP2, false},
-		{"spdy excluded",
-			&bfe_http.Response{StatusCode: 200}, copyErr(upstreamErr, true, false), tls_rule_conf.SPDY31, false},
-		{"nil response",
-			nil, copyErr(upstreamErr, true, false), "HTTP/1.1", false},
-		{"nil error",
-			&bfe_http.Response{StatusCode: 200}, nil, "HTTP/1.1", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := shouldAbortTruncatedNonStream(tt.res, tt.err, tt.proto); got != tt.want {
-				t.Errorf("shouldAbortTruncatedNonStream = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-// TestSetRSTOnClose verifies the SO_LINGER(0) arming for the truncated
-// non-stream abort path: it applies to *net.TCPConn, is idempotent, and
-// silently ignores transports without SetLinger.
-func TestSetRSTOnClose(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen failed: %v", err)
-	}
-	defer ln.Close()
-
-	go func() {
-		c, err := ln.Accept()
-		if err == nil {
-			io.Copy(io.Discard, c)
-			c.Close()
-		}
-	}()
-
-	conn, err := net.Dial("tcp", ln.Addr().String())
-	if err != nil {
-		t.Fatalf("dial failed: %v", err)
-	}
-	tcpConn, ok := conn.(*net.TCPConn)
-	if !ok {
-		t.Fatalf("expected *net.TCPConn, got %T", conn)
-	}
-
-	setRSTOnClose(tcpConn) // must not panic
-	setRSTOnClose(tcpConn) // idempotent
-
-	// A linger-0 close discards unsent data and sends RST; the peer read
-	// must surface a reset/error instead of a clean EOF.
-	if _, err := tcpConn.Write([]byte("x")); err != nil {
-		t.Fatalf("write failed: %v", err)
-	}
-	if err := tcpConn.Close(); err != nil {
-		t.Fatalf("close failed: %v", err)
-	}
-
-	// Unsupported transport: silently ignored, no panic.
-	p1, _ := net.Pipe()
-	defer p1.Close()
-	setRSTOnClose(p1)
-}
