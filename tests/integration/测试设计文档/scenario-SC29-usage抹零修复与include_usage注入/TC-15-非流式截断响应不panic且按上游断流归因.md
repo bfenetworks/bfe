@@ -1,5 +1,7 @@
 # TC-15 非流式截断响应不 panic 且按上游断流归因
 
+> **状态更新（2026-11-12，「非流式边界」③ 规范降级）**：#1474「非流式边界」③ 已降级——客户端收尾为**优雅 FIN**（不再要求截断传输错误/RST，曾实施的异常终止修复已回退）。本用例客户端预期同步放宽为"不得收到完整伪造 body"；截断可检出性依赖响应分帧（定长短读/chunked 缺终止 chunk 由客户端 HTTP 栈自检），close-delimited 干净 EOF 为接受形态。`err_code=BK_READ_RESP_BODY` 与计费归因判据不变。QA 侧系统测试 SC3201-TC035 A-06 的客户端判据须同步放宽。
+
 ## 用例编号与名称
 
 TC-15 非流式截断响应不 panic 且按上游断流归因（issue #1501，条款来源 issue #1474「非流式边界」）
@@ -51,7 +53,7 @@ SC29 usage 抹零修复与 include_usage 注入
 ## 预期结果（PR #1504 评审修订后，true/false 双子臂）
 
 - **无 panic**：`PanicClientConnServe` 前后差分 = 0（请求前后各读一次 `/monitor/proxy_state`）；先停 BFE 再读 `exception.log`，断言为空（进程停止冲刷日志，杜绝缓冲导致的空转通过）。
-- **客户端**：HTTP 200 + 截断（读错误，或 close-delimit 形态下收到的字节数少于声明长度）；无 SSE error 注入事件。
+- **客户端**：HTTP 200 + 未完整收到声明的 body（截断传输错误或短读均可；**规范降级后**优雅 FIN 为接受收尾，不强制读错误——不得收到完整的伪造 body 即可）；无 SSE error 注入事件。
 - **臂 A（EstimateToken=true，已转发内容口径）**：无字节送达客户端 ⇒ completion 估算为 0，扣减 = `len(请求体)/4 × 300` 定点；RequestLog `ai_usage_source=upstream_dropped`。
 - **臂 B（EstimateToken=false）**：余额不变；RequestLog `ai_usage_source=unrecognized` 且 `ai_zero_cost_reason=upstream_dropped`。
 - **RequestLog（两臂共有）**：行存在；`err_code=BK_READ_RESP_BODY`；`ai_stream=false`。
