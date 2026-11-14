@@ -29,10 +29,12 @@ bfe.conf is the core configuration file of BFE.
 | Server.AcceptNum               | Integer | Number of accept goroutines per listener             | N         | Default 1; automatically set to 1 when 0                                                                       | >= 0                                                                 |
 | Server.MaxProxyHeaderBytes     | Integer | Max length of PROXY protocol header, in bytes        | N         | Default 0                                                                                                      | >= 0                                                                 |
 | Server.EnableAiGateway         | Boolean | Whether AI Gateway mode is enabled                   | N         | Default `False`                                                                                                | -                                                                    |
-| Server.EstimateToken           | Boolean | Whether to estimate token usage based on request Content-Length when the upstream response carries no usage. Estimation only applies to responses that completed normally: requests aborted by the client (RST/close) or failed to be written to the client without a final usage are never billed by estimation (issue #1352). Estimating missing usage is the approved fallback (issue #1398). The estimate applies only when the upstream returned **no usage at all** (decided by the presence of the usage object, issue #1414): a response whose usage is present but counts 0 is billed at 0 instead of being estimated, and is reported as `ai_total_tokens=0` with `ai_usage_source=parsed`, distinguishable from unrecognized usage (`unrecognized`) | N | Default `True` (program default since issue #1401, applied when the conf omits it; an explicit conf value overrides. Was `False` before issue #1398) | -                                                                    |
+| Server.EstimateToken           | Boolean | Whether to estimate token usage based on request Content-Length when the upstream response carries no usage. Estimation applies when the response completed normally, when the upstream connection dropped mid-response (issue #1474), and when the client aborted (RST/close/write failure) before a final usage was seen (issue #1478) — the latter two estimate from the **forwarded content only** (request seed + per-chunk accumulation of delivered bytes), so content never generated or never delivered to the client is not billed, preserving the intent of issue #1352. With this switch off, all such missing-usage requests are billed 0 and carry the `ai_usage_source` / `ai_zero_cost_reason` signals (`unrecognized` / `upstream_dropped` / `aborted`). Estimating missing usage is the approved fallback (issue #1398). The estimate applies only when the upstream returned **no usage at all** (decided by the presence of the usage object, issue #1414): a response whose usage is present but counts 0 is billed at 0 instead of being estimated, and is reported as `ai_total_tokens=0` with `ai_usage_source=parsed`, distinguishable from unrecognized usage (`unrecognized`) | N | Default `True` (program default since issue #1401, applied when the conf omits it; an explicit conf value overrides. Was `False` before issue #1398) | -                                                                    |
 | Server.InjectStreamUsage       | Boolean | For OpenAI-protocol streaming chat completion requests, inject `stream_options.include_usage=true` when the client did not set it, so the upstream returns the real final usage chunk (issue #1398). On injection failure (non-JSON body etc.) the request passes through unchanged | N | Default `True` (program default since issue #1401; an explicit conf value overrides)                      | -                                                                    |
+| Server.AIUpstreamAcceptEncoding | String  | How `Accept-Encoding` is rewritten on an AI upstream request, so that content negotiation stays inside the coding set the gateway can decode and the usage of a compressed streaming response remains parseable (issue #1468). `auto`: after intersecting with the client's value, keep only the decodable codings (`gzip`, `deflate`); when the intersection is empty the header is left unchanged. `identity`: strip compression so the upstream answers in plaintext (diagnostics). `off`: forward the client value unchanged (legacy behaviour). Applies to the outbound header of AI forwarding only; the inbound request header is never modified | N | Default `auto`; one of `auto`/`identity`/`off`, an invalid value is treated as `auto` | See description |
+| Server.ConditionEngineMode     | String  | Condition expression engine mode                   | N         | Default `LegacyFirst`; one of `LegacyFirst` (legacy engine first, falls back to the expr engine on parse failure, existing configs keep their behaviour) / `ExprCompatible` (expr engine with legacy-primitive compatibility, mixing old and new is allowed, compile failures are fatal) / `ExprOnly` (pure expr expressions, legacy primitives unsupported); numeric form `0`/`1`/`2` is also accepted, invalid values fail at startup | One of `LegacyFirst`/`ExprCompatible`/`ExprOnly`/`0`/`1`/`2` |
 | Server.AccessibleBodySize      | Integer | Max size of request body that can be buffered, in bytes | N      | Default 2097152; used for request body rewriting and AI Gateway fallback retry; request bodies larger than this cannot be fully cached and retransmitted | > 0 and <= 8388608                                                   |
-| Server.TotalBodyBufferSize     | Integer | Upper limit of total memory used by all active bytes_body buffers, in bytes | N      | Default 0 (unlimited); when reached, AI Gateway fallback will not wrap the request body for caching, i.e., no retry | >= 0                                                                 |
+| Server.TotalBodyBufferSize     | Integer | Admission threshold for the total size of retryable request-body buffers (bytes_body), in bytes | N      | Default 0 (unlimited); when reached, AI Gateway fallback will not wrap the request body for caching, i.e., no retry. It is an admission check only: accounting is returned when the request finishes and every created buffer stays counted, so the gauge may briefly exceed the threshold | >= 0                                                                 |
 | Server.HostRuleConf            | String  | Path of [host config](server_data_conf/host_rule.data.md) file | N     | Default `server_data_conf/host_rule.data`; see [FilePath](00-common.md#3-filepath) type definition            | Type is [FilePath](00-common.md#3-filepath)                          |
 | Server.VipRuleConf             | String  | Path of [VIP config](server_data_conf/vip_rule.data.md) file | N       | Default `server_data_conf/vip_rule.data`; see [FilePath](00-common.md#3-filepath) type definition             | Type is [FilePath](00-common.md#3-filepath)                          |
 | Server.RouteRuleConf           | String  | Path of [route rule config](server_data_conf/route_rule.data.md) file | N  | Default `server_data_conf/route_rule.data`; see [FilePath](00-common.md#3-filepath) type definition           | Type is [FilePath](00-common.md#3-filepath)                          |
@@ -53,21 +55,21 @@ bfe.conf is the core configuration file of BFE.
 | ------------------------------------ | --------- | ------------------------------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | HttpsBasic.ServerCertConf            | String    | Path of [server cert and key config](tls_conf/server_cert_conf.data.md) file    | N          | Default `tls_conf/server_cert_conf.data`; see [FilePath](00-common.md#3-filepath) type definition             | Type is [FilePath](00-common.md#3-filepath)                                         |
 | HttpsBasic.TlsRuleConf               | String    | Path of [TLS rule config](tls_conf/tls_rule_conf.data.md) file                  | N          | Default `tls_conf/tls_rule_conf.data`; see [FilePath](00-common.md#3-filepath) type definition                | Type is [FilePath](00-common.md#3-filepath)                                         |
-| HttpsBasic.CipherSuites              | String[]  | List of enabled cipher suites                                                   | N          | To enable multiple suites, add multiple `CipherSuites` lines; equivalent suites can be separated by `&#124;`, see example | Must be cipher suites supported by BFE, e.g. `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` etc. |
+| HttpsBasic.CipherSuites              | String[]  | List of enabled cipher suites (whitelist)                                        | N          | To enable multiple suites, add multiple `CipherSuites` lines; several suites may be separated by `&#124;` on one line. This config only selects which suites are enabled; the order of the config lines and the `&#124;` grouping **no longer affect negotiation priority**, which is determined by the fixed preference order of the standard library `crypto/tls`. See example | Must be cipher suites supported by BFE, e.g. `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` etc. |
 | HttpsBasic.CurvePreferences          | String[]  | List of enabled ECC curves                                                      | N          | Default `CurveP256`                                                                                            | Only `CurveP256`, `CurveP384`, `CurveP521` supported                                |
-| HttpsBasic.EnableSslv2ClientHello    | Boolean   | Enable SSLv2 format ClientHello compatibility for SSLv3 protocol                | N          | Default `True`                                                                                                 | -                                                                                   |
+| HttpsBasic.EnableSslv2ClientHello    | Boolean   | Enable SSLv2 format ClientHello compatibility for SSLv3 protocol                | N          | **Deprecated**: parsed but ignored (standard `crypto/tls` does not support SSLv2 ClientHello)                    | -                                                                                   |
 | HttpsBasic.ClientCABaseDir           | String    | Base directory of client CA certificates                                        | N          | Default `tls_conf/client_ca`; certificate files in the directory must have `.crt` suffix; see [DirPath](00-common.md#4-dirpath) type definition | Type is [DirPath](00-common.md#4-dirpath)                                         |
-| HttpsBasic.MaxTlsVersion             | String    | Highest supported TLS version                                                   | N          | Default `VersionTLS12`                                                                                         | Only `VersionSSL30`, `VersionTLS10`, `VersionTLS11`, `VersionTLS12` supported       |
-| HttpsBasic.MinTlsVersion             | String    | Lowest supported TLS version                                                    | N          | Default `VersionSSL30`                                                                                         | Only the above enum values; and `MaxTlsVersion >= MinTlsVersion`                    |
+| HttpsBasic.MaxTlsVersion             | String    | Highest supported TLS version                                                   | N          | Default `VersionTLS13`                                                                                         | Only `VersionTLS10`, `VersionTLS11`, `VersionTLS12`, `VersionTLS13` supported      |
+| HttpsBasic.MinTlsVersion             | String    | Lowest supported TLS version                                                    | N          | Default `VersionTLS10`; `VersionSSL30` is deprecated (standard `crypto/tls` no longer supports SSLv3, treated as `VersionTLS10`) | Only the values above; `MaxTlsVersion >= MinTlsVersion`            |
 | HttpsBasic.ClientCRLBaseDir          | String    | Base directory of client CRL                                                    | N          | Default `tls_conf/client_crl`; see [DirPath](00-common.md#4-dirpath) type definition                          | Type is [DirPath](00-common.md#4-dirpath)                                           |
-| SessionCache.SessionCacheDisabled    | Boolean   | Whether to disable TLS session cache mechanism                                  | N          | Default `True`; when `True`, other SessionCache related validations are skipped                                | -                                                                                   |
-| SessionCache.Servers                 | String    | Access address of cache service                                                 | Conditional | Required when `SessionCacheDisabled=false`                                                                     | Cannot be empty when `SessionCacheDisabled=false`; multiple addresses separated by comma `,` |
-| SessionCache.KeyPrefix               | String    | Prefix for cache key                                                            | N          | Default `bfe`                                                                                                  | -                                                                                   |
-| SessionCache.ConnectTimeout          | Integer   | Connection timeout to cache service, in milliseconds                            | N          | Default 50                                                                                                     | -                                                                                   |
-| SessionCache.ReadTimeout             | Integer   | Read timeout from cache service, in milliseconds                                | Conditional | Required when `SessionCacheDisabled=false`                                                                     | Must be > 0 when `SessionCacheDisabled=false`                                       |
-| SessionCache.WriteTimeout            | Integer   | Write timeout to cache service, in milliseconds                                 | Conditional | Required when `SessionCacheDisabled=false`                                                                     | Must be > 0 when `SessionCacheDisabled=false`                                       |
-| SessionCache.MaxIdle                 | Integer   | Max idle long connections to cache service                                      | Conditional | Required when `SessionCacheDisabled=false`                                                                     | Must be > 0 when `SessionCacheDisabled=false`                                       |
-| SessionCache.SessionExpire           | Integer   | Expiration time of session info stored in cache service, in seconds             | Conditional | Required when `SessionCacheDisabled=false`                                                                     | Must be > 0 when `SessionCacheDisabled=false`                                       |
+| SessionCache.SessionCacheDisabled    | Boolean   | Whether to disable TLS session cache mechanism                                  | N          | **Deprecated**: Redis session cache has been removed; all SessionCache fields are parsed but ignored           | -                                                                                   |
+| SessionCache.Servers                 | String    | Access address of cache service                                                 | N          | **Deprecated**                                                                                                 | -                                                                                   |
+| SessionCache.KeyPrefix               | String    | Prefix for cache key                                                            | N          | **Deprecated**                                                                                                 | -                                                                                   |
+| SessionCache.ConnectTimeout          | Integer   | Connection timeout to cache service, in milliseconds                            | N          | **Deprecated**                                                                                                 | -                                                                                   |
+| SessionCache.ReadTimeout             | Integer   | Read timeout from cache service, in milliseconds                                | N          | **Deprecated**                                                                                                 | -                                                                                   |
+| SessionCache.WriteTimeout            | Integer   | Write timeout to cache service, in milliseconds                                 | N          | **Deprecated**                                                                                                 | -                                                                                   |
+| SessionCache.MaxIdle                 | Integer   | Max idle long connections to cache service                                      | N          | **Deprecated**                                                                                                 | -                                                                                   |
+| SessionCache.SessionExpire           | Integer   | Expiration time of session info stored in cache service, in seconds             | N          | **Deprecated**                                                                                                 | -                                                                                   |
 | SessionTicket.SessionTicketsDisabled | Boolean   | Whether to disable TLS session ticket                                           | N          | Default `True`; when `True`, other SessionTicket related validations are skipped                               | -                                                                                   |
 | SessionTicket.SessionTicketKeyFile   | String    | Path of [session ticket key config](tls_conf/session_ticket_key.data.md) file   | N          | Default `tls_conf/session_ticket_key.data`; see [FilePath](00-common.md#3-filepath) type definition           | Type is [FilePath](00-common.md#3-filepath)                                         |
 
@@ -147,6 +149,12 @@ EstimateToken = true
 # returns the real final usage chunk (issue #1398)
 InjectStreamUsage = true
 
+# how Accept-Encoding is forwarded to an AI upstream (issue #1468):
+#   auto     - keep only the codings the gateway can decode (default)
+#   identity - strip compression (diagnostics / troubleshooting)
+#   off      - forward the client value unchanged
+AIUpstreamAcceptEncoding = auto
+
 # timeout for graceful shutdown (maximum 300 sec)
 GracefulShutdownTimeout = 10
 
@@ -159,8 +167,11 @@ MaxHeaderUriBytes = 8192
 # max request body size that can be buffered for rewriting/fallback (default 2MB, max 8MB)
 AccessibleBodySize = 2097152
 
-# max total bytes of all active bytes_body buffers (0 means unlimited)
+# admission threshold for retryable request body buffers (0 means unlimited)
 TotalBodyBufferSize = 0
+
+# condition expression engine mode: LegacyFirst(default) / ExprCompatible / ExprOnly
+# ConditionEngineMode = LegacyFirst
 
 # routing related conf
 HostRuleConf = server_data_conf/host_rule.data
@@ -197,7 +208,7 @@ ServerCertConf = tls_conf/server_cert_conf.data
 # tls rule for https
 TlsRuleConf = tls_conf/tls_rule_conf.data
 
-# supported cipherSuites preference settings
+# enabled cipherSuites (whitelist)
 #
 # ciphersuites implemented in golang
 #     TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
@@ -217,9 +228,13 @@ TlsRuleConf = tls_conf/tls_rule_conf.data
 #     TLS_RSA_WITH_3DES_EDE_CBC_SHA
 #
 # Note:
-# -. Equivalent cipher suites (cipher suites with same priority in server side):
+# -. CipherSuites acts as a whitelist: it only selects which suites are enabled.
+#    The actual negotiation order is determined by the fixed preference order of
+#    the standard library crypto/tls. The order of the config lines and the '|'
+#    grouping no longer affect priority.
+# -. Listing several suites on one line separated by '|' is still accepted and is
+#    equivalent to listing them on separate lines:
 #    CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
-#    CipherSuites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
 #
 CipherSuites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256|TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
 CipherSuites=TLS_ECDHE_RSA_WITH_RC4_128_SHA
@@ -241,8 +256,9 @@ CipherSuites=TLS_RSA_WITH_AES_256_CBC_SHA
 #
 CurvePreferences=CurveP256
 
-# support Sslv2 ClientHello for compatible with ancient 
+# support Sslv2 ClientHello for compatible with ancient
 # TLS capable clients (mozilla 5, java 5/6, openssl 0.9.8 etc)
+# DEPRECATED: ignored (standard crypto/tls does not support SSLv2 ClientHello)
 EnableSslv2ClientHello = true
 
 # client ca certificates base directory
@@ -250,6 +266,8 @@ EnableSslv2ClientHello = true
 ClientCABaseDir = tls_conf/client_ca
 
 [SessionCache]
+# DEPRECATED: tls session cache (redis) has been removed;
+# all SessionCache fields below are parsed but ignored
 # disable tls session cache or not
 SessionCacheDisabled = true
 

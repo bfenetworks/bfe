@@ -17,7 +17,7 @@
 | Config{v}[].Actions | Array | A ordered list of rewrite actions | Y | - | - |
 | Config{v}[].Actions[] | Object | A rewrite action | Y | - | - |
 | Config{v}[].Actions[].Cmd | String | Name of rewrite action | Y | See Module Actions for valid values | - |
-| Config{v}[].Actions[].Params | Array | Parameters of rewrite action | N | Depends on the specific action | - |
+| Config{v}[].Actions[].Params | Array | Parameters of rewrite action | N | Depends on the specific action; value parameters support `=`-prefixed expressions, see below | - |
 | Config{v}[].Last | Boolean | Stop checking remaining rules if true | N | Default value is `false` | - |
 
 ## Module Actions
@@ -34,6 +34,28 @@
 | QUERY_DEL | Delete query |
 | QUERY_DEL_ALL_EXCEPT | Delete all queries except specified queries |
 | QUERY_RENAME | Rename query |
+
+### Action Param Expressions
+
+The following value parameters support inline expressions prefixed with `=`
+(see [ActionParam](../00-common.md#10-actionparam) for syntax and error handling):
+
+| Action | Expression-capable parameter |
+| ------ | ---------------------------- |
+| HOST_SET | Params[0] (host) |
+| PATH_SET | Params[0] (path) |
+| PATH_PREFIX_ADD / PATH_PREFIX_TRIM | Params[0] (path prefix) |
+| QUERY_ADD | Params[1] (query value) |
+
+Other parameters (query keys, host suffix, etc.) remain literals. `==` denotes
+a literal starting with `=` (e.g. `"==foo"` means `"=foo"`). Example:
+
+```json
+{
+    "Cmd": "QUERY_ADD",
+    "Params": ["client_ip", "=ReqCip()"]
+}
+```
 
 ## Configuration Example
 

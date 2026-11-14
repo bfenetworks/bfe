@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/bfenetworks/bfe/bfe_util/crypto"
+	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 func TestClusterConfLoad_1(t *testing.T) {
@@ -274,6 +275,62 @@ func TestModelTableCheck(t *testing.T) {
 }
 
 func TestAIConfCheck(t *testing.T) {
+	t.Run("ensure reasoning content", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			conf    *AIConf
+			wantErr bool
+		}{
+			{
+				name: "empty means disabled",
+				conf: &AIConf{},
+			},
+			{
+				name: "openai with empty ModelProtocols (defaults to openai)",
+				conf: &AIConf{EnsureReasoningContent: []string{"openai"}},
+			},
+			{
+				name: "openai and anthropic both declared",
+				conf: &AIConf{
+					ModelProtocols:         []string{"openai", "anthropic"},
+					EnsureReasoningContent: []string{"openai", "anthropic"},
+				},
+			},
+			{
+				name:    "gemini is not applicable",
+				conf:    &AIConf{ModelProtocols: []string{"openai", "gemini"}, EnsureReasoningContent: []string{"gemini"}},
+				wantErr: true,
+			},
+			{
+				name:    "anthropic not declared by the cluster",
+				conf:    &AIConf{ModelProtocols: []string{"openai"}, EnsureReasoningContent: []string{"anthropic"}},
+				wantErr: true,
+			},
+			{
+				name:    "unknown protocol",
+				conf:    &AIConf{ModelProtocols: []string{"openai", "foo"}, EnsureReasoningContent: []string{"foo"}},
+				wantErr: true,
+			},
+			{
+				name:    "duplicate entry",
+				conf:    &AIConf{EnsureReasoningContent: []string{"openai", "openai"}},
+				wantErr: true,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				err := AIConfCheck(tt.conf)
+				if tt.wantErr && err == nil {
+					t.Fatal("expected an error")
+				}
+				if !tt.wantErr && err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			})
+		}
+	})
+
 	t.Run("strip prefix without match prefix", func(t *testing.T) {
 		conf := &AIConf{StripPrefix: true}
 		if err := AIConfCheck(conf); err == nil {
@@ -331,6 +388,94 @@ func TestAIConfCheck(t *testing.T) {
 			t.Error("expected error when SessionAffinityTTL < 0")
 		}
 	})
+
+	t.Run("key penalty ttl defaults", func(t *testing.T) {
+		conf := &AIConf{KeyPolicy: &AIKeyPolicy{}}
+		if err := AIConfCheck(conf); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if conf.KeyPolicy.SessionAffinityPenaltyTTL429 != 60 {
+			t.Errorf("expected penalty ttl 429 default 60, got %d", conf.KeyPolicy.SessionAffinityPenaltyTTL429)
+		}
+		if conf.KeyPolicy.SessionAffinityPenaltyTTLAuth != 300 {
+			t.Errorf("expected penalty ttl auth default 300, got %d", conf.KeyPolicy.SessionAffinityPenaltyTTLAuth)
+		}
+	})
+
+	t.Run("key penalty ttl explicit", func(t *testing.T) {
+		conf := &AIConf{KeyPolicy: &AIKeyPolicy{
+			SessionAffinityPenaltyTTL429:  30,
+			SessionAffinityPenaltyTTLAuth: 120,
+		}}
+		if err := AIConfCheck(conf); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if conf.KeyPolicy.SessionAffinityPenaltyTTL429 != 30 {
+			t.Errorf("expected penalty ttl 429 30, got %d", conf.KeyPolicy.SessionAffinityPenaltyTTL429)
+		}
+		if conf.KeyPolicy.SessionAffinityPenaltyTTLAuth != 120 {
+			t.Errorf("expected penalty ttl auth 120, got %d", conf.KeyPolicy.SessionAffinityPenaltyTTLAuth)
+		}
+	})
+
+	t.Run("key penalty ttl negative error", func(t *testing.T) {
+		cases := []AIKeyPolicy{
+			{SessionAffinityPenaltyTTL429: -1},
+			{SessionAffinityPenaltyTTLAuth: -1},
+		}
+		for _, policy := range cases {
+			conf := &AIConf{KeyPolicy: &policy}
+			if err := AIConfCheck(conf); err == nil {
+				t.Errorf("expected error for %+v", policy)
+			}
+		}
+	})
+
+	t.Run("key penalty ttl clamped", func(t *testing.T) {
+		conf := &AIConf{KeyPolicy: &AIKeyPolicy{
+			SessionAffinityPenaltyTTL429:  99999,
+			SessionAffinityPenaltyTTLAuth: 99999,
+		}}
+		if err := AIConfCheck(conf); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if conf.KeyPolicy.SessionAffinityPenaltyTTL429 != 86400 {
+			t.Errorf("expected penalty ttl 429 clamped to 86400, got %d", conf.KeyPolicy.SessionAffinityPenaltyTTL429)
+		}
+		if conf.KeyPolicy.SessionAffinityPenaltyTTLAuth != 86400 {
+			t.Errorf("expected penalty ttl auth clamped to 86400, got %d", conf.KeyPolicy.SessionAffinityPenaltyTTLAuth)
+		}
+	})
+}
+
+// TestAIKeyPolicyCheckLegacyPayload makes sure a KeyPolicy payload written
+// before issue #1448 (no penalty TTL fields) still yields a usable policy: the
+// decoder leaves the new fields at zero and the loader fills the defaults. A
+// zero TTL must never survive the check, because Redis treats expire=0 as
+// "never expire".
+func TestAIKeyPolicyCheckLegacyPayload(t *testing.T) {
+	legacy := []byte(`{
+		"Strategy": "weighted_random",
+		"MaxRetries": 1,
+		"SessionAffinity": true,
+		"SessionAffinityPenaltyEnable": true
+	}`)
+
+	policy := &AIKeyPolicy{}
+	if err := json.Unmarshal(legacy, policy); err != nil {
+		t.Fatalf("unmarshal legacy payload failed: %v", err)
+	}
+	if policy.SessionAffinityPenaltyTTL429 != 0 || policy.SessionAffinityPenaltyTTLAuth != 0 {
+		t.Fatalf("expected zero values for the new fields, got %+v", policy)
+	}
+
+	if err := AIKeyPolicyCheck(policy); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if policy.SessionAffinityPenaltyTTL429 != 60 || policy.SessionAffinityPenaltyTTLAuth != 300 {
+		t.Errorf("expected 60/300 defaults, got %d/%d",
+			policy.SessionAffinityPenaltyTTL429, policy.SessionAffinityPenaltyTTLAuth)
+	}
 }
 
 func TestAIProtocolPathsCheck(t *testing.T) {

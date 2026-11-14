@@ -535,6 +535,10 @@ func diff(t *testing.T, prefix string, have, want interface{}) {
 		t.Errorf("%s: type mismatch %v want %v", prefix, hv.Type(), wv.Type())
 	}
 	for i := 0; i < hv.NumField(); i++ {
+		if hv.Type().Field(i).PkgPath != "" {
+			// Unexported fields cannot be read through reflection.
+			continue
+		}
 		hf := hv.Field(i).Interface()
 		wf := wv.Field(i).Interface()
 		if !reflect.DeepEqual(hf, wf) {
@@ -629,5 +633,53 @@ func TestResponseContentLengthShortBody(t *testing.T) {
 	}
 	if err != io.ErrUnexpectedEOF {
 		t.Errorf("io.Copy error = %#v; want io.ErrUnexpectedEOF", err)
+	}
+}
+
+// truncatedReadCloser delivers its payload once and then fails with
+// io.ErrUnexpectedEOF, simulating an upstream that disconnects mid-body
+// (issue #1501).
+type truncatedReadCloser struct {
+	data []byte
+	sent bool
+}
+
+func (t *truncatedReadCloser) Read(p []byte) (int, error) {
+	if !t.sent {
+		t.sent = true
+		return copy(p, t.data), nil
+	}
+	return 0, io.ErrUnexpectedEOF
+}
+
+func (t *truncatedReadCloser) Close() error { return nil }
+
+// Issue #1501: when the upstream body is truncated, GetBodyAccessor must
+// report the error WITHOUT nil-ing out r.Body — the forwarding path still
+// needs the remaining stream (mod_body_process used to receive a nil reader
+// and panic in JsonDecoder.Decode).
+func TestGetBodyAccessorTruncatedBodyKeepsStream(t *testing.T) {
+	src := &truncatedReadCloser{data: []byte(`{"partial":`)}
+	res := &Response{StatusCode: StatusOK, ContentLength: 827, Body: src}
+
+	accessor, err := res.GetBodyAccessor()
+	if err == nil {
+		t.Fatal("expected an error for a truncated body")
+	}
+	if accessor != nil {
+		t.Fatalf("expected nil accessor on error, got %v", accessor)
+	}
+	if res.Body == nil {
+		t.Fatal("r.Body must not be nil-ed out on a read error (issue #1501)")
+	}
+
+	// The remainder of the stream must still be readable so the forwarding
+	// path delivers the truncated response instead of panicking.
+	rest, err := io.ReadAll(res.Body)
+	if err == nil {
+		t.Fatal("expected the read error to surface while draining the remainder")
+	}
+	if len(rest) != 0 {
+		t.Fatalf("io.ReadAll consumed the prefix internally; remainder = %q, want empty", rest)
 	}
 }

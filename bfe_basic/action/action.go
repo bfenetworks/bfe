@@ -61,6 +61,64 @@ type ActionFile struct {
 type Action struct {
 	Cmd    string   // command of action
 	Params []string // params of action
+
+	// exprEval 动作参数表达式运行期求值闭包（加载期编译）；nil 表示无表达式参数
+	exprEval func(req *bfe_basic.Request) []string
+}
+
+// ExprParamCompiler 动作参数表达式编译器签名：
+// 入参为参数列表与「可作为表达式的下标集合」，返回运行期求值闭包与加载期错误。
+type ExprParamCompiler func(params []string, indexes []int) (func(req *bfe_basic.Request) []string, error)
+
+var exprParamCompiler ExprParamCompiler
+
+// SetExprParamCompiler 注入动作参数表达式编译器。
+// 由 bfe_expr 包在 init 中调用，避免 bfe_basic/action 反向依赖 bfe_expr（依赖环）。
+// 未注入时表达式参数按字面量处理，保持旧行为。
+func SetExprParamCompiler(c ExprParamCompiler) {
+	exprParamCompiler = c
+}
+
+// exprLiteralOnly 各 cmd 中必须保持字面量的参数下标；其余参数默认都允许写成
+// "=expr"（未加前缀的参数仍按字面量处理，零开销，因此不会改变既有配置行为）。
+// 只登记受加载期格式校验、或运行期动态取值有安全风险的参数：
+//   - REQ_HEADER_ADD/SET 的 Params[0] 是 header 名，ActionFileCheck 要求其以
+//     X-Bfe- 开头；若支持表达式则需在运行期校验动态 header 名，会引入请求头
+//     注入风险。
+var exprLiteralOnly = map[string]map[int]bool{
+	ActionReqHeaderAdd: {0: true},
+	ActionReqHeaderSet: {0: true},
+}
+
+// exprParamIndexes 返回该 cmd 允许编译为表达式的参数下标（literal-only 之外的全部下标）
+func exprParamIndexes(cmd string, paramNum int) []int {
+	skip := exprLiteralOnly[cmd]
+	indexes := make([]int, 0, paramNum)
+	for i := 0; i < paramNum; i++ {
+		if skip[i] {
+			continue
+		}
+		indexes = append(indexes, i)
+	}
+	return indexes
+}
+
+// compileExprParams 编译动作参数中以 "=" 开头的表达式参数；无表达式参数返回 nil
+func (ac *Action) compileExprParams() error {
+	ac.exprEval = nil
+	if exprParamCompiler == nil {
+		return nil
+	}
+	indexes := exprParamIndexes(ac.Cmd, len(ac.Params))
+	if len(indexes) == 0 {
+		return nil
+	}
+	eval, err := exprParamCompiler(ac.Params, indexes)
+	if err != nil {
+		return err
+	}
+	ac.exprEval = eval
+	return nil
 }
 
 // UnmarshalJSON decodes given data in json format
@@ -82,6 +140,11 @@ func (ac *Action) UnmarshalJSON(data []byte) error {
 	ac.Cmd = *actionFile.Cmd
 	ac.Params = actionFile.Params
 
+	// compile expr params ("=" prefix) at load time; fail fast on invalid expr
+	if err := ac.compileExprParams(); err != nil {
+		return fmt.Errorf("compile expr params err: %s", err)
+	}
+
 	return nil
 }
 
@@ -98,40 +161,45 @@ func (ac *Action) Check(allowActions map[string]bool) error {
 
 // Do process action for request
 func (ac *Action) Do(req *bfe_basic.Request) error {
+	params := ac.Params
+	if ac.exprEval != nil {
+		params = ac.exprEval(req)
+	}
+
 	switch ac.Cmd {
 	// for req header
 	case ActionReqHeaderAdd:
-		req.HttpRequest.Header.Add(ac.Params[0], ac.Params[1])
+		req.HttpRequest.Header.Add(params[0], params[1])
 	case ActionReqHeaderSet:
-		req.HttpRequest.Header.Set(ac.Params[0], ac.Params[1])
+		req.HttpRequest.Header.Set(params[0], params[1])
 	case ActionReqHeaderDel:
-		req.HttpRequest.Header.Del(ac.Params[0])
+		req.HttpRequest.Header.Del(params[0])
 
 	// for host
 	case ActionHostSet:
-		ReqHostSet(req, ac.Params[0])
+		ReqHostSet(req, params[0])
 	case ActionHostSetFromPathPrefix:
 		ReqHostSetFromFirstPathSegment(req)
 	case ActionHostSuffixReplace:
-		ReqHostSuffixReplace(req, ac.Params[0], ac.Params[1])
+		ReqHostSuffixReplace(req, params[0], params[1])
 
 	// for path
 	case ActionPathSet:
-		ReqPathSet(req, ac.Params[0])
+		ReqPathSet(req, params[0])
 	case ActionPathPrefixAdd:
-		ReqPathPrefixAdd(req, ac.Params[0])
+		ReqPathPrefixAdd(req, params[0])
 	case ActionPathPrefixTrim:
-		ReqPathPrefixTrim(req, ac.Params[0])
+		ReqPathPrefixTrim(req, params[0])
 
 	// for query
 	case ActionQueryAdd:
-		ReqQueryAdd(req, ac.Params)
+		ReqQueryAdd(req, params)
 	case ActionQueryRename:
-		ReqQueryRename(req, ac.Params[0], ac.Params[1])
+		ReqQueryRename(req, params[0], params[1])
 	case ActionQueryDel:
-		ReqQueryDel(req, ac.Params)
+		ReqQueryDel(req, params)
 	case ActionQueryDelAllExcept:
-		ReqQueryDelAllExcept(req, ac.Params)
+		ReqQueryDelAllExcept(req, params)
 	case ActionClose, ActionPass, ActionFinish:
 		// pass
 	default:

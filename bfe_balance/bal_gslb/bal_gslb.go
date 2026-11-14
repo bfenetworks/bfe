@@ -48,6 +48,10 @@ const (
 	DefaultRetryMax      = 3 // default max retries in assigned sub cluster
 	DefaultCrossRetryMax = 1 // default max retries in other sub cluster, if retries in assigned sub cluster fail
 	REQ_CTX_EPP          = "epp_ctx"
+	// REQ_CTX_EPP_REJECT carries the *EPPRejected decision of an EPP admission
+	// refusal so the failure response can mirror its status/Retry-After
+	// (issue #1482).
+	REQ_CTX_EPP_REJECT = "epp_reject_ctx"
 )
 
 type BalanceGslb struct {
@@ -430,6 +434,12 @@ func (bal *BalanceGslb) callEPP(conn *grpc.ClientConn, metadata *corev3.Metadata
 		eppClient.Close()
 		return "", nil, err
 	}
+	// The EPP may refuse admission right here with an ImmediateResponse
+	// (issue #1482): 429 backpressure / 503 no capacity.
+	if rej := newEppRejected(resp.GetImmediateResponse()); rej != nil {
+		eppClient.Close()
+		return "", nil, rej
+	}
 
 	var addrinfo string
 	// Try to inspect dynamic_metadata
@@ -451,10 +461,15 @@ func (bal *BalanceGslb) callEPP(conn *grpc.ClientConn, metadata *corev3.Metadata
 	if hasBody && resp.Response != nil && resp.GetRequestHeaders() != nil {
 		// receive response for request body
 		resp, err = eppClient.RecvTimeout(callTimeout)
-		// the response should be resp.GetRequestBody()
 		if err != nil {
 			eppClient.Close()
 			return "", nil, err
+		}
+		// A rejection can also arrive on the body round trip (the EPP decides
+		// after reading the body).
+		if rej := newEppRejected(resp.GetImmediateResponse()); rej != nil {
+			eppClient.Close()
+			return "", nil, rej
 		}
 	}
 
@@ -471,6 +486,12 @@ func (bal *BalanceGslb) callEPP(conn *grpc.ClientConn, metadata *corev3.Metadata
 //   - Unavailable / cell is not serving (cell draining): try backup instance
 //   - Internal / unknown inference pool: EPP has no cell of this cluster
 func isEPPRetryable(err error) bool {
+	// An admission rejection is a decision, not an outage: retrying it on the
+	// next EPP address would just move the refusal (issue #1482).
+	if IsEPPRejected(err) {
+		return false
+	}
+
 	st, ok := status.FromError(err)
 	if !ok {
 		return false
@@ -487,6 +508,12 @@ func isEPPRetryable(err error) bool {
 	default:
 		return false
 	}
+}
+
+// recordEPPRejected records one EPP admission refusal (issue #1482).
+func (bal *BalanceGslb) recordEPPRejected(rej *EPPRejected) {
+	state.ErrEppRejected.Inc(1)
+	recordEPPRejected(bal.name, rej.StatusCode)
 }
 
 // Init initializes gslb cluster with config
@@ -741,8 +768,19 @@ func (bal *BalanceGslb) BalanceEpp(req *bfe_basic.Request) (*bal_backend.BfeBack
 
 	// If BalanceMode == EPP, try to get backend from EPP service first
 	addrinfo, eppClient, err := bal.chooseBackendFromEPP(req)
-	if breaker != nil {
+	if breaker != nil && !IsEPPRejected(err) {
+		// An admission rejection is a healthy decision: counting it as an EPP
+		// failure would open the breaker and silently degrade the pool to
+		// local balancing, defeating the protection (issue #1482).
 		breaker.record(err == nil)
+	}
+	if rej := rejectionOf(err); rej != nil {
+		bal.recordEPPRejected(rej)
+		req.ErrCode = bfe_basic.ErrEppRejected
+		req.SetContext(REQ_CTX_EPP_REJECT, rej)
+		log.Logger.Warn("EPP rejected request: cluster=%s status=%d code=%q retry_after=%q body=%q",
+			bal.name, rej.StatusCode, rej.Code, rej.RetryAfter, rej.Body)
+		return nil, err
 	}
 	if err != nil {
 		state.ErrEppFallbackLocal.Inc(1)
@@ -1030,6 +1068,7 @@ type BalErrState struct {
 	ErrEppFailover        *metrics.Counter // EPP failover to backup address
 	ErrEppFailback        *metrics.Counter // EPP failback to higher priority address
 	ErrEppFallbackLocal   *metrics.Counter // EPP failure, fallback to local balance
+	ErrEppRejected        *metrics.Counter // EPP admission refused (flow control), no fallback (issue #1482)
 	ErrEppBreakerOpen     *metrics.Counter // breaker transitioned to open
 	ErrEppBreakerHalfOpen *metrics.Counter // breaker transitioned to half-open
 	ErrEppBreakerClosed   *metrics.Counter // breaker transitioned to closed

@@ -89,6 +89,28 @@ type StreamEndsAtEOFReporter interface {
 	StreamEndsAtEOF() bool
 }
 
+// StreamErrorEventBuilder is an optional adapter capability (issue #1474):
+// it builds the protocol's wire-level SSE error event for a gateway-side
+// stream termination (upstream connection dropped mid-stream). Both methods
+// return one complete SSE event including its terminating blank line.
+type StreamErrorEventBuilder interface {
+	// NativeStreamErrorEvent builds an error event in the protocol's own
+	// error envelope, carrying message.
+	NativeStreamErrorEvent(message string) []byte
+	// WrapStreamErrorPayload wraps an already-serialized error JSON payload
+	// (e.g. the unified AiError body) into the protocol's SSE error event.
+	WrapStreamErrorPayload(payload string) []byte
+}
+
+// StreamTerminalMarkersReporter is an optional adapter capability (issue
+// #1474): wire-level byte markers that terminate the protocol's stream.
+// Pass-through filters that do not parse SSE events use them for cheap
+// truncation detection; returning nil markers means the filter cannot
+// detect termination and must not inject.
+type StreamTerminalMarkersReporter interface {
+	StreamTerminalMarkers() [][]byte
+}
+
 // Normalized upstream error catalog codes. The string values mirror the
 // AiError catalog in bfe_basic/request_ai_basic.go; they live in this leaf
 // package so protocol adapters (which never depend on other BFE packages)

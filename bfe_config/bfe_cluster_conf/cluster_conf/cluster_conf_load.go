@@ -17,6 +17,7 @@
 package cluster_conf
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -31,7 +32,6 @@ import (
 	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/go-lib/quota"
 
-	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util/crypto"
 	"github.com/bfenetworks/bfe/bfe_util/json"
 )
@@ -126,9 +126,9 @@ type BackendHTTPS struct {
 	BFEKeyFile           *string   // Privatekey file of BFECert
 
 	// caches
-	rsCAList *x509.CertPool       // cache RSCAList
-	bfeCert  *bfe_tls.Certificate // cache BFECertFile & BFEKeyFile
-	protocol string               // protocol of backend https
+	rsCAList *x509.CertPool   // cache RSCAList
+	bfeCert  *tls.Certificate // cache BFECertFile & BFEKeyFile
+	protocol string           // protocol of backend https
 }
 
 // AIKey represents a single API key for AI service
@@ -150,6 +150,12 @@ type AIKeyPolicy struct {
 	SessionAffinityTTL           int    // Redis binding TTL in seconds, default 300
 	SessionAffinityRedisPrefix   string // Redis key prefix, default "bfe:ai:key_affinity"
 	SessionAffinityPenaltyEnable bool   // skip Keys recently returned 429/401/403, default true
+
+	// SessionAffinityPenaltyTTL* is the penalty TTL (seconds) written when an
+	// upstream Key becomes unusable. 0 is filled to the default at load time; it
+	// must never reach Redis, where expire=0 means "no expiry".
+	SessionAffinityPenaltyTTL429  int // upstream 429 (rate limited), default 60
+	SessionAffinityPenaltyTTLAuth int // upstream 401/402/403, default 300
 }
 
 // TimeRange defines a single time range within a week for a pricing tier.
@@ -249,11 +255,45 @@ type AIConf struct {
 	// forwarded with their original path).
 	ProtocolPaths map[string]string
 
-	// NormalizeUpstreamError configures upstream error normalization
-	// (unified error codes). Nil or Enabled/StreamEnabled=false keeps the
-	// historical pass-through behavior.
+	// EnsureReasoningContent lists the model access protocols for which the
+	// gateway fills an empty reasoning_content on assistant messages that sit
+	// after the last user message (the window the upstream validates). Some
+	// thinking-mode upstreams require that field to be echoed back, yet have
+	// turns that produce no reasoning text, so a client that faithfully
+	// mirrors the upstream response gets a 400 on the next turn.
+	// Only "openai" and "anthropic" are accepted: they are the protocols with
+	// an injection implementation. "gemini" has no reasoning_content in its
+	// contents/parts body, so there is nothing to inject. Empty/nil disables
+	// the behaviour and keeps the request byte-for-byte unchanged.
+	EnsureReasoningContent []string
+
+	// upstream error normalization (AIConf.NormalizeUpstreamError)
+	// (unified error codes). Nil or Enabled/StreamEnabled=false and
+	// StreamTruncatedError unset keeps the historical pass-through
+	// behavior.
 	NormalizeUpstreamError *UpstreamErrorNormalizeConf
+
+	// PriceMissAction controls what happens when the (model, mode) price
+	// entry is absent (issue #1479): "fallback_chat" (default, bill at the
+	// model's chat-mode price — the issue #1408 behavior), "bill_zero" (bill
+	// 0 — the issue #1382 behavior) or "reject" (reject the request before
+	// forwarding because the requested interface has no price configured).
+	// Empty is normalized to "fallback_chat" by AIConfCheck.
+	PriceMissAction string
 }
+
+// PriceMissAction values (issue #1479).
+const (
+	// PriceMissActionFallbackChat bills a non-chat mode at the model's
+	// chat-mode price when the (model, mode) entry is absent (default).
+	PriceMissActionFallbackChat = "fallback_chat"
+	// PriceMissActionBillZero bills 0 when the entry is absent (the
+	// historical issue #1382 behavior).
+	PriceMissActionBillZero = "bill_zero"
+	// PriceMissActionReject rejects the request before forwarding when the
+	// (model, mode) entry is absent.
+	PriceMissActionReject = "reject"
+)
 
 // Actions for UpstreamErrorNormalizeConf.UnrecognizedAction.
 const (
@@ -277,6 +317,15 @@ type UpstreamErrorNormalizeConf struct {
 	// payload rewritten with the unified error JSON (the response status
 	// stays 200), and stream truncation is marked in the access log.
 	StreamEnabled bool
+	// StreamTruncatedError injects a protocol error event into the client
+	// stream when the upstream connection drops mid-stream without the
+	// protocol's terminal event (issue #1474), so clients can tell the
+	// response is incomplete. Default true (nil); set to false explicitly
+	// to disable. Pointer so that "absent" is distinguishable from an
+	// explicit false. Independent of StreamEnabled: it never rewrites
+	// upstream error events, it only appends a gateway-side error event on
+	// an abnormal upstream disconnect.
+	StreamTruncatedError *bool
 	// UnrecognizedAction decides how unrecognized upstream error bodies are
 	// handled: "passthrough" (default) or "rewrite_generic". Streaming
 	// unrecognized events are always passed through.
@@ -319,6 +368,13 @@ func (c *UpstreamErrorNormalizeConf) Effective() UpstreamErrorNormalizeConf {
 // RedactSecretsEnabled reports whether credential redaction is on.
 func (c UpstreamErrorNormalizeConf) RedactSecretsEnabled() bool {
 	return c.RedactSecrets == nil || *c.RedactSecrets
+}
+
+// StreamTruncatedErrorEnabled reports whether the mid-stream upstream-drop
+// error event injection is on (issue #1474). Nil config or nil field means
+// the default (enabled).
+func (c *UpstreamErrorNormalizeConf) StreamTruncatedErrorEnabled() bool {
+	return c == nil || c.StreamTruncatedError == nil || *c.StreamTruncatedError
 }
 
 func boolPtr(b bool) *bool { return &b }
@@ -376,15 +432,15 @@ func (conf *BackendHTTPS) SetRSCAList(cal *x509.CertPool) {
 }
 
 // GetBFECert : cache the cert in memory
-func (conf *BackendHTTPS) GetBFECert() (bfe_tls.Certificate, error) {
+func (conf *BackendHTTPS) GetBFECert() (tls.Certificate, error) {
 	if conf.bfeCert == nil {
-		return bfe_tls.Certificate{}, errors.New("BFECert not found.")
+		return tls.Certificate{}, errors.New("BFECert not found.")
 	}
 	return *conf.bfeCert, nil
 }
 
 // SetBFECert : just for unit test
-func (conf *BackendHTTPS) SetBFECert(cert *bfe_tls.Certificate) {
+func (conf *BackendHTTPS) SetBFECert(cert *tls.Certificate) {
 	conf.bfeCert = cert
 }
 
@@ -392,7 +448,7 @@ func (conf *BackendHTTPS) SetBFECert(cert *bfe_tls.Certificate) {
 func (conf *BackendHTTPS) CheckBFECertAndKey() error {
 	var (
 		certPem, keyPem []byte
-		cert            bfe_tls.Certificate
+		cert            tls.Certificate
 		err             error = nil
 	)
 	conf.bfeCert = nil
@@ -408,7 +464,7 @@ func (conf *BackendHTTPS) CheckBFECertAndKey() error {
 	}
 	if certPem == nil || keyPem == nil {
 		return nil
-	} else if cert, err = bfe_tls.X509KeyPair(certPem, keyPem); err != nil {
+	} else if cert, err = tls.X509KeyPair(certPem, keyPem); err != nil {
 		return err
 	}
 	conf.bfeCert = &cert
@@ -1249,7 +1305,60 @@ func ClusterConfCheck(conf *ClusterConf) error {
 }
 
 // AIConfCheck checks AIConf config.
+// reasoningContentProtocols is the set of protocols with a reasoning_content
+// injection implementation. It is deliberately narrower than the protocol
+// registry: "gemini" has no reasoning_content in its contents/parts body, so
+// accepting it would produce a switch that silently does nothing.
+var reasoningContentProtocols = map[string]bool{
+	"openai":    true,
+	"anthropic": true,
+}
+
+// checkEnsureReasoningContent validates AIConf.EnsureReasoningContent: every
+// entry must have an injection implementation and must be declared by the
+// cluster's ModelProtocols (an empty ModelProtocols means ["openai"], which
+// mirrors modelprotocol.Supports semantics).
+func checkEnsureReasoningContent(conf *AIConf) error {
+	if len(conf.EnsureReasoningContent) == 0 {
+		return nil
+	}
+
+	declared := make(map[string]bool, len(conf.ModelProtocols))
+	for _, p := range conf.ModelProtocols {
+		declared[p] = true
+	}
+	if len(declared) == 0 {
+		declared["openai"] = true
+	}
+
+	seen := make(map[string]bool, len(conf.EnsureReasoningContent))
+	for _, p := range conf.EnsureReasoningContent {
+		if !reasoningContentProtocols[p] {
+			return fmt.Errorf("EnsureReasoningContent: protocol %q not supported (only openai, anthropic)", p)
+		}
+		if !declared[p] {
+			return fmt.Errorf("EnsureReasoningContent: protocol %q not in ModelProtocols", p)
+		}
+		if seen[p] {
+			return fmt.Errorf("EnsureReasoningContent: duplicate protocol %q", p)
+		}
+		seen[p] = true
+	}
+
+	return nil
+}
+
 func AIConfCheck(conf *AIConf) error {
+	switch conf.PriceMissAction {
+	case "":
+		// Normalize the empty value so the billing path never has to treat
+		// "unset" as a fourth state (issue #1479).
+		conf.PriceMissAction = PriceMissActionFallbackChat
+	case PriceMissActionFallbackChat, PriceMissActionBillZero, PriceMissActionReject:
+	default:
+		return fmt.Errorf("PriceMissAction: invalid value %q", conf.PriceMissAction)
+	}
+
 	if conf.NormalizeUpstreamError != nil {
 		nuc := conf.NormalizeUpstreamError
 		switch nuc.UnrecognizedAction {
@@ -1260,6 +1369,9 @@ func AIConfCheck(conf *AIConf) error {
 		if nuc.MaxBodyBytes < 0 || nuc.MaxBodyBytes > 4*1024*1024 {
 			return fmt.Errorf("NormalizeUpstreamError.MaxBodyBytes: %d out of range [0, 4194304]", nuc.MaxBodyBytes)
 		}
+	}
+	if err := checkEnsureReasoningContent(conf); err != nil {
+		return err
 	}
 	if conf.ModelTable != nil {
 		if err := ModelTableCheck(conf.ModelTable); err != nil {
@@ -1329,6 +1441,36 @@ func checkUpstreamBasePath(base string) error {
 	return nil
 }
 
+// Key penalty TTL constraints. The defaults must stay identical to
+// defaultAIKeyPolicy() in bfe_server and to the control-plane defaults.
+const (
+	aiKeyPenaltyDefaultTTL429  = 60
+	aiKeyPenaltyDefaultTTLAuth = 300
+	// aiKeyPenaltyMaxTTL guards against a misconfiguration locking a Key for
+	// days. Out-of-range values are clamped (with a warning) instead of
+	// rejected: rejecting the config fails the whole reload, which during an
+	// incident is worse than a clamped TTL.
+	aiKeyPenaltyMaxTTL = 86400
+)
+
+// checkPenaltyTTL normalizes one penalty TTL in place: negative is a config
+// error (same convention as SessionAffinityTTL), 0 means "unset" and is filled
+// with def, values above aiKeyPenaltyMaxTTL are clamped.
+func checkPenaltyTTL(name string, ttl *int, def int) error {
+	if *ttl < 0 {
+		return fmt.Errorf("%s must be >= 0", name)
+	}
+	if *ttl == 0 {
+		*ttl = def
+		return nil
+	}
+	if *ttl > aiKeyPenaltyMaxTTL {
+		log.Logger.Warn("AIKeyPolicy: %s[%ds] exceeds max[%ds], clamped", name, *ttl, aiKeyPenaltyMaxTTL)
+		*ttl = aiKeyPenaltyMaxTTL
+	}
+	return nil
+}
+
 // AIKeyPolicyCheck checks and fills defaults for AIKeyPolicy.
 func AIKeyPolicyCheck(policy *AIKeyPolicy) error {
 	if policy.SessionAffinityTTL < 0 {
@@ -1348,6 +1490,14 @@ func AIKeyPolicyCheck(policy *AIKeyPolicy) error {
 	}
 	if policy.RetryBackoffMax < 0 {
 		return fmt.Errorf("RetryBackoffMax must be >= 0")
+	}
+	if err := checkPenaltyTTL("SessionAffinityPenaltyTTL429",
+		&policy.SessionAffinityPenaltyTTL429, aiKeyPenaltyDefaultTTL429); err != nil {
+		return err
+	}
+	if err := checkPenaltyTTL("SessionAffinityPenaltyTTLAuth",
+		&policy.SessionAffinityPenaltyTTLAuth, aiKeyPenaltyDefaultTTLAuth); err != nil {
+		return err
 	}
 	return nil
 }

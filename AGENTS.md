@@ -76,6 +76,7 @@ The AI gateway modules under `bfe_modules/mod_ai_*` and `bfe_modules/mod_body_pr
 - `mod_ai_route` runs early to select the target cluster/model.
 - `mod_ai_token_auth` runs at `HandleFoundProduct` for API Key validation and quota plan binding; it also performs final quota deduction at `HandleRequestFinish`.
 - `mod_body_process` runs at `HandleReadResponse` and is responsible for parsing token usage from streaming (SSE) responses. If you modify RMB quota deduction, ensure streaming scenarios still work when `mod_body_process` is loaded.
+- A compressed SSE response is forwarded verbatim and parsed through `CompressedStreamDecoder` (decompressed copy only). The decodable set lives in `bfe_util` (`SupportedContentEncodings`, currently `gzip`/`deflate`) and the outbound `Accept-Encoding` of an AI request is narrowed to it by `Server.AIUpstreamAcceptEncoding` (`auto`/`identity`/`off`); adding a coding requires both a decoder and that set (issue #1468).
 - For RMB quota details, see `docs/zh_cn/sys_design/rmb_quota.md`.
 
 ### Routing changes

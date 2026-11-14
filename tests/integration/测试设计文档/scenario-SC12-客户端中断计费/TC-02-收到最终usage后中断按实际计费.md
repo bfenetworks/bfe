@@ -45,6 +45,8 @@ data: {"type":"message_stop"}
 1. `message_start.message.usage`（真实 Anthropic 报文结构）被正确解析。
 2. `message_delta` 只携带输出 token，与 `message_start` 的输入 token 合并后计费（`content_quota_usage.go` 的 final usage 合并逻辑）。
 
+另注（issue #1478）：本 TC 与 `EstimateToken` 开关无关——中断前已拿到最终 usage 的请求按实际 usage 计费，不进入"已转发内容估算"路径（估算仅用于未拿到最终 usage 的中断/断流形态）。
+
 对应单元测试：`TestQuotaUsageProcessorMarksResponseCompletion`（`mod_body_process`）、`TestExtractUsageFieldsClaudeStreamingMessageUsage`（`bfe_model_protocol/anthropic`）。
 
 ## 清理

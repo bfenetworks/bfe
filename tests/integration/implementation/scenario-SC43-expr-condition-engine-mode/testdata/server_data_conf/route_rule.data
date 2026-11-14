@@ -1,0 +1,11 @@
+{
+    "Version": "20261030000000",
+    "ProductRule": {
+        "expr_product": [
+            {
+                "ClusterName": "cluster_expr_hit",
+                "Cond": "default_t()"
+            }
+        ]
+    }
+}

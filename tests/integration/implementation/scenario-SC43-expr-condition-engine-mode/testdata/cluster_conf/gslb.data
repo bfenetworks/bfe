@@ -1,0 +1,14 @@
+{
+    "clusters": {
+        "cluster_expr_hit": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        },
+        "cluster_expr_default": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20261030000000"
+}

@@ -112,6 +112,14 @@ type testEnv struct {
 }
 
 func newTestEnv(t *testing.T, aiConfs map[string]*cluster_conf.AIConf, quotaPlans []common.QuotaPlan) *testEnv {
+	return newTestEnvWithEstimateToken(t, aiConfs, quotaPlans, true)
+}
+
+// newTestEnvWithEstimateToken builds the SC03 environment; estimateToken=false
+// rewrites the generated bfe.conf so the TC-35 arms can run with estimation
+// disabled (the template ships [server] without the key, whose default is
+// true).
+func newTestEnvWithEstimateToken(t *testing.T, aiConfs map[string]*cluster_conf.AIConf, quotaPlans []common.QuotaPlan, estimateToken bool) *testEnv {
 	e := &testEnv{
 		t:        t,
 		backends: make(map[string]*common.MockBackend),
@@ -168,8 +176,38 @@ func newTestEnv(t *testing.T, aiConfs map[string]*cluster_conf.AIConf, quotaPlan
 		t.Fatalf("build bfe config failed: %v", err)
 	}
 
+	if !estimateToken {
+		disableEstimateToken(t, filepath.Join(confDir, "bfe.conf"))
+	}
+
 	e.bfePort, e.bfeMonitorPort, e.stopBFE = e.processEnv.StartBFE(confDir, logDir)
 	return e
+}
+
+// disableEstimateToken inserts "EstimateToken = false" right after the
+// [server] section header of the generated bfe.conf.
+func disableEstimateToken(t *testing.T, path string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read bfe.conf failed: %v", err)
+	}
+	lines := strings.Split(string(data), "\n")
+	found := false
+	out := make([]string, 0, len(lines)+1)
+	for _, line := range lines {
+		out = append(out, line)
+		if !found && strings.TrimSpace(line) == "[server]" {
+			out = append(out, "EstimateToken = false")
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("[server] section not found in %s", path)
+	}
+	if err := os.WriteFile(path, []byte(strings.Join(out, "\n")), 0644); err != nil {
+		t.Fatalf("write bfe.conf failed: %v", err)
+	}
 }
 
 func planIDs(plans []common.QuotaPlan) []string {
@@ -499,6 +537,26 @@ func billingMethodAIConf() *cluster_conf.AIConf {
 			},
 		},
 	)
+	return conf
+}
+
+// videoGenerationAIConf adds a per-video priced video_generation entry
+// (issue #1498, TC-35): output_cost_per_video = 0.5 yuan = 50000000
+// fixed-point units per video.
+func videoGenerationAIConf() *cluster_conf.AIConf {
+	conf := defaultRMBAIConf()
+	conf.ModelTable.Models = append(conf.ModelTable.Models, cluster_conf.ModelPrice{
+		Provider:            "mock-provider",
+		Model:               "kling-video",
+		BaseModel:           "kling-video",
+		Mode:                "video_generation",
+		Capabilities:        []string{"video_generation"},
+		SupportedParameters: []string{"prompt", "n"},
+		Limits:              map[string]interface{}{"context_window": 128000},
+		Prices: cluster_conf.PriceMap{
+			"output_cost_per_video": 0.5,
+		},
+	})
 	return conf
 }
 
@@ -1129,6 +1187,64 @@ func TestTC28_RMBQuotaDeduction_BillingMethodDiscriminator(t *testing.T) {
 	}
 }
 
+// TestTC35 verifies issue #1498: a video_generation response that omits the
+// usage object entirely is billed by the generated count parsed from the
+// response structure (the approved data.# fallback), under BOTH EstimateToken
+// positions. Request n=3, response data has 2 items → 2 × 50000000 = 100000000
+// fixed-point units in both arms. Before the fix: EstimateToken=true billed
+// the auth-time request preset n=3 (150000000, overcharge); EstimateToken=false
+// was unrecognized zero deduction. The control arm locks usage.video_count
+// ahead of data.#.
+func TestTC35_RMBQuotaDeduction_VideoDataCountFallback(t *testing.T) {
+	runArm := func(t *testing.T, estimateToken bool, backendBody string, wantDeduction int64) {
+		aiConfs := map[string]*cluster_conf.AIConf{
+			clusterRMB: videoGenerationAIConf(),
+		}
+		e := newTestEnvWithEstimateToken(t, aiConfs, []common.QuotaPlan{rmbQuotaPlan(10000000000)}, estimateToken)
+		defer e.Close()
+
+		e.redis.SetQuota(redisKeyRMB, 10000000000)
+		e.backends[clusterRMB].Body = backendBody
+
+		resp, body, err := e.sendRequestToPath(apiHost, "/v1/video/generations",
+			[]byte(`{"model":"kling-video","n":3}`))
+		if err != nil {
+			t.Fatalf("send request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			e.logBFEException()
+			t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+		}
+		if e.backends[clusterRMB].Hits() != 1 {
+			t.Fatalf("expected 1 hit on %s, got %d", clusterRMB, e.backends[clusterRMB].Hits())
+		}
+
+		// Wait for async redis deduction after response finishes.
+		time.Sleep(500 * time.Millisecond)
+		remaining := e.redis.GetQuota(redisKeyRMB)
+		if remaining != 10000000000-wantDeduction {
+			e.logBFEException()
+			e.logBFEAccess()
+			t.Fatalf("remaining quota = %d, want %d (deduction %d, response body: %s)",
+				remaining, 10000000000-wantDeduction, wantDeduction, body)
+		}
+	}
+
+	t.Run("EstimateToken=true bills data.# not the request preset n", func(t *testing.T) {
+		// Pre-fix bug signature: 3 × 50000000 = 150000000.
+		runArm(t, true, `{"created":123,"data":[{"url":"u1"},{"url":"u2"}]}`, 2*50000000)
+	})
+
+	t.Run("EstimateToken=false bills data.# not zero", func(t *testing.T) {
+		// Pre-fix bug signature: unrecognized, no deduction at all.
+		runArm(t, false, `{"created":123,"data":[{"url":"u1"},{"url":"u2"}]}`, 2*50000000)
+	})
+
+	t.Run("usage.video_count wins over data.#", func(t *testing.T) {
+		runArm(t, true, `{"created":123,"data":[{"url":"u1"},{"url":"u2"}],"usage":{"video_count":3}}`, 3*50000000)
+	})
+}
+
 // TestTC13 verifies that a total_token quota plan with quota=0 can be loaded
 // and rejects requests with QuotaExhausted.
 func TestTC13_TokenQuotaZeroLoaded(t *testing.T) {
@@ -1424,7 +1540,7 @@ func TestTC23_RMBQuotaDeduction_ModePriceFallback(t *testing.T) {
 	}
 
 	// no-baseline arm: the model is absent from the price table entirely; the
-	// chat mode never falls back, so this bills 0 (PriceLookupMiss).
+	// chat mode never falls back, so this bills 0 (PriceMissZeroBilled).
 	resp3, body3, err := e.sendRequest(apiHost, []byte(`{"model":"no-such-model"}`))
 	if err != nil {
 		t.Fatalf("send no-baseline request failed: %v", err)
@@ -1921,8 +2037,8 @@ func TestTC26_RMBQuotaDeduction_BillingZeroCostSignal(t *testing.T) {
 	if !e.waitForTokenAuthMetric("BillingZeroCost", 5*time.Second, func(v float64) bool { return v == 2 }) {
 		t.Fatalf("BillingZeroCost = %v, want 2 after the price-miss arm", e.tokenAuthMetric("BillingZeroCost"))
 	}
-	if !e.waitForTokenAuthMetric("PriceLookupMiss", 5*time.Second, func(v float64) bool { return v == 1 }) {
-		t.Fatalf("PriceLookupMiss = %v, want 1 (issue #1408 signal must not regress)", e.tokenAuthMetric("PriceLookupMiss"))
+	if !e.waitForTokenAuthMetric("PriceMissZeroBilled", 5*time.Second, func(v float64) bool { return v == 1 }) {
+		t.Fatalf("PriceMissZeroBilled = %v, want 1 (issue #1408 signal must not regress)", e.tokenAuthMetric("PriceMissZeroBilled"))
 	}
 
 	// Both zero-cost arms have recognized usage: zero cost is not

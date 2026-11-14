@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/go-lib/web-monitor/module_state2"
 
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_cache/provider/embedding"
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_cache/provider/vector"
@@ -29,12 +30,13 @@ import (
 type semanticCache struct {
 	embedding        embedding.EmbeddingProvider
 	vector           vector.VectorProvider
-	maxQuestionBytes int64           // question length limit for semantic lookup
-	table            *cacheRuleTable // counters of the module
+	maxQuestionBytes int64                // question length limit for semantic lookup
+	table            *cacheRuleTable      // counters of the module
+	state            *module_state2.State // module state (JSON monitor source)
 }
 
 func newSemanticCache(emb embedding.EmbeddingProvider, vec vector.VectorProvider,
-	maxQuestionBytes int64, table *cacheRuleTable) *semanticCache {
+	maxQuestionBytes int64, table *cacheRuleTable, state *module_state2.State) *semanticCache {
 	if maxQuestionBytes <= 0 {
 		maxQuestionBytes = DefaultMaxQuestionBytes
 	}
@@ -43,6 +45,7 @@ func newSemanticCache(emb embedding.EmbeddingProvider, vec vector.VectorProvider
 		vector:           vec,
 		maxQuestionBytes: maxQuestionBytes,
 		table:            table,
+		state:            state,
 	}
 }
 
@@ -55,23 +58,34 @@ func (s *semanticCache) Lookup(question, tenant string, ttl time.Duration,
 	cfg *SemanticConf) (answer string, similarity float64, emb []float32, ok bool) {
 	start := time.Now()
 	emb, err := s.embedding.Embed(question)
-	s.table.addEmbeddingLatencyMs(time.Since(start).Milliseconds())
+	ms := time.Since(start).Milliseconds()
+	s.table.addEmbeddingLatencyMs(ms)
+	if ms > 0 {
+		s.state.Inc("EMBEDDING_LATENCY_MS", int(ms))
+	}
 	if err != nil {
 		s.table.incEmbeddingErr()
+		s.state.Inc("EMBEDDING_ERR", 1)
 		log.Logger.Warn("%s: embedding failed, degrade to miss, err[%v]", ModAiCache, err)
 		return "", 0, nil, false
 	}
 	if len(emb) == 0 {
 		s.table.incEmbeddingErr()
+		s.state.Inc("EMBEDDING_ERR", 1)
 		log.Logger.Warn("%s: embedding returned empty vector, degrade to miss", ModAiCache)
 		return "", 0, nil, false
 	}
 
 	start = time.Now()
 	results, err := s.vector.Query(emb, tenant, cfg.TopK, ttl)
-	s.table.addVectorLatencyMs(time.Since(start).Milliseconds())
+	ms = time.Since(start).Milliseconds()
+	s.table.addVectorLatencyMs(ms)
+	if ms > 0 {
+		s.state.Inc("VECTOR_LATENCY_MS", int(ms))
+	}
 	if err != nil {
 		s.table.incVectorErr()
+		s.state.Inc("VECTOR_ERR", 1)
 		log.Logger.Warn("%s: vector query failed, degrade to miss, err[%v]", ModAiCache, err)
 		return "", 0, emb, false
 	}

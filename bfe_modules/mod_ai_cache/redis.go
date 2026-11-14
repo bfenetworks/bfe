@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/bfenetworks/go-lib/log"
+	"github.com/bfenetworks/go-lib/web-monitor/module_state2"
 
 	"github.com/bfenetworks/bfe/bfe_util/redis_client"
 )
@@ -30,22 +31,32 @@ type redisCache struct {
 	name   string
 	client redis_client.Client
 	table  *cacheRuleTable
+	state  *module_state2.State // module state (JSON monitor source)
 }
 
-func newRedisCache(name string, client redis_client.Client, table *cacheRuleTable) *redisCache {
+func newRedisCache(name string, client redis_client.Client, table *cacheRuleTable,
+	state *module_state2.State) *redisCache {
 	return &redisCache{
 		name:   name,
 		client: client,
 		table:  table,
+		state:  state,
 	}
 }
 
 func (c *redisCache) recordLatency(start time.Time) {
-	c.table.addLatencyMs(time.Since(start).Milliseconds())
+	ms := time.Since(start).Milliseconds()
+	c.table.addLatencyMs(ms)
+	// issue #1499: the module state (JSON monitor source) must mirror the
+	// rule table counters (prometheus source), so both endpoints agree.
+	if ms > 0 {
+		c.state.Inc("LATENCY_MS", int(ms))
+	}
 }
 
 func (c *redisCache) recordErr() {
 	c.table.incRedisErr()
+	c.state.Inc("REDIS_ERR", 1)
 }
 
 // Get returns (value, true) on cache hit, ("", false) on miss or any error.

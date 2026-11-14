@@ -24,10 +24,13 @@ import (
 
 	"github.com/tidwall/gjson"
 
+	"github.com/bfenetworks/go-lib/log"
+
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 	modelprotocol "github.com/bfenetworks/bfe/bfe_model_protocol"
 	"github.com/bfenetworks/bfe/bfe_model_protocol/utils"
+	"github.com/bfenetworks/bfe/bfe_util"
 )
 
 // BodyProcessor 扩展中断支持
@@ -131,6 +134,14 @@ func (bp *BodyProcessor) CreateEventDecoder(fac EventDecoderFac) {
 		bp.err = &BPError{fmt.Errorf("create event decoder: %w", err)}
 		return
 	}
+	bp.decoder = dec
+}
+
+// SetEventDecoder installs an already built decoder. Unlike CreateEventDecoder
+// it cannot fail, which lets a caller that built the decoder elsewhere (e.g. the
+// compressed stream tap of issue #1468) choose a different fallback instead of
+// poisoning bp.err.
+func (bp *BodyProcessor) SetEventDecoder(dec EventDecoder) {
 	bp.decoder = dec
 }
 
@@ -247,6 +258,19 @@ func (bp *BodyProcessor) Close() error {
 	// bp.mu.Lock()
 	// defer bp.mu.Unlock()
 
+	// Release the decoder as well: the compressed stream tap owns a
+	// decompressor that must be closed (issue #1468).
+	if closer, ok := bp.decoder.(io.Closer); ok {
+		_ = closer.Close()
+	}
+
+	// issue #1501: a nil source (the GetBodyAccessor truncation shape) never
+	// reaches Read — the decoder factory error is recorded in bp.err and
+	// Read returns it first — but Close must stay safe for the forwarding
+	// path regardless.
+	if bp.source == nil {
+		return nil
+	}
 	return bp.source.Close()
 }
 
@@ -335,12 +359,18 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 	case "json":
 		bp.CreateEventDecoder(NewJsonDecoder)
 	default:
-		if hasContentEncoding(res.Header.Get("Content-Encoding")) {
+		if encoding := res.Header.Get("Content-Encoding"); hasContentEncoding(encoding) {
 			// The body is compressed, so it is not the declared media type: a
 			// JSON/SSE decoder would fail on the compressed bytes and truncate
-			// the forwarded body. Pass the bytes through untouched
-			// (LineDecoder preserves them verbatim); for non-stream responses
-			// mod_ai_token_auth parses the decoded copy instead (issue #1406).
+			// the forwarded body. A compressed SSE stream gets the tap decoder,
+			// which forwards the compressed bytes verbatim while parsing usage
+			// from a decompressed copy (issue #1468); everything else passes the
+			// bytes through untouched and, when non-streaming, is parsed from the
+			// decoded copy in mod_ai_token_auth instead (issue #1406).
+			if tp := m.newCompressedStreamTap(res, encoding, ccq != nil); tp != nil {
+				bp.SetEventDecoder(tp)
+				break
+			}
 			bp.CreateEventDecoder(NewLineDecoder)
 			break
 		}
@@ -374,6 +404,44 @@ func (m *ModuleBodyProcess) DoResponseProcess(req *bfe_basic.Request, res *bfe_h
 	res.ContentLength = -1 // 设置为-1表示不确定长度
 	res.Header.Del("Content-Length")
 	return bp
+}
+
+// newCompressedStreamTap builds the streaming usage tap for a compressed SSE
+// response (issue #1468). It returns nil when the tap cannot be used, so the
+// caller keeps the byte-exact pass-through of issue #1406 and the request falls
+// back to the token estimate.
+func (m *ModuleBodyProcess) newCompressedStreamTap(res *bfe_http.Response,
+	encoding string, hasQuotaUsage bool) EventDecoder {
+	m.state.ResStreamCompressed.Inc(1)
+
+	if !hasQuotaUsage {
+		// No QuotaUsageProcessor: nothing reads usage (only content-audit rules
+		// are configured), and the audit cannot use the plaintext either, so the
+		// decompression would be pure overhead.
+		return nil
+	}
+	if !res.IsSse {
+		// A compressed non-streaming body is parsed from the decoded copy in
+		// mod_ai_token_auth instead (issue #1406).
+		return nil
+	}
+	if !bfe_util.CanDecodeContentEncoding(encoding) {
+		m.state.ResStreamDecodeSkipped.Inc(1)
+		log.Logger.Warn("%s: unsupported content-encoding %q, stream usage falls back to estimation",
+			m.name, encoding)
+		return nil
+	}
+
+	tap, err := NewCompressedStreamDecoder(res.Body, encoding, NewSSEEventDecoder)
+	if err != nil {
+		m.state.ResStreamDecodeSkipped.Inc(1)
+		log.Logger.Warn("%s: build stream usage decoder failed, content-encoding %q: %v",
+			m.name, encoding, err)
+		return nil
+	}
+	tap.SetRawOnlyCallback(func() { m.state.ResStreamRawOnly.Inc(1) })
+	m.state.ResStreamDecoded.Inc(1)
+	return tap
 }
 
 /*
@@ -505,6 +573,10 @@ type LineDecoder struct {
 }
 
 func NewLineDecoder(source io.Reader) (EventDecoder, error) {
+	if source == nil {
+		// issue #1501: same nil-source guard as NewJsonDecoder.
+		return nil, fmt.Errorf("line decoder: nil body source")
+	}
 	reader := bufio.NewReader(source)
 	return &LineDecoder{reader: reader}, nil
 }
@@ -526,6 +598,12 @@ type JsonDecoder struct {
 }
 
 func NewJsonDecoder(source io.Reader) (EventDecoder, error) {
+	if source == nil {
+		// issue #1501: a nil source would build a json.Decoder that panics
+		// on the first Decode (nil reader deref in refill); fail at
+		// construction instead.
+		return nil, fmt.Errorf("json decoder: nil body source")
+	}
 	dec := json.NewDecoder(source)
 	return &JsonDecoder{dec: dec}, nil
 }
@@ -575,14 +653,26 @@ func mediaTypeOnly(contentType string) string {
 }
 
 func NewContentTypeDecoder(source io.Reader, contentType string) (EventDecoder, error) {
-	var dec EventDecoder
+	// issue #1501: a nil source must fail construction in every branch —
+	// the decoder factories panic on first use with a nil reader, and a nil
+	// decoder wrapped here would panic just the same (ctd.dec.Decode()).
+	if source == nil {
+		return nil, fmt.Errorf("content-type decoder: nil body source")
+	}
+	var (
+		dec EventDecoder
+		err error
+	)
 	switch mediaTypeOnly(contentType) {
 	case "application/sse", "text/event-stream", "application/x-sse":
-		dec, _ = NewSSEEventDecoder(source)
+		dec, err = NewSSEEventDecoder(source)
 	case "application/json", "application/ndjson", "application/x-ndjson":
-		dec, _ = NewJsonDecoder(source) // ndjson is a line-delimited JSON, can use JsonDecoder
+		dec, err = NewJsonDecoder(source) // ndjson is a line-delimited JSON, can use JsonDecoder
 	default:
-		dec, _ = NewLineDecoder(source) // 默认使用行解码器
+		dec, err = NewLineDecoder(source) // 默认使用行解码器
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	return &ContentTypeDecoder{contentType: contentType, dec: dec}, nil

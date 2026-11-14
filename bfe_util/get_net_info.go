@@ -15,15 +15,12 @@
 package bfe_util
 
 import (
+	"crypto/tls"
 	"encoding/binary"
 	"fmt"
 	"net"
 	"os"
 	"reflect"
-)
-
-import (
-	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 // CloseWriter is the interface that wraps the basic CloseWrite method.
@@ -55,8 +52,8 @@ type ConnFetcher interface {
 // GetTCPConn returns underlying TCPConn of given conn.
 func GetTCPConn(conn net.Conn) (*net.TCPConn, error) {
 	switch value := conn.(type) {
-	case *bfe_tls.Conn:
-		c := value.GetNetConn()
+	case *tls.Conn:
+		c := value.NetConn()
 		return c.(*net.TCPConn), nil
 	case *net.TCPConn:
 		return value, nil
@@ -70,6 +67,10 @@ func GetConnFile(conn net.Conn) (*os.File, error) {
 	// get underlying net.Conn
 	if c, ok := conn.(ConnFetcher); ok {
 		conn = c.GetNetConn()
+		return GetConnFile(conn)
+	}
+	if c, ok := conn.(*tls.Conn); ok {
+		conn = c.NetConn()
 		return GetConnFile(conn)
 	}
 

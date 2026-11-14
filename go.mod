@@ -45,6 +45,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.34.0
 	github.com/bfenetworks/proxy-wasm-go-host v0.0.1
 	github.com/envoyproxy/go-control-plane/envoy v1.32.3
+	github.com/expr-lang/expr v1.17.8
 	github.com/go-jose/go-jose/v4 v4.0.5
 	github.com/google/uuid v1.6.0
 	github.com/tidwall/gjson v1.18.0
@@ -70,7 +71,7 @@ require (
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
-	github.com/bfenetworks/bfe-access-pb v0.3.16
+	github.com/bfenetworks/bfe-access-pb v0.3.18
 	github.com/bfenetworks/bfe-mock-waf v0.1.0
 	github.com/bfenetworks/bwi v0.1.2
 	github.com/davecgh/go-spew v1.1.1 // indirect
