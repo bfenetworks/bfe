@@ -209,6 +209,8 @@ func clusterSubName(clusterName string) string {
 		return "tb"
 	case "cluster_fc":
 		return "fc"
+	case "cluster_hdr":
+		return "hdr"
 	}
 	return "sub"
 }

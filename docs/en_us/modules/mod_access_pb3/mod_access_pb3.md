@@ -8,6 +8,10 @@ mod_access_pb3 records access logs in Protocol Buffers v3 format.
 
 - [mod_access_pb3.conf](../../configuration/mod_access_pb3/mod_access_pb3.conf.md)
 
+## Data Configuration
+
+- [mod_access_pb.data](../../configuration/mod_access_pb3/mod_access_pb.data.md) (request/response header whitelists; supports hot reload via `/reload/mod_access_pb3`)
+
 ## Log Description
 
 mod_access_pb3 outputs request logs and session logs in binary protobuf format. The log definitions are in [bfe-access-pb](https://github.com/bfenetworks/bfe-access-pb).

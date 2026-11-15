@@ -13,6 +13,7 @@
 | Log.RotateWhen | String | Interval to rotate log file | Y | Supports `NEXTHOUR`, `MIDNIGHT`, etc. | Value must be one of `M`, `H`, `D`, `MIDNIGHT`, `NEXTHOUR` |
 | Log.BackupCount | Integer | Max number of rotated log files | N | Number of log files retained after rotation | If configured, value must be greater than 0 |
 | BasicConf.OpenDebug | Boolean | Whether to enable debug logs | N | Default `False` | - |
+| BasicConf.DataConfPath | String | Path of the dynamic configuration file `mod_access_pb.data` | N | Used for dynamic configuration such as request/response header whitelists; when absent, dynamic config is not enabled (identical to all sections missing). Relative paths are resolved against the conf root. **The module does not fail when the configured file is absent** and falls back to default behavior; the file supports hot reload (reload API `/reload/mod_access_pb3`) | Type is [FilePath](../00-common.md#3-filepath) |
 
 ## Configuration Example
 
@@ -25,4 +26,5 @@ BackupCount = 2
 
 [BasicConf]
 OpenDebug = true
+DataConfPath = ../conf/mod_access_pb3/mod_access_pb.data
 ```

@@ -13,6 +13,7 @@
 | Log.RotateWhen    | String  | 日志轮转时间     | Y    | 支持 `NEXTHOUR`、`MIDNIGHT` 等                     | 取值须为 `M`、`H`、`D`、`MIDNIGHT`、`NEXTHOUR` 之一     |
 | Log.BackupCount   | Integer | 日志备份数量     | N    | 日志轮转后保留的最大文件数                         | 若配置，取值须大于 0                                    |
 | BasicConf.OpenDebug | Boolean | 是否开启 debug 日志 | N  | 默认值 `False`                                     | -                                                       |
+| BasicConf.DataConfPath | String | 动态配置文件 `mod_access_pb.data` 的路径 | N | 用于按白名单采集请求头/响应头等动态配置；缺省不启用（等价全段缺省，不采集）。相对路径基于 conf root 解析。**配置的文件不存在时模块不报错**，按缺省行为运行；文件支持热加载（reload 接口 `/reload/mod_access_pb3`） | 类型为 [FilePath](../00-common.md#3-文件路径filepath) |
 
 ## 配置示例
 
@@ -25,4 +26,5 @@ BackupCount = 2
 
 [BasicConf]
 OpenDebug = true
+DataConfPath = ../conf/mod_access_pb3/mod_access_pb.data
 ```
