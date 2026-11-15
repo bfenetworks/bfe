@@ -64,6 +64,7 @@ AI 路由的转发尝试链为 `[选中 target] + [未选中 targets] + [fallbac
 | `tests/integration/implementation/scenario-SC47-targets-as-fallbacks/sc47_targets_as_fallbacks_test.go` | **TC-03 断言翻转**：全链失败后错误体从 `500 from fc` 改为 `500 from ta`（首个 attempt），并在注释中说明语义变化 |
 | `tests/integration/测试设计文档/scenario-SC47-未选中targets并入降级链/TC-03-链尾兜底与末次错误.md` | 同步断言变更（文件名将"末次错误"改为"主选错误"） |
 | `docs/zh_cn/sys_design/mod_ai_route.md` | §6.3 Fallback 流程第 5 步与行为变更说明更新 |
+| `tests/integration/implementation/scenario-SC27-upstream-error-normalization/sc27_upstream_error_normalization_test.go` | **TC-06 断言翻转**（提交后 CI 发现并修正）：全链失败透出主选错误后，归一配置取主选 cluster——步骤 1 改为主选未开归一→透传、步骤 2 为主选开归一→`MODEL_INTERNAL_ERROR`；设计文档 `TC-06-fallback后归一.md` 同步重写 |
 
 控制面 `ai-gateway-api` 无改动（纯数据面转发语义）。
 
@@ -135,7 +136,8 @@ AI 路由的转发尝试链为 `[选中 target] + [未选中 targets] + [fallbac
 
 ### 8.5 实施过程中的设计修正
 
-- **TC-03 断言修正**：初版断言"错误体恒为 `500 from ta`"不成立——主选是加权随机的，透出的是被选中者（ta 或 tb）的错误。修正为"错误体 ∈ {ta, tb} 且绝不为 fc"，配三集群命中数各等于请求数的精确计数。设计文档预期结果已同步。
+- **TC-03 断言修正**（SC47）：初版断言"错误体恒为 `500 from ta`"不成立——主选是加权随机的，透出的是被选中者（ta 或 tb）的错误。修正为"错误体 ∈ {ta, tb} 且绝不为 fc"，配三集群命中数各等于请求数的精确计数。设计文档预期结果已同步。
+- **SC27 TC-06 遗漏回归（提交后 CI 暴露，随修复提交一并修正）**：建议二提交时的回归范围漏了 SC27（上游错误体归一）。其 TC-06 原断言"全链失败透出末次 attempt（fallback 429）的错误"，与建议二语义冲突，CI 在 PR #1510 上报错。已按新语义翻转（见 §四与 SC27 设计文档），并补充全量集成回归（CI 同款 `go test -p 1 -timeout 5m ./tests/integration/...`）。教训：改动降级循环收尾语义时，所有含 fallback 断言的场景（SC01/SC08/SC27/SC47）都应纳入回归。
 
 ### 8.6 遗留事项
 
