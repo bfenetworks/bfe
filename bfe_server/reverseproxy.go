@@ -31,6 +31,7 @@ import (
 	"mime"
 	"net"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -1311,6 +1312,61 @@ type aiForwardAttempt struct {
 	IsFallback  bool
 }
 
+// buildAiForwardAttempts builds the forwarding attempt chain for one request:
+//
+//	[selected target] + [remaining targets, weight descending] + [fallbacks]
+//
+// The selected target is tried first; when it fails, the remaining weighted
+// targets back each other up before the configured fallbacks, so a multi
+// target rule degrades across its own clusters instead of jumping straight
+// to fallbacks (aligned with Bifrost's load-balancing fallback semantics).
+//
+// The whole chain is deduplicated by (cluster_name, model): cross-group
+// duplicates between targets and fallbacks are legal config (ai-gateway-api
+// contract, 00-common.md §6) but must not be tried twice in one request.
+// Model is compared by its final value; empty means pass-through.
+func buildAiForwardAttempts(targets []bfe_basic.AiRouteTarget, selected bfe_basic.AiRouteTarget, fallbacks []bfe_basic.AiRouteFallback) []aiForwardAttempt {
+	attempts := make([]aiForwardAttempt, 0, 1+len(targets)+len(fallbacks))
+	seen := make(map[string]struct{}, 1+len(targets)+len(fallbacks))
+
+	add := func(clusterName, model string, isFallback bool) {
+		key := clusterName + "|" + model
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		attempts = append(attempts, aiForwardAttempt{
+			ClusterName: clusterName,
+			Model:       model,
+			IsFallback:  isFallback,
+		})
+	}
+
+	if selected.ClusterName != "" {
+		add(selected.ClusterName, selected.Model, false)
+	}
+
+	// remaining targets serve as mutual fallback, higher weight first
+	remaining := make([]bfe_basic.AiRouteTarget, 0, len(targets))
+	for _, t := range targets {
+		if t.ClusterName == selected.ClusterName && t.Model == selected.Model {
+			continue
+		}
+		remaining = append(remaining, t)
+	}
+	sort.SliceStable(remaining, func(i, j int) bool {
+		return remaining[i].Weight > remaining[j].Weight
+	})
+	for _, t := range remaining {
+		add(t.ClusterName, t.Model, false)
+	}
+
+	for _, fb := range fallbacks {
+		add(fb.ClusterName, fb.Model, true)
+	}
+	return attempts
+}
+
 // ServeHTTPForAI processes AI gateway http request and sends http response.
 func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_basic.Request) (action int) {
 	var err error
@@ -1470,22 +1526,10 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		selectedTarget = SelectTarget(aiResult.Targets)
 	}
 
-	// build attempt list: selected target + fallbacks
-	attempts = make([]aiForwardAttempt, 0, 1+len(aiResult.Fallbacks))
-	if selectedTarget.ClusterName != "" {
-		attempts = append(attempts, aiForwardAttempt{
-			ClusterName: selectedTarget.ClusterName,
-			Model:       selectedTarget.Model,
-			IsFallback:  false,
-		})
-	}
-	for _, fb := range aiResult.Fallbacks {
-		attempts = append(attempts, aiForwardAttempt{
-			ClusterName: fb.ClusterName,
-			Model:       fb.Model,
-			IsFallback:  true,
-		})
-	}
+	// build attempt list: selected target, then remaining targets as mutual
+	// fallback (weight descending), then configured fallbacks; the chain is
+	// deduplicated by (cluster_name, model)
+	attempts = buildAiForwardAttempts(aiResult.Targets, selectedTarget, aiResult.Fallbacks)
 
 	// ensure request body is rewindable before attempting fallbacks
 	if len(attempts) > 1 && basicReq.HttpRequest.Body != nil {

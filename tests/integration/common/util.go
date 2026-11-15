@@ -203,6 +203,12 @@ func clusterSubName(clusterName string) string {
 		return "nested_usage"
 	case "cluster_dead_backend":
 		return "dead"
+	case "cluster_ta":
+		return "ta"
+	case "cluster_tb":
+		return "tb"
+	case "cluster_fc":
+		return "fc"
 	}
 	return "sub"
 }
