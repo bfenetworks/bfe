@@ -207,8 +207,10 @@ func TestTC02_CrossGroupDedup(t *testing.T) {
 
 // TestTC03_ChainTailFallback covers the tail of the chain: only after BOTH
 // targets fail does the configured fallback get tried, and when everything
-// fails the LAST attempt's error body is returned ("return primary error" is
-// a separate, not-yet-implemented optimization).
+// fails the PRIMARY (first) attempt's error body is returned — a fallback's
+// error must not mask the primary path's real fault. (Before 2026-11-15 the
+// last attempt's error was surfaced; this assertion is the new-vs-old
+// discriminator.)
 func TestTC03_ChainTailFallback(t *testing.T) {
 	e := newTestEnv(t, map[string]backendResponse{
 		clusterTa: {http.StatusInternalServerError, `{"error":"500 from ta"}`},
@@ -223,20 +225,20 @@ func TestTC03_ChainTailFallback(t *testing.T) {
 		if err != nil {
 			t.Fatalf("request %d failed: %v", i, err)
 		}
-		if resp.StatusCode != http.StatusInternalServerError || body != `{"error":"500 from fc"}` {
+		// The surfaced error belongs to the PRIMARY attempt — whichever of
+		// ta/tb the weighted random selected first — never the chain tail fc.
+		if resp.StatusCode != http.StatusInternalServerError ||
+			(body != `{"error":"500 from ta"}` && body != `{"error":"500 from tb"}`) {
 			e.logBFEException()
-			t.Fatalf("request %d: expected 500 with last-attempt (fc) error body, got %d, body: %s", i, resp.StatusCode, body)
+			t.Fatalf("request %d: expected 500 with a primary (ta/tb) error body, got %d, body: %s", i, resp.StatusCode, body)
 		}
 	}
 
-	total := e.hits(clusterTa) + e.hits(clusterTb) + e.hits(clusterFc)
-	if total != 3*requests {
-		t.Errorf("expected the full chain (target -> sibling target -> fallback) once per request, got %d hits over %d requests (ta=%d tb=%d fc=%d)",
-			total, requests, e.hits(clusterTa), e.hits(clusterTb), e.hits(clusterFc))
-	}
+	// Every request walks the full chain once: each cluster tried exactly
+	// once per request, so all totals equal the request count.
 	for _, name := range []string{clusterTa, clusterTb, clusterFc} {
-		if e.hits(name) == 0 {
-			t.Errorf("cluster %s never tried: every chain position must be exercised", name)
+		if got := e.hits(name); got != requests {
+			t.Errorf("cluster %s hits = %d, want %d (full chain once per request)", name, got, requests)
 		}
 	}
 }
