@@ -21,6 +21,7 @@
 package bfe_server
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
@@ -31,6 +32,7 @@ import (
 	"mime"
 	"net"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -1311,6 +1313,120 @@ type aiForwardAttempt struct {
 	IsFallback  bool
 }
 
+// buildAiForwardAttempts builds the forwarding attempt chain for one request:
+//
+//	[selected target] + [remaining targets, weight descending] + [fallbacks]
+//
+// The selected target is tried first; when it fails, the remaining weighted
+// targets back each other up before the configured fallbacks, so a multi
+// target rule degrades across its own clusters instead of jumping straight
+// to fallbacks (aligned with Bifrost's load-balancing fallback semantics).
+//
+// The whole chain is deduplicated by (cluster_name, model): cross-group
+// duplicates between targets and fallbacks are legal config (ai-gateway-api
+// contract, 00-common.md §6) but must not be tried twice in one request.
+// Model is compared by its final value; empty means pass-through.
+func buildAiForwardAttempts(targets []bfe_basic.AiRouteTarget, selected bfe_basic.AiRouteTarget, fallbacks []bfe_basic.AiRouteFallback) []aiForwardAttempt {
+	attempts := make([]aiForwardAttempt, 0, 1+len(targets)+len(fallbacks))
+	seen := make(map[string]struct{}, 1+len(targets)+len(fallbacks))
+
+	add := func(clusterName, model string, isFallback bool) {
+		key := clusterName + "|" + model
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		attempts = append(attempts, aiForwardAttempt{
+			ClusterName: clusterName,
+			Model:       model,
+			IsFallback:  isFallback,
+		})
+	}
+
+	if selected.ClusterName != "" {
+		add(selected.ClusterName, selected.Model, false)
+	}
+
+	// remaining targets serve as mutual fallback, higher weight first
+	remaining := make([]bfe_basic.AiRouteTarget, 0, len(targets))
+	for _, t := range targets {
+		if t.ClusterName == selected.ClusterName && t.Model == selected.Model {
+			continue
+		}
+		remaining = append(remaining, t)
+	}
+	sort.SliceStable(remaining, func(i, j int) bool {
+		return remaining[i].Weight > remaining[j].Weight
+	})
+	for _, t := range remaining {
+		add(t.ClusterName, t.Model, false)
+	}
+
+	for _, fb := range fallbacks {
+		add(fb.ClusterName, fb.Model, true)
+	}
+	return attempts
+}
+
+// aiPrimaryErrorBodyLimit caps the primary error body retained across the
+// fallback loop. Error payloads are small; the cap only guards against a
+// misbehaving upstream pinning a large buffer for the whole chain.
+const aiPrimaryErrorBodyLimit = 1 << 20
+
+// aiPrimaryErrorSnapshot captures the primary attempt's error response
+// before the fallback loop closes its body with the connection.
+type aiPrimaryErrorSnapshot struct {
+	status      int
+	body        []byte
+	contentType string
+	retryAfter  string
+}
+
+// snapshotPrimaryError reads the primary attempt's error response into a
+// snapshot. Returns nil when there is no response to surface (pure transport
+// error): in that case the last attempt's result is kept by design, since
+// the primary has nothing to say.
+func snapshotPrimaryError(res *bfe_http.Response) *aiPrimaryErrorSnapshot {
+	if res == nil || res.Body == nil {
+		return nil
+	}
+	s := &aiPrimaryErrorSnapshot{
+		status:      res.StatusCode,
+		contentType: res.Header.Get("Content-Type"),
+		retryAfter:  res.Header.Get("Retry-After"),
+	}
+	body, err := io.ReadAll(io.LimitReader(res.Body, aiPrimaryErrorBodyLimit+1))
+	if err != nil {
+		log.Logger.Warn("ServeHTTPForAI: read primary error body failed: %v", err)
+		return nil
+	}
+	if int64(len(body)) > aiPrimaryErrorBodyLimit {
+		log.Logger.Warn("ServeHTTPForAI: primary error body exceeds %d, truncated", aiPrimaryErrorBodyLimit)
+		body = body[:aiPrimaryErrorBodyLimit]
+	}
+	s.body = body
+	return s
+}
+
+// rebuildPrimaryErrorResponse reconstructs a response from the primary
+// snapshot. Only the client-meaningful headers are restored; upstream
+// miscellaneous headers are not forwarded (no topology leak).
+func rebuildPrimaryErrorResponse(s aiPrimaryErrorSnapshot) *bfe_http.Response {
+	resp := new(bfe_http.Response)
+	resp.StatusCode = s.status
+	resp.Header = make(bfe_http.Header)
+	resp.Header.Set("Server", "bfe")
+	if s.contentType != "" {
+		resp.Header.Set("Content-Type", s.contentType)
+	}
+	if s.retryAfter != "" {
+		resp.Header.Set("Retry-After", s.retryAfter)
+	}
+	resp.Header.Set("Content-Length", strconv.Itoa(len(s.body)))
+	resp.Body = io.NopCloser(bytes.NewReader(s.body))
+	return resp
+}
+
 // ServeHTTPForAI processes AI gateway http request and sends http response.
 func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_basic.Request) (action int) {
 	var err error
@@ -1331,6 +1447,9 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 	var lastCluster *bfe_cluster.BfeCluster
 	var invokeErr error
 	var bodyModel string
+	var primarySnapshot *aiPrimaryErrorSnapshot
+	var primaryCluster *bfe_cluster.BfeCluster
+	var lastAttemptName string
 
 	isRedirect := false
 	resFlushInterval := time.Duration(0)
@@ -1470,22 +1589,10 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		selectedTarget = SelectTarget(aiResult.Targets)
 	}
 
-	// build attempt list: selected target + fallbacks
-	attempts = make([]aiForwardAttempt, 0, 1+len(aiResult.Fallbacks))
-	if selectedTarget.ClusterName != "" {
-		attempts = append(attempts, aiForwardAttempt{
-			ClusterName: selectedTarget.ClusterName,
-			Model:       selectedTarget.Model,
-			IsFallback:  false,
-		})
-	}
-	for _, fb := range aiResult.Fallbacks {
-		attempts = append(attempts, aiForwardAttempt{
-			ClusterName: fb.ClusterName,
-			Model:       fb.Model,
-			IsFallback:  true,
-		})
-	}
+	// build attempt list: selected target, then remaining targets as mutual
+	// fallback (weight descending), then configured fallbacks; the chain is
+	// deduplicated by (cluster_name, model)
+	attempts = buildAiForwardAttempts(aiResult.Targets, selectedTarget, aiResult.Fallbacks)
 
 	// ensure request body is rewindable before attempting fallbacks
 	if len(attempts) > 1 && basicReq.HttpRequest.Body != nil {
@@ -1508,6 +1615,7 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 	bodyModel = aiMeta.ClientModel
 
 	for i, attempt := range attempts {
+		lastAttemptName = attempt.ClusterName
 		if i > 0 {
 			// fallback attempt: reset request state
 			if !p.resetRequestForRetry(basicReq) {
@@ -1555,8 +1663,35 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 			attempt.ClusterName, invokeErr, getResponseStatus(res))
 
 		if res != nil {
+			if i == 0 {
+				// Record the primary attempt's error before its body is
+				// closed: if the whole chain fails, the client gets the
+				// PRIMARY error, not the last attempt's — a fallback's error
+				// (e.g. model_not_found) must not mask the primary path's
+				// real fault. A pure transport error on the primary (no
+				// response) keeps the last attempt's result.
+				primarySnapshot = snapshotPrimaryError(res)
+				primaryCluster = lastCluster
+			}
 			res.Body.Close()
 		}
+	}
+
+	// All attempts failed: surface the primary attempt's error instead of
+	// the last attempt's. The snapshot exists only when the primary produced
+	// a response and the chain moved on; a final success (2xx/3xx) is left
+	// untouched. When the last attempt has no response at all (res == nil)
+	// the primary's real error is still more truthful than the generic
+	// gateway-side 502, so it is surfaced as well.
+	if primarySnapshot != nil && (res == nil || res.StatusCode >= 400) {
+		primaryStatus := primarySnapshot.status
+		if res != nil {
+			res.Body.Close()
+		}
+		res = rebuildPrimaryErrorResponse(*primarySnapshot)
+		lastCluster = primaryCluster
+		log.Logger.Info("ServeHTTPForAI: fallback exhausted, return primary error, primary_cluster[%s] status[%d], last_cluster[%s]",
+			attempts[0].ClusterName, primaryStatus, lastAttemptName)
 	}
 
 	// The request body can no longer be rewound once the fallback loop
@@ -2227,12 +2362,24 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 	}
 
 	state := newAIKeyAttemptState()
+	// slotFullSet tracks which eligible Keys have had their concurrent
+	// session slot (AIConf.MaxConcurrencyPerKey) refused for this request;
+	// when every eligible Key is in it, the request yields the synthetic 429
+	// (see the acquire block below) instead of spinning the retry loop.
+	slotFullSet := make(map[int]struct{})
 
 	// Session affinity state (binding/penalty) is core forwarding logic; the
 	// Redis handle is owned by the server (see initAIKeyAffinityRedis), not
 	// borrowed from any module. Unconfigured (nil) means affinity is disabled.
 	redisClient := srv.AIKeyAffinityRedis
 	sessionID := clientKeySessionID(basicReq)
+	// slotSessionID is the identity recorded in the per-Key concurrency slot
+	// set. An empty ClientKeyId (defensive: token auth guarantees one)
+	// degrades to one request-level anonymous identity per aiClusterInvoke.
+	slotSessionID := sessionID
+	if slotSessionID == "" {
+		slotSessionID = fmt.Sprintf("anon-%d", atomic.AddUint64(&aiKeyConcAnonSeq, 1))
+	}
 	// batch/file operations chain to the upstream key recorded by
 	// mod_ai_batch (batch-level affinity, independent of client affinity).
 	// Key selection happens before the HandleAfterAITargetModel callbacks
@@ -2312,6 +2459,56 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 
 			log.Logger.Info("aiClusterInvoke: select ai key [name=%s weight=%d] for cluster[%s]",
 				key.Name, key.Weight, attempt.ClusterName)
+
+			// Per-Key concurrent session limit (AIConf.MaxConcurrencyPerKey):
+			// a full slot rotates this Key for the current request exactly
+			// like a 429, but writes no penalty and deletes no affinity
+			// binding (a full cap is not an upstream failure). A session
+			// already holding a slot (binding hit or keepKey retry) always
+			// passes: the acquire script's ZSCORE branch refreshes its
+			// expiry, so affinity is never defeated by the limit itself.
+			if limit := cluster.AIConf.MaxConcurrencyPerKey; limit > 0 && redisClient != nil {
+				if !acquireAIKeySessionSlot(redisClient, cluster.Name, key.Name, slotSessionID,
+					policy.SessionAffinityRedisPrefix, limit, policy.SessionAffinityTTL, p.proxyState) {
+					state.usedSet[idx] = struct{}{}
+					slotFullSet[idx] = struct{}{}
+					p.proxyState.ReqAiKeyConcurrencyLimited.Inc(1)
+					log.Logger.Info("aiClusterInvoke: ai key [name=%s] session slots full (%d), rotate",
+						key.Name, limit)
+					// The binding-miss path of chooseAIKeyWithAffinity has
+					// already written a fresh binding for this session;
+					// drop it, otherwise the next round re-selects this
+					// full Key through the binding-hit path (which ignores
+					// usedSet) and the loop never makes progress. A
+					// pre-existing binding (boundName != "") is always for
+					// a slot the session itself holds, which the acquire
+					// refresh branch never refuses.
+					if boundName == "" && sessionID != "" {
+						if err := redisDeleteBinding(cluster.Name, sessionID, policy, redisClient); err != nil {
+							p.proxyState.ReqAiKeyAffinityRedisErr.Inc(1)
+						}
+					}
+					if allEligibleKeysSlotFull(keys, state, slotFullSet) {
+						// Every eligible Key is full: same synthetic-429
+						// contract as key exhaustion (issue #1440) — a
+						// decidable result that triggers cluster fallback.
+						// Retry-After uses the binding idle timeout: a slot
+						// frees when some session idles out, within TTL.
+						retryAfter := policy.SessionAffinityTTL
+						if retryAfter <= 0 {
+							retryAfter = 60
+						}
+						log.Logger.Warn("aiClusterInvoke: all ai keys session slots full for cluster[%s], return synthetic 429", attempt.ClusterName)
+						res = newNoAvailableKey429Resp(basicReq, attempt.Model, retryAfter,
+							"no available upstream api key (session slots full)")
+						basicReq.ErrCode = bfe_basic.ErrAiNoAvailableKey
+						basicReq.ErrMsg = "no available upstream api key (session slots full)"
+						return res, action, cluster, nil, newBodyModel
+					}
+					keepKey = false
+					continue
+				}
+			}
 		}
 		keepKey = false
 
@@ -2364,6 +2561,13 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 		case statusCode == 429:
 			// rate limit: mark key as used and rotate to another key
 			state.usedSet[idx] = struct{}{}
+			if cluster.AIConf.MaxConcurrencyPerKey > 0 {
+				// Failure-driven unbind: this session rotates away, so free
+				// its concurrency slot on this Key immediately instead of
+				// waiting for the slot TTL.
+				releaseAIKeySessionSlot(redisClient, cluster.Name, key.Name, slotSessionID,
+					policy.SessionAffinityRedisPrefix, policy.SessionAffinityTTL, p.proxyState)
+			}
 			if policy.SessionAffinity && policy.SessionAffinityPenaltyEnable && redisClient != nil {
 				setKeyPenalty(cluster.Name, key.Name, "429", policy.SessionAffinityPenaltyTTL429, policy, redisClient)
 				if sessionID != "" {
@@ -2375,6 +2579,11 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 		case statusCode == 401 || statusCode == 402 || statusCode == 403:
 			// auth failure: mark key as dead
 			state.deadSet[idx] = struct{}{}
+			if cluster.AIConf.MaxConcurrencyPerKey > 0 {
+				// Failure-driven unbind: free the session slot immediately.
+				releaseAIKeySessionSlot(redisClient, cluster.Name, key.Name, slotSessionID,
+					policy.SessionAffinityRedisPrefix, policy.SessionAffinityTTL, p.proxyState)
+			}
 			if policy.SessionAffinity && policy.SessionAffinityPenaltyEnable && redisClient != nil {
 				setKeyPenalty(cluster.Name, key.Name, fmt.Sprintf("%d", statusCode), policy.SessionAffinityPenaltyTTLAuth, policy, redisClient)
 				if sessionID != "" {
@@ -2401,6 +2610,11 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 					if policy.SessionAffinityPenaltyEnable {
 						setKeyPenalty(cluster.Name, key.Name, "404-batch", 60, policy, redisClient)
 					}
+				}
+				if cluster.AIConf.MaxConcurrencyPerKey > 0 {
+					// Failure-driven unbind: free the session slot immediately.
+					releaseAIKeySessionSlot(redisClient, cluster.Name, key.Name, slotSessionID,
+						policy.SessionAffinityRedisPrefix, policy.SessionAffinityTTL, p.proxyState)
 				}
 				log.Logger.Info("aiClusterInvoke: batch resource 404 on key [name=%s], batch bindings cleared", key.Name)
 				return res, action, cluster, nil, newBodyModel

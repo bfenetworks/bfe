@@ -8,7 +8,7 @@ BFE 原有路由基于租户（Product）组织，每张路由表命中后返回
 
 - 路由表不再按租户划分，而按 **apikey → entity → global** 三级优先级组织；
 - 命中后返回的是 **targets 列表**（含集群、模型、权重）和 **fallbacks 列表**；
-- 需要在多个 target 之间做加权选择，并在 target 转发失败时按 fallbacks 顺序降级。
+- 需要在多个 target 之间做加权选择，并在 target 转发失败时降级：先尝试**未被选中的其余 targets**（按权重降序），再按 fallbacks 顺序降级（未选中 targets 与 fallbacks 构成同一尝试链，全链按 `(cluster_name, model)` 去重）。
 
 ### 1.2 目标
 
@@ -30,7 +30,7 @@ BFE 原有路由基于租户（Product）组织，每张路由表命中后返回
 | Entity | 业务实体，如部门、应用、项目，一个 Entity 下可包含多个 API-Key。 |
 | Global | 全局路由表，所有请求的最后兜底。 |
 | Target | 路由命中的转发目标，包含 `ClusterName`、`Model`、`Weight`。 |
-| Fallback | 当所有 target 不可用时，按顺序尝试的备用目标。 |
+| Fallback | 当所有 target（含未选中的其余 targets）不可用时，按顺序尝试的备用目标。 |
 | Route Table Key | 路由表在配置文件中的唯一标识，格式为 `<type>_<owner>`，例如 `apikey_ak_user_a`。 |
 
 ## 3. 总体架构
@@ -905,10 +905,10 @@ func ValidateRouteTable(table *RouteTable) error {
 5. 在 AI 网关模式下，由 `ServeHTTPForAI()` 接管；`mod_ai_route` 未命中时直接返回 404
 6. 命中 AI 路由后：
    - 进入 ServeHTTPForAI（独立实现，避免影响原有 ServeHTTP）
-   - 根据 target 构造 OutRequest
+   - 加权随机选中一个 target，构造 OutRequest
    - Model 非空时覆盖请求体中的 model 字段
    - 调用 clusterInvoke() 转发到目标集群
-   - 失败时按 fallbacks 顺序尝试
+   - 失败时按尝试链顺序降级：未选中的其余 targets（权重降序）→ fallbacks，全链按 (cluster_name, model) 去重
 7. 返回响应
 ```
 
@@ -930,17 +930,33 @@ func (m *ModuleAiRoute) routeFoundProductHandler(req *bfe_basic.Request) (int, *
 ### 6.3 Fallback 流程
 
 ```
-当 target 转发失败时：
-1. 检查错误类型：
-   - 触发 fallback：连接失败、超时、后端 5xx
-   - 不触发 fallback：客户端 4xx、限流拒绝、鉴权失败
-2. 按 fallbacks 列表顺序尝试：
-   - 对每个 fallback，构造新的 target
-   - 重新调用 clusterInvoke()
-   - 第一个成功即停止
-3. 所有 fallback 均失败：
-   - 返回最后一个 fallback 的错误响应
+1. 加权随机选中一个 target 作为首次转发目标
+2. 构建尝试链（全链按 (cluster_name, model) 去重，优先级高者保留）：
+   attempts = [选中 target]
+            + [未选中的其余 targets，按权重降序]
+            + [fallbacks，按配置顺序]
+   说明：targets 与 fallbacks 之间允许配置相同的 (cluster_name, model)
+   （契约见 ai-gateway-api 00-common.md §6），去重保证同一组合只尝试一次
+3. 当一次尝试失败时：
+   - 触发降级：连接失败、超时、后端 5xx、4xx 白名单 {400, 401, 402, 403, 422, 429}
+   - 不触发降级：本地限流拒绝（ErrAiRateLimit）、EPP 容量拒绝（ErrEppRejected）；
+     客户端主动断开不重试
+4. 按尝试链顺序尝试下一项：
+   - 重置请求状态（RetryTime 清零、回放请求体）
+   - 构造新的 target，重新调用 clusterInvoke()
+   - 第一个成功（2xx/3xx）即停止
+5. 所有尝试均失败：
+   - 主选 attempt 产生了响应（status+body）→ 返回主选的错误响应
+     （末次 attempt 的错误只进日志：fallback 的错误语义不代表主路径故障性质）
+   - 主选 attempt 为纯传输错误（无响应）→ 返回最后一个 attempt 的结果
 ```
+
+> 行为变更说明（2026-11，v1.10.0-dev）：
+>
+> 1. 未选中的其余 targets 并入降级链，targets 内的加权集群互为兜底；此前选中
+>    target 失败后直接降级到 fallbacks，其余 targets 在同一请求内不会被尝试。
+> 2. 全部尝试耗尽后返回**主选**（首个 attempt）错误而非末次错误；此前透传末次
+>    attempt 的响应，fallback 的错误（如 model_not_found）常掩盖主路径真实故障。
 
 ## 7. 与现有系统的集成
 
@@ -1016,8 +1032,10 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
     // 1. 调用 HandleBeforeLocation / findProduct / HandleFoundProduct
     // 2. 从 basicReq 中获取 AiRouteResult，未命中则返回 404
     // 3. 调用 HandleAfterLocation
-    // 4. 加权选择 target，构造 [selected target] + fallbacks 尝试列表
-    // 5. 循环调用 aiClusterInvoke() 转发；失败时按 fallbacks 顺序重试
+    // 4. 加权选择 target，构造尝试链：
+    //    [选中 target] + [未选中 targets 按权重降序] + [fallbacks]，
+    //    全链按 (cluster_name, model) 去重
+    // 5. 循环调用 aiClusterInvoke() 转发；失败时按尝试链顺序降级
     // 6. 发送响应
 }
 ```

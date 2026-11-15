@@ -16,6 +16,8 @@ package mod_access_pb3
 
 import (
 	"fmt"
+	"net/url"
+	"os"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
@@ -65,22 +67,59 @@ type ModuleAccessLogState struct {
 }
 
 type ModuleAccessPb3 struct {
-	name    string
-	logger  log4go.Logger
-	conf    *ConfModAccessPb2
-	state   ModuleAccessLogState
-	metrics metrics.Metrics
+	name       string
+	logger     log4go.Logger
+	conf       *ConfModAccessPb2
+	dataHolder *ModAccessPbConfHolder
+	state      ModuleAccessLogState
+	metrics    metrics.Metrics
 }
 
 func NewModuleAccessPb3() *ModuleAccessPb3 {
 	m := new(ModuleAccessPb3)
 	m.name = "mod_access_pb3"
 	m.metrics.Init(&m.state, BFE_MOD_ACCESS_PB3, 0)
+	m.dataHolder = NewModAccessPbConfHolder()
 	return m
 }
 
 func (m *ModuleAccessPb3) Name() string {
 	return m.name
+}
+
+// loadModAccessPbConf loads mod_access_pb.data and atomically swaps the
+// runtime config. query may carry a "path" parameter to load from an
+// alternative file (same convention as mod_ai_route). When
+// tolerateMissing is true (module Init), a missing data file is not an
+// error: the module runs with default behavior (no whitelisted headers),
+// which keeps upgrades behavior-compatible for deployments that do not
+// create the file yet. On reload a missing or invalid file returns an
+// error and the previous config keeps serving.
+func (m *ModuleAccessPb3) loadModAccessPbConf(query url.Values, tolerateMissing bool) error {
+	path := query.Get("path")
+	if path == "" {
+		path = m.conf.BasicConf.DataConfPath
+	}
+	if path == "" {
+		// dynamic config not enabled; run with defaults
+		return nil
+	}
+
+	conf, err := ModAccessPbDataLoad(path)
+	if err != nil {
+		if tolerateMissing && os.IsNotExist(err) {
+			log.Logger.Warn("%s: data conf %s not found, run with default (no whitelisted headers)",
+				m.name, path)
+			m.dataHolder.Update(emptyModAccessPbConf())
+			return nil
+		}
+		return fmt.Errorf("%s: load data conf %s err %s", m.name, path, err.Error())
+	}
+
+	m.dataHolder.Update(conf)
+	log.Logger.Info("%s: data conf %s loaded, version=%s, req_headers=%v, res_headers=%v",
+		m.name, path, conf.Version, conf.AccessHeader.ReqHeaders, conf.AccessHeader.ResHeaders)
+	return nil
 }
 
 func (m *ModuleAccessPb3) Close() error {
@@ -96,7 +135,7 @@ func (m *ModuleAccessPb3) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.We
 	var conf *ConfModAccessPb2
 
 	confPath := bfe_module.ModConfPath(cr, m.name)
-	if conf, err = ConfLoad(confPath); err != nil {
+	if conf, err = ConfLoad(confPath, cr); err != nil {
 		return fmt.Errorf("%s: cond load err %s", m.name, err.Error())
 	}
 	m.conf = conf
@@ -113,6 +152,11 @@ func (m *ModuleAccessPb3) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.We
 
 	openDebug = m.conf.BasicConf.OpenDebug
 
+	m.dataHolder = NewModAccessPbConfHolder()
+	if err := m.loadModAccessPbConf(nil, true); err != nil {
+		return fmt.Errorf("%s.Init(): load data conf err %v", m.name, err)
+	}
+
 	err = cbs.AddFilter(bfe_module.HandleRequestFinish, m.requestFinishHandler)
 	if err != nil {
 		return fmt.Errorf("%s.Init(): AddFilter(m.requestFinishHandler): %s", m.name, err.Error())
@@ -126,6 +170,17 @@ func (m *ModuleAccessPb3) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.We
 	err = web_monitor.RegisterHandlers(whs, web_monitor.WebHandleMonitor, m.monitorHandlers())
 	if err != nil {
 		return fmt.Errorf("%s.Init():RegisterHandlers(m.monitorHandlers): %s", m.name, err.Error())
+	}
+
+	reloadHandlers := map[string]interface{}{
+		// hot reload entry of mod_access_pb.data; the handler name is the
+		// module name so it is triggered via /reload/mod_access_pb3
+		m.name: func(query url.Values) error {
+			return m.loadModAccessPbConf(query, false)
+		},
+	}
+	if err := web_monitor.RegisterHandlers(whs, web_monitor.WebHandleReload, reloadHandlers); err != nil {
+		return fmt.Errorf("%s.Init():RegisterHandlers(reload): %s", m.name, err.Error())
 	}
 
 	return nil

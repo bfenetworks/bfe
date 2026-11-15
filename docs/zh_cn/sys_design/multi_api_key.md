@@ -78,6 +78,12 @@ type AIConf struct {
     KeyPolicy          *AIKeyPolicy // key selection & retry policy
     ModelTable         *ModelTable  // pricing table, auto-filled by InnerAPI
     ModelProtocols     []string     // supported protocols: openai / anthropic; empty defaults to ["openai"]
+
+    // MaxConcurrencyPerKey limits the number of distinct client sessions
+    // (ClientKeyId) that may hold a slot on each upstream Key of this
+    // cluster, across all BFE instances. 0 (default) = unlimited; when > 0
+    // it requires the [AIKeyAffinity] Redis and fails open on Redis errors.
+    MaxConcurrencyPerKey int
 }
 ```
 
@@ -548,6 +554,74 @@ if success && usedKey.Name != boundName {
 | Redis 超时 | 设置较短读写超时，避免阻塞推理请求 |
 | Redis 完全不可用 | 亲和能力退化为无状态加权随机 |
 
+### 3.6 Key 并发会话数限制（`AIConf.MaxConcurrencyPerKey`）
+
+cluster 级配置 `MaxConcurrencyPerKey`（对应控制面 OpenAPI `llm_config.max_concurrency_per_key`）对集群内每把 Key 统一生效：同一时刻最多允许 N 个不同会话（以 `AiBasicInfo.ClientKeyId` 标识）绑定到**一把** Key，同一会话的多个并发请求只计 1。`0`（默认）= 不限，链路零改动、零 Redis 调用。
+
+#### 3.6.1 占用语义：与亲和绑定同生命周期
+
+占用**不按"最后一个在飞请求结束"释放**——若如此，会话 A 请求结束放槽 → 会话 B 抢占 → 会话 A 下一请求被挤走重绑，多会话交替突发时 `ClientKeyId` 在多把 Key 间 ping-pong，prompt cache 命中率显著下降。占用生命周期与 §3.5 的亲和绑定完全一致：
+
+- 会话绑定 Key 起占用一个会话槽；
+- 每次请求命中刷新空闲时间（与绑定 TTL 刷新同节奏）；
+- **绑定空闲超时（`SessionAffinityTTL`，默认 600s）或失败解绑时释放**；
+- 已绑定会话命中自己 Key 时永远放行（ZSet 成员命中即刷新），**永不被自己 Key 的并发限制挤走**。
+
+代价（明确接受）：会话空闲期间仍占槽至 TTL。缓解：调小 `SessionAffinityTTL`、增大 N、增加 Key 数。
+
+#### 3.6.2 Redis 数据结构与 Lua 脚本
+
+**第一期即要求多 BFE 实例精确上限**（不做每实例独立计数——那会使上限退化为 N × 实例数）。复用 `srv.AIKeyAffinityRedis` 句柄（`bfe.conf [AIKeyAffinity]` 段，与亲和性同一连接）：
+
+```
+key:    {prefix}:conc:{cluster_name}:{key_name}
+type:   ZSET
+member: sessionID（ClientKeyId）
+score:  占用过期时间戳（毫秒，取自 Redis TIME，消除多实例时钟漂移）
+整体:   PEXPIRE = ttl*2 兜底（防实例崩溃后 key 永久残留）
+```
+
+Lua 原子脚本（EVALSHA，经 `redis_client.Client.NewScript` 缓存）：
+
+```lua
+-- KEYS[1] = ZSet key; ARGV[1]=sessionID, ARGV[2]=limit, ARGV[3]=ttl_ms
+local t = redis.call('TIME')
+local now = t[1] * 1000 + math.floor(t[2] / 1000)
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now)        -- 清过期
+local expireAt = now + tonumber(ARGV[3])
+if redis.call('ZSCORE', KEYS[1], ARGV[1]) then               -- 已占用：刷新
+    redis.call('ZADD', KEYS[1], expireAt, ARGV[1])
+    redis.call('PEXPIRE', KEYS[1], tonumber(ARGV[3]) * 2)
+    return 1
+end
+if redis.call('ZCARD', KEYS[1]) < tonumber(ARGV[2]) then     -- 未满：入集
+    redis.call('ZADD', KEYS[1], expireAt, ARGV[1])
+    redis.call('PEXPIRE', KEYS[1], tonumber(ARGV[3]) * 2)
+    return 1
+end
+return 0                                                     -- 满
+```
+
+#### 3.6.3 接入点与行为
+
+接入点在 `aiClusterInvoke()` 选 Key 成功之后、`doSingleAIForward` 之前：
+
+1. `limit == 0` 或 Redis 客户端为 nil：完全跳过（零开销）；
+2. `acquireKeySessionSlot` 返回拒绝 → 该 Key 进 `usedSet` 本轮跳过（等效 429 轮换），**不写惩罚键**；但绑定未命中路径已新写入亲和绑定，必须**同步回滚该新绑定**（`boundName==""` 时删绑定），否则下一轮绑定命中路径（不查 `usedSet`）再次选中这把满 Key、轮换空转；对**失败导致的解绑**（429/401/402/403/batch 404），在现有 `redisDeleteBinding` 位置成对 `releaseKeySessionSlot`（ZREM）；
+3. Redis 调用失败 → **fail-open**（放行 + `ReqAiKeyConcurrencyRedisErr` 指标 + Warn 日志），与亲和性现有降级策略一致——fail-close 会把 Redis 故障放大为全集群 429 风暴；
+4. 全部 Key 不可用（槽满/惩罚/weight=0/dead）→ 走 §4.2 合成 429 路径（`ErrCode = ErrAiNoAvailableKey`，**不是** `ErrAiRateLimit`），429 在 `shouldTriggerFallback` 白名单 → **正常触发 cluster fallback**；
+5. 失败解绑路径（429/401/402/403/batch 404 删绑定处）成对 `releaseKeySessionSlot`（ZREM）让槽；**无逐请求释放**（不挂 FinishReq），keepKey 退避重试只走脚本刷新分支。
+
+#### 3.6.4 边界
+
+| 场景 | 行为 |
+|------|------|
+| 单把有效 Key | 并发限制依然生效（占用判定在选 Key 后进行，单 Key 只是免亲和读绑定）；槽满时新会话直接合成 429 |
+| `ClientKeyId` 为空（异常链路） | 退化为请求级临时占用（请求唯一标识，随 score 过期释放） |
+| 热加载变更 limit/ttl | 即时生效（脚本每次按当前值判满），键空间不变，无需迁移 |
+| Redis 未配置/故障 | fail-open，限制不生效；恢复后自动恢复限制 |
+| 本地限流 `ErrAiRateLimit` 拒绝 | 已占槽的请求随 score TTL 自然释放（至多一个 TTL 周期的占用；业务敏感可在 early-return 分支补 ZREM） |
+
 ---
 
 ## 4. 失败分类与边界
@@ -614,6 +688,8 @@ func shouldTriggerFallback(res *bfe_http.Response, err error) bool {
 | `ReqAiKeyAffinityRebind` | Counter | 因失败重新绑定次数 |
 | `ReqAiKeyAffinityPenaltySkip` | Counter | 因惩罚跳过 Key 次数 |
 | `ReqAiKeyAffinityRedisErr` | Counter | Redis 操作失败次数 |
+| `ReqAiKeyConcurrencyLimited` | Counter | Key 并发会话槽满被跳过的次数 |
+| `ReqAiKeyConcurrencyRedisErr` | Counter | 并发会话占用/释放 Redis 失败次数（fail-open 触发次数） |
 
 > 说明：`ReqAiKeyAffinityMiss` 统计未命中 Redis 绑定的次数，包含会话首触与绑定失效后重新选择；未命中是正常控制流，不计入 `ReqAiKeyAffinityRedisErr`（issue #1472）。
 
@@ -658,6 +734,7 @@ aiClusterInvoke: all ai keys exhausted for cluster[%s], return synthetic 429  # 
             "SessionAffinityRedisPrefix": "bfe:ai:key_affinity",
             "SessionAffinityPenaltyEnable": true
         },
+        "MaxConcurrencyPerKey": 0,
         "ModelMapping": {
             "gpt-4": "deepseek-v3"
         },
@@ -697,4 +774,6 @@ aiClusterInvoke: all ai keys exhausted for cluster[%s], return synthetic 429  # 
 4. **旧字段清理**：`AIConf.Key` 不再保留，统一使用 `AIConf.Keys`；
 5. **会话级亲和性依赖 Redis**：`SessionAffinity` 默认关闭；开启后需在 `bfe.conf` 配置 `[AIKeyAffinity]` 段（bfe_server 自持 Redis 连接，不复用 `mod_ai_rate_limit` 的 Redis），未配置时亲和静默不生效（fail-open）；Redis 故障时自动降级为加权随机；
 6. **单 Key 短路**：当 `AIConf.Keys` 中只有一个有效 Key 时，无论是否开启亲和性，选择阶段都不读取惩罚状态、也不写入绑定键；但失败时写侧仍会写入惩罚键（没有读侧消费），因此惩罚时长配置在该形态下无实际效果；
-7. **ClientKeyId 稳定性**：会话绑定基于 `AiBasicInfo.ClientKeyId`，控制面更新 API-Key 值时应保持该 ID 不变，否则原有绑定会失效。
+7. **ClientKeyId 稳定性**：会话绑定基于 `AiBasicInfo.ClientKeyId`，控制面更新 API-Key 值时应保持该 ID 不变，否则原有绑定会失效；
+8. **并发会话限制依赖 [AIKeyAffinity] Redis**：`MaxConcurrencyPerKey > 0` 时必须配置 `bfe.conf [AIKeyAffinity]` 段且保障其可用性；Redis 未配置/故障时限制 fail-open（不生效 + `ReqAiKeyConcurrencyRedisErr` 指标告警），恢复后自动恢复；
+9. **并发会话限制的释放只有两条路径**：ZSet 成员 score 过期（空闲超时，同 `SessionAffinityTTL`）或失败解绑 ZREM；所有删亲和绑定的路径（429/401/402/403/batch 404）必须成对 ZREM，漏一处即槽泄漏（score 过期可自愈，泄漏期内 Key 假满）。

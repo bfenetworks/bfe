@@ -548,8 +548,44 @@ func TestTC05_DisabledBaseline(t *testing.T) {
 // final 429 passes through unchanged; step 2 (mirror check): fallback
 // cluster with normalization -> the final 429 is rewritten.
 func TestTC06_FallbackNormalization(t *testing.T) {
-	// step 1: only cluster_err enables normalization; the final response
-	// comes from cluster_fb (no normalization) and must pass through
+	// Since 2026-11-15 the whole-chain failure surfaces the PRIMARY attempt's
+	// error (see docs/zh_cn/modifications/2026-11-15-ai-route-fallback-primary-error/):
+	// the fallback's 429 below is tried but no longer reaches the client.
+	// Normalization therefore applies to the primary cluster's config.
+
+	// step 1: primary (cluster_err) has NO normalization; its final 500 must
+	// pass through verbatim even though the fallback cluster enables it
+	func() {
+		e := newTestEnv(t, nil, enabledConf())
+		defer e.Close()
+
+		e.errBk.ResponseFunc = func(r *http.Request, count int) (int, string) {
+			return http.StatusInternalServerError, `{"error":{"message":"boom","type":"server_error"}}`
+		}
+		e.fbBk.ResponseFunc = func(r *http.Request, count int) (int, string) {
+			return http.StatusTooManyRequests,
+				`{"error":{"message":"slow","type":"rate_limit_error","code":"rate_limit_exceeded"}}`
+		}
+
+		resp, body, err := e.sendChat(fbKey, chatBody)
+		if err != nil {
+			t.Fatalf("request failed: %v", err)
+		}
+		if e.errBk.Hits() != 1 || e.fbBk.Hits() != 1 {
+			t.Fatalf("fallback must try both clusters, err=%d fb=%d", e.errBk.Hits(), e.fbBk.Hits())
+		}
+		if resp.StatusCode != http.StatusInternalServerError {
+			t.Fatalf("expected primary 500, got %d, body: %s", resp.StatusCode, body)
+		}
+		want := `{"error":{"message":"boom","type":"server_error"}}`
+		if body != want {
+			t.Errorf("surfaced primary has no normalization; body must pass through\n got: %s\nwant: %s", body, want)
+		}
+	}()
+
+	// step 2: primary enables normalization; its final 500 must be rewritten
+	// per the PRIMARY cluster's config (the fallback cluster's config is
+	// irrelevant to the surfaced error)
 	func() {
 		e := newTestEnv(t, enabledConf(), nil)
 		defer e.Close()
@@ -569,42 +605,15 @@ func TestTC06_FallbackNormalization(t *testing.T) {
 		if e.errBk.Hits() != 1 || e.fbBk.Hits() != 1 {
 			t.Fatalf("fallback must try both clusters, err=%d fb=%d", e.errBk.Hits(), e.fbBk.Hits())
 		}
-		if resp.StatusCode != http.StatusTooManyRequests {
-			t.Fatalf("expected 429, got %d, body: %s", resp.StatusCode, body)
-		}
-		want := `{"error":{"message":"slow","type":"rate_limit_error","code":"rate_limit_exceeded"}}`
-		if body != want {
-			t.Errorf("final cluster has no normalization; body must pass through\n got: %s\nwant: %s", body, want)
-		}
-	}()
-
-	// step 2: both clusters enable normalization; the final 429 from
-	// cluster_fb must be rewritten
-	func() {
-		e := newTestEnv(t, enabledConf(), enabledConf())
-		defer e.Close()
-
-		e.errBk.ResponseFunc = func(r *http.Request, count int) (int, string) {
-			return http.StatusInternalServerError, `{"error":{"message":"boom","type":"server_error"}}`
-		}
-		e.fbBk.ResponseFunc = func(r *http.Request, count int) (int, string) {
-			return http.StatusTooManyRequests,
-				`{"error":{"message":"slow","type":"rate_limit_error","code":"rate_limit_exceeded"}}`
-		}
-
-		resp, body, err := e.sendChat(fbKey, chatBody)
-		if err != nil {
-			t.Fatalf("request failed: %v", err)
-		}
-		if e.errBk.Hits() != 1 || e.fbBk.Hits() != 1 {
-			t.Fatalf("fallback must try both clusters, err=%d fb=%d", e.errBk.Hits(), e.fbBk.Hits())
-		}
-		if resp.StatusCode != http.StatusTooManyRequests {
-			t.Fatalf("429 keeps its status, got %d", resp.StatusCode)
+		if resp.StatusCode != http.StatusInternalServerError {
+			t.Fatalf("500 keeps its status, got %d", resp.StatusCode)
 		}
 		ue := parseUnifiedErr(t, body)
-		if ue.Error.Code != "UPSTREAM_RATE_LIMITED" {
-			t.Errorf("code = %q, want UPSTREAM_RATE_LIMITED", ue.Error.Code)
+		if ue.Error.Code != "MODEL_INTERNAL_ERROR" {
+			t.Errorf("code = %q, want MODEL_INTERNAL_ERROR", ue.Error.Code)
+		}
+		if ue.Error.Details.UpstreamStatus == nil || *ue.Error.Details.UpstreamStatus != 500 {
+			t.Errorf("details.upstream_status = %v, want 500", ue.Error.Details.UpstreamStatus)
 		}
 	}()
 }

@@ -1,0 +1,13 @@
+{
+    "Version": "20261115090000",
+    "Hosts": {
+        "ai_product": [
+            "hdr.example.org"
+        ]
+    },
+    "HostTags": {
+        "ai_product": [
+            "ai_product"
+        ]
+    }
+}

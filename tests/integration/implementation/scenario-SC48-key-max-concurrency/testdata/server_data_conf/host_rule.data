@@ -1,0 +1,13 @@
+{
+    "Version": "20261115150000",
+    "Hosts": {
+        "ai_product": [
+            "key-conc.example.org"
+        ]
+    },
+    "HostTags": {
+        "ai_product": [
+            "ai_product"
+        ]
+    }
+}

@@ -81,6 +81,193 @@ func TestSelectTargetZeroWeightNotSelected(t *testing.T) {
 	}
 }
 
+func TestBuildAiForwardAttemptsSingleTarget(t *testing.T) {
+	targets := []bfe_basic.AiRouteTarget{
+		{ClusterName: "cluster_a", Model: "model_a", Weight: 100},
+	}
+	selected := SelectTarget(targets)
+
+	attempts := buildAiForwardAttempts(targets, selected, nil)
+	if len(attempts) != 1 {
+		t.Fatalf("expected 1 attempt, got %d: %v", len(attempts), attempts)
+	}
+	if attempts[0].ClusterName != "cluster_a" || attempts[0].Model != "model_a" {
+		t.Errorf("unexpected attempt: %+v", attempts[0])
+	}
+	if attempts[0].IsFallback {
+		t.Error("selected target must not be marked as fallback")
+	}
+}
+
+func TestBuildAiForwardAttemptsRemainingTargetsWeightDescending(t *testing.T) {
+	targets := []bfe_basic.AiRouteTarget{
+		{ClusterName: "cluster_a", Model: "", Weight: 50},
+		{ClusterName: "cluster_b", Model: "", Weight: 30},
+		{ClusterName: "cluster_c", Model: "", Weight: 20},
+	}
+	// select cluster_b explicitly: remaining must be ordered by weight desc
+	selected := bfe_basic.AiRouteTarget{ClusterName: "cluster_b", Model: "", Weight: 30}
+
+	attempts := buildAiForwardAttempts(targets, selected, nil)
+	if len(attempts) != 3 {
+		t.Fatalf("expected 3 attempts, got %d: %v", len(attempts), attempts)
+	}
+	want := []string{"cluster_b", "cluster_a", "cluster_c"}
+	for i, w := range want {
+		if attempts[i].ClusterName != w {
+			t.Errorf("attempts[%d]: expected %s, got %s (chain %v)", i, w, attempts[i].ClusterName, attempts)
+		}
+		if attempts[i].IsFallback {
+			t.Errorf("attempts[%d] (%s): target retry must not be marked as fallback", i, attempts[i].ClusterName)
+		}
+	}
+}
+
+func TestBuildAiForwardAttemptsFallbacksAfterTargets(t *testing.T) {
+	targets := []bfe_basic.AiRouteTarget{
+		{ClusterName: "cluster_a", Model: "", Weight: 60},
+		{ClusterName: "cluster_b", Model: "", Weight: 40},
+	}
+	selected := bfe_basic.AiRouteTarget{ClusterName: "cluster_a", Model: "", Weight: 60}
+	fallbacks := []bfe_basic.AiRouteFallback{
+		{ClusterName: "cluster_c", Model: "model_c"},
+		{ClusterName: "cluster_d", Model: ""},
+	}
+
+	attempts := buildAiForwardAttempts(targets, selected, fallbacks)
+	if len(attempts) != 4 {
+		t.Fatalf("expected 4 attempts, got %d: %v", len(attempts), attempts)
+	}
+	want := []struct {
+		cluster    string
+		isFallback bool
+	}{
+		{"cluster_a", false},
+		{"cluster_b", false},
+		{"cluster_c", true},
+		{"cluster_d", true},
+	}
+	for i, w := range want {
+		if attempts[i].ClusterName != w.cluster || attempts[i].IsFallback != w.isFallback {
+			t.Errorf("attempts[%d]: expected %s(fallback=%v), got %+v", i, w.cluster, w.isFallback, attempts[i])
+		}
+	}
+}
+
+// Cross-group duplicates between targets and fallbacks are legal config
+// (ai-gateway-api contract, 00-common.md §6); the chain must dedup them so
+// the same (cluster_name, model) is never tried twice in one request.
+func TestBuildAiForwardAttemptsCrossGroupDedup(t *testing.T) {
+	targets := []bfe_basic.AiRouteTarget{
+		{ClusterName: "cluster_a", Model: "model_a", Weight: 100},
+	}
+	selected := SelectTarget(targets)
+	fallbacks := []bfe_basic.AiRouteFallback{
+		{ClusterName: "cluster_a", Model: "model_a"}, // duplicate of the selected target
+		{ClusterName: "cluster_b", Model: "model_a"}, // same model, different cluster: kept
+	}
+
+	attempts := buildAiForwardAttempts(targets, selected, fallbacks)
+	if len(attempts) != 2 {
+		t.Fatalf("expected 2 attempts after dedup, got %d: %v", len(attempts), attempts)
+	}
+	if attempts[0].ClusterName != "cluster_a" || attempts[0].IsFallback {
+		t.Errorf("attempts[0]: expected selected cluster_a as non-fallback, got %+v", attempts[0])
+	}
+	if attempts[1].ClusterName != "cluster_b" || !attempts[1].IsFallback {
+		t.Errorf("attempts[1]: expected fallback cluster_b, got %+v", attempts[1])
+	}
+}
+
+func TestBuildAiForwardAttemptsFallbackOnlyWhenNoTargets(t *testing.T) {
+	fallbacks := []bfe_basic.AiRouteFallback{
+		{ClusterName: "cluster_c", Model: ""},
+	}
+
+	attempts := buildAiForwardAttempts(nil, bfe_basic.AiRouteTarget{}, fallbacks)
+	if len(attempts) != 1 {
+		t.Fatalf("expected 1 attempt, got %d: %v", len(attempts), attempts)
+	}
+	if attempts[0].ClusterName != "cluster_c" || !attempts[0].IsFallback {
+		t.Errorf("unexpected attempt: %+v", attempts[0])
+	}
+}
+
+func TestSnapshotPrimaryErrorRebuildRoundTrip(t *testing.T) {
+	res := &bfe_http.Response{
+		StatusCode: 503,
+		Header: bfe_http.Header{
+			"Content-Type": []string{"application/json"},
+			"Retry-After":  []string{"30"},
+			// upstream miscellaneous headers must not survive the rebuild
+			"X-Upstream-Topology": []string{"internal-dc1"},
+		},
+		Body: ioutil.NopCloser(strings.NewReader(`{"error":"primary down"}`)),
+	}
+
+	snapshot := snapshotPrimaryError(res)
+	if snapshot == nil {
+		t.Fatal("expected a snapshot")
+	}
+	if snapshot.status != 503 {
+		t.Errorf("snapshot status = %d, want 503", snapshot.status)
+	}
+
+	rebuilt := rebuildPrimaryErrorResponse(*snapshot)
+	if rebuilt.StatusCode != 503 {
+		t.Errorf("rebuilt status = %d, want 503", rebuilt.StatusCode)
+	}
+	if got := rebuilt.Header.Get("Content-Type"); got != "application/json" {
+		t.Errorf("rebuilt Content-Type = %q", got)
+	}
+	if got := rebuilt.Header.Get("Retry-After"); got != "30" {
+		t.Errorf("rebuilt Retry-After = %q", got)
+	}
+	if rebuilt.Header.Get("X-Upstream-Topology") != "" {
+		t.Error("upstream miscellaneous headers must not be restored")
+	}
+	body, err := ioutil.ReadAll(rebuilt.Body)
+	if err != nil {
+		t.Fatalf("read rebuilt body failed: %v", err)
+	}
+	if string(body) != `{"error":"primary down"}` {
+		t.Errorf("rebuilt body = %q", string(body))
+	}
+}
+
+func TestSnapshotPrimaryErrorNoResponse(t *testing.T) {
+	if snapshot := snapshotPrimaryError(nil); snapshot != nil {
+		t.Errorf("nil response must snapshot to nil, got %+v", snapshot)
+	}
+	res := &bfe_http.Response{StatusCode: 500, Header: make(bfe_http.Header)}
+	if snapshot := snapshotPrimaryError(res); snapshot != nil {
+		t.Errorf("response without body must snapshot to nil, got %+v", snapshot)
+	}
+}
+
+func TestSnapshotPrimaryErrorTruncation(t *testing.T) {
+	big := strings.Repeat("x", aiPrimaryErrorBodyLimit+100)
+	res := &bfe_http.Response{
+		StatusCode: 500,
+		Header:     make(bfe_http.Header),
+		Body:       ioutil.NopCloser(strings.NewReader(big)),
+	}
+
+	snapshot := snapshotPrimaryError(res)
+	if snapshot == nil {
+		t.Fatal("expected a snapshot")
+	}
+	if len(snapshot.body) != aiPrimaryErrorBodyLimit {
+		t.Errorf("snapshot body len = %d, want capped %d", len(snapshot.body), aiPrimaryErrorBodyLimit)
+	}
+
+	rebuilt := rebuildPrimaryErrorResponse(*snapshot)
+	body, _ := ioutil.ReadAll(rebuilt.Body)
+	if len(body) != aiPrimaryErrorBodyLimit {
+		t.Errorf("rebuilt body len = %d, want %d", len(body), aiPrimaryErrorBodyLimit)
+	}
+}
+
 func TestShouldTriggerFallback(t *testing.T) {
 	if !shouldTriggerFallback(nil, bfe_http.ConnectError{}, "") {
 		t.Error("expected fallback on connect error")

@@ -93,6 +93,7 @@ BackupCount = 2
 
 [BasicConf]
 OpenDebug = true
+DataConfPath = ./mod_access_pb3/mod_access_pb.data
 `
 	if err := ioutil.WriteFile(confPath, []byte(content), 0644); err != nil {
 		os.RemoveAll(dir)

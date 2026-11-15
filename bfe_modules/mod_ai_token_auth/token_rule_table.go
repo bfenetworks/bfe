@@ -195,11 +195,18 @@ func (m *ModuleAITokenAuth) ValidateUserTokenByReq(req *bfe_basic.Request) (toke
 
 	if len(token.Subnet) > 0 {
 		inSubnet := false
+		// Decide by the real client address alone when it is available. Only
+		// fall back to the remote peer (TCP) address when no client address is
+		// available: direct requests always set ClientAddr = RemoteAddr, and a
+		// trusted proxy may omit a usable client IP header. Checking the proxy
+		// peer as an alternative (rather than as a fallback) would let an
+		// out-of-subnet client pass through an in-subnet proxy (CWE-863).
+		srcAddr := req.ClientAddr
+		if srcAddr == nil {
+			srcAddr = req.RemoteAddr
+		}
 		for _, subnet := range token.Subnet {
-			if req.ClientAddr != nil && subnet.Contains(req.ClientAddr.IP) {
-				inSubnet = true
-				break
-			} else if req.RemoteAddr != nil && subnet.Contains(req.RemoteAddr.IP) {
+			if srcAddr != nil && subnet.Contains(srcAddr.IP) {
 				inSubnet = true
 				break
 			}

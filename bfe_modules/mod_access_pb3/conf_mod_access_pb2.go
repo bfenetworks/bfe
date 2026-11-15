@@ -17,6 +17,8 @@ package mod_access_pb3
 import (
 	"fmt"
 
+	"github.com/bfenetworks/bfe/bfe_util"
+
 	"github.com/bfenetworks/go-lib/log/log4go"
 	gcfg "gopkg.in/gcfg.v1"
 )
@@ -36,11 +38,20 @@ type ConfModAccessPb2 struct {
 
 	BasicConf struct {
 		OpenDebug bool // whether open debug
+		// DataConfPath is the path of mod_access_pb.data, the dynamic
+		// (hot-reloadable) configuration file of this module. Relative
+		// paths are resolved against the conf root (same rule as
+		// mod_ai_route.RouteRulePath). Optional: when empty, the module
+		// runs without dynamic config (default behavior, no whitelisted
+		// headers). A configured-but-missing data file is tolerated at
+		// startup with a warning, keeping upgrades behavior-compatible
+		// for deployments that do not create the file yet.
+		DataConfPath string
 	}
 }
 
 // load config from config file
-func ConfLoad(filePath string) (*ConfModAccessPb2, error) {
+func ConfLoad(filePath string, confRoot string) (*ConfModAccessPb2, error) {
 	var cfg ConfModAccessPb2
 	var err error
 
@@ -51,7 +62,7 @@ func ConfLoad(filePath string) (*ConfModAccessPb2, error) {
 	}
 
 	// check conf of mod_access_pb
-	err = cfg.Check()
+	err = cfg.Check(confRoot)
 	if err != nil {
 		return &cfg, err
 	}
@@ -59,11 +70,11 @@ func ConfLoad(filePath string) (*ConfModAccessPb2, error) {
 	return &cfg, nil
 }
 
-func (cfg *ConfModAccessPb2) Check() error {
-	return ConfModAccessPbCheck(cfg)
+func (cfg *ConfModAccessPb2) Check(confRoot string) error {
+	return ConfModAccessPbCheck(cfg, confRoot)
 }
 
-func ConfModAccessPbCheck(cfg *ConfModAccessPb2) error {
+func ConfModAccessPbCheck(cfg *ConfModAccessPb2, confRoot string) error {
 	if cfg.Log.LogPrefix == "" {
 		return fmt.Errorf("LogPrefix is empty")
 	}
@@ -78,6 +89,10 @@ func ConfModAccessPbCheck(cfg *ConfModAccessPb2) error {
 
 	if cfg.Log.BackupCount <= 0 {
 		return fmt.Errorf("BackupCount should > 0: %d", cfg.Log.BackupCount)
+	}
+
+	if cfg.BasicConf.DataConfPath != "" {
+		cfg.BasicConf.DataConfPath = bfe_util.ConfPathProc(cfg.BasicConf.DataConfPath, confRoot)
 	}
 
 	return nil

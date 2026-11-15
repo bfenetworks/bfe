@@ -216,3 +216,89 @@ func TestValidateUserTokenByReqRejectionKeepsIdentity(t *testing.T) {
 		}
 	})
 }
+
+// security fix: the subnet gate must be decided by the real client address
+// alone when it is available. Before the fix, ValidateUserTokenByReq accepted
+// the key when EITHER the client address or the remote peer (proxy) address
+// was in the configured subnet, so an out-of-subnet client could pass through
+// an in-subnet trusted proxy (CWE-863, Incorrect Authorization).
+func TestValidateUserTokenByReqSubnetUsesClientAddrOnly(t *testing.T) {
+	_, cidr, err := net.ParseCIDR("10.0.0.0/8")
+	if err != nil {
+		t.Fatalf("ParseCIDR failed: %v", err)
+	}
+	mkModule := func() *ModuleAITokenAuth {
+		tok := newWhitelistTestToken(nil, nil)
+		tok.Subnet = []*net.IPNet{cidr}
+		return newWhitelistTestModule(tok)
+	}
+	tcpAddr := func(ip string) *net.TCPAddr {
+		return &net.TCPAddr{IP: net.ParseIP(ip), Port: 12345}
+	}
+	newReq := func(t *testing.T) *bfe_basic.Request {
+		return newWhitelistTestRequest(t, "/v1/chat/completions", `{"model":"gpt-4"}`)
+	}
+
+	t.Run("out-of-subnet client via in-subnet proxy is rejected", func(t *testing.T) {
+		req := newReq(t)
+		req.ClientAddr = tcpAddr("203.0.113.10")
+		req.RemoteAddr = tcpAddr("10.0.0.5")
+
+		tok, err := mkModule().ValidateUserTokenByReq(req)
+		if err == nil {
+			t.Fatal("expected rejection for out-of-subnet client behind in-subnet proxy")
+		}
+		if err.Code != bfe_basic.CodeSubnetNotAllowed {
+			t.Fatalf("err.Code = %q, want %q", err.Code, bfe_basic.CodeSubnetNotAllowed)
+		}
+		if ai := req.GetAiBasicInfo(); ai.AiAuthInfo.RejectReason != bfe_basic.CodeSubnetNotAllowed {
+			t.Errorf("RejectReason = %q, want %q", ai.AiAuthInfo.RejectReason, bfe_basic.CodeSubnetNotAllowed)
+		}
+		if tok != nil {
+			t.Errorf("token = %v, want nil on rejection", tok)
+		}
+	})
+
+	t.Run("in-subnet client via out-of-subnet proxy is accepted", func(t *testing.T) {
+		req := newReq(t)
+		req.ClientAddr = tcpAddr("10.1.2.3")
+		req.RemoteAddr = tcpAddr("198.51.100.5")
+
+		tok, err := mkModule().ValidateUserTokenByReq(req)
+		if err != nil {
+			t.Fatalf("got err %v, want acceptance for in-subnet client", err)
+		}
+		if tok == nil || tok.KeyId != "key-1" {
+			t.Fatalf("token = %v, want key-1", tok)
+		}
+	})
+
+	t.Run("nil client addr falls back to remote addr", func(t *testing.T) {
+		m := mkModule()
+
+		req := newReq(t)
+		req.ClientAddr = nil
+		req.RemoteAddr = tcpAddr("10.0.0.5")
+		if _, err := m.ValidateUserTokenByReq(req); err != nil {
+			t.Fatalf("in-subnet remote addr: got err %v, want acceptance", err)
+		}
+
+		req = newReq(t)
+		req.ClientAddr = nil
+		req.RemoteAddr = tcpAddr("198.51.100.5")
+		if _, err := m.ValidateUserTokenByReq(req); err == nil {
+			t.Fatal("out-of-subnet remote addr: expected rejection")
+		}
+	})
+
+	t.Run("no subnet configured skips the check", func(t *testing.T) {
+		m := newWhitelistTestModule(newWhitelistTestToken(nil, nil))
+
+		req := newReq(t)
+		req.ClientAddr = tcpAddr("203.0.113.10")
+		req.RemoteAddr = tcpAddr("198.51.100.5")
+		if _, err := m.ValidateUserTokenByReq(req); err != nil {
+			t.Fatalf("got err %v, want acceptance when no subnet is configured", err)
+		}
+	})
+}
