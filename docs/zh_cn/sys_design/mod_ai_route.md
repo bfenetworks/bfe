@@ -946,12 +946,17 @@ func (m *ModuleAiRoute) routeFoundProductHandler(req *bfe_basic.Request) (int, *
    - 构造新的 target，重新调用 clusterInvoke()
    - 第一个成功（2xx/3xx）即停止
 5. 所有尝试均失败：
-   - 返回最后一个 attempt 的错误响应
+   - 主选 attempt 产生了响应（status+body）→ 返回主选的错误响应
+     （末次 attempt 的错误只进日志：fallback 的错误语义不代表主路径故障性质）
+   - 主选 attempt 为纯传输错误（无响应）→ 返回最后一个 attempt 的结果
 ```
 
-> 行为变更说明：2026-11 起（v1.10.0-dev），未选中的其余 targets 并入降级链，
-> targets 内的加权集群互为兜底；此前选中 target 失败后直接降级到 fallbacks，
-> 其余 targets 在同一请求内不会被尝试。
+> 行为变更说明（2026-11，v1.10.0-dev）：
+>
+> 1. 未选中的其余 targets 并入降级链，targets 内的加权集群互为兜底；此前选中
+>    target 失败后直接降级到 fallbacks，其余 targets 在同一请求内不会被尝试。
+> 2. 全部尝试耗尽后返回**主选**（首个 attempt）错误而非末次错误；此前透传末次
+>    attempt 的响应，fallback 的错误（如 model_not_found）常掩盖主路径真实故障。
 
 ## 7. 与现有系统的集成
 

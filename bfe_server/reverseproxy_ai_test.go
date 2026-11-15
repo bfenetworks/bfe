@@ -193,6 +193,81 @@ func TestBuildAiForwardAttemptsFallbackOnlyWhenNoTargets(t *testing.T) {
 	}
 }
 
+func TestSnapshotPrimaryErrorRebuildRoundTrip(t *testing.T) {
+	res := &bfe_http.Response{
+		StatusCode: 503,
+		Header: bfe_http.Header{
+			"Content-Type": []string{"application/json"},
+			"Retry-After":  []string{"30"},
+			// upstream miscellaneous headers must not survive the rebuild
+			"X-Upstream-Topology": []string{"internal-dc1"},
+		},
+		Body: ioutil.NopCloser(strings.NewReader(`{"error":"primary down"}`)),
+	}
+
+	snapshot := snapshotPrimaryError(res)
+	if snapshot == nil {
+		t.Fatal("expected a snapshot")
+	}
+	if snapshot.status != 503 {
+		t.Errorf("snapshot status = %d, want 503", snapshot.status)
+	}
+
+	rebuilt := rebuildPrimaryErrorResponse(*snapshot)
+	if rebuilt.StatusCode != 503 {
+		t.Errorf("rebuilt status = %d, want 503", rebuilt.StatusCode)
+	}
+	if got := rebuilt.Header.Get("Content-Type"); got != "application/json" {
+		t.Errorf("rebuilt Content-Type = %q", got)
+	}
+	if got := rebuilt.Header.Get("Retry-After"); got != "30" {
+		t.Errorf("rebuilt Retry-After = %q", got)
+	}
+	if rebuilt.Header.Get("X-Upstream-Topology") != "" {
+		t.Error("upstream miscellaneous headers must not be restored")
+	}
+	body, err := ioutil.ReadAll(rebuilt.Body)
+	if err != nil {
+		t.Fatalf("read rebuilt body failed: %v", err)
+	}
+	if string(body) != `{"error":"primary down"}` {
+		t.Errorf("rebuilt body = %q", string(body))
+	}
+}
+
+func TestSnapshotPrimaryErrorNoResponse(t *testing.T) {
+	if snapshot := snapshotPrimaryError(nil); snapshot != nil {
+		t.Errorf("nil response must snapshot to nil, got %+v", snapshot)
+	}
+	res := &bfe_http.Response{StatusCode: 500, Header: make(bfe_http.Header)}
+	if snapshot := snapshotPrimaryError(res); snapshot != nil {
+		t.Errorf("response without body must snapshot to nil, got %+v", snapshot)
+	}
+}
+
+func TestSnapshotPrimaryErrorTruncation(t *testing.T) {
+	big := strings.Repeat("x", aiPrimaryErrorBodyLimit+100)
+	res := &bfe_http.Response{
+		StatusCode: 500,
+		Header:     make(bfe_http.Header),
+		Body:       ioutil.NopCloser(strings.NewReader(big)),
+	}
+
+	snapshot := snapshotPrimaryError(res)
+	if snapshot == nil {
+		t.Fatal("expected a snapshot")
+	}
+	if len(snapshot.body) != aiPrimaryErrorBodyLimit {
+		t.Errorf("snapshot body len = %d, want capped %d", len(snapshot.body), aiPrimaryErrorBodyLimit)
+	}
+
+	rebuilt := rebuildPrimaryErrorResponse(*snapshot)
+	body, _ := ioutil.ReadAll(rebuilt.Body)
+	if len(body) != aiPrimaryErrorBodyLimit {
+		t.Errorf("rebuilt body len = %d, want %d", len(body), aiPrimaryErrorBodyLimit)
+	}
+}
+
 func TestShouldTriggerFallback(t *testing.T) {
 	if !shouldTriggerFallback(nil, bfe_http.ConnectError{}, "") {
 		t.Error("expected fallback on connect error")

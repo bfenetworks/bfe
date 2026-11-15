@@ -21,6 +21,7 @@
 package bfe_server
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
@@ -1367,6 +1368,65 @@ func buildAiForwardAttempts(targets []bfe_basic.AiRouteTarget, selected bfe_basi
 	return attempts
 }
 
+// aiPrimaryErrorBodyLimit caps the primary error body retained across the
+// fallback loop. Error payloads are small; the cap only guards against a
+// misbehaving upstream pinning a large buffer for the whole chain.
+const aiPrimaryErrorBodyLimit = 1 << 20
+
+// aiPrimaryErrorSnapshot captures the primary attempt's error response
+// before the fallback loop closes its body with the connection.
+type aiPrimaryErrorSnapshot struct {
+	status      int
+	body        []byte
+	contentType string
+	retryAfter  string
+}
+
+// snapshotPrimaryError reads the primary attempt's error response into a
+// snapshot. Returns nil when there is no response to surface (pure transport
+// error): in that case the last attempt's result is kept by design, since
+// the primary has nothing to say.
+func snapshotPrimaryError(res *bfe_http.Response) *aiPrimaryErrorSnapshot {
+	if res == nil || res.Body == nil {
+		return nil
+	}
+	s := &aiPrimaryErrorSnapshot{
+		status:      res.StatusCode,
+		contentType: res.Header.Get("Content-Type"),
+		retryAfter:  res.Header.Get("Retry-After"),
+	}
+	body, err := io.ReadAll(io.LimitReader(res.Body, aiPrimaryErrorBodyLimit+1))
+	if err != nil {
+		log.Logger.Warn("ServeHTTPForAI: read primary error body failed: %v", err)
+		return nil
+	}
+	if int64(len(body)) > aiPrimaryErrorBodyLimit {
+		log.Logger.Warn("ServeHTTPForAI: primary error body exceeds %d, truncated", aiPrimaryErrorBodyLimit)
+		body = body[:aiPrimaryErrorBodyLimit]
+	}
+	s.body = body
+	return s
+}
+
+// rebuildPrimaryErrorResponse reconstructs a response from the primary
+// snapshot. Only the client-meaningful headers are restored; upstream
+// miscellaneous headers are not forwarded (no topology leak).
+func rebuildPrimaryErrorResponse(s aiPrimaryErrorSnapshot) *bfe_http.Response {
+	resp := new(bfe_http.Response)
+	resp.StatusCode = s.status
+	resp.Header = make(bfe_http.Header)
+	resp.Header.Set("Server", "bfe")
+	if s.contentType != "" {
+		resp.Header.Set("Content-Type", s.contentType)
+	}
+	if s.retryAfter != "" {
+		resp.Header.Set("Retry-After", s.retryAfter)
+	}
+	resp.Header.Set("Content-Length", strconv.Itoa(len(s.body)))
+	resp.Body = io.NopCloser(bytes.NewReader(s.body))
+	return resp
+}
+
 // ServeHTTPForAI processes AI gateway http request and sends http response.
 func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_basic.Request) (action int) {
 	var err error
@@ -1387,6 +1447,9 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 	var lastCluster *bfe_cluster.BfeCluster
 	var invokeErr error
 	var bodyModel string
+	var primarySnapshot *aiPrimaryErrorSnapshot
+	var primaryCluster *bfe_cluster.BfeCluster
+	var lastAttemptName string
 
 	isRedirect := false
 	resFlushInterval := time.Duration(0)
@@ -1552,6 +1615,7 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 	bodyModel = aiMeta.ClientModel
 
 	for i, attempt := range attempts {
+		lastAttemptName = attempt.ClusterName
 		if i > 0 {
 			// fallback attempt: reset request state
 			if !p.resetRequestForRetry(basicReq) {
@@ -1599,8 +1663,35 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 			attempt.ClusterName, invokeErr, getResponseStatus(res))
 
 		if res != nil {
+			if i == 0 {
+				// Record the primary attempt's error before its body is
+				// closed: if the whole chain fails, the client gets the
+				// PRIMARY error, not the last attempt's — a fallback's error
+				// (e.g. model_not_found) must not mask the primary path's
+				// real fault. A pure transport error on the primary (no
+				// response) keeps the last attempt's result.
+				primarySnapshot = snapshotPrimaryError(res)
+				primaryCluster = lastCluster
+			}
 			res.Body.Close()
 		}
+	}
+
+	// All attempts failed: surface the primary attempt's error instead of
+	// the last attempt's. The snapshot exists only when the primary produced
+	// a response and the chain moved on; a final success (2xx/3xx) is left
+	// untouched. When the last attempt has no response at all (res == nil)
+	// the primary's real error is still more truthful than the generic
+	// gateway-side 502, so it is surfaced as well.
+	if primarySnapshot != nil && (res == nil || res.StatusCode >= 400) {
+		primaryStatus := primarySnapshot.status
+		if res != nil {
+			res.Body.Close()
+		}
+		res = rebuildPrimaryErrorResponse(*primarySnapshot)
+		lastCluster = primaryCluster
+		log.Logger.Info("ServeHTTPForAI: fallback exhausted, return primary error, primary_cluster[%s] status[%d], last_cluster[%s]",
+			attempts[0].ClusterName, primaryStatus, lastAttemptName)
 	}
 
 	// The request body can no longer be rewound once the fallback loop
