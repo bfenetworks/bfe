@@ -129,6 +129,10 @@ type testOptions struct {
 	// clearDefaultPath removes ProductRulePath from mod_ai_token_auth.conf so
 	// the module falls back to its built-in default path.
 	clearDefaultPath bool
+	// enableTrustClientIP adds mod_trust_clientip to the Modules list (before
+	// all other modules) so that the loopback test client is a trusted source
+	// and BFE derives ClientAddr from X-Real-Ip / X-Forwarded-For.
+	enableTrustClientIP bool
 }
 
 type testEnv struct {
@@ -187,6 +191,13 @@ func (e *testEnv) startBFE(opts testOptions) {
 		confPath := filepath.Join(e.confDir, "mod_ai_token_auth", "mod_ai_token_auth.conf")
 		if err := common.RewriteConfLine(confPath, "ProductRulePath", ""); err != nil {
 			e.t.Fatalf("clear ProductRulePath failed: %v", err)
+		}
+	}
+
+	if opts.enableTrustClientIP {
+		confPath := filepath.Join(e.confDir, "bfe.conf")
+		if err := addModuleToBFEConf(confPath, "mod_trust_clientip"); err != nil {
+			e.t.Fatalf("enable mod_trust_clientip failed: %v", err)
 		}
 	}
 
@@ -306,7 +317,9 @@ func (e *testEnv) stopAndParseLogs() []*bfe_access_pb.RequestLog {
 	return logs
 }
 
-func (e *testEnv) sendRequest(key string, body []byte) (*http.Response, string, error) {
+// sendRequest sends one request; realIPs optionally sets the X-Real-Ip header
+// (used by the trusted-proxy subnet tests to pose as an arbitrary client).
+func (e *testEnv) sendRequest(key string, body []byte, realIPs ...string) (*http.Response, string, error) {
 	url := fmt.Sprintf("http://127.0.0.1:%d%s", e.bfePort, apiPath)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
@@ -315,6 +328,9 @@ func (e *testEnv) sendRequest(key string, body []byte) (*http.Response, string, 
 	req.Host = apiHost
 	if key != "" {
 		req.Header.Set("Authorization", "Bearer "+key)
+	}
+	if len(realIPs) > 0 && realIPs[0] != "" {
+		req.Header.Set("X-Real-Ip", realIPs[0])
 	}
 	req.Header.Set("Content-Type", "application/json")
 
@@ -811,4 +827,89 @@ func TestTC13_DefaultRulePath(t *testing.T) {
 		e.logBFEException()
 		t.Fatalf("expected 401 without api key, got %d, body: %s", resp.StatusCode, body)
 	}
+}
+
+// addModuleToBFEConf inserts "Modules = name" before the first Modules line so
+// the module initializes ahead of the others.
+func addModuleToBFEConf(path, name string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(data), "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "Modules") {
+			lines = append(lines[:i], append([]string{"Modules = " + name}, lines[i:]...)...)
+			return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
+		}
+	}
+	return fmt.Errorf("no Modules line found in %s", path)
+}
+
+// TestTC14_SubnetGateBehindTrustedProxy verifies the subnet gate follows the
+// real client address alone once a trusted proxy supplies it. The test client
+// connects from loopback, mod_trust_clientip marks it as a trusted source, and
+// the key's subnet covers the loopback proxy peer (127.0.0.0/8) but not the
+// posed client address. Before the security fix, ValidateUserTokenByReq
+// accepted the key when either address was in the subnet, so the
+// out-of-subnet client passed through the in-subnet proxy (CWE-863).
+func TestTC14_SubnetGateBehindTrustedProxy(t *testing.T) {
+	newProxyEnv := func(t *testing.T) *testEnv {
+		restricted := unlimitedToken(apiKey, apiKeyId)
+		restricted.subnet = "127.0.0.0/8" // covers the loopback proxy peer
+		return newTestEnv(t, testOptions{
+			tokens:              []tokenSpec{restricted},
+			enableTrustClientIP: true,
+		})
+	}
+
+	t.Run("out-of-subnet client behind in-subnet trusted proxy is rejected", func(t *testing.T) {
+		e := newProxyEnv(t)
+		defer e.Close()
+
+		resp, body, err := e.sendRequest(apiKey, defaultBody, "203.0.113.10")
+		if err != nil {
+			t.Fatalf("send request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusForbidden {
+			e.logBFEException()
+			t.Fatalf("expected 403, got %d, body: %s", resp.StatusCode, body)
+		}
+		if eb := parseAIError(t, body); eb.Error.Code != "SUBNET_NOT_ALLOWED" {
+			t.Fatalf("expected code SUBNET_NOT_ALLOWED, got %q, body: %s", eb.Error.Code, body)
+		}
+		if hits := e.backend.Hits(); hits != 0 {
+			t.Fatalf("rejected request must not reach the backend, hits=%d", hits)
+		}
+	})
+
+	t.Run("in-subnet client behind trusted proxy is accepted", func(t *testing.T) {
+		e := newProxyEnv(t)
+		defer e.Close()
+
+		resp, body, err := e.sendRequest(apiKey, defaultBody, "127.0.0.2")
+		if err != nil {
+			t.Fatalf("send request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			e.logBFEException()
+			t.Fatalf("expected 200, got %d, body: %s", resp.StatusCode, body)
+		}
+	})
+
+	t.Run("trusted proxy without client ip header falls back to peer addr", func(t *testing.T) {
+		e := newProxyEnv(t)
+		defer e.Close()
+
+		// no X-Real-Ip: ClientAddr stays nil and the gate falls back to the
+		// TCP peer (the loopback proxy), which is inside the subnet.
+		resp, body, err := e.sendAuthenticated()
+		if err != nil {
+			t.Fatalf("send request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			e.logBFEException()
+			t.Fatalf("expected 200, got %d, body: %s", resp.StatusCode, body)
+		}
+	})
 }

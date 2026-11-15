@@ -1,0 +1,11 @@
+{
+    "Version": "init version",
+    "Config": {
+        "loopback": [
+            {
+                "Begin": "127.0.0.0",
+                "End": "127.255.255.255"
+            }
+        ]
+    }
+}
