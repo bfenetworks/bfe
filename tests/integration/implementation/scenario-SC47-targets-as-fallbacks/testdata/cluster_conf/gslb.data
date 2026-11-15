@@ -1,0 +1,18 @@
+{
+    "clusters": {
+        "cluster_ta": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_ta": 100
+        },
+        "cluster_tb": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_tb": 100
+        },
+        "cluster_fc": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_fc": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20261112150000"
+}

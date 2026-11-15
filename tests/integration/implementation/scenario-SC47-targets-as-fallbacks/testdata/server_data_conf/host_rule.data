@@ -1,0 +1,16 @@
+{
+    "Version": "20261112150000",
+    "Hosts": {
+        "ai_product": [
+            "tc1.target-fb.example.org",
+            "tc2.target-fb.example.org",
+            "tc3.target-fb.example.org",
+            "tc4.target-fb.example.org"
+        ]
+    },
+    "HostTags": {
+        "ai_product": [
+            "ai_product"
+        ]
+    }
+}
