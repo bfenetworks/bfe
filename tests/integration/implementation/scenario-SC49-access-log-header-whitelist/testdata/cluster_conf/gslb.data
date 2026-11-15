@@ -1,0 +1,10 @@
+{
+    "clusters": {
+        "cluster_hdr": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_hdr": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20261115090000"
+}

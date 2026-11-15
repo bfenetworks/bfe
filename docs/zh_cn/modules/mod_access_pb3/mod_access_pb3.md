@@ -8,6 +8,10 @@ mod_access_pb3 用于以 Protocol Buffers v3 格式记录访问日志。
 
 模块基础配置文件说明详见 [mod_access_pb3.conf](../../configuration/mod_access_pb3/mod_access_pb3.conf.md)。
 
+## 动态配置
+
+模块动态配置文件（按白名单采集请求头/响应头）说明详见 [mod_access_pb.data](../../configuration/mod_access_pb3/mod_access_pb.data.md)。该文件支持热加载，修改后调用 reload 接口 `/reload/mod_access_pb3` 生效。
+
 ## 日志说明
 
 mod_access_pb3 以二进制 protobuf 格式输出请求日志和会话日志，日志定义参见 [bfe-access-pb](https://github.com/bfenetworks/bfe-access-pb)。

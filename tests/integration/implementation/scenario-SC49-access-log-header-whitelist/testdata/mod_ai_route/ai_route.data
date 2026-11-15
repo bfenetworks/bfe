@@ -1,0 +1,28 @@
+{
+    "Version": "20261115090000",
+    "route_rules": {
+        "apikey_ak_hdr_a": {
+            "type": "apikey",
+            "owner": "ak_hdr_a",
+            "rules": [
+                {
+                    "name": "hdr_a-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_hdr",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_hdr_a": [
+            "apikey_ak_hdr_a"
+        ]
+    }
+}

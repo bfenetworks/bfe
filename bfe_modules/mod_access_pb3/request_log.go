@@ -120,11 +120,24 @@ func (m *ModuleAccessPb3) requestLogGen(req *bfe_basic.Request, res *bfe_http.Re
 	// request header info
 	reqReqHeaderInfoGen(requestLog, req)
 
+	// whitelisted headers from mod_access_pb.data (dynamic config); names
+	// are canonicalized at load time, so matching below is case-insensitive
+	// by construction
+	dataConf := m.dataHolder.Snapshot()
+	if ah := dataConf.AccessHeader; len(ah.ReqHeaders) > 0 {
+		requestLog.ReqHeaders = append(requestLog.ReqHeaders,
+			collectWhitelistedHeaders(req.HttpRequest.Header, ah.ReqHeaders)...)
+	}
+
 	// find location info
 	reqFindLocationInfoGen(requestLog, req)
 
 	// response info
 	reqResponseInfoGen(requestLog, req, res)
+	if ah := dataConf.AccessHeader; res != nil && len(ah.ResHeaders) > 0 {
+		requestLog.ResHeaders = append(requestLog.ResHeaders,
+			collectWhitelistedHeaders(res.Header, ah.ResHeaders)...)
+	}
 
 	// time info
 	reqTimeInfoGen(requestLog, req)
@@ -312,6 +325,30 @@ func reqReqHeaderInfoGen(reqLog *bfe_access_pb3.RequestLog, req *bfe_basic.Reque
 
 	// Method
 	reqLog.Method = proto.String(req.HttpRequest.Method)
+}
+
+// collectWhitelistedHeaders collects the whitelisted headers into
+// HttpHeader entries. names must already be in HTTP canonical form (the
+// loader guarantees this), so the lookup is a single map access and
+// case-insensitive by construction. Multiple values of the same header
+// are joined with ",", following the convention of the standalone header
+// fields above; values are truncated to the downstream column width
+// (maxWhitelistedHeaderValueLen). A header absent from the message is
+// simply not logged; a present-but-empty one is logged with an empty
+// value, preserving the fact that it existed.
+func collectWhitelistedHeaders(header bfe_http.Header, names []string) []*bfe_access_pb3.HttpHeader {
+	var out []*bfe_access_pb3.HttpHeader
+	for _, name := range names {
+		values, found := header[name]
+		if !found {
+			continue
+		}
+		out = append(out, &bfe_access_pb3.HttpHeader{
+			Key:   proto.String(name),
+			Value: proto.String(truncateHeaderValue(strings.Join(values, ","))),
+		})
+	}
+	return out
 }
 
 // find location info

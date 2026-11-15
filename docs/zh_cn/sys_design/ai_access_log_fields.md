@@ -338,6 +338,7 @@ message AIRouteRuleHit {
 ## 8. 参考文档
 
 - `bfe-access-pb/docs/protobuf.md`
+- `bfe/docs/zh_cn/sys_design/mod_access_pb_data_conf.md`（通用请求/响应头白名单采集与 `mod_access_pb.data` 动态配置设计；本文件聚焦 AI 字段 701-900，两者互补）
 - `bfe-access-pb/CHANGELOG.md`
 - `bfe/docs/zh_cn/modifications/2026-08-19-update-ai-access-log-fields/design-changes.md`
 - `bfe/docs/zh_cn/modifications/2026-08-22-audio-token-billing-support/design-changes.md`
