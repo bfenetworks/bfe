@@ -2362,12 +2362,24 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 	}
 
 	state := newAIKeyAttemptState()
+	// slotFullSet tracks which eligible Keys have had their concurrent
+	// session slot (AIConf.MaxConcurrencyPerKey) refused for this request;
+	// when every eligible Key is in it, the request yields the synthetic 429
+	// (see the acquire block below) instead of spinning the retry loop.
+	slotFullSet := make(map[int]struct{})
 
 	// Session affinity state (binding/penalty) is core forwarding logic; the
 	// Redis handle is owned by the server (see initAIKeyAffinityRedis), not
 	// borrowed from any module. Unconfigured (nil) means affinity is disabled.
 	redisClient := srv.AIKeyAffinityRedis
 	sessionID := clientKeySessionID(basicReq)
+	// slotSessionID is the identity recorded in the per-Key concurrency slot
+	// set. An empty ClientKeyId (defensive: token auth guarantees one)
+	// degrades to one request-level anonymous identity per aiClusterInvoke.
+	slotSessionID := sessionID
+	if slotSessionID == "" {
+		slotSessionID = fmt.Sprintf("anon-%d", atomic.AddUint64(&aiKeyConcAnonSeq, 1))
+	}
 	// batch/file operations chain to the upstream key recorded by
 	// mod_ai_batch (batch-level affinity, independent of client affinity).
 	// Key selection happens before the HandleAfterAITargetModel callbacks
@@ -2447,6 +2459,56 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 
 			log.Logger.Info("aiClusterInvoke: select ai key [name=%s weight=%d] for cluster[%s]",
 				key.Name, key.Weight, attempt.ClusterName)
+
+			// Per-Key concurrent session limit (AIConf.MaxConcurrencyPerKey):
+			// a full slot rotates this Key for the current request exactly
+			// like a 429, but writes no penalty and deletes no affinity
+			// binding (a full cap is not an upstream failure). A session
+			// already holding a slot (binding hit or keepKey retry) always
+			// passes: the acquire script's ZSCORE branch refreshes its
+			// expiry, so affinity is never defeated by the limit itself.
+			if limit := cluster.AIConf.MaxConcurrencyPerKey; limit > 0 && redisClient != nil {
+				if !acquireAIKeySessionSlot(redisClient, cluster.Name, key.Name, slotSessionID,
+					policy.SessionAffinityRedisPrefix, limit, policy.SessionAffinityTTL, p.proxyState) {
+					state.usedSet[idx] = struct{}{}
+					slotFullSet[idx] = struct{}{}
+					p.proxyState.ReqAiKeyConcurrencyLimited.Inc(1)
+					log.Logger.Info("aiClusterInvoke: ai key [name=%s] session slots full (%d), rotate",
+						key.Name, limit)
+					// The binding-miss path of chooseAIKeyWithAffinity has
+					// already written a fresh binding for this session;
+					// drop it, otherwise the next round re-selects this
+					// full Key through the binding-hit path (which ignores
+					// usedSet) and the loop never makes progress. A
+					// pre-existing binding (boundName != "") is always for
+					// a slot the session itself holds, which the acquire
+					// refresh branch never refuses.
+					if boundName == "" && sessionID != "" {
+						if err := redisDeleteBinding(cluster.Name, sessionID, policy, redisClient); err != nil {
+							p.proxyState.ReqAiKeyAffinityRedisErr.Inc(1)
+						}
+					}
+					if allEligibleKeysSlotFull(keys, state, slotFullSet) {
+						// Every eligible Key is full: same synthetic-429
+						// contract as key exhaustion (issue #1440) — a
+						// decidable result that triggers cluster fallback.
+						// Retry-After uses the binding idle timeout: a slot
+						// frees when some session idles out, within TTL.
+						retryAfter := policy.SessionAffinityTTL
+						if retryAfter <= 0 {
+							retryAfter = 60
+						}
+						log.Logger.Warn("aiClusterInvoke: all ai keys session slots full for cluster[%s], return synthetic 429", attempt.ClusterName)
+						res = newNoAvailableKey429Resp(basicReq, attempt.Model, retryAfter,
+							"no available upstream api key (session slots full)")
+						basicReq.ErrCode = bfe_basic.ErrAiNoAvailableKey
+						basicReq.ErrMsg = "no available upstream api key (session slots full)"
+						return res, action, cluster, nil, newBodyModel
+					}
+					keepKey = false
+					continue
+				}
+			}
 		}
 		keepKey = false
 
@@ -2499,6 +2561,13 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 		case statusCode == 429:
 			// rate limit: mark key as used and rotate to another key
 			state.usedSet[idx] = struct{}{}
+			if cluster.AIConf.MaxConcurrencyPerKey > 0 {
+				// Failure-driven unbind: this session rotates away, so free
+				// its concurrency slot on this Key immediately instead of
+				// waiting for the slot TTL.
+				releaseAIKeySessionSlot(redisClient, cluster.Name, key.Name, slotSessionID,
+					policy.SessionAffinityRedisPrefix, policy.SessionAffinityTTL, p.proxyState)
+			}
 			if policy.SessionAffinity && policy.SessionAffinityPenaltyEnable && redisClient != nil {
 				setKeyPenalty(cluster.Name, key.Name, "429", policy.SessionAffinityPenaltyTTL429, policy, redisClient)
 				if sessionID != "" {
@@ -2510,6 +2579,11 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 		case statusCode == 401 || statusCode == 402 || statusCode == 403:
 			// auth failure: mark key as dead
 			state.deadSet[idx] = struct{}{}
+			if cluster.AIConf.MaxConcurrencyPerKey > 0 {
+				// Failure-driven unbind: free the session slot immediately.
+				releaseAIKeySessionSlot(redisClient, cluster.Name, key.Name, slotSessionID,
+					policy.SessionAffinityRedisPrefix, policy.SessionAffinityTTL, p.proxyState)
+			}
 			if policy.SessionAffinity && policy.SessionAffinityPenaltyEnable && redisClient != nil {
 				setKeyPenalty(cluster.Name, key.Name, fmt.Sprintf("%d", statusCode), policy.SessionAffinityPenaltyTTLAuth, policy, redisClient)
 				if sessionID != "" {
@@ -2536,6 +2610,11 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 					if policy.SessionAffinityPenaltyEnable {
 						setKeyPenalty(cluster.Name, key.Name, "404-batch", 60, policy, redisClient)
 					}
+				}
+				if cluster.AIConf.MaxConcurrencyPerKey > 0 {
+					// Failure-driven unbind: free the session slot immediately.
+					releaseAIKeySessionSlot(redisClient, cluster.Name, key.Name, slotSessionID,
+						policy.SessionAffinityRedisPrefix, policy.SessionAffinityTTL, p.proxyState)
 				}
 				log.Logger.Info("aiClusterInvoke: batch resource 404 on key [name=%s], batch bindings cleared", key.Name)
 				return res, action, cluster, nil, newBodyModel

@@ -1,0 +1,12 @@
+{
+    "Version": "20261115150000",
+    "BasicRule": {
+        "ai_product": [
+            {
+                "Hostname": ["*"],
+                "Path": ["*"],
+                "ClusterName": "cluster_key_conc"
+            }
+        ]
+    }
+}

@@ -330,6 +330,7 @@
         "PriceMissAction": "fallback_chat",
         "Keys": [ /* AIConf.Keys 元素 */ ],
         "KeyPolicy": { /* AIConf.KeyPolicy 元素 */ },
+        "MaxConcurrencyPerKey": 0,
         "ModelMapping": {},
         "ModelTable": { /* AIConf.ModelTable 元素 */ }
     }
@@ -342,6 +343,7 @@
 | Provider | string | N | 该集群在 `model_prices` 中对应的 provider 名称；用于成本统计 | - |
 | Keys | []object | N | 后端大模型服务的 API-Key 列表 | 元素见 [9.1 AIConf.Keys 元素](#91-aiconfkeys-元素) |
 | KeyPolicy | object | N | API-Key 选择策略与重试退避配置 | 元素见 [9.2 AIConf.KeyPolicy 元素](#92-aiconfkeypolicy-元素) |
+| MaxConcurrencyPerKey | integer | N | 每把上游 Key 的最大并发会话数；`0` = 不限（默认）。语义与占用规则见 [9.2 会话级 Key 亲和性说明](#92-aiconfkeypolicy-元素) 末尾的「并发会话数限制说明」 | >= 0 |
 | ModelMapping | map[string]string | N | 原请求 model -> 后端服务 model 的映射；命中则重写请求 model | 键值均非空 |
 | MatchPrefix | string | N | 需要匹配的 provider/model 前缀；用于 OpenRouter 等聚合 provider 场景 | `StripPrefix=true` 时必填；须以 `/` 结尾 |
 | StripPrefix | boolean | N | 是否裁剪 `MatchPrefix` 指定前缀；默认 `false` | - |
@@ -430,6 +432,14 @@
 - 所有可用 Key 都被惩罚时，BFE 返回网关合成的 429（`NO_AVAILABLE_KEY`），其 `Retry-After` 与 `error.details.retry_after_seconds` 取 `SessionAffinityPenaltyTTL429`，含义是「按当前配置，被惩罚 Key 的最长剩余等待时间」，不是精确剩余值。
 - Redis 不可用时自动降级为无亲和的加权随机选择，不影响请求成功率。
 - 若 `Keys` 中只有一个有效 Key，直接短路返回，不会访问 Redis。
+
+**并发会话数限制说明（`MaxConcurrencyPerKey`）：**
+
+- 该值对集群内每把 Key 统一生效：同一时刻最多允许 `N` 个不同会话（以 `AiBasicInfo.ClientKeyId` 标识）绑定到**一把** Key；同一会话的多个并发请求只计 1。`0`（默认）表示不限，此时链路零改动、零 Redis 调用。
+- 占用生命周期与 Key 会话亲和性绑定完全一致：会话绑定即占用一个会话槽，每次请求命中刷新空闲时间；**绑定空闲超时（`SessionAffinityTTL`）或失败解绑时释放**，不按"最后一个在飞请求结束"释放（避免会话在多把 Key 间反复切换、降低 prompt cache 命中率）。
+- 实现为 Redis 全局计数（跨 BFE 实例精确上限）：每把 Key 一个 ZSet `{prefix}:conc:{cluster_name}:{key_name}`（member=sessionID，score=过期时间戳，Lua 原子脚本完成"清过期 + 判满 + 入集/刷新"）；多实例部署时上限就是 `N`，不存在按实例翻倍。
+- 新会话（绑定未命中）选 Key 时，若候选 Key 会话槽已满则跳过该 Key 轮换其它 Key；槽满**不写惩罚键**（满不是上游故障），但选择阶段新写入的亲和绑定会随拒绝一并回滚——否则下一轮绑定命中路径（不查 `usedSet`）会再次选中这把满 Key，轮换无法推进；全部 Key 不可用时走网关合成 429（`NO_AVAILABLE_KEY`），正常触发 cluster fallback。
+- 依赖 `bfe.conf` `[AIKeyAffinity]` 段配置的 Redis（与亲和性同一连接）；未配置或故障时**fail-open**（限制不生效，请求照常放行并记录告警指标），Redis 恢复后自动恢复限制。
 
 ### 9.3 AIConf.ModelTable 元素
 

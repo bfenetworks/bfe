@@ -233,6 +233,13 @@ type AIConf struct {
 	Provider     string             // provider name in model_prices
 	Keys         []AIKey            // multiple API keys; empty means no key injection
 	KeyPolicy    *AIKeyPolicy       // key selection & retry policy
+
+	// MaxConcurrencyPerKey limits the number of distinct client sessions
+	// (ClientKeyId) that may hold a slot on each upstream Key of this
+	// cluster, across all BFE instances. 0 (default) = unlimited. When > 0
+	// it requires the [AIKeyAffinity] Redis (same handle as session
+	// affinity) and fails open on Redis errors.
+	MaxConcurrencyPerKey int
 	ModelTable   *ModelTable        // pricing table, auto-filled by InnerAPI
 
 	// MatchPrefix defines the provider/model prefix this cluster matches.
@@ -1396,6 +1403,10 @@ func AIConfCheck(conf *AIConf) error {
 		if err := AIKeyPolicyCheck(conf.KeyPolicy); err != nil {
 			return fmt.Errorf("KeyPolicy:%s", err.Error())
 		}
+	}
+
+	if conf.MaxConcurrencyPerKey < 0 {
+		return fmt.Errorf("MaxConcurrencyPerKey: %d must be >= 0", conf.MaxConcurrencyPerKey)
 	}
 
 	return nil

@@ -170,3 +170,12 @@ func (s *RedisServer) ZMembers(key string) []string {
 	}
 	return members
 }
+
+// ZAdd sets the score of a sorted-set member, creating the set when missing.
+// Used by SC48 to plant expired occupancy members (score in the past) that the
+// BFE acquire script must reap via ZREMRANGEBYSCORE.
+func (s *RedisServer) ZAdd(key string, score float64, member string) {
+	if _, err := s.server.ZAdd(key, score, member); err != nil {
+		s.t.Fatalf("zadd %s failed: %v", key, err)
+	}
+}
