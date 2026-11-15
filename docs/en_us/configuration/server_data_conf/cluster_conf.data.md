@@ -184,6 +184,7 @@ Configuration hot-reload does not reset the OPEN state (avoiding a thundering he
 | AIConf.Provider | String | Provider name of this cluster in `model_prices` | N | Automatically populated by ai-gateway-api based on the OpenAPI `llm_config.provider`; used for cost statistics | - |
 | AIConf.Keys | []Object | API-Key list for the backend large model service | N | Empty array means no API-Key is injected when accessing the backend service and the request's API-Key is retained; keys are selected by weighted random | See the "AIConf.Keys elements" table below |
 | AIConf.KeyPolicy | Object | API-Key selection policy and retry/backoff configuration | N | Takes effect in multi-Key scenarios; backoff logic does not take effect with single Key or no Key | See the "AIConf.KeyPolicy elements" table below |
+| AIConf.MaxConcurrencyPerKey | Integer | Maximum number of concurrent sessions per upstream Key | N | `0` = unlimited (default). Semantics and occupancy rules: see "Per-Key concurrent session limit" at the end of the affinity notes below | >= 0 |
 | AIConf.ModelMapping | Map[string]string | Mapping from original request model to backend service model | N | When accessing the backend service, the model field in the request will be looked up in this mapping; if matched, the model field in the request will be overwritten | Both keys and values are non-empty |
 | AIConf.MatchPrefix | String | Provider/model prefix to match | N | e.g. `openrouter/`; must end with `/`; used for aggregator providers such as OpenRouter | Required when `StripPrefix=true` |
 | AIConf.StripPrefix | Boolean | Whether to strip the prefix specified by `MatchPrefix` | N | When `true`, the prefix is removed from the request model field before forwarding to the backend; when `false`, the prefix is only used as a routing marker and not stripped | Defaults to `false` |
@@ -249,6 +250,14 @@ Common provider values for `AIConf.ProtocolPaths`:
 - When every usable Key is penalized, BFE returns a synthetic 429 (`NO_AVAILABLE_KEY`) whose `Retry-After` and `error.details.retry_after_seconds` come from `SessionAffinityPenaltyTTL429`; the value is the **longest remaining wait under the current configuration**, not an exact remaining time.
 - If Redis is unavailable, the affinity logic gracefully degrades to weighted random selection without affecting request success rate.
 - If `Keys` contains only one valid Key, it is returned directly without accessing Redis.
+
+**Per-Key concurrent session limit (`MaxConcurrencyPerKey`):**
+
+- The value applies uniformly to every Key in the cluster: at most `N` distinct sessions (identified by `AiBasicInfo.ClientKeyId`) may be bound to a single Key at the same time; multiple concurrent requests from the same session count as one. `0` (default) means unlimited — the request path is unchanged and no Redis calls are made.
+- Occupancy lifetime is aligned exactly with the session-affinity binding: a session occupies one slot from binding until the binding idle timeout (`SessionAffinityTTL`) or unbind on failure; it is **not** released when the last in-flight request finishes (releasing early would let sessions ping-pong between Keys and hurt prompt cache hit rate).
+- Implemented as a Redis-global counter (exact cap across BFE instances): one ZSet per Key at `{prefix}:conc:{cluster_name}:{key_name}` (member=sessionID, score=expiry timestamp; a Lua script atomically cleans expired members, checks the cap, and inserts/refreshes). With multiple BFE instances the cap is exactly `N`, not `N` per instance.
+- When a new session (binding miss) selects a Key whose slots are full, that Key is skipped and another is tried; a full Key does **not** get a penalty key (full is not an upstream failure), but the affinity binding freshly written during selection is rolled back together with the refusal — otherwise the next round's binding-hit path (which ignores `usedSet`) would select the same full Key again and rotation could not progress. When no Key is usable, BFE returns the synthetic 429 (`NO_AVAILABLE_KEY`) and cluster fallback proceeds normally.
+- Requires the Redis configured in the `[AIKeyAffinity]` section of `bfe.conf` (same connection as affinity). When the section is absent or Redis fails, the limit fails open (requests pass unthrottled with an alert metric) and is enforced again once Redis recovers.
 
 ##### AIConf.ModelTable elements
 

@@ -132,6 +132,10 @@ type ProxyState struct {
 	ReqAiKeyAffinityPenaltySkip *metrics.Counter
 	ReqAiKeyAffinityRedisErr    *metrics.Counter
 
+	// per-Key concurrent session limit (AIConf.MaxConcurrencyPerKey)
+	ReqAiKeyConcurrencyLimited  *metrics.Counter // session slot full, key skipped for this request
+	ReqAiKeyConcurrencyRedisErr *metrics.Counter // slot acquire/release redis errors (fail-open count)
+
 	// upstream error normalization (AIConf.NormalizeUpstreamError)
 	ErrNormalizeHit             *metrics.Counter // upstream error recognized and rewritten
 	ErrNormalizeMiss            *metrics.Counter // upstream error not recognized (passthrough)

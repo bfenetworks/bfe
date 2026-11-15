@@ -1,0 +1,18 @@
+{
+    "clusters": {
+        "cluster_key_conc": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        },
+        "cluster_key_conc_primary": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        },
+        "cluster_key_conc_fb": {
+            "GSLB_BLACKHOLE": 0,
+            "sub_sub": 100
+        }
+    },
+    "hostname": "gslb-test",
+    "ts": "20261115150000"
+}

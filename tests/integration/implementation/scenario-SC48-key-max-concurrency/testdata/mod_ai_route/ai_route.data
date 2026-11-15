@@ -1,0 +1,63 @@
+{
+    "Version": "20261115150000",
+    "route_rules": {
+        "apikey_key_conc": {
+            "type": "apikey",
+            "owner": "ak_conc_a",
+            "rules": [
+                {
+                    "name": "key-conc-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_key_conc",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        },
+        "apikey_key_conc_fb": {
+            "type": "apikey",
+            "owner": "ak_conc_fb",
+            "rules": [
+                {
+                    "name": "key-conc-fallback",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_key_conc_primary",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": [
+                        {
+                            "ClusterName": "cluster_key_conc_fb",
+                            "Model": ""
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_conc_a": [
+            "apikey_key_conc"
+        ],
+        "ak_conc_b": [
+            "apikey_key_conc"
+        ],
+        "ak_conc_c": [
+            "apikey_key_conc"
+        ],
+        "ak_conc_fb": [
+            "apikey_key_conc_fb"
+        ],
+        "ak_conc_fb2": [
+            "apikey_key_conc_fb"
+        ]
+    }
+}
