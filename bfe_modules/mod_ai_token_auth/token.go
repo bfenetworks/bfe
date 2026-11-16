@@ -20,6 +20,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/go-lib/quota"
 
 	"github.com/bfenetworks/bfe/bfe_basic"
@@ -83,22 +84,47 @@ func (q *QuotaPlan) Deduct(client redis_client.Client, amount int64) (int64, err
 		return 0, errors.New("RedisKey is empty")
 	}
 
+	var (
+		remaining int64
+		err       error
+	)
 	if quota.IsRMB(q.Unit) {
-		return q.deductRMB(client, amount)
+		remaining, err = q.deductRMB(client, amount)
+	} else {
+		remaining, err = q.deductToken(client, amount)
+	}
+	if err != nil {
+		return 0, err
 	}
 
-	return q.deductToken(client, amount)
+	if remaining < 0 {
+		noteQuotaOverage(q.Id, amount, remaining)
+	}
+
+	return remaining, nil
+}
+
+// noteQuotaOverage records the issue #1476 signal when a deduction drives
+// the balance negative: the plan is in arrears and the overrun amount is
+// fully recorded in the balance (used = quota - remaining), which matters
+// most for PassNoQuota plans where deductions continue past the limit.
+func noteQuotaOverage(planId string, amount, remaining int64) {
+	if defaultTokenAuthModule == nil {
+		return
+	}
+	defaultTokenAuthModule.state.QuotaOverage.Inc(1)
+	log.Logger.Warn("quota overage deducted: plan=%s amount=%d remaining=%d", planId, amount, remaining)
 }
 
 func (q *QuotaPlan) deductToken(client redis_client.Client, amount int64) (int64, error) {
+	// issue #1476: deduct the full amount even when it exceeds the remaining
+	// balance, so the balance may go negative and the overrun stays recorded
+	// (used = quota - remaining) instead of being silently dropped.
 	lua := `
 		local current = tonumber(redis.call('GET', KEYS[1]) or '0')
 		local amount = tonumber(ARGV[1])
-		local deduct = math.min(current, amount)
-		if deduct > 0 then
-			redis.call('DECRBY', KEYS[1], deduct)
-		end
-		return math.max(0, current - deduct)
+		redis.call('DECRBY', KEYS[1], amount)
+		return current - amount
 	`
 	script := client.NewScript(lua)
 	result, err := script.Run(q.RedisKey, amount)
@@ -115,6 +141,8 @@ func (q *QuotaPlan) deductToken(client redis_client.Client, amount int64) (int64
 }
 
 func (q *QuotaPlan) deductRMB(client redis_client.Client, amount int64) (int64, error) {
+	// issue #1476: same full-deduction semantics as deductToken; the balance
+	// may go negative so an overrun past the plan limit stays recorded.
 	lua := `
 		local raw = redis.call('GET', KEYS[1])
 		local current
@@ -125,11 +153,8 @@ func (q *QuotaPlan) deductRMB(client redis_client.Client, amount int64) (int64, 
 			current = tonumber(raw)
 		end
 		local cost = tonumber(ARGV[1])
-		local deduct = math.min(current, cost)
-		if deduct > 0 then
-			redis.call('DECRBY', KEYS[1], deduct)
-		end
-		return math.max(0, current - deduct)
+		redis.call('DECRBY', KEYS[1], cost)
+		return current - cost
 	`
 	script := client.NewScript(lua)
 	result, err := script.Run(q.RedisKey, amount, q.Quota)

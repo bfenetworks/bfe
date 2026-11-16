@@ -16,7 +16,7 @@
 | Config{v}[].Cond             | String  | 规则条件             | Y    | 语法详见 [Condition](../../condition/condition_grammar.md) | -                                                    |
 | Config{v}[].Actions          | Array   | 规则动作列表         | Y    | -                                                          | -                                                    |
 | Config{v}[].Actions[].Cmd    | String  | 规则动作名称         | Y    | 合法值详见模块动作说明                                     | -                                                    |
-| Config{v}[].Actions[].Params | Object  | 规则动作参数         | N    | 依具体动作而定                                             | -                                                    |
+| Config{v}[].Actions[].Params | Object  | 规则动作参数         | N    | 依具体动作而定；URL 参数支持 `=` 前缀表达式，见下文        | -                                                    |
 | Config{v}[].Status           | Integer | HTTP 状态码          | N    | -                                                          | 合法 HTTP 重定向状态码                               |
 
 ## 模块动作
@@ -27,6 +27,24 @@
 | URL_FROM_QUERY | 设置重定向URL为指定请求Query值                    |
 | URL_PREFIX_ADD | 设置重定向URL为原始URL增加指定前缀                |
 | SCHEME_SET     | 设置重定向URL为原始URL并修改协议(支持HTTP和HTTPS) |
+
+### 动作参数表达式
+
+`URL_SET` 与 `URL_PREFIX_ADD` 的 `Params[0]`（目标 URL / URL 前缀）支持以
+`=` 前缀内嵌表达式；`URL_FROM_QUERY` 的 query key 与 `SCHEME_SET` 的协议值
+保持字面量。语法与错误处理详见
+[动作参数表达式](../00-common.md#10-动作参数表达式actionparam)。
+
+示例（基于请求 host 构造重定向 URL）：
+
+```json
+{
+    "Cmd": "URL_SET",
+    "Params": [
+        "=\"https://\" + ReqHost() + \"/v2\""
+    ]
+}
+```
 
 ## 配置示例
 

@@ -44,8 +44,10 @@ const redactMask = "••••••••"
 // after the fallback loop settles — so it never affects retry/fallback
 // decisions — and before any byte is written to the client or the EPP
 // filter wraps res.Body, so both the EPP chain and the access log observe
-// the final form. No-op unless the last cluster enables the feature;
-// every failure path is fail-open (the original response is preserved).
+// the final form. No-op unless the last cluster enables the feature (or
+// the issue #1474 mid-stream-drop error event injection, which defaults
+// on); every failure path is fail-open (the original response is
+// preserved).
 func normalizeUpstreamError(res *bfe_http.Response, lastCluster *bfe_cluster.BfeCluster,
 	aiMeta *bfe_basic.AiBasicInfo, state *ProxyState) {
 	if res == nil || aiMeta == nil {
@@ -56,7 +58,7 @@ func normalizeUpstreamError(res *bfe_http.Response, lastCluster *bfe_cluster.Bfe
 		cfg = lastCluster.AIConf.NormalizeUpstreamError
 	}
 	eff := cfg.Effective()
-	if !eff.Enabled && !eff.StreamEnabled {
+	if !eff.Enabled && !eff.StreamEnabled && !cfg.StreamTruncatedErrorEnabled() {
 		return
 	}
 	// Gateway-generated responses (auth/limit/quota/protocol-mismatch) are
@@ -69,14 +71,27 @@ func normalizeUpstreamError(res *bfe_http.Response, lastCluster *bfe_cluster.Bfe
 	isStream := res.IsSse || strings.HasPrefix(res.Header.Get("Content-Type"), "text/event-stream")
 	if isStream {
 		if !eff.StreamEnabled {
+			// issue #1474: without stream normalization, still tell the
+			// client when the upstream drops the stream mid-response.
+			if cfg.StreamTruncatedErrorEnabled() {
+				res.Body = newStreamTruncationInjector(res.Body, adapter, eff, false, aiMeta, state)
+			}
 			return
 		}
-		res.Body = &aiErrorStreamFilter{
+		inner := &aiErrorStreamFilter{
 			src:     res.Body,
 			adapter: adapter,
 			cfg:     eff,
 			aiMeta:  aiMeta,
 			state:   state,
+		}
+		if cfg.StreamTruncatedErrorEnabled() {
+			// The injector sits outside the normalizer so the read error
+			// surfaces here even though aiErrorStreamFilter abandons its
+			// finalize path on a non-EOF error (issue #1474).
+			res.Body = newStreamTruncationInjector(inner, adapter, eff, true, aiMeta, state)
+		} else {
+			res.Body = inner
 		}
 		return
 	}

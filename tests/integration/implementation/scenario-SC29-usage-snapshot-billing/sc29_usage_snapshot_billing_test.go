@@ -16,6 +16,7 @@ package sc29
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -55,6 +56,10 @@ var (
 
 	openAIContentChunk = `{"id":"chatcmpl-1","choices":[{"delta":{"content":"hello"}}]}`
 	openAIUsageChunk   = `{"id":"chatcmpl-1","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}`
+	// Issue #1497: an early usage riding a non-terminal event type. The type
+	// is outside the final-usage whitelist, so the values must feed the
+	// protocol context only and never become the billing basis.
+	openAIEarlyUsageChunk = `{"id":"chatcmpl-1","type":"response.output_text.delta","choices":[{"delta":{"content":" world"}}],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}`
 
 	// expectedActualCost: prompt 10 * 300 + completion 20 * 900 = 21000
 	// fixed-point units (input 0.000003 yuan/token, output 0.000009).
@@ -77,13 +82,14 @@ var (
 )
 
 type testEnv struct {
-	t          *testing.T
-	processEnv *common.ProcessEnv
-	backend    *common.MockBackend
-	redis      *common.RedisServer
-	bfePort    int
-	logDir     string
-	stopBFE    func()
+	t              *testing.T
+	processEnv     *common.ProcessEnv
+	backend        *common.MockBackend
+	redis          *common.RedisServer
+	bfePort        int
+	bfeMonitorPort int
+	logDir         string
+	stopBFE        func()
 }
 
 func newTestEnv(t *testing.T) *testEnv {
@@ -161,8 +167,40 @@ func newTestEnvWithEstimateToken(t *testing.T, estimateToken bool) *testEnv {
 		rewriteEstimateToken(t, filepath.Join(confDir, "bfe.conf"))
 	}
 
-	e.bfePort, _, e.stopBFE = e.processEnv.StartBFE(confDir, e.logDir)
+	e.bfePort, e.bfeMonitorPort, e.stopBFE = e.processEnv.StartBFE(confDir, e.logDir)
 	return e
+}
+
+// proxyStateCounter reads /monitor/proxy_state and returns one counter value
+// (e.g. PanicClientConnServe for the issue #1501 no-panic assertion). The
+// body is a metrics.MetricsData serialization: counters live in CounterData
+// under UPPER_SNAKE keys (CamelCase is converted), NOT in module_state2's
+// SCounters — parsing the wrong field silently yields a nil map and a
+// vacuous assertion (PR #1504 second-round review).
+func (e *testEnv) proxyStateCounter(t *testing.T, key string) int64 {
+	t.Helper()
+
+	url := fmt.Sprintf("http://127.0.0.1:%d/monitor/proxy_state", e.bfeMonitorPort)
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatalf("get proxy_state failed: %v", err)
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read proxy_state failed: %v", err)
+	}
+	var data struct {
+		CounterData map[string]int64 `json:"CounterData"`
+	}
+	if err := json.Unmarshal(raw, &data); err != nil {
+		t.Fatalf("parse proxy_state failed: %v, body: %s", err, raw)
+	}
+	v, ok := data.CounterData[key]
+	if !ok {
+		t.Fatalf("counter %q not found in proxy_state: %s", key, raw)
+	}
+	return v
 }
 
 // rewriteEstimateToken flips the generated bfe.conf to EstimateToken = false.
@@ -501,9 +539,12 @@ func TestTC02_ExplicitIncludeUsageFalseFallsBackToEstimate(t *testing.T) {
 	}
 }
 
-// TestTC03 verifies issue #1398: a client abort without final usage is not
-// billed (issue #1352 semantics) while the access log keeps the auth-seeded
-// prompt estimate — the reset guard must never wipe the log view.
+// TestTC03 verifies issue #1478 (billed abort arm, pb3 log view): with
+// EstimateToken=true a client abort without a final usage is billed by the
+// forwarded-content estimate, and the access log reports the estimate
+// (in + out) with ai_usage_source=aborted instead of the issue #1398-era
+// "keep the seeding residue, total=0" shape. The estimation-disabled
+// zero-deduction arm is covered by SC12 TC-04.
 func TestTC03_ClientAbortKeepsLogViewZeroDeduction(t *testing.T) {
 	e := newTestEnv(t)
 	defer e.Close()
@@ -520,23 +561,35 @@ func TestTC03_ClientAbortKeepsLogViewZeroDeduction(t *testing.T) {
 	readUntilMarker(t, conn, reader, "chatcmpl-1")
 	abortRST(t, conn)
 
+	// prompt = auth-time seeding (request body / 4); completion = every frame
+	// the estimator saw / 4 — the forwarded content chunk plus the error frame
+	// issue #1474's injector emits when the abort closes the upstream body
+	// (same accounting as TC-07/08).
+	promptEst := int64(len(openAIStreamBody)) / 4
+	completionEst := int64(len(openAIContentChunk))/4 + int64(len(openAIInjectedErrorData))/4
+	wantRemaining := initialQuota - (promptEst*300 + completionEst*900)
+
 	remaining := e.quotaRemaining(t)
-	if remaining != initialQuota {
-		t.Fatalf("client abort without final usage must not be deducted: remaining = %d, want %d",
-			remaining, initialQuota)
+	if remaining != wantRemaining {
+		t.Fatalf("client abort must be billed by the forwarded-content estimate: remaining = %d, want %d (promptEst=%d completionEst=%d)",
+			remaining, wantRemaining, promptEst, completionEst)
 	}
 	_ = resp.Body.Close()
 
-	// Log view: the auth-seeded prompt estimate survives; total stays 0
-	// (nothing billed, no final usage).
-	promptEst := int64(len(openAIStreamBody)) / 4
 	reqLogs := e.stopAndParseLogs()
 	reqLog := reqLogs[len(reqLogs)-1]
 	if reqLog.AiInputTokens == nil || *reqLog.AiInputTokens != promptEst {
-		t.Errorf("ai_input_tokens = %v, want %d (log view must keep the auth estimate)", reqLog.AiInputTokens, promptEst)
+		t.Errorf("ai_input_tokens = %v, want %d (auth estimate)", reqLog.AiInputTokens, promptEst)
 	}
-	if reqLog.AiTotalTokens == nil || *reqLog.AiTotalTokens != 0 {
-		t.Errorf("ai_total_tokens = %v, want 0 (aborted, nothing billed)", reqLog.AiTotalTokens)
+	if reqLog.AiOutputTokens == nil || *reqLog.AiOutputTokens != completionEst {
+		t.Errorf("ai_output_tokens = %v, want %d (forwarded-content estimate)", reqLog.AiOutputTokens, completionEst)
+	}
+	if reqLog.AiTotalTokens == nil || *reqLog.AiTotalTokens != promptEst+completionEst {
+		t.Errorf("ai_total_tokens = %v, want %d (mirrored estimate, issue #1398 semantics)",
+			reqLog.AiTotalTokens, promptEst+completionEst)
+	}
+	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceAborted {
+		t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceAborted)
 	}
 }
 
@@ -586,6 +639,16 @@ func TestTC04_CleanEofWithoutDoneBillsEstimate(t *testing.T) {
 	}
 	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceEstimated {
 		t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceEstimated)
+	}
+	// issue #1473: the clean-EOF shape is also a truncation, and with the
+	// default cluster configuration (no NormalizeUpstreamError) the injector is
+	// the only component watching the stream.
+	if reqLog.AiStreamTruncated == nil || !reqLog.GetAiStreamTruncated() {
+		t.Errorf("ai_stream_truncated must be set on a clean EOF without [DONE], got %v",
+			reqLog.AiStreamTruncated)
+	}
+	if reqLog.AiClientClosedAfterComplete != nil {
+		t.Error("ai_client_closed_after_complete must stay unset: the client read to EOF")
 	}
 }
 
@@ -665,11 +728,196 @@ func TestTC06_CleanEofEstimateTokenOffStaysZeroWithSignal(t *testing.T) {
 
 	reqLogs := e.stopAndParseLogs()
 	reqLog := reqLogs[len(reqLogs)-1]
-	if reqLog.AiTotalTokens == nil || *reqLog.AiTotalTokens != 0 {
-		t.Errorf("ai_total_tokens = %v, want 0 (nothing billed)", reqLog.AiTotalTokens)
+	// Issue #1480: the unbillable residue is still reported, so the token
+	// triple stays complete even though nothing was charged.
+	if reqLog.AiTotalTokens == nil {
+		t.Fatalf("ai_total_tokens is nil, want input+output (issue #1480)")
+	}
+	var in, out int64
+	if reqLog.AiInputTokens != nil {
+		in = *reqLog.AiInputTokens
+	}
+	if reqLog.AiOutputTokens != nil {
+		out = *reqLog.AiOutputTokens
+	}
+	// EstimateToken=false seeds nothing, so the triple is 0/0/0 — but it must
+	// still be internally consistent (issue #1480 keeps total = in + out for
+	// every shape it reports).
+	if got := *reqLog.AiTotalTokens; got != in+out {
+		t.Errorf("ai_total_tokens = %d, want %d (ai_input_tokens + ai_output_tokens)", got, in+out)
 	}
 	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceUnrecognized {
 		t.Errorf("ai_usage_source = %q, want %q (unbillable shape must keep its signal)",
 			got, bfe_basic.UsageSourceUnrecognized)
 	}
+}
+
+// TestTC10 verifies issue #1497 (product ruling on the issue, 2026-11-11):
+// an upstream that emits an early usage on a non-terminal event and then a
+// usage-less termination event must not bill the early usage values. The
+// early usage feeds the protocol context only (prompt fields); with no final
+// usage the request is billed by the forwarded-content estimate (issue
+// #1415 yardstick), reported as ai_usage_source=early_suppressed. Before the
+// fix the early aggregate (10*300 + 20*900 = 21000 units) was billed
+// verbatim, which is exactly what this test's exact-remaining assertion
+// rules out.
+func TestTC10_EarlyUsageNoFinalBillsForwardedContentEstimate(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.Close()
+
+	e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+	// Frame 1: plain content chunk (guess event, accumulates into the
+	// forwarded-content estimate). Frame 2: the early usage rides a
+	// non-terminal event type, so it is not a final usage (issue #1497);
+	// its prompt values become protocol context only. Frame 3: usage-less
+	// termination ([DONE]) — completes the response, contributes its own
+	// data length to the estimate.
+	e.backend.SSERaw = []string{
+		"data: " + openAIContentChunk + "\n\n",
+		"data: " + openAIEarlyUsageChunk + "\n\n",
+		"data: [DONE]\n\n",
+	}
+
+	respBody := e.sendOpenAIStream(t, openAIStreamBody)
+	if !strings.Contains(respBody, `"total_tokens":30`) {
+		t.Errorf("client must receive the early usage frame passed through, got: %s", respBody)
+	}
+
+	// Estimate fallback: prompt = the early usage's prompt context (10,
+	// mirrored by the context arm); completion = guess frames only (the
+	// content chunk and [DONE]; the early usage event contributes 0 as a
+	// non-guess event). Never the early aggregate 10+20.
+	prompt := int64(10)
+	completionEst := int64(len(openAIContentChunk))/4 + int64(len("[DONE]"))/4
+	expectedCost := prompt*300 + completionEst*900
+
+	remaining := e.quotaRemaining(t)
+	if remaining != initialQuota-expectedCost {
+		t.Fatalf("billing by forwarded-content estimate: remaining = %d, want %d (prompt=%d completionEst=%d; the early usage aggregate 10+20 must not be billed)",
+			remaining, initialQuota-expectedCost, prompt, completionEst)
+	}
+
+	reqLogs := e.stopAndParseLogs()
+	reqLog := reqLogs[len(reqLogs)-1]
+	if got := logInt64(reqLog.AiInputTokens); got != prompt {
+		t.Errorf("ai_input_tokens = %d, want %d (early usage prompt context)", got, prompt)
+	}
+	if got := logInt64(reqLog.AiOutputTokens); got != completionEst {
+		t.Errorf("ai_output_tokens = %d, want %d (forwarded-content estimate)", got, completionEst)
+	}
+	if got := logInt64(reqLog.AiTotalTokens); got != prompt+completionEst {
+		t.Errorf("ai_total_tokens = %d, want %d (mirrored estimate, issue #1398 semantics)", got, prompt+completionEst)
+	}
+	if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceEarlySuppressed {
+		t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceEarlySuppressed)
+	}
+}
+
+// TestTC15 verifies issue #1501: a non-streaming 200 response whose body is
+// truncated mid-transfer must not panic BFE (pre-fix: GetBodyAccessor nil-ed
+// res.Body and mod_body_process's JsonDecoder dereferenced a nil reader), and
+// the request must keep its full observability: a RequestLog row with
+// err_code=BK_READ_RESP_BODY, ai_usage_source=upstream_dropped, and billing
+// by the forwarded-content yardstick (issue #1474 non-stream boundary).
+// PR #1504 review revisions: EstimateToken=true/false two arms, the no-panic
+// assertion runs only after BFE stops (flushed logs, no vacuous pass), and
+// PanicClientConnServe is asserted directly.
+func TestTC15_NonStreamTruncatedBodyNoPanic(t *testing.T) {
+	runArm := func(t *testing.T, estimateToken bool) {
+		e := newTestEnvWithEstimateToken(t, estimateToken)
+		defer e.Close()
+
+		e.redis.SetQuota(redisKeyRMB, initialQuota)
+
+		// A full Anthropic message body; the mock declares the full length but
+		// writes only the first 128 bytes before killing the connection.
+		e.backend.Body = `{"id":"msg_01","type":"message","role":"assistant","model":"claude-3-sonnet","content":[{"type":"text","text":"BFE is a layer-7 load balancer originated at Baidu and a CNCF sandbox project."}],"stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":20,"total_tokens":30}}`
+		e.backend.BodyTruncateAt = 128
+
+		panicBefore := e.proxyStateCounter(t, "PANIC_CLIENT_CONN_SERVE")
+
+		nonStreamBody := []byte(`{"model":"claude-3","stream":false,"messages":[{"role":"user","content":"hi"}],"max_tokens":100}`)
+		respBody, readErr := e.sendStreamTolerant(t, "/v1/messages",
+			map[string]string{
+				"x-api-key":         apiKey,
+				"anthropic-version": "2023-06-01",
+				"Content-Type":      "application/json",
+			},
+			nonStreamBody)
+		// The upstream declared the full length but died mid-body, so the client
+		// must NOT receive a complete response: either its HTTP stack surfaces a
+		// truncated transport error, or (close-delimited response) it receives
+		// fewer bytes than promised. A clean read of the full body would mean
+		// BFE fabricated the missing bytes.
+		if readErr == nil && len(respBody) >= len(e.backend.Body) {
+			t.Fatalf("client read the full body of a truncated upstream response (err=%v, len=%d)", readErr, len(respBody))
+		}
+
+		// No connection-level panic at all (pre-fix the request died before
+		// mod_access_pb3 wrote its RequestLog).
+		if panicAfter := e.proxyStateCounter(t, "PANIC_CLIENT_CONN_SERVE"); panicAfter != panicBefore {
+			t.Fatalf("PanicClientConnServe grew %d -> %d (issue #1501)", panicBefore, panicAfter)
+		}
+
+		if estimateToken {
+			promptEst := int64(len(nonStreamBody)) / 4
+			wantRemaining := initialQuota - promptEst*300 // completion estimate: nothing forwarded
+			if remaining := e.quotaRemaining(t); remaining != wantRemaining {
+				e.logBFEException()
+				t.Fatalf("billed by the forwarded-content yardstick: remaining = %d, want %d (promptEst=%d)",
+					remaining, wantRemaining, promptEst)
+			}
+		} else {
+			if remaining := e.quotaRemaining(t); remaining != initialQuota {
+				e.logBFEException()
+				t.Fatalf("EstimateToken=false must not bill: remaining = %d, want %d", remaining, initialQuota)
+			}
+		}
+
+		// Access log assertions; stopAndParseLogs stops BFE first, so the
+		// exception-log read below sees flushed logs (review fix: the old
+		// order could pass vacuously on buffered output).
+		reqLogs := e.stopAndParseLogs()
+		if len(reqLogs) == 0 {
+			t.Fatal("expected at least 1 access log row, got 0")
+		}
+		reqLog := reqLogs[len(reqLogs)-1]
+		if got := reqLog.GetErrCode(); got != bfe_basic.ErrBkReadRespBody.Error() {
+			t.Errorf("err_code = %q, want %q", got, bfe_basic.ErrBkReadRespBody)
+		}
+		if reqLog.GetAiStream() {
+			t.Error("ai_stream must be false for a non-streaming request")
+		}
+		if estimateToken {
+			if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceUpstreamDropped {
+				t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceUpstreamDropped)
+			}
+		} else {
+			if got := reqLog.GetAiUsageSource(); got != bfe_basic.UsageSourceUnrecognized {
+				t.Errorf("ai_usage_source = %q, want %q", got, bfe_basic.UsageSourceUnrecognized)
+			}
+			if got := reqLog.GetAiZeroCostReason(); got != bfe_basic.ZeroCostReasonUpstreamDropped {
+				t.Errorf("ai_zero_cost_reason = %q, want %q", got, bfe_basic.ZeroCostReasonUpstreamDropped)
+			}
+		}
+
+		// exception.log is created lazily on the first exception: absence
+		// means no panic at all. Guard against a wrong log path by requiring
+		// the log directory itself to exist (the access log was just parsed
+		// from it, so this cannot pass vacuously).
+		logDir := filepath.Join(e.processEnv.WorkDir(), "log")
+		if _, err := os.Stat(logDir); err != nil {
+			t.Fatalf("log directory must exist after BFE stops: %v", err)
+		}
+		if data, err := os.ReadFile(filepath.Join(logDir, "exception.log")); err == nil && len(data) > 0 {
+			e.logBFEException()
+			t.Fatalf("bfe exception log must stay empty (issue #1501):\n%s", data)
+		} else if err != nil && !os.IsNotExist(err) {
+			t.Fatalf("read exception log failed: %v", err)
+		}
+	}
+
+	t.Run("EstimateToken=true", func(t *testing.T) { runArm(t, true) })
+	t.Run("EstimateToken=false", func(t *testing.T) { runArm(t, false) })
 }

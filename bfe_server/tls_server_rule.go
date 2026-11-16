@@ -17,22 +17,18 @@
 package bfe_server
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"net"
 	"strings"
 	"sync"
-)
 
-import (
-	"github.com/bfenetworks/go-lib/log"
-	"github.com/spaolacci/murmur3"
-)
-
-import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/tls_rule_conf"
 	"github.com/bfenetworks/bfe/bfe_http2"
 	"github.com/bfenetworks/bfe/bfe_stream"
-	"github.com/bfenetworks/bfe/bfe_tls"
+	"github.com/bfenetworks/bfe/bfe_util"
+	"github.com/bfenetworks/go-lib/log"
+	"github.com/spaolacci/murmur3"
 )
 
 var (
@@ -40,7 +36,12 @@ var (
 )
 
 type ServerRule struct {
-	TlsRule    bfe_tls.Rule    // server rule for tls
+	NextProtosConf *NextProtosConf        // next protos conf (with gray release params)
+	ClientAuth     tls.ClientAuthType     // tls client auth policy
+	ClientCAs      *x509.CertPool         // client CA pool for client auth
+	ClientCAName   string                 // client CA certificate name
+	ClientCRLPool  *tls_rule_conf.CRLPool // client cert CRL pool
+
 	H2Rule     bfe_http2.Rule  // server rule for h2
 	StreamRule bfe_stream.Rule // server rule for stream
 }
@@ -53,8 +54,6 @@ type TLSServerRuleMap struct {
 	nextProtosDef *NextProtosConf // default next protos conf
 	enableHttp2   bool            // enable http2 globally or not
 	enableSpdy    bool            // enable spdy globally or not
-	chacha20Def   bool            // default chacha20 conf
-	dynRecordDef  bool            // default dynamic record conf
 
 	versions Version // version of tls_rule_conf
 
@@ -75,65 +74,55 @@ func NewTLSServerRuleMap(state *ProxyState) *TLSServerRuleMap {
 	return m
 }
 
-// Get returns tls rule for given connection.
-func (m *TLSServerRuleMap) Get(c *bfe_tls.Conn) *bfe_tls.Rule {
-	r := m.getRule(c)
-	return &r.TlsRule
+// Get returns tls server rule for given connection.
+func (m *TLSServerRuleMap) Get(c *tls.Conn) *ServerRule {
+	vip := bfe_util.GetVip(c)
+	serverName := c.ConnectionState().ServerName
+	return m.getRuleByVipSni(vip, serverName)
+}
+
+// GetByVipSni returns tls server rule for given vip and server name.
+func (m *TLSServerRuleMap) GetByVipSni(vip net.IP, serverName string) *ServerRule {
+	return m.getRuleByVipSni(vip, serverName)
 }
 
 // GetHTTP2Rule returns h2 rule for given connection.
-func (m *TLSServerRuleMap) GetHTTP2Rule(c *bfe_tls.Conn) *bfe_http2.Rule {
-	r := m.getRule(c)
+func (m *TLSServerRuleMap) GetHTTP2Rule(c *tls.Conn) *bfe_http2.Rule {
+	r := m.Get(c)
 	return &r.H2Rule
 }
 
 // GetStreamRule returns stream rule for given connection.
-func (m *TLSServerRuleMap) GetStreamRule(c *bfe_tls.Conn) *bfe_stream.Rule {
-	r := m.getRule(c)
+func (m *TLSServerRuleMap) GetStreamRule(c *tls.Conn) *bfe_stream.Rule {
+	r := m.Get(c)
 	return &r.StreamRule
 }
 
-func (m *TLSServerRuleMap) getRule(c *bfe_tls.Conn) *ServerRule {
+func (m *TLSServerRuleMap) getRuleByVipSni(vip net.IP, serverName string) *ServerRule {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
-	// get tls rule conf by vip
-	if rule := m.getRuleByVip(c); rule != nil {
-		return rule
+	// get tls rule by vip
+	if vip != nil {
+		if rule := m.vipRuleMap[vip.String()]; rule != nil {
+			return rule
+		}
 	}
 
-	// get tls rule conf by sni (supported by modern browser)
-	if rule := m.getRuleBySni(c); rule != nil {
+	// get tls rule by sni (supported by modern browser)
+	if rule := m.sniRuleMap[serverName]; rule != nil {
 		return rule
 	}
 
 	// get default rule
-	return m.getDefaultRule(c)
+	return m.getDefaultRule()
 }
 
-func (m *TLSServerRuleMap) getRuleByVip(c *bfe_tls.Conn) *ServerRule {
-	vip := c.GetVip()
-	if vip == nil {
-		return nil
-	}
-
-	key := vip.String()
-	return m.vipRuleMap[key]
-}
-
-func (m *TLSServerRuleMap) getRuleBySni(c *bfe_tls.Conn) *ServerRule {
-	name := c.GetServerName()
-	return m.sniRuleMap[name]
-}
-
-func (m *TLSServerRuleMap) getDefaultRule(c *bfe_tls.Conn) *ServerRule {
+func (m *TLSServerRuleMap) getDefaultRule() *ServerRule {
 	rule := new(ServerRule)
 
-	rule.TlsRule.NextProtos = m.nextProtosDef
-	rule.TlsRule.Grade = bfe_tls.GradeC
-	rule.TlsRule.ClientAuth = false
-	rule.TlsRule.Chacha20 = m.chacha20Def
-	rule.TlsRule.DynamicRecord = m.dynRecordDef
+	rule.NextProtosConf = m.nextProtosDef
+	rule.ClientAuth = tls.NoClientCert
 
 	rule.H2Rule.MaxConcurrentStreams = 0
 	rule.H2Rule.MaxUploadBufferPerStream = 0
@@ -145,7 +134,7 @@ func (m *TLSServerRuleMap) getDefaultRule(c *bfe_tls.Conn) *ServerRule {
 }
 
 func (m *TLSServerRuleMap) Update(conf tls_rule_conf.BfeTlsRuleConf,
-	clientCAMap map[string]*x509.CertPool, clientCRLPoolMap map[string]*bfe_tls.CRLPool) {
+	clientCAMap map[string]*x509.CertPool, clientCRLPoolMap map[string]*tls_rule_conf.CRLPool) {
 	vipRuleMap := make(map[string]*ServerRule)
 	sniRuleMap := make(map[string]*ServerRule)
 
@@ -175,41 +164,26 @@ func (m *TLSServerRuleMap) Update(conf tls_rule_conf.BfeTlsRuleConf,
 	m.vipRuleMap = vipRuleMap
 	m.sniRuleMap = sniRuleMap
 	m.nextProtosDef = nextProtosDef
-	m.chacha20Def = conf.DefaultChacha20
-	m.dynRecordDef = conf.DefaultDynamicRecord
 	m.versions = versions
 	m.lock.Unlock()
 }
 
 func (m *TLSServerRuleMap) createServerRule(conf *tls_rule_conf.TlsRuleConf,
-	clientCAs *x509.CertPool, clientCRLPool *bfe_tls.CRLPool, defaultNextProtos []string) *ServerRule {
+	clientCAs *x509.CertPool, clientCRLPool *tls_rule_conf.CRLPool, defaultNextProtos []string) *ServerRule {
 	r := new(ServerRule)
 
 	// tls next protos
 	if len(conf.NextProtos) != 0 {
-		r.TlsRule.NextProtos = NewNextProtosConf(m, conf.NextProtos)
+		r.NextProtosConf = NewNextProtosConf(m, conf.NextProtos)
 	} else {
-		r.TlsRule.NextProtos = NewNextProtosConf(m, defaultNextProtos)
-	}
-
-	// tls security grade
-	if conf.Grade != "" {
-		r.TlsRule.Grade = conf.Grade
-	} else {
-		r.TlsRule.Grade = bfe_tls.GradeC
+		r.NextProtosConf = NewNextProtosConf(m, defaultNextProtos)
 	}
 
 	// tls client auth policy
-	r.TlsRule.ClientAuth = conf.ClientAuth
-	r.TlsRule.ClientCAs = clientCAs
-	r.TlsRule.ClientCAName = conf.ClientCAName
-	r.TlsRule.ClientCRLPool = clientCRLPool
-
-	// enable chacha20-poly1305 cipher suites
-	r.TlsRule.Chacha20 = conf.Chacha20
-
-	// enable dynamic tls record
-	r.TlsRule.DynamicRecord = conf.DynamicRecord
+	r.ClientAuth = conf.ClientAuth
+	r.ClientCAs = clientCAs
+	r.ClientCAName = conf.ClientCAName
+	r.ClientCRLPool = clientCRLPool
 
 	// h2/stream related settings
 	for _, protoConf := range conf.NextProtos {
@@ -276,7 +250,7 @@ func NewNextProtosConf(rule *TLSServerRuleMap, protoConf []string) *NextProtosCo
 	return c
 }
 
-func (c *NextProtosConf) Get(conn *bfe_tls.Conn) []string {
+func (c *NextProtosConf) Get(conn net.Conn) []string {
 	r := c.serverRule
 
 	// check if h2/spdy should be enabled
@@ -309,7 +283,7 @@ func (c *NextProtosConf) Get(conn *bfe_tls.Conn) []string {
 	return protos
 }
 
-func (c *NextProtosConf) Mandatory(conn *bfe_tls.Conn) (string, bool) {
+func (c *NextProtosConf) Mandatory(conn net.Conn) (string, bool) {
 	if len(c.protos) != 1 {
 		return "", false
 	}
@@ -319,7 +293,7 @@ func (c *NextProtosConf) Mandatory(conn *bfe_tls.Conn) (string, bool) {
 	return c.protos[0], true
 }
 
-func getHashValue(conn *bfe_tls.Conn) int {
+func getHashValue(conn net.Conn) int {
 	remoteAddr := conn.RemoteAddr().(*net.TCPAddr)
 	return int(murmur3.Sum32(remoteAddr.IP) % 100)
 }

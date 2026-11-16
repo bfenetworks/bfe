@@ -21,6 +21,7 @@ package bfe_http2
 import (
 	"bufio"
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -40,8 +41,6 @@ import (
 
 	http "github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_http2/hpack"
-
-	tls "github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util/pipe"
 )
 
@@ -448,15 +447,19 @@ func (s *Server) ServeConn(c net.Conn, opts *ServeConnOpts) {
 // isBadCipher reports whether the cipher is blocklisted by the HTTP/2 spec.
 func isBadCipher(cipher uint16) bool {
 	switch cipher {
-	case tls.TLS_RSA_WITH_RC4_128_SHA,
-		tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+	case
+		// The RC4 and 3DES cipher suite constants were removed from
+		// crypto/tls in Go 1.19; use their numeric IDs (still prohibited
+		// by the HTTP/2 spec, Appendix A).
+		0x0005, // TLS_RSA_WITH_RC4_128_SHA
+		0x000A, // TLS_RSA_WITH_3DES_EDE_CBC_SHA
 		tls.TLS_RSA_WITH_AES_128_CBC_SHA,
 		tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+		0xC007, // TLS_ECDHE_ECDSA_WITH_RC4_128_SHA
 		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
 		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-		tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,
-		tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+		0xC011, // TLS_ECDHE_RSA_WITH_RC4_128_SHA
+		0xC012, // TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA
 		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
 		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:
 		// Reject cipher suites from Appendix A.
@@ -2385,8 +2388,9 @@ func (rws *responseWriterState) writeChunk(p []byte) (n int, err error) {
 // prior to the headers being written. If the set of trailers is fixed
 // or known before the header is written, the normal Go trailers mechanism
 // is preferred:
-//    https://golang.org/pkg/net/http/#ResponseWriter
-//    https://golang.org/pkg/net/http/#example_ResponseWriter_trailers
+//
+//	https://golang.org/pkg/net/http/#ResponseWriter
+//	https://golang.org/pkg/net/http/#example_ResponseWriter_trailers
 const TrailerPrefix = "Trailer:"
 
 // promoteUndeclaredTrailers permits http.Handlers to set trailers

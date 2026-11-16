@@ -33,8 +33,9 @@ import (
 )
 
 import (
+	"crypto/tls"
+
 	http "github.com/bfenetworks/bfe/bfe_http"
-	tls "github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util/pipe"
 )
 

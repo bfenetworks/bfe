@@ -69,7 +69,7 @@ const (
 	// New HTTP status codes from RFC 6585. Not exported yet in Go 1.1.
 	// See discussion at https://codereview.appspot.com/7678043/
 	statusPreconditionRequired          = 428
-	statusTooManyRequests               = 429
+	StatusTooManyRequests               = 429
 	statusRequestHeaderFieldsTooLarge   = 431
 	statusNetworkAuthenticationRequired = 511
 )
@@ -122,7 +122,7 @@ var StatusText = map[int]string{
 	StatusHTTPVersionNotSupported: "HTTP Version Not Supported",
 
 	statusPreconditionRequired:          "Precondition Required",
-	statusTooManyRequests:               "Too Many Requests",
+	StatusTooManyRequests:               "Too Many Requests",
 	statusRequestHeaderFieldsTooLarge:   "Request Header Fields Too Large",
 	statusNetworkAuthenticationRequired: "Network Authentication Required",
 }

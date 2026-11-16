@@ -59,6 +59,9 @@ BFE 相关实现参考了 AI 网关错误返回码方案的整体思路，并依
 | 无可用后端（issue #1453） | 500 | `BK_NO_BACKEND` | `internal_error` | "no available backend for this request" | 选后端层返回 `BK_NO_BACKEND`（如实例池有效内容为空、所有后端不可用）；响应 `error.code` 与访问日志 `err_code` 同口径，便于区分“容量耗尽”与“后端故障”，不带 `Retry-After` |
 | 请求体内容审查拒绝（SC35 TC-02） | 500 | `CONTENT_REJECTED` | `invalid_request_error` | "request rejected by content audit" | 请求阶段 `mod_body_process` 内容审查 REJECT（`BPError` 包装，数据面与非 AI 路径 `clusterInvoke` 同口径）：确定性策略拒绝，不做 Key 级重试、不标记 used/dead、不施加会话亲和惩罚；按 `ErrBkBodyProcess` 走 500 业务契约而非 `BACKEND_UNAVAILABLE`（502） |
 | 网关侧后端不可用（issue #1441） | 502 | `BACKEND_UNAVAILABLE` | `internal_error` | "upstream backend unavailable for this request" | 目标集群不存在 / 后端连接或传输失败（`ServeHTTPForAI` 的 `err != nil \|\| res == nil` 出口，`BK_NO_BACKEND` 除外）；客户端中断（`CLIENT_WRITE/CLOSE/RESET`）路径保持既有空体记录，不构造响应体 |
+| 完整投递后的客户端挂断（issue #1473） | 200（已发出的响应） | 无（`err_code` 为空） | — | — | 响应已完整投递（协议终止事件已解析）后客户端才关闭连接：不是中断、不是写失败，不产生错误码、不计 `ErrClientWrite`，改为访问日志 `ai_client_closed_after_complete=true`（字段 816）与 `ReqAiClientClosedAfterComplete` 计数。终止事件前断开仍按 `CLIENT_WRITE` 记录 |
+
+> 说明：`CLIENT_WRITE` 的语义是"客户端中断"（见 §2.1 的同口径定义）。当 `aiMeta.IsResponseCompleted()` 为真且 CloseWatcher 判定客户端已断连时，该条记录不属于中断，`err_code` 留空、`err_msg` 写 `client closed connection`（写失败场景为 `client write failed`）；原始传输错误只进 `bfe.log`（含 `readSide`/`clientClosed` 归因），访问日志不再出现形如 `BodyProcessError: read tcp ...` 的指向上游的误导文案（issue #1473）。
 
 ### 2.5 上游归一错误层（上游错误体归一）
 

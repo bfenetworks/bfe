@@ -153,6 +153,19 @@ func ReqQueryDel(req *bfe_basic.Request, keys []string) {
 	}
 }
 
+// GetReqQueryKey returns the value of given query key.
+func GetReqQueryKey(req *bfe_basic.Request, key string) string {
+	// parse the query
+	queries := queryParse(req)
+
+	for queryK, queryV := range queries {
+		if queryK == key {
+			return strings.Join(queryV, ",")
+		}
+	}
+	return ""
+}
+
 // ReqQueryDelAllExcept deletes all keys from query, except some keys
 func ReqQueryDelAllExcept(req *bfe_basic.Request, keys []string) {
 	// add "&" prefix and suffix to simplify process

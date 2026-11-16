@@ -56,6 +56,32 @@ func (caf *QuotaUsageProcessor) Process(events []Event) ([]Event, error) {
 		if tctx.UsedQuota <= 0 || rquota.IsFinalUsage {
 			curCompletionToken = rquota.CurrentTokens
 			if !rquota.IsGuess {
+				// issue #1497: a non-final usage (an early usage in a
+				// non-terminal delta, or the Anthropic message_start
+				// initial usage) may only feed the protocol context that a
+				// later final usage merges from — never the billing basis
+				// (UsedQuota / CompletionTokens). When no final usage ever
+				// follows, billing falls back to the forwarded-content
+				// estimate (#1415) and the early values must not become the
+				// billed amount. The field list mirrors exactly what the
+				// final-usage merge below reads back from tctx. Image/video
+				// counts stay in the billing arm: a non-guess count marks
+				// finalUsageSeen above and is billed per count. The
+				// per-event estimate accumulation at the end of the loop
+				// adds 0 for a non-guess event, so continuing past it is
+				// behavior-preserving.
+				if !rquota.IsFinalUsage && rquota.ImageCount <= 0 && rquota.VideoCount <= 0 {
+					caf.aiBasicInfo.MarkEarlyUsageSeen()
+					tctx.PromptTokens = rquota.PromptTokens
+					tctx.CacheReadTokens = rquota.CacheReadTokens
+					tctx.CacheWriteTokens = rquota.CacheWriteTokens
+					tctx.CacheWriteTokens1h = rquota.CacheWriteTokens1h
+					tctx.AudioInputTokens = rquota.AudioInputTokens
+					tctx.AudioOutputTokens = rquota.AudioOutputTokens
+					tctx.ImageInputTokens = rquota.ImageInputTokens
+					tctx.VideoCount = rquota.VideoCount
+					continue
+				}
 				// not got usage yet, try to get from event data
 				//mod_ai_token_auth.UpdateCtxByUsage(tctx, data)
 				if rquota.ImageCount > 0 {

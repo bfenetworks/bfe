@@ -219,7 +219,7 @@ func (m *ModuleAiCache) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebH
 	}
 
 	m.redisClient = redis_client.NewRedisClient(options)
-	m.redisCache = newRedisCache(m.name, m.redisClient, m.ruleTable)
+	m.redisCache = newRedisCache(m.name, m.redisClient, m.ruleTable, m.state)
 
 	// init the semantic cache (embedding + vector store). This is fail-open:
 	// any problem (sections missing, invalid values, provider init failure)
@@ -309,7 +309,7 @@ func (m *ModuleAiCache) initSemantic(conf *ConfModAiCache) {
 		return
 	}
 
-	m.semantic = newSemanticCache(embProvider, vecProvider, conn.Vector.MaxQuestionBytes, m.ruleTable)
+	m.semantic = newSemanticCache(embProvider, vecProvider, conn.Vector.MaxQuestionBytes, m.ruleTable, m.state)
 	log.Logger.Info("%s: semantic cache enabled, collection[%s], maxQuestionBytes[%d]",
 		m.name, conn.Vector.Collection, m.semantic.maxQuestionBytes)
 }

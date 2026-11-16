@@ -53,7 +53,7 @@ func (srv *BfeServer) ServeHttp(ln net.Listener) error {
 
 // ServeHttps accept incoming https connections
 func (srv *BfeServer) ServeHttps(ln *HttpsListener) error {
-	return srv.Serve(ln.tlsListener, ln.tcpListener, "HTTPS")
+	return srv.Serve(ln, ln.tcpListener, "HTTPS")
 }
 
 // Serve accepts incoming connections on the Listener l, creating a

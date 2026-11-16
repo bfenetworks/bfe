@@ -65,8 +65,6 @@ const (
 	FormatSesKeepaliveNum
 	FormatSesOverHead
 	FormatSesReadTotal
-	FormatSesTLSClientRandom
-	FormatSesTLSServerRandom
 	FormatSesUse100
 	FormatSesWriteTotal
 	FormatSesStartTime
@@ -125,18 +123,16 @@ var (
 		"vip":                   FormatVIP,
 		"write_serve_time":      FormatWriteServeTime,
 
-		"ses_clientip":          FormatSesClientIP,
-		"ses_end_time":          FormatSesEndTime,
-		"ses_error":             FormatSesErrorCode,
-		"ses_is_secure":         FormatSesIsSecure,
-		"ses_overhead":          FormatSesOverHead,
-		"ses_read_total":        FormatSesReadTotal,
-		"ses_start_time":        FormatSesStartTime,
-		"ses_tls_client_random": FormatSesTLSClientRandom,
-		"ses_tls_server_random": FormatSesTLSServerRandom,
-		"ses_use100":            FormatSesUse100,
-		"ses_write_total":       FormatSesWriteTotal,
-		"ses_keepalive_num":     FormatSesKeepaliveNum,
+		"ses_clientip":      FormatSesClientIP,
+		"ses_end_time":      FormatSesEndTime,
+		"ses_error":         FormatSesErrorCode,
+		"ses_is_secure":     FormatSesIsSecure,
+		"ses_overhead":      FormatSesOverHead,
+		"ses_read_total":    FormatSesReadTotal,
+		"ses_start_time":    FormatSesStartTime,
+		"ses_use100":        FormatSesUse100,
+		"ses_write_total":   FormatSesWriteTotal,
+		"ses_keepalive_num": FormatSesKeepaliveNum,
 	}
 
 	fmtItemDomainTable = map[int]string{
@@ -184,18 +180,16 @@ var (
 		FormatVIP:                 Request,
 		FormatWriteServeTime:      Request,
 
-		FormatSesClientIP:        Session,
-		FormatSesEndTime:         Session,
-		FormatSesErrorCode:       Session,
-		FormatSesIsSecure:        Session,
-		FormatSesOverHead:        Session,
-		FormatSesReadTotal:       Session,
-		FormatSesStartTime:       Session,
-		FormatSesTLSClientRandom: Session,
-		FormatSesTLSServerRandom: Session,
-		FormatSesUse100:          Session,
-		FormatSesWriteTotal:      Session,
-		FormatSesKeepaliveNum:    Session,
+		FormatSesClientIP:     Session,
+		FormatSesEndTime:      Session,
+		FormatSesErrorCode:    Session,
+		FormatSesIsSecure:     Session,
+		FormatSesOverHead:     Session,
+		FormatSesReadTotal:    Session,
+		FormatSesStartTime:    Session,
+		FormatSesUse100:       Session,
+		FormatSesWriteTotal:   Session,
+		FormatSesKeepaliveNum: Session,
 	}
 
 	fmtHandlerTable = map[int]interface{}{
@@ -240,17 +234,15 @@ var (
 		FormatWriteServeTime:      onLogFmtWriteSrvTime,
 		FormatHost:                onLogFmtHost,
 
-		FormatSesClientIP:        onLogFmtSesClientIp,
-		FormatSesEndTime:         onLogFmtSesEndTime,
-		FormatSesErrorCode:       onLogFmtSesErrorCode,
-		FormatSesIsSecure:        onLogFmtSesIsSecure,
-		FormatSesKeepaliveNum:    onLogFmtSesKeepAliveNum,
-		FormatSesOverHead:        onLogFmtSesOverhead,
-		FormatSesReadTotal:       onLogFmtSesReadTotal,
-		FormatSesTLSClientRandom: onLogFmtSesTLSClientRandom,
-		FormatSesTLSServerRandom: onLogFmtSesTLSServerRandom,
-		FormatSesUse100:          onLogFmtSesUse100,
-		FormatSesWriteTotal:      onLogFmtSesWriteTotal,
-		FormatSesStartTime:       onLogFmtSesStartTime,
+		FormatSesClientIP:     onLogFmtSesClientIp,
+		FormatSesEndTime:      onLogFmtSesEndTime,
+		FormatSesErrorCode:    onLogFmtSesErrorCode,
+		FormatSesIsSecure:     onLogFmtSesIsSecure,
+		FormatSesKeepaliveNum: onLogFmtSesKeepAliveNum,
+		FormatSesOverHead:     onLogFmtSesOverhead,
+		FormatSesReadTotal:    onLogFmtSesReadTotal,
+		FormatSesUse100:       onLogFmtSesUse100,
+		FormatSesWriteTotal:   onLogFmtSesWriteTotal,
+		FormatSesStartTime:    onLogFmtSesStartTime,
 	}
 )

@@ -1564,23 +1564,29 @@ func assertNoBackendTimeFields(t *testing.T, name string, reqLog *bfe_access_pb.
 	}
 }
 
-// assertNoUsageFields asserts that the AI token fields of a row whose request
-// never successfully called the upstream are absent (issue #1409). Absent is
-// deliberately different from 0: it tells "no model usage" apart from
-// "usage = 0", while aggregations using SUM(COALESCE(ai_*, 0)) are unaffected.
+// assertNoUsageFields asserts a row without reportable usage: the token
+// fields and ai_usage_source stay absent so "no model call" is
+// distinguishable from "reported as 0" (issue #1409; restored by #1493 —
+// applies to every non-2xx row without a real parsed usage object, including
+// rows whose auth-time seeding or error-body bytes would otherwise show up as
+// estimate residue).
 func assertNoUsageFields(t *testing.T, name string, reqLog *bfe_access_pb.RequestLog) {
 	t.Helper()
 	if reqLog.AiInputTokens != nil {
-		t.Errorf("%s: ai_input_tokens = %d, want absent (no model usage on a failed request)",
+		t.Errorf("%s: ai_input_tokens = %d, want absent (no reportable usage)",
 			name, *reqLog.AiInputTokens)
 	}
 	if reqLog.AiOutputTokens != nil {
-		t.Errorf("%s: ai_output_tokens = %d, want absent (no model usage on a failed request)",
+		t.Errorf("%s: ai_output_tokens = %d, want absent (no reportable usage)",
 			name, *reqLog.AiOutputTokens)
 	}
 	if reqLog.AiTotalTokens != nil {
-		t.Errorf("%s: ai_total_tokens = %d, want absent (no model usage on a failed request)",
+		t.Errorf("%s: ai_total_tokens = %d, want absent (no reportable usage)",
 			name, *reqLog.AiTotalTokens)
+	}
+	if reqLog.AiUsageSource != nil {
+		t.Errorf("%s: ai_usage_source = %q, want absent (suppressed rows carry no source)",
+			name, *reqLog.AiUsageSource)
 	}
 	if reqLog.AiCostValue != nil {
 		t.Errorf("%s: ai_cost_value = %d, want absent (nothing is billed for a failed request)",
@@ -1619,24 +1625,41 @@ func (e *testEnv) sendRequestNoKeepAlive(host string, body []byte) (*http.Respon
 	return resp, string(respBody), nil
 }
 
-// TestTC19_Non2xxNoUsageFields verifies issue #1409: a request whose upstream
-// call never succeeded (non-2xx) must report no model usage in the access log,
-// and a billable row must keep the token triple consistent.
+// TestTC19_Non2xxNoUsageFields verifies issue #1409 (restored by #1493, which
+// reverses issue #1480's ai_usage_source=failed reporting against the
+// normative field-definition clause): a request whose upstream call never
+// succeeded (non-2xx) has no model usage, so the EstimateToken residue
+// (auth-time prompt seeding, error-body byte estimates) must not reach the
+// access log — the token fields, ai_usage_source and ai_cost_value all stay
+// absent. This is the in-repo replica of system test SC3201-TC011 (issue
+// #1493).
 //
 // Arm A: no ai_route rule for the host -> BFE generated 404, no backend call.
 //
 //	The product/token rule still matched first, so the auth-time prompt
-//	estimate was seeded: this is the production shape that polluted the
-//	pb3 log with ai_input_tokens > 0 while ai_total_tokens stayed 0.
+//	estimate was seeded: this is the exact production shape that used to log
+//	ai_input_tokens = req_body_len/4 (43 in the SC3201-TC011 report) with a
+//	non-zero ai_output_tokens and ai_total_tokens stuck at 0.
 //
 // Arm B: the upstream itself returns 404 -> straight through (404 is not in
 //
-//	the fallback status-code set), again with no model usage.
+//	the fallback status-code set); the error body must not turn into token
+//	fields either.
 //
 // Arm C: control arm, a 200 response without usage: EstimateToken bills and
 //
 //	logs the approved estimate, and the logged triple must satisfy
 //	ai_total_tokens = ai_input_tokens + ai_output_tokens.
+//
+// Arm D: the upstream returns 409 (outside the fallback whitelist, so it
+//
+//	passes straight through) with a usage object embedded in the error body.
+//	Since the SC2201-TC005 fix, the read-response usage parser is no longer
+//	gated on 200 (mod_ai_token_auth.tokenReadResponseHandler): the embedded
+//	usage object is a real observation, so the row is reported as
+//	ai_usage_source=parsed with the parsed token triple — and still without
+//	ai_cost_value or any quota deduction. This arm is the in-repo replica of
+//	system test SC2201-TC005 (issue #1480/#1493).
 func TestTC19_Non2xxNoUsageFields(t *testing.T) {
 	aiConfs := map[string]*cluster_conf.AIConf{
 		clusterRMB: defaultRMBAIConf(),
@@ -1686,6 +1709,36 @@ func TestTC19_Non2xxNoUsageFields(t *testing.T) {
 		e.logBFEException()
 		t.Fatalf("arm C: expected status 200, got %d, body: %s", respC.StatusCode, bodyC)
 	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 2 {
+		t.Fatalf("arm C: expected 2 backend hits, got %d", hits)
+	}
+
+	// Arm D: upstream 409 with a usage object in the error body. (409 is not
+	// in the fallback whitelist — 400/401/402/403/422/429 and all 5xx trigger
+	// fallback — so the response passes straight through.)
+	//
+	// Arm C's estimate billing lands asynchronously after its response is
+	// delivered; wait for any deduction before recording the baseline, so
+	// that arm D's no-billing assertion cannot race it.
+	const initialQuota = int64(10000000000)
+	deadline := time.Now().Add(10 * time.Second)
+	for e.redis.GetQuota(redisKeyRMB) == initialQuota && time.Now().Before(deadline) {
+		time.Sleep(100 * time.Millisecond)
+	}
+	quotaBeforeD := e.redis.GetQuota(redisKeyRMB)
+	e.backends[clusterRMB].Response = http.StatusConflict
+	e.backends[clusterRMB].Body = `{"error":{"message":"conflict"},"usage":{"prompt_tokens":7,"completion_tokens":11,"total_tokens":18}}`
+	respD, bodyD, err := e.sendRequestNoKeepAlive(apiHost, defaultBody)
+	if err != nil {
+		t.Fatalf("arm D: send request failed: %v", err)
+	}
+	if respD.StatusCode != http.StatusConflict {
+		e.logBFEException()
+		t.Fatalf("arm D: expected status 409, got %d, body: %s", respD.StatusCode, bodyD)
+	}
+	if hits := e.backends[clusterRMB].Hits(); hits != 3 {
+		t.Fatalf("arm D: expected 3 backend hits, got %d", hits)
+	}
 
 	// Wait for access log to be flushed before stopping BFE.
 	time.Sleep(500 * time.Millisecond)
@@ -1694,27 +1747,30 @@ func TestTC19_Non2xxNoUsageFields(t *testing.T) {
 	e.stopBFE = nil
 
 	reqLogs := e.accessLogs()
-	if len(reqLogs) != 3 {
-		t.Fatalf("expected 3 access logs, got %d", len(reqLogs))
+	if len(reqLogs) != 4 {
+		t.Fatalf("expected 4 access logs, got %d", len(reqLogs))
 	}
 
-	var logNoRoute, logUpstream404, logOK *bfe_access_pb.RequestLog
+	var logNoRoute, logUpstream404, logOK, logUpstream409 *bfe_access_pb.RequestLog
 	for _, reqLog := range reqLogs {
 		assertNoSensitiveCredential(t, reqLog)
 		switch {
 		case reqLog.GetResStatusCode() == http.StatusOK:
 			logOK = reqLog
+		case reqLog.GetResStatusCode() == http.StatusConflict:
+			logUpstream409 = reqLog
 		case len(reqLog.GetAiRouteRuleHits()) == 0:
 			logNoRoute = reqLog
 		default:
 			logUpstream404 = reqLog
 		}
 	}
-	if logNoRoute == nil || logUpstream404 == nil || logOK == nil {
-		t.Fatalf("expected one log per arm (no-route / upstream 404 / 200), got %d logs", len(reqLogs))
+	if logNoRoute == nil || logUpstream404 == nil || logOK == nil || logUpstream409 == nil {
+		t.Fatalf("expected one log per arm (no-route / upstream 404 / 200 / upstream 409), got %d logs", len(reqLogs))
 	}
 
-	// Arm A: no upstream call at all, yet the AI context fields are logged.
+	// Arm A: no upstream call at all, yet the AI identity fields are logged;
+	// the seeded estimate must not show up as token usage (SC3201-TC011).
 	if logNoRoute.GetResStatusCode() != http.StatusNotFound {
 		t.Errorf("arm A: res_status_code = %d, want 404", logNoRoute.GetResStatusCode())
 	}
@@ -1732,6 +1788,28 @@ func TestTC19_Non2xxNoUsageFields(t *testing.T) {
 	assertNoUsageFields(t, "arm B (upstream 404)", logUpstream404)
 	if len(logUpstream404.GetAiClusterKeyNames()) == 0 {
 		t.Error("arm B: expected cluster_key_names of the tried cluster/key")
+	}
+
+	// Arm D: the usage object in the 409 body is parsed and reported as a
+	// parsed observation (SC2201-TC005): the token triple is present and
+	// matches the upstream object, ai_usage_source=parsed, ai_cost_value stays
+	// absent and no quota is deducted (a non-2xx row is never billed).
+	if logUpstream409.GetResStatusCode() != http.StatusConflict {
+		t.Errorf("arm D: res_status_code = %d, want 409", logUpstream409.GetResStatusCode())
+	}
+	assertInt64Field(t, logUpstream409.AiInputTokens, "arm D: ai_input_tokens", 7)
+	assertInt64Field(t, logUpstream409.AiOutputTokens, "arm D: ai_output_tokens", 11)
+	assertInt64Field(t, logUpstream409.AiTotalTokens, "arm D: ai_total_tokens", 18)
+	assertStringField(t, logUpstream409.AiUsageSource, "arm D: ai_usage_source", bfe_basic.UsageSourceParsed)
+	if logUpstream409.AiCostValue != nil {
+		t.Errorf("arm D: ai_cost_value = %d, want absent (a non-2xx row is never billed)",
+			*logUpstream409.AiCostValue)
+	}
+	if got := e.redis.GetQuota(redisKeyRMB); got != quotaBeforeD {
+		t.Errorf("arm D: quota = %d, want %d (a non-2xx row must not deduct)", got, quotaBeforeD)
+	}
+	if len(logUpstream409.GetAiClusterKeyNames()) == 0 {
+		t.Error("arm D: expected cluster_key_names of the tried cluster/key")
 	}
 
 	// Arm C: billable row keeps ai_total_tokens = ai_input_tokens + ai_output_tokens.
@@ -1978,7 +2056,9 @@ func TestTC21_ZeroCostRowsExplicitCostAndReason(t *testing.T) {
 	assertInt64Field(t, logZeroCost.AiOutputTokens, "arm 2: ai_output_tokens", 0)
 	assertInt64Field(t, logZeroCost.AiTotalTokens, "arm 2: ai_total_tokens", 0)
 
-	// Arm 3: no upstream call, nothing to report (issue #1409 convention).
+	// Arm 3: no upstream call and the auth-time seeding was dropped: the row
+	// carries no token fields and no usage source (issue #1409, restored by
+	// #1493).
 	assertNoUsageFields(t, "arm 3 (no ai route)", logNon2xx)
 	if logNon2xx.AiZeroCostReason != nil {
 		t.Errorf("arm 3: ai_zero_cost_reason = %q, want absent (the upstream was never called)",

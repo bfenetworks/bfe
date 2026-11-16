@@ -257,13 +257,15 @@ func (m *ModuleAITokenAuth) batchSettle(req *bfe_basic.Request, ctx *TokenAuthCo
 				u := usage
 				entry := cluster_conf.LookupModelPrice(cluster.AIConf.ModelTable, model, bfe_basic.ModeBatch)
 				if entry == nil {
-					m.state.PriceLookupMiss.Inc(1)
+					m.state.PriceMissZeroBilled.Inc(1)
 					// issue #1414: mark the row like the streaming price miss
 					// does, and record the cause for the billing checkpoint.
+					// issue #1479: share the structured missing-price signal.
 					aiMeta.MarkPriceMiss()
+					aiMeta.MarkPriceWarn(bfe_basic.PriceWarnNoEntry)
 					aiMeta.SetZeroCostReason(bfe_basic.ZeroCostReasonPriceMiss)
-					log.Logger.Warn("mod_ai_token_auth: batch price miss, cluster=%s model=%s mode=%s",
-						clusterName, model, bfe_basic.ModeBatch)
+					m.logPriceMiss(clusterName, model, bfe_basic.ModeBatch, bfe_basic.PriceWarnNoEntry,
+						cluster_conf.PriceMissActionBillZero, "")
 					continue
 				}
 				costUnits += calcChatCost(entry, &u, tierName)

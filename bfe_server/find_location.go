@@ -17,18 +17,16 @@
 package bfe_server
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/url"
 	"time"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_balance/backend"
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_route"
-	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util"
 )
 
@@ -119,7 +117,7 @@ func (srv *BfeServer) Balance(e interface{}) (*backend.BfeBackend, error) {
 		session.Vport = vport
 	}
 
-	if _, ok := conn.(*bfe_tls.Conn); ok {
+	if _, ok := conn.(*tls.Conn); ok {
 		session.IsSecure = true
 	}
 

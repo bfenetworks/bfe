@@ -16,7 +16,7 @@
 | Config{v}[].Cond             | String  | 规则条件                                         | Y    | 语法详见 [Condition](../../condition/condition_grammar.md) | -                                                    |
 | Config{v}[].Actions          | Array   | 规则动作列表                                     | Y    | -                                                          | -                                                    |
 | Config{v}[].Actions[].Cmd    | String  | 规则动作名称                                     | Y    | 合法值详见模块动作说明                                     | -                                                    |
-| Config{v}[].Actions[].Params | Object  | 规则动作参数列表                                 | N    | 依具体动作而定                                             | -                                                    |
+| Config{v}[].Actions[].Params | Object  | 规则动作参数列表                                 | N    | 依具体动作而定；值类参数支持 `=` 前缀表达式，见下文        | -                                                    |
 | Config{v}[].Last             | Boolean | 当该项为 true 时，命中某条规则后，不再向后匹配   | N    | 默认值为 `false`                                           | -                                                    |
 
 ## 模块动作
@@ -33,6 +33,28 @@
 | QUERY_DEL                 | 删除query                          |
 | QUERY_RENAME              | 重命名query                        |
 | QUERY_DEL_ALL_EXCEPT      | 删除除指定key外的所有query         |
+
+### 动作参数表达式
+
+以下动作的值类参数支持以 `=` 前缀内嵌表达式（语法与错误处理详见
+[动作参数表达式](../00-common.md#10-动作参数表达式actionparam)）：
+
+| 动作 | 支持表达式的参数 |
+| ---- | ---------------- |
+| HOST_SET | Params[0]（host） |
+| PATH_SET | Params[0]（path） |
+| PATH_PREFIX_ADD / PATH_PREFIX_TRIM | Params[0]（path 前缀） |
+| QUERY_ADD | Params[1]（query 值） |
+
+其余参数（query key、host 后缀等）保持字面量。`==` 表示以 `=` 开头的字面量
+（如 `"==foo"` 表示 `"=foo"`）。示例：
+
+```json
+{
+    "Cmd": "QUERY_ADD",
+    "Params": ["client_ip", "=ReqCip()"]
+}
+```
 
 ## 配置示例
 

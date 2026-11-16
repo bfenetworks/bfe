@@ -17,7 +17,7 @@
 | Config{v}[].Last | Boolean | Whether to stop processing subsequent rules after a match | N | Defaults to `false` | - |
 | Config{v}[].Actions | Array | List of actions to execute after match | Y | - | - |
 | Config{v}[].Actions[].Cmd | String | Action name | Y | Valid values see module actions | - |
-| Config{v}[].Actions[].Params | Array | Action parameter list | N | Parameters depend on the action; element type is String | - |
+| Config{v}[].Actions[].Params | Array | Action parameter list | N | Parameters depend on the action; element type is String; value parameters support `=`-prefixed expressions, see below | - |
 
 ## Module Actions
 
@@ -37,6 +37,24 @@
 | REQ_COOKIE_DEL | Delete request Cookie | CookieName | - | - | - |
 | RSP_COOKIE_SET | Set response Cookie | Name, Value, Domain, Path, Expires(RFC1123), MaxAge(int), HttpOnly(bool), Secure(bool) | - | - | - |
 | RSP_COOKIE_DEL | Delete response Cookie | Name, Domain, Path | - | - | - |
+
+### Action Param Expressions
+
+The value parameter (`Params[1]`) of `REQ_HEADER_SET`/`REQ_HEADER_ADD`/
+`RSP_HEADER_SET`/`RSP_HEADER_ADD` supports inline expressions prefixed with `=`.
+The existing `%variable` form is still supported and the two are mutually
+exclusive: a parameter starting with `=` is treated as an expression, otherwise
+as a `%variable` format string. See
+[ActionParam](../00-common.md#10-actionparam) for syntax and error handling.
+
+Example (set a request header with an expression):
+
+```json
+{
+    "cmd": "REQ_HEADER_SET",
+    "params": ["X-Client-Ip", "=ReqCip()"]
+}
+```
 
 ## Example
 

@@ -32,6 +32,7 @@
 | ERR_BK_NO_CLUSTER               | 无集群配置的请求数        |
 | ERR_BK_BODY_PROCESS             | 请求/响应体处理错误数     |
 | ERR_BK_READ_RESP_HEADER         | 读响应头失败的错误数      |
+| ERR_BK_READ_RESP_BODY           | 读响应体失败（上游流中途异常断流）的错误数（issue #1474） |
 | ERR_BK_REQUEST_BACKEND          | 转发请求到后端失败的错误数 |
 | ERR_BK_RESP_HEADER_TIMEOUT      | 读后端响应头超时的错误数   |
 | ERR_BK_TRANSPORT_BROKEN         | 与后端连接异常的错误数     |
@@ -93,6 +94,12 @@
 | ------------------------------- | ------------------ |
 | SSE_REQ_SERVED                  | 已处理的SSE请求数    |
 | SSE_REQ_ACTIVE                  | 活跃的SSE请求数      |
+
+### AI 客户端断连相关
+
+| 监控项                            | 描述 |
+| -------------------------------- | ---- |
+| REQ_AI_CLIENT_CLOSED_AFTER_COMPLETE | 响应已完整投递（协议终止事件已解析）后客户端才关闭连接的请求数。这类请求不是客户端中断、也不是写失败：`err_code` 为空、不计 `ERR_CLIENT_WRITE`，访问日志以 `ai_client_closed_after_complete` 标记（issue #1473）。终止事件前断开仍计入 `ERR_CLIENT_WRITE` |
 
 ### TLS协议相关
 

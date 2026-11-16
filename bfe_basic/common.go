@@ -52,6 +52,19 @@ const (
 	GlobalProduct = "global"
 )
 
+const (
+	TagsIPLocation = "IPLocationTags"
+)
+
+const (
+	VarNameScopeUser         = "usr_variable"
+	VarNameScopeBfeReqHeader = "bfe_req_header"
+	VarNameScopeBfeResHeader = "bfe_rsp_header"
+	VarNameScopeBfeReqCookie = "bfe_req_cookie"
+	VarNameScopeBfeResCookie = "bfe_rsp_cookie"
+	VarNameScopeBfeReqQuery  = "bfe_req_query"
+)
+
 // HopHeaders are Hop-by-hop headers. These are removed when sent to the backend.
 // http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
 var HopHeaders = []string{

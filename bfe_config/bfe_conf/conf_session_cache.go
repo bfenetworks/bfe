@@ -19,6 +19,12 @@ import (
 	"strings"
 )
 
+// ConfigSessionCache holds the [SessionCache] section of bfe.conf.
+//
+// Deprecated: the Redis-backed TLS session cache was removed with the
+// bfe_tls fork. The fields are still parsed for backward compatibility
+// but their values are ignored; the standard library session ticket
+// mechanism is used instead.
 type ConfigSessionCache struct {
 	// disable tls session cache or not
 	SessionCacheDisabled bool

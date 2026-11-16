@@ -25,8 +25,10 @@ import (
 
 import (
 	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_expr"
 	"github.com/bfenetworks/bfe/bfe_http"
 	"github.com/bfenetworks/bfe/bfe_net/textproto"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 type ActionFile struct {
@@ -37,6 +39,10 @@ type ActionFile struct {
 type Action struct {
 	Cmd    string   // command of action (for header set/add/del)
 	Params []string // params of action ([header, value] or [header])
+
+	// exprValue 加载期编译的值参数表达式（SET/ADD 的值整体以 "=" 开头时）；
+	// 非 nil 时运行期由 getHeaderValue 求值，不再做 %var 格式串拼接
+	exprValue *bfe_expr.Param
 }
 
 type ActionFileList []ActionFile
@@ -277,6 +283,21 @@ func preProcessParams(param string) ([]string, error) {
 func getHeaderValue(req *bfe_basic.Request, action Action) string {
 	var value string
 
+	// 表达式值参数：整串求值，与 %var 格式串互斥
+	if action.exprValue != nil {
+		v, err := action.exprValue.Eval(req)
+		if err != nil {
+			logid := ""
+			if req != nil {
+				logid = req.LogId
+			}
+			log.Logger.Warn("bfe_expr: eval header param %q error: %v (logid: %s)",
+				action.exprValue.String(), err, logid)
+			return ""
+		}
+		return v
+	}
+
 	if len(action.Params) <= 1 {
 		return ""
 	}
@@ -368,7 +389,20 @@ func actionConvert(actionFile ActionFile) (Action, error) {
 		// - REQ_HEADER_SET: [referer,  http://bfe.baidu.com]
 		// - RSP_HEADER_SET: [set-cookie, __bsi=%bfe_ssl_info; max-age=3600;]
 		key := textproto.CanonicalMIMEHeaderKey(actionFile.Params[0])
-		values, err := preProcessParams(actionFile.Params[1])
+		valueSrc := actionFile.Params[1]
+
+		// 值参数整体以 "=" 开头：按表达式编译，跳过 %var 格式串切分，二者互斥
+		if strings.HasPrefix(valueSrc, "=") {
+			p, err := bfe_expr.CompileParam(valueSrc)
+			if err != nil {
+				return action, err
+			}
+			action.exprValue = p
+			action.Params = append(action.Params, key)
+			break
+		}
+
+		values, err := preProcessParams(valueSrc)
 		if err != nil {
 			return action, err
 		}

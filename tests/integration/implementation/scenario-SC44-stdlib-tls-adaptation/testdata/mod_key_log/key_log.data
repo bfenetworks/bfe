@@ -1,0 +1,10 @@
+{
+    "Version": "init version",
+    "Config": {
+        "example_product": [
+            {
+                "Cond": "ses_tls_sni_in(\"example.org\")"
+            }
+        ]
+    }
+}

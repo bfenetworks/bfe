@@ -434,8 +434,11 @@ func TestTC03_TlsSessionInfo(t *testing.T) {
 	if got := ses.GetCipherSuite(); got == 0 {
 		t.Fatalf("expected a non-zero cipher_suite")
 	}
-	if ses.HandshakeTime == nil {
-		t.Fatalf("expected handshake_time to be set")
+	// handshake_time is no longer exported by mod_access_pb3: the std tls
+	// fork removal drops bfe_tls.ConnectionState.HandshakeTime, and the
+	// handshake latency is only reported via the ProxyHandshakeDelay metric.
+	if ses.HandshakeTime != nil {
+		t.Fatalf("expected handshake_time to be unset after the bfe_tls fork removal")
 	}
 }
 
@@ -444,9 +447,14 @@ func TestTC03_TlsSessionInfo(t *testing.T) {
 func TestTC04_HandshakeFailureSession(t *testing.T) {
 	e := newLogEnv(t, true, false)
 
+	// TLS 1.2 keeps the missing-client-certificate failure at handshake
+	// level. With TLS 1.3 (now enabled by the std tls fork removal) the
+	// client may observe a successful dial and only fail on the first
+	// request, so the handshake error would race with the session log.
 	conn, err := tls.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", e.httpsPort), &tls.Config{
 		InsecureSkipVerify: true,
 		ServerName:         tlsServerName,
+		MaxVersion:         tls.VersionTLS12,
 	})
 	if err == nil {
 		_ = conn.Close()

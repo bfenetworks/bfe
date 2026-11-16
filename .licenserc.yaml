@@ -33,6 +33,8 @@ header:
     - 'VERSION'
     - 'staticcheck.conf'
     - 'bfe_basic/condition/parser/y.go'
+    # third-party (BSD-style, Sébastien Paolacci / twmb murmur3), keep original headers
+    - 'bfe_util/murmur3/**'
 
   comment: on-failure
 

@@ -142,7 +142,7 @@ func TestCacheResponseHandlerNoContext(t *testing.T) {
 func TestCacheResponseHandlerWrapsAndWritesBack(t *testing.T) {
 	fake := newFakeRedisClient("")
 	m := prepareTestModule(t)
-	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable, m.state)
 
 	req := newTestRequest("default", chatBody("q", false))
 	req.InitAiBasicInfo().ClientKeyId = "key_001"
@@ -186,7 +186,7 @@ func TestCacheResponseHandlerWrapsAndWritesBack(t *testing.T) {
 func TestCacheResponseHandlerSkipStatus(t *testing.T) {
 	fake := newFakeRedisClient("")
 	m := prepareTestModule(t)
-	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable, m.state)
 
 	req := newTestRequest("default", chatBody("q", false))
 	req.InitAiBasicInfo().ClientKeyId = "key_001"
@@ -230,7 +230,7 @@ func TestCacheResponseHandlerSemanticUpload(t *testing.T) {
 	emb := &fakeEmbeddingProvider{vec: []float32{0.1, 0.2}}
 	vec := &fakeVectorProvider{} // semantic miss: no neighbors
 	m := prepareSemanticTestModule(t, emb, vec)
-	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable, m.state)
 
 	req := newTestRequest("default", chatBody("what is bfe", false))
 	req.InitAiBasicInfo().ClientKeyId = "key_001"
@@ -281,7 +281,7 @@ func TestCacheResponseHandlerNoEmbeddingNoUpload(t *testing.T) {
 	emb := &fakeEmbeddingProvider{err: errors.New("embedding down")} // embedding unavailable
 	vec := &fakeVectorProvider{}
 	m := prepareSemanticTestModule(t, emb, vec)
-	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable, m.state)
 
 	req := newTestRequest("default", chatBody("what is bfe", false))
 	req.InitAiBasicInfo().ClientKeyId = "key_001"
@@ -314,7 +314,7 @@ func TestCacheResponseHandlerUploadFailureSwallowed(t *testing.T) {
 	emb := &fakeEmbeddingProvider{vec: []float32{0.1}}
 	vec := &fakeVectorProvider{err: errors.New("vector down")}
 	m := prepareSemanticTestModule(t, emb, vec)
-	m.redisCache = newRedisCache(m.name, fake, m.ruleTable)
+	m.redisCache = newRedisCache(m.name, fake, m.ruleTable, m.state)
 
 	req := newTestRequest("default", chatBody("what is bfe", false))
 	req.InitAiBasicInfo().ClientKeyId = "key_001"

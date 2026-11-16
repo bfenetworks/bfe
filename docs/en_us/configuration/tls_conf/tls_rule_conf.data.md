@@ -15,19 +15,19 @@ tls_rule_conf.data records the tls protocol config
 | Config{v}.CertName | String | Name of server certificate | Y | Must be defined in `server_cert_conf.data` | Non-empty |
 | Config{v}.NextProtos | Object | TLS application layer protocol list | N | Defaults to empty; inherits top-level DefaultNextProtos | Elements must be supported TLS application layer protocols |
 | Config{v}.NextProtos[] | String | TLS application layer protocol | Y | Element of NextProtos | Valid values include `h2`, `spdy/3.1`, `http/1.1`, `stream`; parameterized syntax such as `proto;level=0;mcs=200;isw=65535;rate=100;pp=1` is also supported |
-| Config{v}.Grade | String | TLS security grade | N | Default value is `C` if not configured | Only supports `A+`, `A`, `B`, `C` |
+| Config{v}.Grade | String | TLS security grade | N | **Deprecated**: parsed but ignored (BFE now uses standard `crypto/tls`; TLS1.2 cipher suites use the standard library's default secure subset and are no longer trimmed by grade) | Only supports `A+`, `A`, `B`, `C` |
 | Config{v}.ClientAuth | Boolean | Enable TLS client authentication | N | When set to `true`, ClientCAName must also be configured | - |
 | Config{v}.ClientCAName | String | Name of Client CA certificate | Conditional | Required when `ClientAuth=true` | Non-empty; must be configured when `ClientAuth=true` |
-| Config{v}.Chacha20 | Boolean | Prefer ChaCha20 cipher suites | N | Defaults to inherit DefaultChacha20 | - |
-| Config{v}.DynamicRecord | Boolean | Enable dynamic TLS record size | N | Defaults to inherit DefaultDynamicRecord | - |
+| Config{v}.Chacha20 | Boolean | Prefer ChaCha20 cipher suites | N | **Deprecated**: parsed but ignored | - |
+| Config{v}.DynamicRecord | Boolean | Enable dynamic TLS record size | N | **Deprecated**: parsed but ignored | - |
 | Config{v}.VipConf | Object | List of VIPs | N | TLS policy selection is based on VIP | Elements must be valid IPs |
 | Config{v}.VipConf[] | String | VIP | Y | Element of VipConf; see [IPAddr](../00-common.md#7-ipaddr) type definition | Type must be [IPAddr](../00-common.md#7-ipaddr) |
 | Config{v}.SniConf | Object | List of hostnames | N | Used to determine TLS config when VIP cannot be used | Elements must be valid hostnames |
 | Config{v}.SniConf[] | String | Hostname | Y | Element of SniConf | Non-empty; must be a valid hostname |
 | DefaultNextProtos | Object | Default application layer protocols over TLS | N | Default value is `["http/1.1"]` | Elements must be supported TLS application layer protocols |
 | DefaultNextProtos[] | String | TLS application layer protocol | Y | Element of DefaultNextProtos | Valid values include `h2`, `spdy/3.1`, `http/1.1`, `stream`; parameterized syntax is also supported |
-| DefaultChacha20 | Boolean | Global default for preferring ChaCha20 cipher suites | N | - | - |
-| DefaultDynamicRecord | Boolean | Global default for enabling dynamic TLS record size | N | - | - |
+| DefaultChacha20 | Boolean | Global default for preferring ChaCha20 cipher suites | N | **Deprecated**: parsed but ignored | - |
+| DefaultDynamicRecord | Boolean | Global default for enabling dynamic TLS record size | N | **Deprecated**: parsed but ignored | - |
 
 ## Example
 
@@ -46,41 +46,28 @@ tls_rule_conf.data records the tls protocol config
                 "h2",
                 "http/1.1"
             ],
-            "Grade": "B",
             "ClientCAName": ""
         }
     }
 }
 ```
 
-## Security Grade
+## TLS Version and Cipher Suites
 
-BFE supports multiple security grades(A+/A/B/C) for ease of TLS configuration. Security grades vary depending on the protocols and the cipher suites supported. Grade A+ has the highest security and lowest connectivity; Grade C has the lowest security and highest connectivity.
+BFE's TLS implementation is based on the Go standard library `crypto/tls`:
 
-### Grade A+
+- TLS 1.0 - TLS 1.3 are supported (SSLv3 is no longer supported). The global version range is controlled by `HttpsBasic.MinTlsVersion` / `HttpsBasic.MaxTlsVersion` in `bfe.conf`.
+- TLS1.2 cipher suites use the standard library's default secure subset and are no longer trimmed by security grade.
+- TLS1.3 cipher suites are fixed by the standard library and cannot be configured.
+- To enable or disable specific cipher suites, configure `HttpsBasic.CipherSuites` in `bfe.conf` (only effective for TLS1.2 and below).
 
-| Supported Protocols | Supported Cipher Suites |
-| ------------------- | ----------------------- |
-| TLS1.2 | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA |
+### Deprecated Security Grades (Historical Reference)
 
-### Grade A
+Historical versions supported A+/A/B/C security grades, differing in supported protocol versions and cipher suites. This mechanism is deprecated: the `Grade` field in the configuration is parsed but ignored, and is kept here for historical reference only:
 
-| Supported Protocols | Supported Cipher Suites |
-| ------------------- | ----------------------- |
-| TLS1.2<br>TLS1.1<br>TLS1.0 | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA |
-
-### Grade B
-
-| Supported Protocols | Supported Cipher Suites |
-| ------------------- | ----------------------- |
-| TLS1.2<br>TLS1.1<br>TLS1.0 | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA |
-| SSLv3 | TLS_ECDHE_RSA_WITH_RC4_128_SHA<br>TLS_ECDHE_ECDSA_WITH_RC4_128_SHA<br>TLS_RSA_WITH_RC4_128_SHA |
-
-**Note:** The ECDSA RC4 suite under SSLv3 is available only in `onlyRC4` mode.
-
-### Grade C
-
-| Supported Protocols | Supported Cipher Suites |
-| ------------------- | ----------------------- |
-| TLS1.2<br>TLS1.1<br>TLS1.0 | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA<br>TLS_ECDHE_RSA_WITH_RC4_128_SHA<br>TLS_ECDHE_ECDSA_WITH_RC4_128_SHA<br>TLS_RSA_WITH_RC4_128_SHA |
-| SSLv3 | TLS_ECDHE_RSA_WITH_RC4_128_SHA<br>TLS_ECDHE_ECDSA_WITH_RC4_128_SHA<br>TLS_RSA_WITH_RC4_128_SHA |
+| Historical Grade | Supported Protocols | Supported Cipher Suites |
+| ---------------- | ------------------- | ----------------------- |
+| A+ | TLS1.2 | TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256<br>TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA<br>TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA<br>TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA<br>TLS_RSA_WITH_AES_128_CBC_SHA<br>TLS_RSA_WITH_AES_256_CBC_SHA |
+| A | TLS1.2<br>TLS1.1<br>TLS1.0 | Same as A+ |
+| B | TLS1.2<br>TLS1.1<br>TLS1.0<br>SSLv3 | Same as A+, plus RC4 suites under SSLv3 |
+| C | TLS1.2<br>TLS1.1<br>TLS1.0<br>SSLv3 | Same as B, plus RC4 suites under TLS1.x |

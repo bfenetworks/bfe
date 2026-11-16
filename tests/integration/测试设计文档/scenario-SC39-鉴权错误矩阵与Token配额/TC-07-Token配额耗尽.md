@@ -10,11 +10,11 @@ SC39 鉴权错误矩阵与 Token 配额计划
 
 ## 版本声明
 
-- `bfe`：当前源码版本
+- `bfe`：当前源码版本（含 issue #1476 修复）
 
 ## 测试目的
 
-验证余额被用尽后下一次请求返回 `QUOTA_EXHAUSTED`，并区分于「计划过期 / Redis 故障」。
+验证余额被用尽后下一次请求返回 `QUOTA_EXHAUSTED`，并区分于「计划过期 / Redis 故障」。请求 usage 超过剩余余额时按 issue #1476 全额扣减，余额如实变负（欠费），鉴权期 `HasBalance` 判为无余额。
 
 ## 运行模式
 
@@ -29,21 +29,22 @@ SC39 鉴权错误矩阵与 Token 配额计划
 
 ## 配置构造
 
-- `plan-token`：`Unit=total_token`，初始余额 50（小于单次 usage 150）。
+- `plan-token`：`Unit=total_token`，`Quota=50`，`PassNoQuota=false`（初始余额 50，小于单次 usage 150）。
 
 ## BFE 请求
 
 | 步骤 | Host | Path | Authorization | Body | 说明 |
 |------|------|------|---------------|------|------|
-| 1 | auth.example.org | /v1/chat/completions | Bearer ak_auth | {"model":"gpt-4"} | 余额 50，扣至 0 |
-| 2 | auth.example.org | /v1/chat/completions | Bearer ak_auth | {"model":"gpt-4"} | 余额 0 |
+| 1 | auth.example.org | /v1/chat/completions | Bearer ak_auth | {"model":"gpt-4"} | 余额 50，usage 150，扣至 -100 |
+| 2 | auth.example.org | /v1/chat/completions | Bearer ak_auth | {"model":"gpt-4"} | 余额 -100（`HasBalance=false`） |
 
 ## 预期结果
 
-- 步骤 1：HTTP 200（扣减按 `min(余额, usage)` 截断），`quota:token` 变为 0。
-- 步骤 2：HTTP 429，`error.code=QUOTA_EXHAUSTED`，`details.limit_type=api_key_quota`，`details.quota_plan_id=plan-token`。
+- 步骤 1：HTTP 200（usage 150 全额扣减），`quota:token` 变为 **-100**（修复前按 `min(余额, usage)` 截断到 0，超出的 100 token 被丢弃）。
+- 步骤 2：HTTP 429，`error.code=QUOTA_EXHAUSTED`，`details.limit_type=api_key_quota`，`details.quota_plan_id=plan-token`（负余额使鉴权期 `HasBalance` 返回 false）。
 - 访问日志 `ai_auth_reject_reason=QUOTA_EXHAUSTED`、`ai_auth_reject_quota_plans=[plan-token]`。
 
 ## 关联实现
 
 - 测试代码：见同场景目录下的 `*_test.go` 同名 `TestTC07_*` 函数
+- 关联 issue：#1476（配额扣减全额执行，超额计入欠费余额）

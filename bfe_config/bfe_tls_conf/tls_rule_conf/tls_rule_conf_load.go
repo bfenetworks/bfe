@@ -15,6 +15,7 @@
 package tls_rule_conf
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
@@ -25,17 +26,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-)
 
-import (
-	"github.com/bfenetworks/go-lib/log"
-)
-
-import (
 	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_tls_conf/server_cert_conf"
-	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util/json"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 // Notes about `NextProtos`:
@@ -87,15 +82,52 @@ const (
 )
 
 type TlsRuleConf struct {
-	VipConf       []string // list of vips for product
-	SniConf       []string // list of hostnames for product (optional)
-	CertName      string   // name of certificate
-	NextProtos    []string // next protos over TLS
-	Grade         string   // tls grade for product
-	ClientAuth    bool     // require tls client auth
-	ClientCAName  string   // client CA certificate name
-	Chacha20      bool     // enable chacha20-poly1305 cipher suites
-	DynamicRecord bool     // enable dynamic record size
+	VipConf    []string // list of vips for product
+	SniConf    []string // list of hostnames for product (optional)
+	CertName   string   // name of certificate
+	NextProtos []string // next protos over TLS
+
+	// Deprecated: grade-based cipher suite selection was removed with the
+	// bfe_tls fork. The value is parsed (defaulted to "C") but ignored.
+	Grade string
+
+	ClientAuth   tls.ClientAuthType // require tls client auth
+	ClientCAName string             // client CA certificate name
+
+	// Deprecated: chacha20 cipher suites are controlled by the standard
+	// library defaults now. The value is parsed but ignored.
+	Chacha20 bool
+
+	// Deprecated: dynamic record size was removed with the bfe_tls fork.
+	// The value is parsed but ignored.
+	DynamicRecord bool
+}
+
+// UnmarshalJSON accepts the legacy boolean representation of ClientAuth
+// used by tls_rule_conf.data ("ClientAuth": true/false). Legacy "true"
+// maps to tls.RequireAndVerifyClientCert, which matches the behavior of
+// the removed bfe_tls fork; "false" maps to tls.NoClientCert.
+func (conf *TlsRuleConf) UnmarshalJSON(data []byte) error {
+	// use plainTlsRuleConf to avoid recursion into this method
+	type plainTlsRuleConf TlsRuleConf
+
+	raw := struct {
+		plainTlsRuleConf
+		ClientAuth bool `json:"ClientAuth"`
+	}{
+		plainTlsRuleConf: plainTlsRuleConf(*conf),
+	}
+
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	*conf = TlsRuleConf(raw.plainTlsRuleConf)
+	if raw.ClientAuth {
+		conf.ClientAuth = tls.RequireAndVerifyClientCert
+	}
+
+	return nil
 }
 
 type TlsRuleMap map[string]*TlsRuleConf // product -> pointer to tls rule conf
@@ -125,10 +157,14 @@ func GetDefaultNextProtosParams() NextProtosParams {
 }
 
 type BfeTlsRuleConf struct {
-	Version              string // version of config
-	Config               TlsRuleMap
-	DefaultNextProtos    []string
-	DefaultChacha20      bool
+	Version           string // version of config
+	Config            TlsRuleMap
+	DefaultNextProtos []string
+
+	// Deprecated: parsed for backward compatibility, values are ignored.
+	DefaultChacha20 bool
+
+	// Deprecated: parsed for backward compatibility, values are ignored.
 	DefaultDynamicRecord bool
 }
 
@@ -142,11 +178,9 @@ func TlsRuleConfCheck(conf *TlsRuleConf) error {
 	}
 
 	conf.Grade = strings.ToUpper(conf.Grade)
-	if !checkGrade(conf) {
-		return fmt.Errorf("invalid tls grade: %s, currently only A+,A,B,C supported", conf.Grade)
-	}
+	checkGrade(conf)
 
-	if conf.ClientAuth && len(conf.ClientCAName) == 0 {
+	if conf.ClientAuth != tls.NoClientCert && len(conf.ClientCAName) == 0 {
 		return fmt.Errorf("ClientAuth enabled, but ClientCAName is empty")
 	}
 
@@ -190,17 +224,14 @@ func checkNextProtos(nextProtos []string) error {
 	return nil
 }
 
-func checkGrade(conf *TlsRuleConf) bool {
+// Deprecated: Grade is parsed (and defaulted to "C") for backward
+// compatibility of tls_rule_conf.data, but it is no longer validated or
+// used. TLS1.2 cipher suites follow the standard library default secure
+// subset and TLS1.3 cipher suites are not configurable.
+func checkGrade(conf *TlsRuleConf) {
 	if conf.Grade == "" {
 		// set default grade to C
-		conf.Grade = bfe_tls.GradeC
-	}
-
-	switch conf.Grade {
-	case bfe_tls.GradeAPlus, bfe_tls.GradeA, bfe_tls.GradeB, bfe_tls.GradeC:
-		return true
-	default:
-		return false
+		conf.Grade = "C"
 	}
 }
 
@@ -391,7 +422,7 @@ func BfeTlsRuleConfCheck(conf *BfeTlsRuleConf) error {
 }
 
 // CheckTlsConf check integrity of tls rule conf and cert conf.
-func CheckTlsConf(certConf map[string]*bfe_tls.Certificate, ruleMap TlsRuleMap) error {
+func CheckTlsConf(certConf map[string]*tls.Certificate, ruleMap TlsRuleMap) error {
 	for _, ruleConf := range ruleMap {
 		// check whether cert specified in ruleConf exists
 		cert, ok := certConf[ruleConf.CertName]
@@ -457,7 +488,7 @@ func GetClientCACertificate(clientCADir string, clientCAName string) (*x509.Cert
 func ClientCALoad(tlsRuleMap TlsRuleMap, clientCADir string) (map[string]*x509.CertPool, error) {
 	clientCAMap := make(map[string]*x509.CertPool)
 	for productName, rule := range tlsRuleMap {
-		if !rule.ClientAuth {
+		if rule.ClientAuth == tls.NoClientCert {
 			continue
 		}
 
@@ -510,13 +541,13 @@ func getCientCRL(clientCRLDir, clientCAName string) ([]*pkix.CertificateList, er
 	return crls, nil
 }
 
-func ClientCRLLoad(clientCAMap map[string]*x509.CertPool, clientCRLDir string) (map[string]*bfe_tls.CRLPool, error) {
+func ClientCRLLoad(clientCAMap map[string]*x509.CertPool, clientCRLDir string) (map[string]*CRLPool, error) {
 	f, err := os.Stat(clientCRLDir)
 	if err != nil || !f.IsDir() {
 		return nil, fmt.Errorf("ClientCRLBaseDir %s not exists", clientCRLDir)
 	}
 
-	clientCRLPoolMap := make(map[string]*bfe_tls.CRLPool)
+	clientCRLPoolMap := make(map[string]*CRLPool)
 	for clientCAName := range clientCAMap {
 		crls, err := getCientCRL(clientCRLDir, clientCAName)
 		if err != nil {
@@ -527,7 +558,7 @@ func ClientCRLLoad(clientCAMap map[string]*x509.CertPool, clientCRLDir string) (
 			continue
 		}
 
-		crlPool := bfe_tls.NewCRLPool()
+		crlPool := NewCRLPool()
 		for _, crl := range crls {
 			if err := crlPool.AddCRL(crl); err != nil {
 				return nil, fmt.Errorf("client_ca %s read crl: %v", clientCAName, err)

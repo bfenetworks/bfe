@@ -34,6 +34,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/net/http2"
@@ -47,6 +48,7 @@ import (
 	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_basic/condition"
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
+	"github.com/bfenetworks/bfe/bfe_config/bfe_conf"
 	"github.com/bfenetworks/bfe/bfe_debug"
 	"github.com/bfenetworks/bfe/bfe_fcgi"
 	"github.com/bfenetworks/bfe/bfe_http"
@@ -351,6 +353,12 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 				request.SetContext(bal_gslb.REQ_CTX_EPP, nil)
 			}
 			clusterBackend, err = bal.BalanceEpp(request)
+			if bal_gslb.IsEPPRejected(err) {
+				// EPP refused admission (flow control): a decision, not a
+				// failure. Never fall back to local balancing, which would
+				// push the request into the saturated pool anyway (issue #1482).
+				break
+			}
 		}
 		if clusterBackend == nil {
 			// get backend with cluster-name and request
@@ -431,7 +439,10 @@ func (p *ReverseProxy) clusterInvoke(srv *BfeServer, cluster *bfe_cluster.BfeClu
 			request.ErrMsg = ""
 
 			// record body size of request after forward
-			request.Stat.BodyLenIn = int(outreq.State.BodySize)
+			// BodySize is published by the transport writeLoop goroutine
+			// (bfe_http/request.go), which may still be running here: load it
+			// atomically to keep -race clean.
+			request.Stat.BodyLenIn = int(atomic.LoadUint32(&outreq.State.BodySize))
 
 			if bfe_debug.DebugServHTTP {
 				log.Logger.Debug("ReverseProxy.ServeHTTP(): get response from %s", backend.Name)
@@ -1001,9 +1012,15 @@ func (p *ReverseProxy) copyResponse(dst io.Writer, src io.ReadCloser,
 	// if the client has disconnected, cancel the block operation immediately.
 	//
 	// Note: cancelOnClientClose feature must be enabled for AVS client (over http2)
+	//
+	// Note: clientClosed is also the attribution guard for copy errors
+	// (issue #1474): when the watcher fired, a subsequent src read error is
+	// a client-abort consequence, not an upstream drop.
+	var clientClosed int32
 	if cancelOnClientClose {
 		if cn, ok := dst.(bfe_http.CloseNotifier); ok {
 			cw := bfe_http.NewCloseWatcher(cn, func() {
+				atomic.StoreInt32(&clientClosed, 1)
 				// Note: src is type of bfe_http.bodyEofSignal. Close() on src will
 				// close the underlying connection if response not ready.
 				// Duplicated Close() will be ignore.
@@ -1014,31 +1031,209 @@ func (p *ReverseProxy) copyResponse(dst io.Writer, src io.ReadCloser,
 		}
 	}
 
+	// Track write-side errors so a copy failure can be attributed to the
+	// failing side instead of labeling everything a client write error
+	// (issue #1474).
+	var writeErr error
+	tracked := &writeErrorTracker{w: dst, err: &writeErr}
+
 	if flushInterval < 0 {
-		if wf, ok := dst.(bfe_http.WriteFlusher); ok {
+		if _, ok := dst.(bfe_http.WriteFlusher); ok {
 			// Note: Flush response header immediately
-			if err := wf.Flush(); err != nil {
-				return err
+			if err := tracked.Flush(); err != nil {
+				return newResponseCopyError(err, false, &clientClosed)
 			}
-			_, err := bfe_util.CopyWithoutBuffer(wf, src)
-			return err
+			_, err := bfe_util.CopyWithoutBuffer(tracked, src)
+			return newResponseCopyError(err, writeErr == nil, &clientClosed)
 		}
 	}
 
+	copyDst := io.Writer(tracked)
 	if flushInterval > 0 {
-		if wf, ok := dst.(bfe_http.WriteFlusher); ok {
-			mlw := bfe_http.NewMaxLatencyWriter(wf, flushInterval, nil)
+		if _, ok := dst.(bfe_http.WriteFlusher); ok {
+			mlw := bfe_http.NewMaxLatencyWriter(tracked, flushInterval, nil)
 			go mlw.FlushLoop()
 			defer mlw.Stop()
-			dst = mlw
+			copyDst = mlw
 		}
 	}
 
 	buf := p.bufferPool.GetBlock()
 	defer p.bufferPool.PutBlock(buf)
 
-	_, err := io.CopyBuffer(dst, src, buf)
+	_, err := io.CopyBuffer(copyDst, src, buf)
+	return newResponseCopyError(err, writeErr == nil, &clientClosed)
+}
+
+// writeErrorTracker records the first error of the wrapped writer so that
+// copyResponse can tell a client write failure apart from an upstream read
+// failure (issue #1474). Flush passes through to the wrapped writer when it
+// is a WriteFlusher.
+type writeErrorTracker struct {
+	w   io.Writer
+	err *error
+}
+
+func (t *writeErrorTracker) Write(p []byte) (int, error) {
+	n, err := t.w.Write(p)
+	if err != nil && *t.err == nil {
+		*t.err = err
+	}
+	return n, err
+}
+
+func (t *writeErrorTracker) Flush() error {
+	wf, ok := t.w.(bfe_http.WriteFlusher)
+	if !ok {
+		return nil
+	}
+	err := wf.Flush()
+	if err != nil && *t.err == nil {
+		*t.err = err
+	}
 	return err
+}
+
+// responseCopyError carries which side of the copy failed so the caller
+// does not have to label every copy error as a client write error
+// (issue #1474).
+type responseCopyError struct {
+	err      error // original copy error
+	readSide bool  // true: src (upstream) read failed; false: dst (client) write failed
+	// clientClosed is set when the cancelOnClientClose watcher fired: the
+	// client went away and closed src, so a read error is a client-abort
+	// consequence and must keep the client-abort semantics (issue #1352).
+	clientClosed bool
+}
+
+func (e *responseCopyError) Error() string { return e.err.Error() }
+func (e *responseCopyError) Unwrap() error { return e.err }
+
+func newResponseCopyError(err error, readSide bool, clientClosed *int32) error {
+	if err == nil {
+		return nil
+	}
+	return &responseCopyError{
+		err:          err,
+		readSide:     readSide,
+		clientClosed: atomic.LoadInt32(clientClosed) == 1,
+	}
+}
+
+// isUpstreamDropErr reports whether a sendResponse error is an upstream
+// read failure with the client still attached: the backend broke the
+// response mid-stream (issue #1474), as opposed to a client abort.
+func isUpstreamDropErr(err error) bool {
+	var ce *responseCopyError
+	if !errors.As(err, &ce) {
+		return false
+	}
+	return ce.readSide && !ce.clientClosed
+}
+
+// isClientAbortConsequence reports whether a sendResponse error is the
+// consequence of the client going away rather than a fault of its own: the
+// cancelOnClientClose watcher fired, or the write to the client failed
+// (issue #1473). A read-side error on src is collateral in both cases.
+func isClientAbortConsequence(err error) bool {
+	var ce *responseCopyError
+	if !errors.As(err, &ce) {
+		return false
+	}
+	return ce.clientClosed || !ce.readSide
+}
+
+// isClientCloseAfterComplete reports whether the client closed its side after
+// the response had been fully delivered (issue #1473): the close watcher fired
+// and the protocol terminal event had already been parsed. Only the watcher
+// case qualifies — a failed write means the bytes may never have reached the
+// client, which stays a client-write error.
+func isClientCloseAfterComplete(err error, aiMeta *bfe_basic.AiBasicInfo) bool {
+	var ce *responseCopyError
+	if !errors.As(err, &ce) {
+		return false
+	}
+	return ce.clientClosed && aiMeta != nil && aiMeta.IsResponseCompleted()
+}
+
+// Direction-correct access-log messages for copy errors caused by the client.
+// The wrapped body-process text ("BodyProcessError: read tcp ...") pointed
+// operators at the upstream side, which is exactly backwards (issue #1473).
+const (
+	errMsgClientClosed      = "client closed connection"
+	errMsgClientWriteFailed = "client write failed"
+)
+
+// clientAbortErrMsg returns the access-log message for a copy error. Client
+// side errors get a stable, direction-correct text; everything else keeps the
+// raw error. The transport detail always stays in the log (logCopyError).
+func clientAbortErrMsg(err error) string {
+	var ce *responseCopyError
+	if errors.As(err, &ce) {
+		switch {
+		case ce.clientClosed:
+			return errMsgClientClosed
+		case !ce.readSide:
+			return errMsgClientWriteFailed
+		}
+	}
+	return err.Error()
+}
+
+// logCopyError records which side of the response copy failed, so the raw
+// transport error is still available after the access log switched to the
+// direction-correct message (issue #1473).
+func logCopyError(req *bfe_basic.Request, err error) {
+	var ce *responseCopyError
+	if !errors.As(err, &ce) {
+		log.Logger.Info("sendResponse copy error, logid[%s], err[%v]", req.LogId, err)
+		return
+	}
+	log.Logger.Info("sendResponse copy error, logid[%s], readSide[%v], clientClosed[%v], err[%v]",
+		req.LogId, ce.readSide, ce.clientClosed, ce.err)
+}
+
+// recordCopyError attributes a failed response copy to the right side and
+// records the outcome: an upstream drop (issue #1474), a client that closed
+// after the response was fully delivered (issue #1473), or a client abort /
+// write failure that keeps the historical client-write semantics (issue
+// #1352).
+func (p *ReverseProxy) recordCopyError(basicReq *bfe_basic.Request, res *bfe_http.Response,
+	aiMeta *bfe_basic.AiBasicInfo, err error) {
+
+	switch {
+	case isUpstreamDropErr(err):
+		// issue #1474: the upstream connection broke mid-response (e.g.
+		// backend killed) while the client is still attached. Not a client
+		// abort: mark the drop so the finish handler bills the forwarded
+		// content, count it separately from client write errors, and let the
+		// stream filter tell the client via an injected protocol error event.
+		basicReq.ErrCode = bfe_basic.ErrBkReadRespBody
+		p.proxyState.ErrBkReadRespBody.Inc(1)
+		if shouldMarkUpstreamDropped(res, aiMeta) {
+			aiMeta.MarkUpstreamDropped()
+		}
+	case isClientCloseAfterComplete(err, aiMeta):
+		// issue #1473: the response was fully delivered (the protocol terminal
+		// event had already been parsed) and the client closed its side before
+		// the HTTP EOF. The read error is our own src.Close() consequence, not
+		// a client abort and not a write failure: no err_code, no
+		// ErrClientWrite, and the per-request marker the access log reports.
+		aiMeta.ClientClosedAfterComplete = true
+		p.proxyState.ReqAiClientClosedAfterComplete.Inc(1)
+	default:
+		// Client abort before the terminal event, a failed write, or any other
+		// copy error: keep the existing client-write semantics (issue #1352).
+		basicReq.ErrCode = bfe_basic.ErrClientWrite
+		p.proxyState.ErrClientWrite.Inc(1)
+	}
+
+	if basicReq.ErrCode != nil {
+		basicReq.ErrMsg = clientAbortErrMsg(err)
+	}
+	// Keep the raw transport detail (and which side failed) in the log: the
+	// access log now carries a direction-correct message instead.
+	logCopyError(basicReq, err)
 }
 
 func checkAllowRetry(retryLevel int, outreq *bfe_http.Request) bool {
@@ -1091,16 +1286,15 @@ type BufferFiller interface {
 	FillBuffer() error
 }
 
-// aiTargetRand is used for weighted random target selection in AI gateway mode.
-var aiTargetRand = rand.New(rand.NewSource(time.Now().UnixNano()))
-
 // SelectTarget selects a target based on weight.
+// The package level math/rand functions are safe for concurrent use, which
+// matters here: selection runs on the per request goroutines.
 func SelectTarget(targets []bfe_basic.AiRouteTarget) bfe_basic.AiRouteTarget {
 	if len(targets) == 1 {
 		return targets[0]
 	}
 
-	r := aiTargetRand.Intn(100)
+	r := rand.Intn(100)
 	sum := 0
 	for _, target := range targets {
 		sum += target.Weight
@@ -1346,6 +1540,12 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 		if basicReq.ErrCode == bfe_basic.ErrAiRateLimit {
 			break
 		}
+		// issue #1482: an EPP admission refusal is a capacity decision about
+		// this pool, not a fault of that cluster — falling back would just
+		// queue the request elsewhere in the same saturated pool.
+		if basicReq.ErrCode == bfe_basic.ErrEppRejected {
+			break
+		}
 		if !shouldTriggerFallback(res, invokeErr, aiMeta.AuthStyle) {
 			break
 		}
@@ -1358,6 +1558,12 @@ func (p *ReverseProxy) ServeHTTPForAI(rw bfe_http.ResponseWriter, basicReq *bfe_
 			res.Body.Close()
 		}
 	}
+
+	// The request body can no longer be rewound once the fallback loop
+	// settles, so release the buffered request bodies now: a long-lived SSE
+	// response must not keep the retry-buffer accounting (and the
+	// TotalBodyBufferSize admission budget) occupied.
+	basicReq.HttpRequest.ReleaseBodyBuffers()
 
 	// Upstream error normalization (AIConf.NormalizeUpstreamError): rewrite
 	// the final upstream error into the unified error catalog. Runs after
@@ -1490,10 +1696,7 @@ send_response:
 			if !CheckSupportMultiplex(basicReq.Session.Proto) {
 				action = closeAfterReply
 			}
-			basicReq.ErrCode = bfe_basic.ErrClientWrite
-			basicReq.ErrMsg = err.Error()
-
-			p.proxyState.ErrClientWrite.Inc(1)
+			p.recordCopyError(basicReq, res, aiMeta, err)
 		} else if shouldMarkAIStreamCompleted(res, aiMeta, err) {
 			// issue #1415: the full SSE body was delivered and the upstream
 			// closed cleanly. Streams whose upstream omits the protocol
@@ -1520,6 +1723,17 @@ send_response:
 func shouldMarkAIStreamCompleted(res *bfe_http.Response, aiMeta *bfe_basic.AiBasicInfo, copyErr error) bool {
 	return copyErr == nil && res != nil && res.StatusCode == bfe_http.StatusOK &&
 		res.IsSse && aiMeta != nil &&
+		aiMeta.Mode != bfe_basic.ModeFile && aiMeta.Mode != bfe_basic.ModeBatch
+}
+
+// shouldMarkUpstreamDropped reports whether a copy-time upstream read error
+// should mark the AI request as upstream-dropped (issue #1474): the status
+// is a successful model call, the request is a billable AI mode, and the
+// response had not already completed (a fully delivered stream keeps its
+// issue #1415 clean-EOF semantics).
+func shouldMarkUpstreamDropped(res *bfe_http.Response, aiMeta *bfe_basic.AiBasicInfo) bool {
+	return res != nil && res.StatusCode == bfe_http.StatusOK && aiMeta != nil &&
+		!aiMeta.IsResponseCompleted() &&
 		aiMeta.Mode != bfe_basic.ModeFile && aiMeta.Mode != bfe_basic.ModeBatch
 }
 
@@ -1597,6 +1811,14 @@ func maybeInjectStreamUsage(basicReq *bfe_basic.Request, aiMeta *bfe_basic.AiBas
 	}
 	body, all := bodyAccessor.GetBytes()
 	if !all || len(body) == 0 {
+		if !all {
+			// The body exceeded Server.AccessibleBodySize, so it cannot be
+			// rewritten whole and the upstream may return no usage at all: make
+			// the skipped injection visible instead of silently degrading the
+			// billing (issue #1468 amplifier).
+			log.Logger.Warn("inject stream_options.include_usage skipped: request body "+
+				"exceeds AccessibleBodySize (%d bytes buffered)", len(body))
+		}
 		return false
 	}
 	if !gjson.GetBytes(body, "stream").Bool() {
@@ -1613,6 +1835,124 @@ func maybeInjectStreamUsage(basicReq *bfe_basic.Request, aiMeta *bfe_basic.AiBas
 	}
 	bodyAccessor.SetBytes(newBody, false)
 	return true
+}
+
+// applyAIUpstreamAcceptEncoding rewrites the Accept-Encoding of an AI upstream
+// request so that content negotiation stays inside the coding set the gateway
+// can decode (issue #1468).
+//
+// Why: a compressed SSE body is forwarded verbatim, and its usage is parsed from
+// a decompressed copy. A coding the gateway cannot decode therefore leaves
+// cache_read_tokens at 0 and bills the whole prompt at the input price. Narrowing
+// the negotiation closes that path instead of adding decoders for every coding
+// an upstream may pick.
+//
+// The outbound header map aliases the inbound one (see the shallow copy in
+// doSingleAIForward), so it is cloned before any mutation: the client request,
+// the access log, the cache and mod_compress keep seeing the original value.
+func applyAIUpstreamAcceptEncoding(outreq *bfe_http.Request, mode string) {
+	if outreq == nil {
+		return
+	}
+
+	switch bfe_conf.NormalizeAIUpstreamAcceptEncoding(mode) {
+	case bfe_conf.AIUpstreamAcceptEncodingOff:
+		return
+	case bfe_conf.AIUpstreamAcceptEncodingIdentity:
+		// No compression at all: the plaintext SSE path parses usage directly
+		// (diagnostics / escape hatch).
+		setOutboundAcceptEncoding(outreq, "identity")
+		return
+	}
+
+	value, changed := narrowAcceptEncoding(outreq.Header.Get("Accept-Encoding"))
+	if !changed {
+		return
+	}
+	setOutboundAcceptEncoding(outreq, value)
+}
+
+// setOutboundAcceptEncoding writes the header on a detached copy of the map.
+func setOutboundAcceptEncoding(outreq *bfe_http.Request, value string) {
+	if outreq.Header.Get("Accept-Encoding") == value {
+		return
+	}
+	outreq.Header = outreq.Header.Clone()
+	outreq.Header.Set("Accept-Encoding", value)
+}
+
+// narrowAcceptEncoding intersects a client Accept-Encoding value with the codings
+// the gateway can decode, preserving q values. It reports whether anything was
+// dropped: an empty intersection also reports false, because a gateway must never
+// answer with a coding the client did not accept — such a request is forwarded
+// unchanged and simply falls back to the usage estimate.
+func narrowAcceptEncoding(clientValue string) (string, bool) {
+	if clientValue == "" {
+		return "", false
+	}
+
+	kept := make([]string, 0, 4)
+	dropped := false
+	for _, item := range strings.Split(clientValue, ",") {
+		coding, params := splitAcceptEncodingItem(item)
+		if coding == "" {
+			dropped = true
+			continue
+		}
+		if q, ok := acceptEncodingQ(params); ok && q <= 0 {
+			// q=0 refuses the coding, so dropping it is equivalent.
+			dropped = true
+			continue
+		}
+		if coding == "*" {
+			// A wildcard accepts anything, so it is replaced by the explicit
+			// decodable set (keeping its q value).
+			for _, c := range bfe_util.SupportedContentEncodings() {
+				kept = append(kept, c+params)
+			}
+			dropped = true
+			continue
+		}
+		if !bfe_util.CanDecodeContentEncoding(coding) {
+			dropped = true
+			continue
+		}
+		kept = append(kept, coding+params)
+	}
+
+	if !dropped || len(kept) == 0 {
+		return "", false
+	}
+	return strings.Join(kept, ", "), true
+}
+
+// splitAcceptEncodingItem splits one Accept-Encoding list item into its
+// lower-cased coding and its parameters (with the leading ';'), e.g.
+// "gzip;q=0.5" -> ("gzip", ";q=0.5").
+func splitAcceptEncodingItem(item string) (coding, params string) {
+	item = strings.TrimSpace(item)
+	if item == "" {
+		return "", ""
+	}
+	if i := strings.IndexByte(item, ';'); i >= 0 {
+		return strings.ToLower(strings.TrimSpace(item[:i])), item[i:]
+	}
+	return strings.ToLower(item), ""
+}
+
+// acceptEncodingQ extracts the q value from an Accept-Encoding item's
+// parameters.
+func acceptEncodingQ(params string) (float64, bool) {
+	for _, param := range strings.Split(params, ";") {
+		param = strings.TrimSpace(param)
+		if len(param) < 3 || (param[0] != 'q' && param[0] != 'Q') || param[1] != '=' {
+			continue
+		}
+		if q, err := strconv.ParseFloat(strings.TrimSpace(param[2:]), 64); err == nil {
+			return q, true
+		}
+	}
+	return 0, false
 }
 
 // sanitizeOutboundCredentials enforces issue #1447: an outbound request that
@@ -1678,6 +2018,12 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 	httpProtoSet(outreq)
 	// remove hop-by-hop headers
 	hopByHopHeaderRemove(outreq, req)
+
+	// issue #1468: keep the upstream content negotiation inside the coding set
+	// the gateway can decode, so a compressed streaming response still yields a
+	// parseable usage. Runs after the hop-by-hop removal so a coding advertised
+	// through the Connection header is already gone.
+	applyAIUpstreamAcceptEncoding(outreq, srv.Config.Server.AIUpstreamAcceptEncoding)
 
 	if cluster.DisableHostHeader {
 		// if cluster.DisableHostHeader is true, del outreq.Host
@@ -1756,6 +2102,12 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 		}
 	}
 
+	// Provider-level compensating normalization (AIConf.EnsureReasoningContent):
+	// fill an empty reasoning_content inside the upstream validation window.
+	// Runs after the HandleAfterAITargetModel callbacks and after the model
+	// rewrite, both of which may rewrite the body.
+	reasoningPatched := p.ensureReasoningContent(basicReq, outreq, cluster.AIConf, aiMeta)
+
 	// apply cluster.AIConf (api key, provider, cost currency)
 	if cluster.AIConf != nil {
 		if cluster.AIConf.Provider != "" {
@@ -1797,6 +2149,14 @@ func (p *ReverseProxy) doSingleAIForward(srv *BfeServer, cluster *bfe_cluster.Bf
 
 	// invoke cluster to get response
 	res, action, err = p.clusterInvoke(srv, cluster, basicReq, rw)
+
+	// Contract-reversal signal: the body was patched for this attempt and the
+	// upstream still answered 400. Counted before the fallback decision so the
+	// signal survives a later attempt that succeeds.
+	if reasoningPatched && res != nil && res.StatusCode == 400 {
+		incStateCounter(p.proxyState.ReasoningStill400)
+	}
+
 	return res, action, err, newBodyModel
 }
 
@@ -1930,8 +2290,16 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 				// and err_code attribution. The ErrCode sentinel is deliberately
 				// NOT ErrAiRateLimit: that would suppress cluster fallback (the
 				// local-RL short-circuit in ServeHTTPForAI).
+				// The hint uses the 429 penalty TTL, i.e. the same source as the
+				// write side: it means "longest remaining wait of a penalized
+				// Key under the current config", not an exact remaining time
+				// (an exact value needs PTTL, deferred to phase 2).
 				log.Logger.Warn("aiClusterInvoke: all ai keys exhausted for cluster[%s], return synthetic 429", attempt.ClusterName)
-				retryAfter := aiKeyPenaltyTTL429
+				retryAfter := policy.SessionAffinityPenaltyTTL429
+				if retryAfter <= 0 {
+					// defensive: a policy built without AIKeyPolicyCheck
+					retryAfter = 60
+				}
 				res = bfe_basic.NewAiErrorWithDetails(bfe_basic.CodeNoAvailableKey, bfe_basic.TypeRateLimitError,
 					"no available upstream api key for this cluster",
 					&bfe_basic.AiErrorDetail{Model: attempt.Model, RetryAfterSeconds: retryAfter},
@@ -1997,22 +2365,24 @@ func (p *ReverseProxy) aiClusterInvoke(srv *BfeServer, serverConf *bfe_route.Ser
 			// rate limit: mark key as used and rotate to another key
 			state.usedSet[idx] = struct{}{}
 			if policy.SessionAffinity && policy.SessionAffinityPenaltyEnable && redisClient != nil {
-				setKeyPenalty(cluster.Name, key.Name, "429", aiKeyPenaltyTTL429, policy, redisClient)
+				setKeyPenalty(cluster.Name, key.Name, "429", policy.SessionAffinityPenaltyTTL429, policy, redisClient)
 				if sessionID != "" {
 					redisDeleteBinding(cluster.Name, sessionID, policy, redisClient)
 				}
 			}
-			log.Logger.Info("aiClusterInvoke: ai key [name=%s] rate limited (429), rotate", key.Name)
+			log.Logger.Info("aiClusterInvoke: ai key [name=%s] rate limited (429), rotate, penalty_ttl=%ds",
+				key.Name, policy.SessionAffinityPenaltyTTL429)
 		case statusCode == 401 || statusCode == 402 || statusCode == 403:
 			// auth failure: mark key as dead
 			state.deadSet[idx] = struct{}{}
 			if policy.SessionAffinity && policy.SessionAffinityPenaltyEnable && redisClient != nil {
-				setKeyPenalty(cluster.Name, key.Name, fmt.Sprintf("%d", statusCode), 3600, policy, redisClient)
+				setKeyPenalty(cluster.Name, key.Name, fmt.Sprintf("%d", statusCode), policy.SessionAffinityPenaltyTTLAuth, policy, redisClient)
 				if sessionID != "" {
 					redisDeleteBinding(cluster.Name, sessionID, policy, redisClient)
 				}
 			}
-			log.Logger.Info("aiClusterInvoke: ai key [name=%s] auth failed (%d), dead", key.Name, statusCode)
+			log.Logger.Info("aiClusterInvoke: ai key [name=%s] auth failed (%d), dead, penalty_ttl=%ds",
+				key.Name, statusCode, policy.SessionAffinityPenaltyTTLAuth)
 		case statusCode >= 500 || err != nil:
 			// transient server failure or connection error:
 			// keep current key selected for next retry (with backoff)
@@ -2056,12 +2426,6 @@ var aiFallbackStatusCodes = map[int]struct{}{
 	429: {},
 }
 
-// aiKeyPenaltyTTL429 is the penalty TTL (seconds) written for a key that the
-// upstream rate limited (429). It is also used as the Retry-After hint of the
-// gateway-generated NO_AVAILABLE_KEY response (issue #1441), so the write side
-// and the retry hint share a single source.
-const aiKeyPenaltyTTL429 = 60
-
 // aiGatewayFailureResponse builds the unified AiError response for a
 // gateway-side failure with a live client (issue #1441). A request that the
 // balance layer rejected with ErrBkNoBackend keeps the BK_NO_BACKEND business
@@ -2074,6 +2438,10 @@ const aiKeyPenaltyTTL429 = 60
 // (X-Bfe-Gw-Error), so normalizeUpstreamError skips it. The messages are
 // generic on purpose - internal topology (host/port) must not leak to
 // clients; the detail stays in bfe.log and in err_code/err_msg.
+//
+// issue #1482: an EPP admission refusal keeps the status the EPP decided
+// (429 EPP_OVERLOAD / 503 EPP_NO_CAPACITY) and forwards its Retry-After hint;
+// the EPP body is never echoed because it may carry pool topology.
 func aiGatewayFailureResponse(basicReq *bfe_basic.Request) *bfe_http.Response {
 	if basicReq.ErrCode == bfe_basic.ErrBkNoBackend {
 		return bfe_basic.NewAiError(bfe_basic.CodeNoBackend, bfe_basic.TypeInternalError,
@@ -2086,6 +2454,20 @@ func aiGatewayFailureResponse(basicReq *bfe_basic.Request) *bfe_http.Response {
 		// (same treatment shape as BK_NO_BACKEND above).
 		return bfe_basic.NewAiError(bfe_basic.CodeContentRejected, bfe_basic.TypeInvalidRequestError,
 			"request rejected by content audit").CreateErrorResponse(basicReq)
+	}
+	if basicReq.ErrCode == bfe_basic.ErrEppRejected {
+		code, errType, msg := bfe_basic.CodeEppOverload, bfe_basic.TypeRateLimitError,
+			"gateway capacity exhausted, retry later"
+		rej := bal_gslb.EPPRejectedDetail(basicReq)
+		if rej != nil && rej.StatusCode == bfe_http.StatusServiceUnavailable {
+			code, errType, msg = bfe_basic.CodeEppNoCapacity, bfe_basic.TypeInternalError,
+				"gateway has no capacity for this request"
+		}
+		res := bfe_basic.NewAiError(code, errType, msg).CreateErrorResponse(basicReq)
+		if rej != nil && rej.RetryAfter != "" {
+			res.Header.Set("Retry-After", rej.RetryAfter)
+		}
+		return res
 	}
 	return bfe_basic.NewAiError(bfe_basic.CodeBackendUnavailable, bfe_basic.TypeInternalError,
 		"upstream backend unavailable for this request").CreateErrorResponse(basicReq)
@@ -2266,9 +2648,6 @@ func newAIKeyAttemptState() *aiKeyAttemptState {
 	}
 }
 
-// aiKeyRand is used for weighted random AI key selection.
-var aiKeyRand = rand.New(rand.NewSource(time.Now().UnixNano()))
-
 // selectAIKey selects one key by weighted random.
 // keys should have weight > 0 and total weight > 0.
 func selectAIKey(keys []cluster_conf.AIKey) (cluster_conf.AIKey, int) {
@@ -2284,7 +2663,7 @@ func selectAIKey(keys []cluster_conf.AIKey) (cluster_conf.AIKey, int) {
 		return cluster_conf.AIKey{}, -1
 	}
 
-	r := aiKeyRand.Intn(total)
+	r := rand.Intn(total)
 	sum := 0
 	for i, k := range keys {
 		sum += k.Weight
@@ -2298,11 +2677,26 @@ func selectAIKey(keys []cluster_conf.AIKey) (cluster_conf.AIKey, int) {
 // chooseNextAIKey returns next eligible key and its index.
 // If all keys are dead, returns (-1, empty key, false).
 // If all alive keys are in used_set, clears used_set and retries.
-func chooseNextAIKey(keys []cluster_conf.AIKey, state *aiKeyAttemptState) (int, cluster_conf.AIKey, bool) {
+// chooseNextAIKey selects a key among allowed (indices into keys; nil means
+// every index). The returned index is always an index into keys, which is the
+// space aiKeyAttemptState.deadSet / usedSet is keyed by.
+func chooseNextAIKey(keys []cluster_conf.AIKey, allowed []int, state *aiKeyAttemptState) (int, cluster_conf.AIKey, bool) {
+	ordered := allowed
+	if ordered == nil {
+		ordered = make([]int, len(keys))
+		for i := range keys {
+			ordered[i] = i
+		}
+	}
+
 	var eligible []cluster_conf.AIKey
 	var indices []int
 
-	for i, k := range keys {
+	for _, i := range ordered {
+		if i < 0 || i >= len(keys) {
+			continue
+		}
+		k := keys[i]
 		if k.Weight == 0 {
 			continue
 		}
@@ -2356,7 +2750,7 @@ func calcBackoff(initial, max, attempt int) time.Duration {
 	// add jitter (±20%)
 	jitter := backoff / 5
 	if jitter > 0 {
-		backoff = backoff - jitter/2 + aiKeyRand.Intn(jitter)
+		backoff = backoff - jitter/2 + rand.Intn(jitter)
 	}
 	return time.Duration(backoff) * time.Millisecond
 }
@@ -2372,6 +2766,11 @@ func defaultAIKeyPolicy() cluster_conf.AIKeyPolicy {
 		SessionAffinityTTL:           600,
 		SessionAffinityRedisPrefix:   "bfe:ai:key_affinity",
 		SessionAffinityPenaltyEnable: true,
+
+		// Must stay identical to aiKeyPenaltyDefaultTTL* in cluster_conf and to
+		// the control-plane defaults.
+		SessionAffinityPenaltyTTL429:  60,
+		SessionAffinityPenaltyTTLAuth: 300,
 	}
 }
 
@@ -2410,7 +2809,7 @@ func redisGetBatchBinding(clusterName string, hint *bfe_basic.AiBatchRouteHint,
 			continue
 		}
 		key := bfe_basic.BatchAffinityKey(clusterName, id)
-		val, err := client.Get(key)
+		b, found, err := redisGetOrMiss(client, key)
 		if err != nil {
 			log.Logger.Warn("aiKeyAffinity: batch binding get error[%v]", err)
 			if proxyState != nil {
@@ -2418,11 +2817,7 @@ func redisGetBatchBinding(clusterName string, hint *bfe_basic.AiBatchRouteHint,
 			}
 			continue
 		}
-		if val == nil {
-			continue
-		}
-		b, ok := val.([]byte)
-		if !ok || len(b) == 0 {
+		if !found || len(b) == 0 {
 			continue
 		}
 		// sliding renewal on hit
@@ -2464,18 +2859,37 @@ func aiKeyAffinityPenaltyRedisKey(clusterName, keyName, prefix string) string {
 	return fmt.Sprintf("%s:penalty:%s:%s", prefix, clusterName, keyName)
 }
 
-func redisGetBinding(clusterName, sessionID string, policy cluster_conf.AIKeyPolicy, client redis_client.Client) (string, error) {
-	key := aiKeyAffinityRedisKey(clusterName, sessionID, policy.SessionAffinityRedisPrefix)
+// redisGetOrMiss reads key and normalizes an absent key to a miss instead of
+// an error: RedisClient.Get reports a missing key as redis.ErrNil so that
+// callers can tell "not bound yet" (normal control flow for affinity) from a
+// real Redis failure (issue #1472). The (nil, nil) form is still handled for
+// clients that report a miss as an empty value.
+func redisGetOrMiss(client redis_client.Client, key string) ([]byte, bool, error) {
 	val, err := client.Get(key)
 	if err != nil {
-		return "", err
+		if redis_client.IsKeyNotFound(err) {
+			return nil, false, nil
+		}
+		return nil, false, err
 	}
 	if val == nil {
-		return "", nil
+		return nil, false, nil
 	}
 	b, ok := val.([]byte)
 	if !ok {
-		return "", fmt.Errorf("unexpected redis value type %T", val)
+		return nil, false, fmt.Errorf("unexpected redis value type %T", val)
+	}
+	return b, true, nil
+}
+
+func redisGetBinding(clusterName, sessionID string, policy cluster_conf.AIKeyPolicy, client redis_client.Client) (string, error) {
+	key := aiKeyAffinityRedisKey(clusterName, sessionID, policy.SessionAffinityRedisPrefix)
+	b, found, err := redisGetOrMiss(client, key)
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return "", nil
 	}
 	return string(b), nil
 }
@@ -2500,28 +2914,42 @@ func isKeyPenalized(clusterName, keyName string, policy cluster_conf.AIKeyPolicy
 }
 
 func setKeyPenalty(clusterName, keyName, reason string, ttl int, policy cluster_conf.AIKeyPolicy, client redis_client.Client) {
+	if ttl <= 0 {
+		// Redis treats expire=0 as "never expire": skipping the write is far
+		// safer than turning a transient failure into a permanent penalty.
+		// The loader fills defaults, so this only fires for a policy that was
+		// built without AIKeyPolicyCheck.
+		log.Logger.Warn("aiKeyAffinity: skip penalty for key[%s] reason[%s]: invalid ttl[%d]", keyName, reason, ttl)
+		return
+	}
 	key := aiKeyAffinityPenaltyRedisKey(clusterName, keyName, policy.SessionAffinityRedisPrefix)
 	if err := client.Setex(key, []byte(reason), ttl); err != nil {
 		log.Logger.Warn("aiKeyAffinity: set penalty error[%v]", err)
 	}
 }
 
-func filterPenaltyKeys(clusterName string, keys []cluster_conf.AIKey, policy cluster_conf.AIKeyPolicy, client redis_client.Client) ([]cluster_conf.AIKey, int) {
-	var filtered []cluster_conf.AIKey
+// filterPenaltyKeys returns the indices (into keys) of the keys that may be
+// selected, plus the number of usable keys skipped because of a penalty.
+// Indices are kept in the caller's key space on purpose: the attempt state
+// (deadSet/usedSet) is keyed by the position in AIConf.Keys, so returning a
+// re-indexed sub-slice would make a healthy key look dead (see
+// docs/zh_cn/modifications/2026-11-04-ai-key-penalty-filter-index-mismatch/).
+func filterPenaltyKeys(clusterName string, keys []cluster_conf.AIKey, policy cluster_conf.AIKeyPolicy, client redis_client.Client) ([]int, int) {
+	var allowed []int
 	skipped := 0
-	for _, k := range keys {
+	for i, k := range keys {
 		if k.Weight == 0 {
 			// Weight=0 keys are never eligible for selection; they must not
 			// count as candidates (issue #1439).
 			continue
 		}
 		if !isKeyPenalized(clusterName, k.Name, policy, client) {
-			filtered = append(filtered, k)
+			allowed = append(allowed, i)
 		} else {
 			skipped++
 		}
 	}
-	if len(filtered) == 0 {
+	if len(allowed) == 0 {
 		// All usable keys are penalized (circuit breaker, issue #1439):
 		// return no candidates so chooseNextAIKey fails and aiClusterInvoke
 		// surfaces a synthetic 429 (issue #1440) for cluster fallback. The
@@ -2530,7 +2958,7 @@ func filterPenaltyKeys(clusterName string, keys []cluster_conf.AIKey, policy clu
 		log.Logger.Info("aiKeyAffinity: all usable keys penalized for cluster[%s], circuit break", clusterName)
 		return nil, skipped
 	}
-	return filtered, skipped
+	return allowed, skipped
 }
 
 func findKeyIndexByName(name string, keys []cluster_conf.AIKey) int {
@@ -2572,7 +3000,7 @@ func chooseAIKeyWithAffinity(
 
 	if client == nil || (sessionID == "" && batchHint == nil) ||
 		(!policy.SessionAffinity && batchHint == nil) {
-		idx, key, ok := chooseNextAIKey(keys, state)
+		idx, key, ok := chooseNextAIKey(keys, nil, state)
 		return idx, key, "", ok
 	}
 
@@ -2582,10 +3010,16 @@ func chooseAIKeyWithAffinity(
 		return 0, keys[0], keys[0].Name, true
 	}
 
-	candidateKeys := keys
+	// allowed is nil when the penalty filter is off (every key is a candidate).
+	// An empty non-nil slice means the circuit breaker fired, i.e. no key may be
+	// selected; the two must stay distinguishable for chooseNextAIKey.
+	var allowed []int
 	penaltySkipCount := 0
 	if policy.SessionAffinityPenaltyEnable {
-		candidateKeys, penaltySkipCount = filterPenaltyKeys(clusterName, keys, policy, client)
+		allowed, penaltySkipCount = filterPenaltyKeys(clusterName, keys, policy, client)
+		if allowed == nil {
+			allowed = []int{}
+		}
 	}
 
 	// batch-level binding takes precedence: it chains all lifecycle
@@ -2605,7 +3039,7 @@ func chooseAIKeyWithAffinity(
 	}
 
 	if !policy.SessionAffinity || sessionID == "" {
-		idx, key, ok := chooseNextAIKey(candidateKeys, state)
+		idx, key, ok := chooseNextAIKey(keys, allowed, state)
 		return idx, key, "", ok
 	}
 
@@ -2615,7 +3049,7 @@ func chooseAIKeyWithAffinity(
 		if proxyState != nil {
 			proxyState.ReqAiKeyAffinityRedisErr.Inc(1)
 		}
-		idx, key, ok := chooseNextAIKey(candidateKeys, state)
+		idx, key, ok := chooseNextAIKey(keys, allowed, state)
 		return idx, key, "", ok
 	}
 
@@ -2637,7 +3071,7 @@ func chooseAIKeyWithAffinity(
 		// binding stale (key removed/dead/penalized), continue to select a new key
 	}
 
-	idx, key, ok := chooseNextAIKey(candidateKeys, state)
+	idx, key, ok := chooseNextAIKey(keys, allowed, state)
 	if ok {
 		if err := redisSetBinding(clusterName, sessionID, key.Name, policy, client); err != nil {
 			log.Logger.Warn("aiKeyAffinity: redis set binding error[%v]", err)

@@ -52,6 +52,7 @@ type ProxyState struct {
 	ErrBkReadRespHeader    *metrics.Counter
 	ErrBkRespHeaderTimeout *metrics.Counter
 	ErrBkTransportBroken   *metrics.Counter
+	ErrBkReadRespBody      *metrics.Counter // upstream dropped the response mid-stream (issue #1474)
 
 	// tls handshake
 	TlsHandshakeAll  *metrics.Counter
@@ -132,11 +133,22 @@ type ProxyState struct {
 	ReqAiKeyAffinityRedisErr    *metrics.Counter
 
 	// upstream error normalization (AIConf.NormalizeUpstreamError)
-	ErrNormalizeHit         *metrics.Counter // upstream error recognized and rewritten
-	ErrNormalizeMiss        *metrics.Counter // upstream error not recognized (passthrough)
-	ErrNormalizeRedact      *metrics.Counter // credential redaction applied
-	ErrStreamErrorRewritten *metrics.Counter // stream with at least one SSE error event rewritten
-	ErrStreamTruncated      *metrics.Counter // stream ended without the protocol's terminal event
+	ErrNormalizeHit             *metrics.Counter // upstream error recognized and rewritten
+	ErrNormalizeMiss            *metrics.Counter // upstream error not recognized (passthrough)
+	ErrNormalizeRedact          *metrics.Counter // credential redaction applied
+	ErrStreamErrorRewritten     *metrics.Counter // stream with at least one SSE error event rewritten
+	ErrStreamTruncated          *metrics.Counter // stream ended without the protocol's terminal event
+	ErrStreamTruncationInjected *metrics.Counter // error event injected after a mid-stream upstream drop (issue #1474)
+
+	// client close handling (issue #1473)
+	ReqAiClientClosedAfterComplete *metrics.Counter // response fully delivered, client closed before the HTTP EOF
+
+	// provider-level compensating request normalization
+	// (AIConf.EnsureReasoningContent)
+	ReasoningPatched  *metrics.Counter // at least one assistant message got an empty reasoning_content
+	ReasoningSkip     *metrics.Counter // skipped: compressed body, oversized body, non-JSON or batch/file mode
+	ReasoningFail     *metrics.Counter // parse/structure failure, body passed through unchanged
+	ReasoningStill400 *metrics.Counter // patched yet the upstream still answered 400 (contract changed)
 }
 
 func (s *ProxyState) ClientConnServedInc(proto string, value uint) {

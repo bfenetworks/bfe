@@ -17,7 +17,7 @@
 | Config{v}[].Last              | Boolean | 规则匹配成功后是否继续匹配后续规则 | N    | 默认值为 `false`                                           | -                                                    |
 | Config{v}[].Actions           | Array   | 匹配成功后的动作列表 | Y    | -                                                          | -                                                    |
 | Config{v}[].Actions[].Cmd     | String  | 动作名称             | Y    | 合法值详见模块动作说明                                     | -                                                    |
-| Config{v}[].Actions[].Params  | Array   | 动作参数列表         | N    | 参数依具体动作而定；元素类型为 String                      | -                                                    |
+| Config{v}[].Actions[].Params  | Array   | 动作参数列表         | N    | 参数依具体动作而定；元素类型为 String；值参数支持 `=` 前缀表达式，见下文 | -                                                    |
 
 ## 模块动作
 
@@ -37,6 +37,23 @@
 | REQ_COOKIE_DEL    | 删除请求 Cookie | CookieName                                                                   |
 | RSP_COOKIE_SET    | 设置响应 Cookie | Name, Value, Domain, Path, Expires(RFC1123), MaxAge(int), HttpOnly(bool), Secure(bool) |
 | RSP_COOKIE_DEL    | 删除响应 Cookie | Name, Domain, Path                                                           |
+
+### 动作参数表达式
+
+`REQ_HEADER_SET`/`REQ_HEADER_ADD`/`RSP_HEADER_SET`/`RSP_HEADER_ADD` 的值参数
+（`Params[1]`）支持以 `=` 前缀内嵌表达式。此类参数同时保留既有的 `%变量`
+写法，二者互斥：参数以 `=` 开头时按表达式处理，否则按 `%变量` 格式串处理。
+语法与错误处理详见
+[动作参数表达式](../00-common.md#10-动作参数表达式actionparam)。
+
+示例（用表达式设置请求头）：
+
+```json
+{
+    "cmd": "REQ_HEADER_SET",
+    "params": ["X-Client-Ip", "=ReqCip()"]
+}
+```
 
 ## 配置示例
 

@@ -951,11 +951,11 @@ func (fetcher *SniFetcher) Fetch(req *bfe_basic.Request) (interface{}, error) {
 type ClientAuthMatcher struct{}
 
 func (m *ClientAuthMatcher) Match(req *bfe_basic.Request) bool {
-	if req == nil || req.Session == nil || !req.Session.IsSecure || req.Session.TlsState == nil {
+	if req == nil || req.Session == nil || !req.Session.IsSecure {
 		return false
 	}
 
-	return req.Session.TlsState.ClientAuth
+	return req.Session.TlsClientAuth
 }
 
 // ClientCANameFetcher fetches client CA name
@@ -967,12 +967,11 @@ func (fetcher *ClientCANameFetcher) Fetch(req *bfe_basic.Request) (interface{}, 
 	}
 
 	ses := req.Session
-	if ses == nil || !ses.IsSecure || ses.TlsState == nil || !ses.TlsState.ClientAuth ||
-		ses.TlsState.ClientCAName == "" {
+	if ses == nil || !ses.IsSecure || !ses.TlsClientAuth || ses.TlsClientCAName == "" {
 		return nil, fmt.Errorf("fetcher: no client CA name")
 	}
 
-	return req.Session.TlsState.ClientCAName, nil
+	return req.Session.TlsClientCAName, nil
 }
 
 type ContextValueFetcher struct {

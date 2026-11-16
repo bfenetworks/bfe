@@ -141,6 +141,11 @@ type AiBasicInfo struct {
 	ContextTokensAfter    int64  // estimated tokens after context compression, 0 if not compressed
 	ContextCompressMode   string // effective mode: conservative / balanced / aggressive
 
+	// Provider-level compensating normalization (AIConf.EnsureReasoningContent):
+	// true when this request had an empty reasoning_content injected on at least
+	// one assistant message inside the upstream validation window.
+	ReasoningPatched bool
+
 	// Traffic mirroring (mod_traffic_mirror) result: only synchronous fields
 	// are recorded here; async mirror results (status/usage/latency) are
 	// reported via module Prometheus metrics and are not written back
@@ -156,6 +161,12 @@ type AiBasicInfo struct {
 	ErrNormalizeMiss     bool   // true when the parser did not recognize the upstream error body
 	StreamErrorRewritten bool   // true when at least one SSE error event of the stream was rewritten
 	StreamTruncated      bool   // true when the stream ended without the protocol's terminal event
+	// ClientClosedAfterComplete is true when the response was fully delivered
+	// (the protocol terminal event had been parsed) and the client then closed
+	// the connection without waiting for the HTTP EOF. Such a request is not a
+	// client abort and not a write failure: no err_code is set and
+	// ERR_CLIENT_WRITE is not counted (issue #1473).
+	ClientClosedAfterComplete bool
 	// UpstreamKey holds the last injected upstream credential; it is the
 	// pattern source for error-body credential redaction and must never be
 	// written to logs or responses.
@@ -205,10 +216,26 @@ type AiBasicInfo struct {
 	// (e.g. Anthropic message_stop, OpenAI [DONE]) or the full body was
 	// read for non-streaming responses.
 	responseCompleted bool
+	// upstreamDropped marks that the upstream connection broke before the
+	// response body was fully delivered (issue #1474): a mid-stream read
+	// error, as opposed to a client abort (write side) or a clean EOF.
+	// Billing treats the forwarded-content estimate as billable on this
+	// mark, and the stream filter injects a protocol error event into the
+	// client stream.
+	upstreamDropped bool
 	// finalUsageSeen marks whether the final usage was parsed from the
 	// response. An initial usage such as Anthropic message_start
 	// (output_tokens = 0) does not count.
 	finalUsageSeen bool
+	// earlyUsageSeen marks that a usage object was parsed from a non-final
+	// event (issue #1497): an early usage in a non-terminal delta, or the
+	// Anthropic message_start initial usage. Such usage feeds the protocol
+	// context (e.g. the prompt fields a later message_delta merges from)
+	// but must never become the billing basis when no final usage follows;
+	// its values are kept out of UsedQuota/CompletionTokens by
+	// mod_body_process and only serve as the "estimate, don't take the
+	// early numbers" signal at the billing decision point.
+	earlyUsageSeen bool
 
 	// priceMiss marks that the (model, mode) price entry was absent from the
 	// cluster price table and the cost was computed by falling back to the
@@ -216,6 +243,12 @@ type AiBasicInfo struct {
 	// Surfaced to the access log as ai_price_miss so under-priced rows stay
 	// visible in reconciliation (issue #1408).
 	priceMiss bool
+
+	// priceWarn carries the precise missing-price shape of this request
+	// (PriceWarn* constants), reported as ai_price_warn and mirrored by the
+	// PRICE_MISS log type (issue #1479). The zero value means "no price
+	// miss"; when several shapes apply the most specific one is kept.
+	priceWarn string
 
 	// usageDisposition tells the access log whether the token figures of
 	// this request may be reported (issue #1409). It is decided at request
@@ -268,12 +301,36 @@ func (aiinfo *AiBasicInfo) IsResponseCompleted() bool {
 	return aiinfo.responseCompleted
 }
 
+// MarkUpstreamDropped records that the upstream connection broke before
+// the response body was fully delivered (issue #1474).
+func (aiinfo *AiBasicInfo) MarkUpstreamDropped() {
+	aiinfo.upstreamDropped = true
+}
+
+// IsUpstreamDropped reports whether MarkUpstreamDropped was recorded.
+func (aiinfo *AiBasicInfo) IsUpstreamDropped() bool {
+	return aiinfo.upstreamDropped
+}
+
 func (aiinfo *AiBasicInfo) MarkFinalUsageSeen() {
 	aiinfo.finalUsageSeen = true
 }
 
 func (aiinfo *AiBasicInfo) IsFinalUsageSeen() bool {
 	return aiinfo.finalUsageSeen
+}
+
+// MarkEarlyUsageSeen records that a usage object was parsed from a non-final
+// event (issue #1497): an early usage in a non-terminal delta, or the
+// Anthropic message_start initial usage. The usage is protocol context only
+// and must not be billed as the final usage.
+func (aiinfo *AiBasicInfo) MarkEarlyUsageSeen() {
+	aiinfo.earlyUsageSeen = true
+}
+
+// IsEarlyUsageSeen reports whether MarkEarlyUsageSeen was recorded.
+func (aiinfo *AiBasicInfo) IsEarlyUsageSeen() bool {
+	return aiinfo.earlyUsageSeen
 }
 
 // MarkPriceMiss records that the request's (model, mode) price entry was
@@ -286,6 +343,55 @@ func (aiinfo *AiBasicInfo) MarkPriceMiss() {
 // IsPriceMiss reports whether MarkPriceMiss was recorded for this request.
 func (aiinfo *AiBasicInfo) IsPriceMiss() bool {
 	return aiinfo.priceMiss
+}
+
+// Missing-price shapes (issue #1479). They are shared by the ai_price_warn
+// access-log field and the structured PRICE_MISS log line (the log uses them
+// as its "type" token), so reconciliation queries and log greps use one
+// vocabulary.
+const (
+	// PriceWarnNoEntry: the (model, mode) entry is absent and the cluster
+	// action bills 0 ("bill_zero").
+	PriceWarnNoEntry = "no_entry"
+	// PriceWarnNoBaseline: the entry is absent and there is no chat-mode
+	// baseline to fall back to (bill 0 under the default action).
+	PriceWarnNoBaseline = "no_baseline"
+	// PriceWarnFallback: a non-chat mode was billed at the model's
+	// chat-mode price ("fallback_chat").
+	PriceWarnFallback = "fallback"
+	// PriceWarnSubitemMissing: the billed entry lacks sub-item price keys
+	// (e.g. cache read/write) that this request actually used, so those
+	// dimensions were billed 0 ("accepted residual").
+	PriceWarnSubitemMissing = "subitem_missing"
+	// PriceWarnNoModelTable: the cluster model table is missing.
+	PriceWarnNoModelTable = "no_model_table"
+	// PriceWarnReject: the requested interface has no price configured and
+	// the request was rejected before forwarding ("reject" action).
+	PriceWarnReject = "reject"
+)
+
+// priceWarnRank orders the shapes by specificity; when several apply the
+// highest rank wins (subitem_missing > fallback > entry-level shapes,
+// reject is exclusive by construction).
+var priceWarnRank = map[string]int{
+	PriceWarnNoEntry:        1,
+	PriceWarnNoBaseline:     1,
+	PriceWarnNoModelTable:   1,
+	PriceWarnFallback:       3,
+	PriceWarnSubitemMissing: 4,
+	PriceWarnReject:         5,
+}
+
+// MarkPriceWarn records a missing-price shape, keeping the most specific one.
+func (aiinfo *AiBasicInfo) MarkPriceWarn(shape string) {
+	if priceWarnRank[shape] > priceWarnRank[aiinfo.priceWarn] {
+		aiinfo.priceWarn = shape
+	}
+}
+
+// PriceWarn returns the recorded missing-price shape ("" when none applied).
+func (aiinfo *AiBasicInfo) PriceWarn() string {
+	return aiinfo.priceWarn
 }
 
 // Token-usage dispositions for the access log (issue #1409).
@@ -336,15 +442,42 @@ const (
 	// (issue #1398).
 	UsageSourceEstimated = "estimated"
 	// UsageSourceAborted means the client disconnected (RST/close/write
-	// failure) before the final usage was seen: billing is skipped per the
-	// issue #1352 yardstick, and the reported token fields are either
-	// auth-time seeding residue or the initial usage of the stream
-	// (issue #1414).
+	// failure) before the final usage was seen. Since issue #1478 the
+	// marker describes the cause, not the billing outcome: with
+	// EstimateToken enabled the request is billed by the forwarded-content
+	// estimate, with it disabled billing is skipped per the issue #1352
+	// yardstick and the reported token fields stay auth-time seeding
+	// residue.
 	UsageSourceAborted = "aborted"
 	// UsageSourceUnrecognized means no final usage was parsed and the
 	// request is not estimatable: billing was skipped and the reported
 	// token fields are auth-time seeding residue.
 	UsageSourceUnrecognized = "unrecognized"
+	// UsageSourceUpstreamDropped means the upstream connection broke
+	// mid-response before the final usage was seen (issue #1474). Unlike a
+	// client abort, content already forwarded to the client is real
+	// consumption: the request is billed by the forwarded-content estimate
+	// when EstimateToken allows, or reported unrecognized otherwise.
+	UsageSourceUpstreamDropped = "upstream_dropped"
+	// UsageSourceEarlySuppressed means a usage object arrived on a non-final
+	// event but no final usage ever followed (issue #1497): an early usage
+	// in a non-terminal delta, or Anthropic message_start without a later
+	// message_delta. The early usage fed the protocol context only and was
+	// kept out of the billing basis; with EstimateToken enabled the request
+	// is billed by the forwarded-content estimate per the issue #1415
+	// yardstick, otherwise it is reported unrecognized. This keeps the
+	// shape separable from both a clean-EOF estimate and a parsed final
+	// usage in ai_usage_source.
+	UsageSourceEarlySuppressed = "early_suppressed"
+	// UsageSourceFailed means the upstream call never succeeded (non-2xx,
+	// including BFE-generated rejections) and the EstimateToken residue would
+	// have been reported for it (issue #1480). Issue #1493 restored the
+	// normative clause that such residue must not be reported at all, so this
+	// value has no producer since then and the token fields of a non-2xx row
+	// without real usage stay absent. A non-2xx response that does carry a
+	// real usage object is reported as parsed. The constant is kept for
+	// log-decoding compatibility with rows written while #1480 was live.
+	UsageSourceFailed = "failed"
 )
 
 // Zero-cost reasons for the access log (issue #1414): why a 2xx request that
@@ -355,7 +488,14 @@ const (
 	// ZeroCostReasonUnrecognized: upstream usage was neither recognized nor
 	// estimatable.
 	ZeroCostReasonUnrecognized = "unrecognized"
-	// ZeroCostReasonAborted: the client disconnected before the final usage.
+	// ZeroCostReasonUpstreamDropped: the upstream connection broke
+	// mid-response and EstimateToken is off, so the forwarded content could
+	// not be billed (issue #1474).
+	ZeroCostReasonUpstreamDropped = "upstream_dropped"
+	// ZeroCostReasonAborted: the client disconnected before the final usage
+	// and the forwarded-content estimate is disabled, so nothing was
+	// billed (issue #1478; a billable abort is charged and carries no
+	// zero-cost reason).
 	ZeroCostReasonAborted = "aborted"
 	// ZeroCostReasonCacheHit: AI cache hit, the upstream was never called.
 	ZeroCostReasonCacheHit = "cache_hit"
@@ -569,6 +709,25 @@ const (
 	// RPM/TPM (client quota).
 	CodeNoAvailableKey = "NO_AVAILABLE_KEY"
 
+	// CodePriceNotConfigured (issue #1479): the requested (model, mode) has no
+	// price entry and the cluster's AIConf.PriceMissAction is "reject", so the
+	// request is rejected before forwarding. A gateway configuration gap, not
+	// a caller error: mapped to 503 and to TypeInternalError.
+	CodePriceNotConfigured = "PRICE_NOT_CONFIGURED"
+
+	// EPP admission refusal (issue #1482): the EPP scheduler's flow control
+	// could not admit the request. EPP answers with an ext_proc
+	// ImmediateResponse, which bfe surfaces as-is instead of retrying or
+	// falling back to local balancing.
+	//
+	// CodeEppOverload: pool saturated / queue TTL expired (backpressure). A
+	// gateway capacity decision the caller may retry later: 429,
+	// TypeRateLimitError.
+	CodeEppOverload = "EPP_OVERLOAD"
+	// CodeEppNoCapacity: the pool has no capacity for this request (scaled to
+	// zero / no endpoint can serve it): 503, TypeInternalError.
+	CodeEppNoCapacity = "EPP_NO_CAPACITY"
+
 	// Upstream error normalization catalog (AIConf.NormalizeUpstreamError).
 	// Values are single-sourced in bfe_model_protocol/utils and shared with
 	// the protocol adapters' mapping tables.
@@ -658,6 +817,10 @@ var ErrorCodeToStatusCode = map[string]int{
 	CodeTimeWindowRestricted:   403,
 
 	CodeProviderProtocolMismatch: 400,
+	CodePriceNotConfigured:       503,
+
+	CodeEppOverload:   429,
+	CodeEppNoCapacity: 503,
 
 	CodeUpstreamInvalidRequest: 400,
 	CodeUpstreamRateLimited:    429,
@@ -715,6 +878,10 @@ var ErrorCodeToErrorType = map[string]string{
 	CodeTimeWindowRestricted:   TypeAuthenticationError,
 
 	CodeProviderProtocolMismatch: TypeInvalidRequestError,
+	CodePriceNotConfigured:       TypeInternalError,
+
+	CodeEppOverload:   TypeRateLimitError,
+	CodeEppNoCapacity: TypeInternalError,
 
 	CodeNoAvailableKey: TypeRateLimitError,
 

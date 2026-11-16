@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bfenetworks/go-lib/web-monitor/module_state2"
+
 	"github.com/bfenetworks/bfe/bfe_modules/mod_ai_cache/provider/vector"
 )
 
@@ -137,7 +139,17 @@ func TestCompareScore(t *testing.T) {
 }
 
 func newTestSemanticCache(emb *fakeEmbeddingProvider, vec *fakeVectorProvider) *semanticCache {
-	return newSemanticCache(emb, vec, DefaultMaxQuestionBytes, newCacheRuleTable())
+	return newSemanticCache(emb, vec, DefaultMaxQuestionBytes, newCacheRuleTable(), newTestModuleState())
+}
+
+// newTestModuleState returns a module state initialized with the module
+// counter keys, for components that dual-write the JSON monitor counters
+// (issue #1499).
+func newTestModuleState() *module_state2.State {
+	state := new(module_state2.State)
+	state.Init()
+	state.CountersInit(CounterKeys)
+	return state
 }
 
 func TestSemanticLookupHit(t *testing.T) {
@@ -283,7 +295,7 @@ func TestSemanticUpload(t *testing.T) {
 func TestNewSemanticCacheDefaults(t *testing.T) {
 	emb := &fakeEmbeddingProvider{}
 	vec := &fakeVectorProvider{}
-	s := newSemanticCache(emb, vec, 0, newCacheRuleTable())
+	s := newSemanticCache(emb, vec, 0, newCacheRuleTable(), newTestModuleState())
 	if s.maxQuestionBytes != DefaultMaxQuestionBytes {
 		t.Errorf("maxQuestionBytes default should be %d, got %d",
 			DefaultMaxQuestionBytes, s.maxQuestionBytes)

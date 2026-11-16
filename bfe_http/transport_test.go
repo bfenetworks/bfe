@@ -15,9 +15,16 @@
 package bfe_http
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"io"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -31,7 +38,6 @@ import (
 	"time"
 
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 // dialRecorder 是可注入的 Dial：真实连接到 upstream，同时记录拨号次数与目标地址，
@@ -472,10 +478,9 @@ func TestTransportRegisterProtocol(t *testing.T) {
 // HTTPS 后端配置了 RSCAList 但未配置 RSInsecureSkipVerify 时，按 RSCAList 校验证书，
 // 而不是解引用空指针导致进程 panic。
 func TestTransportHTTPSWithRSCAListAndNilInsecureSkipVerify(t *testing.T) {
-	cert, err := tls.X509KeyPair(bfe_tls.I_CN_FOOBAR_ORG_CRT.Bytes(), bfe_tls.I_CN_FOOBAR_ORG_PRV.Bytes())
-	if err != nil {
-		t.Fatalf("load server cert failed: %v", err)
-	}
+	caCert, caKey, caPEM := newTransportTestCA(t, "bfe-test-ca")
+	_, _, otherCAPEM := newTransportTestCA(t, "bfe-other-ca")
+	cert := newTransportTestServerCert(t, caCert, caKey, "foobar.org")
 	upstream := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "ok")
 	}))
@@ -486,17 +491,17 @@ func TestTransportHTTPSWithRSCAListAndNilInsecureSkipVerify(t *testing.T) {
 	tests := []struct {
 		name    string
 		rsHost  string
-		ca      bfe_tls.TestPemNameEnmu
+		ca      []byte
 		wantErr string
 	}{
-		{name: "trusted ca", rsHost: "foobar.org", ca: bfe_tls.BFE_I_CA_CRT},
-		{name: "untrusted ca", rsHost: "foobar.org", ca: bfe_tls.R_SAN_EXAMPLE_ORG_CRT, wantErr: "unknown authority"},
-		{name: "host mismatch", rsHost: "example.org", ca: bfe_tls.BFE_I_CA_CRT, wantErr: "example.org"},
+		{name: "trusted ca", rsHost: "foobar.org", ca: caPEM},
+		{name: "untrusted ca", rsHost: "foobar.org", ca: otherCAPEM, wantErr: "unknown authority"},
+		{name: "host mismatch", rsHost: "example.org", ca: caPEM, wantErr: "example.org"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			caFile := filepath.Join(t.TempDir(), "ca.crt")
-			if err := os.WriteFile(caFile, tt.ca.Bytes(), 0644); err != nil {
+			if err := os.WriteFile(caFile, tt.ca, 0644); err != nil {
 				t.Fatalf("write ca file failed: %v", err)
 			}
 			protocol := "https"
@@ -530,6 +535,54 @@ func TestTransportHTTPSWithRSCAListAndNilInsecureSkipVerify(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newTransportTestCA(t *testing.T, cn string) (*x509.Certificate, *ecdsa.PrivateKey, []byte) {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generate ca key failed: %v", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: cn},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create ca cert failed: %v", err)
+	}
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("parse ca cert failed: %v", err)
+	}
+	return cert, key, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+}
+
+func newTransportTestServerCert(t *testing.T, ca *x509.Certificate, caKey *ecdsa.PrivateKey, host string) tls.Certificate {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generate server key failed: %v", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: host},
+		DNSNames:     []string{host},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, ca, &key.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("create server cert failed: %v", err)
+	}
+	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
 }
 
 // panics 报告 fn 是否 panic。

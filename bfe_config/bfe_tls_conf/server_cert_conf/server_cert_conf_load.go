@@ -15,21 +15,16 @@
 package server_cert_conf
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"os"
-)
 
-import (
-	"github.com/bfenetworks/go-lib/log"
-	"golang.org/x/crypto/ocsp"
-)
-
-import (
-	"github.com/bfenetworks/bfe/bfe_tls"
 	"github.com/bfenetworks/bfe/bfe_util"
 	"github.com/bfenetworks/bfe/bfe_util/json"
+	"github.com/bfenetworks/go-lib/log"
+	"golang.org/x/crypto/ocsp"
 )
 
 const (
@@ -140,7 +135,7 @@ func ServerCertConfLoad(filename string, confRoot string) (BfeServerCertConf, er
 	return config, nil
 }
 
-func OcspResponseCheck(bytes []byte, cert bfe_tls.Certificate) (*ocsp.Response, error) {
+func OcspResponseCheck(bytes []byte, cert tls.Certificate) (*ocsp.Response, error) {
 	x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
 	if err != nil {
 		return nil, err
@@ -162,7 +157,7 @@ func OcspResponseCheck(bytes []byte, cert bfe_tls.Certificate) (*ocsp.Response, 
 	}
 
 	// ocsp update time range should be correct
-	if !bfe_tls.OcspTimeRangeCheck(parse) {
+	if !OcspTimeRangeCheck(parse) {
 		return nil, fmt.Errorf("ocsp time is out of range")
 	}
 
@@ -179,14 +174,14 @@ func OcspResponseLoad(filename string) ([]byte, error) {
 	return ocspResponse, nil
 }
 
-func ServerCertParse(certConf BfeServerCertConf) (map[string]*bfe_tls.Certificate, error) {
-	certMap := make(map[string]*bfe_tls.Certificate)
+func ServerCertParse(certConf BfeServerCertConf) (map[string]*tls.Certificate, error) {
+	certMap := make(map[string]*tls.Certificate)
 
 	for name, conf := range certConf.Config.CertConf {
-		var cert bfe_tls.Certificate
+		var cert tls.Certificate
 
 		// load x509 certificate and key
-		cert, err := bfe_tls.LoadX509KeyPair(conf.ServerCertFile, conf.ServerKeyFile)
+		cert, err := tls.LoadX509KeyPair(conf.ServerCertFile, conf.ServerKeyFile)
 		if err != nil {
 			return nil, fmt.Errorf("in LoadX509KeyPair() :%s", err.Error())
 		}
@@ -198,12 +193,10 @@ func ServerCertParse(certConf BfeServerCertConf) (map[string]*bfe_tls.Certificat
 				return nil, fmt.Errorf("in OcspResponseLoad() :%s", err.Error())
 			}
 			// check ocsp response, only output a log if error
-			OcspParse, err := OcspResponseCheck(OcspResponse, cert)
-			if err != nil {
+			if _, err := OcspResponseCheck(OcspResponse, cert); err != nil {
 				log.Logger.Warn("ignore invalid ocsp response file [%s]: %s", conf.OcspResponseFile, err)
 			} else {
 				cert.OCSPStaple = OcspResponse
-				cert.OCSPParse = OcspParse
 			}
 		}
 		certMap[name] = &cert
@@ -214,7 +207,7 @@ func ServerCertParse(certConf BfeServerCertConf) (map[string]*bfe_tls.Certificat
 }
 
 // GetNamesForCert returns all subject names of cert.
-func GetNamesForCert(cert *bfe_tls.Certificate) []string {
+func GetNamesForCert(cert *tls.Certificate) []string {
 	// parse certificate
 	x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
 	if err != nil {

@@ -15,9 +15,10 @@
 package mod_key_log
 
 import (
-	"encoding/hex"
 	"fmt"
+	"io"
 	"net/url"
+	"os"
 	"path/filepath"
 )
 
@@ -27,24 +28,33 @@ import (
 )
 
 import (
-	"github.com/bfenetworks/bfe/bfe_basic"
 	"github.com/bfenetworks/bfe/bfe_module"
 	"github.com/bfenetworks/bfe/bfe_util/access_log"
 )
 
-// ModuleKeyLog writes key logs in NSS key log format so that external
-// programs(eg. wireshark) can decrypt TLS connections for trouble shooting.
+// ModuleKeyLog provides a writer for TLS key logs in NSS key log format so
+// that external programs (eg. wireshark) can decrypt TLS connections for
+// trouble shooting.
+//
+// The writer is registered (via bfe_module.TlsKeyLogProvider) as
+// tls.Config.KeyLogWriter, and the standard library writes key log lines
+// during the TLS handshake.
 //
 // For more information about NSS key log format, see:
 // https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
+//
+// Deprecated: product based key log filtering (rules in the data config) is
+// no longer supported, because the key log is written during the handshake
+// while the product is only known after routing. The rules in the data
+// config are still parsed for backward compatibility but ignored.
 type ModuleKeyLog struct {
 	name   string         // module name
 	conf   *ConfModKeyLog // module config
-	logger log4go.Logger  // key logger
+	writer io.Writer      // writer for TLS key log (NSS keylog format)
+	file   *os.File       // key log file
 
 	dataConfigPath string       // path of data config file
-	ruleTable      *KeyLogTable // table of key_log rules
-
+	ruleTable      *KeyLogTable // table of key_log rules (deprecated)
 }
 
 func NewModuleKeyLog() *ModuleKeyLog {
@@ -58,44 +68,10 @@ func (m *ModuleKeyLog) Name() string {
 	return m.name
 }
 
-func (m *ModuleKeyLog) logTlsKey(session *bfe_basic.Session) int {
-	if m.isNeedKeyLog(session) {
-		tlsState := session.TlsState
-		if tlsState == nil {
-			return bfe_module.BfeHandlerGoOn
-		}
-		// key log format: <label> <ClientRandom> <MasterSecret>
-		keyLog := fmt.Sprintf("CLIENT_RANDOM %s %s",
-			hex.EncodeToString(tlsState.ClientRandom), // connection id
-			hex.EncodeToString(tlsState.MasterSecret)) // connection master secret
-		m.logger.Info(keyLog)
-	}
-	return bfe_module.BfeHandlerGoOn
-}
-
-// isNeedKeyLog Determine if you need to print the key log
-func (m *ModuleKeyLog) isNeedKeyLog(session *bfe_basic.Session) bool {
-	rules, ok := m.ruleTable.Search(session.Product)
-	if !ok {
-		rules, ok = m.ruleTable.Search(bfe_basic.GlobalProduct)
-	}
-	if !ok {
-		return false
-	}
-	req := &bfe_basic.Request{
-		Session: session,
-	}
-	for _, rule := range *rules {
-		// rule condition is satisfied ?
-		if rule.Cond.Match(req) {
-			// do actions of the rule
-			// todo
-
-			// finish key_log rules process
-			return true
-		}
-	}
-	return false
+// TlsKeyLogWriter returns the writer for TLS key log (NSS keylog format).
+// Returning nil disables tls key logging.
+func (m *ModuleKeyLog) TlsKeyLogWriter() io.Writer {
+	return m.writer
 }
 
 func (m *ModuleKeyLog) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHandlers,
@@ -116,16 +92,12 @@ func (m *ModuleKeyLog) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 		return fmt.Errorf("err in loadConfData(): %s", err.Error())
 	}
 
-	// init logger
-	m.logger, err = access_log.LoggerInit(m.conf.Log)
-	if err != nil {
-		return fmt.Errorf("%s.Init():create logger:%s", m.name, err.Error())
-	}
-
-	// register handler
-	err = cbs.AddFilter(bfe_module.HandleHandshake, m.logTlsKey)
-	if err != nil {
-		return fmt.Errorf("%s.Init(): AddFilter(m.logTlsKey): %s", m.name, err.Error())
+	// open key log file
+	if m.file, err = openKeyLogFile(conf.Log); err != nil {
+		log4go.Warn("%s.Init(): open key log file failed, tls key log disabled: %s",
+			m.name, err.Error())
+	} else {
+		m.writer = m.file
 	}
 
 	// register web handler for reload
@@ -135,6 +107,19 @@ func (m *ModuleKeyLog) Init(cbs *bfe_module.BfeCallbacks, whs *web_monitor.WebHa
 	}
 
 	return nil
+}
+
+func openKeyLogFile(cfg access_log.LogConfig) (*os.File, error) {
+	if cfg.LogFile != "" {
+		return os.OpenFile(cfg.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	}
+
+	// log with rotation config: write to LogDir/LogPrefix.log
+	if err := os.MkdirAll(cfg.LogDir, 0777); err != nil {
+		return nil, err
+	}
+	path := filepath.Join(cfg.LogDir, cfg.LogPrefix+".log")
+	return os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 }
 
 func (m *ModuleKeyLog) loadConfData(query url.Values) (string, error) {
@@ -151,7 +136,13 @@ func (m *ModuleKeyLog) loadConfData(query url.Values) (string, error) {
 		return "", fmt.Errorf("err in keyLogConfLoad(%s):%s", path, err.Error())
 	}
 
-	// update to rule table
+	if len(conf.Config) > 0 {
+		log4go.Warn("%s: product based key log filtering is deprecated, "+
+			"rules in %s are ignored; key log applies to all TLS connections",
+			m.name, path)
+	}
+
+	// update to rule table (deprecated, kept for config compatibility)
 	m.ruleTable.Update(conf)
 
 	_, fileName := filepath.Split(path)

@@ -1,0 +1,13 @@
+{
+    "Version": "20261104150000",
+    "Hosts": {
+        "ai_product": [
+            "penalty-ttl.example.org"
+        ]
+    },
+    "HostTags": {
+        "ai_product": [
+            "ai_product"
+        ]
+    }
+}

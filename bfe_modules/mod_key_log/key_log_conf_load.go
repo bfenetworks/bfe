@@ -25,28 +25,42 @@ import (
 	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
+// Deprecated: product based key log filtering is no longer supported.
+// The rules are still parsed for backward compatibility but ignored.
 type KeyLogRuleFile struct {
 	Cond *string // condition for key_log
 }
 
+// Deprecated: product based key log filtering is no longer supported.
+// The rules are still parsed for backward compatibility but ignored.
 type KeyLogRule struct {
 	Cond condition.Condition // condition for key_log
 }
 
+// Deprecated: product based key log filtering is no longer supported.
 type RuleFileList []KeyLogRuleFile
+
+// Deprecated: product based key log filtering is no longer supported.
 type RuleList []KeyLogRule
 
+// Deprecated: product based key log filtering is no longer supported.
+// The product rules are still parsed for backward compatibility but ignored.
 type ProductRulesFile map[string]*RuleFileList // product => list of key_log rules
-type ProductRules map[string]*RuleList         // product => list of key_log rules
+
+// Deprecated: product based key log filtering is no longer supported.
+// The product rules are still parsed for backward compatibility but ignored.
+type ProductRules map[string]*RuleList // product => list of key_log rules
 
 type KeyLogConfFile struct {
 	Version *string // version of the config
-	Config  *ProductRulesFile
+	// Deprecated: product based key log filtering is no longer supported.
+	Config *ProductRulesFile
 }
 
 type keyLogConf struct {
-	Version string       // version of the config
-	Config  ProductRules // product rules for key_log
+	Version string // version of the config
+	// Deprecated: product based key log filtering is no longer supported.
+	Config ProductRules // product rules for key_log
 }
 
 func keyLogRuleCheck(conf KeyLogRuleFile) error {

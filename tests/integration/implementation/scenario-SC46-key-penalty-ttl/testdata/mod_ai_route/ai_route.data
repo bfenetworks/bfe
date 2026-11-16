@@ -1,0 +1,28 @@
+{
+    "Version": "20261104150000",
+    "route_rules": {
+        "apikey_penalty_ttl": {
+            "type": "apikey",
+            "owner": "ak_penalty_ttl",
+            "rules": [
+                {
+                    "name": "penalty-ttl-default",
+                    "Cond": "default_t()",
+                    "targets": [
+                        {
+                            "ClusterName": "cluster_penalty_ttl",
+                            "Model": "",
+                            "Weight": 100
+                        }
+                    ],
+                    "fallbacks": []
+                }
+            ]
+        }
+    },
+    "ApikeyRouteTableBindings": {
+        "ak_penalty_ttl": [
+            "apikey_penalty_ttl"
+        ]
+    }
+}

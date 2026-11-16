@@ -16,15 +16,13 @@ package mod_access
 
 import (
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"net"
 	"testing"
 	"time"
-)
 
-import (
 	"github.com/bfenetworks/bfe/bfe_basic"
-	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 func prepareSessionLogTest(t *testing.T) (*bfe_basic.Session, *bytes.Buffer) {
@@ -41,9 +39,10 @@ func prepareSessionLogTest(t *testing.T) (*bfe_basic.Session, *bytes.Buffer) {
 	session.UpdateReadTotal(1024)
 	session.UpdateWriteTotal(2048)
 	session.SetError(errors.New("ses_err"), "session timeout")
-	session.TlsState = &bfe_tls.ConnectionState{
-		ClientRandom: []byte{0x01, 0x02, 0x03},
-		ServerRandom: []byte{0x04, 0x05, 0x06},
+	session.TlsState = &tls.ConnectionState{
+		Version:     tls.VersionTLS12,
+		CipherSuite: tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+		DidResume:   true,
 	}
 
 	return session, bytes.NewBuffer(nil)
@@ -174,43 +173,6 @@ func TestOnLogFmtSesErrorCode(t *testing.T) {
 	}
 }
 
-func TestOnLogFmtSesTLSClientRandom(t *testing.T) {
-	session, buff := prepareSessionLogTest(t)
-	err := onLogFmtSesTLSClientRandom(nil, &LogFmtItem{}, buff, session)
-	if err != nil {
-		t.Errorf("onLogFmtSesTLSClientRandom() error: %v", err)
-	}
-	if buff.String() != "010203" {
-		t.Errorf("onLogFmtSesTLSClientRandom() got: %s", buff.String())
-	}
-}
-
-func TestOnLogFmtSesTLSServerRandom(t *testing.T) {
-	session, buff := prepareSessionLogTest(t)
-	err := onLogFmtSesTLSServerRandom(nil, &LogFmtItem{}, buff, session)
-	if err != nil {
-		t.Errorf("onLogFmtSesTLSServerRandom() error: %v", err)
-	}
-	if buff.String() != "040506" {
-		t.Errorf("onLogFmtSesTLSServerRandom() got: %s", buff.String())
-	}
-}
-
-func TestOnLogFmtSesTLSRandomNil(t *testing.T) {
-	conn := newTestConn()
-	session := bfe_basic.NewSession(conn)
-	session.TlsState = nil
-
-	buff := bytes.NewBuffer(nil)
-	err := onLogFmtSesTLSClientRandom(nil, &LogFmtItem{}, buff, session)
-	if err != nil {
-		t.Errorf("onLogFmtSesTLSClientRandom() error: %v", err)
-	}
-	if buff.String() != "-" {
-		t.Errorf("onLogFmtSesTLSClientRandom() nil tls got: %s, want: -", buff.String())
-	}
-}
-
 func TestOnLogFmtSesNilSession(t *testing.T) {
 	buff := bytes.NewBuffer(nil)
 
@@ -225,8 +187,6 @@ func TestOnLogFmtSesNilSession(t *testing.T) {
 		{"KeepAliveNum", onLogFmtSesKeepAliveNum},
 		{"Overhead", onLogFmtSesOverhead},
 		{"ReadTotal", onLogFmtSesReadTotal},
-		{"TLSClientRandom", onLogFmtSesTLSClientRandom},
-		{"TLSServerRandom", onLogFmtSesTLSServerRandom},
 		{"Use100", onLogFmtSesUse100},
 		{"WriteTotal", onLogFmtSesWriteTotal},
 		{"StartTime", onLogFmtSesStartTime},

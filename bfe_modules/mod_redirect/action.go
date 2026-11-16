@@ -22,6 +22,8 @@ import (
 
 import (
 	"github.com/bfenetworks/bfe/bfe_basic"
+	"github.com/bfenetworks/bfe/bfe_expr"
+	"github.com/bfenetworks/go-lib/log"
 )
 
 type ActionFile struct {
@@ -32,6 +34,10 @@ type ActionFile struct {
 type Action struct {
 	Cmd    string   // command of action
 	Params []string // params of action
+
+	// param0 加载期编译的 Params[0] 表达式（URL_SET / URL_PREFIX_ADD）；
+	// nil 或字面量时运行期直接使用 Params[0]
+	param0 *bfe_expr.Param
 }
 
 type ActionFileList []ActionFile
@@ -99,22 +105,55 @@ func ActionFileListCheck(conf *ActionFileList) error {
 	return nil
 }
 
-func actionConvert(actionFile ActionFile) Action {
+func actionConvert(actionFile ActionFile) (Action, error) {
 	action := Action{}
 	action.Cmd = *actionFile.Cmd
 	action.Params = actionFile.Params
-	return action
+
+	// URL_SET / URL_PREFIX_ADD 的 Params[0] 支持 "=" 前缀表达式，加载期编译
+	switch action.Cmd {
+	case "URL_SET", "URL_PREFIX_ADD":
+		p, err := bfe_expr.CompileParam(action.Params[0])
+		if err != nil {
+			return action, err
+		}
+		action.param0 = p
+	}
+
+	return action, nil
 }
 
-func actionsConvert(actionFiles ActionFileList) []Action {
+func actionsConvert(actionFiles ActionFileList) ([]Action, error) {
 	actions := make([]Action, 0, len(actionFiles))
 
 	for _, actionFile := range actionFiles {
-		action := actionConvert(actionFile)
+		action, err := actionConvert(actionFile)
+		if err != nil {
+			return actions, err
+		}
 		actions = append(actions, action)
 	}
 
-	return actions
+	return actions, nil
+}
+
+// actionParam0 返回运行期 Params[0]：表达式求值（失败置空 + warn），
+// 字面量（含 "==" 转义）经 Param 返回
+func actionParam0(req *bfe_basic.Request, action Action) string {
+	if action.param0 == nil {
+		return action.Params[0]
+	}
+	v, err := action.param0.Eval(req)
+	if err != nil {
+		logid := ""
+		if req != nil {
+			logid = req.LogId
+		}
+		log.Logger.Warn("bfe_expr: eval redirect param %q error: %v (logid: %s)",
+			action.param0.String(), err, logid)
+		return ""
+	}
+	return v
 }
 
 // do exclusive action to request
@@ -124,11 +163,11 @@ func redirectExclusiveActionDo(req *bfe_basic.Request, action Action) {
 		ReqSchemeSet(req, action.Params[0])
 	// for url
 	case "URL_SET":
-		ReqUrlSet(req, action.Params[0])
+		ReqUrlSet(req, actionParam0(req, action))
 	case "URL_FROM_QUERY":
 		ReqUrlFromQuery(req, action.Params[0])
 	case "URL_PREFIX_ADD":
-		ReqUrlPrefixAdd(req, action.Params[0])
+		ReqUrlPrefixAdd(req, actionParam0(req, action))
 	}
 }
 

@@ -57,6 +57,7 @@ type testEnv struct {
 	confDir         string
 	logDir          string
 	bfePort         int
+	bfeMonitorPort  int
 	stopBFE         func()
 	aiKeys          []cluster_conf.AIKey
 	clientTokens    map[string]string // apiKey -> keyId
@@ -213,7 +214,7 @@ func (e *testEnv) startBFE(enableAffinity bool) {
 		}
 	}
 
-	e.bfePort, _, e.stopBFE = e.processEnv.StartBFE(e.confDir, e.logDir)
+	e.bfePort, e.bfeMonitorPort, e.stopBFE = e.processEnv.StartBFE(e.confDir, e.logDir)
 }
 
 // disableAIKeyAffinitySection sets Disabled=true in the [AIKeyAffinity]
@@ -733,5 +734,258 @@ func TestTC08_AllKeysPenalizedCircuitBreaksToFallback(t *testing.T) {
 	}
 	if !e.bfeLogContains("fallback triggered, cluster[cluster_session_affinity]") {
 		t.Error("expected 'fallback triggered' in bfe.log")
+	}
+}
+
+// providerKeySecrets maps a provider key name (what the affinity binding stores)
+// to the secret BFE injects as the upstream Authorization header.
+var providerKeySecrets = map[string]string{
+	"key-a": keyA,
+	"key-b": keyB,
+	"key-c": keyC,
+}
+
+// affinityState is a snapshot of the proxy_state counters maintained by the
+// session affinity path (issue #1472).
+type affinityState struct {
+	hit      float64
+	miss     float64
+	rebind   float64
+	redisErr float64
+}
+
+// proxyCounter reads one proxy_state counter from the BFE web monitor.
+func (e *testEnv) proxyCounter(field string) float64 {
+	e.t.Helper()
+	v, err := common.ModuleMetric(e.bfeMonitorPort, "proxy_state", field)
+	if err != nil {
+		e.t.Fatalf("read proxy_state counter %s failed: %v", field, err)
+	}
+	return v
+}
+
+func (e *testEnv) affinityState() affinityState {
+	return affinityState{
+		hit:      e.proxyCounter("ReqAiKeyAffinityHit"),
+		miss:     e.proxyCounter("ReqAiKeyAffinityMiss"),
+		rebind:   e.proxyCounter("ReqAiKeyAffinityRebind"),
+		redisErr: e.proxyCounter("ReqAiKeyAffinityRedisErr"),
+	}
+}
+
+// bindingProviderKey returns the provider key name bound to clientKeyId, or ""
+// when no binding exists.
+func (e *testEnv) bindingProviderKey(clientKeyId string) string {
+	return e.redis.Get(redisBindingKey(clientKeyId))
+}
+
+// TestTC09 verifies issue #1472: the first request of a session has no Redis
+// binding yet, which is a plain miss. It must be counted as a miss, must not be
+// counted as a Redis operation failure, must not be logged as an error, and must
+// leave the new binding in Redis.
+func TestTC09_FirstRequestIsMissNotRedisError(t *testing.T) {
+	e := newTestEnv(t, true)
+	defer e.Close()
+
+	before := e.affinityState()
+
+	resp, body, err := e.sendRequest()
+	if err != nil {
+		e.logBFEException()
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	afterFirst := e.affinityState()
+	if got := afterFirst.miss - before.miss; got != 1 {
+		t.Errorf("expected 1 affinity miss after the first request, got %v", got)
+	}
+	if got := afterFirst.redisErr - before.redisErr; got != 0 {
+		t.Errorf("expected no affinity redis error on a plain miss, got %v", got)
+	}
+	if got := afterFirst.hit - before.hit; got != 0 {
+		t.Errorf("expected no affinity hit on the first request, got %v", got)
+	}
+
+	bound := e.bindingProviderKey(apiKeyId)
+	if bound == "" {
+		e.logBFEException()
+		t.Fatal("expected the first request to write the session binding")
+	}
+	secret, ok := providerKeySecrets[bound]
+	if !ok {
+		t.Fatalf("binding holds unexpected provider key %q", bound)
+	}
+	if e.bfeLogContains("redis get binding error") {
+		t.Error("a plain binding miss must not be logged as a redis failure")
+	}
+
+	// Second request: the binding is a hit, and still no Redis error.
+	resp, body, err = e.sendRequest()
+	if err != nil {
+		e.logBFEException()
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	afterSecond := e.affinityState()
+	if got := afterSecond.hit - afterFirst.hit; got != 1 {
+		t.Errorf("expected 1 affinity hit on the bound session, got %v", got)
+	}
+	if got := afterSecond.miss - afterFirst.miss; got != 0 {
+		t.Errorf("expected no extra affinity miss on a bound session, got %v", got)
+	}
+	if got := afterSecond.redisErr - afterFirst.redisErr; got != 0 {
+		t.Errorf("expected no affinity redis error on a bound session, got %v", got)
+	}
+
+	for i, h := range e.backend.AuthHeaders() {
+		if h != "Bearer "+secret {
+			t.Fatalf("request %d used provider key header %q, expected %q (bound key %s)",
+				i, h, "Bearer "+secret, bound)
+		}
+	}
+}
+
+// TestTC10 verifies the other half of issue #1472: a real Redis outage must
+// still be counted as a Redis operation failure (and logged), unlike a plain
+// miss; once Redis is back, the miss/bind path works again.
+func TestTC10_RedisOutageCountsRedisErrorNotMiss(t *testing.T) {
+	e := newTestEnv(t, true)
+	defer e.Close()
+
+	// First request establishes the binding.
+	resp, body, err := e.sendRequest()
+	if err != nil {
+		e.logBFEException()
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	before := e.affinityState()
+	if before.miss != 1 {
+		t.Fatalf("expected exactly 1 affinity miss before the outage, got %v", before.miss)
+	}
+	if before.redisErr != 0 {
+		t.Fatalf("expected no affinity redis error before the outage, got %v", before.redisErr)
+	}
+
+	// Simulate a Redis outage: every command is rejected (connection refused).
+	// mod_ai_rate_limit is configured fail-open (IsRejectOnRedisError = false)
+	// and the quota plan is unlimited, so the request still reaches the
+	// affinity selection in aiClusterInvoke.
+	e.redis.Fault()
+
+	resp, body, err = e.sendRequest()
+	if err != nil {
+		e.logBFEException()
+		t.Fatalf("send request during the redis outage failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200 during the redis outage, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	duringOutage := e.affinityState()
+	if duringOutage.redisErr <= before.redisErr {
+		t.Errorf("expected the outage to count affinity redis errors, got %v -> %v",
+			before.redisErr, duringOutage.redisErr)
+	}
+	if duringOutage.miss != before.miss {
+		t.Errorf("a redis outage must not be counted as a binding miss, got miss %v -> %v",
+			before.miss, duringOutage.miss)
+	}
+	if !e.bfeLogContains("redis get binding error") {
+		t.Error("expected a real redis failure to be logged")
+	}
+
+	// Recovery: the restarted Redis is empty, so the next request is a plain
+	// miss again and rewrites the binding.
+	e.redis.Recover()
+
+	resp, body, err = e.sendRequest()
+	if err != nil {
+		e.logBFEException()
+		t.Fatalf("send request after redis recovery failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200 after redis recovery, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	afterRecover := e.affinityState()
+	if got := afterRecover.miss - duringOutage.miss; got != 1 {
+		t.Errorf("expected 1 affinity miss after recovery, got %v", got)
+	}
+	if bound := e.bindingProviderKey(apiKeyId); bound == "" {
+		t.Error("expected the binding to be written again after recovery")
+	}
+}
+
+// TestTC11 verifies issue #1472 acceptance 5: a session whose first request
+// fails upstream still gets its binding written before the forward, so the next
+// request sticks to the key that was selected.
+func TestTC11_FirstRequestFailureStillBinds(t *testing.T) {
+	e := newTestEnv(t, true)
+	defer e.Close()
+
+	// Every upstream attempt on the target cluster fails with 404: a 4xx that
+	// is neither in the fallback whitelist nor a key-rotation trigger, so the
+	// client sees the upstream error and the cluster is not degraded.
+	e.backend.ResponseFunc = func(r *http.Request, count int) (int, string) {
+		return http.StatusNotFound, `{"error":"not found"}`
+	}
+
+	resp, body, err := e.sendRequest()
+	if err != nil {
+		e.logBFEException()
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		e.logBFEException()
+		t.Fatalf("expected the first request to fail upstream with 404, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	bound := e.bindingProviderKey(apiKeyId)
+	if bound == "" {
+		e.logBFEException()
+		t.Fatal("expected the failed first request to still write the session binding")
+	}
+	secret, ok := providerKeySecrets[bound]
+	if !ok {
+		t.Fatalf("binding holds unexpected provider key %q", bound)
+	}
+	if got := e.affinityState().miss; got != 1 {
+		t.Errorf("expected exactly 1 affinity miss, got %v", got)
+	}
+
+	// The next request succeeds and must stick to the bound key.
+	e.backend.ResponseFunc = nil
+
+	resp, body, err = e.sendRequest()
+	if err != nil {
+		e.logBFEException()
+		t.Fatalf("send request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		e.logBFEException()
+		t.Fatalf("expected status 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	headers := e.backend.AuthHeaders()
+	if len(headers) == 0 {
+		t.Fatal("expected the backend to receive requests")
+	}
+	if got := headers[len(headers)-1]; got != "Bearer "+secret {
+		t.Errorf("expected the second request to stick to the bound key %s, got %q", bound, got)
 	}
 }

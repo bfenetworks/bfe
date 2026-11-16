@@ -16,12 +16,16 @@ package backend
 
 import (
 	"context"
+	crand "crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"math/big"
-	"math/rand"
+	mathrand "math/rand"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -33,8 +37,64 @@ import (
 	"github.com/bfenetworks/go-lib/log"
 
 	"github.com/bfenetworks/bfe/bfe_config/bfe_cluster_conf/cluster_conf"
-	"github.com/bfenetworks/bfe/bfe_tls"
 )
+
+// The legacy PEM test keys from the removed bfe_tls fork rely on the legacy
+// Common Name field for hostname verification, which the standard library
+// rejects since Go 1.15. Generate a fresh test PKI with proper SANs instead.
+func newTestCA(t *testing.T) (*x509.Certificate, *rsa.PrivateKey, []byte) {
+	key, err := rsa.GenerateKey(crand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate ca key: %v", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "bfe-health-check-test-ca"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+	}
+	der, err := x509.CreateCertificate(crand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create ca cert: %v", err)
+	}
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("parse ca cert: %v", err)
+	}
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	return cert, key, certPEM
+}
+
+func newSignedCert(t *testing.T, ca *x509.Certificate, caKey *rsa.PrivateKey,
+	cn string, dnsNames []string, serial int64) tls.Certificate {
+	key, err := rsa.GenerateKey(crand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(serial),
+		Subject:      pkix.Name{CommonName: cn},
+		DNSNames:     dnsNames,
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+	}
+	der, err := x509.CreateCertificate(crand.Reader, tmpl, ca, &key.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("create cert: %v", err)
+	}
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		t.Fatalf("x509 key pair: %v", err)
+	}
+	return cert
+}
 
 // test CheckConnect, AnyStatusCode case
 func TestCheckConnect_1(t *testing.T) {
@@ -594,8 +654,10 @@ func TestCheckConnect_checkHTTPSConnect(t *testing.T) {
 		confMapLock = new(sync.RWMutex)
 		serverHost  = "foobar.org"
 		//serverTimeout = 3 * time.Second
-		cert, _ = tls.X509KeyPair(bfe_tls.I_CN_FOOBAR_ORG_CRT.Bytes(), bfe_tls.I_CN_FOOBAR_ORG_PRV.Bytes())
-		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testCA, testCAKey, testCACertPEM = newTestCA(t)
+		cert                             = newSignedCert(t, testCA, testCAKey, serverHost, []string{serverHost}, 2)
+		cliCert                          = newSignedCert(t, testCA, testCAKey, "bfe-health-check-client", nil, 3)
+		handler                          = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.String() != "/" {
 				w.WriteHeader(404)
 			} else {
@@ -607,18 +669,16 @@ func TestCheckConnect_checkHTTPSConnect(t *testing.T) {
 		})
 
 		clusterNameFn = func() string {
-			rand.Seed(time.Now().UnixNano())
-			return hex.EncodeToString(big.NewInt(time.Now().UnixNano() + rand.Int63()).Bytes())
+			mathrand.Seed(time.Now().UnixNano())
+			return hex.EncodeToString(big.NewInt(time.Now().UnixNano() + mathrand.Int63()).Bytes())
 		}
 		casFn = func() *x509.CertPool {
 			cas := x509.NewCertPool()
-			cas.AppendCertsFromPEM(bfe_tls.BFE_R_CA_CRT.Bytes())
-			cas.AppendCertsFromPEM(bfe_tls.BFE_I_CA_CRT.Bytes())
+			cas.AppendCertsFromPEM(testCACertPEM)
 			return cas
 		}
-		cliCertFn = func() *bfe_tls.Certificate {
-			ccert, _ := bfe_tls.X509KeyPair(bfe_tls.I_BFE_DEV_CRT.Bytes(), bfe_tls.I_BFE_DEV_PRV.Bytes())
-			return &ccert
+		cliCertFn = func() *tls.Certificate {
+			return &cliCert
 		}
 		checkConfFn = func(c confArg) (*cluster_conf.BackendCheck, *cluster_conf.BackendHTTPS) {
 			var (

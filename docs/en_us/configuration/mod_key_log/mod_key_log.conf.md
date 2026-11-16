@@ -4,6 +4,8 @@
 
 `mod_key_log.conf` is the basic configuration file of `mod_key_log`. It specifies the path of rule data file and the NSS key log output mode.
 
+> Note: After BFE switched its TLS implementation to the standard library `crypto/tls`, key logs are written by `tls.Config.KeyLogWriter` **during the handshake** (NSS keylog format), instead of at request finish. The log format remains compatible with tools like Wireshark.
+
 ## Configuration
 
 | Configuration Item | Type | Meaning | Required | Supplementary Description | Validity Condition |

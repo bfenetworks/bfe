@@ -15,12 +15,9 @@
 package tls_rule_conf
 
 import (
+	"crypto/tls"
 	"reflect"
 	"testing"
-)
-
-import (
-	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 func TestTlsRuleConfLoad(t *testing.T) {
@@ -94,12 +91,12 @@ func TestTlsRuleConfLoad3(t *testing.T) {
 	}
 
 	for product, tlsConf := range conf.Config {
-		if product == "pb" && tlsConf.Grade != bfe_tls.GradeC {
+		if product == "pb" && tlsConf.Grade != "C" {
 			t.Errorf("product[%s] tls security grade err, should be %s, not %s",
-				product, bfe_tls.GradeC, tlsConf.Grade)
-		} else if product == "pn" && tlsConf.Grade != bfe_tls.GradeC {
+				product, "C", tlsConf.Grade)
+		} else if product == "pn" && tlsConf.Grade != "C" {
 			t.Errorf("product[%s] tls security grade err, should be %s, not %s",
-				product, bfe_tls.GradeC, tlsConf.Grade)
+				product, "C", tlsConf.Grade)
 		}
 	}
 }
@@ -117,8 +114,8 @@ func TestTlsRuleConfLoad4(t *testing.T) {
 		t.Errorf("should contain product pa")
 	}
 
-	if !paCfg.ClientAuth || paCfg.ClientCAName != "pa" {
-		t.Errorf("ClientAuth should be true and ClientCAName should be pa")
+	if paCfg.ClientAuth != tls.RequireAndVerifyClientCert || paCfg.ClientCAName != "pa" {
+		t.Errorf("ClientAuth should be tls.RequireAndVerifyClientCert and ClientCAName should be pa")
 	}
 
 	clientCAMap, err := ClientCALoad(conf.Config, "./testdata/client_cas")
@@ -145,8 +142,8 @@ func TestTlsRuleConfLoad5(t *testing.T) {
 		t.Errorf("should contain product pa")
 	}
 
-	if !paCfg.ClientAuth || paCfg.ClientCAName != "pa2" {
-		t.Errorf("ClientAuth should be true and ClientCAName should be pa")
+	if paCfg.ClientAuth != tls.RequireAndVerifyClientCert || paCfg.ClientCAName != "pa2" {
+		t.Errorf("ClientAuth should be tls.RequireAndVerifyClientCert and ClientCAName should be pa2")
 	}
 
 	_, err = ClientCALoad(conf.Config, "./testdata/client_cas")

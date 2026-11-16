@@ -572,7 +572,7 @@ func (b *batchLogEntry) GetAiBatchSettle() string { return b.settle }
 
 // tokenAuthMetric reads a mod_ai_token_auth counter by its Go field name
 // (issue #1414: BillingZeroCost added next to the pre-existing
-// PriceLookupMiss signal for a batch settlement that charges nothing).
+// PriceMissZeroBilled signal for a batch settlement that charges nothing).
 func (e *testEnv) tokenAuthMetric(t *testing.T, field string) float64 {
 	t.Helper()
 	v, err := common.ModuleMetric(e.monitorPort, "mod_ai_token_auth", field)
@@ -1185,15 +1185,15 @@ func TestTC11_NoBatchPriceBillsZero(t *testing.T) {
 	// it is the reverse proof that none of the three control requests counted.
 	getLog := findBatchLog(t, e, "get")
 	baseZeroCost := e.tokenAuthMetric(t, "BillingZeroCost")
-	basePriceMiss := e.tokenAuthMetric(t, "PriceLookupMiss")
-	t.Logf("before the settlement: BillingZeroCost = %v, PriceLookupMiss = %v (control requests excluded)",
+	basePriceMiss := e.tokenAuthMetric(t, "PriceMissZeroBilled")
+	t.Logf("before the settlement: BillingZeroCost = %v, PriceMissZeroBilled = %v (control requests excluded)",
 		baseZeroCost, basePriceMiss)
 	if baseZeroCost != 0 {
 		t.Errorf("BillingZeroCost = %v before the settlement, want 0 (a request without a target model is not counted)",
 			baseZeroCost)
 	}
 	if basePriceMiss != 0 {
-		t.Errorf("PriceLookupMiss = %v before the settlement, want 0 (only the settlement looks up a batch price)",
+		t.Errorf("PriceMissZeroBilled = %v before the settlement, want 0 (only the settlement looks up a batch price)",
 			basePriceMiss)
 	}
 	// Residual, reported but deliberately not asserted: the control row still
@@ -1220,14 +1220,14 @@ func TestTC11_NoBatchPriceBillsZero(t *testing.T) {
 
 	// issue #1414: a settlement that charges nothing must be countable and
 	// attributable, and the observed row must report its cost explicitly.
-	// PriceLookupMiss is the pre-existing (#1408) signal for the missing
+	// PriceMissZeroBilled is the pre-existing (#1408) signal for the missing
 	// batch price row; BillingZeroCost is the single zero-cost checkpoint of
 	// issue #1414, which the batch settlement reaches with its own reason code
 	// (its own checkpoint in batchSettle, unaffected by the target-model
 	// exclusion). The result file has two rows of the same model, so the
 	// settlement walks one model group: each counter ends at exactly 1.
-	if got := e.waitTokenAuthMetric(t, "PriceLookupMiss", 1); got != 1 {
-		t.Errorf("PriceLookupMiss = %v, want 1 (batch price entry missing, one model group)", got)
+	if got := e.waitTokenAuthMetric(t, "PriceMissZeroBilled", 1); got != 1 {
+		t.Errorf("PriceMissZeroBilled = %v, want 1 (batch price entry missing, one model group)", got)
 	}
 	if got := e.waitTokenAuthMetric(t, "BillingZeroCost", 1); got != 1 {
 		t.Errorf("BillingZeroCost = %v, want 1 (RMB plan bound, settlement charged 0)", got)

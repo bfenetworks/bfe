@@ -162,3 +162,90 @@ func TestCheckExclusiveAction(t *testing.T) {
 		t.Errorf("checkExclusiveAction(UNKNOWN) should be false")
 	}
 }
+
+func newRedirectRequest(rawURL string) *bfe_basic.Request {
+	req, _ := bfe_http.NewRequest(http.MethodGet, rawURL, nil)
+	return bfe_basic.NewRequest(req, nil, nil, nil, nil)
+}
+
+// URL_SET 的表达式参数：加载期编译，运行期求值
+func TestActionConvertExprParam(t *testing.T) {
+	cmd := "URL_SET"
+	action, err := actionConvert(ActionFile{Cmd: &cmd, Params: []string{`="http://new.example.org"`}})
+	if err != nil {
+		t.Fatalf("actionConvert: %v", err)
+	}
+	if action.param0 == nil || !action.param0.IsExpr() {
+		t.Fatal("param0 should be compiled expr")
+	}
+
+	freq := newRedirectRequest("http://example.org")
+	redirectExclusiveActionDo(freq, action)
+	if freq.Redirect.Url != "http://new.example.org" {
+		t.Errorf("URL_SET expr result = %s", freq.Redirect.Url)
+	}
+}
+
+// URL_PREFIX_ADD 的表达式参数
+func TestActionConvertUrlPrefixAddExpr(t *testing.T) {
+	cmd := "URL_PREFIX_ADD"
+	action, err := actionConvert(ActionFile{Cmd: &cmd, Params: []string{`="https://cdn.example.org"`}})
+	if err != nil {
+		t.Fatalf("actionConvert: %v", err)
+	}
+
+	freq := newRedirectRequest("http://example.org/path?q=1")
+	redirectExclusiveActionDo(freq, action)
+	if freq.Redirect.Url != "https://cdn.example.org/path?q=1" {
+		t.Errorf("URL_PREFIX_ADD expr result = %s", freq.Redirect.Url)
+	}
+}
+
+// "==" 转义为字面量
+func TestActionConvertExprParamEscaped(t *testing.T) {
+	cmd := "URL_SET"
+	action, err := actionConvert(ActionFile{Cmd: &cmd, Params: []string{"==http://lit.example.org"}})
+	if err != nil {
+		t.Fatalf("actionConvert: %v", err)
+	}
+	if action.param0.IsExpr() {
+		t.Error("escaped param should be literal")
+	}
+
+	freq := newRedirectRequest("http://example.org")
+	redirectExclusiveActionDo(freq, action)
+	if freq.Redirect.Url != "=http://lit.example.org" {
+		t.Errorf("escaped literal result = %s", freq.Redirect.Url)
+	}
+}
+
+// 非法表达式：加载期报错
+func TestActionConvertExprParamInvalid(t *testing.T) {
+	cases := []struct {
+		cmd  string
+		expr string
+	}{
+		{"URL_SET", "=1+1"},
+		{"URL_PREFIX_ADD", "=NoSuchFunc()"},
+	}
+
+	for _, c := range cases {
+		cmd := c.cmd
+		if _, err := actionConvert(ActionFile{Cmd: &cmd, Params: []string{c.expr}}); err == nil {
+			t.Errorf("actionConvert(%s, %s) should fail", c.cmd, c.expr)
+		}
+	}
+}
+
+// 运行期求值失败：置空
+func TestActionParam0EvalError(t *testing.T) {
+	cmd := "URL_SET"
+	action, err := actionConvert(ActionFile{Cmd: &cmd, Params: []string{"=ReqMethod()"}})
+	if err != nil {
+		t.Fatalf("actionConvert: %v", err)
+	}
+
+	if got := actionParam0(nil, action); got != "" {
+		t.Errorf("actionParam0(nil) = %q, want empty", got)
+	}
+}

@@ -797,28 +797,18 @@ func TotalBytesBodyBuffer() int64 {
 	return atomic.LoadInt64(&totalBytesBodyBuffer)
 }
 
-// addTotalBytesBodyBuffer adds delta to the total buffer size and returns true.
-// If limit > 0 and the new total would exceed the limit, the addition is not
-// performed and false is returned.
-func addTotalBytesBodyBuffer(delta int64) bool {
+// addTotalBytesBodyBuffer adds delta to the total buffer size.
+//
+// The limit is deliberately not enforced here: once a bytes_body has been
+// created, the buffer is already held in memory, so refusing to count it would
+// under-report the gauge and the later release would push the total below zero.
+// The limit is an admission gate checked by the caller before a new buffer is
+// created (see ReverseProxy.prepareRequestBodyForRetry).
+func addTotalBytesBodyBuffer(delta int64) {
 	if delta == 0 {
-		return true
+		return
 	}
-	limit := TotalBodyBufferSizeLimit()
-	if limit <= 0 {
-		atomic.AddInt64(&totalBytesBodyBuffer, delta)
-		return true
-	}
-	for {
-		old := atomic.LoadInt64(&totalBytesBodyBuffer)
-		new := old + delta
-		if new > limit {
-			return false
-		}
-		if atomic.CompareAndSwapInt64(&totalBytesBodyBuffer, old, new) {
-			return true
-		}
-	}
+	atomic.AddInt64(&totalBytesBodyBuffer, delta)
 }
 
 // subTotalBytesBodyBuffer subtracts delta from the total buffer size.
@@ -830,30 +820,42 @@ func subTotalBytesBodyBuffer(delta int64) {
 }
 
 // body with BodyAccessor interface
+//
+// Accounting ownership depends on how the body is used:
+//   - response bodies are released when Close is called (releaseOnClose=true);
+//   - request bodies are released by Request.ReleaseBodyBuffers when the
+//     request finishes, because a retry or fallback may rewind and reuse the
+//     buffer after Close has already been called by the transport.
+//
+// bytes_body may be read by the transport write loop while the request
+// goroutine rewinds or releases it, so all mutable state is guarded by mu.
 type bytes_body struct {
-	src       io.ReadCloser // source body
-	buf       []byte        // bytes read out from src
-	all       bool          // all already read out from src to buf
-	srcClosed bool          // source has been closed
-	released  bool          // whether buffer has been subtracted from total accounting
-	r         *bodyReader   // reader of buf and src
-	err       error
+	mu sync.Mutex
+
+	src            io.ReadCloser // source body
+	buf            []byte        // bytes read out from src
+	all            bool          // all already read out from src to buf
+	srcClosed      bool          // source has been closed
+	released       bool          // whether buffer has been subtracted from total accounting
+	releaseOnClose bool          // whether Close releases the buffer accounting
+	r              *bodyReader   // reader of buf and src
+	err            error
 }
 
 // bodyReader tracks whether reading has moved from the buffer to the source.
 type bodyReader struct {
 	buf        *bytes.Buffer
 	src        io.Reader
-	srcStarted bool
+	srcStarted atomic.Bool
 }
 
 func (br *bodyReader) Read(p []byte) (int, error) {
-	if !br.srcStarted {
+	if !br.srcStarted.Load() {
 		n, err := br.buf.Read(p)
 		if err != io.EOF {
 			return n, err
 		}
-		br.srcStarted = true
+		br.srcStarted.Store(true)
 		if n > 0 {
 			return n, nil
 		}
@@ -865,35 +867,69 @@ func (br *bodyReader) Read(p []byte) (int, error) {
 }
 
 func (b *bytes_body) Read(p []byte) (n int, err error) {
-	if b.err != nil {
-		return 0, b.err
-	}
-	n, err = b.r.Read(p)
+	b.mu.Lock()
+	err = b.err
+	r := b.r
+	b.mu.Unlock()
 	if err != nil {
+		return 0, err
+	}
+	if r == nil {
+		return 0, io.EOF
+	}
+
+	n, err = r.Read(p)
+	if err != nil {
+		b.mu.Lock()
 		b.err = err
+		b.mu.Unlock()
 	}
 	return
 }
 
 func (b *bytes_body) Close() error {
+	b.mu.Lock()
 	if b.srcClosed {
+		b.mu.Unlock()
 		return nil
 	}
 	b.srcClosed = true
-	if !b.released {
-		b.released = true
-		subTotalBytesBodyBuffer(int64(len(b.buf)))
+	if b.releaseOnClose {
+		b.releaseLocked()
 	}
-	if b.src == nil {
+	src := b.src
+	b.mu.Unlock()
+
+	if src == nil {
 		return nil
 	}
-	return b.src.Close()
+	return src.Close()
+}
+
+// releaseLocked releases the buffer accounting. b.mu must be held.
+func (b *bytes_body) releaseLocked() {
+	if b.released {
+		return
+	}
+	b.released = true
+	subTotalBytesBodyBuffer(int64(len(b.buf)))
+}
+
+// release releases the buffer accounting. It is idempotent and never closes
+// the source: the source may still be read by the transport write loop, and
+// closing it is the responsibility of Close.
+func (b *bytes_body) release() {
+	b.mu.Lock()
+	b.releaseLocked()
+	b.mu.Unlock()
 }
 
 func (b *bytes_body) Peek(n int) ([]byte, error) {
 	if n < 0 {
 		return nil, fmt.Errorf("negative peek count")
 	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if n > len(b.buf) {
 		n = len(b.buf)
 	}
@@ -905,10 +941,18 @@ func (b *bytes_body) ForcePeek(n int) ([]byte, error) {
 }
 
 func (b *bytes_body) GetBytes() ([]byte, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.buf, b.all
 }
 
 func (b *bytes_body) SetBytes(newBuf []byte, all bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.setBytesLocked(newBuf, all)
+}
+
+func (b *bytes_body) setBytesLocked(newBuf []byte, all bool) {
 	if !b.released {
 		subTotalBytesBodyBuffer(int64(len(b.buf)))
 		addTotalBytesBodyBuffer(int64(len(newBuf)))
@@ -925,17 +969,28 @@ func (b *bytes_body) SetBytes(newBuf []byte, all bool) {
 }
 
 func (b *bytes_body) SrcStarted() bool {
-	return b.r != nil && b.r.srcStarted
+	b.mu.Lock()
+	r := b.r
+	b.mu.Unlock()
+	return r != nil && r.srcStarted.Load()
 }
 
 func (b *bytes_body) Rewind() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	// Once released, the buffer is no longer accounted for; replaying it
+	// would use memory that the limit can no longer see.
+	if b.released {
+		return false
+	}
 	// If all data is already in buffer, we can rewind regardless of
 	// src state. Otherwise, rewind is only possible before src is
 	// started or closed.
-	if (b.srcClosed || b.SrcStarted()) && !b.all {
+	if (b.srcClosed || (b.r != nil && b.r.srcStarted.Load())) && !b.all {
 		return false
 	}
-	b.SetBytes(b.buf, b.all)
+	b.setBytesLocked(b.buf, b.all)
 	return true
 }
 
@@ -958,17 +1013,59 @@ func newBytesBody(src io.ReadCloser, maxSize int64) (*bytes_body, error) {
 
 	if len(bb) < int(maxSize) {
 		return &bytes_body{
-			src: src,
-			buf: bb,
-			all: true,
-			r:   &bodyReader{buf: br},
+			src:            src,
+			buf:            bb,
+			all:            true,
+			releaseOnClose: true,
+			r:              &bodyReader{buf: br},
 		}, nil
 	} else {
 		return &bytes_body{
-			src: src,
-			buf: bb,
-			all: false,
-			r:   &bodyReader{buf: br, src: src},
+			src:            src,
+			buf:            bb,
+			all:            false,
+			releaseOnClose: true,
+			r:              &bodyReader{buf: br, src: src},
 		}, nil
+	}
+}
+
+// bodyBufferRegistry records the bytes_body instances created from one
+// request. The request body is buffered lazily (conditions, body rewrites,
+// retry preparation) and each buffer may outlive Close because a retry can
+// rewind it, so the accounting is released when the request finishes rather
+// than when the body is closed.
+//
+// The registry is shared by pointer across shallow copies of a Request
+// (OutRequest), so every buffered copy is settled exactly once.
+type bodyBufferRegistry struct {
+	mu     sync.Mutex
+	bodies []*bytes_body
+	closed bool
+}
+
+func (reg *bodyBufferRegistry) add(b *bytes_body) {
+	reg.mu.Lock()
+	if !reg.closed {
+		reg.bodies = append(reg.bodies, b)
+		reg.mu.Unlock()
+		return
+	}
+	reg.mu.Unlock()
+
+	// The request has already finished: nobody can rewind this buffer, so
+	// settle it immediately instead of leaking the accounting.
+	b.release()
+}
+
+func (reg *bodyBufferRegistry) releaseAll() {
+	reg.mu.Lock()
+	reg.closed = true
+	bodies := reg.bodies
+	reg.bodies = nil
+	reg.mu.Unlock()
+
+	for _, b := range bodies {
+		b.release()
 	}
 }

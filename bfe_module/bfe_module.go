@@ -18,16 +18,12 @@ package bfe_module
 
 import (
 	"fmt"
+	"io"
 	"path"
-)
 
-import (
+	"github.com/bfenetworks/bfe/bfe_util/json"
 	"github.com/bfenetworks/go-lib/log"
 	"github.com/bfenetworks/go-lib/web-monitor/web_monitor"
-)
-
-import (
-	"github.com/bfenetworks/bfe/bfe_util/json"
 )
 
 type BfeModule interface {
@@ -41,6 +37,16 @@ type BfeModule interface {
 	//      - whs: web monitor handlers. for register web monitor handler
 	//      - cr: config root path. for get config path of module
 	Init(cbs *BfeCallbacks, whs *web_monitor.WebHandlers, cr string) error
+}
+
+// TlsKeyLogProvider is an optional interface implemented by modules
+// (eg. mod_key_log) that want to receive TLS master secrets. BFE server
+// detects it after module init and sets the returned writer as
+// tls.Config.KeyLogWriter.
+type TlsKeyLogProvider interface {
+	// TlsKeyLogWriter returns the writer for TLS key log (NSS keylog format).
+	// Returning nil disables tls key logging.
+	TlsKeyLogWriter() io.Writer
 }
 
 // moduleMap holds mappings from mod_name to module.
@@ -87,12 +93,21 @@ func (bm *BfeModules) GetModule(name string) BfeModule {
 	return bm.workModules[name]
 }
 
+// GetModules returns all enabled work modules.
+func (bm *BfeModules) GetModules() []BfeModule {
+	modules := make([]BfeModule, 0, len(bm.workModules))
+	for _, module := range bm.workModules {
+		modules = append(modules, module)
+	}
+	return modules
+}
+
 // Init initializes bfe modules.
 //
 // Params:
-//     - cbs: BfeCallbacks
-//     - whs: WebHandlers
-//     - cr : root path for config
+//   - cbs: BfeCallbacks
+//   - whs: WebHandlers
+//   - cr : root path for config
 func (bm *BfeModules) Init(cbs *BfeCallbacks, whs *web_monitor.WebHandlers, cr string) error {
 	// go through ALL available module names
 	// It is IMPORTANT to do init by the order defined in modulesAll

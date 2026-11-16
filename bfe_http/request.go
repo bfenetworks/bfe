@@ -22,6 +22,7 @@ package bfe_http
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -39,7 +40,6 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_net/textproto"
-	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 const (
@@ -211,11 +211,16 @@ type Request struct {
 	// TLS-enabled connections before invoking a handler;
 	// otherwise it leaves the field nil.
 	// This field is ignored by the HTTP client.
-	TLS *bfe_tls.ConnectionState
+	TLS *tls.ConnectionState
 
 	// State allows HTTP server and other software to record
 	// information about the request. This filed may be not filled.
 	State *RequestState
+
+	// bodyBuffers tracks the buffered request bodies created for this
+	// request. It is shared by shallow copies (OutRequest) and settled when
+	// the request finishes; see ReleaseBodyBuffers.
+	bodyBuffers *bodyBufferRegistry
 }
 
 type RequestState struct {
@@ -347,6 +352,7 @@ func valueOrDefault(value, def string) string {
 
 // Write writes an HTTP/1.1 request -- header and body -- in wire format.
 // This method consults the following fields of the request:
+//
 //	Host
 //	URL
 //	Method (defaults to "GET")
@@ -464,7 +470,11 @@ func (req *Request) write(w io.Writer, usingProxy bool, extraHeaders Header) err
 	if err != nil {
 		return err
 	}
-	req.State.BodySize = uint32(n)
+	// This runs on the transport writeLoop goroutine while the serving
+	// goroutine may already hold the response and read the size
+	// (bfe_server/reverseproxy.go: request.Stat.BodyLenIn). Publish it
+	// atomically; -race flagged the plain store/load pair.
+	atomic.StoreUint32(&req.State.BodySize, uint32(n))
 
 	if bw != nil {
 		return bw.Flush()
@@ -614,6 +624,7 @@ func ReadRequest(b *bfe_bufio.Reader, maxUriBytes int) (req *Request, err error)
 	tp := newTextprotoReader(b)
 	req = new(Request)
 	req.State = new(RequestState)
+	req.bodyBuffers = &bodyBufferRegistry{}
 
 	// First line: GET /index.html HTTP/1.0
 	var s string
@@ -988,21 +999,56 @@ func (r *Request) GetBodyAccessor() (BodyAccessor, error) {
 		if !ok {
 			break
 		}
-			
+
 		body = sourcer.GetSource()
 	}
 
-	// If the body is not a BodyAccessor, we will try to convert it to a BytesBody
-	var err error
-	r.Body, err = NewBytesBody(r.Body, GetAccessibleBodySize())
+	// If the body is not a BodyAccessor, we will try to convert it to a BytesBody.
+	// The buffer is tracked by the request instead of being released on Close:
+	// a retry or fallback may rewind and reuse it after the transport closed it.
+	b, err := newBytesBody(r.Body, GetAccessibleBodySize())
 	if err != nil {
 		return nil, fmt.Errorf("can't get body")
 	}
-	return r.Body.(BodyAccessor), nil
+	b.releaseOnClose = false
+	r.trackBodyBuffer(b)
+	r.Body = b
+	return b, nil
 }
 
-const DefaultAccessibleBodySize = 1024*1024*2
-const MaxAccessibleBodySize = 1024*1024*8
+// InitBodyBufferTracking makes sure the request owns a body buffer registry.
+// It must be called before shallow copies of the request are made (OutRequest),
+// so that every copy shares the same accounting lifecycle. Requests created by
+// ReadRequest are initialized automatically; other protocol paths (HTTP/2,
+// SPDY) must call this explicitly.
+func (r *Request) InitBodyBufferTracking() {
+	if r != nil && r.bodyBuffers == nil {
+		r.bodyBuffers = &bodyBufferRegistry{}
+	}
+}
+
+// trackBodyBuffer registers a buffered request body so that its accounting is
+// released when the request finishes.
+func (r *Request) trackBodyBuffer(b *bytes_body) {
+	if r.bodyBuffers == nil {
+		r.bodyBuffers = &bodyBufferRegistry{}
+	}
+	r.bodyBuffers.add(b)
+}
+
+// ReleaseBodyBuffers releases the accounting of every buffered request body
+// created for this request. It must be called when the request can no longer
+// be retried (typically when the request finishes). It is idempotent.
+func (r *Request) ReleaseBodyBuffers() {
+	if r == nil || r.bodyBuffers == nil {
+		return
+	}
+	r.bodyBuffers.releaseAll()
+}
+
+const DefaultAccessibleBodySize = 1024 * 1024 * 2
+const MaxAccessibleBodySize = 1024 * 1024 * 8
+
 var accessibleBodySize = int64(DefaultAccessibleBodySize)
 
 func SetAccessibleBodySize(size int64) {

@@ -21,7 +21,9 @@
 package bfe_http
 
 import (
+	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -30,7 +32,6 @@ import (
 
 	"github.com/bfenetworks/bfe/bfe_bufio"
 	"github.com/bfenetworks/bfe/bfe_net/textproto"
-	"github.com/bfenetworks/bfe/bfe_tls"
 )
 
 var respExcludeHeader = map[string]bool{
@@ -105,7 +106,7 @@ type Response struct {
 	// response was received. It is nil for unencrypted responses.
 	// The pointer is shared between responses and should not be
 	// modified.
-	TLS *bfe_tls.ConnectionState
+	TLS *tls.ConnectionState
 
 	IsSse bool
 }
@@ -306,11 +307,16 @@ func (r *Response) GetBodyAccessor() (BodyAccessor, error) {
 	}
 	bodyAccessor, ok := r.Body.(BodyAccessor)
 	if !ok {
-		var err error
-		r.Body, err = NewBytesBody(r.Body, GetAccessibleBodySize())
+		newBody, err := NewBytesBody(r.Body, GetAccessibleBodySize())
 		if err != nil {
-			return nil, errors.New("can't get body")
+			// issue #1501: never nil out r.Body here. io.ReadAll may have
+			// consumed a prefix before the truncation error; the retained
+			// stream only yields that read error, and the forwarding path
+			// terminates the response as truncated (issue #1474 yardstick).
+			// The wrapped error keeps io.ErrUnexpectedEOF for errors.Is.
+			return nil, fmt.Errorf("can't get body: %w", err)
 		}
+		r.Body = newBody
 		bodyAccessor, _ = r.Body.(BodyAccessor)
 	}
 	return bodyAccessor, nil
