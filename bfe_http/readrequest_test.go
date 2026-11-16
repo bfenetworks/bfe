@@ -175,6 +175,26 @@ var reqTests = []reqTest{
 		"empty url",
 	},
 
+	// Tests empty method (RFC 7230 section 3.1.1):
+	{
+		" / HTTP/1.1\r\n" +
+			"Host: test\r\n\r\n",
+		nil,
+		noBody,
+		noTrailer,
+		"invalid method",
+	},
+
+	// Tests method with non-token characters:
+	{
+		"GE(T / HTTP/1.1\r\n" +
+			"Host: test\r\n\r\n",
+		nil,
+		noBody,
+		noTrailer,
+		"invalid method",
+	},
+
 	// Tests chunked body with trailer:
 	{
 		"POST / HTTP/1.1\r\n" +
